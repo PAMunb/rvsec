@@ -105,7 +105,7 @@ class AgentMemoryManager:
         ```
         Recent actions (5):
           1. CLICK: Tap on login button to access account
-          2. TYPE_TEXT: Enter email address in text field
+          2. SET_TEXT: Enter email address in text field
           3. CLICK: Submit login form
           ...
         ```

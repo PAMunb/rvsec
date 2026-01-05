@@ -1,0 +1,601 @@
+{
+   "activity": "info.zamojski.soft.towercollector/.PreferencesActivity",
+   "stack": [
+      "info.zamojski.soft.towercollector/.PreferencesActivity",
+      "info.zamojski.soft.towercollector/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "info.zamojski.soft.towercollector",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "info.zamojski.soft.towercollector",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "info.zamojski.soft.towercollector",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "info.zamojski.soft.towercollector",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "info.zamojski.soft.towercollector",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "info.zamojski.soft.towercollector",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "info.zamojski.soft.towercollector",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 2,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "info.zamojski.soft.towercollector",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            133,
+                                                            706
+                                                         ],
+                                                         [
+                                                            947,
+                                                            777
+                                                         ]
+                                                      ],
+                                                      "resource_id": "info.zamojski.soft.towercollector:id/alertTitle",
+                                                      "checked": false,
+                                                      "text": "Theme",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 8,
+                                                      "size": "814*71"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      70,
+                                                      659
+                                                   ],
+                                                   [
+                                                      1010,
+                                                      777
+                                                   ]
+                                                ],
+                                                "resource_id": "info.zamojski.soft.towercollector:id/title_template",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 7,
+                                                "size": "940*118"
+                                             },
+                                             {
+                                                "package": "info.zamojski.soft.towercollector",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      70,
+                                                      777
+                                                   ],
+                                                   [
+                                                      1010,
+                                                      798
+                                                   ]
+                                                ],
+                                                "resource_id": "info.zamojski.soft.towercollector:id/titleDividerNoCustom",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 9,
+                                                "size": "940*21"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                659
+                                             ],
+                                             [
+                                                1010,
+                                                798
+                                             ]
+                                          ],
+                                          "resource_id": "info.zamojski.soft.towercollector:id/topPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "940*139"
+                                       },
+                                       {
+                                          "package": "info.zamojski.soft.towercollector",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "info.zamojski.soft.towercollector",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": true,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            70,
+                                                            798
+                                                         ],
+                                                         [
+                                                            1010,
+                                                            924
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/text1",
+                                                      "checked": false,
+                                                      "text": "Dark",
+                                                      "class": "android.widget.CheckedTextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 11,
+                                                      "temp_id": 12,
+                                                      "size": "940*126"
+                                                   },
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": true,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            70,
+                                                            924
+                                                         ],
+                                                         [
+                                                            1010,
+                                                            1050
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/text1",
+                                                      "checked": true,
+                                                      "text": "Light",
+                                                      "class": "android.widget.CheckedTextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 11,
+                                                      "temp_id": 13,
+                                                      "size": "940*126"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      70,
+                                                      798
+                                                   ],
+                                                   [
+                                                      1010,
+                                                      1050
+                                                   ]
+                                                ],
+                                                "resource_id": "info.zamojski.soft.towercollector:id/select_dialog_listview",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.ListView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 10,
+                                                "temp_id": 11,
+                                                "size": "940*252"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                798
+                                             ],
+                                             [
+                                                1010,
+                                                1050
+                                             ]
+                                          ],
+                                          "resource_id": "info.zamojski.soft.towercollector:id/contentPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.FrameLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 10,
+                                          "size": "940*252"
+                                       },
+                                       {
+                                          "package": "info.zamojski.soft.towercollector",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "info.zamojski.soft.towercollector",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            776,
+                                                            1061
+                                                         ],
+                                                         [
+                                                            978,
+                                                            1187
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/button2",
+                                                      "checked": false,
+                                                      "text": "CANCEL",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 15,
+                                                      "temp_id": 16,
+                                                      "size": "202*126"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      70,
+                                                      1050
+                                                   ],
+                                                   [
+                                                      1010,
+                                                      1198
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 14,
+                                                "temp_id": 15,
+                                                "size": "940*148"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                1050
+                                             ],
+                                             [
+                                                1010,
+                                                1198
+                                             ]
+                                          ],
+                                          "resource_id": "info.zamojski.soft.towercollector:id/buttonPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ScrollView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 14,
+                                          "size": "940*148"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          659
+                                       ],
+                                       [
+                                          1010,
+                                          1198
+                                       ]
+                                    ],
+                                    "resource_id": "info.zamojski.soft.towercollector:id/parentPanel",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "940*539"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    659
+                                 ],
+                                 [
+                                    1010,
+                                    1198
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "940*539"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              70,
+                              659
+                           ],
+                           [
+                              1010,
+                              1198
+                           ]
+                        ],
+                        "resource_id": "info.zamojski.soft.towercollector:id/action_bar_root",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.FrameLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "940*539"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        70,
+                        659
+                     ],
+                     [
+                        1010,
+                        1198
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "940*539"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  70,
+                  659
+               ],
+               [
+                  1010,
+                  1198
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "940*539"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            28,
+            617
+         ],
+         [
+            1052,
+            1240
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1024*623"
+   }
+}

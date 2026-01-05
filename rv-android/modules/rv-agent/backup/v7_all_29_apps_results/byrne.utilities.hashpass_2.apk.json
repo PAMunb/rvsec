@@ -1,0 +1,132 @@
+{
+  "app_name": "byrne.utilities.hashpass_2.apk",
+  "execution_time_s": 18.257885217666626,
+  "total_iterations": 7,
+  "actions": {
+    "by_type": {
+      "CLICK": 7
+    },
+    "valid": 7,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayout",
+      "ScrollView",
+      "View",
+      "Button",
+      "unknown",
+      "ListView",
+      "CheckedTextView",
+      "ViewGroup",
+      "EditText",
+      "TextView",
+      "FrameLayout",
+      "Spinner"
+    ],
+    "type_counts": {
+      "unknown": 7,
+      "FrameLayout": 20,
+      "ViewGroup": 8,
+      "TextView": 22,
+      "ScrollView": 6,
+      "LinearLayout": 17,
+      "EditText": 8,
+      "Spinner": 8,
+      "Button": 5,
+      "ListView": 2,
+      "CheckedTextView": 12,
+      "View": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 4,
+    "screen_visits": {
+      "c44b8693c270": 1,
+      "cee8088a5d80": 4,
+      "55f4a4e836fa": 1,
+      "6bfff89dcbf6": 1
+    },
+    "activities": [
+      "byrne.utilities.hashpass/.HashPassActivity"
+    ],
+    "revisit_rate": 0.42857142857142855
+  },
+  "memory_graph": {
+    "graph_states": 4,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 7
+  },
+  "llm": {
+    "total_tokens": 31318,
+    "input_tokens": 31063,
+    "output_tokens": 255,
+    "avg_tokens_per_iteration": 4474.0,
+    "max_message_count": 1,
+    "total_time_ms": 17350.36325454712,
+    "avg_time_per_iteration_ms": 2478.62332207816
+  },
+  "device_actions": {
+    "total_actions": 7,
+    "valid_actions": 7,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 7
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 1037), (978, 1163))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Input] @ ((0, 210), (1080, 328))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckedTextView[SHA1] @ ((758, 454), (954, 580))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Generate] @ ((0, 572), (1080, 698))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckedTextView[15 seconds] @ ((695, 635), (954, 761))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Generate] @ ((0, 572), (1080, 698))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Generate] @ ((0, 572), (1080, 698))"
+      }
+    ]
+  }
+}

@@ -1,0 +1,2381 @@
+{
+  "byrne.utilities.hashpass_2.apk": {
+    "basic_metrics": {
+      "app_name": "byrne.utilities.hashpass_2.apk",
+      "execution_time_s": 15.015620231628418,
+      "total_iterations": 7,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 2,
+          "BACK": 5
+        },
+        "valid": 5,
+        "invalid": 2,
+        "valid_rate": 0.7142857142857143
+      },
+      "element_coverage": {
+        "types_seen": [
+          "EditText",
+          "View",
+          "ScrollView",
+          "TextView",
+          "Button",
+          "ViewGroup",
+          "Spinner",
+          "FrameLayout",
+          "unknown",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 7,
+          "FrameLayout": 23,
+          "LinearLayout": 25,
+          "TextView": 29,
+          "View": 2,
+          "ScrollView": 9,
+          "Button": 7,
+          "ViewGroup": 10,
+          "EditText": 10,
+          "Spinner": 10
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 2,
+        "screen_visits": {
+          "c44b8693c270": 3,
+          "cee8088a5d80": 4
+        },
+        "activities": [
+          "byrne.utilities.hashpass/.HashPassActivity"
+        ],
+        "revisit_rate": 0.7142857142857143
+      },
+      "memory_graph": {
+        "graph_states": 2,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 7
+      },
+      "llm": {
+        "total_tokens": 20342,
+        "input_tokens": 19980,
+        "output_tokens": 362,
+        "avg_tokens_per_iteration": 2906.0,
+        "max_message_count": 1,
+        "total_time_ms": 14136.581897735596,
+        "avg_time_per_iteration_ms": 2019.5116996765137
+      },
+      "device_actions": {
+        "total_actions": 1,
+        "valid_actions": 1,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.863,
+        "normalized": 0.863,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "28.6%",
+          "BACK": "71.4%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 1,
+        "same_element_streak": 1,
+        "same_screen_revisits": 4,
+        "is_stuck": false
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 2,
+        "total_visits": 7,
+        "revisit_rate": 71.4,
+        "exploration_efficiency": 28.6,
+        "rating": "FAIR"
+      },
+      "action_streaks": {
+        "max_streak": 0,
+        "streaks": []
+      },
+      "quality_grade": "D (Poor)",
+      "issues": [],
+      "warnings": []
+    }
+  },
+  "ca.farrelltonsolar.classic_314.apk": {
+    "basic_metrics": {
+      "app_name": "ca.farrelltonsolar.classic_314.apk",
+      "execution_time_s": 51.318721294403076,
+      "total_iterations": 25,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 2,
+          "BACK": 17,
+          "CLICK": 6
+        },
+        "valid": 23,
+        "invalid": 2,
+        "valid_rate": 0.92
+      },
+      "element_coverage": {
+        "types_seen": [
+          "ImageButton",
+          "View",
+          "TextView",
+          "ViewGroup",
+          "RelativeLayout",
+          "g0",
+          "CheckBox",
+          "ListView",
+          "Spinner",
+          "FrameLayout",
+          "unknown",
+          "ViewPager",
+          "LinearLayout",
+          "ProgressBar",
+          "GridView",
+          "HorizontalScrollView",
+          "TableRow",
+          "TableLayout",
+          "ImageView",
+          "ScrollView",
+          "CheckedTextView",
+          "Button",
+          "DrawerLayout",
+          "WebView"
+        ],
+        "type_counts": {
+          "unknown": 25,
+          "FrameLayout": 92,
+          "LinearLayout": 311,
+          "ViewGroup": 27,
+          "ImageButton": 21,
+          "TextView": 430,
+          "g0": 13,
+          "DrawerLayout": 13,
+          "HorizontalScrollView": 13,
+          "ViewPager": 14,
+          "View": 125,
+          "ListView": 16,
+          "ProgressBar": 3,
+          "TableLayout": 2,
+          "TableRow": 1,
+          "RelativeLayout": 59,
+          "Spinner": 2,
+          "ImageView": 8,
+          "GridView": 1,
+          "WebView": 2,
+          "CheckBox": 26,
+          "Button": 20,
+          "CheckedTextView": 8,
+          "ScrollView": 4
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 16,
+        "screen_visits": {
+          "1ecdce70435a": 3,
+          "b14a7ed099c7": 1,
+          "182eb5822f70": 1,
+          "fc145de28bad": 1,
+          "ceae4f4c59d0": 1,
+          "6c729adbeb6b": 1,
+          "0c5aba563dd8": 1,
+          "6dd54b4931a2": 1,
+          "170615b66401": 1,
+          "00c1a28137c3": 1,
+          "f55b0e92114c": 1,
+          "0f1cb4bc84d5": 1,
+          "ab5fdbde72a5": 1,
+          "488ce5d22d54": 1,
+          "86ad34b0b0af": 4,
+          "39b168072f86": 5
+        },
+        "activities": [
+          "ca.farrelltonsolar.classic/.MonitorActivity",
+          "ca.farrelltonsolar.classic/.Settings"
+        ],
+        "revisit_rate": 0.36
+      },
+      "memory_graph": {
+        "graph_states": 16,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 10
+      },
+      "llm": {
+        "total_tokens": 74465,
+        "input_tokens": 73264,
+        "output_tokens": 1201,
+        "avg_tokens_per_iteration": 2978.6,
+        "max_message_count": 1,
+        "total_time_ms": 47985.36944389343,
+        "avg_time_per_iteration_ms": 1919.4147777557373
+      },
+      "device_actions": {
+        "total_actions": 15,
+        "valid_actions": 15,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 14,
+          "CLICK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 5,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 6,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 7,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 8,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 9,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 10,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 11,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 12,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 13,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 14,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 15,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.Button[CANCEL] @ ((776, 1061), (978, 1187))"
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 1.164,
+        "normalized": 0.734,
+        "max_possible": 1.585,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "8.0%",
+          "BACK": "68.0%",
+          "CLICK": "24.0%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 14,
+        "same_element_streak": 1,
+        "same_screen_revisits": 5,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 1,
+        "element_type_distribution": {
+          "Button": 1
+        },
+        "total_valid_interactions": 1
+      },
+      "screen_navigation": {
+        "unique_screens": 16,
+        "total_visits": 25,
+        "revisit_rate": 36.0,
+        "exploration_efficiency": 64.0,
+        "rating": "EXCELLENT"
+      },
+      "action_streaks": {
+        "max_streak": 14,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 14,
+            "start_idx": 0,
+            "end_idx": 13
+          }
+        ]
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 14 action streak, 1 element streak, 5 max screen revisits"
+      ],
+      "warnings": [
+        "High concentration on Button: 100.0% of interactions"
+      ]
+    }
+  },
+  "com.gianlu.dnshero_40.apk": {
+    "basic_metrics": {
+      "app_name": "com.gianlu.dnshero_40.apk",
+      "execution_time_s": 45.643558740615845,
+      "total_iterations": 27,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 2,
+          "BACK": 23,
+          "CLICK": 2
+        },
+        "valid": 25,
+        "invalid": 2,
+        "valid_rate": 0.9259259259259259
+      },
+      "element_coverage": {
+        "types_seen": [
+          "LinearLayoutCompat",
+          "EditText",
+          "View",
+          "ImageButton",
+          "TextView",
+          "Button",
+          "RecyclerView",
+          "CardView",
+          "ScrollView",
+          "CheckBox",
+          "HorizontalScrollView",
+          "ViewGroup",
+          "RelativeLayout",
+          "ViewPager",
+          "FrameLayout",
+          "unknown",
+          "ImageView",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 27,
+          "FrameLayout": 126,
+          "RelativeLayout": 2,
+          "ImageView": 28,
+          "TextView": 133,
+          "Button": 21,
+          "LinearLayout": 171,
+          "ViewGroup": 39,
+          "View": 51,
+          "EditText": 6,
+          "ImageButton": 22,
+          "RecyclerView": 14,
+          "CardView": 28,
+          "ScrollView": 13,
+          "CheckBox": 11,
+          "ViewPager": 8,
+          "LinearLayoutCompat": 5,
+          "HorizontalScrollView": 5
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 9,
+        "screen_visits": {
+          "c0549343706b": 3,
+          "87c07e069402": 5,
+          "0fe33e7ddec8": 1,
+          "daaeb0ab39bc": 7,
+          "d01eed84b102": 1,
+          "792c84a97d0e": 3,
+          "0c401f191242": 2,
+          "f96c5e7158c8": 1,
+          "c9ba4272eb04": 4
+        },
+        "activities": [
+          "com.gianlu.dnshero/.DomainActivity",
+          "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity",
+          "com.gianlu.dnshero/.PreferenceActivity",
+          "com.gianlu.dnshero/.LoadingActivity"
+        ],
+        "revisit_rate": 0.6666666666666666
+      },
+      "memory_graph": {
+        "graph_states": 9,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 3
+      },
+      "llm": {
+        "total_tokens": 80244,
+        "input_tokens": 78915,
+        "output_tokens": 1329,
+        "avg_tokens_per_iteration": 2972.0,
+        "max_message_count": 1,
+        "total_time_ms": 42152.02569961548,
+        "avg_time_per_iteration_ms": 1561.1861370227955
+      },
+      "device_actions": {
+        "total_actions": 10,
+        "valid_actions": 10,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 9,
+          "CLICK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 5,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 6,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 7,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.Button[Accept & continue] @ ((357, 1657), (723, 1752))"
+          },
+          {
+            "step": 8,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 9,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 10,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.753,
+        "normalized": 0.475,
+        "max_possible": 1.585,
+        "rating": "FAIR",
+        "distribution": {
+          "UNKNOWN": "7.4%",
+          "BACK": "85.2%",
+          "CLICK": "7.4%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 6,
+        "same_element_streak": 1,
+        "same_screen_revisits": 7,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 1,
+        "element_type_distribution": {
+          "Button": 1
+        },
+        "total_valid_interactions": 1
+      },
+      "screen_navigation": {
+        "unique_screens": 9,
+        "total_visits": 27,
+        "revisit_rate": 66.7,
+        "exploration_efficiency": 33.3,
+        "rating": "FAIR"
+      },
+      "action_streaks": {
+        "max_streak": 6,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 6,
+            "start_idx": 0,
+            "end_idx": 5
+          },
+          {
+            "action": "BACK",
+            "count": 3,
+            "start_idx": 7,
+            "end_idx": 9
+          }
+        ]
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 6 action streak, 1 element streak, 7 max screen revisits"
+      ],
+      "warnings": [
+        "High concentration on Button: 100.0% of interactions"
+      ]
+    }
+  },
+  "com.github.axet.hourlyreminder_476.apk": {
+    "basic_metrics": {
+      "app_name": "com.github.axet.hourlyreminder_476.apk",
+      "execution_time_s": 43.14697504043579,
+      "total_iterations": 30,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 7,
+          "BACK": 23
+        },
+        "valid": 23,
+        "invalid": 7,
+        "valid_rate": 0.7666666666666667
+      },
+      "element_coverage": {
+        "types_seen": [
+          "LinearLayoutCompat",
+          "RecyclerView",
+          "Switch",
+          "TextView",
+          "ImageButton",
+          "View",
+          "CheckBox",
+          "HorizontalScrollView",
+          "ViewGroup",
+          "ActionBar$Tab",
+          "ViewPager",
+          "FrameLayout",
+          "unknown",
+          "ImageView",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 30,
+          "FrameLayout": 278,
+          "LinearLayout": 265,
+          "ViewGroup": 71,
+          "HorizontalScrollView": 19,
+          "ActionBar$Tab": 57,
+          "TextView": 205,
+          "ImageView": 145,
+          "ViewPager": 19,
+          "RecyclerView": 30,
+          "Switch": 19,
+          "ImageButton": 54,
+          "View": 41,
+          "CheckBox": 132,
+          "LinearLayoutCompat": 11
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 5,
+        "screen_visits": {
+          "64235e1aa1fb": 8,
+          "aabecc24e943": 1,
+          "ec83ef514e01": 10,
+          "d7892d4b49a0": 1,
+          "9db119b2228d": 10
+        },
+        "activities": [
+          "com.github.axet.hourlyreminder/.activities.MainActivity"
+        ],
+        "revisit_rate": 0.8333333333333334
+      },
+      "memory_graph": {
+        "graph_states": 5,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 10
+      },
+      "llm": {
+        "total_tokens": 90643,
+        "input_tokens": 89013,
+        "output_tokens": 1630,
+        "avg_tokens_per_iteration": 3021.4333333333334,
+        "max_message_count": 1,
+        "total_time_ms": 39435.15419960022,
+        "avg_time_per_iteration_ms": 1314.505139986674
+      },
+      "device_actions": {
+        "total_actions": 4,
+        "valid_actions": 4,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 4
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.784,
+        "normalized": 0.784,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "23.3%",
+          "BACK": "76.7%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 4,
+        "same_element_streak": 1,
+        "same_screen_revisits": 10,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 5,
+        "total_visits": 30,
+        "revisit_rate": 83.3,
+        "exploration_efficiency": 16.7,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 4,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 4,
+            "start_idx": 0,
+            "end_idx": 3
+          }
+        ]
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 4 action streak, 1 element streak, 10 max screen revisits"
+      ],
+      "warnings": []
+    }
+  },
+  "com.hwloc.lstopo_271.apk": {
+    "basic_metrics": {
+      "app_name": "com.hwloc.lstopo_271.apk",
+      "execution_time_s": 12.954822778701782,
+      "total_iterations": 9,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 7,
+          "BACK": 2
+        },
+        "valid": 2,
+        "invalid": 7,
+        "valid_rate": 0.2222222222222222
+      },
+      "element_coverage": {
+        "types_seen": [
+          "LinearLayoutCompat",
+          "ImageButton",
+          "View",
+          "TextView",
+          "Button",
+          "CheckedTextView",
+          "HorizontalScrollView",
+          "ViewGroup",
+          "RelativeLayout",
+          "DrawerLayout",
+          "FrameLayout",
+          "unknown",
+          "RecyclerView",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 9,
+          "FrameLayout": 30,
+          "LinearLayout": 209,
+          "DrawerLayout": 9,
+          "ViewGroup": 9,
+          "ImageButton": 9,
+          "Button": 9,
+          "LinearLayoutCompat": 17,
+          "TextView": 229,
+          "View": 29,
+          "RelativeLayout": 27,
+          "HorizontalScrollView": 9,
+          "RecyclerView": 1,
+          "CheckedTextView": 8
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 1,
+        "screen_visits": {
+          "b7446df03013": 9
+        },
+        "activities": [
+          "com.hwloc.lstopo/.MainActivity"
+        ],
+        "revisit_rate": 0.8888888888888888
+      },
+      "memory_graph": {
+        "graph_states": 1,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 9
+      },
+      "llm": {
+        "total_tokens": 26467,
+        "input_tokens": 26046,
+        "output_tokens": 421,
+        "avg_tokens_per_iteration": 2940.777777777778,
+        "max_message_count": 1,
+        "total_time_ms": 11815.423965454102,
+        "avg_time_per_iteration_ms": 1312.8248850504558
+      },
+      "device_actions": {
+        "total_actions": 2,
+        "valid_actions": 2,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 2
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.764,
+        "normalized": 0.764,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "77.8%",
+          "BACK": "22.2%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 2,
+        "same_element_streak": 1,
+        "same_screen_revisits": 9,
+        "is_stuck": false
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 1,
+        "total_visits": 9,
+        "revisit_rate": 88.9,
+        "exploration_efficiency": 11.1,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 0,
+        "streaks": []
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [],
+      "warnings": []
+    }
+  },
+  "com.sam.hex_16.apk": {
+    "basic_metrics": {
+      "app_name": "com.sam.hex_16.apk",
+      "execution_time_s": 33.952486991882324,
+      "total_iterations": 22,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 1,
+          "CLICK": 6,
+          "BACK": 15
+        },
+        "valid": 21,
+        "invalid": 1,
+        "valid_rate": 0.9545454545454546
+      },
+      "element_coverage": {
+        "types_seen": [
+          "View",
+          "ScrollView",
+          "TextView",
+          "Button",
+          "ImageButton",
+          "ViewGroup",
+          "RelativeLayout",
+          "FrameLayout",
+          "unknown",
+          "ImageView",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 22,
+          "FrameLayout": 87,
+          "LinearLayout": 55,
+          "TextView": 35,
+          "View": 4,
+          "ScrollView": 3,
+          "Button": 71,
+          "ViewGroup": 57,
+          "ImageView": 23,
+          "ImageButton": 9,
+          "RelativeLayout": 3
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 4,
+        "screen_visits": {
+          "c44b8693c270": 2,
+          "18a83ab81c3b": 16,
+          "9d972f344dcc": 3,
+          "bffcb42ce6f0": 1
+        },
+        "activities": [
+          "com.sam.hex/.startup.StartUpActivity",
+          "com.sam.hex/.HexGame"
+        ],
+        "revisit_rate": 0.8181818181818182
+      },
+      "memory_graph": {
+        "graph_states": 4,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 10
+      },
+      "llm": {
+        "total_tokens": 64707,
+        "input_tokens": 63691,
+        "output_tokens": 1016,
+        "avg_tokens_per_iteration": 2941.2272727272725,
+        "max_message_count": 1,
+        "total_time_ms": 31410.90416908264,
+        "avg_time_per_iteration_ms": 1427.7683713219383
+      },
+      "device_actions": {
+        "total_actions": 6,
+        "valid_actions": 6,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "CLICK": 1,
+          "BACK": 5
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.Button[OK] @ ((810, 1037), (978, 1163))"
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 5,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 6,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 1.091,
+        "normalized": 0.688,
+        "max_possible": 1.585,
+        "rating": "GOOD",
+        "distribution": {
+          "UNKNOWN": "4.5%",
+          "CLICK": "27.3%",
+          "BACK": "68.2%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 5,
+        "same_element_streak": 1,
+        "same_screen_revisits": 16,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 1,
+        "element_type_distribution": {
+          "Button": 1
+        },
+        "total_valid_interactions": 1
+      },
+      "screen_navigation": {
+        "unique_screens": 4,
+        "total_visits": 22,
+        "revisit_rate": 81.8,
+        "exploration_efficiency": 18.2,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 5,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 5,
+            "start_idx": 1,
+            "end_idx": 5
+          }
+        ]
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 5 action streak, 1 element streak, 16 max screen revisits"
+      ],
+      "warnings": [
+        "High concentration on Button: 100.0% of interactions"
+      ]
+    }
+  },
+  "cryptoapp.apk": {
+    "basic_metrics": {
+      "app_name": "cryptoapp.apk",
+      "execution_time_s": 33.22375011444092,
+      "total_iterations": 25,
+      "actions": {
+        "by_type": {
+          "CLICK": 6,
+          "BACK": 19
+        },
+        "valid": 25,
+        "invalid": 0,
+        "valid_rate": 1.0
+      },
+      "element_coverage": {
+        "types_seen": [
+          "EditText",
+          "View",
+          "ScrollView",
+          "TextView",
+          "Button",
+          "ViewGroup",
+          "RelativeLayout",
+          "ListView",
+          "Spinner",
+          "FrameLayout",
+          "unknown",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 25,
+          "FrameLayout": 88,
+          "ListView": 6,
+          "LinearLayout": 93,
+          "RelativeLayout": 18,
+          "TextView": 94,
+          "ViewGroup": 38,
+          "Spinner": 19,
+          "EditText": 19,
+          "Button": 19,
+          "ScrollView": 19,
+          "View": 38
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 3,
+        "screen_visits": {
+          "6621483ea510": 1,
+          "18bff88d20d9": 6,
+          "519119efc656": 18
+        },
+        "activities": [
+          "br.unb.cic.cryptoapp/.MainActivity",
+          "br.unb.cic.cryptoapp/.messagedigest.MessageDigestActivity"
+        ],
+        "revisit_rate": 0.88
+      },
+      "memory_graph": {
+        "graph_states": 3,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 10
+      },
+      "llm": {
+        "total_tokens": 73800,
+        "input_tokens": 72464,
+        "output_tokens": 1336,
+        "avg_tokens_per_iteration": 2952.0,
+        "max_message_count": 1,
+        "total_time_ms": 30421.38385772705,
+        "avg_time_per_iteration_ms": 1216.855354309082
+      },
+      "device_actions": {
+        "total_actions": 2,
+        "valid_actions": 2,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "CLICK": 1,
+          "BACK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.Button[MESSAGE DIGEST] @ ((0, 210), (1080, 336))"
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.795,
+        "normalized": 0.795,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "CLICK": "24.0%",
+          "BACK": "76.0%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 1,
+        "same_element_streak": 1,
+        "same_screen_revisits": 18,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 1,
+        "element_type_distribution": {
+          "Button": 1
+        },
+        "total_valid_interactions": 1
+      },
+      "screen_navigation": {
+        "unique_screens": 3,
+        "total_visits": 25,
+        "revisit_rate": 88.0,
+        "exploration_efficiency": 12.0,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 0,
+        "streaks": []
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 1 action streak, 1 element streak, 18 max screen revisits"
+      ],
+      "warnings": [
+        "High concentration on Button: 100.0% of interactions"
+      ]
+    }
+  },
+  "info.zamojski.soft.towercollector_2140302.apk": {
+    "basic_metrics": {
+      "app_name": "info.zamojski.soft.towercollector_2140302.apk",
+      "execution_time_s": 31.973973512649536,
+      "total_iterations": 20,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 2,
+          "BACK": 18
+        },
+        "valid": 18,
+        "invalid": 2,
+        "valid_rate": 0.9
+      },
+      "element_coverage": {
+        "types_seen": [
+          "LinearLayoutCompat",
+          "View",
+          "ScrollView",
+          "TextView",
+          "Button",
+          "ImageButton",
+          "RecyclerView",
+          "HorizontalScrollView",
+          "ViewGroup",
+          "TableRow",
+          "RelativeLayout",
+          "ImageView",
+          "Spinner",
+          "TableLayout",
+          "FrameLayout",
+          "unknown",
+          "ViewPager",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 20,
+          "FrameLayout": 109,
+          "LinearLayout": 328,
+          "TextView": 269,
+          "ScrollView": 9,
+          "Button": 31,
+          "ViewGroup": 34,
+          "LinearLayoutCompat": 9,
+          "HorizontalScrollView": 9,
+          "ViewPager": 9,
+          "TableLayout": 21,
+          "TableRow": 33,
+          "View": 35,
+          "ImageButton": 8,
+          "RelativeLayout": 8,
+          "Spinner": 8,
+          "RecyclerView": 8,
+          "ImageView": 64
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 5,
+        "screen_visits": {
+          "5120ea1fa6a6": 3,
+          "05fce23b3c08": 6,
+          "736923d04ce9": 1,
+          "d5b946522493": 8,
+          "3ab929c7608f": 2
+        },
+        "activities": [
+          "com.android.settings/.Settings$HighPowerApplicationsActivity",
+          "info.zamojski.soft.towercollector/.MainActivity"
+        ],
+        "revisit_rate": 0.75
+      },
+      "memory_graph": {
+        "graph_states": 5,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 3
+      },
+      "llm": {
+        "total_tokens": 60607,
+        "input_tokens": 59551,
+        "output_tokens": 1056,
+        "avg_tokens_per_iteration": 3030.35,
+        "max_message_count": 1,
+        "total_time_ms": 29468.46079826355,
+        "avg_time_per_iteration_ms": 1473.4230399131775
+      },
+      "device_actions": {
+        "total_actions": 5,
+        "valid_actions": 5,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 5
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 5,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.469,
+        "normalized": 0.469,
+        "max_possible": 1.0,
+        "rating": "FAIR",
+        "distribution": {
+          "UNKNOWN": "10.0%",
+          "BACK": "90.0%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 5,
+        "same_element_streak": 1,
+        "same_screen_revisits": 8,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 5,
+        "total_visits": 20,
+        "revisit_rate": 75.0,
+        "exploration_efficiency": 25.0,
+        "rating": "FAIR"
+      },
+      "action_streaks": {
+        "max_streak": 5,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 5,
+            "start_idx": 0,
+            "end_idx": 4
+          }
+        ]
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 5 action streak, 1 element streak, 8 max screen revisits"
+      ],
+      "warnings": []
+    }
+  },
+  "livio.rssreader_101.apk": {
+    "basic_metrics": {
+      "app_name": "livio.rssreader_101.apk",
+      "execution_time_s": 25.236331939697266,
+      "total_iterations": 17,
+      "actions": {
+        "by_type": {
+          "CLICK": 17
+        },
+        "valid": 17,
+        "invalid": 0,
+        "valid_rate": 1.0
+      },
+      "element_coverage": {
+        "types_seen": [
+          "LinearLayoutCompat",
+          "ImageButton",
+          "RecyclerView",
+          "TextView",
+          "Button",
+          "View",
+          "WebView",
+          "ViewGroup",
+          "RelativeLayout",
+          "ListView",
+          "ViewPager",
+          "FrameLayout",
+          "Image",
+          "unknown",
+          "ImageView",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 17,
+          "FrameLayout": 68,
+          "LinearLayout": 17,
+          "ViewGroup": 34,
+          "ImageButton": 34,
+          "TextView": 17,
+          "LinearLayoutCompat": 17,
+          "Button": 34,
+          "ImageView": 17,
+          "RelativeLayout": 17,
+          "ViewPager": 17,
+          "RecyclerView": 17,
+          "WebView": 34,
+          "View": 1037,
+          "Image": 17,
+          "ListView": 17
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 2,
+        "screen_visits": {
+          "1c6ec096bcea": 1,
+          "9e99864f5231": 16
+        },
+        "activities": [
+          "livio.rssreader/.RSSReader",
+          "livio.rssreader/.ShowItem"
+        ],
+        "revisit_rate": 0.8823529411764706
+      },
+      "memory_graph": {
+        "graph_states": 2,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 10
+      },
+      "llm": {
+        "total_tokens": 51219,
+        "input_tokens": 50448,
+        "output_tokens": 771,
+        "avg_tokens_per_iteration": 3012.8823529411766,
+        "max_message_count": 1,
+        "total_time_ms": 21380.513906478882,
+        "avg_time_per_iteration_ms": 1257.677288616405
+      },
+      "device_actions": {
+        "total_actions": 1,
+        "valid_actions": 1,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "CLICK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.Button[Read Aloud] @ ((827, 73), (975, 199))"
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.0,
+        "normalized": 0.0,
+        "max_possible": 1.0,
+        "rating": "POOR",
+        "distribution": {
+          "CLICK": "100.0%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 1,
+        "same_element_streak": 1,
+        "same_screen_revisits": 16,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 1,
+        "element_type_distribution": {
+          "Button": 1
+        },
+        "total_valid_interactions": 1
+      },
+      "screen_navigation": {
+        "unique_screens": 2,
+        "total_visits": 17,
+        "revisit_rate": 88.2,
+        "exploration_efficiency": 11.8,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 0,
+        "streaks": []
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 1 action streak, 1 element streak, 16 max screen revisits",
+        "Poor exploration: only 2 unique screens in 17 visits"
+      ],
+      "warnings": [
+        "Low action diversity (entropy=0.00)",
+        "High concentration on Button: 100.0% of interactions"
+      ]
+    }
+  },
+  "org.emunix.insteadlauncher_80601.apk": {
+    "basic_metrics": {
+      "app_name": "org.emunix.insteadlauncher_80601.apk",
+      "execution_time_s": 26.96455478668213,
+      "total_iterations": 19,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 7,
+          "BACK": 12
+        },
+        "valid": 12,
+        "invalid": 7,
+        "valid_rate": 0.631578947368421
+      },
+      "element_coverage": {
+        "types_seen": [
+          "LinearLayoutCompat",
+          "RecyclerView",
+          "ScrollView",
+          "TextView",
+          "ImageButton",
+          "View",
+          "ViewGroup",
+          "FrameLayout",
+          "unknown",
+          "ImageView",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 19,
+          "FrameLayout": 95,
+          "LinearLayout": 64,
+          "ViewGroup": 165,
+          "TextView": 206,
+          "LinearLayoutCompat": 19,
+          "ImageView": 110,
+          "RecyclerView": 19,
+          "ScrollView": 7,
+          "ImageButton": 19,
+          "View": 38
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 2,
+        "screen_visits": {
+          "b55988c4ee8a": 8,
+          "95e80ed02c42": 11
+        },
+        "activities": [
+          "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity"
+        ],
+        "revisit_rate": 0.8947368421052632
+      },
+      "memory_graph": {
+        "graph_states": 2,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 10
+      },
+      "llm": {
+        "total_tokens": 58211,
+        "input_tokens": 57187,
+        "output_tokens": 1024,
+        "avg_tokens_per_iteration": 3063.7368421052633,
+        "max_message_count": 1,
+        "total_time_ms": 24057.37805366516,
+        "avg_time_per_iteration_ms": 1266.1777922981664
+      },
+      "device_actions": {
+        "total_actions": 1,
+        "valid_actions": 1,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.949,
+        "normalized": 0.949,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "36.8%",
+          "BACK": "63.2%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 1,
+        "same_element_streak": 1,
+        "same_screen_revisits": 11,
+        "is_stuck": true
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 2,
+        "total_visits": 19,
+        "revisit_rate": 89.5,
+        "exploration_efficiency": 10.5,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 0,
+        "streaks": []
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Agent appears stuck: 1 action streak, 1 element streak, 11 max screen revisits",
+        "Poor exploration: only 2 unique screens in 19 visits"
+      ],
+      "warnings": []
+    }
+  },
+  "org.pulpdust.lesserpad_42.apk": {
+    "basic_metrics": {
+      "app_name": "org.pulpdust.lesserpad_42.apk",
+      "execution_time_s": 23.099034547805786,
+      "total_iterations": 17,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 8,
+          "BACK": 9
+        },
+        "valid": 9,
+        "invalid": 8,
+        "valid_rate": 0.5294117647058824
+      },
+      "element_coverage": {
+        "types_seen": [
+          "EditText",
+          "ImageButton",
+          "View",
+          "TextView",
+          "ViewGroup",
+          "RelativeLayout",
+          "TableRow",
+          "ListView",
+          "Spinner",
+          "FrameLayout",
+          "unknown",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 17,
+          "FrameLayout": 51,
+          "RelativeLayout": 17,
+          "TableRow": 26,
+          "TextView": 86,
+          "Spinner": 17,
+          "ListView": 9,
+          "ViewGroup": 17,
+          "ImageButton": 25,
+          "LinearLayout": 17,
+          "View": 34,
+          "EditText": 8
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 2,
+        "screen_visits": {
+          "c0c6757a3538": 9,
+          "3d47dc31d2a2": 8
+        },
+        "activities": [
+          "org.pulpdust.lesserpad/.LesserPadListActivity",
+          "org.pulpdust.lesserpad/.LesserPadActivity"
+        ],
+        "revisit_rate": 0.8823529411764706
+      },
+      "memory_graph": {
+        "graph_states": 2,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 8
+      },
+      "llm": {
+        "total_tokens": 50055,
+        "input_tokens": 49249,
+        "output_tokens": 806,
+        "avg_tokens_per_iteration": 2944.4117647058824,
+        "max_message_count": 1,
+        "total_time_ms": 21150.977849960327,
+        "avg_time_per_iteration_ms": 1244.1751676447252
+      },
+      "device_actions": {
+        "total_actions": 3,
+        "valid_actions": 3,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 3
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.998,
+        "normalized": 0.998,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "47.1%",
+          "BACK": "52.9%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 3,
+        "same_element_streak": 1,
+        "same_screen_revisits": 9,
+        "is_stuck": false
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 2,
+        "total_visits": 17,
+        "revisit_rate": 88.2,
+        "exploration_efficiency": 11.8,
+        "rating": "POOR"
+      },
+      "action_streaks": {
+        "max_streak": 3,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 3,
+            "start_idx": 0,
+            "end_idx": 2
+          }
+        ]
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [
+        "Poor exploration: only 2 unique screens in 17 visits"
+      ],
+      "warnings": []
+    }
+  },
+  "org.secuso.privacyfriendlydicer_8.apk": {
+    "basic_metrics": {
+      "app_name": "org.secuso.privacyfriendlydicer_8.apk",
+      "execution_time_s": 11.878473281860352,
+      "total_iterations": 8,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 2,
+          "BACK": 6
+        },
+        "valid": 6,
+        "invalid": 2,
+        "valid_rate": 0.75
+      },
+      "element_coverage": {
+        "types_seen": [
+          "View",
+          "ImageButton",
+          "TextView",
+          "Button",
+          "SeekBar",
+          "ViewGroup",
+          "RelativeLayout",
+          "ImageView",
+          "DrawerLayout",
+          "FrameLayout",
+          "unknown",
+          "ViewPager",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 8,
+          "FrameLayout": 24,
+          "LinearLayout": 26,
+          "RelativeLayout": 4,
+          "ViewPager": 2,
+          "TextView": 42,
+          "ImageView": 62,
+          "View": 10,
+          "Button": 8,
+          "DrawerLayout": 6,
+          "ViewGroup": 18,
+          "ImageButton": 6,
+          "SeekBar": 12
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 2,
+        "screen_visits": {
+          "de02a0575400": 3,
+          "1f68a6242c20": 5
+        },
+        "activities": [
+          "org.secuso.privacyfriendlydicer/.ui.MainActivity",
+          "org.secuso.privacyfriendlydicer/.ui.TutorialActivity"
+        ],
+        "revisit_rate": 0.75
+      },
+      "memory_graph": {
+        "graph_states": 2,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 5
+      },
+      "llm": {
+        "total_tokens": 23481,
+        "input_tokens": 23086,
+        "output_tokens": 395,
+        "avg_tokens_per_iteration": 2935.125,
+        "max_message_count": 1,
+        "total_time_ms": 10868.298768997192,
+        "avg_time_per_iteration_ms": 1358.537346124649
+      },
+      "device_actions": {
+        "total_actions": 1,
+        "valid_actions": 1,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 1
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.811,
+        "normalized": 0.811,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "25.0%",
+          "BACK": "75.0%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 1,
+        "same_element_streak": 1,
+        "same_screen_revisits": 5,
+        "is_stuck": false
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 0,
+        "element_type_distribution": {},
+        "total_valid_interactions": 0
+      },
+      "screen_navigation": {
+        "unique_screens": 2,
+        "total_visits": 8,
+        "revisit_rate": 75.0,
+        "exploration_efficiency": 25.0,
+        "rating": "FAIR"
+      },
+      "action_streaks": {
+        "max_streak": 0,
+        "streaks": []
+      },
+      "quality_grade": "F (Failing)",
+      "issues": [],
+      "warnings": []
+    }
+  },
+  "org.secuso.privacyfriendlyludo_5.apk": {
+    "basic_metrics": {
+      "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+      "execution_time_s": 25.813427209854126,
+      "total_iterations": 15,
+      "actions": {
+        "by_type": {
+          "UNKNOWN": 7,
+          "BACK": 3,
+          "CLICK": 5
+        },
+        "valid": 8,
+        "invalid": 7,
+        "valid_rate": 0.5333333333333333
+      },
+      "element_coverage": {
+        "types_seen": [
+          "View",
+          "ImageButton",
+          "TextView",
+          "Button",
+          "Switch",
+          "RecyclerView",
+          "ScrollView",
+          "ViewGroup",
+          "RelativeLayout",
+          "ImageView",
+          "TableRow",
+          "DrawerLayout",
+          "TableLayout",
+          "FrameLayout",
+          "unknown",
+          "ViewPager",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 15,
+          "FrameLayout": 81,
+          "LinearLayout": 55,
+          "RelativeLayout": 16,
+          "ViewPager": 9,
+          "TextView": 64,
+          "ImageView": 41,
+          "View": 24,
+          "Button": 18,
+          "DrawerLayout": 2,
+          "ViewGroup": 22,
+          "ImageButton": 22,
+          "Switch": 7,
+          "RecyclerView": 3,
+          "ScrollView": 3,
+          "TableLayout": 3,
+          "TableRow": 9
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 7,
+        "screen_visits": {
+          "40ad5316f66f": 8,
+          "846c8f44a269": 1,
+          "20742a4cb8e6": 1,
+          "366ce9639848": 1,
+          "3b248d9f7104": 1,
+          "383bbceb0306": 1,
+          "1a53de792762": 2
+        },
+        "activities": [
+          "org.secuso.privacyfriendlyludo/.activities.MainActivity",
+          "org.secuso.privacyfriendlyludo/.activities.GameSettingActivity",
+          "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity"
+        ],
+        "revisit_rate": 0.5333333333333333
+      },
+      "memory_graph": {
+        "graph_states": 7,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 5
+      },
+      "llm": {
+        "total_tokens": 44469,
+        "input_tokens": 43782,
+        "output_tokens": 687,
+        "avg_tokens_per_iteration": 2964.6,
+        "max_message_count": 1,
+        "total_time_ms": 24047.937631607056,
+        "avg_time_per_iteration_ms": 1603.195842107137
+      },
+      "device_actions": {
+        "total_actions": 6,
+        "valid_actions": 6,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "BACK": 3,
+          "CLICK": 3
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_add_player] @ ((84, 294), (213, 417))"
+          },
+          {
+            "step": 5,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_add_player] @ ((84, 439), (213, 562))"
+          },
+          {
+            "step": 6,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_player_color] @ ((313, 320), (418, 371))"
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 1.506,
+        "normalized": 0.95,
+        "max_possible": 1.585,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "UNKNOWN": "46.7%",
+          "BACK": "20.0%",
+          "CLICK": "33.3%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 3,
+        "same_element_streak": 1,
+        "same_screen_revisits": 8,
+        "is_stuck": false
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 3,
+        "element_type_distribution": {
+          "ImageButton": 3
+        },
+        "total_valid_interactions": 3
+      },
+      "screen_navigation": {
+        "unique_screens": 7,
+        "total_visits": 15,
+        "revisit_rate": 53.3,
+        "exploration_efficiency": 46.7,
+        "rating": "GOOD"
+      },
+      "action_streaks": {
+        "max_streak": 3,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 3,
+            "start_idx": 0,
+            "end_idx": 2
+          },
+          {
+            "action": "CLICK",
+            "count": 3,
+            "start_idx": 3,
+            "end_idx": 5
+          }
+        ]
+      },
+      "quality_grade": "C (Fair)",
+      "issues": [],
+      "warnings": [
+        "High concentration on ImageButton: 100.0% of interactions"
+      ]
+    }
+  },
+  "t20kdc.offlinepuzzlesolver_4.apk": {
+    "basic_metrics": {
+      "app_name": "t20kdc.offlinepuzzlesolver_4.apk",
+      "execution_time_s": 20.206119298934937,
+      "total_iterations": 12,
+      "actions": {
+        "by_type": {
+          "CLICK": 8,
+          "BACK": 4
+        },
+        "valid": 12,
+        "invalid": 0,
+        "valid_rate": 1.0
+      },
+      "element_coverage": {
+        "types_seen": [
+          "View",
+          "ScrollView",
+          "TextView",
+          "CheckBox",
+          "Button",
+          "SeekBar",
+          "WebView",
+          "ViewGroup",
+          "ListView",
+          "FrameLayout",
+          "unknown",
+          "LinearLayout"
+        ],
+        "type_counts": {
+          "unknown": 12,
+          "FrameLayout": 33,
+          "ViewGroup": 18,
+          "TextView": 43,
+          "LinearLayout": 49,
+          "SeekBar": 17,
+          "ScrollView": 8,
+          "CheckBox": 24,
+          "Button": 18,
+          "View": 82,
+          "WebView": 6,
+          "ListView": 4
+        },
+        "interactive_elements": 0
+      },
+      "exploration": {
+        "unique_screens": 5,
+        "screen_visits": {
+          "8e7b1b6799b2": 1,
+          "2bb774699e0c": 8,
+          "4235c7e63c2d": 1,
+          "6571ad3986a6": 1,
+          "2f08cb278b4d": 1
+        },
+        "activities": [
+          "t20kdc.offlinepuzzlesolver/.MainActivity",
+          "t20kdc.offlinepuzzlesolver/.game.NCupsActivity",
+          "t20kdc.offlinepuzzlesolver/.game.NQueensActivity",
+          "t20kdc.offlinepuzzlesolver/.SolutionActivity"
+        ],
+        "revisit_rate": 0.5833333333333334
+      },
+      "memory_graph": {
+        "graph_states": 5,
+        "graph_transitions": 0,
+        "long_term_patterns": 0,
+        "short_term_iterations": 1
+      },
+      "llm": {
+        "total_tokens": 36031,
+        "input_tokens": 35469,
+        "output_tokens": 562,
+        "avg_tokens_per_iteration": 3002.5833333333335,
+        "max_message_count": 1,
+        "total_time_ms": 18656.9561958313,
+        "avg_time_per_iteration_ms": 1554.7463496526082
+      },
+      "device_actions": {
+        "total_actions": 5,
+        "valid_actions": 5,
+        "invalid_actions": 0,
+        "valid_rate": 1.0,
+        "action_types": {
+          "CLICK": 1,
+          "BACK": 4
+        },
+        "actions": [
+          {
+            "step": 1,
+            "action_type": "CLICK",
+            "valid": true,
+            "reason": "Valid click action",
+            "element": "android.widget.Button[Three (or N) Cups Problem] @ ((84, 429), (996, 555))"
+          },
+          {
+            "step": 2,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 3,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 4,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          },
+          {
+            "step": 5,
+            "action_type": "BACK",
+            "valid": true,
+            "reason": "System action: BACK",
+            "element": null
+          }
+        ]
+      }
+    },
+    "quality_analysis": {
+      "diversity_score": {
+        "entropy": 0.918,
+        "normalized": 0.918,
+        "max_possible": 1.0,
+        "rating": "EXCELLENT",
+        "distribution": {
+          "CLICK": "66.7%",
+          "BACK": "33.3%"
+        }
+      },
+      "stuck_detection": {
+        "same_action_streak": 4,
+        "same_element_streak": 1,
+        "same_screen_revisits": 8,
+        "is_stuck": false
+      },
+      "element_interaction": {
+        "unique_elements_clicked": 1,
+        "element_type_distribution": {
+          "Button": 1
+        },
+        "total_valid_interactions": 1
+      },
+      "screen_navigation": {
+        "unique_screens": 5,
+        "total_visits": 12,
+        "revisit_rate": 58.3,
+        "exploration_efficiency": 41.7,
+        "rating": "GOOD"
+      },
+      "action_streaks": {
+        "max_streak": 4,
+        "streaks": [
+          {
+            "action": "BACK",
+            "count": 4,
+            "start_idx": 1,
+            "end_idx": 4
+          }
+        ]
+      },
+      "quality_grade": "C (Fair)",
+      "issues": [],
+      "warnings": [
+        "High concentration on Button: 100.0% of interactions"
+      ]
+    }
+  }
+}

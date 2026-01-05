@@ -1,0 +1,182 @@
+{
+  "app_name": "org.emunix.insteadlauncher_80601.apk",
+  "execution_time_s": 49.9840452671051,
+  "total_iterations": 18,
+  "actions": {
+    "by_type": {
+      "CLICK": 18
+    },
+    "valid": 7,
+    "invalid": 11,
+    "valid_rate": 0.3888888888888889
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ScrollView",
+      "Button",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "ListView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "RecyclerView",
+      "LinearLayoutCompat",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 18,
+      "FrameLayout": 82,
+      "LinearLayout": 52,
+      "ViewGroup": 92,
+      "ImageButton": 16,
+      "TextView": 125,
+      "LinearLayoutCompat": 7,
+      "ImageView": 53,
+      "RecyclerView": 6,
+      "View": 33,
+      "ScrollView": 7,
+      "Button": 13,
+      "RelativeLayout": 12,
+      "ListView": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 7,
+    "screen_visits": {
+      "b55988c4ee8a": 1,
+      "95e80ed02c42": 5,
+      "afe3dc3a0e7c": 4,
+      "d6f366cbfbbd": 1,
+      "231303a62c4b": 5,
+      "de6bc7b064d3": 1,
+      "9707679cf594": 1
+    },
+    "activities": [
+      "org.emunix.insteadlauncher/org.emunix.instead.ui.InsteadActivity",
+      "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity"
+    ],
+    "revisit_rate": 0.6111111111111112
+  },
+  "memory_graph": {
+    "graph_states": 7,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 3
+  },
+  "llm": {
+    "total_tokens": 113290,
+    "input_tokens": 112406,
+    "output_tokens": 884,
+    "avg_tokens_per_iteration": 6293.888888888889,
+    "max_message_count": 1,
+    "total_time_ms": 44052.59561538696,
+    "avg_time_per_iteration_ms": 2447.3664230770537
+  },
+  "device_actions": {
+    "total_actions": 13,
+    "valid_actions": 5,
+    "invalid_actions": 8,
+    "valid_rate": 0.38461538461538464,
+    "action_types": {
+      "CLICK": 13
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageView[More options] @ ((975, 73), (1080, 199))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[\u0412 \u043c\u0438\u0440\u0435 \u0437\u0430\u0441\u0442\u044b\u0432\u0448\u0435\u0433\u043e \u0412\u0440\u0435\u043c\u0435\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0435\u043a\u0440\u043e\u043c\u0430\u043d\u0442 \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0435\u0433\u043e \u0432\u043d\u043e\u0432\u044c. \u041f\u0430\u0440\u0441\u0435\u0440.] @ ((305, 309), (1059, 403))",
+        "element": "android.widget.TextView[\u0412 \u043c\u0438\u0440\u0435 \u0437\u0430\u0441\u0442\u044b\u0432\u0448\u0435\u0433\u043e \u0412\u0440\u0435\u043c\u0435\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0435\u043a\u0440\u043e\u043c\u0430\u043d\u0442 \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0435\u0433\u043e \u0432\u043d\u043e\u0432\u044c. \u041f\u0430\u0440\u0441\u0435\u0440.] @ ((305, 309), (1059, 403))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[DOWNLOAD] @ ((727, 1100), (1038, 1226))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[RUN] @ ((807, 1100), (1038, 1226))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[DELETE] @ ((555, 1100), (786, 1226))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: unknown[] @ ((0, 0), (0, 0))",
+        "element": "unknown[] @ ((0, 0), (0, 0))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: unknown[] @ ((0, 0), (0, 0))",
+        "element": "unknown[] @ ((0, 0), (0, 0))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: unknown[] @ ((0, 0), (0, 0))",
+        "element": "unknown[] @ ((0, 0), (0, 0))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: unknown[] @ ((0, 0), (0, 0))",
+        "element": "unknown[] @ ((0, 0), (0, 0))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: unknown[] @ ((0, 0), (0, 0))",
+        "element": "unknown[] @ ((0, 0), (0, 0))"
+      },
+      {
+        "step": 11,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[DELETE] @ ((779, 991), (968, 1117))"
+      },
+      {
+        "step": 12,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[\u0412 \u043c\u0438\u0440\u0435 \u0437\u0430\u0441\u0442\u044b\u0432\u0448\u0435\u0433\u043e \u0412\u0440\u0435\u043c\u0435\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0435\u043a\u0440\u043e\u043c\u0430\u043d\u0442 \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0435\u0433\u043e \u0432\u043d\u043e\u0432\u044c. \u041f\u0430\u0440\u0441\u0435\u0440.] @ ((305, 309), (1059, 403))",
+        "element": "android.widget.TextView[\u0412 \u043c\u0438\u0440\u0435 \u0437\u0430\u0441\u0442\u044b\u0432\u0448\u0435\u0433\u043e \u0412\u0440\u0435\u043c\u0435\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0435\u043a\u0440\u043e\u043c\u0430\u043d\u0442 \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0435\u0433\u043e \u0432\u043d\u043e\u0432\u044c. \u041f\u0430\u0440\u0441\u0435\u0440.] @ ((305, 309), (1059, 403))"
+      },
+      {
+        "step": 13,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 129), (1028, 186))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 129), (1028, 186))"
+      }
+    ]
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "app_name": "t20kdc.offlinepuzzlesolver_4.apk",
+  "execution_time_s": 26.625970125198364,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 6,
+      "BACK": 4
+    },
+    "valid": 10,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "WebView",
+      "TableLayout",
+      "SeekBar",
+      "LinearLayout",
+      "ScrollView",
+      "View",
+      "CheckBox",
+      "Button",
+      "GridView",
+      "TableRow",
+      "unknown",
+      "ListView",
+      "RelativeLayout",
+      "ViewGroup",
+      "EditText",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 25,
+      "ViewGroup": 10,
+      "TextView": 14,
+      "LinearLayout": 23,
+      "SeekBar": 3,
+      "ScrollView": 1,
+      "CheckBox": 4,
+      "Button": 194,
+      "View": 411,
+      "WebView": 12,
+      "ListView": 5,
+      "GridView": 5,
+      "TableLayout": 1,
+      "TableRow": 2,
+      "EditText": 1,
+      "RelativeLayout": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 9,
+    "screen_visits": {
+      "8e7b1b6799b2": 1,
+      "2bb774699e0c": 1,
+      "4235c7e63c2d": 1,
+      "6571ad3986a6": 1,
+      "2f08cb278b4d": 1,
+      "44733b1eaa5c": 1,
+      "8e1930de66a2": 2,
+      "65c15723a248": 1,
+      "a90999e8d614": 1
+    },
+    "activities": [
+      "t20kdc.offlinepuzzlesolver/.game.NCupsActivity",
+      "t20kdc.offlinepuzzlesolver/.game.NQueensActivity",
+      "t20kdc.offlinepuzzlesolver/.game.SudokuActivity",
+      "t20kdc.offlinepuzzlesolver/.MainActivity",
+      "t20kdc.offlinepuzzlesolver/.SolutionActivity",
+      "t20kdc.offlinepuzzlesolver/.ungame.NetGuardChallengeActivity"
+    ],
+    "revisit_rate": 0.1
+  },
+  "memory_graph": {
+    "graph_states": 9,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 45397,
+    "input_tokens": 45119,
+    "output_tokens": 278,
+    "avg_tokens_per_iteration": 4539.7,
+    "max_message_count": 1,
+    "total_time_ms": 24544.095277786255,
+    "avg_time_per_iteration_ms": 2454.4095277786255
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 10,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 6,
+      "BACK": 4
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Three (or N) Cups Problem] @ ((84, 429), (996, 555))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[Cup 1 Down] @ ((21, 456), (1059, 540))"
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 4,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Solve] @ ((828, 1647), (1059, 1773))"
+      },
+      {
+        "step": 6,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[_] @ ((52, 262), (128, 359))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[3] @ ((233, 262), (309, 359))"
+      },
+      {
+        "step": 9,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Paste] @ ((765, 1005), (996, 1131))"
+      }
+    ]
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "app_name": "com.hwloc.lstopo_271.apk",
+  "execution_time_s": 24.625447750091553,
+  "total_iterations": 9,
+  "actions": {
+    "by_type": {
+      "CLICK": 9
+    },
+    "valid": 4,
+    "invalid": 5,
+    "valid_rate": 0.4444444444444444
+  },
+  "element_coverage": {
+    "types_seen": [
+      "CheckBox",
+      "unknown",
+      "ViewGroup",
+      "ImageView",
+      "LinearLayout",
+      "ScrollView",
+      "RadioButton",
+      "LinearLayoutCompat",
+      "CheckedTextView",
+      "TextView",
+      "DrawerLayout",
+      "Button",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "ViewPager",
+      "RadioGroup",
+      "View",
+      "RelativeLayout",
+      "ImageButton",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 9,
+      "FrameLayout": 35,
+      "LinearLayout": 123,
+      "DrawerLayout": 6,
+      "ViewGroup": 6,
+      "ImageButton": 6,
+      "Button": 9,
+      "LinearLayoutCompat": 30,
+      "TextView": 135,
+      "View": 26,
+      "RelativeLayout": 30,
+      "HorizontalScrollView": 6,
+      "RecyclerView": 3,
+      "CheckedTextView": 24,
+      "ScrollView": 4,
+      "CheckBox": 5,
+      "RadioGroup": 8,
+      "RadioButton": 12,
+      "ViewPager": 1,
+      "ImageView": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 7,
+    "screen_visits": {
+      "b7446df03013": 2,
+      "ed0b0076fe9c": 1,
+      "8060dd0535d7": 1,
+      "6d34804f6c1a": 1,
+      "8a286ffde012": 1,
+      "b9ec960dd19d": 2,
+      "792c84a97d0e": 1
+    },
+    "activities": [
+      "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity",
+      "com.hwloc.lstopo/.MainActivity",
+      "com.hwloc.lstopo/.Options"
+    ],
+    "revisit_rate": 0.2222222222222222
+  },
+  "memory_graph": {
+    "graph_states": 7,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 43114,
+    "input_tokens": 42765,
+    "output_tokens": 349,
+    "avg_tokens_per_iteration": 4790.444444444444,
+    "max_message_count": 1,
+    "total_time_ms": 23466.248273849487,
+    "avg_time_per_iteration_ms": 2607.36091931661
+  },
+  "device_actions": {
+    "total_actions": 9,
+    "valid_actions": 4,
+    "invalid_actions": 5,
+    "valid_rate": 0.4444444444444444,
+    "action_types": {
+      "CLICK": 9
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Machine (1992MB total)] @ ((50, 225), (1080, 274))",
+        "element": "android.widget.TextView[Machine (1992MB total)] @ ((50, 225), (1080, 274))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Core L#0] @ ((120, 1245), (391, 1294))",
+        "element": "android.widget.TextView[Core L#0] @ ((120, 1245), (391, 1294))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckedTextView[Draw] @ ((42, 609), (693, 735))",
+        "element": "android.widget.CheckedTextView[Draw] @ ((42, 609), (693, 735))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Options] @ ((226, 84), (457, 189))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[APPLY] @ ((392, 281), (623, 407))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[APPLY] @ ((392, 281), (623, 407))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[L2 L#0 (512KB)] @ ((120, 778), (562, 827))",
+        "element": "android.widget.TextView[L2 L#0 (512KB)] @ ((120, 778), (562, 827))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[L3 L#0 (16MB)] @ ((120, 622), (1080, 671))",
+        "element": "android.widget.TextView[L3 L#0 (16MB)] @ ((120, 622), (1080, 671))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Accept & continue] @ ((357, 1657), (723, 1752))"
+      }
+    ]
+  }
+}

@@ -1,0 +1,732 @@
+{
+  "summary": {
+    "total_samples": 15,
+    "overall_hit_rate": 1.0,
+    "overall_avg_distance": 0.0,
+    "apps_tested": 5
+  },
+  "app_summaries": [
+    {
+      "app_name": "com.gianlu.dnshero_40.apk",
+      "app_type": "Network Tool",
+      "samples_tested": 3,
+      "hit_rate": 1.0,
+      "avg_distance": 0.0,
+      "avg_elements_per_screen": 24.333333333333332,
+      "success": "\u2705"
+    },
+    {
+      "app_name": "com.hwloc.lstopo_271.apk",
+      "app_type": "System Simulator",
+      "samples_tested": 3,
+      "hit_rate": 1.0,
+      "avg_distance": 0.0,
+      "avg_elements_per_screen": 43.666666666666664,
+      "success": "\u2705"
+    },
+    {
+      "app_name": "com.sam.hex_16.apk",
+      "app_type": "Strategy Game",
+      "samples_tested": 3,
+      "hit_rate": 1.0,
+      "avg_distance": 0.0,
+      "avg_elements_per_screen": 9.666666666666666,
+      "success": "\u2705"
+    },
+    {
+      "app_name": "org.secuso.privacyfriendlydicer_8.apk",
+      "app_type": "Dice Game",
+      "samples_tested": 3,
+      "hit_rate": 1.0,
+      "avg_distance": 0.0,
+      "avg_elements_per_screen": 8.333333333333334,
+      "success": "\u2705"
+    },
+    {
+      "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+      "app_type": "Board Game",
+      "samples_tested": 3,
+      "hit_rate": 1.0,
+      "avg_distance": 0.0,
+      "avg_elements_per_screen": 6.666666666666667,
+      "success": "\u2705"
+    }
+  ],
+  "detailed_results": [
+    {
+      "generated": [
+        345,
+        280
+      ],
+      "expected": [
+        345,
+        280
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [345, 280], \"element\": \"textview \\\"Enable night mode (dark theme)\\\"\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "Enable night mode (dark theme)",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "com.gianlu.dnshero:id/mp_title",
+        "clickable": false,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            42,
+            252
+          ],
+          [
+            649,
+            309
+          ]
+        ],
+        "enabled": true,
+        "focusable": false,
+        "editable": false,
+        "center": [
+          345,
+          280
+        ],
+        "width": 607,
+        "height": 57
+      },
+      "apk_name": "com.gianlu.dnshero_40.apk",
+      "app_type": "Network Tool",
+      "sample_id": "005",
+      "elements_count": 7
+    },
+    {
+      "generated": [
+        540,
+        434
+      ],
+      "expected": [
+        540,
+        434
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [540, 434], \"element\": \"imagebutton \\\"More options\\\" at position (73, 136) - bounds[[0, 210], [1080, 336]]\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "2607:f8b0:4004:c06::6a",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            63,
+            399
+          ],
+          [
+            1017,
+            470
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          540,
+          434
+        ],
+        "width": 954,
+        "height": 71
+      },
+      "apk_name": "com.gianlu.dnshero_40.apk",
+      "app_type": "Network Tool",
+      "sample_id": "019",
+      "elements_count": 41
+    },
+    {
+      "generated": [
+        540,
+        420
+      ],
+      "expected": [
+        540,
+        420
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [540, 420], \"element\": \"textview \\\"a.gtld-servers.net.\\\" (id:rootNsFragment_name)\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "a.gtld-servers.net.",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "com.gianlu.dnshero:id/rootNsFragment_name",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            42,
+            378
+          ],
+          [
+            1038,
+            463
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          540,
+          420
+        ],
+        "width": 996,
+        "height": 85
+      },
+      "apk_name": "com.gianlu.dnshero_40.apk",
+      "app_type": "Network Tool",
+      "sample_id": "014",
+      "elements_count": 25
+    },
+    {
+      "generated": [
+        600,
+        490
+      ],
+      "expected": [
+        600,
+        490
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [600, 490], \"element\": \"NUMANode L#0 P#0 (1992MB)\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "NUMANode L#0 P#0 (1992MB)",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "",
+        "clickable": false,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            120,
+            466
+          ],
+          [
+            1080,
+            515
+          ]
+        ],
+        "enabled": true,
+        "focusable": false,
+        "editable": false,
+        "center": [
+          600,
+          490
+        ],
+        "width": 960,
+        "height": 49
+      },
+      "apk_name": "com.hwloc.lstopo_271.apk",
+      "app_type": "System Simulator",
+      "sample_id": "002",
+      "elements_count": 48
+    },
+    {
+      "generated": [
+        278,
+        616
+      ],
+      "expected": [
+        278,
+        616
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [278, 616], \"element\": \"checkbox \\\"No factorize\\\"\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "No factorize",
+        "content_desc": "",
+        "class": "CheckBox",
+        "resource_id": "com.hwloc.lstopo:id/no_factorize",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": true,
+        "bounds": [
+          [
+            121,
+            564
+          ],
+          [
+            436,
+            669
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          278,
+          616
+        ],
+        "width": 315,
+        "height": 105
+      },
+      "apk_name": "com.hwloc.lstopo_271.apk",
+      "app_type": "System Simulator",
+      "sample_id": "006",
+      "elements_count": 14
+    },
+    {
+      "generated": [
+        345,
+        546
+      ],
+      "expected": [
+        345,
+        546
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "```json\n{\"coordinates\": [345, 546], \"element\": \"output\", \"action\": \"click\"}\n```",
+      "chosen_element": {
+        "text": "Output",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "",
+        "clickable": false,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            0,
+            483
+          ],
+          [
+            691,
+            609
+          ]
+        ],
+        "enabled": true,
+        "focusable": false,
+        "editable": false,
+        "center": [
+          345,
+          546
+        ],
+        "width": 691,
+        "height": 126
+      },
+      "apk_name": "com.hwloc.lstopo_271.apk",
+      "app_type": "System Simulator",
+      "sample_id": "003",
+      "elements_count": 69
+    },
+    {
+      "generated": [
+        327,
+        685
+      ],
+      "expected": [
+        327,
+        685
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [327, 685], \"element\": \"button \\\"Start Game\\\"\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "Start Game",
+        "content_desc": "",
+        "class": "Button",
+        "resource_id": "com.sam.hex:id/startButton",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            228,
+            570
+          ],
+          [
+            426,
+            801
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          327,
+          685
+        ],
+        "width": 198,
+        "height": 231
+      },
+      "apk_name": "com.sam.hex_16.apk",
+      "app_type": "Strategy Game",
+      "sample_id": "007",
+      "elements_count": 6
+    },
+    {
+      "generated": [
+        540,
+        401
+      ],
+      "expected": [
+        540,
+        401
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [540, 401], \"element\": \"textview \\\"OPTIONS\\\" (id:title)\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "OPTIONS",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "android:id/title",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            0,
+            359
+          ],
+          [
+            1080,
+            443
+          ]
+        ],
+        "enabled": false,
+        "focusable": false,
+        "editable": false,
+        "center": [
+          540,
+          401
+        ],
+        "width": 1080,
+        "height": 84
+      },
+      "apk_name": "com.sam.hex_16.apk",
+      "app_type": "Strategy Game",
+      "sample_id": "016",
+      "elements_count": 17
+    },
+    {
+      "generated": [
+        808,
+        1486
+      ],
+      "expected": [
+        808,
+        1486
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [808, 1486], \"element\": \"view (id:new_color_panel)\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "",
+        "content_desc": "",
+        "class": "View",
+        "resource_id": "com.sam.hex:id/new_color_panel",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            592,
+            1434
+          ],
+          [
+            1025,
+            1539
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          808,
+          1486
+        ],
+        "width": 433,
+        "height": 105
+      },
+      "apk_name": "com.sam.hex_16.apk",
+      "app_type": "Strategy Game",
+      "sample_id": "019",
+      "elements_count": 6
+    },
+    {
+      "generated": [
+        540,
+        629
+      ],
+      "expected": [
+        540,
+        629
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [540, 629], \"element\": \"button \\\"ROLL THE DICE\\\"\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "ROLL THE DICE",
+        "content_desc": "",
+        "class": "Button",
+        "resource_id": "org.secuso.privacyfriendlydicer:id/rollButton",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            42,
+            566
+          ],
+          [
+            1038,
+            692
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          540,
+          629
+        ],
+        "width": 996,
+        "height": 126
+      },
+      "apk_name": "org.secuso.privacyfriendlydicer_8.apk",
+      "app_type": "Dice Game",
+      "sample_id": "004",
+      "elements_count": 10
+    },
+    {
+      "generated": [
+        943,
+        1731
+      ],
+      "expected": [
+        943,
+        1731
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "```json\n{\"coordinates\": [943, 1731], \"element\": \"button \\\"OKAY\\\" (id:btn_next)\", \"action\": \"click\"}\n```",
+      "chosen_element": {
+        "text": "OKAY",
+        "content_desc": "",
+        "class": "Button",
+        "resource_id": "org.secuso.privacyfriendlydicer:id/btn_next",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            828,
+            1668
+          ],
+          [
+            1059,
+            1794
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          943,
+          1731
+        ],
+        "width": 231,
+        "height": 126
+      },
+      "apk_name": "org.secuso.privacyfriendlydicer_8.apk",
+      "app_type": "Dice Game",
+      "sample_id": "001",
+      "elements_count": 5
+    },
+    {
+      "generated": [
+        540,
+        629
+      ],
+      "expected": [
+        540,
+        629
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [540, 629], \"element\": \"ROLL THE DICE\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "ROLL THE DICE",
+        "content_desc": "",
+        "class": "Button",
+        "resource_id": "org.secuso.privacyfriendlydicer:id/rollButton",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            42,
+            566
+          ],
+          [
+            1038,
+            692
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          540,
+          629
+        ],
+        "width": 996,
+        "height": 126
+      },
+      "apk_name": "org.secuso.privacyfriendlydicer_8.apk",
+      "app_type": "Dice Game",
+      "sample_id": "002",
+      "elements_count": 10
+    },
+    {
+      "generated": [
+        248,
+        136
+      ],
+      "expected": [
+        248,
+        136
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [248, 136], \"element\": \"textview \\\"Ludo\\\"\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "Ludo",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "",
+        "clickable": false,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            189,
+            101
+          ],
+          [
+            307,
+            172
+          ]
+        ],
+        "enabled": true,
+        "focusable": false,
+        "editable": false,
+        "center": [
+          248,
+          136
+        ],
+        "width": 118,
+        "height": 71
+      },
+      "apk_name": "org.secuso.privacyfriendlyludo_5.apk",
+      "app_type": "Board Game",
+      "sample_id": "004",
+      "elements_count": 7
+    },
+    {
+      "generated": [
+        812,
+        135
+      ],
+      "expected": [
+        812,
+        135
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "```json\n{\"coordinates\": [812, 135], \"element\": \"textview \\\"Show statistics\\\"\", \"action\": \"click\"}\n```",
+      "chosen_element": {
+        "text": "Show statistics",
+        "content_desc": "",
+        "class": "TextView",
+        "resource_id": "org.secuso.privacyfriendlyludo:id/title",
+        "clickable": false,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            597,
+            107
+          ],
+          [
+            1028,
+            164
+          ]
+        ],
+        "enabled": true,
+        "focusable": false,
+        "editable": false,
+        "center": [
+          812,
+          135
+        ],
+        "width": 431,
+        "height": 57
+      },
+      "apk_name": "org.secuso.privacyfriendlyludo_5.apk",
+      "app_type": "Board Game",
+      "sample_id": "012",
+      "elements_count": 3
+    },
+    {
+      "generated": [
+        540,
+        1166
+      ],
+      "expected": [
+        540,
+        1166
+      ],
+      "distance": 0.0,
+      "hit": true,
+      "response": "{\"coordinates\": [540, 1166], \"element\": \"button \\\"NEW GAME\\\"\", \"action\": \"click\"}",
+      "chosen_element": {
+        "text": "NEW GAME",
+        "content_desc": "",
+        "class": "Button",
+        "resource_id": "org.secuso.privacyfriendlyludo:id/game_button_start",
+        "clickable": true,
+        "scrollable": false,
+        "checkable": false,
+        "bounds": [
+          [
+            163,
+            1103
+          ],
+          [
+            917,
+            1229
+          ]
+        ],
+        "enabled": true,
+        "focusable": true,
+        "editable": false,
+        "center": [
+          540,
+          1166
+        ],
+        "width": 754,
+        "height": 126
+      },
+      "apk_name": "org.secuso.privacyfriendlyludo_5.apk",
+      "app_type": "Board Game",
+      "sample_id": "002",
+      "elements_count": 10
+    }
+  ]
+}

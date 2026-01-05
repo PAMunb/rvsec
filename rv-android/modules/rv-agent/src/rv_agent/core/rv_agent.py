@@ -128,6 +128,15 @@ class RVAgent:
         if mode in ["llm_only", "multimode"] and llm_client is None:
             raise ValueError(f"LLM client required for mode: {mode}")
 
+        # Stuck state detection
+        self.last_screen_hash = None
+        self.stuck_screen_count = 0
+        self.STUCK_THRESHOLD = 3  # Force BACK after 3 unchanged screens
+
+        # Deadlock detection (no action available)
+        self.consecutive_no_action = 0
+        self.NO_ACTION_THRESHOLD = 3  # Force BACK after 3 iterations without action
+
         logger.info("RVAgent initialized with modular architecture")
         logger.info(f"Mode: {mode}")
         logger.info(f"Strategy: {config.strategy}")
@@ -212,8 +221,9 @@ class RVAgent:
             }
         )
 
-        # Algorithm path
-        workflow.add_edge("algorithm_node", "execute")
+        # Algorithm path - UNIFIED VALIDATION
+        # Both LLM and Algorithm actions go through validation_router
+        workflow.add_edge("algorithm_node", "validation_router")
 
         # Common path
         workflow.add_edge("execute", "learn")
@@ -231,11 +241,16 @@ class RVAgent:
             external_navigation_count=state.get("external_navigation_count", 0)
         )
 
+        ui_elements_text = result["ui_elements_text"]
+        logger.info(f"🔍 UI elements text length: {len(ui_elements_text)} chars")
+        if not ui_elements_text or len(ui_elements_text) < 50:
+            logger.warning(f"⚠️ UI elements text is empty or too short: '{ui_elements_text[:100]}'")
+
         return {
             "current_screen_hash": result["screen_hash"],
             "current_activity": result["activity"],
             "screen_description": result["screen_description"],
-            "ui_elements_text": result["ui_elements_text"],
+            "ui_elements_text": ui_elements_text,
             "is_external": result["is_external"],
             "external_navigation_count": result["external_navigation_count"]
         }
@@ -243,6 +258,29 @@ class RVAgent:
     def _decision_router_node(self, state: AgentState) -> AgentState:
         """Route decision between LLM and algorithm."""
         logger.info("🔀 DECISION_ROUTER: Routing decision")
+
+        # DEBUG: Always log force_back_action status
+        force_back = state.get("force_back_action", False)
+        logger.warning(f"🔍 DEBUG: force_back_action = {force_back}")
+
+        # CRITICAL: Check for forced BACK action BEFORE routing
+        # Stuck state detection sets force_back_action=True to force BACK via algorithm
+        if force_back:
+            self.routing_manager.forced_back_count += 1
+            current_hash = state.get("current_screen_hash", "UNKNOWN")
+            iteration = state.get("iteration", 0)
+            logger.warning("⚠️  force_back_action=True → Forcing algorithm path for BACK")
+            logger.warning(
+                f"[AUXILIARY_COUNTER] forced_back++ (now={self.routing_manager.forced_back_count}) | "
+                f"iteration={iteration} | screen_hash={current_hash[:12]}... | "
+                f"stuck_count_was={self.stuck_screen_count} | threshold={self.STUCK_THRESHOLD} | "
+                f"llm_exec={self.routing_manager.llm_executed} | "
+                f"alg_chosen={self.routing_manager.algorithm_chosen}"
+            )
+            return {
+                "decision_path": "algorithm",
+                "decision_maker": "algorithm"  # Track for metrics
+            }
 
         iteration = state.get("iteration", 0)
         decision_path = self.routing_manager.route_decision(iteration)
@@ -256,13 +294,49 @@ class RVAgent:
         """Generate action using algorithmic strategy."""
         logger.info("🤖 ALGORITHM: Generating action")
 
+        # Check for stuck state override - force BACK action
+        if state.get("force_back_action", False):
+            logger.warning("Forcing BACK action due to stuck state detection")
+            action = {
+                "action_type": "BACK",
+                "reason": "stuck_state_recovery"
+            }
+            self.consecutive_no_action = 0  # Reset counter on action
+            return {
+                "current_action": action,
+                "current_item_action": None,  # No ItemAction for forced BACK
+                "decision_maker": "algorithm",
+                "force_back_action": False  # Clear flag after consuming it
+            }
+
+        # Check for deadlock (consecutive iterations without action)
+        if self.consecutive_no_action >= self.NO_ACTION_THRESHOLD:
+            logger.error(
+                f"⚠️ DEADLOCK DETECTED: {self.consecutive_no_action} iterations "
+                f"without action → forcing BACK to escape"
+            )
+            action = {
+                "action_type": "BACK",
+                "reason": "deadlock_escape"
+            }
+            self.consecutive_no_action = 0  # Reset counter
+            return {
+                "current_action": action,
+                "current_item_action": None,
+                "decision_maker": "algorithm"
+            }
+
         screen_hash = state.get("current_screen_hash")
         screen_desc = state.get("screen_description")
 
         item_action = self.strategy.select_next_action(screen_hash, screen_desc)
 
         if not item_action:
-            logger.warning("No action available from strategy")
+            self.consecutive_no_action += 1
+            logger.warning(
+                f"No action available from strategy "
+                f"(consecutive_no_action={self.consecutive_no_action}/{self.NO_ACTION_THRESHOLD})"
+            )
             return {
                 "current_action": None,
                 "decision_path": "end"
@@ -289,6 +363,9 @@ class RVAgent:
         }
 
         logger.info(f"Algorithm selected: {action['action_type']} at ({x}, {y})")
+
+        # Reset deadlock counter on successful action
+        self.consecutive_no_action = 0
 
         return {
             "current_action": action,
@@ -359,23 +436,38 @@ class RVAgent:
         }
 
     def _validation_router_node(self, state: AgentState) -> AgentState:
-        """Validate LLM action and route to execution or fallback."""
-        logger.info("✅ VALIDATION_ROUTER: Validating LLM action")
+        """
+        Validate action (from LLM or Algorithm) and route to execution or fallback.
 
-        llm_action = state.get("llm_action")
-        has_tool_calls = state.get("has_tool_calls", False)
+        UNIFIED VALIDATION: Both LLM and Algorithm actions are validated using
+        the same loop detection logic based on shared dynamic state graph.
+        """
+        decision_maker = state.get("decision_maker", "unknown")
+        logger.info(f"✅ VALIDATION_ROUTER: Validating action from {decision_maker}")
+
+        # Get action from appropriate source
+        # LLM actions are in state["llm_action"], Algorithm actions in state["current_action"]
+        if decision_maker == "llm":
+            action = state.get("llm_action")
+        else:
+            action = state.get("current_action")
+
         recent_actions = state.get("recent_action_window", [])
 
-        # DEBUG: Log what we received from state
-        logger.warning(f"🔍 VALIDATION_ROUTER DEBUG:")
-        logger.warning(f"   llm_action: {llm_action}")
-        logger.warning(f"   has_tool_calls from state: {has_tool_calls}")
-        logger.warning(f"   state keys: {list(state.keys())}")
+        # DEBUG: Log recent_action_window state
+        logger.warning(
+            f"🔍 VALIDATION DEBUG: decision_maker={decision_maker}, "
+            f"recent_actions_count={len(recent_actions)}, "
+            f"action_to_validate={action.get('action_type') if action else None}"
+        )
+        if recent_actions:
+            logger.warning(f"   Last 3 recent actions: {[a.get('action_type') for a in recent_actions[-3:]]}")
 
-        validation_result = self.routing_manager.validate_llm_action(
-            llm_action=llm_action,
+        # Unified validation using shared dynamic state graph
+        validation_result = self.routing_manager.validate_action(
+            action=action,
             recent_actions=recent_actions,
-            has_tool_calls=has_tool_calls
+            decision_maker=decision_maker
         )
 
         # Update current_action if validation passed
@@ -385,7 +477,7 @@ class RVAgent:
                 "validation_path": validation_result["validation_path"],
                 "loop_detected": validation_result["loop_detected"],
                 "used_fallback": validation_result["used_fallback"],
-                "decision_maker": "llm"  # Preserve LLM source for validated actions
+                "decision_maker": decision_maker  # Preserve action source
             }
         else:
             return {
@@ -467,6 +559,42 @@ class RVAgent:
             state_transitions=state.get("state_transitions", [])
         )
 
+        # Stuck state detection: Force BACK after threshold consecutive unchanged screens
+        current_hash = state.get("current_screen_hash")
+        stuck_action_override = None
+
+        # Save count before any modifications for accurate logging
+        stuck_count_before = self.stuck_screen_count
+
+        # Check if screen hash changed
+        if current_hash == self.last_screen_hash:
+            # Screen unchanged - increment counter
+            self.stuck_screen_count += 1
+            logger.debug(f"Screen unchanged: {self.stuck_screen_count}/{self.STUCK_THRESHOLD}")
+
+            # Check threshold
+            if self.stuck_screen_count >= self.STUCK_THRESHOLD:
+                logger.warning(
+                    f"🔄 Stuck state detected: screen unchanged "
+                    f"{stuck_count_before}→{self.stuck_screen_count} iterations → Forcing BACK"
+                )
+                stuck_action_override = {
+                    "action_type": "BACK",
+                    "reason": "stuck_state_recovery"
+                }
+                self.stuck_screen_count = 0  # Reset counter after forcing BACK
+        else:
+            # Screen changed - reset counter
+            if stuck_count_before > 0:
+                logger.debug(
+                    f"Screen changed, resetting stuck counter "
+                    f"(was {stuck_count_before}, hash: {self.last_screen_hash[:12]}... → {current_hash[:12]}...)"
+                )
+            self.stuck_screen_count = 0
+
+        # Update last hash for next iteration
+        self.last_screen_hash = current_hash
+
         # Check continuation
         continuation = self.memory_coordinator.check_continuation(
             start_time=state.get("start_time"),
@@ -474,7 +602,7 @@ class RVAgent:
         )
 
         # Update state
-        return {
+        result = {
             "recent_action_window": memory_result["recent_action_window"],
             "action_history_summary": summaries["action_history_summary"],
             "exploration_summary": summaries["exploration_summary"],
@@ -486,6 +614,27 @@ class RVAgent:
             "should_continue": continuation["should_continue"],
             "loop_detected": False  # Reset for next iteration
         }
+
+        # Add stuck action override if detected
+        # IMPORTANT: Only set to True when stuck detected. Never set to False here,
+        # as that would override the flag from previous iteration before BACK executes.
+        # The flag is consumed and cleared after BACK execution in algorithm_node.
+        if stuck_action_override:
+            result["force_back_action"] = True
+
+        return result
+
+    def get_memory_stats(self) -> Dict[str, Any]:
+        """
+        Get comprehensive statistics from all memory systems.
+
+        Delegates to MemoryCoordinator's facade method to collect statistics
+        from ui_coverage, short_term, long_term, and dynamic_graph.
+
+        Returns:
+            Dictionary with memory statistics from all systems
+        """
+        return self.memory_coordinator.get_all_statistics()
 
     def run(self) -> Dict[str, Any]:
         """
@@ -529,6 +678,7 @@ class RVAgent:
             "decision_maker": "unknown",
             "loop_detected": False,
             "used_fallback": False,
+            "force_back_action": False,  # Stuck state detection flag
             # LLM action validation fields (multimode)
             "llm_action": None,
             "has_tool_calls": False,
@@ -566,8 +716,11 @@ class RVAgent:
         # Compute final metrics
         execution_time = time.time() - start_time
 
-        # Get decision counters
+        # Get decision counters (detailed breakdown)
         counters = self.routing_manager.get_decision_counters()
+
+        # Collect memory statistics
+        memory_stats = self.get_memory_stats()
 
         return {
             "status": "completed",
@@ -578,6 +731,20 @@ class RVAgent:
             "llm_tokens_input": state["llm_tokens_input"],
             "llm_tokens_output": state["llm_tokens_output"],
             "llm_time_ms": state["llm_time_ms"],
-            "llm_decisions": counters["llm_decisions"],
-            "algorithm_decisions": counters["algorithm_decisions"]
+
+            # Decision counters - detailed breakdown
+            "total_actions": counters["total_actions"],
+
+            # Primary counters (validate 70/30 proportion)
+            "llm_executed": counters["llm_executed"],
+            "algorithm_chosen": counters["algorithm_chosen"],
+            "llm_percentage": counters["llm_percentage"],
+            "algorithm_percentage": counters["algorithm_percentage"],
+
+            # Auxiliary counters (special cases - not in 70/30)
+            "llm_fallback": counters["llm_fallback"],
+            "forced_back": counters["forced_back"],
+            "recovery_actions": counters["recovery_actions"],
+
+            "memory_stats": memory_stats
         }

@@ -1,0 +1,119 @@
+{
+  "app_name": "com.github.axet.hourlyreminder_476.apk",
+  "execution_time_s": 43.14697504043579,
+  "total_iterations": 30,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 7,
+      "BACK": 23
+    },
+    "valid": 23,
+    "invalid": 7,
+    "valid_rate": 0.7666666666666667
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayoutCompat",
+      "RecyclerView",
+      "Switch",
+      "TextView",
+      "ImageButton",
+      "View",
+      "CheckBox",
+      "HorizontalScrollView",
+      "ViewGroup",
+      "ActionBar$Tab",
+      "ViewPager",
+      "FrameLayout",
+      "unknown",
+      "ImageView",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 30,
+      "FrameLayout": 278,
+      "LinearLayout": 265,
+      "ViewGroup": 71,
+      "HorizontalScrollView": 19,
+      "ActionBar$Tab": 57,
+      "TextView": 205,
+      "ImageView": 145,
+      "ViewPager": 19,
+      "RecyclerView": 30,
+      "Switch": 19,
+      "ImageButton": 54,
+      "View": 41,
+      "CheckBox": 132,
+      "LinearLayoutCompat": 11
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "64235e1aa1fb": 8,
+      "aabecc24e943": 1,
+      "ec83ef514e01": 10,
+      "d7892d4b49a0": 1,
+      "9db119b2228d": 10
+    },
+    "activities": [
+      "com.github.axet.hourlyreminder/.activities.MainActivity"
+    ],
+    "revisit_rate": 0.8333333333333334
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 90643,
+    "input_tokens": 89013,
+    "output_tokens": 1630,
+    "avg_tokens_per_iteration": 3021.4333333333334,
+    "max_message_count": 1,
+    "total_time_ms": 39435.15419960022,
+    "avg_time_per_iteration_ms": 1314.505139986674
+  },
+  "device_actions": {
+    "total_actions": 4,
+    "valid_actions": 4,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 4
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 2,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 4,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

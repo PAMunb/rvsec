@@ -1,0 +1,738 @@
+{
+   "activity": "com.hwloc.lstopo/.MainActivity",
+   "stack": [
+      "com.hwloc.lstopo/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.hwloc.lstopo",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.hwloc.lstopo",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.hwloc.lstopo",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.hwloc.lstopo",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.hwloc.lstopo",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 3,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.hwloc.lstopo",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.hwloc.lstopo",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": "Open navigation drawer",
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            63
+                                                         ],
+                                                         [
+                                                            147,
+                                                            210
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageButton",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 8,
+                                                      "size": "147*147"
+                                                   },
+                                                   {
+                                                      "package": "com.hwloc.lstopo",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            226,
+                                                            84
+                                                         ],
+                                                         [
+                                                            457,
+                                                            189
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.hwloc.lstopo:id/options",
+                                                      "checked": false,
+                                                      "text": "Options",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 9,
+                                                      "size": "231*105"
+                                                   },
+                                                   {
+                                                      "package": "com.hwloc.lstopo",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "com.hwloc.lstopo",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": "share",
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  953,
+                                                                  73
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  199
+                                                               ]
+                                                            ],
+                                                            "resource_id": "com.hwloc.lstopo:id/share",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 10,
+                                                            "temp_id": 11,
+                                                            "size": "127*126"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            953,
+                                                            63
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            210
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 10,
+                                                      "size": "127*147"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      63
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      210
+                                                   ]
+                                                ],
+                                                "resource_id": "com.hwloc.lstopo:id/toolbar",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.view.ViewGroup",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 7,
+                                                "size": "1080*147"
+                                             },
+                                             {
+                                                "package": "com.hwloc.lstopo",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      210
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      215
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 12,
+                                                "size": "1080*5"
+                                             },
+                                             {
+                                                "package": "com.hwloc.lstopo",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.hwloc.lstopo",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "com.hwloc.lstopo",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 1,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "com.hwloc.lstopo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.hwloc.lstopo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": true,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.hwloc.lstopo",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": true,
+                                                                              "is_password": false,
+                                                                              "focusable": true,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    0,
+                                                                                    215
+                                                                                 ],
+                                                                                 [
+                                                                                    1080,
+                                                                                    1794
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": null,
+                                                                              "checked": false,
+                                                                              "text": "Machine (P#0 total=2040208KB Backend=Linux LinuxCgroup=/top-app OSName=Linux OSRelease=4.14.175-g6f3fc9538452 OSVersion=\"#1 SMP PREEMPT Wed Apr 8 17:38:09 UTC 2020\" HostName=localhost Architecture=i686 hwlocVersion=2.9.3a1 ProcessName=com.hwloc.lstopo)\n  Package L#0 (P#0 total=2040208KB CPUVendor=AuthenticAMD CPUFamilyNumber=6 CPUModelNumber=6 CPUModel=\"Android virtual processor\" CPUStepping=3)\n    NUMANode L#0 (P#0 local=2040208KB total=2040208KB)\n    L3Cache L#0 (P#0 size=16384KB linesize=64 ways=16)\n      L2Cache L#0 (P#0 size=512KB linesize=64 ways=16)\n        L1dCache L#0 (P#0 size=64KB linesize=64 ways=2)\n          L1iCache L#0 (P#0 size=64KB linesize=64 ways=2)\n            Core L#0 (P#0)\n              PU L#0 (P#0)\n      L2Cache L#1 (P#1 size=512KB linesize=64 ways=16)\n        L1dCache L#1 (P#1 size=64KB linesize=64 ways=2)\n          L1iCache L#1 (P#1 size=64KB linesize=64 ways=2)\n            Core L#1 (P#1)\n              PU L#1 (P#1)\n      L2Cache L#2 (P#2 size=512KB linesize=64 ways=16)\n        L1dCache L#2 (P#2 size=64KB linesize=64 ways=2)\n          L1iCache L#2 (P#2 size=64KB linesize=64 ways=2)\n            Core L#2 (P#2)\n              PU L#2 (P#2)\n      L2Cache L#3 (P#3 size=512KB linesize=64 ways=16)\n        L1dCache L#3 (P#3 size=64KB linesize=64 ways=2)\n          L1iCache L#3 (P#3 size=64KB linesize=64 ways=2)\n            Core L#3 (P#3)\n              PU L#3 (P#3)\ndepth 0:           1 Machine (type #0)\n depth 1:          1 Package (type #1)\n  depth 2:         1 L3Cache (type #6)\n   depth 3:        4 L2Cache (type #5)\n    depth 4:       4 L1dCache (type #4)\n     depth 5:      4 L1iCache (type #9)\n      depth 6:     4 Core (type #2)\n       depth 7:    4 PU (type #3)\nSpecial depth -3:  1 NUMANode (type #13)\n",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": true,
+                                                                              "parent": 17,
+                                                                              "temp_id": 18,
+                                                                              "size": "1080*1579"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              0,
+                                                                              215
+                                                                           ],
+                                                                           [
+                                                                              1080,
+                                                                              1794
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ScrollView",
+                                                                        "scrollable": true,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 16,
+                                                                        "temp_id": 17,
+                                                                        "size": "1080*1579"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        215
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1794
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "com.hwloc.lstopo:id/relative_layout",
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.RelativeLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 15,
+                                                                  "temp_id": 16,
+                                                                  "size": "1080*1579"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  215
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  1794
+                                                               ]
+                                                            ],
+                                                            "resource_id": "com.hwloc.lstopo:id/h_scrollview",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.HorizontalScrollView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 14,
+                                                            "temp_id": 15,
+                                                            "size": "1080*1579"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            215
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1794
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.hwloc.lstopo:id/zoom",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.RelativeLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 13,
+                                                      "temp_id": 14,
+                                                      "size": "1080*1579"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      215
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      1794
+                                                   ]
+                                                ],
+                                                "resource_id": "com.hwloc.lstopo:id/zoomview",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.RelativeLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 13,
+                                                "size": "1080*1579"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                63
+                                             ],
+                                             [
+                                                1080,
+                                                1794
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "1080*1731"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          0
+                                       ],
+                                       [
+                                          1080,
+                                          1794
+                                       ]
+                                    ],
+                                    "resource_id": "com.hwloc.lstopo:id/activity_main_drawer_layout",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "androidx.drawerlayout.widget.DrawerLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*1794"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    0
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*1794"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              0
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": "com.hwloc.lstopo:id/action_bar_root",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1794"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        0
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1794"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         },
+         {
+            "package": "com.hwloc.lstopo",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 19,
+            "size": "1080*63"
+         },
+         {
+            "package": "com.hwloc.lstopo",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 20,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

@@ -1,0 +1,618 @@
+{
+  "timestamp": "2025-09-15T19:14:01.352143",
+  "model": "PetrosStav/gemma3-tools:4b",
+  "total_tests": 12,
+  "successful_tests": 12,
+  "strategy_stats": {
+    "baseline": {
+      "total_tests": 4,
+      "total_clicks": 4,
+      "total_hits": 4,
+      "hit_rate": 100.0,
+      "avg_distance": 0.0,
+      "avg_response_time": 2.8546778559684753,
+      "total_tool_calls": 4
+    },
+    "coordinate_validation": {
+      "total_tests": 4,
+      "total_clicks": 4,
+      "total_hits": 4,
+      "hit_rate": 100.0,
+      "avg_distance": 0.0,
+      "avg_response_time": 2.1079213619232178,
+      "total_tool_calls": 4
+    },
+    "spinner_focused": {
+      "total_tests": 4,
+      "total_clicks": 4,
+      "total_hits": 4,
+      "hit_rate": 100.0,
+      "avg_distance": 0.0,
+      "avg_response_time": 2.000323176383972,
+      "total_tool_calls": 4
+    }
+  },
+  "best_strategy": {
+    "name": "baseline",
+    "hit_rate": 100.0
+  },
+  "raw_results": [
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "baseline",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 5.4533445835113525,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            399,
+            "CIPHER",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will interact with the \"CIPHER\" button.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,399",
+            "element_description": "CIPHER button",
+            "explanation": "I've selected the 'CIPHER' button at coordinates (540, 399) as it appears to be a key element within the application interface."
+          },
+          "id": "a6f563f8-faf4-489b-a508-7f1799c766ec",
+          "type": "tool_call"
+        }
+      ],
+      "app": "cryptoapp.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "coordinate_validation",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.3430614471435547,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            399,
+            "CIPHER",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will select the \"CIPHER\" button at position (540, 399) and use the `android_click` tool.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,399",
+            "element_description": "CIPHER button",
+            "explanation": "I've chosen the 'CIPHER' button at coordinates (540, 399) as it appears to be a prominent interactive element within the app interface."
+          },
+          "id": "df9c7a9f-ba8c-4488-8e4f-3bd42eb86b89",
+          "type": "tool_call"
+        }
+      ],
+      "app": "cryptoapp.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "spinner_focused",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.09841251373291,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            399,
+            "CIPHER",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "I will interact with the \"CIPHER\" button at coordinates (540, 399).\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,399",
+            "element_description": "CIPHER button",
+            "explanation": "This is a button and I want to click it to see what happens."
+          },
+          "id": "846ddf5d-6819-4d4a-9ac3-7fed5e4d074b",
+          "type": "tool_call"
+        }
+      ],
+      "app": "cryptoapp.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "baseline",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 1.887277603149414,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            894,
+            1100,
+            "OK",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will interact with the \"OK\" button.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "894,1100",
+            "element_description": "OK button",
+            "explanation": "I've selected the 'OK' button, which appears to be the primary action button on the screen."
+          },
+          "id": "5683330f-b5d2-4ede-8e64-e508088b5a38",
+          "type": "tool_call"
+        }
+      ],
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "coordinate_validation",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 1.878601312637329,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            894,
+            1100,
+            "OK",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will click on the \"OK\" button.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "894,1100",
+            "element_description": "OK button",
+            "explanation": "This is the primary button on the screen, and clicking it is the most logical action to proceed."
+          },
+          "id": "b581d118-bcd6-4c8c-a2f8-86b24b336cec",
+          "type": "tool_call"
+        }
+      ],
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "spinner_focused",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 1.9379184246063232,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            894,
+            1100,
+            "OK",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will interact with the \"OK\" button.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "894,1100",
+            "element_description": "OK button",
+            "explanation": "The 'OK' button is a primary interactive element on the screen, and I'll click it to proceed."
+          },
+          "id": "998bc568-e89f-4e37-a02b-b02bb0217086",
+          "type": "tool_call"
+        }
+      ],
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "baseline",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.060459613800049,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            341,
+            136,
+            "Options",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will interact with the \"Options\" button.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "341,136",
+            "element_description": "Options button",
+            "explanation": "I've selected the 'Options' button at coordinates (341, 136) as it appears to be a prominent control within the application interface."
+          },
+          "id": "6bf9304a-0d9d-48c3-beb1-5fe952594a6d",
+          "type": "tool_call"
+        }
+      ],
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "coordinate_validation",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.130258798599243,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            341,
+            136,
+            "Options",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "I will select the element at position (341, 136) which is labeled \"Options\" id:id/options (Button).\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "341,136",
+            "element_description": "Options button",
+            "explanation": "This is the 'Options' button, which is likely a key UI element for navigating the application."
+          },
+          "id": "47ee82a4-b896-4559-ba1a-32e9dd7f0abe",
+          "type": "tool_call"
+        }
+      ],
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "spinner_focused",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 1.946103572845459,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            341,
+            136,
+            "Options",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "I will click on the \"Options\" button at coordinates (341, 136).\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "341,136",
+            "element_description": "Options button",
+            "explanation": "Clicking on the 'Options' button to proceed with testing the Android application."
+          },
+          "id": "add71871-9f94-47e6-9988-da8e5ed7c527",
+          "type": "tool_call"
+        }
+      ],
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot_file": "001.png"
+    },
+    {
+      "screenshot": "009.png",
+      "xml": "009.uiautomator",
+      "strategy": "baseline",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.017629623413086,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            852,
+            "org.secuso.privacyfriendlyludo:id/board",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will interact with the `GridLayout` element at position (540, 852).\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,852",
+            "element_description": "id/board",
+            "explanation": "This is the main game board, so clicking it is the most logical action."
+          },
+          "id": "1ddd789b-0e13-4b54-bde9-d71fc20b4b9f",
+          "type": "tool_call"
+        }
+      ],
+      "app": "org.secuso.privacyfriendlyludo_5.apk",
+      "screenshot_file": "009.png"
+    },
+    {
+      "screenshot": "009.png",
+      "xml": "009.uiautomator",
+      "strategy": "coordinate_validation",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.079763889312744,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            852,
+            "org.secuso.privacyfriendlyludo:id/board",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will select the element at position (540, 852) which is the \"board\" (GridLayout).\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,852",
+            "element_description": "board (GridLayout)",
+            "explanation": "This is the main game board, and interacting with it is likely the primary action in the app."
+          },
+          "id": "39aeb5dc-55ae-4d7a-8dce-29c00602c87f",
+          "type": "tool_call"
+        }
+      ],
+      "app": "org.secuso.privacyfriendlyludo_5.apk",
+      "screenshot_file": "009.png"
+    },
+    {
+      "screenshot": "009.png",
+      "xml": "009.uiautomator",
+      "strategy": "spinner_focused",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.0188581943511963,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            852,
+            "org.secuso.privacyfriendlyludo:id/board",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I see a GridLayout with an id of \u201cid/board\u201d. I\u2019ll click on this element.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,852",
+            "element_description": "id/board",
+            "explanation": "This is the main game board, so it's the most important element to interact with."
+          },
+          "id": "8e537204-9e6a-4d33-a0cf-f08f8fa38788",
+          "type": "tool_call"
+        }
+      ],
+      "app": "org.secuso.privacyfriendlyludo_5.apk",
+      "screenshot_file": "009.png"
+    }
+  ],
+  "ludo_paradox_analysis": {
+    "paradox_test": true,
+    "elements_count": "121+ (extreme complexity)",
+    "app": "org.secuso.privacyfriendlyludo_5.apk",
+    "results": [
+      {
+        "screenshot": "009.png",
+        "xml": "009.uiautomator",
+        "strategy": "baseline",
+        "model": "PetrosStav/gemma3-tools:4b",
+        "response_time": 2.017629623413086,
+        "success": true,
+        "metrics": {
+          "total_clicks": 1,
+          "hits": 1,
+          "misses": 0,
+          "hit_rate": 100.0,
+          "avg_distance": 0.0,
+          "click_history": [
+            [
+              540,
+              852,
+              "org.secuso.privacyfriendlyludo:id/board",
+              0.0
+            ]
+          ]
+        },
+        "llm_output": "Okay, I will interact with the `GridLayout` element at position (540, 852).\n\n",
+        "tool_calls": [
+          {
+            "name": "android_click",
+            "args": {
+              "coordinates": "540,852",
+              "element_description": "id/board",
+              "explanation": "This is the main game board, so clicking it is the most logical action."
+            },
+            "id": "1ddd789b-0e13-4b54-bde9-d71fc20b4b9f",
+            "type": "tool_call"
+          }
+        ],
+        "app": "org.secuso.privacyfriendlyludo_5.apk",
+        "screenshot_file": "009.png"
+      },
+      {
+        "screenshot": "009.png",
+        "xml": "009.uiautomator",
+        "strategy": "coordinate_validation",
+        "model": "PetrosStav/gemma3-tools:4b",
+        "response_time": 2.079763889312744,
+        "success": true,
+        "metrics": {
+          "total_clicks": 1,
+          "hits": 1,
+          "misses": 0,
+          "hit_rate": 100.0,
+          "avg_distance": 0.0,
+          "click_history": [
+            [
+              540,
+              852,
+              "org.secuso.privacyfriendlyludo:id/board",
+              0.0
+            ]
+          ]
+        },
+        "llm_output": "Okay, I will select the element at position (540, 852) which is the \"board\" (GridLayout).\n\n",
+        "tool_calls": [
+          {
+            "name": "android_click",
+            "args": {
+              "coordinates": "540,852",
+              "element_description": "board (GridLayout)",
+              "explanation": "This is the main game board, and interacting with it is likely the primary action in the app."
+            },
+            "id": "39aeb5dc-55ae-4d7a-8dce-29c00602c87f",
+            "type": "tool_call"
+          }
+        ],
+        "app": "org.secuso.privacyfriendlyludo_5.apk",
+        "screenshot_file": "009.png"
+      },
+      {
+        "screenshot": "009.png",
+        "xml": "009.uiautomator",
+        "strategy": "spinner_focused",
+        "model": "PetrosStav/gemma3-tools:4b",
+        "response_time": 2.0188581943511963,
+        "success": true,
+        "metrics": {
+          "total_clicks": 1,
+          "hits": 1,
+          "misses": 0,
+          "hit_rate": 100.0,
+          "avg_distance": 0.0,
+          "click_history": [
+            [
+              540,
+              852,
+              "org.secuso.privacyfriendlyludo:id/board",
+              0.0
+            ]
+          ]
+        },
+        "llm_output": "Okay, I see a GridLayout with an id of \u201cid/board\u201d. I\u2019ll click on this element.\n\n",
+        "tool_calls": [
+          {
+            "name": "android_click",
+            "args": {
+              "coordinates": "540,852",
+              "element_description": "id/board",
+              "explanation": "This is the main game board, so it's the most important element to interact with."
+            },
+            "id": "8e537204-9e6a-4d33-a0cf-f08f8fa38788",
+            "type": "tool_call"
+          }
+        ],
+        "app": "org.secuso.privacyfriendlyludo_5.apk",
+        "screenshot_file": "009.png"
+      }
+    ]
+  }
+}

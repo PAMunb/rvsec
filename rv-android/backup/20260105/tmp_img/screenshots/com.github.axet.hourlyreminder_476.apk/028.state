@@ -1,0 +1,1186 @@
+{
+   "activity": "com.github.axet.hourlyreminder/.activities.MainActivity",
+   "stack": [
+      "com.github.axet.hourlyreminder/.activities.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.github.axet.hourlyreminder",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.github.axet.hourlyreminder",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.github.axet.hourlyreminder",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.github.axet.hourlyreminder",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.github.axet.hourlyreminder",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "com.github.axet.hourlyreminder",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.github.axet.hourlyreminder",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.github.axet.hourlyreminder",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.github.axet.hourlyreminder",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            458
+                                                         ],
+                                                         [
+                                                            974,
+                                                            529
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.github.axet.hourlyreminder:id/alertTitle",
+                                                      "checked": false,
+                                                      "text": "Custom Beep",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 8,
+                                                      "size": "869*71"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      42,
+                                                      411
+                                                   ],
+                                                   [
+                                                      1037,
+                                                      529
+                                                   ]
+                                                ],
+                                                "resource_id": "com.github.axet.hourlyreminder:id/title_template",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 7,
+                                                "size": "995*118"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                42,
+                                                411
+                                             ],
+                                             [
+                                                1037,
+                                                529
+                                             ]
+                                          ],
+                                          "resource_id": "com.github.axet.hourlyreminder:id/topPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "995*118"
+                                       },
+                                       {
+                                          "package": "com.github.axet.hourlyreminder",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.github.axet.hourlyreminder",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.github.axet.hourlyreminder",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 2,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "com.github.axet.hourlyreminder",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 2,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "com.github.axet.hourlyreminder",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 3,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.github.axet.hourlyreminder",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.github.axet.hourlyreminder",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": true,
+                                                                              "clickable": true,
+                                                                              "is_password": false,
+                                                                              "focusable": true,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    55,
+                                                                                    707
+                                                                                 ],
+                                                                                 [
+                                                                                    265,
+                                                                                    825
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.github.axet.hourlyreminder:id/beep_length",
+                                                                              "checked": false,
+                                                                              "text": "100",
+                                                                              "class": "android.widget.EditText",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": true,
+                                                                              "parent": 14,
+                                                                              "temp_id": 15,
+                                                                              "size": "210*118"
+                                                                           },
+                                                                           {
+                                                                              "package": "com.github.axet.hourlyreminder",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    265,
+                                                                                    743
+                                                                                 ],
+                                                                                 [
+                                                                                    316,
+                                                                                    794
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": null,
+                                                                              "checked": false,
+                                                                              "text": "ms",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 14,
+                                                                              "temp_id": 16,
+                                                                              "size": "51*51"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              55,
+                                                                              707
+                                                                           ],
+                                                                           [
+                                                                              316,
+                                                                              825
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 13,
+                                                                        "temp_id": 14,
+                                                                        "size": "261*118"
+                                                                     },
+                                                                     {
+                                                                        "package": "com.github.axet.hourlyreminder",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.github.axet.hourlyreminder",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": true,
+                                                                              "clickable": true,
+                                                                              "is_password": false,
+                                                                              "focusable": true,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    55,
+                                                                                    825
+                                                                                 ],
+                                                                                 [
+                                                                                    265,
+                                                                                    943
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.github.axet.hourlyreminder:id/beep_freq",
+                                                                              "checked": false,
+                                                                              "text": "817",
+                                                                              "class": "android.widget.EditText",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": true,
+                                                                              "parent": 17,
+                                                                              "temp_id": 18,
+                                                                              "size": "210*118"
+                                                                           },
+                                                                           {
+                                                                              "package": "com.github.axet.hourlyreminder",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    265,
+                                                                                    861
+                                                                                 ],
+                                                                                 [
+                                                                                    332,
+                                                                                    912
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": null,
+                                                                              "checked": false,
+                                                                              "text": "freq",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 17,
+                                                                              "temp_id": 19,
+                                                                              "size": "67*51"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              55,
+                                                                              825
+                                                                           ],
+                                                                           [
+                                                                              332,
+                                                                              943
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "com.github.axet.hourlyreminder:id/beep_freq_panel",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 13,
+                                                                        "temp_id": 17,
+                                                                        "size": "277*118"
+                                                                     },
+                                                                     {
+                                                                        "package": "com.github.axet.hourlyreminder",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": true,
+                                                                        "is_password": false,
+                                                                        "focusable": true,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              55,
+                                                                              943
+                                                                           ],
+                                                                           [
+                                                                              286,
+                                                                              1069
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "com.github.axet.hourlyreminder:id/beep_reset",
+                                                                        "checked": false,
+                                                                        "text": "RESET",
+                                                                        "class": "android.widget.Button",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 13,
+                                                                        "temp_id": 20,
+                                                                        "size": "231*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        55,
+                                                                        707
+                                                                     ],
+                                                                     [
+                                                                        332,
+                                                                        1069
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "com.github.axet.hourlyreminder:id/beep_length_panel",
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 12,
+                                                                  "temp_id": 13,
+                                                                  "size": "277*362"
+                                                               },
+                                                               {
+                                                                  "package": "com.github.axet.hourlyreminder",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.github.axet.hourlyreminder",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.github.axet.hourlyreminder",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    385,
+                                                                                    595
+                                                                                 ],
+                                                                                 [
+                                                                                    971,
+                                                                                    1181
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": null,
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.view.View",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 22,
+                                                                              "temp_id": 23,
+                                                                              "size": "586*586"
+                                                                           },
+                                                                           {
+                                                                              "package": "com.github.axet.hourlyreminder",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    385,
+                                                                                    595
+                                                                                 ],
+                                                                                 [
+                                                                                    971,
+                                                                                    1181
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": null,
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.view.View",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 22,
+                                                                              "temp_id": 24,
+                                                                              "size": "586*586"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              332,
+                                                                              542
+                                                                           ],
+                                                                           [
+                                                                              1024,
+                                                                              1234
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "com.github.axet.hourlyreminder:id/beep_view",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.view.ViewGroup",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 21,
+                                                                        "temp_id": 22,
+                                                                        "size": "692*692"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        332,
+                                                                        542
+                                                                     ],
+                                                                     [
+                                                                        1024,
+                                                                        1234
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 12,
+                                                                  "temp_id": 21,
+                                                                  "size": "692*692"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  55,
+                                                                  542
+                                                               ],
+                                                               [
+                                                                  1024,
+                                                                  1234
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.LinearLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 11,
+                                                            "temp_id": 12,
+                                                            "size": "969*692"
+                                                         },
+                                                         {
+                                                            "package": "com.github.axet.hourlyreminder",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "com.github.axet.hourlyreminder",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        55,
+                                                                        1234
+                                                                     ],
+                                                                     [
+                                                                        150,
+                                                                        1285
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "20 Hz",
+                                                                  "class": "android.widget.TextView",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 25,
+                                                                  "temp_id": 26,
+                                                                  "size": "95*51"
+                                                               },
+                                                               {
+                                                                  "package": "com.github.axet.hourlyreminder",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        150,
+                                                                        1234
+                                                                     ],
+                                                                     [
+                                                                        910,
+                                                                        1281
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "com.github.axet.hourlyreminder:id/beep_seekbar",
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.SeekBar",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 25,
+                                                                  "temp_id": 27,
+                                                                  "size": "760*47"
+                                                               },
+                                                               {
+                                                                  "package": "com.github.axet.hourlyreminder",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        910,
+                                                                        1234
+                                                                     ],
+                                                                     [
+                                                                        1024,
+                                                                        1285
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "20 kHz",
+                                                                  "class": "android.widget.TextView",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 25,
+                                                                  "temp_id": 28,
+                                                                  "size": "114*51"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  55,
+                                                                  1234
+                                                               ],
+                                                               [
+                                                                  1024,
+                                                                  1285
+                                                               ]
+                                                            ],
+                                                            "resource_id": "com.github.axet.hourlyreminder:id/beep_seekbar_panel",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.LinearLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 11,
+                                                            "temp_id": 25,
+                                                            "size": "969*51"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            42,
+                                                            529
+                                                         ],
+                                                         [
+                                                            1037,
+                                                            1298
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 10,
+                                                      "temp_id": 11,
+                                                      "size": "995*769"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      42,
+                                                      529
+                                                   ],
+                                                   [
+                                                      1037,
+                                                      1298
+                                                   ]
+                                                ],
+                                                "resource_id": "com.github.axet.hourlyreminder:id/custom",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.FrameLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 9,
+                                                "temp_id": 10,
+                                                "size": "995*769"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                42,
+                                                529
+                                             ],
+                                             [
+                                                1037,
+                                                1298
+                                             ]
+                                          ],
+                                          "resource_id": "com.github.axet.hourlyreminder:id/customPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.FrameLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 9,
+                                          "size": "995*769"
+                                       },
+                                       {
+                                          "package": "com.github.axet.hourlyreminder",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.github.axet.hourlyreminder",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.github.axet.hourlyreminder",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            74,
+                                                            1309
+                                                         ],
+                                                         [
+                                                            242,
+                                                            1435
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/button3",
+                                                      "checked": false,
+                                                      "text": "PLAY",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 30,
+                                                      "temp_id": 31,
+                                                      "size": "168*126"
+                                                   },
+                                                   {
+                                                      "package": "com.github.axet.hourlyreminder",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            635,
+                                                            1309
+                                                         ],
+                                                         [
+                                                            837,
+                                                            1435
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/button2",
+                                                      "checked": false,
+                                                      "text": "CANCEL",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 30,
+                                                      "temp_id": 32,
+                                                      "size": "202*126"
+                                                   },
+                                                   {
+                                                      "package": "com.github.axet.hourlyreminder",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            837,
+                                                            1309
+                                                         ],
+                                                         [
+                                                            1005,
+                                                            1435
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/button1",
+                                                      "checked": false,
+                                                      "text": "OK",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 30,
+                                                      "temp_id": 33,
+                                                      "size": "168*126"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      42,
+                                                      1298
+                                                   ],
+                                                   [
+                                                      1037,
+                                                      1446
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 29,
+                                                "temp_id": 30,
+                                                "size": "995*148"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                42,
+                                                1298
+                                             ],
+                                             [
+                                                1037,
+                                                1446
+                                             ]
+                                          ],
+                                          "resource_id": "com.github.axet.hourlyreminder:id/buttonPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ScrollView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 29,
+                                          "size": "995*148"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          42,
+                                          411
+                                       ],
+                                       [
+                                          1037,
+                                          1446
+                                       ]
+                                    ],
+                                    "resource_id": "com.github.axet.hourlyreminder:id/parentPanel",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.support.v7.widget.LinearLayoutCompat",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "995*1035"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    42,
+                                    411
+                                 ],
+                                 [
+                                    1037,
+                                    1446
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "995*1035"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              42,
+                              411
+                           ],
+                           [
+                              1037,
+                              1446
+                           ]
+                        ],
+                        "resource_id": "com.github.axet.hourlyreminder:id/action_bar_root",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.FrameLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "995*1035"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        42,
+                        411
+                     ],
+                     [
+                        1037,
+                        1446
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "995*1035"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  42,
+                  411
+               ],
+               [
+                  1037,
+                  1446
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "995*1035"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            369
+         ],
+         [
+            1079,
+            1488
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1079*1119"
+   }
+}

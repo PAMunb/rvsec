@@ -1,0 +1,1560 @@
+{
+   "activity": "t20kdc.offlinepuzzlesolver/.SolutionActivity",
+   "stack": [
+      "t20kdc.offlinepuzzlesolver/.SolutionActivity",
+      "t20kdc.offlinepuzzlesolver/.game.NCupsActivity",
+      "t20kdc.offlinepuzzlesolver/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "t20kdc.offlinepuzzlesolver",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "t20kdc.offlinepuzzlesolver",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "t20kdc.offlinepuzzlesolver",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "t20kdc.offlinepuzzlesolver",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "t20kdc.offlinepuzzlesolver",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "t20kdc.offlinepuzzlesolver",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": true,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "t20kdc.offlinepuzzlesolver",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                84
+                                             ],
+                                             [
+                                                1063,
+                                                283
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": "Three (or N-) Cups Problem",
+                                          "class": "android.view.View",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "1042*199"
+                                       },
+                                       {
+                                          "package": "t20kdc.offlinepuzzlesolver",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 6,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "t20kdc.offlinepuzzlesolver",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            336
+                                                         ],
+                                                         [
+                                                            110,
+                                                            388
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "\u2022 ",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 8,
+                                                      "temp_id": 9,
+                                                      "size": "19*52"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            336
+                                                         ],
+                                                         [
+                                                            1021,
+                                                            438
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "There's some amount (N, traditionally 3) of cups that can be up or down.",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 8,
+                                                      "temp_id": 10,
+                                                      "size": "895*102"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      126,
+                                                      336
+                                                   ],
+                                                   [
+                                                      1063,
+                                                      438
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": "",
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 7,
+                                                "temp_id": 8,
+                                                "size": "937*102"
+                                             },
+                                             {
+                                                "package": "t20kdc.offlinepuzzlesolver",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            435
+                                                         ],
+                                                         [
+                                                            110,
+                                                            488
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "\u2022 ",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 11,
+                                                      "temp_id": 12,
+                                                      "size": "19*53"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            435
+                                                         ],
+                                                         [
+                                                            958,
+                                                            535
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "Every move, (M, traditionally 2) cups must be flipped (no more or less).",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 11,
+                                                      "temp_id": 13,
+                                                      "size": "832*100"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      126,
+                                                      435
+                                                   ],
+                                                   [
+                                                      1063,
+                                                      535
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": "",
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 7,
+                                                "temp_id": 11,
+                                                "size": "937*100"
+                                             },
+                                             {
+                                                "package": "t20kdc.offlinepuzzlesolver",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            532
+                                                         ],
+                                                         [
+                                                            110,
+                                                            585
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "\u2022 ",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 14,
+                                                      "temp_id": 15,
+                                                      "size": "19*53"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            532
+                                                         ],
+                                                         [
+                                                            903,
+                                                            585
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "The goal is to get all cups to be up-facing.",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 14,
+                                                      "temp_id": 16,
+                                                      "size": "777*53"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      126,
+                                                      532
+                                                   ],
+                                                   [
+                                                      1063,
+                                                      585
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": "",
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 7,
+                                                "temp_id": 14,
+                                                "size": "937*53"
+                                             },
+                                             {
+                                                "package": "t20kdc.offlinepuzzlesolver",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            582
+                                                         ],
+                                                         [
+                                                            110,
+                                                            635
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "\u2022 ",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 17,
+                                                      "temp_id": 18,
+                                                      "size": "19*53"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            582
+                                                         ],
+                                                         [
+                                                            1050,
+                                                            682
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "Some configurations of this problem are solvable, and some aren't.",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 17,
+                                                      "temp_id": 19,
+                                                      "size": "924*100"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      126,
+                                                      582
+                                                   ],
+                                                   [
+                                                      1063,
+                                                      682
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": "",
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 7,
+                                                "temp_id": 17,
+                                                "size": "937*100"
+                                             },
+                                             {
+                                                "package": "t20kdc.offlinepuzzlesolver",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            679
+                                                         ],
+                                                         [
+                                                            110,
+                                                            732
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "\u2022 ",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 20,
+                                                      "temp_id": 21,
+                                                      "size": "19*53"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            679
+                                                         ],
+                                                         [
+                                                            1047,
+                                                            879
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "It may seem evident that it's unsolvable when the amount of down cups is not divisible by the move count, but a proof that this is incorrect can be seen here for N=8 and M=4:",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 20,
+                                                      "temp_id": 22,
+                                                      "size": "921*200"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 4,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "t20kdc.offlinepuzzlesolver",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        183,
+                                                                        876
+                                                                     ],
+                                                                     [
+                                                                        231,
+                                                                        929
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "1. ",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 24,
+                                                                  "temp_id": 25,
+                                                                  "size": "48*53"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        231,
+                                                                        882
+                                                                     ],
+                                                                     [
+                                                                        396,
+                                                                        926
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "DUDDDDDU",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 24,
+                                                                  "temp_id": 26,
+                                                                  "size": "165*44"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        393,
+                                                                        876
+                                                                     ],
+                                                                     [
+                                                                        640,
+                                                                        929
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": " (initial state)",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 24,
+                                                                  "temp_id": 27,
+                                                                  "size": "247*53"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  231,
+                                                                  876
+                                                               ],
+                                                               [
+                                                                  1063,
+                                                                  929
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "",
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 23,
+                                                            "temp_id": 24,
+                                                            "size": "832*53"
+                                                         },
+                                                         {
+                                                            "package": "t20kdc.offlinepuzzlesolver",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        183,
+                                                                        924
+                                                                     ],
+                                                                     [
+                                                                        231,
+                                                                        976
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "2. ",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 28,
+                                                                  "temp_id": 29,
+                                                                  "size": "48*52"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        231,
+                                                                        931
+                                                                     ],
+                                                                     [
+                                                                        396,
+                                                                        976
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "UUUUDDUU",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 28,
+                                                                  "temp_id": 30,
+                                                                  "size": "165*45"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        393,
+                                                                        924
+                                                                     ],
+                                                                     [
+                                                                        824,
+                                                                        976
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": " (cups 1, 3, 4, 7 flipped)",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 28,
+                                                                  "temp_id": 31,
+                                                                  "size": "431*52"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  231,
+                                                                  924
+                                                               ],
+                                                               [
+                                                                  1063,
+                                                                  976
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "",
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 23,
+                                                            "temp_id": 28,
+                                                            "size": "832*52"
+                                                         },
+                                                         {
+                                                            "package": "t20kdc.offlinepuzzlesolver",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        183,
+                                                                        973
+                                                                     ],
+                                                                     [
+                                                                        231,
+                                                                        1026
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "3. ",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 32,
+                                                                  "temp_id": 33,
+                                                                  "size": "48*53"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        231,
+                                                                        981
+                                                                     ],
+                                                                     [
+                                                                        396,
+                                                                        1023
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "UDDDUDUU",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 32,
+                                                                  "temp_id": 34,
+                                                                  "size": "165*42"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        393,
+                                                                        973
+                                                                     ],
+                                                                     [
+                                                                        824,
+                                                                        1026
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": " (cups 2, 3, 4, 5 flipped)",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 32,
+                                                                  "temp_id": 35,
+                                                                  "size": "431*53"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  231,
+                                                                  973
+                                                               ],
+                                                               [
+                                                                  1063,
+                                                                  1026
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "",
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 23,
+                                                            "temp_id": 32,
+                                                            "size": "832*53"
+                                                         },
+                                                         {
+                                                            "package": "t20kdc.offlinepuzzlesolver",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        183,
+                                                                        1023
+                                                                     ],
+                                                                     [
+                                                                        231,
+                                                                        1076
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "4. ",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 36,
+                                                                  "temp_id": 37,
+                                                                  "size": "48*53"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        231,
+                                                                        1029
+                                                                     ],
+                                                                     [
+                                                                        396,
+                                                                        1073
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "UUUUUUUU",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 36,
+                                                                  "temp_id": 38,
+                                                                  "size": "165*44"
+                                                               },
+                                                               {
+                                                                  "package": "t20kdc.offlinepuzzlesolver",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        393,
+                                                                        1023
+                                                                     ],
+                                                                     [
+                                                                        824,
+                                                                        1076
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": " (cups 2, 3, 4, 6 flipped)",
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 36,
+                                                                  "temp_id": 39,
+                                                                  "size": "431*53"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  231,
+                                                                  1023
+                                                               ],
+                                                               [
+                                                                  1063,
+                                                                  1076
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "",
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 23,
+                                                            "temp_id": 36,
+                                                            "size": "832*53"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            876
+                                                         ],
+                                                         [
+                                                            1063,
+                                                            1076
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "",
+                                                      "class": "android.widget.ListView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 20,
+                                                      "temp_id": 23,
+                                                      "size": "937*200"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      126,
+                                                      679
+                                                   ],
+                                                   [
+                                                      1063,
+                                                      1076
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": "",
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 7,
+                                                "temp_id": 20,
+                                                "size": "937*397"
+                                             },
+                                             {
+                                                "package": "t20kdc.offlinepuzzlesolver",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            1071
+                                                         ],
+                                                         [
+                                                            110,
+                                                            1123
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "\u2022 ",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 40,
+                                                      "temp_id": 41,
+                                                      "size": "19*52"
+                                                   },
+                                                   {
+                                                      "package": "t20kdc.offlinepuzzlesolver",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            126,
+                                                            1071
+                                                         ],
+                                                         [
+                                                            1055,
+                                                            1270
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "It is, however, not particularly important to actually track individual cups, which helps in understanding the problem, as the actual ordering of the cups has no meaning.",
+                                                      "class": "android.view.View",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 40,
+                                                      "temp_id": 42,
+                                                      "size": "929*199"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      126,
+                                                      1071
+                                                   ],
+                                                   [
+                                                      1063,
+                                                      1270
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": "",
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 7,
+                                                "temp_id": 40,
+                                                "size": "937*199"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                336
+                                             ],
+                                             [
+                                                1063,
+                                                1270
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": "",
+                                          "class": "android.widget.ListView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 7,
+                                          "size": "1042*934"
+                                       }
+                                    ],
+                                    "focused": true,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          63
+                                       ],
+                                       [
+                                          1084,
+                                          1794
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": "",
+                                    "class": "android.webkit.WebView",
+                                    "scrollable": true,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1084*1731"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    63
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": null,
+                              "checked": false,
+                              "text": null,
+                              "class": "android.webkit.WebView",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*1731"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              63
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": null,
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1731"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        63
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": "android:id/content",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1731"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         },
+         {
+            "package": "t20kdc.offlinepuzzlesolver",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 43,
+            "size": "1080*63"
+         },
+         {
+            "package": "t20kdc.offlinepuzzlesolver",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 44,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

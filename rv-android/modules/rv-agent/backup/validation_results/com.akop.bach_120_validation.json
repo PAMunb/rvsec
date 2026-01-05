@@ -1,0 +1,88 @@
+{
+  "app_name": "com.akop.bach_120.apk",
+  "execution_time_s": 16.06571102142334,
+  "total_iterations": 12,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 9,
+      "CLICK": 3
+    },
+    "valid": 3,
+    "invalid": 9,
+    "valid_rate": 0.25
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ScrollView",
+      "Button",
+      "View",
+      "ImageView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "RecyclerView",
+      "Switch",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 12,
+      "FrameLayout": 48,
+      "LinearLayout": 96,
+      "ImageView": 18,
+      "TextView": 33,
+      "RecyclerView": 9,
+      "RelativeLayout": 9,
+      "Switch": 9,
+      "Button": 21,
+      "View": 21,
+      "ScrollView": 6
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "6c2de30746e5": 10,
+      "c44b8693c270": 2
+    },
+    "activities": [
+      "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.ReviewPermissionsActivity",
+      "com.akop.bach/.activity.Accounts"
+    ],
+    "revisit_rate": 0.8333333333333334
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 72760,
+    "input_tokens": 72386,
+    "output_tokens": 374,
+    "avg_tokens_per_iteration": 6063.333333333333,
+    "max_message_count": 1,
+    "total_time_ms": 14578.61065864563,
+    "avg_time_per_iteration_ms": 1214.8842215538025
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 1,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Continue] @ ((872, 1668), (1080, 1794))"
+      }
+    ]
+  }
+}

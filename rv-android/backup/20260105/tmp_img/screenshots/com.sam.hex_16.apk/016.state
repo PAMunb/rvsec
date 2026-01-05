@@ -1,0 +1,1323 @@
+{
+   "activity": "com.sam.hex/.Preferences",
+   "stack": [
+      "com.sam.hex/.Preferences",
+      "com.sam.hex/.startup.StartUpActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.sam.hex",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.sam.hex",
+            "visible": true,
+            "checkable": false,
+            "child_count": 2,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.sam.hex",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.sam.hex",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 2,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.sam.hex",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 2,
+                              "editable": false,
+                              "clickable": true,
+                              "is_password": false,
+                              "focusable": true,
+                              "enabled": true,
+                              "content_description": "Settings (Local), Navigate up",
+                              "children": [
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                105
+                                             ],
+                                             [
+                                                42,
+                                                147
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/up",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ImageView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "42*42"
+                                       },
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                31,
+                                                84
+                                             ],
+                                             [
+                                                115,
+                                                168
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/home",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ImageView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 7,
+                                          "size": "84*84"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          63
+                                       ],
+                                       [
+                                          126,
+                                          189
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.FrameLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "126*126"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                126,
+                                                94
+                                             ],
+                                             [
+                                                454,
+                                                157
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/action_bar_title",
+                                          "checked": false,
+                                          "text": "Settings (Local)",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 8,
+                                          "temp_id": 9,
+                                          "size": "328*63"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          126,
+                                          94
+                                       ],
+                                       [
+                                          475,
+                                          157
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 8,
+                                    "size": "349*63"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    63
+                                 ],
+                                 [
+                                    475,
+                                    189
+                                 ]
+                              ],
+                              "resource_id": null,
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "475*126"
+                           },
+                           {
+                              "package": "com.sam.hex",
+                              "visible": false,
+                              "checkable": false,
+                              "child_count": 0,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    1080,
+                                    63
+                                 ],
+                                 [
+                                    1080,
+                                    189
+                                 ]
+                              ],
+                              "resource_id": null,
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 10,
+                              "size": "0*126"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              63
+                           ],
+                           [
+                              1080,
+                              189
+                           ]
+                        ],
+                        "resource_id": "android:id/action_bar",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.view.ViewGroup",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*126"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        63
+                     ],
+                     [
+                        1080,
+                        189
+                     ]
+                  ],
+                  "resource_id": "android:id/action_bar_container",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*126"
+               },
+               {
+                  "package": "com.sam.hex",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.sam.hex",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.sam.hex",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 7,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": true,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                189
+                                             ],
+                                             [
+                                                21,
+                                                357
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 14,
+                                          "temp_id": 15,
+                                          "size": "0*168"
+                                       },
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 2,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      216
+                                                   ],
+                                                   [
+                                                      333,
+                                                      279
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/title",
+                                                "checked": false,
+                                                "text": "Local or Online",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 16,
+                                                "temp_id": 17,
+                                                "size": "312*63"
+                                             },
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      279
+                                                   ],
+                                                   [
+                                                      828,
+                                                      330
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/summary",
+                                                "checked": false,
+                                                "text": "Switch between local settings and online settings",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 16,
+                                                "temp_id": 18,
+                                                "size": "807*51"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                200
+                                             ],
+                                             [
+                                                1054,
+                                                346
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.RelativeLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 14,
+                                          "temp_id": 16,
+                                          "size": "1033*146"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          189
+                                       ],
+                                       [
+                                          1080,
+                                          357
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 14,
+                                    "size": "1080*168"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 0,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": false,
+                                    "content_description": null,
+                                    "children": [],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          359
+                                       ],
+                                       [
+                                          1080,
+                                          443
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/title",
+                                    "checked": false,
+                                    "text": "OPTIONS",
+                                    "class": "android.widget.TextView",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 19,
+                                    "size": "1080*84"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                445
+                                             ],
+                                             [
+                                                21,
+                                                613
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 20,
+                                          "temp_id": 21,
+                                          "size": "0*168"
+                                       },
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      497
+                                                   ],
+                                                   [
+                                                      318,
+                                                      560
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/title",
+                                                "checked": false,
+                                                "text": "Game Options",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 22,
+                                                "temp_id": 23,
+                                                "size": "297*63"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                481
+                                             ],
+                                             [
+                                                1054,
+                                                576
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.RelativeLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 20,
+                                          "temp_id": 22,
+                                          "size": "1033*95"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          445
+                                       ],
+                                       [
+                                          1080,
+                                          613
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 20,
+                                    "size": "1080*168"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                615
+                                             ],
+                                             [
+                                                21,
+                                                783
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 24,
+                                          "temp_id": 25,
+                                          "size": "0*168"
+                                       },
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      667
+                                                   ],
+                                                   [
+                                                      189,
+                                                      730
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/title",
+                                                "checked": false,
+                                                "text": "Player 1",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 26,
+                                                "temp_id": 27,
+                                                "size": "168*63"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                651
+                                             ],
+                                             [
+                                                1054,
+                                                746
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.RelativeLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 24,
+                                          "temp_id": 26,
+                                          "size": "1033*95"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          615
+                                       ],
+                                       [
+                                          1080,
+                                          783
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 24,
+                                    "size": "1080*168"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                785
+                                             ],
+                                             [
+                                                21,
+                                                953
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 28,
+                                          "temp_id": 29,
+                                          "size": "0*168"
+                                       },
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      837
+                                                   ],
+                                                   [
+                                                      189,
+                                                      900
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/title",
+                                                "checked": false,
+                                                "text": "Player 2",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 30,
+                                                "temp_id": 31,
+                                                "size": "168*63"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                821
+                                             ],
+                                             [
+                                                1054,
+                                                916
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.RelativeLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 28,
+                                          "temp_id": 30,
+                                          "size": "1033*95"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          785
+                                       ],
+                                       [
+                                          1080,
+                                          953
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 28,
+                                    "size": "1080*168"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 0,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": false,
+                                    "content_description": null,
+                                    "children": [],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          955
+                                       ],
+                                       [
+                                          1080,
+                                          1039
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/title",
+                                    "checked": false,
+                                    "text": "RESET",
+                                    "class": "android.widget.TextView",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 32,
+                                    "size": "1080*84"
+                                 },
+                                 {
+                                    "package": "com.sam.hex",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                1041
+                                             ],
+                                             [
+                                                21,
+                                                1209
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 33,
+                                          "temp_id": 34,
+                                          "size": "0*168"
+                                       },
+                                       {
+                                          "package": "com.sam.hex",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 2,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      1068
+                                                   ],
+                                                   [
+                                                      379,
+                                                      1131
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/title",
+                                                "checked": false,
+                                                "text": "Reset to Defaults",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 35,
+                                                "temp_id": 36,
+                                                "size": "358*63"
+                                             },
+                                             {
+                                                "package": "com.sam.hex",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      21,
+                                                      1131
+                                                   ],
+                                                   [
+                                                      571,
+                                                      1182
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/summary",
+                                                "checked": false,
+                                                "text": "Reset all settings to their defaults",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 35,
+                                                "temp_id": 37,
+                                                "size": "550*51"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                21,
+                                                1052
+                                             ],
+                                             [
+                                                1054,
+                                                1198
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.RelativeLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 33,
+                                          "temp_id": 35,
+                                          "size": "1033*146"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          1041
+                                       ],
+                                       [
+                                          1080,
+                                          1209
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 33,
+                                    "size": "1080*168"
+                                 }
+                              ],
+                              "focused": true,
+                              "bounds": [
+                                 [
+                                    0,
+                                    189
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": "android:id/list",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.ListView",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 12,
+                              "temp_id": 13,
+                              "size": "1080*1605"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              189
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": null,
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 11,
+                        "temp_id": 12,
+                        "size": "1080*1605"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        189
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": "android:id/content",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 11,
+                  "size": "1080*1605"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": "android:id/decor_content_parent",
+            "checked": false,
+            "text": null,
+            "class": "android.view.ViewGroup",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1794
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1794"
+   }
+}

@@ -157,13 +157,13 @@ def tmp_experiment_controller():
             tool_configs=tools,
             repetitions=1,
             timeouts=[60],  # Shorter timeout for quick testing
-            apks_dir="./apks_examples/",
+            apks_dir="./apks/",
             output_dir="./out",  # Temporary artifacts directory
             results_dir="./results",  # Persistent results directory
             specification_set="jca",
-            generate_monitors=False,  # Skip monitor generation for faster testing
-            instrument_apks=False,    # Skip instrumentation for faster testing
-            run_static_analysis=False, # Keep static analysis for MOP context
+            generate_monitors=True,  # Skip monitor generation for faster testing
+            instrument_apks=True,    # Skip instrumentation for faster testing
+            run_static_analysis=True, # Keep static analysis for MOP context
             no_window=True           # Headless mode for CI/testing
         )
         

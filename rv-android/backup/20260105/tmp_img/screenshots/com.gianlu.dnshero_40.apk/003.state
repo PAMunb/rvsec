@@ -1,0 +1,702 @@
+{
+   "activity": "com.gianlu.dnshero/.LoadingActivity",
+   "stack": [
+      "com.gianlu.dnshero/.LoadingActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.gianlu.dnshero",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.gianlu.dnshero",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.gianlu.dnshero",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.gianlu.dnshero",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.gianlu.dnshero",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "com.gianlu.dnshero",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 4,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.gianlu.dnshero",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                729,
+                                                63
+                                             ],
+                                             [
+                                                1059,
+                                                189
+                                             ]
+                                          ],
+                                          "resource_id": "com.gianlu.dnshero:id/loading_preferences",
+                                          "checked": false,
+                                          "text": "PREFERENCES",
+                                          "class": "android.widget.Button",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "330*126"
+                                       },
+                                       {
+                                          "package": "com.gianlu.dnshero",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                189
+                                             ],
+                                             [
+                                                1080,
+                                                429
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.view.View",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 7,
+                                          "size": "1080*240"
+                                       },
+                                       {
+                                          "package": "com.gianlu.dnshero",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 2,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.gianlu.dnshero",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      351,
+                                                      429
+                                                   ],
+                                                   [
+                                                      729,
+                                                      694
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.ImageView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 8,
+                                                "temp_id": 9,
+                                                "size": "378*265"
+                                             },
+                                             {
+                                                "package": "com.gianlu.dnshero",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.gianlu.dnshero",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            221,
+                                                            736
+                                                         ],
+                                                         [
+                                                            859,
+                                                            779
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "Type a domain here:",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 10,
+                                                      "temp_id": 11,
+                                                      "size": "638*43"
+                                                   },
+                                                   {
+                                                      "package": "com.gianlu.dnshero",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "com.gianlu.dnshero",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 2,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "com.gianlu.dnshero",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": true,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": true,
+                                                                  "bounds": [
+                                                                     [
+                                                                        95,
+                                                                        793
+                                                                     ],
+                                                                     [
+                                                                        985,
+                                                                        954
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": "Domain",
+                                                                  "class": "android.widget.EditText",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": true,
+                                                                  "parent": 13,
+                                                                  "temp_id": 14,
+                                                                  "size": "890*161"
+                                                               },
+                                                               {
+                                                                  "package": "com.gianlu.dnshero",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.gianlu.dnshero",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.gianlu.dnshero",
+                                                                              "visible": true,
+                                                                              "checkable": true,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": true,
+                                                                              "is_password": false,
+                                                                              "focusable": true,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    859,
+                                                                                    810
+                                                                                 ],
+                                                                                 [
+                                                                                    985,
+                                                                                    936
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.gianlu.dnshero:id/text_input_end_icon",
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.widget.ImageButton",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 16,
+                                                                              "temp_id": 17,
+                                                                              "size": "126*126"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              848,
+                                                                              793
+                                                                           ],
+                                                                           [
+                                                                              985,
+                                                                              954
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.FrameLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 15,
+                                                                        "temp_id": 16,
+                                                                        "size": "137*161"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        848,
+                                                                        793
+                                                                     ],
+                                                                     [
+                                                                        985,
+                                                                        954
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 13,
+                                                                  "temp_id": 15,
+                                                                  "size": "137*161"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  95,
+                                                                  793
+                                                               ],
+                                                               [
+                                                                  985,
+                                                                  954
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.FrameLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 12,
+                                                            "temp_id": 13,
+                                                            "size": "890*161"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            95,
+                                                            779
+                                                         ],
+                                                         [
+                                                            985,
+                                                            954
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.gianlu.dnshero:id/loading_domain",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 10,
+                                                      "temp_id": 12,
+                                                      "size": "890*175"
+                                                   },
+                                                   {
+                                                      "package": "com.gianlu.dnshero",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            221,
+                                                            965
+                                                         ],
+                                                         [
+                                                            859,
+                                                            1438
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.gianlu.dnshero:id/loading_favorites",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "androidx.recyclerview.widget.RecyclerView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 10,
+                                                      "temp_id": 18,
+                                                      "size": "638*473"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      95,
+                                                      715
+                                                   ],
+                                                   [
+                                                      985,
+                                                      1438
+                                                   ]
+                                                ],
+                                                "resource_id": "com.gianlu.dnshero:id/loading_form",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 8,
+                                                "temp_id": 10,
+                                                "size": "890*723"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                429
+                                             ],
+                                             [
+                                                1080,
+                                                1438
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 8,
+                                          "size": "1080*1009"
+                                       },
+                                       {
+                                          "package": "com.gianlu.dnshero",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                1438
+                                             ],
+                                             [
+                                                1080,
+                                                1920
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.view.View",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 19,
+                                          "size": "1080*482"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          0
+                                       ],
+                                       [
+                                          1080,
+                                          1920
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*1920"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    0
+                                 ],
+                                 [
+                                    1080,
+                                    1920
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*1920"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              0
+                           ],
+                           [
+                              1080,
+                              1920
+                           ]
+                        ],
+                        "resource_id": "com.gianlu.dnshero:id/decor_content_parent",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.view.ViewGroup",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1920"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        0
+                     ],
+                     [
+                        1080,
+                        1920
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1920"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1920"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

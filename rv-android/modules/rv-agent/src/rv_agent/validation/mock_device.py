@@ -244,7 +244,7 @@ class MockDeviceInterface:
             )
 
         # Advance sequence
-        self._advance_sequence('TYPE_TEXT', validation)
+        self._advance_sequence('SET_TEXT', validation)
 
         return True
 

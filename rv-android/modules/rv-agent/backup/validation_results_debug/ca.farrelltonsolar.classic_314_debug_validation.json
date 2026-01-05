@@ -1,0 +1,191 @@
+{
+  "app_name": "ca.farrelltonsolar.classic_314.apk",
+  "execution_time_s": 56.07210445404053,
+  "total_iterations": 23,
+  "actions": {
+    "by_type": {
+      "CLICK": 23
+    },
+    "valid": 23,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "HorizontalScrollView",
+      "GridView",
+      "ViewGroup",
+      "View",
+      "ProgressBar",
+      "FrameLayout",
+      "g0",
+      "ImageView",
+      "TextView",
+      "ImageButton",
+      "RelativeLayout",
+      "unknown",
+      "ViewPager",
+      "DrawerLayout",
+      "LinearLayout",
+      "Button",
+      "WebView",
+      "ListView",
+      "Spinner",
+      "CheckBox"
+    ],
+    "type_counts": {
+      "unknown": 23,
+      "FrameLayout": 71,
+      "LinearLayout": 312,
+      "ViewGroup": 21,
+      "ImageButton": 23,
+      "TextView": 466,
+      "g0": 10,
+      "DrawerLayout": 10,
+      "HorizontalScrollView": 10,
+      "ViewPager": 11,
+      "View": 107,
+      "RelativeLayout": 94,
+      "Spinner": 2,
+      "ImageView": 2,
+      "GridView": 1,
+      "ProgressBar": 1,
+      "ListView": 15,
+      "WebView": 2,
+      "CheckBox": 13,
+      "Button": 26
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 11,
+    "screen_visits": {
+      "1ecdce70435a": 1,
+      "182eb5822f70": 1,
+      "fc145de28bad": 2,
+      "6c729adbeb6b": 1,
+      "0c5aba563dd8": 1,
+      "6dd54b4931a2": 1,
+      "170615b66401": 1,
+      "00c1a28137c3": 1,
+      "f55b0e92114c": 1,
+      "0f1cb4bc84d5": 1,
+      "ab5fdbde72a5": 12
+    },
+    "activities": [
+      "ca.farrelltonsolar.classic/.Settings",
+      "ca.farrelltonsolar.classic/.MonitorActivity"
+    ],
+    "revisit_rate": 0.5217391304347826
+  },
+  "memory_graph": {
+    "graph_states": 10,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 147761,
+    "input_tokens": 146817,
+    "output_tokens": 944,
+    "avg_tokens_per_iteration": 6424.391304347826,
+    "max_message_count": 1,
+    "total_time_ms": 46314.63551521301,
+    "avg_time_per_iteration_ms": 2013.6798050092614
+  },
+  "device_actions": {
+    "total_actions": 12,
+    "valid_actions": 12,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 12
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[POWER] @ ((0, 210), (189, 337))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[POWER] @ ((0, 210), (189, 337))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[ENERGY] @ ((63, 210), (263, 337))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[STATE OF CHARGE] @ ((63, 210), (413, 337))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[LIVE CHART] @ ((63, 210), (319, 337))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[TEMPERATURE] @ ((63, 210), (362, 337))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Open navigation drawer] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[HOUR LOG CHART] @ ((63, 210), (405, 337))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[DAY LOG CALENDAR] @ ((124, 210), (498, 337))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[INFO] @ ((498, 210), (651, 337))"
+      },
+      {
+        "step": 11,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[MESSAGES] @ ((651, 210), (895, 337))"
+      },
+      {
+        "step": 12,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[INFO] @ ((498, 210), (651, 337))"
+      }
+    ]
+  }
+}

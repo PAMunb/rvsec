@@ -1,0 +1,166 @@
+{
+  "session": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "explore_application",
+    "duration": 31.7243549823761,
+    "iterations": 3,
+    "success_count": 4,
+    "error_count": 0,
+    "success_rate": 1.3333333333333333
+  },
+  "react_engine": {
+    "iteration_count": 3,
+    "current_objective": "explore_application",
+    "short_term_memory": {
+      "iteration_count": 2,
+      "current_activity": ".messagedigest.MessageDigestActivity",
+      "total_actions_generated": 3,
+      "total_execution_results": 3,
+      "average_success_rate": 1.0,
+      "memory_utilization": "2/10",
+      "latest_iteration": {
+        "timestamp": "2025-09-15T17:46:56.072112",
+        "action_count": 1,
+        "success_rate": 1.0
+      }
+    },
+    "long_term_memory": {
+      "total_states": 3,
+      "total_activities": 2,
+      "total_action_types": 0,
+      "total_actions_executed": 0,
+      "total_successful_actions": 0,
+      "overall_success_rate": 0.0,
+      "total_transitions": 0,
+      "most_visited_states": [
+        {
+          "state_hash": "04e7282cfd02",
+          "activity": ".MainActivity",
+          "visit_count": 1,
+          "elements_count": 8
+        },
+        {
+          "state_hash": "2fb600b92fee",
+          "activity": ".messagedigest.MessageDigestActivity",
+          "visit_count": 1,
+          "elements_count": 7
+        },
+        {
+          "state_hash": "108a53e4a9b6",
+          "activity": ".messagedigest.MessageDigestActivity",
+          "visit_count": 1,
+          "elements_count": 48
+        }
+      ]
+    },
+    "ui_coverage": {
+      "total_unique_elements": 3,
+      "total_interactions": 4,
+      "average_interactions_per_element": 1.3333333333333333,
+      "action_distribution": {
+        "click": 3,
+        "input": 1
+      },
+      "recent_discoveries": 3,
+      "total_screens": 0,
+      "most_tested_elements": [
+        [
+          "buttonGenerateHash",
+          2
+        ],
+        [
+          "MESSAGE DIGEST Button",
+          1
+        ],
+        [
+          "editTextMessageDigest",
+          1
+        ]
+      ],
+      "least_tested_elements": [],
+      "discovery_timeline_length": 3
+    }
+  },
+  "short_term_memory": {
+    "iteration_count": 2,
+    "current_activity": ".messagedigest.MessageDigestActivity",
+    "total_actions_generated": 3,
+    "total_execution_results": 3,
+    "average_success_rate": 1.0,
+    "memory_utilization": "2/10",
+    "latest_iteration": {
+      "timestamp": "2025-09-15T17:46:56.072112",
+      "action_count": 1,
+      "success_rate": 1.0
+    }
+  },
+  "long_term_memory": {
+    "total_states": 3,
+    "total_activities": 2,
+    "total_action_types": 0,
+    "total_actions_executed": 0,
+    "total_successful_actions": 0,
+    "overall_success_rate": 0.0,
+    "total_transitions": 0,
+    "most_visited_states": [
+      {
+        "state_hash": "04e7282cfd02",
+        "activity": ".MainActivity",
+        "visit_count": 1,
+        "elements_count": 8
+      },
+      {
+        "state_hash": "2fb600b92fee",
+        "activity": ".messagedigest.MessageDigestActivity",
+        "visit_count": 1,
+        "elements_count": 7
+      },
+      {
+        "state_hash": "108a53e4a9b6",
+        "activity": ".messagedigest.MessageDigestActivity",
+        "visit_count": 1,
+        "elements_count": 48
+      }
+    ]
+  },
+  "ui_coverage": {
+    "total_unique_elements": 3,
+    "total_interactions": 4,
+    "average_interactions_per_element": 1.3333333333333333,
+    "action_distribution": {
+      "click": 3,
+      "input": 1
+    },
+    "recent_discoveries": 3,
+    "total_screens": 0,
+    "most_tested_elements": [
+      [
+        "buttonGenerateHash",
+        2
+      ],
+      [
+        "MESSAGE DIGEST Button",
+        1
+      ],
+      [
+        "editTextMessageDigest",
+        1
+      ]
+    ],
+    "least_tested_elements": [],
+    "discovery_timeline_length": 3
+  },
+  "total_unique_elements_tested": 3,
+  "total_interactions": 4,
+  "coverage_efficiency": 1.0,
+  "cli_metadata": {
+    "package": "br.unb.cic.cryptoapp",
+    "device": "emulator-5554",
+    "timeout": 25,
+    "model": "PetrosStav/gemma3-tools:4b",
+    "objective": "explore_application",
+    "execution_time": 28.686598539352417,
+    "timestamp": 1757969218,
+    "success": true
+  }
+}

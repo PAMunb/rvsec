@@ -1,0 +1,635 @@
+{
+   "activity": "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity",
+   "stack": [
+      "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "org.emunix.insteadlauncher",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "org.emunix.insteadlauncher",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "org.emunix.insteadlauncher",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "org.emunix.insteadlauncher",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "org.emunix.insteadlauncher",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.emunix.insteadlauncher",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.emunix.insteadlauncher",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 2,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "org.emunix.insteadlauncher",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "org.emunix.insteadlauncher",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            154,
+                                                            782
+                                                         ],
+                                                         [
+                                                            408,
+                                                            839
+                                                         ]
+                                                      ],
+                                                      "resource_id": "org.emunix.insteadlauncher:id/alertTitle",
+                                                      "checked": false,
+                                                      "text": "Delete game?",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 8,
+                                                      "size": "254*57"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      91,
+                                                      735
+                                                   ],
+                                                   [
+                                                      989,
+                                                      839
+                                                   ]
+                                                ],
+                                                "resource_id": "org.emunix.insteadlauncher:id/title_template",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 7,
+                                                "size": "898*104"
+                                             },
+                                             {
+                                                "package": "org.emunix.insteadlauncher",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      91,
+                                                      839
+                                                   ],
+                                                   [
+                                                      989,
+                                                      860
+                                                   ]
+                                                ],
+                                                "resource_id": "org.emunix.insteadlauncher:id/titleDividerNoCustom",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.view.View",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 9,
+                                                "size": "898*21"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                91,
+                                                735
+                                             ],
+                                             [
+                                                989,
+                                                860
+                                             ]
+                                          ],
+                                          "resource_id": "org.emunix.insteadlauncher:id/topPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "898*125"
+                                       },
+                                       {
+                                          "package": "org.emunix.insteadlauncher",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "org.emunix.insteadlauncher",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "org.emunix.insteadlauncher",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "org.emunix.insteadlauncher",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  91,
+                                                                  860
+                                                               ],
+                                                               [
+                                                                  989,
+                                                                  911
+                                                               ]
+                                                            ],
+                                                            "resource_id": "android:id/message",
+                                                            "checked": false,
+                                                            "text": "Saved game data will remain on the device",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 12,
+                                                            "temp_id": 13,
+                                                            "size": "898*51"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            91,
+                                                            860
+                                                         ],
+                                                         [
+                                                            989,
+                                                            911
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 11,
+                                                      "temp_id": 12,
+                                                      "size": "898*51"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      91,
+                                                      860
+                                                   ],
+                                                   [
+                                                      989,
+                                                      911
+                                                   ]
+                                                ],
+                                                "resource_id": "org.emunix.insteadlauncher:id/scrollView",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.ScrollView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 10,
+                                                "temp_id": 11,
+                                                "size": "898*51"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                91,
+                                                860
+                                             ],
+                                             [
+                                                989,
+                                                986
+                                             ]
+                                          ],
+                                          "resource_id": "org.emunix.insteadlauncher:id/contentPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.FrameLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 10,
+                                          "size": "898*126"
+                                       },
+                                       {
+                                          "package": "org.emunix.insteadlauncher",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "org.emunix.insteadlauncher",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "org.emunix.insteadlauncher",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            558,
+                                                            991
+                                                         ],
+                                                         [
+                                                            758,
+                                                            1117
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/button2",
+                                                      "checked": false,
+                                                      "text": "CANCEL",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 15,
+                                                      "temp_id": 16,
+                                                      "size": "200*126"
+                                                   },
+                                                   {
+                                                      "package": "org.emunix.insteadlauncher",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            779,
+                                                            991
+                                                         ],
+                                                         [
+                                                            968,
+                                                            1117
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/button1",
+                                                      "checked": false,
+                                                      "text": "DELETE",
+                                                      "class": "android.widget.Button",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 15,
+                                                      "temp_id": 17,
+                                                      "size": "189*126"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      91,
+                                                      986
+                                                   ],
+                                                   [
+                                                      989,
+                                                      1122
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 14,
+                                                "temp_id": 15,
+                                                "size": "898*136"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                91,
+                                                986
+                                             ],
+                                             [
+                                                989,
+                                                1122
+                                             ]
+                                          ],
+                                          "resource_id": "org.emunix.insteadlauncher:id/buttonPanel",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ScrollView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 14,
+                                          "size": "898*136"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          91,
+                                          735
+                                       ],
+                                       [
+                                          989,
+                                          1122
+                                       ]
+                                    ],
+                                    "resource_id": "org.emunix.insteadlauncher:id/parentPanel",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "898*387"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    91,
+                                    735
+                                 ],
+                                 [
+                                    989,
+                                    1122
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "898*387"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              91,
+                              735
+                           ],
+                           [
+                              989,
+                              1122
+                           ]
+                        ],
+                        "resource_id": "org.emunix.insteadlauncher:id/action_bar_root",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.FrameLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "898*387"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        91,
+                        735
+                     ],
+                     [
+                        989,
+                        1122
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "898*387"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  91,
+                  735
+               ],
+               [
+                  989,
+                  1122
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "898*387"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            28,
+            525
+         ],
+         [
+            1052,
+            1332
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1024*807"
+   }
+}

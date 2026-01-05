@@ -6,12 +6,10 @@ to simplify agent instantiation and testing.
 """
 
 import logging
+import importlib
 from typing import Optional
 
-from langchain_ollama import ChatOllama
-
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.prompts import v12 as current_prompt
 from rv_agent.core.rv_agent import RVAgent
 from rv_agent.core.device_interface import DeviceInterface
 from rv_agent.core.dynamic_state_graph import DynamicStateGraph
@@ -104,13 +102,20 @@ class AgentFactory:
         dynamic_graph = DynamicStateGraph()
         logger.info("Created DynamicStateGraph")
 
+        # Create UI coverage tracker (needed by RVAgentStrategy and ScreenProcessor)
+        ui_coverage = UICoverageTracker()
+        logger.info("Created UICoverageTracker")
+
         # Create exploration strategy
         strategy_registry = StrategyRegistry()
         exploration_strategy = strategy_registry.get_strategy(
             name=config.strategy,
             graph=dynamic_graph,
             static_data=static_data,
-            coordinate_converter=None  # Will use coordinate_utils directly
+            coordinate_converter=None,  # Will use coordinate_utils directly
+            ui_coverage=ui_coverage,  # Required for RVAgentStrategy
+            plateau_window=config.plateau_window,  # RVAgent config
+            max_input_variations=config.max_input_variations  # RVAgent config
         )
         logger.info(f"Created ExplorationStrategy: {config.strategy}")
 
@@ -127,6 +132,7 @@ class AgentFactory:
         screen_processor = ScreenProcessor(
             device=device,
             dynamic_graph=dynamic_graph,
+            ui_coverage=ui_coverage,
             static_data=static_data,
             device_dimensions=config.device_dimensions,
             optimized_dimensions=config.optimized_dimensions,
@@ -164,10 +170,9 @@ class AgentFactory:
         )
         logger.info("Created ToolExecutor")
 
-        # Create memory components
+        # Create memory components (ui_coverage already created above)
         long_term_memory = LongTermMemory(static_data=static_data)
         short_term_memory = ShortTermMemory()
-        ui_coverage = UICoverageTracker()
         agent_memory = AgentMemoryManager(
             max_action_history=5,
             max_navigation_path=5
@@ -208,42 +213,27 @@ class AgentFactory:
         """
         Create LLM client with tool calling support.
 
+        LLMClient creates its own ChatOpenAI instance internally using
+        the configuration from config.get_langchain_config().
+
         Args:
             config: Agent configuration
 
         Returns:
             Configured LLMClient instance
         """
-        # Get LLM configuration
-        llm_config = config.get_langchain_config()
+        # Load prompt module dynamically based on config
+        prompt_version = config.prompt_version
+        try:
+            prompt_module = importlib.import_module(f"rv_agent.prompts.{prompt_version}")
+            logger.info(f"Loaded prompt module: {prompt_version}")
+        except ImportError as e:
+            logger.error(f"Failed to load prompt module '{prompt_version}': {e}")
+            logger.warning("Falling back to v12")
+            from rv_agent.prompts import v12 as prompt_module
 
-        # Create base LLM
-        llm_base = ChatOllama(
-            model=llm_config['model'],
-            temperature=llm_config['temperature'],
-            top_p=llm_config.get('top_p', 0.8),
-            top_k=llm_config.get('top_k', 50),
-            base_url=llm_config.get('base_url', 'http://localhost:11434'),
-            timeout=60.0,
-            request_timeout=60.0
-        )
-
-        # Import and create Android tools
-        from rv_agent.llm.tools.android_tools import (
-            create_android_tools,
-            set_device_interface,
-            set_coordinate_converter
-        )
-
-        tools = create_android_tools()
-        logger.info(f"Created {len(tools)} Android tools")
-
-        # Bind tools to LLM
-        llm_with_tools = llm_base.bind_tools(tools)
-
-        # Create LLM client
+        # Create LLM client (creates ChatOpenAI internally)
         return LLMClient(
             config=config,
-            llm=llm_with_tools,
-            prompt_module=current_prompt
+            prompt_module=prompt_module
         )

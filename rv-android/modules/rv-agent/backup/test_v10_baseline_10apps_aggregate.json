@@ -1,0 +1,253 @@
+{
+  "test_name": "V10 Baseline - 10 Apps",
+  "timestamp": "2025-11-03T12:13:51.721741",
+  "configuration": {
+    "model": "qwen3-vl:4b",
+    "prompt_version": "v10",
+    "timeout_per_app": 120,
+    "num_apps": 10
+  },
+  "summary": {
+    "total_tests": 10,
+    "successful": 7,
+    "failed": 3,
+    "total_iterations": 52,
+    "total_states": 18,
+    "total_transitions": 0,
+    "avg_iterations_per_app": 5.2,
+    "avg_states_per_app": 1.8,
+    "avg_transitions_per_app": 0.0
+  },
+  "individual_results": [
+    {
+      "app": "Cryptomator",
+      "package": "org.cryptomator.lite",
+      "type": "encryption",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 7,
+        "unique_states": 3,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 126.22012972831726
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "KeePass",
+      "package": "com.android.keepass",
+      "type": "password_manager",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 6,
+        "unique_states": 2,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 128.29814314842224
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "Kryptey",
+      "package": "com.amnesica.kryptey",
+      "type": "encryption",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 2,
+        "unique_states": 1,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 271.6354949474335
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "Amaze FileManager",
+      "package": "com.amaze.filemanager",
+      "type": "file_manager",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 0,
+        "unique_states": 0,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 2.9193577766418457
+      },
+      "validation": {
+        "generated_actions": false,
+        "discovered_states": false,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": false
+      }
+    },
+    {
+      "app": "SecureFileManager",
+      "package": "com.securefilemanager.app",
+      "type": "secure_storage",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 0,
+        "unique_states": 0,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 2.693086624145508
+      },
+      "validation": {
+        "generated_actions": false,
+        "discovered_states": false,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": false
+      }
+    },
+    {
+      "app": "Twidere",
+      "package": "org.mariotaku.twidere",
+      "type": "social_media",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 10,
+        "unique_states": 4,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 126.06887745857239
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "Tubelab",
+      "package": "app.fedilab.tubelab",
+      "type": "video_player",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 5,
+        "unique_states": 2,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 334.97651052474976
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "MoneyTracker",
+      "package": "com.blogspot.e_kanivets.moneytracker",
+      "type": "finance",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 16,
+        "unique_states": 4,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 124.4170913696289
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "LeafPic",
+      "package": "com.alienpants.leafpicrevived",
+      "type": "gallery",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 0,
+        "unique_states": 0,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 2.7698311805725098
+      },
+      "validation": {
+        "generated_actions": false,
+        "discovered_states": false,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": false
+      }
+    },
+    {
+      "app": "S3Manager",
+      "package": "asgardius.page.s3manager",
+      "type": "cloud_storage",
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 6,
+        "unique_states": 2,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 341.97656893730164
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    }
+  ]
+}

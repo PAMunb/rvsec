@@ -1,0 +1,76 @@
+{
+  "app_name": "cryptoapp.apk",
+  "execution_time_s": 14.391856908798218,
+  "total_iterations": 5,
+  "actions": {
+    "by_type": {
+      "CLICK": 5
+    },
+    "valid": 5,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "RelativeLayout",
+      "FrameLayout",
+      "TextView",
+      "LinearLayout",
+      "ListView",
+      "unknown"
+    ],
+    "type_counts": {
+      "unknown": 5,
+      "FrameLayout": 10,
+      "ListView": 5,
+      "LinearLayout": 30,
+      "RelativeLayout": 15,
+      "TextView": 15
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "6621483ea510": 1,
+      "18bff88d20d9": 4
+    },
+    "activities": [
+      "br.unb.cic.cryptoapp/.MainActivity"
+    ],
+    "revisit_rate": 0.6
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 30486,
+    "input_tokens": 30243,
+    "output_tokens": 243,
+    "avg_tokens_per_iteration": 6097.2,
+    "max_message_count": 1,
+    "total_time_ms": 13756.03175163269,
+    "avg_time_per_iteration_ms": 2751.206350326538
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 1,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[MESSAGE DIGEST] @ ((0, 210), (1080, 336))"
+      }
+    ]
+  }
+}

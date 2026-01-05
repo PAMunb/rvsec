@@ -1,0 +1,119 @@
+{
+  "app_name": "org.pulpdust.lesserpad_42.apk",
+  "execution_time_s": 30.66916584968567,
+  "total_iterations": 17,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 1,
+      "CLICK": 16
+    },
+    "valid": 15,
+    "invalid": 2,
+    "valid_rate": 0.8823529411764706
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ImageButton",
+      "View",
+      "ListView",
+      "FrameLayout",
+      "RelativeLayout",
+      "LinearLayout",
+      "TableRow",
+      "Spinner",
+      "EditText",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 17,
+      "FrameLayout": 51,
+      "RelativeLayout": 17,
+      "TableRow": 21,
+      "TextView": 88,
+      "Spinner": 17,
+      "ListView": 4,
+      "ViewGroup": 17,
+      "ImageButton": 30,
+      "LinearLayout": 17,
+      "View": 34,
+      "EditText": 13
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 3,
+    "screen_visits": {
+      "c0c6757a3538": 2,
+      "3d47dc31d2a2": 12,
+      "c3a8b3ef88fc": 3
+    },
+    "activities": [
+      "org.pulpdust.lesserpad/.LesserPadActivity",
+      "org.pulpdust.lesserpad/.LesserPadListActivity"
+    ],
+    "revisit_rate": 0.8235294117647058
+  },
+  "memory_graph": {
+    "graph_states": 3,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 109524,
+    "input_tokens": 108926,
+    "output_tokens": 598,
+    "avg_tokens_per_iteration": 6442.588235294118,
+    "max_message_count": 1,
+    "total_time_ms": 28599.734783172607,
+    "avg_time_per_iteration_ms": 1682.337340186624
+  },
+  "device_actions": {
+    "total_actions": 5,
+    "valid_actions": 4,
+    "invalid_actions": 1,
+    "valid_rate": 0.8,
+    "action_types": {
+      "CLICK": 5
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))",
+        "element": "android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[New] @ ((0, 63), (537, 210))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[New] @ ((0, 63), (537, 210))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[Test.txt] @ ((0, 210), (1080, 315))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[Test.txt] @ ((0, 63), (537, 210))"
+      }
+    ]
+  }
+}

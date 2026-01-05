@@ -1,0 +1,254 @@
+{
+   "activity": "t20kdc.offlinepuzzlesolver/.MainActivity",
+   "stack": [
+      "t20kdc.offlinepuzzlesolver/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "t20kdc.offlinepuzzlesolver",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "t20kdc.offlinepuzzlesolver",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "t20kdc.offlinepuzzlesolver",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": true,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "t20kdc.offlinepuzzlesolver",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "t20kdc.offlinepuzzlesolver",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "t20kdc.offlinepuzzlesolver",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "t20kdc.offlinepuzzlesolver",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                597,
+                                                107
+                                             ],
+                                             [
+                                                1028,
+                                                164
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/title",
+                                          "checked": false,
+                                          "text": "Credits",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "431*57"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          597,
+                                          107
+                                       ],
+                                       [
+                                          1028,
+                                          164
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "431*57"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    555,
+                                    73
+                                 ],
+                                 [
+                                    1070,
+                                    199
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "515*126"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              555,
+                              73
+                           ],
+                           [
+                              1070,
+                              199
+                           ]
+                        ],
+                        "resource_id": null,
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "515*126"
+                     }
+                  ],
+                  "focused": true,
+                  "bounds": [
+                     [
+                        555,
+                        73
+                     ],
+                     [
+                        1070,
+                        199
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.ListView",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "515*126"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  555,
+                  73
+               ],
+               [
+                  1070,
+                  199
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "515*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            555,
+            73
+         ],
+         [
+            1070,
+            199
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "515*126"
+   }
+}

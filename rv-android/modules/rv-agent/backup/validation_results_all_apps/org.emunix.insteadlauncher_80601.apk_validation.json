@@ -1,0 +1,84 @@
+{
+  "app_name": "org.emunix.insteadlauncher_80601.apk",
+  "execution_time_s": 26.153504133224487,
+  "total_iterations": 19,
+  "actions": {
+    "by_type": {
+      "CLICK": 19
+    },
+    "valid": 19,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ViewGroup",
+      "LinearLayoutCompat",
+      "RecyclerView",
+      "FrameLayout",
+      "TextView",
+      "unknown",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 19,
+      "FrameLayout": 95,
+      "LinearLayout": 57,
+      "ViewGroup": 228,
+      "ImageButton": 19,
+      "TextView": 304,
+      "LinearLayoutCompat": 19,
+      "ImageView": 152,
+      "RecyclerView": 19,
+      "View": 38
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "b55988c4ee8a": 1,
+      "95e80ed02c42": 18
+    },
+    "activities": [
+      "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity"
+    ],
+    "revisit_rate": 0.8947368421052632
+  },
+  "memory_graph": {
+    "graph_states": 2,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 36877,
+    "input_tokens": 35826,
+    "output_tokens": 1051,
+    "avg_tokens_per_iteration": 1940.8947368421052,
+    "max_message_count": 1,
+    "total_time_ms": 23092.81897544861,
+    "avg_time_per_iteration_ms": 1215.411525023611
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 1,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Install games] @ ((891, 1605), (1038, 1752))"
+      }
+    ]
+  }
+}

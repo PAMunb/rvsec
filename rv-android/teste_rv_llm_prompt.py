@@ -111,6 +111,8 @@ def create_state_from_droidbot_state(droidbot_state_file: str, screenshot_path: 
     screen_info = read_droidbot_state(droidbot_state_file)
     parser = ParserFactory.create(ScreenParserType.DROIDBOT, visitor)
     screen_description: ScreenDescription = parser.parse_screen(screen_info, static_data)
+    print(screen_description)
+    exit(1)
     state = {
         StateEntry.PACKAGE_NAME: package,
         StateEntry.ACTIVITY: screen_description.activity,
@@ -688,7 +690,7 @@ def simple_test():
     # Hardcoded test configuration - modify as needed
     screenshots_folder = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots"
     apk = "cryptoapp.apk"
-    prefix = "004"  # Use an existing state file
+    prefix = "001"  # Use an existing state file
     
     # File paths
     app_folder = os.path.join(screenshots_folder, apk)

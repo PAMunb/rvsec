@@ -1,0 +1,143 @@
+{
+  "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+  "execution_time_s": 25.813427209854126,
+  "total_iterations": 15,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 7,
+      "BACK": 3,
+      "CLICK": 5
+    },
+    "valid": 8,
+    "invalid": 7,
+    "valid_rate": 0.5333333333333333
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ImageButton",
+      "TextView",
+      "Button",
+      "Switch",
+      "RecyclerView",
+      "ScrollView",
+      "ViewGroup",
+      "RelativeLayout",
+      "ImageView",
+      "TableRow",
+      "DrawerLayout",
+      "TableLayout",
+      "FrameLayout",
+      "unknown",
+      "ViewPager",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 15,
+      "FrameLayout": 81,
+      "LinearLayout": 55,
+      "RelativeLayout": 16,
+      "ViewPager": 9,
+      "TextView": 64,
+      "ImageView": 41,
+      "View": 24,
+      "Button": 18,
+      "DrawerLayout": 2,
+      "ViewGroup": 22,
+      "ImageButton": 22,
+      "Switch": 7,
+      "RecyclerView": 3,
+      "ScrollView": 3,
+      "TableLayout": 3,
+      "TableRow": 9
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 7,
+    "screen_visits": {
+      "40ad5316f66f": 8,
+      "846c8f44a269": 1,
+      "20742a4cb8e6": 1,
+      "366ce9639848": 1,
+      "3b248d9f7104": 1,
+      "383bbceb0306": 1,
+      "1a53de792762": 2
+    },
+    "activities": [
+      "org.secuso.privacyfriendlyludo/.activities.MainActivity",
+      "org.secuso.privacyfriendlyludo/.activities.GameSettingActivity",
+      "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity"
+    ],
+    "revisit_rate": 0.5333333333333333
+  },
+  "memory_graph": {
+    "graph_states": 7,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 5
+  },
+  "llm": {
+    "total_tokens": 44469,
+    "input_tokens": 43782,
+    "output_tokens": 687,
+    "avg_tokens_per_iteration": 2964.6,
+    "max_message_count": 1,
+    "total_time_ms": 24047.937631607056,
+    "avg_time_per_iteration_ms": 1603.195842107137
+  },
+  "device_actions": {
+    "total_actions": 6,
+    "valid_actions": 6,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 3,
+      "CLICK": 3
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 2,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_add_player] @ ((84, 294), (213, 417))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_add_player] @ ((84, 439), (213, 562))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_player_color] @ ((313, 320), (418, 371))"
+      }
+    ]
+  }
+}

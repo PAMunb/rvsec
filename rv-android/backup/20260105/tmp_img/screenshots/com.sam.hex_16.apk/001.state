@@ -1,0 +1,531 @@
+{
+   "activity": "com.sam.hex/.startup.StartUpActivity",
+   "stack": [
+      "com.sam.hex/.startup.StartUpActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "android",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "android",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "android",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "android",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 3,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "android",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 2,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "android",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "android",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                133,
+                                                730
+                                             ],
+                                             [
+                                                947,
+                                                801
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/alertTitle",
+                                          "checked": false,
+                                          "text": "Hex",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "814*71"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          683
+                                       ],
+                                       [
+                                          1010,
+                                          801
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/title_template",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "940*118"
+                                 },
+                                 {
+                                    "package": "android",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 0,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          801
+                                       ],
+                                       [
+                                          1010,
+                                          822
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/titleDividerNoCustom",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.view.View",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 7,
+                                    "size": "940*21"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    683
+                                 ],
+                                 [
+                                    1010,
+                                    822
+                                 ]
+                              ],
+                              "resource_id": "android:id/topPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "940*139"
+                           },
+                           {
+                              "package": "android",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "android",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "android",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "android",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      70,
+                                                      822
+                                                   ],
+                                                   [
+                                                      1010,
+                                                      1026
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/message",
+                                                "checked": false,
+                                                "text": "This app was built for an older version of Android and may not work properly. Try checking for updates, or contact the developer.",
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 10,
+                                                "temp_id": 11,
+                                                "size": "940*204"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                822
+                                             ],
+                                             [
+                                                1010,
+                                                1026
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 9,
+                                          "temp_id": 10,
+                                          "size": "940*204"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          822
+                                       ],
+                                       [
+                                          1010,
+                                          1026
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/scrollView",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.ScrollView",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 8,
+                                    "temp_id": 9,
+                                    "size": "940*204"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    822
+                                 ],
+                                 [
+                                    1010,
+                                    1026
+                                 ]
+                              ],
+                              "resource_id": "android:id/contentPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 8,
+                              "size": "940*204"
+                           },
+                           {
+                              "package": "android",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": true,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "android",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "android",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                810,
+                                                1037
+                                             ],
+                                             [
+                                                978,
+                                                1163
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/button1",
+                                          "checked": false,
+                                          "text": "OK",
+                                          "class": "android.widget.Button",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 13,
+                                          "temp_id": 14,
+                                          "size": "168*126"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          1026
+                                       ],
+                                       [
+                                          1010,
+                                          1174
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 12,
+                                    "temp_id": 13,
+                                    "size": "940*148"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    1026
+                                 ],
+                                 [
+                                    1010,
+                                    1174
+                                 ]
+                              ],
+                              "resource_id": "android:id/buttonPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.ScrollView",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 12,
+                              "size": "940*148"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              70,
+                              683
+                           ],
+                           [
+                              1010,
+                              1174
+                           ]
+                        ],
+                        "resource_id": "android:id/parentPanel",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "940*491"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        70,
+                        683
+                     ],
+                     [
+                        1010,
+                        1174
+                     ]
+                  ],
+                  "resource_id": "android:id/content",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "940*491"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  70,
+                  683
+               ],
+               [
+                  1010,
+                  1174
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "940*491"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            28,
+            641
+         ],
+         [
+            1052,
+            1216
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1024*575"
+   }
+}

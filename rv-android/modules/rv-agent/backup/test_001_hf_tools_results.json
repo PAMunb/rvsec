@@ -1,0 +1,27 @@
+{
+  "test": "test_001_hf_tools_validation",
+  "timestamp": 1757958300.0863473,
+  "objective": "Validate HuggingFace tools for RVAgent",
+  "target_app": "CryptoApp",
+  "viability": true,
+  "results": [
+    {
+      "model": "llava-hf/llava-1.5-7b-hf-structured",
+      "platform": "huggingface",
+      "buttons_found": 1,
+      "tool_calls": 1,
+      "success_rate": 0.3333333333333333,
+      "coordinate_precision": "0/1 correct format",
+      "notes": "Generation time: 3.91s, VRAM: 3.78GB"
+    },
+    {
+      "model": "qwen2.5vl:7b",
+      "platform": "ollama",
+      "buttons_found": 3,
+      "tool_calls": 0,
+      "success_rate": 0,
+      "coordinate_precision": "Perfect detection, no tool execution",
+      "notes": "Champion vision model but ZERO tool-calling support with images"
+    }
+  ]
+}

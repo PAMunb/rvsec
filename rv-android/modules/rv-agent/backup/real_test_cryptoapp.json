@@ -1,0 +1,11 @@
+{
+  "status": "completed",
+  "iterations": 22,
+  "execution_time_s": 120.14305710792542,
+  "unique_states": 0,
+  "total_transitions": 0,
+  "actual_execution_time_s": 120.14334058761597,
+  "test_type": "real_device",
+  "device_id": "emulator-5554",
+  "timeout_requested": 120
+}

@@ -1,0 +1,1595 @@
+{
+   "activity": "livio.rssreader/.SelectCategory",
+   "stack": [
+      "livio.rssreader/.SelectCategory",
+      "livio.rssreader/.RSSReader"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "livio.rssreader",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "livio.rssreader",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "livio.rssreader",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "livio.rssreader",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 2,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "livio.rssreader",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "livio.rssreader",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "livio.rssreader",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": "Navigate up",
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                63
+                                             ],
+                                             [
+                                                147,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ImageButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "147*147"
+                                       },
+                                       {
+                                          "package": "livio.rssreader",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                189,
+                                                101
+                                             ],
+                                             [
+                                                617,
+                                                172
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": "Select a category",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 7,
+                                          "size": "428*71"
+                                       },
+                                       {
+                                          "package": "livio.rssreader",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": "Feeds language",
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      953,
+                                                      73
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      199
+                                                   ]
+                                                ],
+                                                "resource_id": "livio.rssreader:id/menu_lang",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.Button",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 8,
+                                                "temp_id": 9,
+                                                "size": "127*126"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                953,
+                                                63
+                                             ],
+                                             [
+                                                1080,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 8,
+                                          "size": "127*147"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          63
+                                       ],
+                                       [
+                                          1080,
+                                          210
+                                       ]
+                                    ],
+                                    "resource_id": "livio.rssreader:id/action_bar",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.view.ViewGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*147"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    63
+                                 ],
+                                 [
+                                    1080,
+                                    210
+                                 ]
+                              ],
+                              "resource_id": "livio.rssreader:id/action_bar_container",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*147"
+                           },
+                           {
+                              "package": "livio.rssreader",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "livio.rssreader",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "livio.rssreader",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 10,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            210
+                                                         ],
+                                                         [
+                                                            105,
+                                                            288
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 13,
+                                                      "temp_id": 14,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            210
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            288
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Business",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 13,
+                                                      "temp_id": 15,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      210
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      288
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 13,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            291
+                                                         ],
+                                                         [
+                                                            105,
+                                                            369
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 16,
+                                                      "temp_id": 17,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            291
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            369
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Entertainment",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 16,
+                                                      "temp_id": 18,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      291
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      369
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 16,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            372
+                                                         ],
+                                                         [
+                                                            105,
+                                                            450
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 19,
+                                                      "temp_id": 20,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            372
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            450
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Fashion",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 19,
+                                                      "temp_id": 21,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      372
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      450
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 19,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            453
+                                                         ],
+                                                         [
+                                                            105,
+                                                            531
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 22,
+                                                      "temp_id": 23,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            453
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            531
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Lifestyle",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 22,
+                                                      "temp_id": 24,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      453
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      531
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 22,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            534
+                                                         ],
+                                                         [
+                                                            105,
+                                                            612
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 25,
+                                                      "temp_id": 26,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            534
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            612
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Music",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 25,
+                                                      "temp_id": 27,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      534
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      612
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 25,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            615
+                                                         ],
+                                                         [
+                                                            105,
+                                                            693
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 28,
+                                                      "temp_id": 29,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            615
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            693
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "News",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 28,
+                                                      "temp_id": 30,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      615
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      693
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 28,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            696
+                                                         ],
+                                                         [
+                                                            105,
+                                                            774
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 31,
+                                                      "temp_id": 32,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            696
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            774
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Politics",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 31,
+                                                      "temp_id": 33,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      696
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      774
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 31,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            777
+                                                         ],
+                                                         [
+                                                            105,
+                                                            855
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 34,
+                                                      "temp_id": 35,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            777
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            855
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Science",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 34,
+                                                      "temp_id": 36,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      777
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      855
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 34,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            858
+                                                         ],
+                                                         [
+                                                            105,
+                                                            936
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 37,
+                                                      "temp_id": 38,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            858
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            936
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Sport",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 37,
+                                                      "temp_id": 39,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      858
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      936
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 37,
+                                                "size": "1080*78"
+                                             },
+                                             {
+                                                "package": "livio.rssreader",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            939
+                                                         ],
+                                                         [
+                                                            105,
+                                                            1017
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_icon",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 40,
+                                                      "temp_id": 41,
+                                                      "size": "105*78"
+                                                   },
+                                                   {
+                                                      "package": "livio.rssreader",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            105,
+                                                            939
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1017
+                                                         ]
+                                                      ],
+                                                      "resource_id": "livio.rssreader:id/item_name",
+                                                      "checked": false,
+                                                      "text": "Technology",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 40,
+                                                      "temp_id": 42,
+                                                      "size": "975*78"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      939
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      1017
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": true,
+                                                "parent": 12,
+                                                "temp_id": 40,
+                                                "size": "1080*78"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                210
+                                             ],
+                                             [
+                                                1080,
+                                                1794
+                                             ]
+                                          ],
+                                          "resource_id": "livio.rssreader:id/catlist",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ListView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": true,
+                                          "parent": 11,
+                                          "temp_id": 12,
+                                          "size": "1080*1584"
+                                       },
+                                       {
+                                          "package": "livio.rssreader",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                891,
+                                                1605
+                                             ],
+                                             [
+                                                1038,
+                                                1752
+                                             ]
+                                          ],
+                                          "resource_id": "livio.rssreader:id/addfab",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ImageButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 11,
+                                          "temp_id": 43,
+                                          "size": "147*147"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          210
+                                       ],
+                                       [
+                                          1080,
+                                          1794
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 10,
+                                    "temp_id": 11,
+                                    "size": "1080*1584"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    210
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 10,
+                              "size": "1080*1584"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              63
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": "livio.rssreader:id/decor_content_parent",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.view.ViewGroup",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1731"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        63
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1731"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         },
+         {
+            "package": "livio.rssreader",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 44,
+            "size": "1080*63"
+         },
+         {
+            "package": "livio.rssreader",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 45,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

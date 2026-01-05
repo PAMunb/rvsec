@@ -126,6 +126,20 @@ class GreedyStrategy(ExplorationStrategy):
         logger.info(f"  Executed: {len(node.executed_actions)}")
         logger.info(f"  Untested: {len(untested_actions)}")
 
+        # Try to generate SET_TEXT action for EditText fields (20% probability)
+        # This provides algorithmic text input capability for form exploration
+        text_action = self._try_generate_text_input(screen_desc, node, probability=0.2)
+        if text_action:
+            # Mark action as executed before execution
+            action_signature = self._convert_signature_to_optimized(text_action.coords_for_matching)
+            logger.info(f"Greedy SELECT (TEXT): SET_TEXT action")
+            logger.info(f"  Signature: {action_signature}")
+            logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
+
+            self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+
+            return text_action
+
         # If no untested actions, state is exhausted
         if not untested_actions:
             logger.info(f"Greedy: State {current_hash[:8]} exhausted")

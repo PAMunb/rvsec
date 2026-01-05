@@ -1,0 +1,1045 @@
+{
+  "execution_summary": {
+    "start_time": "2025-09-12T14:06:12.179853",
+    "total_tests": 43,
+    "total_success": 31,
+    "success_rate": 72.09302325581395,
+    "avg_response_time": 2.33224117478659,
+    "avg_success_distance": 0.7530720987050807,
+    "total_execution_time_minutes": 1.6714395085970561
+  },
+  "detailed_results": [
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        615,
+        1116
+      ],
+      "available_elements": 1,
+      "success": false,
+      "distance": 279.45840477609545,
+      "closest_element": [
+        894,
+        1100
+      ],
+      "response_time": 2.260571002960205,
+      "reasoning": "The 'OK' button is the primary action button in the dialog, which is typically used to dismiss the message and return to the previous screen.",
+      "selected_element": "OK button",
+      "timestamp": "2025-09-12T14:04:28.944227"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        540,
+        269
+      ],
+      "available_elements": 5,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        269
+      ],
+      "response_time": 2.2873854637145996,
+      "reasoning": "The 'Input' field is the most likely interactive element for entering data, as it is positioned at the top of the screen and is the first step in the process of generating a hash.",
+      "selected_element": "Input",
+      "timestamp": "2025-09-12T14:04:31.232481"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        856,
+        391
+      ],
+      "available_elements": 4,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        856,
+        391
+      ],
+      "response_time": 2.219243288040161,
+      "reasoning": "The 'MD5' option is the first in the dropdown menu and is the most suitable for testing as it is the first option in the list.",
+      "selected_element": "MD5",
+      "timestamp": "2025-09-12T14:04:33.453069"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        540,
+        960
+      ],
+      "available_elements": 8,
+      "success": false,
+      "distance": 687.4190861475989,
+      "closest_element": [
+        564,
+        273
+      ],
+      "response_time": 2.298037528991699,
+      "reasoning": "Primary action button",
+      "selected_element": "OK button",
+      "timestamp": "2025-09-12T14:04:35.755356"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        540,
+        960
+      ],
+      "available_elements": 9,
+      "success": false,
+      "distance": 687.4190861475989,
+      "closest_element": [
+        564,
+        273
+      ],
+      "response_time": 2.4609129428863525,
+      "reasoning": "The 'POWER' TextView is the most prominent and likely the primary action button in the 'POWER' tab, which is currently selected.",
+      "selected_element": "POWER TextView",
+      "timestamp": "2025-09-12T14:04:38.220548"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        118,
+        337
+      ],
+      "available_elements": 9,
+      "success": false,
+      "distance": 78.2368199762746,
+      "closest_element": [
+        163,
+        273
+      ],
+      "response_time": 2.3378114700317383,
+      "reasoning": "The ENERGY TextView is the most prominent and relevant element in the screenshot, indicating the current focus of the application.",
+      "selected_element": "ENERGY TextView",
+      "timestamp": "2025-09-12T14:04:40.572209"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        588,
+        390
+      ],
+      "available_elements": 1,
+      "success": false,
+      "distance": 303.66099519036027,
+      "closest_element": [
+        859,
+        527
+      ],
+      "response_time": 2.2888026237487793,
+      "reasoning": "The 'Got it' button is the most suitable element for testing as it is the primary action button in the screenshot, indicating the user has understood the instructions.",
+      "selected_element": "Got it button",
+      "timestamp": "2025-09-12T14:04:42.861591"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        540,
+        873
+      ],
+      "available_elements": 3,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        873
+      ],
+      "response_time": 2.152465581893921,
+      "reasoning": "The user needs to type a domain, making the Domain EditText the most suitable element for testing.",
+      "selected_element": "Domain EditText",
+      "timestamp": "2025-09-12T14:04:45.014795"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        540,
+        873
+      ],
+      "available_elements": 3,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        873
+      ],
+      "response_time": 2.1734158992767334,
+      "reasoning": "The Domain EditText is the most suitable element for testing as it is the primary input field for entering a domain name.",
+      "selected_element": "Domain EditText",
+      "timestamp": "2025-09-12T14:04:47.189621"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        964,
+        1678
+      ],
+      "available_elements": 6,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        964,
+        1678
+      ],
+      "response_time": 2.3157479763031006,
+      "reasoning": "The red plus button is typically used to add new items or actions in UIs, making it the most suitable interactive element for testing in this context.",
+      "selected_element": "id:fab ImageButton",
+      "timestamp": "2025-09-12T14:04:49.506557"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        985,
+        296
+      ],
+      "available_elements": 20,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        985,
+        296
+      ],
+      "response_time": 2.3965134620666504,
+      "reasoning": "The element is the toggle switch for enabling or disabling the reminder, which is a critical interactive element in this screenshot.",
+      "selected_element": "id:alarm_enable Switch",
+      "timestamp": "2025-09-12T14:04:51.920998"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        964,
+        1678
+      ],
+      "available_elements": 20,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        964,
+        1678
+      ],
+      "response_time": 2.552222728729248,
+      "reasoning": "The 'id:fab ImageButton' is the most suitable element for testing as it is the primary action button typically used to add new items or perform additional actions in Android applications.",
+      "selected_element": "id:fab ImageButton",
+      "timestamp": "2025-09-12T14:04:54.489943"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        341,
+        136
+      ],
+      "available_elements": 23,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        341,
+        136
+      ],
+      "response_time": 2.5229785442352295,
+      "reasoning": "The 'Options' button is the most prominent interactive element in the screenshot and is likely the primary action button for accessing additional settings or options related to the displayed information.",
+      "selected_element": "Options id:options Button",
+      "timestamp": "2025-09-12T14:04:59.502856"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 40
+      },
+      "generated_coords": [
+        367,
+        1578
+      ],
+      "available_elements": 31,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        367,
+        1578
+      ],
+      "response_time": 2.669935703277588,
+      "reasoning": "The element 'Synthetic topology' is the last item in the list and is likely the most recent or relevant option for testing based on the order of elements.",
+      "selected_element": "id:activity_main_drawer_Synthetic_Topology LinearLayoutCompat",
+      "timestamp": "2025-09-12T14:05:02.187523"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        615,
+        1100
+      ],
+      "available_elements": 1,
+      "success": false,
+      "distance": 279.0,
+      "closest_element": [
+        894,
+        1100
+      ],
+      "response_time": 2.236912965774536,
+      "reasoning": "The 'OK' button is the primary action button in the dialog, which is typically used to dismiss the message and return to the previous screen.",
+      "selected_element": "OK button",
+      "timestamp": "2025-09-12T14:05:04.441293"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        540,
+        269
+      ],
+      "available_elements": 5,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        269
+      ],
+      "response_time": 2.216341972351074,
+      "reasoning": "The 'Input' field is the most likely interactive element for user input, which is typically the first step in a hash generation process.",
+      "selected_element": "Input",
+      "timestamp": "2025-09-12T14:05:06.658496"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        856,
+        391
+      ],
+      "available_elements": 4,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        856,
+        391
+      ],
+      "response_time": 2.246001720428467,
+      "reasoning": "The 'MD5' option is the first in the dropdown menu and is the most likely to be the default or primary option for testing.",
+      "selected_element": "MD5",
+      "timestamp": "2025-09-12T14:05:08.905264"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        540,
+        960
+      ],
+      "available_elements": 8,
+      "success": false,
+      "distance": 687.4190861475989,
+      "closest_element": [
+        564,
+        273
+      ],
+      "response_time": 2.0738627910614014,
+      "reasoning": "Primary action button",
+      "selected_element": "OK button",
+      "timestamp": "2025-09-12T14:05:10.981483"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        540,
+        960
+      ],
+      "available_elements": 9,
+      "success": false,
+      "distance": 687.4190861475989,
+      "closest_element": [
+        564,
+        273
+      ],
+      "response_time": 2.4050450325012207,
+      "reasoning": "The 'POWER' TextView is the most prominent and likely the primary action button in the 'POWER' tab, which is currently selected.",
+      "selected_element": "POWER TextView",
+      "timestamp": "2025-09-12T14:05:13.389780"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        163,
+        273
+      ],
+      "available_elements": 9,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        163,
+        273
+      ],
+      "response_time": 2.385503053665161,
+      "reasoning": "The ENERGY TextView is the most prominent and relevant element in the screenshot, indicating the current focus of the application.",
+      "selected_element": "ENERGY TextView",
+      "timestamp": "2025-09-12T14:05:15.778427"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        588,
+        392
+      ],
+      "available_elements": 1,
+      "success": false,
+      "distance": 302.7639344439823,
+      "closest_element": [
+        859,
+        527
+      ],
+      "response_time": 2.3328187465667725,
+      "reasoning": "The 'Got it' button is the most suitable element for testing as it is the primary action button in the screenshot, indicating that the user has understood the instructions.",
+      "selected_element": "Got it button",
+      "timestamp": "2025-09-12T14:05:18.112106"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        540,
+        873
+      ],
+      "available_elements": 3,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        873
+      ],
+      "response_time": 2.1500070095062256,
+      "reasoning": "The user needs to type a domain name, making the Domain EditText the most suitable element for testing.",
+      "selected_element": "Domain EditText",
+      "timestamp": "2025-09-12T14:05:20.262958"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        540,
+        873
+      ],
+      "available_elements": 3,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        873
+      ],
+      "response_time": 2.2503788471221924,
+      "reasoning": "The Domain EditText is the most suitable element for testing as it is the primary input field for entering a domain name, which is the main action required in this screenshot.",
+      "selected_element": "Domain EditText",
+      "timestamp": "2025-09-12T14:05:22.514207"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        964,
+        1678
+      ],
+      "available_elements": 6,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        964,
+        1678
+      ],
+      "response_time": 2.371358871459961,
+      "reasoning": "The red plus button is typically used to add new items or actions in UIs, making it the most suitable interactive element for testing in this context.",
+      "selected_element": "id:fab ImageButton",
+      "timestamp": "2025-09-12T14:05:24.886860"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        985,
+        296
+      ],
+      "available_elements": 20,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        985,
+        296
+      ],
+      "response_time": 2.430424213409424,
+      "reasoning": "The element is the toggle switch for enabling or disabling the hourly reminders, which is a key interactive element in this screenshot.",
+      "selected_element": "id:alarm_enable Switch",
+      "timestamp": "2025-09-12T14:05:27.318860"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        985,
+        296
+      ],
+      "available_elements": 20,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        985,
+        296
+      ],
+      "response_time": 2.387012243270874,
+      "reasoning": "The element is the toggle switch for enabling or disabling the hourly reminders, which is a key interactive element in this screenshot.",
+      "selected_element": "id:alarm_enable Switch",
+      "timestamp": "2025-09-12T14:05:29.707496"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        341,
+        136
+      ],
+      "available_elements": 23,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        341,
+        136
+      ],
+      "response_time": 2.4788942337036133,
+      "reasoning": "The 'Options' button is the most prominent interactive element in the screenshot and is likely the primary action button for accessing additional settings or options related to the displayed information.",
+      "selected_element": "Options id:options Button",
+      "timestamp": "2025-09-12T14:05:32.188035"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        341,
+        136
+      ],
+      "available_elements": 23,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        341,
+        136
+      ],
+      "response_time": 2.521671772003174,
+      "reasoning": "The 'Options' button is the most prominent interactive element in the screenshot and is likely the primary action button for accessing additional settings or options.",
+      "selected_element": "Options id:options Button",
+      "timestamp": "2025-09-12T14:05:34.711323"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.05,
+        "top_p": 0.8,
+        "top_k": 30
+      },
+      "generated_coords": [
+        367,
+        1578
+      ],
+      "available_elements": 31,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        367,
+        1578
+      ],
+      "response_time": 2.6872494220733643,
+      "reasoning": "The element 'Synthetic topology' is the last item in the list and is likely the most recent or relevant option for testing based on the order of elements.",
+      "selected_element": "id:activity_main_drawer_Synthetic_Topology LinearLayoutCompat",
+      "timestamp": "2025-09-12T14:05:37.400794"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        615,
+        1112
+      ],
+      "available_elements": 1,
+      "success": false,
+      "distance": 279.2579452764057,
+      "closest_element": [
+        894,
+        1100
+      ],
+      "response_time": 2.233487606048584,
+      "reasoning": "The 'OK' button is the primary action button in the dialog, which is typically used to acknowledge the message and close the dialog.",
+      "selected_element": "OK button",
+      "timestamp": "2025-09-12T14:05:39.663318"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        540,
+        269
+      ],
+      "available_elements": 5,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        269
+      ],
+      "response_time": 2.230743169784546,
+      "reasoning": "The 'Input' field is the most likely interactive element for entering data, which is a common first step in a hash generation process.",
+      "selected_element": "Input id:input EditText",
+      "timestamp": "2025-09-12T14:05:41.895131"
+    },
+    {
+      "app": "byrne.utilities.hashpass_2.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        856,
+        391
+      ],
+      "available_elements": 4,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        856,
+        391
+      ],
+      "response_time": 2.217691421508789,
+      "reasoning": "The 'MD5' option is the first item in the dropdown menu and is the most likely to be the primary action for testing hash generation.",
+      "selected_element": "MD5",
+      "timestamp": "2025-09-12T14:05:44.113481"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        1017,
+        136
+      ],
+      "available_elements": 8,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        1017,
+        136
+      ],
+      "response_time": 2.391197443008423,
+      "reasoning": "The 'Add' button is the most interactive element on the screen and is positioned prominently for user interaction.",
+      "selected_element": "Add id:action_add TextView",
+      "timestamp": "2025-09-12T14:05:46.508654"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        540,
+        960
+      ],
+      "available_elements": 9,
+      "success": false,
+      "distance": 687.4190861475989,
+      "closest_element": [
+        564,
+        273
+      ],
+      "response_time": 2.178083896636963,
+      "reasoning": "Primary action button",
+      "selected_element": "OK button",
+      "timestamp": "2025-09-12T14:05:48.690162"
+    },
+    {
+      "app": "ca.farrelltonsolar.classic_314.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        163,
+        273
+      ],
+      "available_elements": 9,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        163,
+        273
+      ],
+      "response_time": 2.3192977905273438,
+      "reasoning": "The ENERGY TextView is the most prominent and likely the primary interactive element for energy-related actions.",
+      "selected_element": "ENERGY TextView",
+      "timestamp": "2025-09-12T14:05:51.012228"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        588,
+        390
+      ],
+      "available_elements": 1,
+      "success": false,
+      "distance": 303.66099519036027,
+      "closest_element": [
+        859,
+        527
+      ],
+      "response_time": 2.163813352584839,
+      "reasoning": "The 'Got it' button is the most suitable element for testing as it is prominently displayed and likely serves as a confirmation or acknowledgment action.",
+      "selected_element": "Got it button",
+      "timestamp": "2025-09-12T14:05:53.176701"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        540,
+        873
+      ],
+      "available_elements": 3,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        873
+      ],
+      "response_time": 2.10516095161438,
+      "reasoning": "The user needs to input a domain, making the Domain EditText the most suitable element for testing.",
+      "selected_element": "Domain EditText",
+      "timestamp": "2025-09-12T14:05:55.282774"
+    },
+    {
+      "app": "com.gianlu.dnshero_40.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        540,
+        873
+      ],
+      "available_elements": 3,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        540,
+        873
+      ],
+      "response_time": 2.26426100730896,
+      "reasoning": "The Domain EditText is the most suitable element for testing as it is the primary input field for entering a domain name, which is the main action required in this screenshot.",
+      "selected_element": "Domain EditText",
+      "timestamp": "2025-09-12T14:05:57.548068"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "001.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        964,
+        1678
+      ],
+      "available_elements": 6,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        964,
+        1678
+      ],
+      "response_time": 2.281770944595337,
+      "reasoning": "The red circular button with a plus sign is typically used to add new items or actions in Android UIs, making it the most suitable element for testing in this context.",
+      "selected_element": "id:fab ImageButton",
+      "timestamp": "2025-09-12T14:05:59.831044"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        985,
+        296
+      ],
+      "available_elements": 20,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        985,
+        296
+      ],
+      "response_time": 2.389806032180786,
+      "reasoning": "The element at this position is a switch that controls the enable/disable state of the reminder, which is a key interactive element in this screenshot.",
+      "selected_element": "id:alarm_enable Switch",
+      "timestamp": "2025-09-12T14:06:02.222466"
+    },
+    {
+      "app": "com.github.axet.hourlyreminder_476.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        985,
+        296
+      ],
+      "available_elements": 20,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        985,
+        296
+      ],
+      "response_time": 2.3535208702087402,
+      "reasoning": "The element is the most relevant for enabling or disabling the hourly reminders, which is the primary action in this screenshot.",
+      "selected_element": "id:alarm_enable Switch",
+      "timestamp": "2025-09-12T14:06:04.577614"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "002.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        540,
+        960
+      ],
+      "available_elements": 23,
+      "success": true,
+      "distance": 23.345235059857504,
+      "closest_element": [
+        557,
+        976
+      ],
+      "response_time": 2.5054004192352295,
+      "reasoning": "This element is the most prominent and likely the main interactive element in the screenshot, given its size and position.",
+      "selected_element": "LinearLayout at position (540, 933)",
+      "timestamp": "2025-09-12T14:06:09.634680"
+    },
+    {
+      "app": "com.hwloc.lstopo_271.apk",
+      "screenshot": "003.png",
+      "parameters": {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 50
+      },
+      "generated_coords": [
+        367,
+        1578
+      ],
+      "available_elements": 31,
+      "success": true,
+      "distance": 0.0,
+      "closest_element": [
+        367,
+        1578
+      ],
+      "response_time": 2.5426084995269775,
+      "reasoning": "The element 'Synthetic topology' is the last item in the list and is likely the intended target for further interaction.",
+      "selected_element": "id:activity_main_drawer_Synthetic_Topology LinearLayoutCompat",
+      "timestamp": "2025-09-12T14:06:12.179495"
+    }
+  ]
+}

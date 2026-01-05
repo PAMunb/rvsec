@@ -1,0 +1,26 @@
+{
+  "test_date": "2025-11-13T14:32:25.776843",
+  "app_package": "br.unb.cic.cryptoapp",
+  "duration_s": 180,
+  "primary_counters": {
+    "llm_executed": 15,
+    "algorithm_chosen": 7,
+    "llm_percentage": 68.18181818181817,
+    "algorithm_percentage": 31.818181818181827
+  },
+  "auxiliary_counters": {
+    "llm_fallback": 2,
+    "forced_back": 1,
+    "recovery_actions": 0
+  },
+  "totals": {
+    "total_actions": 25,
+    "primary_total": 22,
+    "auxiliary_total": 3
+  },
+  "validation": {
+    "llm_percentage_ok": true,
+    "sum_correct": true,
+    "status": "PASS"
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "app_name": "com.aidinhut.simpletextcrypt_14.apk",
+  "execution_time_s": 44.151994705200195,
+  "total_iterations": 15,
+  "actions": {
+    "by_type": {
+      "CLICK": 15
+    },
+    "valid": 14,
+    "invalid": 1,
+    "valid_rate": 0.9333333333333333
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ScrollView",
+      "Button",
+      "LinearLayoutCompat",
+      "View",
+      "ImageView",
+      "ListView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "EditText",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 15,
+      "FrameLayout": 58,
+      "LinearLayout": 49,
+      "ViewGroup": 22,
+      "TextView": 30,
+      "RelativeLayout": 16,
+      "EditText": 15,
+      "Button": 40,
+      "View": 25,
+      "ScrollView": 12,
+      "LinearLayoutCompat": 6,
+      "ImageView": 6,
+      "ListView": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "def0ec2b5bfb": 4,
+      "1efb7fdf0288": 3,
+      "d2868fad1220": 5,
+      "e157a1af1a35": 1,
+      "ed918ca363bc": 2
+    },
+    "activities": [
+      "com.aidinhut.simpletextcrypt/.MainActivity",
+      "com.aidinhut.simpletextcrypt/.SettingsActivity",
+      "com.aidinhut.simpletextcrypt/.LockActivity"
+    ],
+    "revisit_rate": 0.6666666666666666
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 93483,
+    "input_tokens": 92693,
+    "output_tokens": 790,
+    "avg_tokens_per_iteration": 6232.2,
+    "max_message_count": 1,
+    "total_time_ms": 42321.05112075806,
+    "avg_time_per_iteration_ms": 2821.403408050537
+  },
+  "device_actions": {
+    "total_actions": 12,
+    "valid_actions": 11,
+    "invalid_actions": 1,
+    "valid_rate": 0.9166666666666666,
+    "action_types": {
+      "CLICK": 12
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[UNLOCK] @ ((424, 475), (655, 601))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[UNLOCK] @ ((424, 475), (655, 601))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 998), (978, 1124))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[\u2022\u2022\u2022\u2022] @ ((42, 318), (1038, 436))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ENCRYPT] @ ((55, 1461), (286, 1587))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[COPY] @ ((55, 1613), (286, 1739))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 998), (978, 1124))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[1111] @ ((42, 480), (1038, 598))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[SAVE] @ ((42, 833), (273, 959))"
+      },
+      {
+        "step": 11,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[UNLOCK] @ ((424, 475), (655, 601))"
+      },
+      {
+        "step": 12,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ENCRYPT] @ ((55, 1461), (286, 1587))"
+      }
+    ]
+  }
+}

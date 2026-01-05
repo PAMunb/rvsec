@@ -1,0 +1,566 @@
+{
+   "activity": "org.pulpdust.lesserpad/.LesserPadPrefs",
+   "stack": [
+      "org.pulpdust.lesserpad/.LesserPadPrefs",
+      "org.pulpdust.lesserpad/.LesserPadActivity",
+      "org.pulpdust.lesserpad/.LesserPadListActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "org.pulpdust.lesserpad",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "org.pulpdust.lesserpad",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "org.pulpdust.lesserpad",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "org.pulpdust.lesserpad",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 3,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "org.pulpdust.lesserpad",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 2,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.pulpdust.lesserpad",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.pulpdust.lesserpad",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                133,
+                                                643
+                                             ],
+                                             [
+                                                947,
+                                                714
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/alertTitle",
+                                          "checked": false,
+                                          "text": "Cursor Positioning",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "814*71"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          596
+                                       ],
+                                       [
+                                          1010,
+                                          714
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/title_template",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "940*118"
+                                 },
+                                 {
+                                    "package": "org.pulpdust.lesserpad",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 0,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          714
+                                       ],
+                                       [
+                                          1010,
+                                          735
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/titleDividerNoCustom",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.view.View",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 7,
+                                    "size": "940*21"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    596
+                                 ],
+                                 [
+                                    1010,
+                                    735
+                                 ]
+                              ],
+                              "resource_id": "android:id/topPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "940*139"
+                           },
+                           {
+                              "package": "org.pulpdust.lesserpad",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.pulpdust.lesserpad",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": true,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.pulpdust.lesserpad",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                735
+                                             ],
+                                             [
+                                                1010,
+                                                861
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/text1",
+                                          "checked": false,
+                                          "text": "Do nothing",
+                                          "class": "android.widget.CheckedTextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 9,
+                                          "temp_id": 10,
+                                          "size": "940*126"
+                                       },
+                                       {
+                                          "package": "org.pulpdust.lesserpad",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                861
+                                             ],
+                                             [
+                                                1010,
+                                                987
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/text1",
+                                          "checked": true,
+                                          "text": "Head",
+                                          "class": "android.widget.CheckedTextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 9,
+                                          "temp_id": 11,
+                                          "size": "940*126"
+                                       },
+                                       {
+                                          "package": "org.pulpdust.lesserpad",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                987
+                                             ],
+                                             [
+                                                1010,
+                                                1113
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/text1",
+                                          "checked": false,
+                                          "text": "End",
+                                          "class": "android.widget.CheckedTextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 9,
+                                          "temp_id": 12,
+                                          "size": "940*126"
+                                       }
+                                    ],
+                                    "focused": true,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          735
+                                       ],
+                                       [
+                                          1010,
+                                          1113
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/select_dialog_listview",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.ListView",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 8,
+                                    "temp_id": 9,
+                                    "size": "940*378"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    735
+                                 ],
+                                 [
+                                    1010,
+                                    1113
+                                 ]
+                              ],
+                              "resource_id": "android:id/contentPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 8,
+                              "size": "940*378"
+                           },
+                           {
+                              "package": "org.pulpdust.lesserpad",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": true,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.pulpdust.lesserpad",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.pulpdust.lesserpad",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                804,
+                                                1124
+                                             ],
+                                             [
+                                                978,
+                                                1250
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/button2",
+                                          "checked": false,
+                                          "text": "Cancel",
+                                          "class": "android.widget.Button",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 14,
+                                          "temp_id": 15,
+                                          "size": "174*126"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          1113
+                                       ],
+                                       [
+                                          1010,
+                                          1261
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 13,
+                                    "temp_id": 14,
+                                    "size": "940*148"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    1113
+                                 ],
+                                 [
+                                    1010,
+                                    1261
+                                 ]
+                              ],
+                              "resource_id": "android:id/buttonPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.ScrollView",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 13,
+                              "size": "940*148"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              70,
+                              596
+                           ],
+                           [
+                              1010,
+                              1261
+                           ]
+                        ],
+                        "resource_id": "android:id/parentPanel",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "940*665"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        70,
+                        596
+                     ],
+                     [
+                        1010,
+                        1261
+                     ]
+                  ],
+                  "resource_id": "android:id/content",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "940*665"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  70,
+                  596
+               ],
+               [
+                  1010,
+                  1261
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "940*665"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            28,
+            554
+         ],
+         [
+            1052,
+            1303
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1024*749"
+   }
+}

@@ -1,0 +1,139 @@
+{
+  "app_name": "com.hwloc.lstopo_271.apk",
+  "execution_time_s": 24.52647089958191,
+  "total_iterations": 9,
+  "actions": {
+    "by_type": {
+      "CLICK": 9
+    },
+    "valid": 7,
+    "invalid": 2,
+    "valid_rate": 0.7777777777777778
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ScrollView",
+      "Button",
+      "CheckedTextView",
+      "ImageButton",
+      "View",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "RecyclerView",
+      "CheckBox",
+      "DrawerLayout",
+      "HorizontalScrollView",
+      "RadioGroup",
+      "RadioButton",
+      "LinearLayoutCompat",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 9,
+      "FrameLayout": 29,
+      "LinearLayout": 82,
+      "DrawerLayout": 5,
+      "ViewGroup": 5,
+      "ImageButton": 5,
+      "Button": 9,
+      "LinearLayoutCompat": 21,
+      "TextView": 96,
+      "View": 19,
+      "RelativeLayout": 39,
+      "HorizontalScrollView": 5,
+      "RecyclerView": 2,
+      "CheckedTextView": 16,
+      "ScrollView": 6,
+      "CheckBox": 8,
+      "RadioGroup": 16,
+      "RadioButton": 24
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "b7446df03013": 2,
+      "ed0b0076fe9c": 1,
+      "8060dd0535d7": 2,
+      "6d34804f6c1a": 3,
+      "8a286ffde012": 1
+    },
+    "activities": [
+      "com.hwloc.lstopo/.MainActivity",
+      "com.hwloc.lstopo/.Options"
+    ],
+    "revisit_rate": 0.4444444444444444
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 2
+  },
+  "llm": {
+    "total_tokens": 58200,
+    "input_tokens": 57630,
+    "output_tokens": 570,
+    "avg_tokens_per_iteration": 6466.666666666667,
+    "max_message_count": 1,
+    "total_time_ms": 23222.867012023926,
+    "avg_time_per_iteration_ms": 2580.3185568915474
+  },
+  "device_actions": {
+    "total_actions": 6,
+    "valid_actions": 5,
+    "invalid_actions": 1,
+    "valid_rate": 0.8333333333333334,
+    "action_types": {
+      "CLICK": 6
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Open navigation drawer] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Open navigation drawer] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckedTextView[Local XML] @ ((42, 1389), (693, 1515))",
+        "element": "android.widget.CheckedTextView[Local XML] @ ((42, 1389), (693, 1515))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Open navigation drawer] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[No factorize] @ ((121, 564), (436, 669))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.RadioButton[Default] @ ((121, 957), (323, 1062))"
+      }
+    ]
+  }
+}

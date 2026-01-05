@@ -1,0 +1,126 @@
+{
+  "session": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "explore_cryptoapp_systematically",
+    "duration": 33.21054983139038,
+    "iterations": 12,
+    "success_count": 8,
+    "error_count": 0,
+    "success_rate": 0.6666666666666666
+  },
+  "react_engine": {
+    "iteration_count": 12,
+    "current_objective": "explore_cryptoapp_systematically",
+    "short_term_memory": {
+      "iteration_count": 10,
+      "current_activity": "unknown",
+      "total_actions_generated": 10,
+      "total_execution_results": 10,
+      "average_success_rate": 0.7,
+      "memory_utilization": "10/10",
+      "latest_iteration": {
+        "timestamp": "2025-09-15T10:45:24.720744",
+        "action_count": 1,
+        "success_rate": 0.0
+      }
+    },
+    "long_term_memory": {
+      "total_states": 2,
+      "total_activities": 1,
+      "total_action_types": 0,
+      "total_actions_executed": 0,
+      "total_successful_actions": 0,
+      "overall_success_rate": 0.0,
+      "total_transitions": 0,
+      "most_visited_states": [
+        {
+          "state_hash": "636d300c99b6",
+          "activity": "unknown",
+          "visit_count": 10,
+          "elements_count": 8
+        },
+        {
+          "state_hash": "de3a8153d9d4",
+          "activity": "unknown",
+          "visit_count": 2,
+          "elements_count": 8
+        }
+      ]
+    },
+    "ui_coverage": {
+      "total_unique_elements": 1,
+      "total_interactions": 12,
+      "average_interactions_per_element": 12.0,
+      "action_distribution": {
+        "click": 12
+      },
+      "recent_discoveries": 1,
+      "total_screens": 0,
+      "most_tested_elements": [
+        [
+          "desc:\"More options\" ImageView at position (1027, 136)",
+          12
+        ]
+      ],
+      "least_tested_elements": [],
+      "discovery_timeline_length": 1
+    }
+  },
+  "short_term_memory": {
+    "iteration_count": 10,
+    "current_activity": "unknown",
+    "total_actions_generated": 10,
+    "total_execution_results": 10,
+    "average_success_rate": 0.7,
+    "memory_utilization": "10/10",
+    "latest_iteration": {
+      "timestamp": "2025-09-15T10:45:24.720744",
+      "action_count": 1,
+      "success_rate": 0.0
+    }
+  },
+  "long_term_memory": {
+    "total_states": 2,
+    "total_activities": 1,
+    "total_action_types": 0,
+    "total_actions_executed": 0,
+    "total_successful_actions": 0,
+    "overall_success_rate": 0.0,
+    "total_transitions": 0,
+    "most_visited_states": [
+      {
+        "state_hash": "636d300c99b6",
+        "activity": "unknown",
+        "visit_count": 10,
+        "elements_count": 8
+      },
+      {
+        "state_hash": "de3a8153d9d4",
+        "activity": "unknown",
+        "visit_count": 2,
+        "elements_count": 8
+      }
+    ]
+  },
+  "ui_coverage": {
+    "total_unique_elements": 1,
+    "total_interactions": 12,
+    "average_interactions_per_element": 12.0,
+    "action_distribution": {
+      "click": 12
+    },
+    "recent_discoveries": 1,
+    "total_screens": 0,
+    "most_tested_elements": [
+      [
+        "desc:\"More options\" ImageView at position (1027, 136)",
+        12
+      ]
+    ],
+    "least_tested_elements": [],
+    "discovery_timeline_length": 1
+  },
+  "total_unique_elements_tested": 1,
+  "total_interactions": 12,
+  "coverage_efficiency": 0.08333333333333333
+}

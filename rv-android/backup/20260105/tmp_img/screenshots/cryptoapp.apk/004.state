@@ -1,0 +1,558 @@
+{
+   "activity": "br.unb.cic.cryptoapp/.messagedigest.MessageDigestActivity",
+   "stack": [
+      "br.unb.cic.cryptoapp/.messagedigest.MessageDigestActivity",
+      "br.unb.cic.cryptoapp/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "br.unb.cic.cryptoapp",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "br.unb.cic.cryptoapp",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "br.unb.cic.cryptoapp",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 13,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": true,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              156
+                           ],
+                           [
+                              954,
+                              282
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "Select",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              282
+                           ],
+                           [
+                              954,
+                              408
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "MD2",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 4,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              408
+                           ],
+                           [
+                              954,
+                              534
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "MD5",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 5,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              534
+                           ],
+                           [
+                              954,
+                              660
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA-1",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 6,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              660
+                           ],
+                           [
+                              954,
+                              786
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA-224",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 7,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              786
+                           ],
+                           [
+                              954,
+                              912
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA-256",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 8,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              912
+                           ],
+                           [
+                              954,
+                              1038
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA-384",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 9,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              1038
+                           ],
+                           [
+                              954,
+                              1164
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA-512/224",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 10,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              1164
+                           ],
+                           [
+                              954,
+                              1290
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA-512/256",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 11,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              1290
+                           ],
+                           [
+                              954,
+                              1416
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA3-224",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 12,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              1416
+                           ],
+                           [
+                              954,
+                              1542
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA3-256",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 13,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              1542
+                           ],
+                           [
+                              954,
+                              1668
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA3-384",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 14,
+                        "size": "954*126"
+                     },
+                     {
+                        "package": "br.unb.cic.cryptoapp",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              1668
+                           ],
+                           [
+                              954,
+                              1794
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "SHA3-512",
+                        "class": "android.widget.TextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 15,
+                        "size": "954*126"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        156
+                     ],
+                     [
+                        954,
+                        1794
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.ListView",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "954*1638"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  156
+               ],
+               [
+                  954,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "954*1638"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            156
+         ],
+         [
+            954,
+            1794
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "954*1638"
+   }
+}

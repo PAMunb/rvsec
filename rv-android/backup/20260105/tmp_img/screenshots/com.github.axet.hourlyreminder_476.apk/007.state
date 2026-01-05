@@ -1,0 +1,1604 @@
+{
+   "activity": "com.android.documentsui/.picker.PickActivity",
+   "stack": [
+      "com.android.documentsui/.picker.PickActivity",
+      "com.github.axet.hourlyreminder/.activities.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.android.documentsui",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.android.documentsui",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.android.documentsui",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.android.documentsui",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.android.documentsui",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "com.android.documentsui",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.android.documentsui",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "com.android.documentsui",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "com.android.documentsui",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "com.android.documentsui",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "com.android.documentsui",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        63
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        231
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "com.android.documentsui:id/toolbar_background_layout",
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.view.View",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 9,
+                                                                  "temp_id": 10,
+                                                                  "size": "1080*168"
+                                                               },
+                                                               {
+                                                                  "package": "com.android.documentsui",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 3,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.android.documentsui",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": true,
+                                                                        "is_password": false,
+                                                                        "focusable": true,
+                                                                        "enabled": true,
+                                                                        "content_description": "Show roots",
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              21,
+                                                                              84
+                                                                           ],
+                                                                           [
+                                                                              168,
+                                                                              210
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageButton",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 11,
+                                                                        "temp_id": 12,
+                                                                        "size": "147*126"
+                                                                     },
+                                                                     {
+                                                                        "package": "com.android.documentsui",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              210,
+                                                                              111
+                                                                           ],
+                                                                           [
+                                                                              374,
+                                                                              182
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": "Recent",
+                                                                        "class": "android.widget.TextView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 11,
+                                                                        "temp_id": 13,
+                                                                        "size": "164*71"
+                                                                     },
+                                                                     {
+                                                                        "package": "com.android.documentsui",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.android.documentsui",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": true,
+                                                                              "is_password": false,
+                                                                              "focusable": true,
+                                                                              "enabled": true,
+                                                                              "content_description": "Search",
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    806,
+                                                                                    84
+                                                                                 ],
+                                                                                 [
+                                                                                    933,
+                                                                                    210
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.android.documentsui:id/option_menu_search",
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 14,
+                                                                              "temp_id": 15,
+                                                                              "size": "127*126"
+                                                                           },
+                                                                           {
+                                                                              "package": "com.android.documentsui",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": true,
+                                                                              "is_password": false,
+                                                                              "focusable": true,
+                                                                              "enabled": true,
+                                                                              "content_description": "More options",
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    933,
+                                                                                    84
+                                                                                 ],
+                                                                                 [
+                                                                                    1059,
+                                                                                    210
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": null,
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.widget.ImageView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": true,
+                                                                              "parent": 14,
+                                                                              "temp_id": 16,
+                                                                              "size": "126*126"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              806,
+                                                                              84
+                                                                           ],
+                                                                           [
+                                                                              1059,
+                                                                              210
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 11,
+                                                                        "temp_id": 14,
+                                                                        "size": "253*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        21,
+                                                                        84
+                                                                     ],
+                                                                     [
+                                                                        1059,
+                                                                        210
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "com.android.documentsui:id/toolbar",
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.view.ViewGroup",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 9,
+                                                                  "temp_id": 11,
+                                                                  "size": "1038*126"
+                                                               },
+                                                               {
+                                                                  "package": "com.android.documentsui",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 2,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.android.documentsui",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": true,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.android.documentsui",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 4,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [
+                                                                                 {
+                                                                                    "package": "com.android.documentsui",
+                                                                                    "visible": true,
+                                                                                    "checkable": true,
+                                                                                    "child_count": 1,
+                                                                                    "editable": false,
+                                                                                    "clickable": true,
+                                                                                    "is_password": false,
+                                                                                    "focusable": true,
+                                                                                    "enabled": true,
+                                                                                    "content_description": null,
+                                                                                    "children": [
+                                                                                       {
+                                                                                          "package": "com.android.documentsui",
+                                                                                          "visible": false,
+                                                                                          "checkable": false,
+                                                                                          "child_count": 0,
+                                                                                          "editable": false,
+                                                                                          "clickable": false,
+                                                                                          "is_password": false,
+                                                                                          "focusable": true,
+                                                                                          "enabled": true,
+                                                                                          "content_description": "Remove Images",
+                                                                                          "children": [],
+                                                                                          "focused": false,
+                                                                                          "bounds": [
+                                                                                             [
+                                                                                                2147483647,
+                                                                                                2147483647
+                                                                                             ],
+                                                                                             [
+                                                                                                -2147483648,
+                                                                                                -2147483648
+                                                                                             ]
+                                                                                          ],
+                                                                                          "resource_id": null,
+                                                                                          "checked": false,
+                                                                                          "text": null,
+                                                                                          "class": "android.view.View",
+                                                                                          "scrollable": false,
+                                                                                          "selected": false,
+                                                                                          "long_clickable": false,
+                                                                                          "parent": 20,
+                                                                                          "temp_id": 21,
+                                                                                          "size": "-4294967295*-4294967295"
+                                                                                       }
+                                                                                    ],
+                                                                                    "focused": false,
+                                                                                    "bounds": [
+                                                                                       [
+                                                                                          21,
+                                                                                          231
+                                                                                       ],
+                                                                                       [
+                                                                                          277,
+                                                                                          357
+                                                                                       ]
+                                                                                    ],
+                                                                                    "resource_id": null,
+                                                                                    "checked": false,
+                                                                                    "text": "Images",
+                                                                                    "class": "com.google.android.material.chip.Chip",
+                                                                                    "scrollable": false,
+                                                                                    "selected": false,
+                                                                                    "long_clickable": false,
+                                                                                    "parent": 19,
+                                                                                    "temp_id": 20,
+                                                                                    "size": "256*126"
+                                                                                 },
+                                                                                 {
+                                                                                    "package": "com.android.documentsui",
+                                                                                    "visible": true,
+                                                                                    "checkable": true,
+                                                                                    "child_count": 1,
+                                                                                    "editable": false,
+                                                                                    "clickable": true,
+                                                                                    "is_password": false,
+                                                                                    "focusable": true,
+                                                                                    "enabled": true,
+                                                                                    "content_description": null,
+                                                                                    "children": [
+                                                                                       {
+                                                                                          "package": "com.android.documentsui",
+                                                                                          "visible": false,
+                                                                                          "checkable": false,
+                                                                                          "child_count": 0,
+                                                                                          "editable": false,
+                                                                                          "clickable": false,
+                                                                                          "is_password": false,
+                                                                                          "focusable": true,
+                                                                                          "enabled": true,
+                                                                                          "content_description": "Remove Audio",
+                                                                                          "children": [],
+                                                                                          "focused": false,
+                                                                                          "bounds": [
+                                                                                             [
+                                                                                                2147483647,
+                                                                                                2147483647
+                                                                                             ],
+                                                                                             [
+                                                                                                -2147483648,
+                                                                                                -2147483648
+                                                                                             ]
+                                                                                          ],
+                                                                                          "resource_id": null,
+                                                                                          "checked": false,
+                                                                                          "text": null,
+                                                                                          "class": "android.view.View",
+                                                                                          "scrollable": false,
+                                                                                          "selected": false,
+                                                                                          "long_clickable": false,
+                                                                                          "parent": 22,
+                                                                                          "temp_id": 23,
+                                                                                          "size": "-4294967295*-4294967295"
+                                                                                       }
+                                                                                    ],
+                                                                                    "focused": false,
+                                                                                    "bounds": [
+                                                                                       [
+                                                                                          298,
+                                                                                          231
+                                                                                       ],
+                                                                                       [
+                                                                                          529,
+                                                                                          357
+                                                                                       ]
+                                                                                    ],
+                                                                                    "resource_id": null,
+                                                                                    "checked": false,
+                                                                                    "text": "Audio",
+                                                                                    "class": "com.google.android.material.chip.Chip",
+                                                                                    "scrollable": false,
+                                                                                    "selected": false,
+                                                                                    "long_clickable": false,
+                                                                                    "parent": 19,
+                                                                                    "temp_id": 22,
+                                                                                    "size": "231*126"
+                                                                                 },
+                                                                                 {
+                                                                                    "package": "com.android.documentsui",
+                                                                                    "visible": true,
+                                                                                    "checkable": true,
+                                                                                    "child_count": 1,
+                                                                                    "editable": false,
+                                                                                    "clickable": true,
+                                                                                    "is_password": false,
+                                                                                    "focusable": true,
+                                                                                    "enabled": true,
+                                                                                    "content_description": null,
+                                                                                    "children": [
+                                                                                       {
+                                                                                          "package": "com.android.documentsui",
+                                                                                          "visible": false,
+                                                                                          "checkable": false,
+                                                                                          "child_count": 0,
+                                                                                          "editable": false,
+                                                                                          "clickable": false,
+                                                                                          "is_password": false,
+                                                                                          "focusable": true,
+                                                                                          "enabled": true,
+                                                                                          "content_description": "Remove Videos",
+                                                                                          "children": [],
+                                                                                          "focused": false,
+                                                                                          "bounds": [
+                                                                                             [
+                                                                                                2147483647,
+                                                                                                2147483647
+                                                                                             ],
+                                                                                             [
+                                                                                                -2147483648,
+                                                                                                -2147483648
+                                                                                             ]
+                                                                                          ],
+                                                                                          "resource_id": null,
+                                                                                          "checked": false,
+                                                                                          "text": null,
+                                                                                          "class": "android.view.View",
+                                                                                          "scrollable": false,
+                                                                                          "selected": false,
+                                                                                          "long_clickable": false,
+                                                                                          "parent": 24,
+                                                                                          "temp_id": 25,
+                                                                                          "size": "-4294967295*-4294967295"
+                                                                                       }
+                                                                                    ],
+                                                                                    "focused": false,
+                                                                                    "bounds": [
+                                                                                       [
+                                                                                          550,
+                                                                                          231
+                                                                                       ],
+                                                                                       [
+                                                                                          798,
+                                                                                          357
+                                                                                       ]
+                                                                                    ],
+                                                                                    "resource_id": null,
+                                                                                    "checked": false,
+                                                                                    "text": "Videos",
+                                                                                    "class": "com.google.android.material.chip.Chip",
+                                                                                    "scrollable": false,
+                                                                                    "selected": false,
+                                                                                    "long_clickable": false,
+                                                                                    "parent": 19,
+                                                                                    "temp_id": 24,
+                                                                                    "size": "248*126"
+                                                                                 },
+                                                                                 {
+                                                                                    "package": "com.android.documentsui",
+                                                                                    "visible": true,
+                                                                                    "checkable": true,
+                                                                                    "child_count": 1,
+                                                                                    "editable": false,
+                                                                                    "clickable": true,
+                                                                                    "is_password": false,
+                                                                                    "focusable": true,
+                                                                                    "enabled": true,
+                                                                                    "content_description": null,
+                                                                                    "children": [
+                                                                                       {
+                                                                                          "package": "com.android.documentsui",
+                                                                                          "visible": false,
+                                                                                          "checkable": false,
+                                                                                          "child_count": 0,
+                                                                                          "editable": false,
+                                                                                          "clickable": false,
+                                                                                          "is_password": false,
+                                                                                          "focusable": true,
+                                                                                          "enabled": true,
+                                                                                          "content_description": "Remove Documents",
+                                                                                          "children": [],
+                                                                                          "focused": false,
+                                                                                          "bounds": [
+                                                                                             [
+                                                                                                2147483647,
+                                                                                                2147483647
+                                                                                             ],
+                                                                                             [
+                                                                                                -2147483648,
+                                                                                                -2147483648
+                                                                                             ]
+                                                                                          ],
+                                                                                          "resource_id": null,
+                                                                                          "checked": false,
+                                                                                          "text": null,
+                                                                                          "class": "android.view.View",
+                                                                                          "scrollable": false,
+                                                                                          "selected": false,
+                                                                                          "long_clickable": false,
+                                                                                          "parent": 26,
+                                                                                          "temp_id": 27,
+                                                                                          "size": "-4294967295*-4294967295"
+                                                                                       }
+                                                                                    ],
+                                                                                    "focused": false,
+                                                                                    "bounds": [
+                                                                                       [
+                                                                                          819,
+                                                                                          231
+                                                                                       ],
+                                                                                       [
+                                                                                          1080,
+                                                                                          357
+                                                                                       ]
+                                                                                    ],
+                                                                                    "resource_id": null,
+                                                                                    "checked": false,
+                                                                                    "text": "Documents",
+                                                                                    "class": "com.google.android.material.chip.Chip",
+                                                                                    "scrollable": false,
+                                                                                    "selected": false,
+                                                                                    "long_clickable": false,
+                                                                                    "parent": 19,
+                                                                                    "temp_id": 26,
+                                                                                    "size": "261*126"
+                                                                                 }
+                                                                              ],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    0,
+                                                                                    231
+                                                                                 ],
+                                                                                 [
+                                                                                    1080,
+                                                                                    357
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.android.documentsui:id/search_chip_group",
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.widget.LinearLayout",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 18,
+                                                                              "temp_id": 19,
+                                                                              "size": "1080*126"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              0,
+                                                                              231
+                                                                           ],
+                                                                           [
+                                                                              1080,
+                                                                              357
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.HorizontalScrollView",
+                                                                        "scrollable": true,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 17,
+                                                                        "temp_id": 18,
+                                                                        "size": "1080*126"
+                                                                     },
+                                                                     {
+                                                                        "package": "com.android.documentsui",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.android.documentsui",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    63,
+                                                                                    357
+                                                                                 ],
+                                                                                 [
+                                                                                    890,
+                                                                                    515
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.android.documentsui:id/header_title",
+                                                                              "checked": false,
+                                                                              "text": "RECENT FILES ON PHONE",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 28,
+                                                                              "temp_id": 29,
+                                                                              "size": "827*158"
+                                                                           },
+                                                                           {
+                                                                              "package": "com.android.documentsui",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 1,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [
+                                                                                 {
+                                                                                    "package": "com.android.documentsui",
+                                                                                    "visible": true,
+                                                                                    "checkable": false,
+                                                                                    "child_count": 0,
+                                                                                    "editable": false,
+                                                                                    "clickable": true,
+                                                                                    "is_password": false,
+                                                                                    "focusable": true,
+                                                                                    "enabled": true,
+                                                                                    "content_description": "Grid view",
+                                                                                    "children": [],
+                                                                                    "focused": false,
+                                                                                    "bounds": [
+                                                                                       [
+                                                                                          890,
+                                                                                          373
+                                                                                       ],
+                                                                                       [
+                                                                                          1017,
+                                                                                          499
+                                                                                       ]
+                                                                                    ],
+                                                                                    "resource_id": "com.android.documentsui:id/sub_menu_grid",
+                                                                                    "checked": false,
+                                                                                    "text": null,
+                                                                                    "class": "android.widget.TextView",
+                                                                                    "scrollable": false,
+                                                                                    "selected": false,
+                                                                                    "long_clickable": false,
+                                                                                    "parent": 30,
+                                                                                    "temp_id": 31,
+                                                                                    "size": "127*126"
+                                                                                 }
+                                                                              ],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    890,
+                                                                                    373
+                                                                                 ],
+                                                                                 [
+                                                                                    1017,
+                                                                                    499
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.android.documentsui:id/sub_menu",
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 28,
+                                                                              "temp_id": 30,
+                                                                              "size": "127*126"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              63,
+                                                                              357
+                                                                           ],
+                                                                           [
+                                                                              1017,
+                                                                              515
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 17,
+                                                                        "temp_id": 28,
+                                                                        "size": "954*158"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        231
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        515
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 9,
+                                                                  "temp_id": 17,
+                                                                  "size": "1080*284"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  63
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  515
+                                                               ]
+                                                            ],
+                                                            "resource_id": "com.android.documentsui:id/collapsing_toolbar",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.FrameLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 8,
+                                                            "temp_id": 9,
+                                                            "size": "1080*452"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            63
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            515
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.android.documentsui:id/app_bar",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 8,
+                                                      "size": "1080*452"
+                                                   },
+                                                   {
+                                                      "package": "com.android.documentsui",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 2,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "com.android.documentsui",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 1,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "com.android.documentsui",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "com.android.documentsui",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "com.android.documentsui",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 1,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [
+                                                                                 {
+                                                                                    "package": "com.android.documentsui",
+                                                                                    "visible": true,
+                                                                                    "checkable": false,
+                                                                                    "child_count": 1,
+                                                                                    "editable": false,
+                                                                                    "clickable": false,
+                                                                                    "is_password": false,
+                                                                                    "focusable": true,
+                                                                                    "enabled": true,
+                                                                                    "content_description": null,
+                                                                                    "children": [
+                                                                                       {
+                                                                                          "package": "com.android.documentsui",
+                                                                                          "visible": true,
+                                                                                          "checkable": false,
+                                                                                          "child_count": 1,
+                                                                                          "editable": false,
+                                                                                          "clickable": false,
+                                                                                          "is_password": false,
+                                                                                          "focusable": true,
+                                                                                          "enabled": true,
+                                                                                          "content_description": null,
+                                                                                          "children": [
+                                                                                             {
+                                                                                                "package": "com.android.documentsui",
+                                                                                                "visible": true,
+                                                                                                "checkable": false,
+                                                                                                "child_count": 2,
+                                                                                                "editable": false,
+                                                                                                "clickable": false,
+                                                                                                "is_password": false,
+                                                                                                "focusable": false,
+                                                                                                "enabled": true,
+                                                                                                "content_description": null,
+                                                                                                "children": [
+                                                                                                   {
+                                                                                                      "package": "com.android.documentsui",
+                                                                                                      "visible": true,
+                                                                                                      "checkable": false,
+                                                                                                      "child_count": 0,
+                                                                                                      "editable": false,
+                                                                                                      "clickable": false,
+                                                                                                      "is_password": false,
+                                                                                                      "focusable": false,
+                                                                                                      "enabled": true,
+                                                                                                      "content_description": null,
+                                                                                                      "children": [],
+                                                                                                      "focused": false,
+                                                                                                      "bounds": [
+                                                                                                         [
+                                                                                                            0,
+                                                                                                            515
+                                                                                                         ],
+                                                                                                         [
+                                                                                                            1080,
+                                                                                                            1171
+                                                                                                         ]
+                                                                                                      ],
+                                                                                                      "resource_id": "com.android.documentsui:id/artwork",
+                                                                                                      "checked": false,
+                                                                                                      "text": null,
+                                                                                                      "class": "android.widget.ImageView",
+                                                                                                      "scrollable": false,
+                                                                                                      "selected": false,
+                                                                                                      "long_clickable": false,
+                                                                                                      "parent": 39,
+                                                                                                      "temp_id": 40,
+                                                                                                      "size": "1080*656"
+                                                                                                   },
+                                                                                                   {
+                                                                                                      "package": "com.android.documentsui",
+                                                                                                      "visible": true,
+                                                                                                      "checkable": false,
+                                                                                                      "child_count": 0,
+                                                                                                      "editable": false,
+                                                                                                      "clickable": false,
+                                                                                                      "is_password": false,
+                                                                                                      "focusable": false,
+                                                                                                      "enabled": true,
+                                                                                                      "content_description": null,
+                                                                                                      "children": [],
+                                                                                                      "focused": false,
+                                                                                                      "bounds": [
+                                                                                                         [
+                                                                                                            455,
+                                                                                                            1237
+                                                                                                         ],
+                                                                                                         [
+                                                                                                            624,
+                                                                                                            1294
+                                                                                                         ]
+                                                                                                      ],
+                                                                                                      "resource_id": "com.android.documentsui:id/message",
+                                                                                                      "checked": false,
+                                                                                                      "text": "No items",
+                                                                                                      "class": "android.widget.TextView",
+                                                                                                      "scrollable": false,
+                                                                                                      "selected": false,
+                                                                                                      "long_clickable": false,
+                                                                                                      "parent": 39,
+                                                                                                      "temp_id": 41,
+                                                                                                      "size": "169*57"
+                                                                                                   }
+                                                                                                ],
+                                                                                                "focused": false,
+                                                                                                "bounds": [
+                                                                                                   [
+                                                                                                      0,
+                                                                                                      515
+                                                                                                   ],
+                                                                                                   [
+                                                                                                      1080,
+                                                                                                      1920
+                                                                                                   ]
+                                                                                                ],
+                                                                                                "resource_id": "com.android.documentsui:id/content",
+                                                                                                "checked": false,
+                                                                                                "text": null,
+                                                                                                "class": "android.widget.RelativeLayout",
+                                                                                                "scrollable": false,
+                                                                                                "selected": false,
+                                                                                                "long_clickable": false,
+                                                                                                "parent": 38,
+                                                                                                "temp_id": 39,
+                                                                                                "size": "1080*1405"
+                                                                                             }
+                                                                                          ],
+                                                                                          "focused": false,
+                                                                                          "bounds": [
+                                                                                             [
+                                                                                                0,
+                                                                                                515
+                                                                                             ],
+                                                                                             [
+                                                                                                1080,
+                                                                                                1920
+                                                                                             ]
+                                                                                          ],
+                                                                                          "resource_id": "android:id/empty",
+                                                                                          "checked": false,
+                                                                                          "text": null,
+                                                                                          "class": "android.widget.FrameLayout",
+                                                                                          "scrollable": false,
+                                                                                          "selected": false,
+                                                                                          "long_clickable": false,
+                                                                                          "parent": 37,
+                                                                                          "temp_id": 38,
+                                                                                          "size": "1080*1405"
+                                                                                       }
+                                                                                    ],
+                                                                                    "focused": false,
+                                                                                    "bounds": [
+                                                                                       [
+                                                                                          0,
+                                                                                          63
+                                                                                       ],
+                                                                                       [
+                                                                                          1080,
+                                                                                          1920
+                                                                                       ]
+                                                                                    ],
+                                                                                    "resource_id": "com.android.documentsui:id/dir_list",
+                                                                                    "checked": false,
+                                                                                    "text": null,
+                                                                                    "class": "androidx.recyclerview.widget.RecyclerView",
+                                                                                    "scrollable": false,
+                                                                                    "selected": false,
+                                                                                    "long_clickable": false,
+                                                                                    "parent": 36,
+                                                                                    "temp_id": 37,
+                                                                                    "size": "1080*1857"
+                                                                                 }
+                                                                              ],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    0,
+                                                                                    63
+                                                                                 ],
+                                                                                 [
+                                                                                    1080,
+                                                                                    1920
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "com.android.documentsui:id/refresh_layout",
+                                                                              "checked": false,
+                                                                              "text": null,
+                                                                              "class": "android.view.ViewGroup",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 35,
+                                                                              "temp_id": 36,
+                                                                              "size": "1080*1857"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              0,
+                                                                              63
+                                                                           ],
+                                                                           [
+                                                                              1080,
+                                                                              1920
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 34,
+                                                                        "temp_id": 35,
+                                                                        "size": "1080*1857"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        63
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1920
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "com.android.documentsui:id/container_directory",
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 33,
+                                                                  "temp_id": 34,
+                                                                  "size": "1080*1857"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  63
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  1920
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.LinearLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 32,
+                                                            "temp_id": 33,
+                                                            "size": "1080*1857"
+                                                         },
+                                                         {
+                                                            "package": "com.android.documentsui",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  63
+                                                               ],
+                                                               [
+                                                                  32,
+                                                                  1920
+                                                               ]
+                                                            ],
+                                                            "resource_id": "com.android.documentsui:id/drawer_edge",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 32,
+                                                            "temp_id": 42,
+                                                            "size": "32*1857"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            63
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1920
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.FrameLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 32,
+                                                      "size": "1080*1857"
+                                                   },
+                                                   {
+                                                      "package": "com.android.documentsui",
+                                                      "visible": false,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            1794
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1920
+                                                         ]
+                                                      ],
+                                                      "resource_id": "com.android.documentsui:id/container_save",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.view.ViewGroup",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 43,
+                                                      "size": "1080*126"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      63
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      1920
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.view.ViewGroup",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 7,
+                                                "size": "1080*1857"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                63
+                                             ],
+                                             [
+                                                1080,
+                                                1920
+                                             ]
+                                          ],
+                                          "resource_id": "com.android.documentsui:id/drawer_layout",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "androidx.drawerlayout.widget.DrawerLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "1080*1857"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          0
+                                       ],
+                                       [
+                                          1080,
+                                          1920
+                                       ]
+                                    ],
+                                    "resource_id": "com.android.documentsui:id/coordinator_layout",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.view.ViewGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*1920"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    0
+                                 ],
+                                 [
+                                    1080,
+                                    1920
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*1920"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              0
+                           ],
+                           [
+                              1080,
+                              1920
+                           ]
+                        ],
+                        "resource_id": "com.android.documentsui:id/action_bar_root",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.FrameLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1920"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        0
+                     ],
+                     [
+                        1080,
+                        1920
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1920"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1920"
+         },
+         {
+            "package": "com.android.documentsui",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 44,
+            "size": "1080*63"
+         },
+         {
+            "package": "com.android.documentsui",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 45,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

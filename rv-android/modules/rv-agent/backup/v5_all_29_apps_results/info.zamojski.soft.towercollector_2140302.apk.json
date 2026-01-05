@@ -1,0 +1,65 @@
+{
+  "app_name": "info.zamojski.soft.towercollector_2140302.apk",
+  "execution_time_s": 13.410415649414062,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ScrollView",
+      "TextView",
+      "Button",
+      "LinearLayout",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 50,
+      "LinearLayout": 50,
+      "TextView": 20,
+      "ScrollView": 20,
+      "Button": 10
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 1,
+    "screen_visits": {
+      "5120ea1fa6a6": 10
+    },
+    "activities": [
+      "info.zamojski.soft.towercollector/.MainActivity"
+    ],
+    "revisit_rate": 0.9
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 45523,
+    "input_tokens": 45165,
+    "output_tokens": 358,
+    "avg_tokens_per_iteration": 4552.3,
+    "max_message_count": 1,
+    "total_time_ms": 11295.805215835571,
+    "avg_time_per_iteration_ms": 1129.5805215835571
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

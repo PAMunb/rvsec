@@ -1,0 +1,23 @@
+{
+  "app": "Kryptey",
+  "package": "com.amnesica.kryptey",
+  "type": "encryption",
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 2,
+    "unique_states": 1,
+    "transitions": 0,
+    "potential_loop": false,
+    "execution_time_s": 271.6354949474335
+  },
+  "validation": {
+    "generated_actions": true,
+    "discovered_states": true,
+    "recorded_transitions": false,
+    "no_immediate_loop": true,
+    "overall_success": true
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "app_name": "org.pulpdust.lesserpad_42.apk",
+  "execution_time_s": 23.099034547805786,
+  "total_iterations": 17,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 8,
+      "BACK": 9
+    },
+    "valid": 9,
+    "invalid": 8,
+    "valid_rate": 0.5294117647058824
+  },
+  "element_coverage": {
+    "types_seen": [
+      "EditText",
+      "ImageButton",
+      "View",
+      "TextView",
+      "ViewGroup",
+      "RelativeLayout",
+      "TableRow",
+      "ListView",
+      "Spinner",
+      "FrameLayout",
+      "unknown",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 17,
+      "FrameLayout": 51,
+      "RelativeLayout": 17,
+      "TableRow": 26,
+      "TextView": 86,
+      "Spinner": 17,
+      "ListView": 9,
+      "ViewGroup": 17,
+      "ImageButton": 25,
+      "LinearLayout": 17,
+      "View": 34,
+      "EditText": 8
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "c0c6757a3538": 9,
+      "3d47dc31d2a2": 8
+    },
+    "activities": [
+      "org.pulpdust.lesserpad/.LesserPadListActivity",
+      "org.pulpdust.lesserpad/.LesserPadActivity"
+    ],
+    "revisit_rate": 0.8823529411764706
+  },
+  "memory_graph": {
+    "graph_states": 2,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 8
+  },
+  "llm": {
+    "total_tokens": 50055,
+    "input_tokens": 49249,
+    "output_tokens": 806,
+    "avg_tokens_per_iteration": 2944.4117647058824,
+    "max_message_count": 1,
+    "total_time_ms": 21150.977849960327,
+    "avg_time_per_iteration_ms": 1244.1751676447252
+  },
+  "device_actions": {
+    "total_actions": 3,
+    "valid_actions": 3,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 3
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 2,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "app_name": "t20kdc.offlinepuzzlesolver_4.apk",
+  "execution_time_s": 21.139505863189697,
+  "total_iterations": 12,
+  "actions": {
+    "by_type": {
+      "CLICK": 9,
+      "BACK": 3
+    },
+    "valid": 5,
+    "invalid": 7,
+    "valid_rate": 0.4166666666666667
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ViewGroup",
+      "ScrollView",
+      "ListView",
+      "FrameLayout",
+      "GridView",
+      "TextView",
+      "Button",
+      "SeekBar",
+      "unknown",
+      "View",
+      "WebView",
+      "LinearLayout",
+      "CheckBox"
+    ],
+    "type_counts": {
+      "unknown": 12,
+      "FrameLayout": 27,
+      "ViewGroup": 6,
+      "TextView": 9,
+      "LinearLayout": 28,
+      "SeekBar": 3,
+      "ScrollView": 1,
+      "CheckBox": 3,
+      "Button": 98,
+      "View": 397,
+      "WebView": 20,
+      "ListView": 16,
+      "GridView": 2
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 6,
+    "screen_visits": {
+      "8e7b1b6799b2": 1,
+      "2bb774699e0c": 1,
+      "4235c7e63c2d": 7,
+      "6571ad3986a6": 1,
+      "2f08cb278b4d": 1,
+      "44733b1eaa5c": 1
+    },
+    "activities": [
+      "t20kdc.offlinepuzzlesolver/.game.NQueensActivity",
+      "t20kdc.offlinepuzzlesolver/.MainActivity",
+      "t20kdc.offlinepuzzlesolver/.game.NCupsActivity",
+      "t20kdc.offlinepuzzlesolver/.SolutionActivity"
+    ],
+    "revisit_rate": 0.5
+  },
+  "memory_graph": {
+    "graph_states": 6,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 21155,
+    "input_tokens": 20557,
+    "output_tokens": 598,
+    "avg_tokens_per_iteration": 1762.9166666666667,
+    "max_message_count": 1,
+    "total_time_ms": 18696.15149497986,
+    "avg_time_per_iteration_ms": 1558.0126245816548
+  },
+  "device_actions": {
+    "total_actions": 6,
+    "valid_actions": 5,
+    "invalid_actions": 1,
+    "valid_rate": 0.8333333333333334,
+    "action_types": {
+      "CLICK": 3,
+      "BACK": 3
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Three (or N) Cups Problem] @ ((84, 429), (996, 555))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[3] @ ((1038, 282), (1059, 333))",
+        "element": "android.widget.TextView[3] @ ((1038, 282), (1059, 333))"
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 4,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Rules] @ ((576, 1647), (807, 1773))"
+      },
+      {
+        "step": 6,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

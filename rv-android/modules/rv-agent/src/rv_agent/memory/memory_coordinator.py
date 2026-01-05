@@ -52,8 +52,7 @@ class MemoryCoordinator:
         # Uppercase format (from execution/ToolExecutor)
         'CLICK': 'click',
         'LONG_CLICK': 'long_click',
-        'TYPE_TEXT': 'set_text',
-        'SET_TEXT': 'set_text',  # Synonym for TYPE_TEXT
+        'SET_TEXT': 'set_text',
         'SWIPE': 'swipe',
         'SCROLL': 'scroll',
         'SCROLL_UP': 'scroll_up',
@@ -442,3 +441,59 @@ class MemoryCoordinator:
             interactive_elements_count=len(screen_desc.items)
         )
         self.logger.debug(f"Updated LongTermMemory: state {screen_hash[:8]}")
+
+    def get_all_statistics(self) -> Dict[str, Any]:
+        """
+        Unified facade for all memory statistics.
+
+        Returns comprehensive statistics from all memory systems for metrics
+        collection and analysis. This facade method provides a single point
+        of access to statistics from:
+        - UI coverage tracker
+        - Short-term memory
+        - Long-term memory (if enabled)
+        - Dynamic state graph
+
+        Returns:
+            Dictionary with the following structure:
+            {
+                'ui_coverage': {...},  # From UICoverageTracker
+                'short_term': {...},   # From ShortTermMemory
+                'long_term': {...},    # From LongTermMemory (or {} if None)
+                'dynamic_graph': {     # From DynamicStateGraph
+                    'total_states': int,
+                    'total_transitions': int
+                }
+            }
+        """
+        self.logger.debug("Collecting statistics from all memory systems")
+
+        try:
+            stats = {
+                'ui_coverage': self.ui_coverage.get_overall_statistics(),
+                'short_term': self.short_term.get_statistics(),
+                'long_term': self.long_term.get_statistics() if self.long_term else {},
+                'dynamic_graph': {
+                    'total_states': len(self.dynamic_graph.states),
+                    'total_transitions': len(self.dynamic_graph.transitions)
+                }
+            }
+
+            self.logger.info(
+                f"Statistics collected: "
+                f"{stats['ui_coverage'].get('total_unique_elements', 0)} UI elements, "
+                f"{stats['short_term'].get('iteration_count', 0)} iterations, "
+                f"{stats['dynamic_graph']['total_states']} states"
+            )
+
+            return stats
+
+        except Exception as e:
+            self.logger.error(f"Failed to collect statistics: {e}", exc_info=True)
+            # Return empty structure on error
+            return {
+                'ui_coverage': {},
+                'short_term': {},
+                'long_term': {},
+                'dynamic_graph': {'total_states': 0, 'total_transitions': 0}
+            }

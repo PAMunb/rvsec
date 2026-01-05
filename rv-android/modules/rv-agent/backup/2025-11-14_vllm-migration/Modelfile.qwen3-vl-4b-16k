@@ -1,0 +1,25 @@
+# Modelfile: Qwen3-VL-4B com contexto estendido (16k) + Safety Nets
+#
+# Context window: 16K (16384 tokens)
+# Max output: 2K (2048 tokens) - limited to mitigate loop bug
+#
+# Safety Nets para bug de loop infinito no Ollama:
+# - Bug confirmado: GitHub #10767 (ollama), #1611 (Qwen3-VL), #14663 (llama.cpp)
+# - repeat_penalty NÃO funciona (ignorado pelo sampler GGUF)
+# - Solução: Parâmetros recomendados pela documentação oficial Qwen3-VL
+#
+# Referência: https://github.com/QwenLM/Qwen3-VL
+# Qwen3-VL recommended: temp=0.6, top_p=0.95, top_k=20
+
+FROM qwen3-vl:4b
+
+# Aumentar janela de contexto de 8k para 16k
+PARAMETER num_ctx 16384
+
+# Safety nets para mitigar bug de loop infinito
+# temperature 0.6: Qwen3-VL official recommendation
+# top_p 0.95: More diverse sampling
+# top_k 20: Fewer low-quality candidates
+PARAMETER temperature 0.6
+PARAMETER top_p 0.95
+PARAMETER top_k 20

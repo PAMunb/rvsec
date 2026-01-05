@@ -1,0 +1,154 @@
+{
+  "app_name": "cryptoapp.apk",
+  "execution_time_s": 31.191434621810913,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 9,
+    "invalid": 1,
+    "valid_rate": 0.9
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ListView",
+      "Button",
+      "ScrollView",
+      "View",
+      "LinearLayout",
+      "RelativeLayout",
+      "Spinner",
+      "EditText",
+      "TextView",
+      "FrameLayout",
+      "ViewGroup"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 36,
+      "ListView": 2,
+      "LinearLayout": 29,
+      "RelativeLayout": 3,
+      "TextView": 46,
+      "ViewGroup": 16,
+      "Spinner": 7,
+      "EditText": 8,
+      "Button": 8,
+      "ScrollView": 7,
+      "View": 16
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 4,
+    "screen_visits": {
+      "6621483ea510": 1,
+      "18bff88d20d9": 1,
+      "519119efc656": 7,
+      "d04c5c869c01": 1
+    },
+    "activities": [
+      "br.unb.cic.cryptoapp/.messagedigest.MessageDigestActivity",
+      "br.unb.cic.cryptoapp/.MainActivity"
+    ],
+    "revisit_rate": 0.6
+  },
+  "memory_graph": {
+    "graph_states": 4,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 8
+  },
+  "llm": {
+    "total_tokens": 44689,
+    "input_tokens": 44325,
+    "output_tokens": 364,
+    "avg_tokens_per_iteration": 4468.9,
+    "max_message_count": 1,
+    "total_time_ms": 30137.722730636597,
+    "avg_time_per_iteration_ms": 3013.7722730636597
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 9,
+    "invalid_actions": 1,
+    "valid_rate": 0.9,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[MESSAGE DIGEST] @ ((0, 210), (1080, 336))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 255), (1028, 312))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 255), (1028, 312))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[GENERATE HASH] @ ((0, 442), (1080, 568))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[SHA-224] @ ((0, 660), (954, 786))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[GENERATE HASH] @ ((0, 442), (1080, 568))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[GENERATE HASH] @ ((0, 442), (1080, 568))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[GENERATE HASH] @ ((0, 442), (1080, 568))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[GENERATE HASH] @ ((0, 442), (1080, 568))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[GENERATE HASH] @ ((0, 442), (1080, 568))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Input text ...] @ ((0, 324), (1080, 442))"
+      }
+    ]
+  }
+}

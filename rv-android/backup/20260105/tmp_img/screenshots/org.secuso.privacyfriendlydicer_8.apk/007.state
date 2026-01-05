@@ -1,0 +1,877 @@
+{
+   "activity": "org.secuso.privacyfriendlydicer/.ui.SettingsActivity",
+   "stack": [
+      "org.secuso.privacyfriendlydicer/.ui.SettingsActivity",
+      "org.secuso.privacyfriendlydicer/.ui.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "org.secuso.privacyfriendlydicer",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "org.secuso.privacyfriendlydicer",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "org.secuso.privacyfriendlydicer",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "org.secuso.privacyfriendlydicer",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 2,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "org.secuso.privacyfriendlydicer",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.secuso.privacyfriendlydicer",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.secuso.privacyfriendlydicer",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": "Navigate up",
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                63
+                                             ],
+                                             [
+                                                147,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ImageButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "147*147"
+                                       },
+                                       {
+                                          "package": "org.secuso.privacyfriendlydicer",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                189,
+                                                101
+                                             ],
+                                             [
+                                                548,
+                                                172
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": "Dicing Settings",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 7,
+                                          "size": "359*71"
+                                       },
+                                       {
+                                          "package": "org.secuso.privacyfriendlydicer",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                1080,
+                                                63
+                                             ],
+                                             [
+                                                1080,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 8,
+                                          "size": "0*147"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          63
+                                       ],
+                                       [
+                                          1080,
+                                          210
+                                       ]
+                                    ],
+                                    "resource_id": "org.secuso.privacyfriendlydicer:id/action_bar",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.view.ViewGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*147"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    63
+                                 ],
+                                 [
+                                    1080,
+                                    210
+                                 ]
+                              ],
+                              "resource_id": "org.secuso.privacyfriendlydicer:id/action_bar_container",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*147"
+                           },
+                           {
+                              "package": "org.secuso.privacyfriendlydicer",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.secuso.privacyfriendlydicer",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.secuso.privacyfriendlydicer",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "org.secuso.privacyfriendlydicer",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 2,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "org.secuso.privacyfriendlydicer",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 2,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlydicer",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 1,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlydicer",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        42,
+                                                                        252
+                                                                     ],
+                                                                     [
+                                                                        417,
+                                                                        309
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "android:id/title",
+                                                                  "checked": false,
+                                                                  "text": "Roll Dice by Shaking",
+                                                                  "class": "android.widget.TextView",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 15,
+                                                                  "size": "375*57"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  42,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  874,
+                                                                  351
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.RelativeLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 13,
+                                                            "temp_id": 14,
+                                                            "size": "832*141"
+                                                         },
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlydicer",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 1,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlydicer",
+                                                                  "visible": true,
+                                                                  "checkable": true,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        916,
+                                                                        245
+                                                                     ],
+                                                                     [
+                                                                        1038,
+                                                                        316
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "android:id/switch_widget",
+                                                                  "checked": true,
+                                                                  "text": "ON",
+                                                                  "class": "android.widget.Switch",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 16,
+                                                                  "temp_id": 17,
+                                                                  "size": "122*71"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  874,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1038,
+                                                                  351
+                                                               ]
+                                                            ],
+                                                            "resource_id": "android:id/widget_frame",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.LinearLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 13,
+                                                            "temp_id": 16,
+                                                            "size": "164*141"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            210
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            351
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 12,
+                                                      "temp_id": 13,
+                                                      "size": "1080*141"
+                                                   },
+                                                   {
+                                                      "package": "org.secuso.privacyfriendlydicer",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 2,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlydicer",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 1,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlydicer",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        42,
+                                                                        396
+                                                                     ],
+                                                                     [
+                                                                        537,
+                                                                        453
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "android:id/title",
+                                                                  "checked": false,
+                                                                  "text": "Enable Vibration Feedback",
+                                                                  "class": "android.widget.TextView",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 19,
+                                                                  "temp_id": 20,
+                                                                  "size": "495*57"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  42,
+                                                                  354
+                                                               ],
+                                                               [
+                                                                  874,
+                                                                  495
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.RelativeLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 18,
+                                                            "temp_id": 19,
+                                                            "size": "832*141"
+                                                         },
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlydicer",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 1,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlydicer",
+                                                                  "visible": true,
+                                                                  "checkable": true,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        916,
+                                                                        389
+                                                                     ],
+                                                                     [
+                                                                        1038,
+                                                                        460
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": "android:id/switch_widget",
+                                                                  "checked": true,
+                                                                  "text": "ON",
+                                                                  "class": "android.widget.Switch",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 21,
+                                                                  "temp_id": 22,
+                                                                  "size": "122*71"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  874,
+                                                                  354
+                                                               ],
+                                                               [
+                                                                  1038,
+                                                                  495
+                                                               ]
+                                                            ],
+                                                            "resource_id": "android:id/widget_frame",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.LinearLayout",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 18,
+                                                            "temp_id": 21,
+                                                            "size": "164*141"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            354
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            495
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 12,
+                                                      "temp_id": 18,
+                                                      "size": "1080*141"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      210
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      1794
+                                                   ]
+                                                ],
+                                                "resource_id": "android:id/list",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.ListView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 11,
+                                                "temp_id": 12,
+                                                "size": "1080*1584"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                210
+                                             ],
+                                             [
+                                                1080,
+                                                1794
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/list_container",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.FrameLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 10,
+                                          "temp_id": 11,
+                                          "size": "1080*1584"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          210
+                                       ],
+                                       [
+                                          1080,
+                                          1794
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 9,
+                                    "temp_id": 10,
+                                    "size": "1080*1584"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    210
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 9,
+                              "size": "1080*1584"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              63
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": "org.secuso.privacyfriendlydicer:id/decor_content_parent",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.view.ViewGroup",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1731"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        63
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1731"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         },
+         {
+            "package": "org.secuso.privacyfriendlydicer",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 23,
+            "size": "1080*63"
+         },
+         {
+            "package": "org.secuso.privacyfriendlydicer",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 24,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

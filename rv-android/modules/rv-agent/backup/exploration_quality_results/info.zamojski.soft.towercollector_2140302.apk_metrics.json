@@ -1,0 +1,133 @@
+{
+  "app_name": "info.zamojski.soft.towercollector_2140302.apk",
+  "execution_time_s": 31.973973512649536,
+  "total_iterations": 20,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 2,
+      "BACK": 18
+    },
+    "valid": 18,
+    "invalid": 2,
+    "valid_rate": 0.9
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayoutCompat",
+      "View",
+      "ScrollView",
+      "TextView",
+      "Button",
+      "ImageButton",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "ViewGroup",
+      "TableRow",
+      "RelativeLayout",
+      "ImageView",
+      "Spinner",
+      "TableLayout",
+      "FrameLayout",
+      "unknown",
+      "ViewPager",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 20,
+      "FrameLayout": 109,
+      "LinearLayout": 328,
+      "TextView": 269,
+      "ScrollView": 9,
+      "Button": 31,
+      "ViewGroup": 34,
+      "LinearLayoutCompat": 9,
+      "HorizontalScrollView": 9,
+      "ViewPager": 9,
+      "TableLayout": 21,
+      "TableRow": 33,
+      "View": 35,
+      "ImageButton": 8,
+      "RelativeLayout": 8,
+      "Spinner": 8,
+      "RecyclerView": 8,
+      "ImageView": 64
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "5120ea1fa6a6": 3,
+      "05fce23b3c08": 6,
+      "736923d04ce9": 1,
+      "d5b946522493": 8,
+      "3ab929c7608f": 2
+    },
+    "activities": [
+      "com.android.settings/.Settings$HighPowerApplicationsActivity",
+      "info.zamojski.soft.towercollector/.MainActivity"
+    ],
+    "revisit_rate": 0.75
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 3
+  },
+  "llm": {
+    "total_tokens": 60607,
+    "input_tokens": 59551,
+    "output_tokens": 1056,
+    "avg_tokens_per_iteration": 3030.35,
+    "max_message_count": 1,
+    "total_time_ms": 29468.46079826355,
+    "avg_time_per_iteration_ms": 1473.4230399131775
+  },
+  "device_actions": {
+    "total_actions": 5,
+    "valid_actions": 5,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 5
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 2,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 4,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 5,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

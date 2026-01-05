@@ -1,0 +1,174 @@
+{
+  "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+  "execution_time_s": 27.238996744155884,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 5,
+    "invalid": 5,
+    "valid_rate": 0.5
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "Switch",
+      "ViewGroup",
+      "ImageView",
+      "LinearLayout",
+      "ScrollView",
+      "TableRow",
+      "LinearLayoutCompat",
+      "GridLayout",
+      "TableLayout",
+      "TextView",
+      "DrawerLayout",
+      "Button",
+      "RecyclerView",
+      "ViewPager",
+      "View",
+      "RelativeLayout",
+      "ImageButton",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 44,
+      "LinearLayout": 37,
+      "DrawerLayout": 2,
+      "ViewGroup": 30,
+      "ImageButton": 26,
+      "TextView": 32,
+      "RelativeLayout": 6,
+      "ViewPager": 2,
+      "ImageView": 508,
+      "Switch": 7,
+      "Button": 4,
+      "View": 18,
+      "RecyclerView": 3,
+      "ScrollView": 1,
+      "TableLayout": 1,
+      "TableRow": 3,
+      "LinearLayoutCompat": 4,
+      "GridLayout": 4
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 8,
+    "screen_visits": {
+      "40ad5316f66f": 1,
+      "846c8f44a269": 1,
+      "20742a4cb8e6": 1,
+      "366ce9639848": 1,
+      "3b248d9f7104": 1,
+      "383bbceb0306": 1,
+      "1a53de792762": 1,
+      "d5d9774b2e41": 3
+    },
+    "activities": [
+      "org.secuso.privacyfriendlyludo/.activities.MainActivity",
+      "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity",
+      "org.secuso.privacyfriendlyludo/.activities.GameActivity",
+      "org.secuso.privacyfriendlyludo/.activities.GameSettingActivity"
+    ],
+    "revisit_rate": 0.2
+  },
+  "memory_graph": {
+    "graph_states": 8,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 3
+  },
+  "llm": {
+    "total_tokens": 47317,
+    "input_tokens": 46915,
+    "output_tokens": 402,
+    "avg_tokens_per_iteration": 4731.7,
+    "max_message_count": 1,
+    "total_time_ms": 26017.2598361969,
+    "avg_time_per_iteration_ms": 2601.72598361969
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 5,
+    "invalid_actions": 5,
+    "valid_rate": 0.5,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[SKIP] @ ((0, 1668), (231, 1794))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[NEW GAME] @ ((163, 1103), (917, 1229))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[NEW GAME] @ ((163, 1103), (917, 1229))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Start Game] @ ((584, 1619), (765, 1670))",
+        "element": "android.widget.TextView[Start Game] @ ((584, 1619), (765, 1670))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Start Game] @ ((584, 1619), (765, 1670))",
+        "element": "android.widget.TextView[Start Game] @ ((584, 1619), (765, 1670))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Navigate up] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.FrameLayout[Color 1] @ ((329, 772), (455, 898))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.ImageView[] @ ((672, 357), (762, 447))",
+        "element": "android.widget.ImageView[] @ ((672, 357), (762, 447))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.ImageView[] @ ((582, 357), (672, 447))",
+        "element": "android.widget.ImageView[] @ ((582, 357), (672, 447))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.ImageView[] @ ((582, 357), (672, 447))",
+        "element": "android.widget.ImageView[] @ ((582, 357), (672, 447))"
+      }
+    ]
+  }
+}

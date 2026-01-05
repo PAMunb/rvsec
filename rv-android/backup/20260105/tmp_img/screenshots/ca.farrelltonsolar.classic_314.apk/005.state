@@ -1,0 +1,1386 @@
+{
+   "activity": "ca.farrelltonsolar.classic/.MonitorActivity",
+   "stack": [
+      "ca.farrelltonsolar.classic/.MonitorActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "ca.farrelltonsolar.classic",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "ca.farrelltonsolar.classic",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "ca.farrelltonsolar.classic",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "ca.farrelltonsolar.classic",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 2,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "ca.farrelltonsolar.classic",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "ca.farrelltonsolar.classic",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 3,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "ca.farrelltonsolar.classic",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": "Open navigation drawer",
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                63
+                                             ],
+                                             [
+                                                147,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ImageButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "147*147"
+                                       },
+                                       {
+                                          "package": "ca.farrelltonsolar.classic",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                189,
+                                                101
+                                             ],
+                                             [
+                                                389,
+                                                172
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": "Network",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 7,
+                                          "size": "200*71"
+                                       },
+                                       {
+                                          "package": "ca.farrelltonsolar.classic",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 3,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "ca.farrelltonsolar.classic",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": "help",
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      702,
+                                                      73
+                                                   ],
+                                                   [
+                                                      828,
+                                                      199
+                                                   ]
+                                                ],
+                                                "resource_id": "ca.farrelltonsolar.classic:id/action_help",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 8,
+                                                "temp_id": 9,
+                                                "size": "126*126"
+                                             },
+                                             {
+                                                "package": "ca.farrelltonsolar.classic",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": "Share",
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      828,
+                                                      73
+                                                   ],
+                                                   [
+                                                      954,
+                                                      199
+                                                   ]
+                                                ],
+                                                "resource_id": "ca.farrelltonsolar.classic:id/action_share",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 8,
+                                                "temp_id": 10,
+                                                "size": "126*126"
+                                             },
+                                             {
+                                                "package": "ca.farrelltonsolar.classic",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 0,
+                                                "editable": false,
+                                                "clickable": true,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": "Settings",
+                                                "children": [],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      954,
+                                                      73
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      199
+                                                   ]
+                                                ],
+                                                "resource_id": "ca.farrelltonsolar.classic:id/action_settings",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.TextView",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 8,
+                                                "temp_id": 11,
+                                                "size": "126*126"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                702,
+                                                63
+                                             ],
+                                             [
+                                                1080,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "a.b.f.f.g0",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 8,
+                                          "size": "378*147"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          63
+                                       ],
+                                       [
+                                          1080,
+                                          210
+                                       ]
+                                    ],
+                                    "resource_id": "ca.farrelltonsolar.classic:id/action_bar",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.view.ViewGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*147"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    63
+                                 ],
+                                 [
+                                    1080,
+                                    210
+                                 ]
+                              ],
+                              "resource_id": "ca.farrelltonsolar.classic:id/action_bar_container",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*147"
+                           },
+                           {
+                              "package": "ca.farrelltonsolar.classic",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "ca.farrelltonsolar.classic",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "ca.farrelltonsolar.classic",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 2,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "ca.farrelltonsolar.classic",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "ca.farrelltonsolar.classic",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 11,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  -487,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "POWER",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 17,
+                                                            "size": "-487*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  -287,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "ENERGY",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 18,
+                                                            "size": "-287*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  63,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "STATE OF CHARGE",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 19,
+                                                            "size": "63*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  63,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  319,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "LIVE CHART",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 20,
+                                                            "size": "256*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  319,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  618,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "TEMPERATURE",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 21,
+                                                            "size": "299*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  618,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  935,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "DAY LOG CHART",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 22,
+                                                            "size": "317*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  935,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "HOUR LOG CHART",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 23,
+                                                            "size": "145*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  1277,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "DAY LOG CALENDAR",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 24,
+                                                            "size": "-197*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  1651,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "INFO",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 25,
+                                                            "size": "-571*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  1804,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "MESSAGES",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 26,
+                                                            "size": "-724*127"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  2048,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  337
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": "ABOUT",
+                                                            "class": "android.widget.TextView",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 16,
+                                                            "temp_id": 27,
+                                                            "size": "-968*127"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            210
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            337
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 15,
+                                                      "temp_id": 16,
+                                                      "size": "1080*127"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      210
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      337
+                                                   ]
+                                                ],
+                                                "resource_id": "ca.farrelltonsolar.classic:id/sliding_tabs",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.HorizontalScrollView",
+                                                "scrollable": true,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 14,
+                                                "temp_id": 15,
+                                                "size": "1080*127"
+                                             },
+                                             {
+                                                "package": "ca.farrelltonsolar.classic",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": true,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "ca.farrelltonsolar.classic",
+                                                      "visible": false,
+                                                      "checkable": false,
+                                                      "child_count": 2,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  403
+                                                               ],
+                                                               [
+                                                                  -66,
+                                                                  668
+                                                               ]
+                                                            ],
+                                                            "resource_id": "ca.farrelltonsolar.classic:id/SOC",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": true,
+                                                            "parent": 29,
+                                                            "temp_id": 30,
+                                                            "size": "-66*265"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": true,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  721
+                                                               ],
+                                                               [
+                                                                  -66,
+                                                                  1781
+                                                               ]
+                                                            ],
+                                                            "resource_id": "ca.farrelltonsolar.classic:id/BidirectionalCurrent",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 29,
+                                                            "temp_id": 31,
+                                                            "size": "-66*1060"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            337
+                                                         ],
+                                                         [
+                                                            0,
+                                                            1794
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 28,
+                                                      "temp_id": 29,
+                                                      "size": "0*1457"
+                                                   },
+                                                   {
+                                                      "package": "ca.farrelltonsolar.classic",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  337
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  1794
+                                                               ]
+                                                            ],
+                                                            "resource_id": "ca.farrelltonsolar.classic:id/chart1",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.ViewGroup",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 32,
+                                                            "temp_id": 33,
+                                                            "size": "1080*1457"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            337
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1794
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.RelativeLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 28,
+                                                      "temp_id": 32,
+                                                      "size": "1080*1457"
+                                                   },
+                                                   {
+                                                      "package": "ca.farrelltonsolar.classic",
+                                                      "visible": false,
+                                                      "checkable": false,
+                                                      "child_count": 3,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  1093,
+                                                                  376
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  827
+                                                               ]
+                                                            ],
+                                                            "resource_id": "ca.farrelltonsolar.classic:id/BatTemperature",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 34,
+                                                            "temp_id": 35,
+                                                            "size": "-13*451"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  1093,
+                                                                  853
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  1304
+                                                               ]
+                                                            ],
+                                                            "resource_id": "ca.farrelltonsolar.classic:id/FETTemperature",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 34,
+                                                            "temp_id": 36,
+                                                            "size": "-13*451"
+                                                         },
+                                                         {
+                                                            "package": "ca.farrelltonsolar.classic",
+                                                            "visible": false,
+                                                            "checkable": false,
+                                                            "child_count": 0,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  1093,
+                                                                  1330
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  1781
+                                                               ]
+                                                            ],
+                                                            "resource_id": "ca.farrelltonsolar.classic:id/PCBTemperature",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.view.View",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 34,
+                                                            "temp_id": 37,
+                                                            "size": "-13*451"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            1080,
+                                                            337
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1794
+                                                         ]
+                                                      ],
+                                                      "resource_id": "ca.farrelltonsolar.classic:id/BatTemperatureLayout",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.LinearLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 28,
+                                                      "temp_id": 34,
+                                                      "size": "0*1457"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      337
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      1794
+                                                   ]
+                                                ],
+                                                "resource_id": "ca.farrelltonsolar.classic:id/pager",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.support.v4.view.ViewPager",
+                                                "scrollable": true,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 14,
+                                                "temp_id": 28,
+                                                "size": "1080*1457"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                210
+                                             ],
+                                             [
+                                                1080,
+                                                1794
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 13,
+                                          "temp_id": 14,
+                                          "size": "1080*1584"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          210
+                                       ],
+                                       [
+                                          1080,
+                                          1794
+                                       ]
+                                    ],
+                                    "resource_id": "ca.farrelltonsolar.classic:id/drawer_layout",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.support.v4.widget.DrawerLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 12,
+                                    "temp_id": 13,
+                                    "size": "1080*1584"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    210
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 12,
+                              "size": "1080*1584"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              63
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": "ca.farrelltonsolar.classic:id/decor_content_parent",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.view.ViewGroup",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1731"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        63
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1731"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         },
+         {
+            "package": "ca.farrelltonsolar.classic",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 38,
+            "size": "1080*63"
+         },
+         {
+            "package": "ca.farrelltonsolar.classic",
+            "visible": false,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 39,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

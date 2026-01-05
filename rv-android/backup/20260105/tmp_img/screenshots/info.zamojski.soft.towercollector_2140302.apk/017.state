@@ -1,0 +1,1844 @@
+{
+   "activity": "info.zamojski.soft.towercollector/.PreferencesActivity",
+   "stack": [
+      "info.zamojski.soft.towercollector/.PreferencesActivity",
+      "info.zamojski.soft.towercollector/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "info.zamojski.soft.towercollector",
+      "visible": true,
+      "checkable": false,
+      "child_count": 3,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "info.zamojski.soft.towercollector",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "info.zamojski.soft.towercollector",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "info.zamojski.soft.towercollector",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "info.zamojski.soft.towercollector",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "info.zamojski.soft.towercollector",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "info.zamojski.soft.towercollector",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "info.zamojski.soft.towercollector",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 3,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": true,
+                                                      "is_password": false,
+                                                      "focusable": true,
+                                                      "enabled": true,
+                                                      "content_description": "Navigate up",
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            63
+                                                         ],
+                                                         [
+                                                            147,
+                                                            210
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.ImageButton",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 8,
+                                                      "size": "147*147"
+                                                   },
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            189,
+                                                            101
+                                                         ],
+                                                         [
+                                                            364,
+                                                            172
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": "Display",
+                                                      "class": "android.widget.TextView",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 9,
+                                                      "size": "175*71"
+                                                   },
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": false,
+                                                      "checkable": false,
+                                                      "child_count": 0,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            1080,
+                                                            63
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            210
+                                                         ]
+                                                      ],
+                                                      "resource_id": null,
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "androidx.appcompat.widget.LinearLayoutCompat",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 7,
+                                                      "temp_id": 10,
+                                                      "size": "0*147"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      63
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      210
+                                                   ]
+                                                ],
+                                                "resource_id": "info.zamojski.soft.towercollector:id/preferences_toolbar",
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.view.ViewGroup",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 6,
+                                                "temp_id": 7,
+                                                "size": "1080*147"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                63
+                                             ],
+                                             [
+                                                1080,
+                                                210
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.LinearLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "1080*147"
+                                       },
+                                       {
+                                          "package": "info.zamojski.soft.towercollector",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "info.zamojski.soft.towercollector",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "info.zamojski.soft.towercollector",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 1,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "info.zamojski.soft.towercollector",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 8,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": true,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    273
+                                                                                 ],
+                                                                                 [
+                                                                                    1038,
+                                                                                    324
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Settings",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 16,
+                                                                              "temp_id": 17,
+                                                                              "size": "849*51"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              252
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              345
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 15,
+                                                                        "temp_id": 16,
+                                                                        "size": "849*93"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        252
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        345
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 15,
+                                                                  "size": "1080*93"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 2,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    387
+                                                                                 ],
+                                                                                 [
+                                                                                    522,
+                                                                                    444
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Use imperial units",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 19,
+                                                                              "temp_id": 20,
+                                                                              "size": "333*57"
+                                                                           },
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    444
+                                                                                 ],
+                                                                                 [
+                                                                                    874,
+                                                                                    538
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/summary",
+                                                                              "checked": false,
+                                                                              "text": "Values will be presented using metric system.",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 19,
+                                                                              "temp_id": 21,
+                                                                              "size": "685*94"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              345
+                                                                           ],
+                                                                           [
+                                                                              874,
+                                                                              580
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 18,
+                                                                        "temp_id": 19,
+                                                                        "size": "685*235"
+                                                                     },
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": true,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    916,
+                                                                                    427
+                                                                                 ],
+                                                                                 [
+                                                                                    1038,
+                                                                                    498
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "info.zamojski.soft.towercollector:id/switchWidget",
+                                                                              "checked": false,
+                                                                              "text": "OFF",
+                                                                              "class": "android.widget.Switch",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 22,
+                                                                              "temp_id": 23,
+                                                                              "size": "122*71"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              874,
+                                                                              345
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              580
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "android:id/widget_frame",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 18,
+                                                                        "temp_id": 22,
+                                                                        "size": "164*235"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        345
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        580
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 18,
+                                                                  "size": "1080*235"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    622
+                                                                                 ],
+                                                                                 [
+                                                                                    318,
+                                                                                    679
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Theme",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 25,
+                                                                              "temp_id": 26,
+                                                                              "size": "129*57"
+                                                                           },
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    679
+                                                                                 ],
+                                                                                 [
+                                                                                    712,
+                                                                                    773
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/summary",
+                                                                              "checked": false,
+                                                                              "text": "Defines color theme of the app. \n[Light]",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 25,
+                                                                              "temp_id": 27,
+                                                                              "size": "523*94"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              580
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              815
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 24,
+                                                                        "temp_id": 25,
+                                                                        "size": "849*235"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        580
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        815
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 24,
+                                                                  "size": "1080*235"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 2,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    857
+                                                                                 ],
+                                                                                 [
+                                                                                    712,
+                                                                                    914
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Keep screen on when visible",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 29,
+                                                                              "temp_id": 30,
+                                                                              "size": "523*57"
+                                                                           },
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    914
+                                                                                 ],
+                                                                                 [
+                                                                                    874,
+                                                                                    1008
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/summary",
+                                                                              "checked": false,
+                                                                              "text": "Screen will be controlled by the system when app's main screen is displayed.",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 29,
+                                                                              "temp_id": 31,
+                                                                              "size": "685*94"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              815
+                                                                           ],
+                                                                           [
+                                                                              874,
+                                                                              1050
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 28,
+                                                                        "temp_id": 29,
+                                                                        "size": "685*235"
+                                                                     },
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": true,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    916,
+                                                                                    897
+                                                                                 ],
+                                                                                 [
+                                                                                    1038,
+                                                                                    968
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "info.zamojski.soft.towercollector:id/switchWidget",
+                                                                              "checked": false,
+                                                                              "text": "OFF",
+                                                                              "class": "android.widget.Switch",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 32,
+                                                                              "temp_id": 33,
+                                                                              "size": "122*71"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              874,
+                                                                              815
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              1050
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "android:id/widget_frame",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 28,
+                                                                        "temp_id": 32,
+                                                                        "size": "164*235"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        815
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1050
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 28,
+                                                                  "size": "1080*235"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 2,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1092
+                                                                                 ],
+                                                                                 [
+                                                                                    664,
+                                                                                    1149
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Show collector status bar",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 35,
+                                                                              "temp_id": 36,
+                                                                              "size": "475*57"
+                                                                           },
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1149
+                                                                                 ],
+                                                                                 [
+                                                                                    755,
+                                                                                    1200
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/summary",
+                                                                              "checked": false,
+                                                                              "text": "Collector status bar will be hidden.",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 35,
+                                                                              "temp_id": 37,
+                                                                              "size": "566*51"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              1050
+                                                                           ],
+                                                                           [
+                                                                              874,
+                                                                              1242
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 34,
+                                                                        "temp_id": 35,
+                                                                        "size": "685*192"
+                                                                     },
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": true,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    916,
+                                                                                    1110
+                                                                                 ],
+                                                                                 [
+                                                                                    1038,
+                                                                                    1181
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "info.zamojski.soft.towercollector:id/switchWidget",
+                                                                              "checked": false,
+                                                                              "text": "OFF",
+                                                                              "class": "android.widget.Switch",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 38,
+                                                                              "temp_id": 39,
+                                                                              "size": "122*71"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              874,
+                                                                              1050
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              1242
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "android:id/widget_frame",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.LinearLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 34,
+                                                                        "temp_id": 38,
+                                                                        "size": "164*192"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        1050
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1242
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 34,
+                                                                  "size": "1080*192"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1284
+                                                                                 ],
+                                                                                 [
+                                                                                    567,
+                                                                                    1341
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Notification settings",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 41,
+                                                                              "temp_id": 42,
+                                                                              "size": "378*57"
+                                                                           },
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1341
+                                                                                 ],
+                                                                                 [
+                                                                                    828,
+                                                                                    1392
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/summary",
+                                                                              "checked": false,
+                                                                              "text": "Opens application notification settings.",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 41,
+                                                                              "temp_id": 43,
+                                                                              "size": "639*51"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              1242
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              1434
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 40,
+                                                                        "temp_id": 41,
+                                                                        "size": "849*192"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        1242
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1434
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 40,
+                                                                  "size": "1080*192"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 1,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1497
+                                                                                 ],
+                                                                                 [
+                                                                                    1038,
+                                                                                    1548
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "Help",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 45,
+                                                                              "temp_id": 46,
+                                                                              "size": "849*51"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              1476
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              1569
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 44,
+                                                                        "temp_id": 45,
+                                                                        "size": "849*93"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        1476
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1569
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 44,
+                                                                  "size": "1080*93"
+                                                               },
+                                                               {
+                                                                  "package": "info.zamojski.soft.towercollector",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "info.zamojski.soft.towercollector",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 2,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1611
+                                                                                 ],
+                                                                                 [
+                                                                                    830,
+                                                                                    1668
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/title",
+                                                                              "checked": false,
+                                                                              "text": "About keep screen on when visible",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 48,
+                                                                              "temp_id": 49,
+                                                                              "size": "641*57"
+                                                                           },
+                                                                           {
+                                                                              "package": "info.zamojski.soft.towercollector",
+                                                                              "visible": true,
+                                                                              "checkable": false,
+                                                                              "child_count": 0,
+                                                                              "editable": false,
+                                                                              "clickable": false,
+                                                                              "is_password": false,
+                                                                              "focusable": false,
+                                                                              "enabled": true,
+                                                                              "content_description": null,
+                                                                              "children": [],
+                                                                              "focused": false,
+                                                                              "bounds": [
+                                                                                 [
+                                                                                    189,
+                                                                                    1668
+                                                                                 ],
+                                                                                 [
+                                                                                    1038,
+                                                                                    1762
+                                                                                 ]
+                                                                              ],
+                                                                              "resource_id": "android:id/summary",
+                                                                              "checked": false,
+                                                                              "text": "Information how this option works and when to use it.",
+                                                                              "class": "android.widget.TextView",
+                                                                              "scrollable": false,
+                                                                              "selected": false,
+                                                                              "long_clickable": false,
+                                                                              "parent": 48,
+                                                                              "temp_id": 50,
+                                                                              "size": "849*94"
+                                                                           }
+                                                                        ],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              189,
+                                                                              1569
+                                                                           ],
+                                                                           [
+                                                                              1038,
+                                                                              1794
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": null,
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.RelativeLayout",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 47,
+                                                                        "temp_id": 48,
+                                                                        "size": "849*225"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        0,
+                                                                        1569
+                                                                     ],
+                                                                     [
+                                                                        1080,
+                                                                        1794
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.LinearLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 14,
+                                                                  "temp_id": 47,
+                                                                  "size": "1080*225"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  0,
+                                                                  210
+                                                               ],
+                                                               [
+                                                                  1080,
+                                                                  1794
+                                                               ]
+                                                            ],
+                                                            "resource_id": "info.zamojski.soft.towercollector:id/recycler_view",
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "androidx.recyclerview.widget.RecyclerView",
+                                                            "scrollable": true,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 13,
+                                                            "temp_id": 14,
+                                                            "size": "1080*1584"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            0,
+                                                            210
+                                                         ],
+                                                         [
+                                                            1080,
+                                                            1794
+                                                         ]
+                                                      ],
+                                                      "resource_id": "android:id/list_container",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.FrameLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 12,
+                                                      "temp_id": 13,
+                                                      "size": "1080*1584"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      0,
+                                                      210
+                                                   ],
+                                                   [
+                                                      1080,
+                                                      1794
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.LinearLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 11,
+                                                "temp_id": 12,
+                                                "size": "1080*1584"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                0,
+                                                210
+                                             ],
+                                             [
+                                                1080,
+                                                1794
+                                             ]
+                                          ],
+                                          "resource_id": "info.zamojski.soft.towercollector:id/preferences_container",
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.FrameLayout",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 11,
+                                          "size": "1080*1584"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          0,
+                                          63
+                                       ],
+                                       [
+                                          1080,
+                                          1794
+                                       ]
+                                    ],
+                                    "resource_id": "info.zamojski.soft.towercollector:id/preferences_root",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "1080*1731"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    0,
+                                    63
+                                 ],
+                                 [
+                                    1080,
+                                    1794
+                                 ]
+                              ],
+                              "resource_id": "android:id/content",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "1080*1731"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              0,
+                              63
+                           ],
+                           [
+                              1080,
+                              1794
+                           ]
+                        ],
+                        "resource_id": "info.zamojski.soft.towercollector:id/action_bar_root",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "1080*1731"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        0,
+                        63
+                     ],
+                     [
+                        1080,
+                        1794
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "1080*1731"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  1794
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "1080*1794"
+         },
+         {
+            "package": "info.zamojski.soft.towercollector",
+            "visible": true,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  0
+               ],
+               [
+                  1080,
+                  63
+               ]
+            ],
+            "resource_id": "android:id/statusBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 51,
+            "size": "1080*63"
+         },
+         {
+            "package": "info.zamojski.soft.towercollector",
+            "visible": true,
+            "checkable": false,
+            "child_count": 0,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [],
+            "focused": false,
+            "bounds": [
+               [
+                  0,
+                  1794
+               ],
+               [
+                  1080,
+                  1920
+               ]
+            ],
+            "resource_id": "android:id/navigationBarBackground",
+            "checked": false,
+            "text": null,
+            "class": "android.view.View",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 52,
+            "size": "1080*126"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            0,
+            0
+         ],
+         [
+            1080,
+            1920
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1080*1920"
+   }
+}

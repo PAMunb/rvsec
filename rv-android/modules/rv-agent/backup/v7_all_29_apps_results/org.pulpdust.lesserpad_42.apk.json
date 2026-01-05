@@ -1,0 +1,158 @@
+{
+  "app_name": "org.pulpdust.lesserpad_42.apk",
+  "execution_time_s": 27.690983057022095,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 9,
+    "invalid": 1,
+    "valid_rate": 0.9
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayout",
+      "View",
+      "Button",
+      "TableRow",
+      "unknown",
+      "ListView",
+      "RelativeLayout",
+      "ImageButton",
+      "ViewGroup",
+      "EditText",
+      "TextView",
+      "FrameLayout",
+      "Spinner"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 29,
+      "RelativeLayout": 12,
+      "TableRow": 10,
+      "TextView": 45,
+      "Spinner": 7,
+      "EditText": 8,
+      "ViewGroup": 7,
+      "ImageButton": 13,
+      "LinearLayout": 19,
+      "View": 14,
+      "ListView": 2,
+      "Button": 4
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "c0c6757a3538": 1,
+      "3d47dc31d2a2": 5,
+      "c3a8b3ef88fc": 1,
+      "0618562376bd": 1,
+      "32a42fbcc965": 2
+    },
+    "activities": [
+      "org.pulpdust.lesserpad/.LesserPadListActivity",
+      "org.pulpdust.lesserpad/.ProtectActivity",
+      "org.pulpdust.lesserpad/.LesserPadActivity"
+    ],
+    "revisit_rate": 0.5
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 2
+  },
+  "llm": {
+    "total_tokens": 45736,
+    "input_tokens": 45340,
+    "output_tokens": 396,
+    "avg_tokens_per_iteration": 4573.6,
+    "max_message_count": 1,
+    "total_time_ms": 25775.493144989014,
+    "avg_time_per_iteration_ms": 2577.5493144989014
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 9,
+    "invalid_actions": 1,
+    "valid_rate": 0.9,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[Lesser Pad] @ ((0, 63), (537, 210))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[org.pulpdust.lesserpad:id/editText1] @ ((0, 210), (1080, 1647))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[New] @ ((0, 63), (537, 210))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[Test.txt] @ ((0, 210), (1080, 315))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Test] @ ((0, 210), (1080, 1647))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[org.pulpdust.lesserpad_42.apkTest] @ ((0, 210), (1080, 1647))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[org.pulpdust.lesserpad_42.apkTest] @ ((0, 210), (1080, 1647))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 1061), (1028, 1118))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 1061), (1028, 1118))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Cancel] @ ((70, 611), (540, 737))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Cancel] @ ((70, 981), (540, 1107))"
+      }
+    ]
+  }
+}

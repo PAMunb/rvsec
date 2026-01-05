@@ -1,0 +1,45 @@
+{
+  "app_name": "cryptoapp.apk",
+  "execution_time_s": 1.0212173461914062,
+  "total_iterations": 0,
+  "actions": {
+    "by_type": {},
+    "valid": 0,
+    "invalid": 0,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [],
+    "type_counts": {},
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 0,
+    "screen_visits": {},
+    "activities": [],
+    "revisit_rate": 0.0
+  },
+  "memory_graph": {
+    "graph_states": 0,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 0
+  },
+  "llm": {
+    "total_tokens": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "avg_tokens_per_iteration": 0.0,
+    "max_message_count": 0,
+    "total_time_ms": 0.0,
+    "avg_time_per_iteration_ms": 0.0
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

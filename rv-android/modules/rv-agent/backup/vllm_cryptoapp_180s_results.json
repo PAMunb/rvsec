@@ -1,0 +1,45 @@
+{
+  "total_calls": 5,
+  "successful_calls": 5,
+  "failed_calls": 0,
+  "loop_count": 0,
+  "total_tokens": 11286,
+  "total_time": 16.08596181869507,
+  "responses": [
+    {
+      "screenshot": "screenshot_1757943245.png",
+      "finish_reason": "stop",
+      "tokens": 2255,
+      "time": 3.6562416553497314,
+      "content_preview": "This is a simple, minimalist Android app screen for a \"Crypto App\".\n\n**UI Elements:**\n\n- **Status Ba"
+    },
+    {
+      "screenshot": "screenshot_1757943897.png",
+      "finish_reason": "stop",
+      "tokens": 2265,
+      "time": 3.4156503677368164,
+      "content_preview": "This is a simple, clean interface for a \"Crypto App\" on an Android device.\n\n**UI Elements:**\n\n*   **"
+    },
+    {
+      "screenshot": "screenshot_1757943899.png",
+      "finish_reason": "stop",
+      "tokens": 2234,
+      "time": 2.574445962905884,
+      "content_preview": "This is the main screen of a simple Android crypto application.\n\n**UI Elements:**\n\n- **Status Bar:**"
+    },
+    {
+      "screenshot": "screenshot_1757943902.png",
+      "finish_reason": "stop",
+      "tokens": 2238,
+      "time": 2.983290195465088,
+      "content_preview": "This is the main screen of a simple Android crypto application.\n\n**UI Elements:**\n\n- **Status Bar:**"
+    },
+    {
+      "screenshot": "screenshot_1757943904.png",
+      "finish_reason": "stop",
+      "tokens": 2294,
+      "time": 3.456333637237549,
+      "content_preview": "This is the main screen of an Android application titled \"Crypto App\". The interface features a clea"
+    }
+  ]
+}

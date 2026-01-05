@@ -18,7 +18,27 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
-@validated_model(['id', 'text', 'event', 'reaches_mop', 'directly_reaches_mop', 'target_view', 'coordinates'])
+# Canonical mapping from WidgetEventType to standardized action type strings
+# This is the SINGLE SOURCE OF TRUTH for action type classification
+WIDGET_EVENT_TO_ACTION_TYPE = {
+    WidgetEventType.CLICK: "click",
+    WidgetEventType.LONG_CLICK: "long_click",
+    WidgetEventType.TEXT_CHANGE: "set_text",
+    WidgetEventType.SCROLL: "scroll",
+    WidgetEventType.BACK: "key_event",
+    WidgetEventType.KEY: "key_event",
+    WidgetEventType.DRAG: "swipe",
+    WidgetEventType.GESTURE: "swipe",
+    WidgetEventType.FOCUS: "click",
+    WidgetEventType.SELECTION: "click",
+    WidgetEventType.TOUCH: "click",
+    WidgetEventType.HOVER: "click",
+    WidgetEventType.RESTART: "restart",
+    WidgetEventType.OTHER: "unknown",
+}
+
+
+@validated_model(['id', 'text', 'event', 'reaches_mop', 'directly_reaches_mop', 'target_view', 'coordinates', 'text_input'])
 class ItemAction(BaseValidatedModel):
     """
     Representation of an executable action on a UI element within the screen parsing framework.
@@ -61,6 +81,7 @@ class ItemAction(BaseValidatedModel):
     coordinates: Optional[Tuple[int, int]] = Field(default=None, description="Explicit action coordinates (x, y)")
     widget_id: Optional[str] = Field(default=None, description="Target widget ID")
     callback_signature: Optional[str] = Field(default=None, description="Target callback method signature")
+    text_input: Optional[str] = Field(default=None, description="Text value for TEXT_CHANGE actions")
 
     @field_validator('coordinates')
     @classmethod
@@ -96,22 +117,29 @@ class ItemAction(BaseValidatedModel):
     @property
     def action_type(self) -> str:
         """
-        Extract standardized action type from text description.
-        
-        Provides normalized action type classification for execution engines
-        and automation frameworks based on action text patterns.
-        
+        Extract standardized action type from WidgetEventType.
+
+        Uses WidgetEventType as the SINGLE SOURCE OF TRUTH for action classification.
+        Text parsing is used ONLY for directional refinement (scroll directions).
+
+        This architectural decision ensures:
+        - Consistency between event type and action classification
+        - Elimination of fragile string parsing as primary method
+        - Clear separation: event defines type, text provides description
+
         Returns:
-            Standardized action type string
+            Standardized action type string (click, set_text, scroll, etc.)
         """
-        text_upper = self.text.upper()
-        
-        if text_upper.startswith("CLICK"):
-            return "click"
-        elif text_upper.startswith("LONG_CLICK"):
-            return "long_click"
-        elif text_upper.startswith("SCROLL"):
-            # Extract direction if present for specialized scroll handling
+        # Primary: Use WidgetEventType mapping (SINGLE SOURCE OF TRUTH)
+        base_type = WIDGET_EVENT_TO_ACTION_TYPE.get(self.event)
+
+        if base_type is None:
+            # Fallback for unmapped event types
+            return "unknown"
+
+        # Refinement: Parse text ONLY for scroll directions
+        if base_type == "scroll":
+            text_upper = self.text.upper()
             if "UP" in text_upper:
                 return "scroll_up"
             elif "DOWN" in text_upper:
@@ -120,15 +148,8 @@ class ItemAction(BaseValidatedModel):
                 return "scroll_left"
             elif "RIGHT" in text_upper:
                 return "scroll_right"
-            return "scroll"
-        elif text_upper.startswith("SET_TEXT"):
-            return "set_text"
-        elif text_upper.startswith(("CHECK", "UNCHECK")):
-            return "click"  # Checkbox actions are implemented as clicks
-        elif text_upper.startswith("BACK"):
-            return "key_event"
-        
-        return "unknown"
+
+        return base_type
 
     @ErrorHandler.handle_errors(component="ItemAction", phase="target_resolution")
     def get_target_identifier(self) -> str:

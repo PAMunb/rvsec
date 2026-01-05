@@ -1,0 +1,180 @@
+{
+  "app_name": "com.gh4a_73.apk",
+  "execution_time_s": 27.03287434577942,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 4,
+    "invalid": 6,
+    "valid_rate": 0.4
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ImageView",
+      "LinearLayout",
+      "RadioButton",
+      "ScrollView",
+      "LinearLayoutCompat",
+      "CheckedTextView",
+      "TextView",
+      "DrawerLayout",
+      "Button",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "ViewPager",
+      "RadioGroup",
+      "View",
+      "ListView",
+      "RelativeLayout",
+      "ImageButton",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 91,
+      "LinearLayout": 95,
+      "LinearLayoutCompat": 17,
+      "RadioGroup": 1,
+      "RadioButton": 2,
+      "TextView": 142,
+      "ScrollView": 3,
+      "Button": 4,
+      "DrawerLayout": 7,
+      "RecyclerView": 5,
+      "ImageView": 41,
+      "CheckedTextView": 6,
+      "View": 30,
+      "ViewGroup": 22,
+      "ImageButton": 7,
+      "HorizontalScrollView": 5,
+      "ViewPager": 4,
+      "RelativeLayout": 23,
+      "ListView": 2
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 10,
+    "screen_visits": {
+      "62ab86fb05a8": 1,
+      "702c53b56dc8": 1,
+      "389bb59b75df": 1,
+      "cdf1bc3333ee": 1,
+      "2fcee865eee0": 1,
+      "b79b3e796a58": 1,
+      "e54b8f079b3d": 1,
+      "fca0461ea448": 1,
+      "0119e1752b39": 1,
+      "3a12a3d9a318": 1
+    },
+    "activities": [
+      "com.gh4a/.activities.TimelineActivity",
+      "com.gh4a/.activities.TrendingActivity",
+      "com.gh4a/.activities.Github4AndroidActivity",
+      "com.gh4a/.activities.IssueActivity",
+      "com.gh4a/.activities.IssueListActivity",
+      "com.gh4a/.activities.RepositoryActivity"
+    ],
+    "revisit_rate": 0.0
+  },
+  "memory_graph": {
+    "graph_states": 10,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 2
+  },
+  "llm": {
+    "total_tokens": 46880,
+    "input_tokens": 46495,
+    "output_tokens": 385,
+    "avg_tokens_per_iteration": 4688.0,
+    "max_message_count": 1,
+    "total_time_ms": 25937.625408172607,
+    "avg_time_per_iteration_ms": 2593.7625408172607
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 4,
+    "invalid_actions": 6,
+    "valid_rate": 0.4,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[LOGIN] @ ((42, 1657), (1038, 1783))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.RadioButton[Login using access token] @ ((112, 571), (968, 697))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckedTextView[Search] @ ((58, 324), (677, 450))",
+        "element": "android.widget.CheckedTextView[Search] @ ((58, 324), (677, 450))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[REPORT ISSUE] @ ((378, 1182), (702, 1308))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[TODAY] @ ((113, 247), (244, 298))",
+        "element": "android.widget.TextView[TODAY] @ ((113, 247), (244, 298))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[FILES] @ ((311, 247), (419, 298))",
+        "element": "android.widget.TextView[FILES] @ ((311, 247), (419, 298))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Issues] @ ((189, 73), (348, 144))",
+        "element": "android.widget.TextView[Issues] @ ((189, 73), (348, 144))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[OPEN] @ ((208, 247), (317, 298))",
+        "element": "android.widget.TextView[OPEN] @ ((208, 247), (317, 298))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[Self hosting convex ] @ ((85, 275), (507, 346))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((607, 947), (1038, 1004))",
+        "element": "android.widget.RelativeLayout[] @ ((607, 947), (1038, 1004))"
+      }
+    ]
+  }
+}

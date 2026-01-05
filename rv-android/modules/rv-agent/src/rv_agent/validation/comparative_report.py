@@ -254,11 +254,11 @@ class ComparativeReportGenerator:
         lines.append("### ⚠️ Critical Issues")
         lines.append("")
 
-        type_text_count = metrics.action_distribution.get('TYPE_TEXT', 0)
+        type_text_count = metrics.action_distribution.get('SET_TEXT', 0)
         type_text_pct = (type_text_count / metrics.total_actions * 100) if metrics.total_actions > 0 else 0
 
         if type_text_pct < 5:
-            lines.append(f"- **TYPE_TEXT usage very low**: {type_text_count} actions ({type_text_pct:.1f}%)")
+            lines.append(f"- **SET_TEXT usage very low**: {type_text_count} actions ({type_text_pct:.1f}%)")
             edittext_apps = [cov.app_name for cov in metrics.app_coverages if 'EditText' in cov.element_types]
             if edittext_apps:
                 lines.append(f"  - EditText found in {len(edittext_apps)} apps: {', '.join(edittext_apps)}")
@@ -339,9 +339,9 @@ class ComparativeReportGenerator:
         lines.append("")
 
         if type_text_pct < 5:
-            lines.append("1. **Fix TYPE_TEXT usage**: Agent is not typing into EditText fields")
+            lines.append("1. **Fix SET_TEXT usage**: Agent is not typing into EditText fields")
             lines.append("   - Review prompts to encourage text input actions")
-            lines.append("   - Add explicit examples of TYPE_TEXT usage")
+            lines.append("   - Add explicit examples of SET_TEXT usage")
             lines.append("   - Test with apps that require text input")
 
         if click_pct > 90:
@@ -423,7 +423,7 @@ class ComparativeReportGenerator:
                     'invalid_actions': actions.get('invalid', 0),
                     'valid_rate': actions.get('valid_rate', 0.0),
                     'click_count': by_type.get('CLICK', 0),
-                    'type_text_count': by_type.get('TYPE_TEXT', 0),
+                    'type_text_count': by_type.get('SET_TEXT', 0),
                     'long_click_count': by_type.get('LONG_CLICK', 0),
                     'back_count': by_type.get('BACK', 0),
                     'home_count': by_type.get('HOME', 0),

@@ -1,0 +1,155 @@
+{
+  "app_name": "com.orpheusdroid.sqliteviewer_1.apk",
+  "execution_time_s": 21.09538173675537,
+  "total_iterations": 8,
+  "actions": {
+    "by_type": {
+      "CLICK": 8
+    },
+    "valid": 5,
+    "invalid": 3,
+    "valid_rate": 0.625
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayout",
+      "View",
+      "ScrollView",
+      "Button",
+      "RecyclerView",
+      "unknown",
+      "ListView",
+      "LinearLayoutCompat",
+      "RelativeLayout",
+      "Switch",
+      "ImageButton",
+      "CheckedTextView",
+      "ViewGroup",
+      "ImageView",
+      "EditText",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 8,
+      "FrameLayout": 31,
+      "LinearLayout": 63,
+      "TextView": 51,
+      "View": 17,
+      "ScrollView": 8,
+      "Button": 9,
+      "ImageView": 14,
+      "ViewGroup": 7,
+      "LinearLayoutCompat": 2,
+      "RecyclerView": 1,
+      "RelativeLayout": 20,
+      "ListView": 3,
+      "ImageButton": 1,
+      "Switch": 3,
+      "EditText": 1,
+      "CheckedTextView": 6
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 8,
+    "screen_visits": {
+      "73a45af425e6": 1,
+      "06d9683943dd": 1,
+      "c0ced0784ba1": 1,
+      "fa9bf26ec60e": 1,
+      "6d36369cde45": 1,
+      "1899d95b96d6": 1,
+      "5b7964c70358": 1,
+      "3b8fbb67b317": 1
+    },
+    "activities": [
+      "com.orpheusdroid.sqliteviewer/.ui.FileManagerActivity",
+      "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity",
+      "com.orpheusdroid.sqliteviewer/.ui.SettingsActivity"
+    ],
+    "revisit_rate": 0.0
+  },
+  "memory_graph": {
+    "graph_states": 8,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 3
+  },
+  "llm": {
+    "total_tokens": 36461,
+    "input_tokens": 36168,
+    "output_tokens": 293,
+    "avg_tokens_per_iteration": 4557.625,
+    "max_message_count": 1,
+    "total_time_ms": 20165.278911590576,
+    "avg_time_per_iteration_ms": 2520.659863948822
+  },
+  "device_actions": {
+    "total_actions": 8,
+    "valid_actions": 5,
+    "invalid_actions": 3,
+    "valid_rate": 0.625,
+    "action_types": {
+      "CLICK": 8
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ENABLE ANALYTICS] @ ((579, 907), (978, 1033))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((102, 998), (270, 1124))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Allow] @ ((70, 981), (1010, 1128))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((136, 416), (1080, 552))",
+        "element": "android.widget.RelativeLayout[] @ ((136, 416), (1080, 552))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Number of rows per page] @ ((42, 348), (516, 405))",
+        "element": "android.widget.TextView[Number of rows per page] @ ((42, 348), (516, 405))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 1036), (978, 1162))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[CANCEL] @ ((776, 1313), (978, 1439))"
+      }
+    ]
+  }
+}

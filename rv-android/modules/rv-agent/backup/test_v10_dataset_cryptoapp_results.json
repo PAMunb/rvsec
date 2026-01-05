@@ -1,0 +1,24 @@
+{
+  "app": "CryptoApp",
+  "package": "br.unb.cic.cryptoapp",
+  "type": "encryption",
+  "has_static_analysis": true,
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 18,
+    "unique_states": 4,
+    "transitions": 4,
+    "potential_loop": false,
+    "execution_time_s": 127.30750513076782
+  },
+  "validation": {
+    "generated_actions": true,
+    "discovered_states": true,
+    "recorded_transitions": true,
+    "no_immediate_loop": true,
+    "overall_success": true
+  }
+}

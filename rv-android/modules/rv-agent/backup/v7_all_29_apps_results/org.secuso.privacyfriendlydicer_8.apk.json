@@ -1,0 +1,155 @@
+{
+  "app_name": "org.secuso.privacyfriendlydicer_8.apk",
+  "execution_time_s": 20.828301668167114,
+  "total_iterations": 8,
+  "actions": {
+    "by_type": {
+      "CLICK": 7,
+      "BACK": 1
+    },
+    "valid": 7,
+    "invalid": 1,
+    "valid_rate": 0.875
+  },
+  "element_coverage": {
+    "types_seen": [
+      "SeekBar",
+      "LinearLayout",
+      "View",
+      "DrawerLayout",
+      "Button",
+      "RecyclerView",
+      "unknown",
+      "ListView",
+      "LinearLayoutCompat",
+      "RelativeLayout",
+      "Switch",
+      "ViewPager",
+      "ImageButton",
+      "CheckedTextView",
+      "ViewGroup",
+      "ImageView",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 8,
+      "FrameLayout": 28,
+      "LinearLayout": 31,
+      "DrawerLayout": 5,
+      "ViewGroup": 17,
+      "ImageButton": 6,
+      "TextView": 40,
+      "SeekBar": 10,
+      "Button": 7,
+      "ImageView": 53,
+      "View": 12,
+      "RecyclerView": 1,
+      "RelativeLayout": 7,
+      "LinearLayoutCompat": 4,
+      "CheckedTextView": 4,
+      "ListView": 1,
+      "Switch": 2,
+      "ViewPager": 2
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 4,
+    "screen_visits": {
+      "de02a0575400": 2,
+      "1f68a6242c20": 4,
+      "3a34cc4228f8": 1,
+      "61de2e5d7cdc": 1
+    },
+    "activities": [
+      "org.secuso.privacyfriendlydicer/.ui.SettingsActivity",
+      "org.secuso.privacyfriendlydicer/.ui.TutorialActivity",
+      "org.secuso.privacyfriendlydicer/.ui.MainActivity"
+    ],
+    "revisit_rate": 0.5
+  },
+  "memory_graph": {
+    "graph_states": 4,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 36258,
+    "input_tokens": 35989,
+    "output_tokens": 269,
+    "avg_tokens_per_iteration": 4532.25,
+    "max_message_count": 1,
+    "total_time_ms": 20023.216724395752,
+    "avg_time_per_iteration_ms": 2502.902090549469
+  },
+  "device_actions": {
+    "total_actions": 8,
+    "valid_actions": 7,
+    "invalid_actions": 1,
+    "valid_rate": 0.875,
+    "action_types": {
+      "CLICK": 7,
+      "BACK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OKAY] @ ((828, 1668), (1059, 1794))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ROLL THE DICE] @ ((42, 566), (1038, 692))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ROLL THE DICE] @ ((42, 566), (1038, 692))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ROLL THE DICE] @ ((42, 566), (1038, 692))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ROLL THE DICE] @ ((42, 566), (1038, 692))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckedTextView[Settings] @ ((42, 612), (693, 738))",
+        "element": "android.widget.CheckedTextView[Settings] @ ((42, 612), (693, 738))"
+      },
+      {
+        "step": 7,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OKAY] @ ((828, 1668), (1059, 1794))"
+      }
+    ]
+  }
+}

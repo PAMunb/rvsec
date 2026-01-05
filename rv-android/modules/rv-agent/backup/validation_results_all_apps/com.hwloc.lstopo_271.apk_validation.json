@@ -1,0 +1,77 @@
+{
+  "app_name": "com.hwloc.lstopo_271.apk",
+  "execution_time_s": 11.612736701965332,
+  "total_iterations": 9,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 9
+    },
+    "valid": 0,
+    "invalid": 9,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ViewGroup",
+      "LinearLayoutCompat",
+      "HorizontalScrollView",
+      "FrameLayout",
+      "TextView",
+      "Button",
+      "unknown",
+      "RelativeLayout",
+      "ImageButton",
+      "View",
+      "DrawerLayout",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 9,
+      "FrameLayout": 27,
+      "LinearLayout": 207,
+      "DrawerLayout": 9,
+      "ViewGroup": 9,
+      "ImageButton": 9,
+      "Button": 9,
+      "LinearLayoutCompat": 9,
+      "TextView": 225,
+      "View": 27,
+      "RelativeLayout": 27,
+      "HorizontalScrollView": 9
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 1,
+    "screen_visits": {
+      "b7446df03013": 9
+    },
+    "activities": [
+      "com.hwloc.lstopo/.MainActivity"
+    ],
+    "revisit_rate": 0.8888888888888888
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 9
+  },
+  "llm": {
+    "total_tokens": 15819,
+    "input_tokens": 15352,
+    "output_tokens": 467,
+    "avg_tokens_per_iteration": 1757.6666666666667,
+    "max_message_count": 1,
+    "total_time_ms": 10514.48130607605,
+    "avg_time_per_iteration_ms": 1168.2757006751167
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

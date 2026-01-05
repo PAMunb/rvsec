@@ -1,0 +1,180 @@
+{
+  "app_name": "com.github.axet.hourlyreminder_476.apk",
+  "execution_time_s": 27.13357138633728,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 9,
+      "HOME": 1
+    },
+    "valid": 3,
+    "invalid": 7,
+    "valid_rate": 0.3
+  },
+  "element_coverage": {
+    "types_seen": [
+      "CheckBox",
+      "unknown",
+      "Switch",
+      "ViewGroup",
+      "ImageView",
+      "EditText",
+      "LinearLayout",
+      "ScrollView",
+      "LinearLayoutCompat",
+      "TextView",
+      "DrawerLayout",
+      "Button",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "ActionBar$Tab",
+      "ViewPager",
+      "Chip",
+      "View",
+      "RelativeLayout",
+      "ImageButton",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 87,
+      "LinearLayout": 111,
+      "ViewGroup": 17,
+      "HorizontalScrollView": 7,
+      "ActionBar$Tab": 15,
+      "TextView": 56,
+      "ImageView": 27,
+      "ViewPager": 6,
+      "RecyclerView": 6,
+      "Switch": 3,
+      "CheckBox": 156,
+      "ImageButton": 12,
+      "View": 41,
+      "LinearLayoutCompat": 8,
+      "DrawerLayout": 1,
+      "Chip": 4,
+      "RelativeLayout": 4,
+      "EditText": 1,
+      "ScrollView": 7,
+      "Button": 9
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 9,
+    "screen_visits": {
+      "64235e1aa1fb": 1,
+      "aabecc24e943": 1,
+      "ec83ef514e01": 1,
+      "d7892d4b49a0": 1,
+      "9db119b2228d": 2,
+      "f4ad3d5ea073": 1,
+      "1d3d2f91b842": 1,
+      "952177543845": 1,
+      "1803a1e86fce": 1
+    },
+    "activities": [
+      "com.github.axet.hourlyreminder/.activities.MainActivity",
+      "com.google.android.soundpicker/.activity.GalleryActivity",
+      "com.android.documentsui/.picker.PickActivity"
+    ],
+    "revisit_rate": 0.1
+  },
+  "memory_graph": {
+    "graph_states": 9,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 3
+  },
+  "llm": {
+    "total_tokens": 48074,
+    "input_tokens": 47709,
+    "output_tokens": 365,
+    "avg_tokens_per_iteration": 4807.4,
+    "max_message_count": 1,
+    "total_time_ms": 25978.554010391235,
+    "avg_time_per_iteration_ms": 2597.8554010391235
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 3,
+    "invalid_actions": 7,
+    "valid_rate": 0.3,
+    "action_types": {
+      "CLICK": 9,
+      "HOME": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[HOURLY REMINDERS] @ ((64, 121), (412, 172))",
+        "element": "android.widget.TextView[HOURLY REMINDERS] @ ((64, 121), (412, 172))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckBox[Weekdays] @ ((34, 363), (202, 414))",
+        "element": "android.widget.CheckBox[Weekdays] @ ((34, 363), (202, 414))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckBox[Weekdays] @ ((34, 363), (202, 414))",
+        "element": "android.widget.CheckBox[Weekdays] @ ((34, 363), (202, 414))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.CheckBox[Weekdays] @ ((34, 363), (202, 414))",
+        "element": "android.widget.CheckBox[Weekdays] @ ((34, 363), (202, 414))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Browse ringtones] @ ((0, 473), (414, 608))",
+        "element": "android.widget.TextView[Browse ringtones] @ ((0, 473), (414, 608))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[My Sounds] @ ((11, 882), (535, 1013))",
+        "element": "android.widget.TextView[My Sounds] @ ((11, 882), (535, 1013))"
+      },
+      {
+        "step": 7,
+        "action_type": "HOME",
+        "valid": true,
+        "reason": "System action: HOME",
+        "element": null
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[com.github.axet.hourlyreminder:id/custom] @ ((70, 850), (1010, 968))",
+        "element": "android.widget.FrameLayout[com.github.axet.hourlyreminder:id/custom] @ ((70, 850), (1010, 968))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[2] @ ((400, 567), (505, 672))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[12] @ ((132, 567), (237, 672))"
+      }
+    ]
+  }
+}

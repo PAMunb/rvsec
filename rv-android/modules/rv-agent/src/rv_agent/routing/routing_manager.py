@@ -26,6 +26,7 @@ class RoutingManager:
     - Integrates loop detection for validation
     - Provides fallback when LLM fails
     - Tracks decision counters for reporting
+    - Recovery mode after consecutive LLM failures
 
     ### Role in the System:
     - Central decision routing logic
@@ -33,6 +34,7 @@ class RoutingManager:
     - Validates LLM actions against loops
     - Triggers fallback when needed
     - Maintains exploration mode statistics
+    - Activates recovery mode on persistent failures
 
     ### Integration Points:
     - Used by RVAgent decision_router node
@@ -41,6 +43,10 @@ class RoutingManager:
     - Accesses ExplorationStrategy for pure_algorithm mode
     - Reports routing decisions to agent state
     """
+
+    # Recovery mode thresholds
+    RECOVERY_FAILURE_THRESHOLD = 3  # Consecutive failures to trigger recovery
+    RECOVERY_ACTION_COUNT = 10       # Actions in recovery mode
 
     def __init__(
         self,
@@ -63,9 +69,21 @@ class RoutingManager:
         self.fallback_manager = fallback_manager
         self.exploration_strategy = exploration_strategy
 
-        # Decision counters
-        self.llm_decisions = 0
-        self.algorithm_decisions = 0
+        # === PRIMARY COUNTERS (validate 70/30 proportion) ===
+        # These track probabilistic routing decisions
+        self.llm_executed = 0        # LLM decided AND executed successfully
+        self.algorithm_chosen = 0    # Router probabilistically chose algorithm
+
+        # === AUXILIARY COUNTERS (special cases - not in 70/30) ===
+        # These track fallbacks and forced actions
+        self.llm_fallback = 0        # LLM failed validation → algorithm executed
+        self.forced_back_count = 0   # BACK forced by stuck detection
+        self.recovery_actions_count = 0  # Actions during recovery mode
+
+        # Recovery mode tracking
+        self.consecutive_llm_failures = 0
+        self.recovery_mode_active = False
+        self.recovery_actions_remaining = 0
 
         self.logger = logging.getLogger(__name__)
 
@@ -83,13 +101,36 @@ class RoutingManager:
 
         self.logger.info(f"Routing decision (mode={mode}, iteration={iteration})")
 
+        # Check recovery mode first - overrides normal routing
+        if self.recovery_mode_active:
+            self.recovery_actions_remaining -= 1
+            self.recovery_actions_count += 1  # Count recovery actions separately
+
+            self.logger.warning(
+                f"🔧 Recovery mode active: forcing algorithm "
+                f"({self.recovery_actions_remaining} actions remaining)"
+            )
+            self.logger.warning(
+                f"[AUXILIARY_COUNTER] recovery_action++ (now={self.recovery_actions_count}) | "
+                f"remaining={self.recovery_actions_remaining} | "
+                f"consecutive_failures={self.consecutive_llm_failures} | "
+                f"llm_exec={self.llm_executed} | alg_chosen={self.algorithm_chosen}"
+            )
+
+            # Exit recovery mode when counter reaches zero
+            if self.recovery_actions_remaining <= 0:
+                self.recovery_mode_active = False
+                self.logger.info("✅ Recovery mode completed, returning to normal routing")
+
+            return "algorithm"
+
         if mode == "pure_algorithm":
-            self.algorithm_decisions += 1
+            self.algorithm_chosen += 1
             self.logger.info("Mode: pure_algorithm → algorithm path")
             return "algorithm"
 
         elif mode == "llm_only":
-            self.llm_decisions += 1
+            # Note: Will increment llm_executed only if validation succeeds
             self.logger.info("Mode: llm_only → LLM path")
             return "llm"
 
@@ -98,38 +139,47 @@ class RoutingManager:
             llm_probability = self.config.llm_probability
 
             if random.random() < llm_probability:
-                self.llm_decisions += 1
+                # Note: Will increment llm_executed only if validation succeeds
                 self.logger.info(
                     f"Mode: multimode (p={llm_probability}) → LLM path "
-                    f"(LLM={self.llm_decisions}, alg={self.algorithm_decisions})"
+                    f"(LLM_exec={self.llm_executed}, alg_chosen={self.algorithm_chosen})"
                 )
                 return "llm"
             else:
-                self.algorithm_decisions += 1
+                self.algorithm_chosen += 1
                 self.logger.info(
                     f"Mode: multimode (p={llm_probability}) → algorithm path "
-                    f"(LLM={self.llm_decisions}, alg={self.algorithm_decisions})"
+                    f"(LLM_exec={self.llm_executed}, alg_chosen={self.algorithm_chosen})"
                 )
                 return "algorithm"
 
         else:
             self.logger.warning(f"Unknown mode: {mode}, defaulting to algorithm")
-            self.algorithm_decisions += 1
+            self.algorithm_chosen += 1
             return "algorithm"
 
-    def validate_llm_action(
+    def validate_action(
         self,
-        llm_action: Optional[Dict[str, Any]],
+        action: Optional[Dict[str, Any]],
         recent_actions: list,
-        has_tool_calls: bool
+        decision_maker: str = "llm"
     ) -> Dict[str, Any]:
         """
-        Validate LLM-generated action and determine path.
+        Unified validation for actions from LLM or Algorithm.
+
+        Uses shared dynamic state graph (recent_actions) to detect loops
+        regardless of action source. Prevents duplication of validation logic.
+
+        NOTE: In pure_algorithm mode, loop detection is DISABLED because
+        RVAgent strategy has its own loop prevention mechanisms:
+        - Backtracking when states exhausted
+        - Successor tracking
+        - Plateau detection
 
         Args:
-            llm_action: Extracted action from LLM response
-            recent_actions: Recent action history
-            has_tool_calls: Whether LLM generated tool calls
+            action: Action to validate (from LLM or Algorithm)
+            recent_actions: Recent action history from dynamic graph
+            decision_maker: Source of action ("llm" or "algorithm")
 
         Returns:
             Dictionary with:
@@ -139,70 +189,224 @@ class RoutingManager:
             - fallback_reason: Reason for fallback (if applicable)
             - current_action: Action to preserve for memory
         """
-        # Check for missing tool calls
-        if not has_tool_calls:
-            self.logger.warning("No tool calls from LLM → algorithm fallback")
-            self.algorithm_decisions += 1  # Count as algorithm decision
+        # In pure_algorithm mode, SKIP loop detection entirely
+        # RVAgent has its own loop prevention through backtracking and successor tracking
+        mode = self.config.get_agent_mode()
+        if mode == "pure_algorithm":
+            # Only check for missing action
+            if not action or not action.get("action_type"):
+                self.logger.warning(
+                    f"No valid action from {decision_maker} in pure_algorithm mode → returning None"
+                )
+                return {
+                    "validation_path": "execute",
+                    "loop_detected": False,
+                    "used_fallback": False,
+                    "current_action": None
+                }
+
+            # Valid action - no loop detection in pure_algorithm mode
+            self.logger.debug(
+                f"pure_algorithm mode: skipping loop detection for {action.get('action_type')}"
+            )
+            return {
+                "validation_path": "execute",
+                "loop_detected": False,
+                "used_fallback": False,
+                "current_action": action
+            }
+
+        # For LLM and multimode: perform loop detection
+        # Check for missing action (LLM without tool calls, or Algorithm returned None)
+        # Handle both None and empty/invalid dicts: {}, {"action_type": None}, {"action_type": ""}
+        if not action or not action.get("action_type"):
+            self.llm_fallback += 1
+            action_repr = "None" if action is None else f"dict(action_type={action.get('action_type')})"
+            self.logger.warning(
+                f"No valid action from {decision_maker} (action={action_repr}) → algorithm fallback"
+            )
+            self.logger.warning(
+                f"[AUXILIARY_COUNTER] llm_fallback++ (now={self.llm_fallback}) | "
+                f"reason=no_valid_action | decision_maker={decision_maker} | "
+                f"action_repr={action_repr} | "
+                f"llm_exec={self.llm_executed} | alg_chosen={self.algorithm_chosen}"
+            )
+            self._record_llm_failure()
             return {
                 "validation_path": "algorithm_fallback",
                 "loop_detected": True,
                 "used_fallback": True,
-                "fallback_reason": "no_tool_calls"
+                "fallback_reason": "no_valid_action"
             }
 
-        # Check for invalid action
-        if not llm_action:
-            self.logger.warning("Could not extract action → algorithm fallback")
-            self.algorithm_decisions += 1
-            return {
-                "validation_path": "algorithm_fallback",
-                "loop_detected": True,
-                "used_fallback": True,
-                "fallback_reason": "invalid_action"
-            }
-
-        # Loop detection
+        # Loop detection (consecutive similar actions)
         is_loop, consecutive_count, threshold = self.loop_detector.detect_loop(
             recent_actions,
-            llm_action
+            action
         )
 
         if is_loop:
-            action_type = llm_action.get("action_type", "UNKNOWN")
+            action_type = action.get("action_type", "UNKNOWN")
+            self.llm_fallback += 1
             self.logger.warning(
-                f"Loop: {action_type} repeated {consecutive_count}x "
+                f"Loop from {decision_maker}: {action_type} repeated {consecutive_count}x "
                 f"(threshold={threshold}) → algorithm fallback"
             )
-            self.algorithm_decisions += 1
+            self.logger.warning(
+                f"[AUXILIARY_COUNTER] llm_fallback++ (now={self.llm_fallback}) | "
+                f"reason=loop_detected | decision_maker={decision_maker} | action_type={action_type} | "
+                f"consecutive={consecutive_count} | threshold={threshold} | "
+                f"llm_exec={self.llm_executed} | alg_chosen={self.algorithm_chosen}"
+            )
+            self._record_llm_failure()
             return {
                 "validation_path": "algorithm_fallback",
                 "loop_detected": True,
                 "used_fallback": True,
                 "fallback_reason": "loop_detected",
-                "current_action": llm_action
+                "current_action": action
+            }
+
+        # Action sequence repetition detection
+        is_seq_repetition, pattern, repetitions = self.loop_detector.detect_action_sequence_repetition(
+            recent_actions
+        )
+
+        if is_seq_repetition:
+            self.llm_fallback += 1
+            self.logger.warning(
+                f"Action sequence repetition from {decision_maker}: pattern {pattern} repeated {repetitions}x "
+                f"→ algorithm fallback"
+            )
+            self.logger.warning(
+                f"[AUXILIARY_COUNTER] llm_fallback++ (now={self.llm_fallback}) | "
+                f"reason=action_sequence_repetition | decision_maker={decision_maker} | "
+                f"pattern={pattern} | pattern_length={len(pattern)} | "
+                f"repetitions={repetitions} | "
+                f"llm_exec={self.llm_executed} | alg_chosen={self.algorithm_chosen}"
+            )
+            self._record_llm_failure()
+            return {
+                "validation_path": "algorithm_fallback",
+                "loop_detected": True,
+                "used_fallback": True,
+                "fallback_reason": "action_sequence_repetition",
+                "current_action": action
+            }
+
+        # Spatial loop detection (CLICKs clustered in same area)
+        is_spatial_loop = self.loop_detector.detect_spatial_loop(recent_actions)
+
+        if is_spatial_loop:
+            self.llm_fallback += 1
+            # Extract click positions from recent actions for detailed logging
+            recent_clicks = [
+                (a.get("x"), a.get("y"))
+                for a in recent_actions[-5:]
+                if a.get("action_type") == "CLICK"
+            ]
+            self.logger.warning(
+                f"Spatial loop from {decision_maker}: CLICKs clustered in same area → algorithm fallback"
+            )
+            self.logger.warning(
+                f"[AUXILIARY_COUNTER] llm_fallback++ (now={self.llm_fallback}) | "
+                f"reason=spatial_loop_detected | decision_maker={decision_maker} | recent_clicks={recent_clicks} | "
+                f"llm_exec={self.llm_executed} | alg_chosen={self.algorithm_chosen}"
+            )
+            self._record_llm_failure()
+            return {
+                "validation_path": "algorithm_fallback",
+                "loop_detected": True,
+                "used_fallback": True,
+                "fallback_reason": "spatial_loop_detected",
+                "current_action": action
             }
 
         # Valid - proceed to execute
-        action_type = llm_action.get("action_type", "UNKNOWN")
+        action_type = action.get("action_type", "UNKNOWN")
         self.logger.debug(
-            f"Validation: {action_type} valid (count={consecutive_count})"
+            f"Validation from {decision_maker}: {action_type} valid (count={consecutive_count})"
         )
+
+        # Count as executed if from LLM (enters 70/30 proportion)
+        if decision_maker == "llm":
+            self.llm_executed += 1
+            # Reset failure counter on successful LLM validation
+            self._reset_llm_failures()
 
         return {
             "validation_path": "execute",
             "loop_detected": False,
             "used_fallback": False,
-            "current_action": llm_action
+            "current_action": action
         }
 
     def get_decision_counters(self) -> Dict[str, int]:
         """
-        Get current decision counter values.
+        Get all decision counter values.
 
         Returns:
-            Dictionary with llm_decisions and algorithm_decisions
+            Dictionary with primary counters (70/30 validation) and auxiliary counters
         """
+        # Calculate proportions
+        primary_total = self.llm_executed + self.algorithm_chosen
+        llm_percentage = (self.llm_executed / primary_total * 100) if primary_total > 0 else 0
+        algorithm_percentage = (self.algorithm_chosen / primary_total * 100) if primary_total > 0 else 0
+
+        # Total actions (all counters)
+        total_actions = (
+            self.llm_executed +
+            self.algorithm_chosen +
+            self.llm_fallback +
+            self.forced_back_count +
+            self.recovery_actions_count
+        )
+
         return {
-            "llm_decisions": self.llm_decisions,
-            "algorithm_decisions": self.algorithm_decisions
+            # Primary counters (validate 70/30)
+            "llm_executed": self.llm_executed,
+            "algorithm_chosen": self.algorithm_chosen,
+            "llm_percentage": llm_percentage,
+            "algorithm_percentage": algorithm_percentage,
+
+            # Auxiliary counters (special cases)
+            "llm_fallback": self.llm_fallback,
+            "forced_back": self.forced_back_count,
+            "recovery_actions": self.recovery_actions_count,
+
+            # Totals
+            "primary_total": primary_total,
+            "total_actions": total_actions
         }
+
+    def _record_llm_failure(self):
+        """
+        Record LLM failure and activate recovery mode if threshold reached.
+
+        Increments consecutive failure counter and activates recovery mode
+        after RECOVERY_FAILURE_THRESHOLD consecutive failures.
+        """
+        self.consecutive_llm_failures += 1
+
+        if self.consecutive_llm_failures >= self.RECOVERY_FAILURE_THRESHOLD:
+            if not self.recovery_mode_active:
+                self.logger.warning(
+                    f"⚠️  {self.consecutive_llm_failures} consecutive LLM failures → "
+                    f"Activating recovery mode ({self.RECOVERY_ACTION_COUNT} algorithm actions)"
+                )
+                self.recovery_mode_active = True
+                self.recovery_actions_remaining = self.RECOVERY_ACTION_COUNT
+
+    def _reset_llm_failures(self):
+        """
+        Reset LLM failure counter on successful validation.
+
+        Resets the consecutive failure counter when LLM generates
+        a valid, non-loop action.
+        """
+        if self.consecutive_llm_failures > 0:
+            self.logger.debug(
+                f"✅ LLM success after {self.consecutive_llm_failures} failures, "
+                "resetting counter"
+            )
+            self.consecutive_llm_failures = 0

@@ -1,0 +1,1121 @@
+{
+   "activity": "org.secuso.privacyfriendlyludo/.activities.GameSettingActivity",
+   "stack": [
+      "org.secuso.privacyfriendlyludo/.activities.GameSettingActivity",
+      "org.secuso.privacyfriendlyludo/.activities.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "org.secuso.privacyfriendlyludo",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "org.secuso.privacyfriendlyludo",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "org.secuso.privacyfriendlyludo",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "org.secuso.privacyfriendlyludo",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 2,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "org.secuso.privacyfriendlyludo",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.secuso.privacyfriendlyludo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.secuso.privacyfriendlyludo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                133,
+                                                624
+                                             ],
+                                             [
+                                                947,
+                                                687
+                                             ]
+                                          ],
+                                          "resource_id": "android:id/alertTitle",
+                                          "checked": false,
+                                          "text": "Please choose a player color.",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 5,
+                                          "temp_id": 6,
+                                          "size": "814*63"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          577
+                                       ],
+                                       [
+                                          1010,
+                                          687
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/title_template",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.LinearLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "940*110"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    577
+                                 ],
+                                 [
+                                    1010,
+                                    687
+                                 ]
+                              ],
+                              "resource_id": "android:id/topPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "940*110"
+                           },
+                           {
+                              "package": "org.secuso.privacyfriendlyludo",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 1,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "org.secuso.privacyfriendlyludo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "org.secuso.privacyfriendlyludo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 1,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [
+                                             {
+                                                "package": "org.secuso.privacyfriendlyludo",
+                                                "visible": true,
+                                                "checkable": false,
+                                                "child_count": 1,
+                                                "editable": false,
+                                                "clickable": false,
+                                                "is_password": false,
+                                                "focusable": false,
+                                                "enabled": true,
+                                                "content_description": null,
+                                                "children": [
+                                                   {
+                                                      "package": "org.secuso.privacyfriendlyludo",
+                                                      "visible": true,
+                                                      "checkable": false,
+                                                      "child_count": 3,
+                                                      "editable": false,
+                                                      "clickable": false,
+                                                      "is_password": false,
+                                                      "focusable": false,
+                                                      "enabled": true,
+                                                      "content_description": null,
+                                                      "children": [
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlyludo",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 1",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              329,
+                                                                              772
+                                                                           ],
+                                                                           [
+                                                                              455,
+                                                                              898
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 13,
+                                                                        "temp_id": 14,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        329,
+                                                                        772
+                                                                     ],
+                                                                     [
+                                                                        455,
+                                                                        898
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 12,
+                                                                  "temp_id": 13,
+                                                                  "size": "126*126"
+                                                               },
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 2",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              477,
+                                                                              772
+                                                                           ],
+                                                                           [
+                                                                              603,
+                                                                              898
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 15,
+                                                                        "temp_id": 16,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        477,
+                                                                        772
+                                                                     ],
+                                                                     [
+                                                                        603,
+                                                                        898
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 12,
+                                                                  "temp_id": 15,
+                                                                  "size": "126*126"
+                                                               },
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 3",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              625,
+                                                                              772
+                                                                           ],
+                                                                           [
+                                                                              751,
+                                                                              898
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 17,
+                                                                        "temp_id": 18,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        625,
+                                                                        772
+                                                                     ],
+                                                                     [
+                                                                        751,
+                                                                        898
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 12,
+                                                                  "temp_id": 17,
+                                                                  "size": "126*126"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  318,
+                                                                  761
+                                                               ],
+                                                               [
+                                                                  762,
+                                                                  909
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.TableRow",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 11,
+                                                            "temp_id": 12,
+                                                            "size": "444*148"
+                                                         },
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlyludo",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 4",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              329,
+                                                                              920
+                                                                           ],
+                                                                           [
+                                                                              455,
+                                                                              1046
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 20,
+                                                                        "temp_id": 21,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        329,
+                                                                        920
+                                                                     ],
+                                                                     [
+                                                                        455,
+                                                                        1046
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 19,
+                                                                  "temp_id": 20,
+                                                                  "size": "126*126"
+                                                               },
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 5",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              477,
+                                                                              920
+                                                                           ],
+                                                                           [
+                                                                              603,
+                                                                              1046
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 22,
+                                                                        "temp_id": 23,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        477,
+                                                                        920
+                                                                     ],
+                                                                     [
+                                                                        603,
+                                                                        1046
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 19,
+                                                                  "temp_id": 22,
+                                                                  "size": "126*126"
+                                                               },
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 6",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              625,
+                                                                              920
+                                                                           ],
+                                                                           [
+                                                                              751,
+                                                                              1046
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 24,
+                                                                        "temp_id": 25,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        625,
+                                                                        920
+                                                                     ],
+                                                                     [
+                                                                        751,
+                                                                        1046
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 19,
+                                                                  "temp_id": 24,
+                                                                  "size": "126*126"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  318,
+                                                                  909
+                                                               ],
+                                                               [
+                                                                  762,
+                                                                  1057
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.TableRow",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 11,
+                                                            "temp_id": 19,
+                                                            "size": "444*148"
+                                                         },
+                                                         {
+                                                            "package": "org.secuso.privacyfriendlyludo",
+                                                            "visible": true,
+                                                            "checkable": false,
+                                                            "child_count": 3,
+                                                            "editable": false,
+                                                            "clickable": false,
+                                                            "is_password": false,
+                                                            "focusable": false,
+                                                            "enabled": true,
+                                                            "content_description": null,
+                                                            "children": [
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 7",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              329,
+                                                                              1068
+                                                                           ],
+                                                                           [
+                                                                              455,
+                                                                              1194
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 27,
+                                                                        "temp_id": 28,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        329,
+                                                                        1068
+                                                                     ],
+                                                                     [
+                                                                        455,
+                                                                        1194
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 26,
+                                                                  "temp_id": 27,
+                                                                  "size": "126*126"
+                                                               },
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 1,
+                                                                  "editable": false,
+                                                                  "clickable": true,
+                                                                  "is_password": false,
+                                                                  "focusable": true,
+                                                                  "enabled": true,
+                                                                  "content_description": "Color 8",
+                                                                  "children": [
+                                                                     {
+                                                                        "package": "org.secuso.privacyfriendlyludo",
+                                                                        "visible": true,
+                                                                        "checkable": false,
+                                                                        "child_count": 0,
+                                                                        "editable": false,
+                                                                        "clickable": false,
+                                                                        "is_password": false,
+                                                                        "focusable": false,
+                                                                        "enabled": true,
+                                                                        "content_description": null,
+                                                                        "children": [],
+                                                                        "focused": false,
+                                                                        "bounds": [
+                                                                           [
+                                                                              477,
+                                                                              1068
+                                                                           ],
+                                                                           [
+                                                                              603,
+                                                                              1194
+                                                                           ]
+                                                                        ],
+                                                                        "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker_swatch",
+                                                                        "checked": false,
+                                                                        "text": null,
+                                                                        "class": "android.widget.ImageView",
+                                                                        "scrollable": false,
+                                                                        "selected": false,
+                                                                        "long_clickable": false,
+                                                                        "parent": 29,
+                                                                        "temp_id": 30,
+                                                                        "size": "126*126"
+                                                                     }
+                                                                  ],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        477,
+                                                                        1068
+                                                                     ],
+                                                                     [
+                                                                        603,
+                                                                        1194
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.FrameLayout",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 26,
+                                                                  "temp_id": 29,
+                                                                  "size": "126*126"
+                                                               },
+                                                               {
+                                                                  "package": "org.secuso.privacyfriendlyludo",
+                                                                  "visible": true,
+                                                                  "checkable": false,
+                                                                  "child_count": 0,
+                                                                  "editable": false,
+                                                                  "clickable": false,
+                                                                  "is_password": false,
+                                                                  "focusable": false,
+                                                                  "enabled": true,
+                                                                  "content_description": null,
+                                                                  "children": [],
+                                                                  "focused": false,
+                                                                  "bounds": [
+                                                                     [
+                                                                        625,
+                                                                        1068
+                                                                     ],
+                                                                     [
+                                                                        751,
+                                                                        1194
+                                                                     ]
+                                                                  ],
+                                                                  "resource_id": null,
+                                                                  "checked": false,
+                                                                  "text": null,
+                                                                  "class": "android.widget.ImageView",
+                                                                  "scrollable": false,
+                                                                  "selected": false,
+                                                                  "long_clickable": false,
+                                                                  "parent": 26,
+                                                                  "temp_id": 31,
+                                                                  "size": "126*126"
+                                                               }
+                                                            ],
+                                                            "focused": false,
+                                                            "bounds": [
+                                                               [
+                                                                  318,
+                                                                  1057
+                                                               ],
+                                                               [
+                                                                  762,
+                                                                  1205
+                                                               ]
+                                                            ],
+                                                            "resource_id": null,
+                                                            "checked": false,
+                                                            "text": null,
+                                                            "class": "android.widget.TableRow",
+                                                            "scrollable": false,
+                                                            "selected": false,
+                                                            "long_clickable": false,
+                                                            "parent": 11,
+                                                            "temp_id": 26,
+                                                            "size": "444*148"
+                                                         }
+                                                      ],
+                                                      "focused": false,
+                                                      "bounds": [
+                                                         [
+                                                            318,
+                                                            761
+                                                         ],
+                                                         [
+                                                            762,
+                                                            1205
+                                                         ]
+                                                      ],
+                                                      "resource_id": "org.secuso.privacyfriendlyludo:id/color_picker",
+                                                      "checked": false,
+                                                      "text": null,
+                                                      "class": "android.widget.TableLayout",
+                                                      "scrollable": false,
+                                                      "selected": false,
+                                                      "long_clickable": false,
+                                                      "parent": 10,
+                                                      "temp_id": 11,
+                                                      "size": "444*444"
+                                                   }
+                                                ],
+                                                "focused": false,
+                                                "bounds": [
+                                                   [
+                                                      244,
+                                                      687
+                                                   ],
+                                                   [
+                                                      836,
+                                                      1279
+                                                   ]
+                                                ],
+                                                "resource_id": null,
+                                                "checked": false,
+                                                "text": null,
+                                                "class": "android.widget.FrameLayout",
+                                                "scrollable": false,
+                                                "selected": false,
+                                                "long_clickable": false,
+                                                "parent": 9,
+                                                "temp_id": 10,
+                                                "size": "592*592"
+                                             }
+                                          ],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                70,
+                                                687
+                                             ],
+                                             [
+                                                1010,
+                                                1279
+                                             ]
+                                          ],
+                                          "resource_id": null,
+                                          "checked": false,
+                                          "text": null,
+                                          "class": "android.widget.ScrollView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 8,
+                                          "temp_id": 9,
+                                          "size": "940*592"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          70,
+                                          687
+                                       ],
+                                       [
+                                          1010,
+                                          1279
+                                       ]
+                                    ],
+                                    "resource_id": "android:id/custom",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.FrameLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 7,
+                                    "temp_id": 8,
+                                    "size": "940*592"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    70,
+                                    687
+                                 ],
+                                 [
+                                    1010,
+                                    1279
+                                 ]
+                              ],
+                              "resource_id": "android:id/customPanel",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.FrameLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 7,
+                              "size": "940*592"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              70,
+                              577
+                           ],
+                           [
+                              1010,
+                              1279
+                           ]
+                        ],
+                        "resource_id": "android:id/parentPanel",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.LinearLayout",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "940*702"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        70,
+                        577
+                     ],
+                     [
+                        1010,
+                        1279
+                     ]
+                  ],
+                  "resource_id": "android:id/content",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "940*702"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  70,
+                  577
+               ],
+               [
+                  1010,
+                  1279
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "940*702"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            28,
+            535
+         ],
+         [
+            1052,
+            1321
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "1024*786"
+   }
+}

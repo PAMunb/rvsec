@@ -1,0 +1,185 @@
+{
+  "app_name": "cf.playhi.freezeyou_151.apk",
+  "execution_time_s": 46.71618103981018,
+  "total_iterations": 15,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 1,
+      "CLICK": 14
+    },
+    "valid": 8,
+    "invalid": 7,
+    "valid_rate": 0.5333333333333333
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ViewPager",
+      "ScrollView",
+      "Button",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "ListView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "EditText",
+      "RecyclerView",
+      "CheckBox",
+      "LinearLayoutCompat",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 15,
+      "FrameLayout": 66,
+      "LinearLayout": 136,
+      "LinearLayoutCompat": 5,
+      "ImageView": 34,
+      "TextView": 116,
+      "View": 16,
+      "ScrollView": 7,
+      "Button": 11,
+      "ListView": 5,
+      "RelativeLayout": 92,
+      "EditText": 3,
+      "ViewGroup": 12,
+      "ImageButton": 6,
+      "RecyclerView": 5,
+      "ViewPager": 1,
+      "CheckBox": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 9,
+    "screen_visits": {
+      "78acc032f1da": 2,
+      "5b68b709e548": 2,
+      "52fe8a50dede": 1,
+      "09c1c7fd5384": 1,
+      "87fe9d34fd97": 1,
+      "9d530fd2d581": 2,
+      "48dc4415bcf6": 1,
+      "a0943c7b42df": 4,
+      "792c84a97d0e": 1
+    },
+    "activities": [
+      "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity",
+      "cf.playhi.freezeyou/.ThirdIcon",
+      "cf.playhi.freezeyou/.ui.SettingsActivity"
+    ],
+    "revisit_rate": 0.4
+  },
+  "memory_graph": {
+    "graph_states": 9,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 94597,
+    "input_tokens": 93731,
+    "output_tokens": 866,
+    "avg_tokens_per_iteration": 6306.466666666666,
+    "max_message_count": 1,
+    "total_time_ms": 41518.14961433411,
+    "avg_time_per_iteration_ms": 2767.876640955607
+  },
+  "device_actions": {
+    "total_actions": 12,
+    "valid_actions": 6,
+    "invalid_actions": 6,
+    "valid_rate": 0.5,
+    "action_types": {
+      "CLICK": 12
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((102, 1004), (270, 1130))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 1043), (978, 1169))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[YAAB] @ ((131, 341), (1033, 404))",
+        "element": "android.widget.TextView[YAAB] @ ((131, 341), (1033, 404))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 494), (742, 551))",
+        "element": "android.widget.RelativeLayout[] @ ((42, 494), (742, 551))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 620), (541, 677))",
+        "element": "android.widget.RelativeLayout[] @ ((42, 620), (541, 677))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[My customization] @ ((42, 497), (473, 548))",
+        "element": "android.widget.TextView[My customization] @ ((42, 497), (473, 548))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[SAVE] @ ((810, 987), (978, 1113))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[SAVE] @ ((810, 987), (978, 1113))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.TextView[Scheduled tasks] @ ((723, 73), (849, 199))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 107), (944, 164))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 107), (944, 164))"
+      },
+      {
+        "step": 11,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 351), (1038, 492))",
+        "element": "android.widget.RelativeLayout[] @ ((42, 351), (1038, 492))"
+      },
+      {
+        "step": 12,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Accept & continue] @ ((357, 1657), (723, 1752))"
+      }
+    ]
+  }
+}

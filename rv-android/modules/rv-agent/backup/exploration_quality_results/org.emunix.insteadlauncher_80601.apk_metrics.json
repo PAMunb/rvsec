@@ -1,0 +1,87 @@
+{
+  "app_name": "org.emunix.insteadlauncher_80601.apk",
+  "execution_time_s": 26.96455478668213,
+  "total_iterations": 19,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 7,
+      "BACK": 12
+    },
+    "valid": 12,
+    "invalid": 7,
+    "valid_rate": 0.631578947368421
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayoutCompat",
+      "RecyclerView",
+      "ScrollView",
+      "TextView",
+      "ImageButton",
+      "View",
+      "ViewGroup",
+      "FrameLayout",
+      "unknown",
+      "ImageView",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 19,
+      "FrameLayout": 95,
+      "LinearLayout": 64,
+      "ViewGroup": 165,
+      "TextView": 206,
+      "LinearLayoutCompat": 19,
+      "ImageView": 110,
+      "RecyclerView": 19,
+      "ScrollView": 7,
+      "ImageButton": 19,
+      "View": 38
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "b55988c4ee8a": 8,
+      "95e80ed02c42": 11
+    },
+    "activities": [
+      "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity"
+    ],
+    "revisit_rate": 0.8947368421052632
+  },
+  "memory_graph": {
+    "graph_states": 2,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 58211,
+    "input_tokens": 57187,
+    "output_tokens": 1024,
+    "avg_tokens_per_iteration": 3063.7368421052633,
+    "max_message_count": 1,
+    "total_time_ms": 24057.37805366516,
+    "avg_time_per_iteration_ms": 1266.1777922981664
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 1,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

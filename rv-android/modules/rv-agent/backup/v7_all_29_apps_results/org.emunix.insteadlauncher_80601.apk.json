@@ -1,0 +1,159 @@
+{
+  "app_name": "org.emunix.insteadlauncher_80601.apk",
+  "execution_time_s": 27.599014282226562,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 5,
+      "BACK": 5
+    },
+    "valid": 9,
+    "invalid": 1,
+    "valid_rate": 0.9
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayout",
+      "View",
+      "ScrollView",
+      "Button",
+      "RecyclerView",
+      "unknown",
+      "LinearLayoutCompat",
+      "RelativeLayout",
+      "ImageButton",
+      "ViewGroup",
+      "ImageView",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 43,
+      "LinearLayout": 27,
+      "ViewGroup": 24,
+      "ImageButton": 9,
+      "TextView": 33,
+      "LinearLayoutCompat": 2,
+      "ImageView": 11,
+      "RecyclerView": 1,
+      "View": 17,
+      "ScrollView": 5,
+      "Button": 10,
+      "RelativeLayout": 10
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "b55988c4ee8a": 1,
+      "95e80ed02c42": 1,
+      "afe3dc3a0e7c": 1,
+      "d6f366cbfbbd": 2,
+      "231303a62c4b": 5
+    },
+    "activities": [
+      "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity",
+      "org.emunix.insteadlauncher/org.emunix.instead.ui.InsteadActivity"
+    ],
+    "revisit_rate": 0.5
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 5
+  },
+  "llm": {
+    "total_tokens": 44393,
+    "input_tokens": 44147,
+    "output_tokens": 246,
+    "avg_tokens_per_iteration": 4439.3,
+    "max_message_count": 1,
+    "total_time_ms": 24732.287883758545,
+    "avg_time_per_iteration_ms": 2473.2287883758545
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 9,
+    "invalid_actions": 1,
+    "valid_rate": 0.9,
+    "action_types": {
+      "CLICK": 5,
+      "BACK": 5
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Install games] @ ((891, 1605), (1038, 1752))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[\u041d\u0435\u043a\u0440\u043e\u043c\u0430\u043d\u0442] @ ((305, 252), (1038, 309))",
+        "element": "android.widget.TextView[\u041d\u0435\u043a\u0440\u043e\u043c\u0430\u043d\u0442] @ ((305, 252), (1038, 309))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[DOWNLOAD] @ ((727, 1100), (1038, 1226))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[RUN] @ ((807, 1100), (1038, 1226))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[DELETE] @ ((555, 1100), (786, 1226))"
+      },
+      {
+        "step": 6,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 7,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 8,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 9,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 10,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

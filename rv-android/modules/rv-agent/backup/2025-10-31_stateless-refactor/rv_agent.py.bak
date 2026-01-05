@@ -1,0 +1,459 @@
+"""
+Autonomous Android testing agent with vision-guided exploration.
+
+Implements an LLM-based agent that explores Android applications using
+multimodal understanding, static analysis guidance, and graph-based
+state tracking for systematic coverage.
+"""
+
+import time
+import logging
+from typing import Optional, Dict, Any
+from pathlib import Path
+
+from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode, tools_condition
+from langchain_ollama import ChatOllama
+
+from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.llm.graph.state import AgentState
+from rv_agent.llm.graph import nodes
+from rv_agent.llm.tools.android_tools import create_android_tools, set_device_interface, set_coordinate_converter
+from rv_agent.core.device_interface import DeviceInterface
+from rv_agent.core.screenshot_optimizer import ScreenshotOptimizer
+from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.core.coordinate_converter import CoordinateConverter
+from rv_agent.strategies import DFSStrategy, BFSStrategy
+from rv_agent.memory.long_term import LongTermMemory
+from rv_agent.memory.short_term import ShortTermMemory
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
+from rv_android_core.domain.static import StaticAnalysisData
+
+logger = logging.getLogger(__name__)
+
+
+class RVAgent:
+    """
+    Main agent class coordinating autonomous Android application exploration.
+
+    ### Architectural Decisions:
+    - Uses LangGraph for workflow orchestration
+    - Implements structural hashing for state identification
+    - Integrates optional static analysis for MOP guidance
+    - Delegates exploration strategy to pluggable components
+    - Manages multiple memory systems for context tracking
+
+    ### Role in the System:
+    - Coordinates LLM-based exploration with device interaction
+    - Maintains exploration graph with state coverage tracking
+    - Provides strategy-guided action prioritization
+    - Collects metrics for evaluation and analysis
+
+    ### Key Features:
+    - Multimodal LLM with vision capabilities
+    - Structural state hashing (not activity-based)
+    - DFS/BFS exploration strategies
+    - Optional MOP-guided prioritization
+    - Standalone operation without external dependencies
+    """
+
+    def __init__(
+        self,
+        config: RVAgentConfig,
+        static_data: Optional[StaticAnalysisData] = None,
+        device: Optional[Any] = None
+    ):
+        """
+        Initialize RVAgent with configuration and optional static analysis.
+
+        Args:
+            config: Agent configuration
+            static_data: Optional static analysis data for MOP guidance
+            device: Optional device interface (for testing/validation)
+        """
+        self.config = config
+        self.static_data = static_data
+
+        logger.info("Initializing RVAgent")
+        logger.info(f"Strategy: {config.strategy}")
+        logger.info(f"Device: {config.device_id}")
+        logger.info(f"Package: {config.package_name}")
+        logger.info(f"Static analysis: {'enabled' if static_data else 'disabled'}")
+
+        # Device interaction (use injected device or create new one)
+        if device is not None:
+            self.device = device
+            logger.info("Using injected device interface (validation mode)")
+        else:
+            self.device = DeviceInterface(device_id=config.device_id)
+        self.screenshot_optimizer = ScreenshotOptimizer()
+
+        # UI parsing
+        self.parser = UIAutomator2Parser(DefaultTextVisitor)
+
+        # Memory systems
+        self.long_term = LongTermMemory(static_data)
+        self.short_term = ShortTermMemory()
+        self.ui_coverage = UICoverageTracker()
+
+        # Dynamic exploration graph (structural hash)
+        self.dynamic_graph = DynamicStateGraph()
+
+        # Pluggable strategy (DFS or BFS)
+        if config.strategy == "dfs":
+            self.strategy = DFSStrategy(self.dynamic_graph, static_data)
+            logger.info("Using DFS strategy")
+        elif config.strategy == "bfs":
+            self.strategy = BFSStrategy(self.dynamic_graph, static_data)
+            logger.info("Using BFS strategy")
+        else:
+            raise ValueError(f"Unknown strategy: {config.strategy}")
+
+        # Coordinate converter
+        self.converter = CoordinateConverter(
+            device_dimensions=config.device_dimensions,
+            optimized_dimensions=config.optimized_dimensions
+        )
+
+        logger.info(
+            f"Coordinate converter: {config.device_dimensions} → {config.optimized_dimensions}"
+        )
+
+        # LLM with tools
+        self.tools = create_android_tools()
+        set_device_interface(self.device)
+        set_coordinate_converter(self.converter)
+
+        logger.info(f"Created {len(self.tools)} Android tools:")
+        for tool in self.tools:
+            tool_name = tool.name if hasattr(tool, 'name') else str(tool)
+            logger.info(f"  - {tool_name}")
+
+        # Create LLM instance (using custom qwen-vision-tools-v1 modelfile)
+        llm_config = config.get_langchain_config()
+        self.llm = ChatOllama(
+            model="qwen-vision-tools-v1",
+            temperature=llm_config['temperature'],
+            top_p=llm_config.get('top_p', 0.8),
+            top_k=llm_config.get('top_k', 50),
+            base_url=llm_config.get('base_url', 'http://localhost:11434'),
+            timeout=60.0,  # 60s timeout for LLM requests to prevent hanging
+            request_timeout=60.0  # Also set request timeout
+        ).bind_tools(self.tools)
+
+        logger.info("LLM configured: qwen-vision-tools-v1 (custom modelfile with tool support)")
+
+        # LangGraph workflow
+        self.graph = self._build_agent_graph()
+
+        # External loop state (persisted between graph invocations)
+        self.external_navigation_count = 0
+
+        logger.info("RVAgent initialized successfully")
+
+    def _build_agent_graph(self):
+        """
+        Build LangGraph workflow for SINGLE iteration processing.
+
+        ### Architectural Decisions:
+        - Workflow processes ONE iteration and returns (no internal loop)
+        - External loop in run() controls timeout and reinvokes graph
+        - Simple linear flow: observe → assistant → tools → update_memories → END
+        - No recursion limit issues - each invocation is independent
+
+        Returns:
+            Compiled LangGraph workflow
+        """
+        logger.info("Building LangGraph workflow (single iteration mode)")
+
+        # Create graph
+        workflow = StateGraph(AgentState)
+
+        # Add nodes for single iteration
+        workflow.add_node("observe", nodes.observe)
+        workflow.add_node("assistant", self._create_assistant_node())
+        workflow.add_node("tools", ToolNode(self.tools))
+        workflow.add_node("update_memories", nodes.update_memories)
+
+        # Linear flow: observe → assistant → tools → update_memories → END
+        workflow.set_entry_point("observe")
+        workflow.add_edge("observe", "assistant")
+        workflow.add_conditional_edges("assistant", tools_condition)
+        workflow.add_edge("tools", "update_memories")
+        workflow.add_edge("update_memories", END)  # Always end after one iteration
+
+        # Compile (no recursion limit needed - single iteration)
+        logger.info("LangGraph workflow compiled (single iteration mode)")
+
+        return workflow.compile()
+
+    def _create_assistant_node(self):
+        """
+        Create assistant node that calls LLM with tools.
+
+        Returns:
+            Assistant node function
+        """
+        def assistant(state: AgentState):
+            """Assistant node that calls LLM."""
+            messages = state['messages']
+            screenshot_b64 = state.get('screenshot_b64')
+
+            # Limit context to last 50 messages
+            if len(messages) > 50:
+                logger.info(f"Truncating context from {len(messages)} to 50 messages")
+                messages = messages[-50:]
+
+            # Add screenshot to latest message if available
+            if screenshot_b64 and messages:
+                # Convert to vision message format
+                last_msg = messages[-1]
+                if isinstance(last_msg, dict):
+                    last_msg['content'] = [
+                        {"type": "text", "text": last_msg.get('content', '')},
+                        {
+                            "type": "image_url",
+                            "image_url": f"data:image/jpeg;base64,{screenshot_b64}"
+                        }
+                    ]
+
+            # Log messages being sent to LLM
+            logger.info("=" * 80)
+            logger.info("📤 SENDING TO LLM:")
+            logger.info(f"   Number of messages: {len(messages)}")
+            for i, msg in enumerate(messages[-3:]):  # Log last 3 messages
+                role = msg.get('role', 'unknown') if isinstance(msg, dict) else getattr(msg, 'type', 'unknown')
+                logger.info(f"   Message {i}: role={role}")
+            logger.info("=" * 80)
+
+            # Call LLM with tools (with timeout protection)
+            import time
+            start_time = time.time()
+
+            try:
+                response = self.llm.invoke(messages)
+            except Exception as e:
+                logger.error(f"❌ LLM invocation failed (likely timeout): {e}")
+                # Return error message so workflow can continue
+                from langchain_core.messages import AIMessage
+                error_response = AIMessage(content=f"LLM error: {str(e)}")
+                return {
+                    "messages": [error_response],
+                    "llm_tokens_input": 0,
+                    "llm_tokens_output": 0,
+                    "llm_time_ms": (time.time() - start_time) * 1000
+                }
+
+            # Calculate LLM response time
+            llm_time_ms = (time.time() - start_time) * 1000
+
+            # Extract token metadata from AIMessage
+            llm_tokens_input = 0
+            llm_tokens_output = 0
+
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                # Standardized format (LangChain)
+                llm_tokens_input = response.usage_metadata.get('input_tokens', 0)
+                llm_tokens_output = response.usage_metadata.get('output_tokens', 0)
+            elif hasattr(response, 'response_metadata') and response.response_metadata:
+                # Ollama-specific format
+                metadata = response.response_metadata
+                llm_tokens_input = metadata.get('prompt_eval_count', 0)
+                llm_tokens_output = metadata.get('eval_count', 0)
+
+            # Log LLM response for debugging
+            logger.info("=" * 80)
+            logger.info("📥 LLM RESPONSE:")
+            logger.info(f"   Type: {type(response)}")
+            logger.info(f"   Content: {response.content if hasattr(response, 'content') else 'N/A'}")
+            logger.info(f"   Tool calls: {response.tool_calls if hasattr(response, 'tool_calls') else 'None'}")
+            logger.info(f"   Tokens: input={llm_tokens_input}, output={llm_tokens_output}, total={llm_tokens_input + llm_tokens_output}")
+            logger.info(f"   Time: {llm_time_ms:.1f}ms")
+            if hasattr(response, 'additional_kwargs'):
+                logger.info(f"   Additional kwargs keys: {list(response.additional_kwargs.keys())}")
+            logger.info("=" * 80)
+
+            return {
+                "messages": [response],
+                "llm_tokens_input": llm_tokens_input,
+                "llm_tokens_output": llm_tokens_output,
+                "llm_time_ms": llm_time_ms
+            }
+
+        return assistant
+
+    def run(self) -> Dict[str, Any]:
+        """
+        Execute agent with external timeout loop.
+
+        ### Architectural Decisions:
+        - External loop controls timeout (no recursion limit issues)
+        - Each loop iteration invokes graph for ONE observe-decide-act cycle
+        - State persisted between iterations via memory systems
+        - Can run for hours without hitting LangGraph recursion limits
+
+        Returns:
+            Metrics dictionary with exploration results
+        """
+        logger.info("Starting RVAgent execution with external loop")
+
+        start_time = time.time()
+        iteration = 0
+
+        # Launch app once before loop
+        try:
+            logger.info(f"Launching application: {self.config.package_name}")
+            self.device.launch_app(self.config.package_name)
+            logger.info("Application launched successfully")
+            time.sleep(2)  # Wait for app to stabilize
+        except Exception as e:
+            logger.error(f"Failed to launch app: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "error": f"App launch failed: {e}",
+                "execution_time_s": 0
+            }
+
+        # External loop - runs until timeout
+        try:
+            while True:
+                elapsed = time.time() - start_time
+                remaining = self.config.timeout - elapsed
+
+                # Check timeout BEFORE starting new iteration
+                if elapsed >= self.config.timeout:
+                    logger.info(f"🏁 Timeout reached ({elapsed:.1f}s / {self.config.timeout}s) - stopping")
+                    break
+
+                logger.info(f"⏱️  Starting iteration {iteration} (elapsed: {elapsed:.1f}s, remaining: {remaining:.1f}s)")
+
+                # State for this iteration
+                state = {
+                    "messages": [],
+                    "iteration": iteration,
+                    "start_time": start_time,
+                    "timeout": self.config.timeout,
+                    "device_dimensions": self.config.device_dimensions,
+                    "optimized_dimensions": self.config.optimized_dimensions,
+                    "strategy_name": self.config.strategy,
+                    "screenshot_b64": "",
+                    "current_screen_hash": "",
+                    "current_activity": "",
+                    "screen_description": None,
+                    "external_navigation_count": self.external_navigation_count,
+                    "is_external": False,
+                    # Injected dependencies (shared across iterations)
+                    "_device": self.device,
+                    "_parser": self.parser,
+                    "_static_data": self.static_data,
+                    "_strategy": self.strategy,
+                    "_long_term": self.long_term,
+                    "_short_term": self.short_term,
+                    "_ui_coverage": self.ui_coverage,
+                    "_graph": self.dynamic_graph,
+                    "_converter": self.converter,
+                    "_package_name": self.config.package_name
+                }
+
+                # Invoke graph for ONE iteration
+                try:
+                    final_state = self.graph.invoke(state)
+
+                    # Update external navigation count for next iteration
+                    self.external_navigation_count = final_state.get('external_navigation_count', 0)
+
+                    iteration += 1
+                except Exception as e:
+                    logger.error(f"Iteration {iteration} failed: {e}", exc_info=True)
+                    # Continue to next iteration on error
+                    iteration += 1
+                    time.sleep(1)
+                    continue
+
+            logger.info(f"RVAgent execution completed: {iteration} iterations in {elapsed:.1f}s")
+
+            # Collect metrics
+            metrics = self._collect_metrics()
+            metrics["total_iterations"] = iteration
+            metrics["execution_time_s"] = elapsed
+
+            return metrics
+
+        except KeyboardInterrupt:
+            logger.warning("Execution interrupted by user")
+            elapsed = time.time() - start_time
+            return {
+                "status": "interrupted",
+                "total_iterations": iteration,
+                "execution_time_s": elapsed
+            }
+        except Exception as e:
+            logger.error(f"RVAgent execution failed: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "error": str(e),
+                "total_iterations": iteration,
+                "execution_time_s": time.time() - start_time
+            }
+
+    def _collect_metrics(self) -> Dict[str, Any]:
+        """
+        Collect comprehensive exploration metrics.
+
+        ### Architectural Decisions:
+        - Organizes metrics by screen, not activity
+        - Computes coverage from first-visit total_actions
+        - Excludes MOP coverage (requires external integration)
+        - Provides detailed per-screen statistics
+
+        Returns:
+            Metrics dictionary for analysis and comparison
+        """
+        graph = self.dynamic_graph
+
+        # Per-screen metrics
+        screen_metrics = {
+            hash: {
+                "activity": node.activity,
+                "visit_count": node.visit_count,
+                "actions_executed": len(node.executed_actions),
+                "total_actions": node.total_actions,
+                "coverage_%": node.get_coverage() * 100
+            }
+            for hash, node in graph.states.items()
+        }
+
+        # Aggregate metrics (NOTE: total_iterations set by run() method)
+        return {
+            "status": "success",
+            "unique_screens": len(graph.states),
+            "unique_activities": len(set(n.activity for n in graph.states.values())),
+            "transitions": len(graph.transitions),
+            "screen_metrics": screen_metrics,
+            "avg_screen_coverage_%": graph.get_avg_coverage(),
+            "strategy": self.config.strategy,
+            "package_name": self.config.package_name
+            # NOTE: MOP coverage computed via external rv-coverage module
+        }
+
+    def cleanup(self):
+        """
+        Cleanup resources.
+
+        Clears memories and releases references.
+        """
+        logger.info("Cleaning up RVAgent resources")
+
+        try:
+            # Device adapter handles cleanup automatically
+            # Just clear memory references
+            if self.long_term:
+                self.long_term = None
+            if self.short_term:
+                self.short_term = None
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {e}")
+
+        logger.info("Cleanup completed")

@@ -1,0 +1,13 @@
+app,screenshot,success,distance,response_time,parsing_success,available_elements,coordinates_x,coordinates_y,element_description,temperature,error
+com.sam.hex_16.apk,011.png,False,,4.946238994598389,False,3,,,,0.05,JSON parsing failed
+com.sam.hex_16.apk,012.png,False,,4.963539361953735,False,3,,,,0.05,JSON parsing failed
+com.sam.hex_16.apk,021.png,False,,4.144011974334717,False,5,,,,0.05,JSON parsing failed
+com.sam.hex_16.apk,013.png,False,,4.598322868347168,False,3,,,,0.05,JSON parsing failed
+com.sam.hex_16.apk,017.png,False,,5.8845908641815186,False,5,,,,0.05,JSON parsing failed
+byrne.utilities.hashpass_2.apk,004.png,False,,4.878947019577026,False,5,,,,0.05,JSON parsing failed
+byrne.utilities.hashpass_2.apk,001.png,False,,4.491909503936768,False,1,,,,0.05,JSON parsing failed
+byrne.utilities.hashpass_2.apk,003.png,False,,4.686840772628784,False,4,,,,0.05,JSON parsing failed
+byrne.utilities.hashpass_2.apk,007.png,False,,4.47031569480896,False,5,,,,0.05,JSON parsing failed
+byrne.utilities.hashpass_2.apk,006.png,False,,4.034215450286865,False,5,,,,0.05,JSON parsing failed
+com.github.axet.hourlyreminder_476.apk,011.png,False,,5.291409730911255,False,53,,,,0.05,JSON parsing failed
+com.github.axet.hourlyreminder_476.apk,029.png,False,,4.88071084022522,False,12,,,,0.05,JSON parsing failed

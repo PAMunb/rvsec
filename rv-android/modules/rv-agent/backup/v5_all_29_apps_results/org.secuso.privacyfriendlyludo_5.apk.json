@@ -1,0 +1,71 @@
+{
+  "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+  "execution_time_s": 12.340179920196533,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ImageView",
+      "ViewPager",
+      "TextView",
+      "RelativeLayout",
+      "Button",
+      "LinearLayout",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 30,
+      "LinearLayout": 40,
+      "RelativeLayout": 20,
+      "ViewPager": 10,
+      "TextView": 60,
+      "ImageView": 10,
+      "View": 20,
+      "Button": 20
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 1,
+    "screen_visits": {
+      "40ad5316f66f": 10
+    },
+    "activities": [
+      "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity"
+    ],
+    "revisit_rate": 0.9
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 46265,
+    "input_tokens": 45871,
+    "output_tokens": 394,
+    "avg_tokens_per_iteration": 4626.5,
+    "max_message_count": 1,
+    "total_time_ms": 11338.02604675293,
+    "avg_time_per_iteration_ms": 1133.802604675293
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

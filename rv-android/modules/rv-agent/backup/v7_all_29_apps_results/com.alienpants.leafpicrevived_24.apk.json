@@ -1,0 +1,174 @@
+{
+  "app_name": "com.alienpants.leafpicrevived_24.apk",
+  "execution_time_s": 26.696829557418823,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 6,
+    "invalid": 4,
+    "valid_rate": 0.6
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayout",
+      "View",
+      "DrawerLayout",
+      "ScrollView",
+      "Button",
+      "RecyclerView",
+      "unknown",
+      "ListView",
+      "LinearLayoutCompat",
+      "RelativeLayout",
+      "Switch",
+      "ViewPager",
+      "ImageButton",
+      "ViewGroup",
+      "ImageView",
+      "EditText",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 59,
+      "LinearLayout": 69,
+      "DrawerLayout": 3,
+      "ViewGroup": 12,
+      "ImageButton": 6,
+      "TextView": 49,
+      "LinearLayoutCompat": 7,
+      "ImageView": 33,
+      "RecyclerView": 3,
+      "RelativeLayout": 30,
+      "Button": 7,
+      "View": 12,
+      "ViewPager": 1,
+      "ListView": 1,
+      "ScrollView": 7,
+      "Switch": 6,
+      "EditText": 6
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 9,
+    "screen_visits": {
+      "c0ced0784ba1": 1,
+      "42777af72a8c": 1,
+      "5214ec7da5e9": 1,
+      "9a673fd4f77e": 1,
+      "9303192036f3": 1,
+      "9a12ce8997cd": 1,
+      "185870cd686f": 1,
+      "f3433fc2e54f": 1,
+      "16ca6c308bf6": 2
+    },
+    "activities": [
+      "com.alienpants.leafpicrevived/.activities.MainActivity",
+      "com.alienpants.leafpicrevived/.activities.SettingsActivity",
+      "com.alienpants.leafpicrevived/.activities.SingleMediaActivity",
+      "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity",
+      "com.alienpants.leafpicrevived/.activities.SecurityActivity"
+    ],
+    "revisit_rate": 0.1
+  },
+  "memory_graph": {
+    "graph_states": 9,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 3
+  },
+  "llm": {
+    "total_tokens": 46431,
+    "input_tokens": 46032,
+    "output_tokens": 399,
+    "avg_tokens_per_iteration": 4643.1,
+    "max_message_count": 1,
+    "total_time_ms": 25696.62117958069,
+    "avg_time_per_iteration_ms": 2569.662117958069
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 6,
+    "invalid_actions": 4,
+    "valid_rate": 0.6,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Allow] @ ((70, 981), (1010, 1128))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[VIEW] @ ((898, 1668), (1048, 1794))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.RelativeLayout[com.alienpants.leafpicrevived:id/media_card_layout] @ ((8, 218), (358, 568))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[null] @ ((34, 767), (510, 824))",
+        "element": "android.widget.TextView[null] @ ((34, 767), (510, 824))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[General] @ ((0, 210), (1080, 309))",
+        "element": "android.widget.TextView[General] @ ((0, 210), (1080, 309))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.Switch[OFF] @ ((916, 252), (1038, 323))",
+        "element": "android.widget.Switch[OFF] @ ((916, 252), (1038, 323))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Password] @ ((138, 818), (942, 936))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Confirm password] @ ((138, 649), (942, 767))"
+      }
+    ]
+  }
+}

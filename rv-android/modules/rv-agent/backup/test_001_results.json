@@ -1,0 +1,90 @@
+{
+  "test_data": {
+    "app": "cryptoapp.apk",
+    "screenshot": "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/001.png",
+    "total_ui_elements": 16,
+    "clickable_elements": 4
+  },
+  "model_results": [
+    {
+      "model": "unitythemaker/llama3.2-vision-tools:latest",
+      "vision_support": false,
+      "tool_support": false,
+      "ui_elements_found": 0,
+      "clickable_found": 0,
+      "tool_calls": [],
+      "vision_sample": null,
+      "error": "'llama3.2-vision' is no longer compatible with your version of Ollama and has been replaced by a newer version. To re-download, run 'ollama pull llama3.2-vision' (status code: 500)"
+    },
+    {
+      "model": "MrScarySpaceCat/gemma3-tools:4b",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 6,
+      "clickable_found": 3,
+      "tool_calls": [],
+      "vision_sample": "Okay, let's analyze the CryptoApp Android screenshot.\n\n**1. App Title:**\n\n*   CryptoApp\n\n**2. Buttons & Their Positions:**\n\nHere's a breakdown of the buttons and their approximate positions (based on ",
+      "error": null
+    },
+    {
+      "model": "PetrosStav/gemma3-tools:4b",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 3,
+      "clickable_found": 3,
+      "tool_calls": [],
+      "vision_sample": "Okay, let's analyze the CryptoApp Android screenshot.\n\n1.  **App Title:** CryptoApp\n\n2.  **Buttons:**\n    *   Message Digest\n    *   Cipher\n    *   Generated\n\n3.  **Button Positions:**\n\n    *   **Mess",
+      "error": null
+    },
+    {
+      "model": "orieg/gemma3-tools:4b",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 5,
+      "clickable_found": 3,
+      "tool_calls": [],
+      "vision_sample": "Okay, let's analyze the CryptoApp Android screenshot.\n\n**1. App Title:**\n\nThe app title visible on the screen is \"CryptoApp\".\n\n**2. Buttons:**\n\nHere's a list of the buttons visible on the screenshot, ",
+      "error": null
+    },
+    {
+      "model": "llama3.2-vision:latest",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 4,
+      "clickable_found": 3,
+      "tool_calls": [],
+      "vision_sample": "The app title or name visible on screen is \"Crypto App\".\n\nThe buttons that can be seen are:\n\n* \"Message Digest\" at position (0, 0.43)\n* \"Cipher\" at position (0, 0.53)\n* \"Generated\" at position (0, 0.6",
+      "error": null
+    },
+    {
+      "model": "moondream:1.8b",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 0,
+      "clickable_found": 0,
+      "tool_calls": [],
+      "vision_sample": "@GCD*E307#@81.84)0+-B9>-.\"=H<:D(A1A;FF!7F:9%EEB;F,$009&@*$0;00H;D+@97\"69#$<+:!E19;B#@92@2.3A9.$>)>17C;F4*C%>+HHG#H$B9%6.@31#&\"2%23!&AE-(&%=764@!5G%+)2::2.3$&=B+<$!1-#.(,9<3<0>7&54G+!\")8&H32\"!><C,,=A2C",
+      "error": null
+    },
+    {
+      "model": "llava:7b",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 4,
+      "clickable_found": 3,
+      "tool_calls": [],
+      "vision_sample": " 1. The app title or name visible on screen is \"Crypto App\".\n2. List all buttons you can see:\n   - Message Digest (at position (0.497,0.635,0.831,0.786))\n   - Cipher (at position (0.497,0.635,0.831,0.",
+      "error": null
+    },
+    {
+      "model": "llava-llama3:8b",
+      "vision_support": true,
+      "tool_support": false,
+      "ui_elements_found": 3,
+      "clickable_found": 3,
+      "tool_calls": [],
+      "vision_sample": "The image presents a screenshot of the Crypto App Android app. The main focus is on three buttons: \"Message Digest\", \"Cipher\", and \"Generated\". These buttons are located at the bottom center of the sc",
+      "error": null
+    }
+  ]
+}

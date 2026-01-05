@@ -1,0 +1,1116 @@
+{
+   "activity": "com.hwloc.lstopo/.Options",
+   "stack": [
+      "com.hwloc.lstopo/.Options",
+      "com.hwloc.lstopo/.MainActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.hwloc.lstopo",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.hwloc.lstopo",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.hwloc.lstopo",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 1,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": false,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.hwloc.lstopo",
+                        "visible": true,
+                        "checkable": false,
+                        "child_count": 1,
+                        "editable": false,
+                        "clickable": false,
+                        "is_password": false,
+                        "focusable": true,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [
+                           {
+                              "package": "com.hwloc.lstopo",
+                              "visible": true,
+                              "checkable": false,
+                              "child_count": 13,
+                              "editable": false,
+                              "clickable": false,
+                              "is_password": false,
+                              "focusable": false,
+                              "enabled": true,
+                              "content_description": null,
+                              "children": [
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 0,
+                                    "editable": false,
+                                    "clickable": true,
+                                    "is_password": false,
+                                    "focusable": true,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          392,
+                                          281
+                                       ],
+                                       [
+                                          623,
+                                          407
+                                       ]
+                                    ],
+                                    "resource_id": "com.hwloc.lstopo:id/apply",
+                                    "checked": false,
+                                    "text": "APPLY",
+                                    "class": "android.widget.Button",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 5,
+                                    "size": "231*126"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                153,
+                                                433
+                                             ],
+                                             [
+                                                455,
+                                                538
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/factorize",
+                                          "checked": false,
+                                          "text": "Factorize :",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 6,
+                                          "temp_id": 7,
+                                          "size": "302*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          407
+                                       ],
+                                       [
+                                          959,
+                                          538
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 6,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                564
+                                             ],
+                                             [
+                                                436,
+                                                669
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/no_factorize",
+                                          "checked": false,
+                                          "text": "No factorize",
+                                          "class": "android.widget.CheckBox",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 8,
+                                          "temp_id": 9,
+                                          "size": "315*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          538
+                                       ],
+                                       [
+                                          959,
+                                          669
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 8,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                153,
+                                                695
+                                             ],
+                                             [
+                                                412,
+                                                800
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/indexes",
+                                          "checked": false,
+                                          "text": "Indexes :",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 10,
+                                          "temp_id": 11,
+                                          "size": "259*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          669
+                                       ],
+                                       [
+                                          959,
+                                          800
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 10,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                826
+                                             ],
+                                             [
+                                                324,
+                                                931
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/indexes_logical",
+                                          "checked": false,
+                                          "text": "Logical",
+                                          "class": "android.widget.RadioButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 12,
+                                          "temp_id": 13,
+                                          "size": "203*105"
+                                       },
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                356,
+                                                826
+                                             ],
+                                             [
+                                                577,
+                                                931
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/indexes_physical",
+                                          "checked": false,
+                                          "text": "Physical",
+                                          "class": "android.widget.RadioButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 12,
+                                          "temp_id": 14,
+                                          "size": "221*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          800
+                                       ],
+                                       [
+                                          959,
+                                          931
+                                       ]
+                                    ],
+                                    "resource_id": "com.hwloc.lstopo:id/indexes_group1",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RadioGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 12,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                957
+                                             ],
+                                             [
+                                                323,
+                                                1062
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/indexes_default",
+                                          "checked": true,
+                                          "text": "Default",
+                                          "class": "android.widget.RadioButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 15,
+                                          "temp_id": 16,
+                                          "size": "202*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          931
+                                       ],
+                                       [
+                                          959,
+                                          1062
+                                       ]
+                                    ],
+                                    "resource_id": "com.hwloc.lstopo:id/indexes_group2",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RadioGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 15,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                153,
+                                                1088
+                                             ],
+                                             [
+                                                508,
+                                                1193
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/IO_object",
+                                          "checked": false,
+                                          "text": "I/O objects :",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 17,
+                                          "temp_id": 18,
+                                          "size": "355*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1062
+                                       ],
+                                       [
+                                          959,
+                                          1193
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 17,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 2,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                1219
+                                             ],
+                                             [
+                                                436,
+                                                1324
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/IO_object_whole",
+                                          "checked": false,
+                                          "text": "All I/O objects",
+                                          "class": "android.widget.RadioButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 19,
+                                          "temp_id": 20,
+                                          "size": "315*105"
+                                       },
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                468,
+                                                1219
+                                             ],
+                                             [
+                                                769,
+                                                1324
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/IO_object_none",
+                                          "checked": false,
+                                          "text": "No I/O object",
+                                          "class": "android.widget.RadioButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 19,
+                                          "temp_id": 21,
+                                          "size": "301*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1193
+                                       ],
+                                       [
+                                          959,
+                                          1324
+                                       ]
+                                    ],
+                                    "resource_id": "com.hwloc.lstopo:id/IO_objects_group1",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RadioGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 19,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                1350
+                                             ],
+                                             [
+                                                323,
+                                                1455
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/IO_object_default",
+                                          "checked": true,
+                                          "text": "Default",
+                                          "class": "android.widget.RadioButton",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 22,
+                                          "temp_id": 23,
+                                          "size": "202*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1324
+                                       ],
+                                       [
+                                          959,
+                                          1455
+                                       ]
+                                    ],
+                                    "resource_id": "com.hwloc.lstopo:id/IO_objects_group2",
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RadioGroup",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 22,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                153,
+                                                1481
+                                             ],
+                                             [
+                                                398,
+                                                1586
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/include",
+                                          "checked": false,
+                                          "text": "Include :",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 24,
+                                          "temp_id": 25,
+                                          "size": "245*105"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1455
+                                       ],
+                                       [
+                                          959,
+                                          1586
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 24,
+                                    "size": "838*131"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": true,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": true,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                1612
+                                             ],
+                                             [
+                                                510,
+                                                1677
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/include_disallowed",
+                                          "checked": false,
+                                          "text": "Include disallowed",
+                                          "class": "android.widget.CheckBox",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 26,
+                                          "temp_id": 27,
+                                          "size": "389*65"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1586
+                                       ],
+                                       [
+                                          959,
+                                          1677
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 26,
+                                    "size": "838*91"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": false,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": false,
+                                          "checkable": false,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": false,
+                                          "is_password": false,
+                                          "focusable": false,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                153,
+                                                1743
+                                             ],
+                                             [
+                                                401,
+                                                1677
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/legend",
+                                          "checked": false,
+                                          "text": "Legend :",
+                                          "class": "android.widget.TextView",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 28,
+                                          "temp_id": 29,
+                                          "size": "248*-66"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1717
+                                       ],
+                                       [
+                                          959,
+                                          1677
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 28,
+                                    "size": "838*-40"
+                                 },
+                                 {
+                                    "package": "com.hwloc.lstopo",
+                                    "visible": false,
+                                    "checkable": false,
+                                    "child_count": 1,
+                                    "editable": false,
+                                    "clickable": false,
+                                    "is_password": false,
+                                    "focusable": false,
+                                    "enabled": true,
+                                    "content_description": null,
+                                    "children": [
+                                       {
+                                          "package": "com.hwloc.lstopo",
+                                          "visible": false,
+                                          "checkable": true,
+                                          "child_count": 0,
+                                          "editable": false,
+                                          "clickable": true,
+                                          "is_password": false,
+                                          "focusable": true,
+                                          "enabled": true,
+                                          "content_description": null,
+                                          "children": [],
+                                          "focused": false,
+                                          "bounds": [
+                                             [
+                                                121,
+                                                1874
+                                             ],
+                                             [
+                                                372,
+                                                1677
+                                             ]
+                                          ],
+                                          "resource_id": "com.hwloc.lstopo:id/no_legend",
+                                          "checked": false,
+                                          "text": "No legend",
+                                          "class": "android.widget.CheckBox",
+                                          "scrollable": false,
+                                          "selected": false,
+                                          "long_clickable": false,
+                                          "parent": 30,
+                                          "temp_id": 31,
+                                          "size": "251*-197"
+                                       }
+                                    ],
+                                    "focused": false,
+                                    "bounds": [
+                                       [
+                                          121,
+                                          1848
+                                       ],
+                                       [
+                                          959,
+                                          1677
+                                       ]
+                                    ],
+                                    "resource_id": null,
+                                    "checked": false,
+                                    "text": null,
+                                    "class": "android.widget.RelativeLayout",
+                                    "scrollable": false,
+                                    "selected": false,
+                                    "long_clickable": false,
+                                    "parent": 4,
+                                    "temp_id": 30,
+                                    "size": "838*-171"
+                                 }
+                              ],
+                              "focused": false,
+                              "bounds": [
+                                 [
+                                    108,
+                                    242
+                                 ],
+                                 [
+                                    972,
+                                    1677
+                                 ]
+                              ],
+                              "resource_id": "com.hwloc.lstopo:id/main_container",
+                              "checked": false,
+                              "text": null,
+                              "class": "android.widget.LinearLayout",
+                              "scrollable": false,
+                              "selected": false,
+                              "long_clickable": false,
+                              "parent": 3,
+                              "temp_id": 4,
+                              "size": "864*1435"
+                           }
+                        ],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              108,
+                              242
+                           ],
+                           [
+                              972,
+                              1677
+                           ]
+                        ],
+                        "resource_id": "com.hwloc.lstopo:id/scroll",
+                        "checked": false,
+                        "text": null,
+                        "class": "android.widget.ScrollView",
+                        "scrollable": true,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "864*1435"
+                     }
+                  ],
+                  "focused": false,
+                  "bounds": [
+                     [
+                        108,
+                        242
+                     ],
+                     [
+                        972,
+                        1677
+                     ]
+                  ],
+                  "resource_id": "android:id/content",
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.FrameLayout",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "864*1435"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  108,
+                  242
+               ],
+               [
+                  972,
+                  1677
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.LinearLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "864*1435"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            108,
+            242
+         ],
+         [
+            972,
+            1677
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "864*1435"
+   }
+}

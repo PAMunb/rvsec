@@ -1,0 +1,24 @@
+{
+  "app": "HashPass",
+  "package": "byrne.utilities.hashpass",
+  "type": "password_utility",
+  "has_static_analysis": true,
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 9,
+    "unique_states": 2,
+    "transitions": 1,
+    "potential_loop": false,
+    "execution_time_s": 122.24142122268677
+  },
+  "validation": {
+    "generated_actions": true,
+    "discovered_states": true,
+    "recorded_transitions": true,
+    "no_immediate_loop": true,
+    "overall_success": true
+  }
+}

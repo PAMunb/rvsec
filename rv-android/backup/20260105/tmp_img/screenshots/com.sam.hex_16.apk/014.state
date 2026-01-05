@@ -1,0 +1,219 @@
+{
+   "activity": "com.sam.hex/.Preferences",
+   "stack": [
+      "com.sam.hex/.Preferences",
+      "com.sam.hex/.Preferences",
+      "com.sam.hex/.startup.StartUpActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "com.sam.hex",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "com.sam.hex",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "com.sam.hex",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 3,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": true,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "com.sam.hex",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              81,
+                              964
+                           ],
+                           [
+                              968,
+                              1090
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": true,
+                        "text": "No timer",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "887*126"
+                     },
+                     {
+                        "package": "com.sam.hex",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              81,
+                              1092
+                           ],
+                           [
+                              968,
+                              1218
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "Per move",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 4,
+                        "size": "887*126"
+                     },
+                     {
+                        "package": "com.sam.hex",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              81,
+                              1220
+                           ],
+                           [
+                              968,
+                              1346
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "Entire match",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 5,
+                        "size": "887*126"
+                     }
+                  ],
+                  "focused": true,
+                  "bounds": [
+                     [
+                        81,
+                        964
+                     ],
+                     [
+                        968,
+                        1346
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.ListView",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "887*382"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  60,
+                  943
+               ],
+               [
+                  989,
+                  1367
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "929*424"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            60,
+            943
+         ],
+         [
+            989,
+            1367
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "929*424"
+   }
+}

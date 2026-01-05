@@ -1,0 +1,75 @@
+{
+  "app_name": "com.gh4a_73.apk",
+  "execution_time_s": 12.178739786148071,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ImageView",
+      "DrawerLayout",
+      "ImageButton",
+      "ScrollView",
+      "TextView",
+      "Button",
+      "ViewGroup",
+      "LinearLayout",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 70,
+      "LinearLayout": 40,
+      "DrawerLayout": 10,
+      "ViewGroup": 30,
+      "ImageButton": 10,
+      "ScrollView": 10,
+      "ImageView": 10,
+      "TextView": 10,
+      "Button": 10,
+      "View": 10
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 1,
+    "screen_visits": {
+      "62ab86fb05a8": 10
+    },
+    "activities": [
+      "com.gh4a/.activities.Github4AndroidActivity"
+    ],
+    "revisit_rate": 0.9
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 43583,
+    "input_tokens": 43213,
+    "output_tokens": 370,
+    "avg_tokens_per_iteration": 4358.3,
+    "max_message_count": 1,
+    "total_time_ms": 11216.369152069092,
+    "avg_time_per_iteration_ms": 1121.6369152069092
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

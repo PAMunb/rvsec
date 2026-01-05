@@ -1,0 +1,164 @@
+{
+  "app_name": "com.rafapps.simplenotes_7.apk",
+  "execution_time_s": 27.135302305221558,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 7,
+    "invalid": 3,
+    "valid_rate": 0.7
+  },
+  "element_coverage": {
+    "types_seen": [
+      "SeekBar",
+      "LinearLayout",
+      "ScrollView",
+      "View",
+      "CheckBox",
+      "Button",
+      "RecyclerView",
+      "unknown",
+      "LinearLayoutCompat",
+      "RelativeLayout",
+      "ImageButton",
+      "ViewGroup",
+      "ImageView",
+      "EditText",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 49,
+      "LinearLayout": 28,
+      "ViewGroup": 27,
+      "ImageButton": 8,
+      "TextView": 38,
+      "LinearLayoutCompat": 13,
+      "Button": 22,
+      "ScrollView": 5,
+      "EditText": 18,
+      "View": 18,
+      "ImageView": 47,
+      "RecyclerView": 4,
+      "CheckBox": 1,
+      "RelativeLayout": 16,
+      "SeekBar": 8
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "6ddaadb21b51": 1,
+      "184ab7faadb5": 3,
+      "98640f1308cc": 3,
+      "57f9ffce70b0": 1,
+      "a12bdbec4122": 2
+    },
+    "activities": [
+      "com.rafapps.simplenotes/.SettingsActivity",
+      "com.rafapps.simplenotes/.NotesListActivity",
+      "com.rafapps.simplenotes/.NoteActivity"
+    ],
+    "revisit_rate": 0.5
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 2
+  },
+  "llm": {
+    "total_tokens": 46388,
+    "input_tokens": 45976,
+    "output_tokens": 412,
+    "avg_tokens_per_iteration": 4638.8,
+    "max_message_count": 1,
+    "total_time_ms": 26011.282682418823,
+    "avg_time_per_iteration_ms": 2601.1282682418823
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 7,
+    "invalid_actions": 3,
+    "valid_rate": 0.7,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[com.rafapps.simplenotes:id/fab] @ ((891, 1605), (1038, 1752))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Title] @ ((0, 210), (1080, 328))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Texto da nota] @ ((0, 328), (1080, 1794))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[Nova Nota] @ ((0, 210), (1080, 328))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Simple Notes] @ ((42, 101), (360, 172))",
+        "element": "android.widget.TextView[Simple Notes] @ ((42, 101), (360, 172))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[APPLY CHANGES] @ ((343, 1650), (737, 1776))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[FF] @ ((475, 388), (527, 451))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.EditText[607D8B] @ ((525, 388), (689, 451))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Simple Notes] @ ((42, 101), (360, 172))",
+        "element": "android.widget.TextView[Simple Notes] @ ((42, 101), (360, 172))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Simple Notes] @ ((42, 101), (360, 172))",
+        "element": "android.widget.TextView[Simple Notes] @ ((42, 101), (360, 172))"
+      }
+    ]
+  }
+}

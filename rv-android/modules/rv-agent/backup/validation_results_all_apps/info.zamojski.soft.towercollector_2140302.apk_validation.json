@@ -1,0 +1,126 @@
+{
+  "app_name": "info.zamojski.soft.towercollector_2140302.apk",
+  "execution_time_s": 28.299259662628174,
+  "total_iterations": 20,
+  "actions": {
+    "by_type": {
+      "CLICK": 3,
+      "BACK": 17
+    },
+    "valid": 19,
+    "invalid": 1,
+    "valid_rate": 0.95
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ViewGroup",
+      "LinearLayoutCompat",
+      "ScrollView",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "FrameLayout",
+      "Spinner",
+      "TextView",
+      "TableLayout",
+      "Button",
+      "TableRow",
+      "unknown",
+      "ViewPager",
+      "RelativeLayout",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 20,
+      "FrameLayout": 65,
+      "LinearLayout": 196,
+      "ViewGroup": 38,
+      "TextView": 129,
+      "LinearLayoutCompat": 18,
+      "Button": 56,
+      "HorizontalScrollView": 18,
+      "ViewPager": 18,
+      "TableLayout": 18,
+      "TableRow": 18,
+      "View": 39,
+      "ScrollView": 2,
+      "ImageButton": 1,
+      "RelativeLayout": 1,
+      "Spinner": 1,
+      "RecyclerView": 1,
+      "ImageView": 8
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 4,
+    "screen_visits": {
+      "5120ea1fa6a6": 1,
+      "05fce23b3c08": 17,
+      "736923d04ce9": 1,
+      "d5b946522493": 1
+    },
+    "activities": [
+      "com.android.settings/.Settings$HighPowerApplicationsActivity",
+      "info.zamojski.soft.towercollector/.MainActivity"
+    ],
+    "revisit_rate": 0.8
+  },
+  "memory_graph": {
+    "graph_states": 4,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 36485,
+    "input_tokens": 35463,
+    "output_tokens": 1022,
+    "avg_tokens_per_iteration": 1824.25,
+    "max_message_count": 1,
+    "total_time_ms": 25892.195224761963,
+    "avg_time_per_iteration_ms": 1294.6097612380981
+  },
+  "device_actions": {
+    "total_actions": 4,
+    "valid_actions": 3,
+    "invalid_actions": 1,
+    "valid_rate": 0.75,
+    "action_types": {
+      "CLICK": 3,
+      "BACK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 1614), (978, 1740))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TableLayout[] @ ((0, 336), (1080, 409))",
+        "element": "android.widget.TableLayout[] @ ((0, 336), (1080, 409))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[SETTINGS] @ ((746, 1082), (978, 1208))"
+      },
+      {
+        "step": 4,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

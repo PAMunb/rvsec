@@ -17,6 +17,7 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_agent.core.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
 from rv_agent.core.device_interface import DeviceInterface
 from rv_agent.core import coordinate_utils
+from rv_agent.memory.ui_coverage import UICoverageTracker
 
 
 class ScreenProcessor:
@@ -48,6 +49,7 @@ class ScreenProcessor:
         self,
         device: DeviceInterface,
         dynamic_graph: DynamicStateGraph,
+        ui_coverage: Optional[UICoverageTracker] = None,
         static_data: Optional[StaticAnalysisData] = None,
         device_dimensions: Tuple[int, int] = (1080, 1920),
         optimized_dimensions: Tuple[int, int] = (704, 1248),
@@ -59,6 +61,7 @@ class ScreenProcessor:
         Args:
             device: Device interface for UI state capture
             dynamic_graph: Graph for state transition tracking
+            ui_coverage: UI coverage tracker for element annotations
             static_data: Optional static analysis data for MOP markers
             device_dimensions: Device screen size (width, height)
             optimized_dimensions: Optimized image size for LLM
@@ -66,6 +69,7 @@ class ScreenProcessor:
         """
         self.device = device
         self.dynamic_graph = dynamic_graph
+        self.ui_coverage = ui_coverage
         self.static_data = static_data
         self.device_dimensions = device_dimensions
         self.optimized_dimensions = optimized_dimensions
@@ -146,6 +150,11 @@ class ScreenProcessor:
         # Format UI elements for LLM/display
         ui_elements_text = self.format_ui_elements(screen_description)
 
+        # Annotate elements with UI coverage status
+        if self.ui_coverage:
+            ui_elements_text = self.ui_coverage.annotate_screen_elements(ui_elements_text, screen_hash)
+            self.logger.debug("UI coverage annotations applied")
+
         self.logger.info(f"Activity: {ui_state['current_activity']}")
         self.logger.info(f"Screen hash: {screen_hash[:12]}...")
         self.logger.info(f"UI elements: {len(screen_description.items)}")
@@ -165,7 +174,7 @@ class ScreenProcessor:
         Format UI elements for LLM consumption with coordinate transformation.
 
         Categorizes elements into:
-        1. Text Input Fields (EditText) - for TYPE_TEXT actions
+        1. Text Input Fields (EditText) - for SET_TEXT actions
         2. Dropdown Selectors (Spinner) - for selection flows
         3. Clickable Elements - buttons, images, etc.
 

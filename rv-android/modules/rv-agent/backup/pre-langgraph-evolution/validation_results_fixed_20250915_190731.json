@@ -1,0 +1,152 @@
+{
+  "timestamp": "2025-09-15T19:07:31.850905",
+  "model": "PetrosStav/gemma3-tools:4b",
+  "total_tests": 3,
+  "successful_tests": 3,
+  "strategy_stats": {
+    "baseline": {
+      "total_tests": 1,
+      "total_clicks": 1,
+      "total_hits": 1,
+      "hit_rate": 100.0,
+      "avg_distance": 0.0,
+      "avg_response_time": 5.840732574462891,
+      "total_tool_calls": 1
+    },
+    "coordinate_validation": {
+      "total_tests": 1,
+      "total_clicks": 1,
+      "total_hits": 1,
+      "hit_rate": 100.0,
+      "avg_distance": 0.0,
+      "avg_response_time": 2.120108127593994,
+      "total_tool_calls": 1
+    },
+    "spinner_focused": {
+      "total_tests": 1,
+      "total_clicks": 1,
+      "total_hits": 1,
+      "hit_rate": 100.0,
+      "avg_distance": 0.0,
+      "avg_response_time": 1.9600837230682373,
+      "total_tool_calls": 1
+    }
+  },
+  "best_strategy": {
+    "name": "baseline",
+    "hit_rate": 100.0
+  },
+  "raw_results": [
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "baseline",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 5.840732574462891,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            399,
+            "CIPHER",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "I will interact with the \"CIPHER\" button.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,399",
+            "element_description": "CIPHER button",
+            "explanation": "I've selected the 'CIPHER' button as it appears to be a key element in the application interface. The coordinates 540,399 seem to accurately pinpoint its location on the screen."
+          },
+          "id": "c9a182c5-ba0d-46a1-9c7c-f54c55f8a1b1",
+          "type": "tool_call"
+        }
+      ],
+      "app": "cryptoapp.apk"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "coordinate_validation",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 2.120108127593994,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            399,
+            "CIPHER",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "Okay, I will select the \"CIPHER\" button at position (540, 399) and use the `android_click` tool.\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,399",
+            "element_description": "CIPHER button",
+            "explanation": "I've selected the 'CIPHER' button as it appears to be a key interactive element within the application interface."
+          },
+          "id": "51999b6c-ccee-4151-8540-db6a729c4ea0",
+          "type": "tool_call"
+        }
+      ],
+      "app": "cryptoapp.apk"
+    },
+    {
+      "screenshot": "001.png",
+      "xml": "001.uiautomator",
+      "strategy": "spinner_focused",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "response_time": 1.9600837230682373,
+      "success": true,
+      "metrics": {
+        "total_clicks": 1,
+        "hits": 1,
+        "misses": 0,
+        "hit_rate": 100.0,
+        "avg_distance": 0.0,
+        "click_history": [
+          [
+            540,
+            399,
+            "CIPHER",
+            0.0
+          ]
+        ]
+      },
+      "llm_output": "I will interact with the \"CIPHER\" button at coordinates (540, 399).\n\n",
+      "tool_calls": [
+        {
+          "name": "android_click",
+          "args": {
+            "coordinates": "540,399",
+            "element_description": "CIPHER button",
+            "explanation": "This is the primary button I want to interact with based on the screenshot."
+          },
+          "id": "7b06c17d-8d3e-43b1-80f5-78a8e56be1de",
+          "type": "tool_call"
+        }
+      ],
+      "app": "cryptoapp.apk"
+    }
+  ]
+}

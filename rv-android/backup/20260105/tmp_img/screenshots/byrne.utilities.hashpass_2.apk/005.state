@@ -1,0 +1,387 @@
+{
+   "activity": "byrne.utilities.hashpass/.HashPassActivity",
+   "stack": [
+      "byrne.utilities.hashpass/.HashPassActivity"
+   ],
+   "screen_size": {
+      "width": 1080,
+      "height": 1920
+   },
+   "view_tree": {
+      "package": "byrne.utilities.hashpass",
+      "visible": true,
+      "checkable": false,
+      "child_count": 1,
+      "editable": false,
+      "clickable": false,
+      "is_password": false,
+      "focusable": false,
+      "enabled": true,
+      "content_description": null,
+      "children": [
+         {
+            "package": "byrne.utilities.hashpass",
+            "visible": true,
+            "checkable": false,
+            "child_count": 1,
+            "editable": false,
+            "clickable": false,
+            "is_password": false,
+            "focusable": false,
+            "enabled": true,
+            "content_description": null,
+            "children": [
+               {
+                  "package": "byrne.utilities.hashpass",
+                  "visible": true,
+                  "checkable": false,
+                  "child_count": 8,
+                  "editable": false,
+                  "clickable": false,
+                  "is_password": false,
+                  "focusable": true,
+                  "enabled": true,
+                  "content_description": null,
+                  "children": [
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              509
+                           ],
+                           [
+                              954,
+                              635
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": true,
+                        "text": "No timer",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 3,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              635
+                           ],
+                           [
+                              954,
+                              761
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "15 seconds",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 4,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              761
+                           ],
+                           [
+                              954,
+                              887
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "30 seconds",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 5,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              887
+                           ],
+                           [
+                              954,
+                              1013
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "1 minute",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 6,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              1013
+                           ],
+                           [
+                              954,
+                              1139
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "2 minutes",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 7,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              1139
+                           ],
+                           [
+                              954,
+                              1265
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "3 minutes",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 8,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              1265
+                           ],
+                           [
+                              954,
+                              1391
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "5 minutes",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 9,
+                        "size": "259*126"
+                     },
+                     {
+                        "package": "byrne.utilities.hashpass",
+                        "visible": true,
+                        "checkable": true,
+                        "child_count": 0,
+                        "editable": false,
+                        "clickable": true,
+                        "is_password": false,
+                        "focusable": false,
+                        "enabled": true,
+                        "content_description": null,
+                        "children": [],
+                        "focused": false,
+                        "bounds": [
+                           [
+                              695,
+                              1391
+                           ],
+                           [
+                              954,
+                              1517
+                           ]
+                        ],
+                        "resource_id": "android:id/text1",
+                        "checked": false,
+                        "text": "10 minutes",
+                        "class": "android.widget.CheckedTextView",
+                        "scrollable": false,
+                        "selected": false,
+                        "long_clickable": false,
+                        "parent": 2,
+                        "temp_id": 10,
+                        "size": "259*126"
+                     }
+                  ],
+                  "focused": true,
+                  "bounds": [
+                     [
+                        695,
+                        509
+                     ],
+                     [
+                        954,
+                        1517
+                     ]
+                  ],
+                  "resource_id": null,
+                  "checked": false,
+                  "text": null,
+                  "class": "android.widget.ListView",
+                  "scrollable": false,
+                  "selected": false,
+                  "long_clickable": false,
+                  "parent": 1,
+                  "temp_id": 2,
+                  "size": "259*1008"
+               }
+            ],
+            "focused": false,
+            "bounds": [
+               [
+                  695,
+                  509
+               ],
+               [
+                  954,
+                  1517
+               ]
+            ],
+            "resource_id": null,
+            "checked": false,
+            "text": null,
+            "class": "android.widget.FrameLayout",
+            "scrollable": false,
+            "selected": false,
+            "long_clickable": false,
+            "parent": 0,
+            "temp_id": 1,
+            "size": "259*1008"
+         }
+      ],
+      "focused": false,
+      "bounds": [
+         [
+            695,
+            509
+         ],
+         [
+            954,
+            1517
+         ]
+      ],
+      "resource_id": null,
+      "checked": false,
+      "text": null,
+      "class": "android.widget.FrameLayout",
+      "scrollable": false,
+      "selected": false,
+      "long_clickable": false,
+      "parent": -1,
+      "temp_id": 0,
+      "size": "259*1008"
+   }
+}

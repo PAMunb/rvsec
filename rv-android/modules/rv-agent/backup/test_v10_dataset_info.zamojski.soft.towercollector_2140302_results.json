@@ -1,0 +1,24 @@
+{
+  "app": "TowerCollector",
+  "package": "info.zamojski.soft.towercollector",
+  "type": "network_tool",
+  "has_static_analysis": true,
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 14,
+    "unique_states": 9,
+    "transitions": 9,
+    "potential_loop": false,
+    "execution_time_s": 134.63100028038025
+  },
+  "validation": {
+    "generated_actions": true,
+    "discovered_states": true,
+    "recorded_transitions": true,
+    "no_immediate_loop": true,
+    "overall_success": true
+  }
+}

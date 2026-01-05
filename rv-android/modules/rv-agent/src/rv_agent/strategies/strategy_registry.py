@@ -14,6 +14,7 @@ from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
 from rv_agent.strategies.simulated_annealing_strategy import SimulatedAnnealingStrategy
 from rv_agent.strategies.genetic_algorithm_strategy import GeneticAlgorithmStrategy
+from rv_agent.strategies.rvagent_strategy import RVAgentStrategy
 from rv_agent.core.dynamic_state_graph import DynamicStateGraph
 from rv_android_core.domain.static import StaticAnalysisData
 
@@ -51,6 +52,9 @@ class StrategyRegistry:
 
     def _register_builtin_strategies(self):
         """Register built-in exploration strategies."""
+        # RVAgent strategy (default - coverage-optimized with successor tracking)
+        self.register("rvagent", RVAgentStrategy)
+
         # Classic graph traversal strategies
         self.register("dfs", DFSStrategy)
         self.register("bfs", BFSStrategy)
@@ -60,7 +64,7 @@ class StrategyRegistry:
         self.register("simulated_annealing", SimulatedAnnealingStrategy)
         self.register("genetic_algorithm", GeneticAlgorithmStrategy)
 
-        logger.debug("Registered built-in strategies: dfs, bfs, greedy, simulated_annealing, genetic_algorithm")
+        logger.debug("Registered built-in strategies: rvagent (default), dfs, bfs, greedy, simulated_annealing, genetic_algorithm")
 
     def register(self, name: str, strategy_class: Type[ExplorationStrategy]):
         """
@@ -86,16 +90,22 @@ class StrategyRegistry:
         name: str,
         graph: DynamicStateGraph,
         static_data: Optional[StaticAnalysisData] = None,
-        coordinate_converter: Optional[Any] = None
+        coordinate_converter: Optional[Any] = None,
+        ui_coverage: Optional[Any] = None,
+        plateau_window: int = 10,
+        max_input_variations: int = 3
     ) -> ExplorationStrategy:
         """
         Create and return configured strategy instance.
 
         Args:
-            name: Strategy identifier (e.g., "dfs", "bfs")
+            name: Strategy identifier (e.g., "rvagent", "dfs", "bfs")
             graph: Dynamic state graph for history tracking
             static_data: Optional static analysis data for MOP guidance
             coordinate_converter: Optional coordinate converter for space transformations
+            ui_coverage: Optional UICoverageTracker (required for rvagent)
+            plateau_window: Plateau detection window size (rvagent only)
+            max_input_variations: Max test values per input field (rvagent only)
 
         Returns:
             Configured ExplorationStrategy instance
@@ -115,7 +125,21 @@ class StrategyRegistry:
 
         logger.info(f"Creating strategy instance: {strategy_name} ({strategy_class.__name__})")
 
-        # Instantiate strategy with dependencies
+        # RVAgentStrategy requires additional parameters
+        if strategy_name == "rvagent":
+            if ui_coverage is None:
+                raise ValueError("RVAgentStrategy requires ui_coverage parameter")
+
+            return strategy_class(
+                graph=graph,
+                ui_coverage=ui_coverage,
+                coordinate_converter=coordinate_converter,
+                static_data=static_data,
+                plateau_window=plateau_window,
+                max_input_variations=max_input_variations
+            )
+
+        # Standard strategies (DFS, BFS, etc.)
         return strategy_class(
             graph=graph,
             static_data=static_data,

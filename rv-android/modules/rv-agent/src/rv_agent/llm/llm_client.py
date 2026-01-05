@@ -1,66 +1,195 @@
 """
-LLM interaction management for agent decision-making.
+LLM Client for SGLang backend with Qwen3-VL vision model.
 
-Handles multimodal LLM communication with tool calling support,
-response parsing, and token tracking.
+Handles multimodal LLM communication using LangChain ChatOpenAI
+with SGLang's OpenAI-compatible API.
+
+Based on validation from rvsec-vision-llm benchmark (2,847 tests).
 """
 
+import base64
 import time
 import logging
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
 
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.llm.tools import json_parser
+from rv_agent.llm.tools.tool_call_parser import (
+    normalize_tool_args,
+    parse_tool_calls_with_strategy,
+    parser_stats,
+)
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
+
+
+logger = logging.getLogger(__name__)
+
+
+# Android tools for LangChain tool calling
+@tool
+def android_click(x: int, y: int, element_description: str = "", reasoning: str = "") -> dict:
+    """Click on a UI element at coordinates (x, y).
+
+    Args:
+        x: X coordinate in optimized image space (0-704).
+        y: Y coordinate in optimized image space (0-1248).
+        element_description: Description of element being clicked.
+        reasoning: Why this element was chosen.
+
+    Returns:
+        Success status with coordinates.
+    """
+    return {"success": True, "x": x, "y": y, "element_description": element_description}
+
+
+@tool
+def android_type_text(x: int, y: int, text: str, element_description: str = "") -> dict:
+    """Type text into a text field at coordinates (x, y).
+
+    Args:
+        x: X coordinate of text field.
+        y: Y coordinate of text field.
+        text: Text to type.
+        element_description: Description of the text field.
+
+    Returns:
+        Success status with coordinates and text.
+    """
+    return {"success": True, "x": x, "y": y, "text": text, "element_description": element_description}
+
+
+@tool
+def android_long_click(x: int, y: int, element_description: str = "") -> dict:
+    """Long press on element at coordinates (x, y).
+
+    Args:
+        x: X coordinate.
+        y: Y coordinate.
+        element_description: Description of element.
+
+    Returns:
+        Success status with coordinates.
+    """
+    return {"success": True, "x": x, "y": y, "element_description": element_description}
+
+
+@tool
+def android_swipe(direction: str, distance: str = "medium") -> dict:
+    """Swipe in a direction.
+
+    Args:
+        direction: Swipe direction ('up', 'down', 'left', 'right').
+        distance: Swipe distance ('short', 'medium', 'long').
+
+    Returns:
+        Success status with swipe parameters.
+    """
+    return {"success": True, "direction": direction, "distance": distance}
+
+
+@tool
+def android_scroll(direction: str) -> dict:
+    """Scroll the screen.
+
+    Args:
+        direction: Scroll direction ('up', 'down').
+
+    Returns:
+        Success status with direction.
+    """
+    return {"success": True, "direction": direction}
+
+
+@tool
+def android_back() -> dict:
+    """Press the back button.
+
+    Returns:
+        Success status.
+    """
+    return {"success": True, "action": "back"}
+
+
+@tool
+def android_home() -> dict:
+    """Press the home button.
+
+    Returns:
+        Success status.
+    """
+    return {"success": True, "action": "home"}
+
+
+def get_android_tools() -> list:
+    """Get list of Android tools for LangChain.
+
+    Returns:
+        List of tool objects ready for bind_tools().
+    """
+    return [
+        android_click,
+        android_type_text,
+        android_long_click,
+        android_swipe,
+        android_scroll,
+        android_back,
+        android_home,
+    ]
 
 
 class LLMClient:
     """
-    Manages LLM invocations with multimodal input and tool calling.
+    LangChain-based client for SGLang vision LLM inference.
 
-    ### Architectural Decisions:
-    - Stateless message construction (no history accumulation)
-    - Multimodal input support (text + screenshot)
-    - Native tool calling with JSON/XML fallback parsing
-    - Progressive sampling for retry handling
-    - Token usage tracking for performance monitoring
-
-    ### Role in the System:
-    - Generates action decisions via LLM
-    - Constructs prompts from agent state
-    - Parses tool calls from LLM responses
-    - Tracks token consumption and latency
-    - Handles LLM errors gracefully
-
-    ### Integration Points:
-    - Used by RVAgent assistant node
-    - Receives ScreenDescription for UI formatting
-    - Returns AIMessage with tool calls
-    - Provides token metrics for reporting
+    Wraps ChatOpenAI for SGLang's OpenAI-compatible endpoint.
+    Provides tool binding, multimodal message construction,
+    and fallback parsing for tool calls.
     """
 
-    def __init__(
-        self,
-        config: RVAgentConfig,
-        llm: ChatOllama,
-        prompt_module: Any
-    ):
-        """
-        Initialize LLM client.
+    def __init__(self, config: RVAgentConfig, prompt_module: Any):
+        """Initialize client with configuration.
 
         Args:
-            config: Agent configuration
-            llm: Configured ChatOllama instance
-            prompt_module: Prompt module (e.g., v10) with SYSTEM_PROMPT and build_user_message
+            config: RVAgent configuration with SGLang settings.
+            prompt_module: Prompt module with SYSTEM_PROMPT and build_user_message.
         """
         self.config = config
-        self.llm = llm
         self.prompt_module = prompt_module
-
         self.logger = logging.getLogger(__name__)
+
+        # Get LangChain config
+        lc_config = config.get_langchain_config()
+
+        # Initialize LangChain ChatOpenAI for SGLang
+        self.llm = ChatOpenAI(
+            base_url=lc_config["base_url"],
+            model=lc_config["model"],
+            temperature=lc_config["temperature"],
+            max_tokens=lc_config["max_tokens"],
+            api_key=lc_config["api_key"],
+            model_kwargs=lc_config.get("model_kwargs", {}),
+        )
+
+        # Bind tools
+        self.tools = get_android_tools()
+        self.llm_with_tools = self.llm.bind_tools(self.tools)
+
+        # Token tracking
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+        self.total_calls = 0
+        self.total_latency_ms = 0
+
+        self.logger.info(
+            f"LLMClient initialized: "
+            f"model={lc_config['model']}, "
+            f"server={lc_config['base_url']}, "
+            f"tools={len(self.tools)}"
+        )
 
     def generate_action(
         self,
@@ -69,9 +198,9 @@ class LLMClient:
         ui_elements_text: str,
         iteration: int = 0,
         last_action_summary: Optional[str] = None,
-        temperature: float = 0.1,
-        top_p: float = 0.9,
-        top_k: int = 40,
+        temperature: float = None,
+        top_p: float = None,
+        top_k: int = None,
         retry_count: int = 0
     ) -> Dict[str, Any]:
         """
@@ -83,9 +212,9 @@ class LLMClient:
             ui_elements_text: Formatted UI elements text
             iteration: Current iteration number
             last_action_summary: Summary of last executed action
-            temperature: LLM sampling temperature
-            top_p: LLM nucleus sampling parameter
-            top_k: LLM top-k sampling parameter
+            temperature: Override temperature (uses config default if None)
+            top_p: Override top_p (uses config default if None)
+            top_k: Override top_k (unused in ChatOpenAI)
             retry_count: Current retry count for progressive sampling
 
         Returns:
@@ -95,16 +224,14 @@ class LLMClient:
             - tokens_output: Output tokens generated
             - time_ms: LLM latency in milliseconds
             - success: Whether invocation succeeded
+            - parser_strategy: Strategy used to extract tool calls
         """
-        self.logger.info(
-            f"Generating action (retry={retry_count}, temp={temperature}, "
-            f"top_p={top_p}, top_k={top_k})"
-        )
+        self.logger.info(f"Generating action (iteration={iteration}, retry={retry_count})")
 
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         try:
-            # Build stateless messages
+            # Build messages
             messages = self._build_messages(
                 ui_elements_text=ui_elements_text,
                 screenshot_b64=screenshot_b64,
@@ -112,88 +239,57 @@ class LLMClient:
                 last_action_summary=last_action_summary
             )
 
-            self.logger.info(f"Messages constructed: {len(messages)} (System + Human)")
+            self.logger.debug(f"Built {len(messages)} messages")
 
-            # Invoke LLM with sampling parameters
-            response = self.llm.invoke(
-                messages,
-                config={
-                    "configurable": {
-                        "temperature": temperature,
-                        "top_p": top_p,
-                        "top_k": top_k
-                    }
-                }
-            )
-
-            llm_time_ms = (time.time() - start_time) * 1000
+            # Invoke LLM
+            response = self.llm_with_tools.invoke(messages)
+            latency_ms = (time.perf_counter() - start_time) * 1000
 
             # Extract token usage
             tokens_input, tokens_output = self._extract_token_usage(response)
 
-            # Parse tool calls (native or fallback)
-            self._parse_and_inject_tool_calls(response)
+            # Extract tool calls with fallback parsing
+            tool_calls, parser_strategy = self._extract_tool_calls(response)
 
-            # Extract action from tool_calls for rv_agent interface
-            has_tool_calls = hasattr(response, 'tool_calls') and bool(response.tool_calls)
-            action = None
-            reasoning = ""
+            # Inject tool calls into response if found via parser
+            if tool_calls and not response.tool_calls:
+                response.tool_calls = tool_calls
 
-            if has_tool_calls:
-                # Extract first tool call as action
-                first_tool = response.tool_calls[0]
-                action = {
-                    'tool_name': first_tool.get('name'),
-                    'tool_args': first_tool.get('args', {}),
-                    'tool_id': first_tool.get('id')
-                }
-                self.logger.info(f"✅ Extracted action: {action['tool_name']} with args {action['tool_args']}")
-
-                # Extract reasoning from content if present
-                if response.content:
-                    reasoning = response.content[:500]  # First 500 chars
-            else:
-                self.logger.warning("⚠️  No tool calls found in response")
+            # Update tracking
+            self.total_input_tokens += tokens_input
+            self.total_output_tokens += tokens_output
+            self.total_calls += 1
+            self.total_latency_ms += latency_ms
 
             self.logger.info(
-                f"LLM Response: {llm_time_ms:.1f}ms, "
-                f"tokens: {tokens_input} in / {tokens_output} out, "
-                f"has_tool_calls: {has_tool_calls}"
+                f"LLM response: "
+                f"tool_calls={len(tool_calls)}, "
+                f"strategy={parser_strategy}, "
+                f"tokens={tokens_input}+{tokens_output}, "
+                f"latency={latency_ms:.0f}ms"
             )
 
-            # Log response preview
-            response_preview = response.content[:500] if response.content else "<empty>"
-            self.logger.debug(f"LLM Response Content (first 500 chars):\n{response_preview}")
-            if len(response.content) > 500:
-                self.logger.debug(f"... (total {len(response.content)} chars)")
-
             return {
-                "action": action,                  # ✅ ADD: Extracted action dict
-                "has_tool_calls": has_tool_calls,  # ✅ ADD: Boolean flag
-                "reasoning": reasoning,            # ✅ ADD: LLM reasoning text
-                "response": response,              # Keep for debugging
+                "response": response,
                 "tokens_input": tokens_input,
                 "tokens_output": tokens_output,
-                "time_ms": llm_time_ms,
-                "success": True
+                "time_ms": latency_ms,
+                "success": True,
+                "parser_strategy": parser_strategy,
             }
 
         except Exception as e:
+            latency_ms = (time.perf_counter() - start_time) * 1000
             self.logger.error(f"LLM invocation failed: {e}", exc_info=True)
-            llm_time_ms = (time.time() - start_time) * 1000
-
-            # Return empty response with proper format
-            empty_response = AIMessage(content="")
 
             return {
-                "action": None,                # ✅ No action on error
-                "has_tool_calls": False,       # ✅ No tool calls on error
-                "reasoning": "",               # ✅ No reasoning on error
-                "response": empty_response,
+                "response": None,
                 "tokens_input": 0,
                 "tokens_output": 0,
-                "time_ms": llm_time_ms,
-                "success": False
+                "time_ms": latency_ms,
+                "success": False,
+                "error": str(e),
+                "parser_strategy": "none",
             }
 
     def _build_messages(
@@ -204,54 +300,49 @@ class LLMClient:
         last_action_summary: Optional[str]
     ) -> List:
         """
-        Build stateless messages for LLM invocation.
-
-        Constructs SystemMessage + HumanMessage with multimodal content.
-        Does not accumulate message history (stateless architecture).
+        Build LangChain messages with multimodal content.
 
         Args:
             ui_elements_text: Formatted UI elements
             screenshot_b64: Base64-encoded screenshot
-            iteration: Current iteration number
-            last_action_summary: Summary of last action
+            iteration: Current iteration
+            last_action_summary: Last action summary
 
         Returns:
-            List of [SystemMessage, HumanMessage]
+            List of LangChain messages
         """
-        # Get system prompt
-        system_text = self.prompt_module.SYSTEM_PROMPT
+        # System prompt from module
+        system_prompt = self.prompt_module.SYSTEM_PROMPT
 
-        # Build user message with minimal context
+        # Build user message
         state_info = {
-            'ui_elements': [ui_elements_text],
-            'last_action': last_action_summary,
-            'iteration': iteration
+            "ui_elements": [ui_elements_text],
+            "last_action": last_action_summary,
+            "iteration": iteration,
         }
         user_text = self.prompt_module.build_user_message(state_info)
 
-        # Log full prompt on iteration 1 (0-indexed)
-        if iteration == 1:
-            full_prompt = f"{system_text}\n\n{user_text}"
-            self.logger.info(
-                f"\n{'='*80}\nFULL PROMPT (Iteration 2):\n{'='*80}\n"
-                f"{full_prompt}\n{'='*80}"
-            )
+        # Create multimodal human message
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": user_text},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{screenshot_b64}",
+                        },
+                    },
+                ]
+            ),
+        ]
 
-        # Construct messages with separate roles
-        system_message = SystemMessage(content=system_text)
-
-        human_message = HumanMessage(content=[
-            {"type": "text", "text": user_text},
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/png;base64,{screenshot_b64}"
-            }}
-        ])
-
-        return [system_message, human_message]
+        return messages
 
     def _extract_token_usage(self, response: AIMessage) -> tuple[int, int]:
         """
-        Extract token usage from LLM response metadata.
+        Extract token usage from response metadata.
 
         Args:
             response: AIMessage from LLM
@@ -259,58 +350,85 @@ class LLMClient:
         Returns:
             Tuple of (input_tokens, output_tokens)
         """
-        tokens_input = 0
-        tokens_output = 0
+        input_tokens = 0
+        output_tokens = 0
 
-        # Try usage_metadata first (standard format)
-        if hasattr(response, 'usage_metadata') and response.usage_metadata:
-            tokens_input = response.usage_metadata.get('input_tokens', 0)
-            tokens_output = response.usage_metadata.get('output_tokens', 0)
-        # Try response_metadata (Ollama format)
-        elif hasattr(response, 'response_metadata') and response.response_metadata:
-            metadata = response.response_metadata
-            tokens_input = metadata.get('prompt_eval_count', 0)
-            tokens_output = metadata.get('eval_count', 0)
+        if hasattr(response, "response_metadata"):
+            meta = response.response_metadata
+            if "token_usage" in meta:
+                usage = meta["token_usage"]
+                input_tokens = usage.get("prompt_tokens", 0)
+                output_tokens = usage.get("completion_tokens", 0)
+            elif "usage" in meta:
+                usage = meta["usage"]
+                input_tokens = usage.get("prompt_tokens", 0)
+                output_tokens = usage.get("completion_tokens", 0)
 
-        return tokens_input, tokens_output
+        return input_tokens, output_tokens
 
-    def _parse_and_inject_tool_calls(self, response: AIMessage):
+    def _extract_tool_calls(self, response: AIMessage) -> tuple[list[dict], str]:
         """
-        Parse tool calls from response and inject if missing.
+        Extract tool calls from LLM response.
 
-        Handles both native tool calling and JSON/XML fallback parsing.
-        Modifies response object in-place.
+        Uses native tool calls if available, otherwise falls back to
+        parsing tool calls from text content.
 
         Args:
-            response: AIMessage to process
+            response: AIMessage from LLM
+
+        Returns:
+            Tuple of (list of tool call dicts, parser_strategy used)
         """
-        # Check for native tool calls
-        if hasattr(response, 'tool_calls') and response.tool_calls:
-            self.logger.info(f"Native tool calls: {len(response.tool_calls)}")
+        tool_calls = []
+        parser_strategy = "none"
+
+        # Try native tool calls first
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            parser_strategy = "native"
             for tc in response.tool_calls:
-                self.logger.info(f"  - {tc['name']} with args: {tc['args']}")
-            return
+                raw_args = tc.get("args", tc.get("arguments", {}))
+                normalized_args = normalize_tool_args(raw_args) if isinstance(raw_args, dict) else {}
+                tool_calls.append({
+                    "name": tc.get("name", tc.get("function", {}).get("name")),
+                    "args": normalized_args,
+                    "id": tc.get("id"),
+                })
+            self.logger.debug(f"Native tool calls: {len(tool_calls)}")
 
-        # Attempt JSON/XML parsing fallback
-        self.logger.warning("No native tool calls - attempting JSON/XML parsing...")
+        # Fallback: parse from text content
+        if not tool_calls and response.content:
+            parsed, fallback_strategy = parse_tool_calls_with_strategy(response.content)
+            if parsed:
+                tool_calls = parsed
+                parser_strategy = fallback_strategy
+            self.logger.debug(f"Fallback parsed: {len(parsed)} via {fallback_strategy}")
 
-        parsed_calls = json_parser.parse_tool_calls_from_text(response.content)
+        return tool_calls, parser_strategy
 
-        if parsed_calls:
-            self.logger.info(f"Parsed {len(parsed_calls)} tool calls from text")
+    def get_stats(self) -> dict:
+        """Get client statistics.
 
-            # Convert to LangChain format and inject
-            response.tool_calls = [
-                {
-                    'name': tc['name'],
-                    'args': tc['args'],
-                    'id': f"call_{i}",
-                    'type': 'tool_call'
-                }
-                for i, tc in enumerate(parsed_calls)
-            ]
+        Returns:
+            Dictionary with token usage and call statistics.
+        """
+        return {
+            "total_calls": self.total_calls,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
+            "total_latency_ms": self.total_latency_ms,
+            "avg_latency_ms": self.total_latency_ms / self.total_calls if self.total_calls > 0 else 0,
+            "parser_stats": parser_stats.get_stats(),
+        }
 
-            for tc in response.tool_calls:
-                self.logger.info(f"  - {tc['name']} with args: {tc['args']}")
-        else:
-            self.logger.warning("No tool calls found in text either")
+    def reset_stats(self):
+        """Reset client statistics."""
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+        self.total_calls = 0
+        self.total_latency_ms = 0
+        parser_stats.reset()
+
+    def cleanup(self):
+        """Cleanup resources."""
+        self.logger.info("LLMClient cleanup complete")

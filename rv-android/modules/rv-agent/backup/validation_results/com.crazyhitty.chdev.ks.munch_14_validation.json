@@ -1,0 +1,84 @@
+{
+  "app_name": "com.crazyhitty.chdev.ks.munch_14.apk",
+  "execution_time_s": 23.596895933151245,
+  "total_iterations": 20,
+  "actions": {
+    "by_type": {
+      "CLICK": 20
+    },
+    "valid": 0,
+    "invalid": 20,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ViewPager",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 20,
+      "FrameLayout": 60,
+      "LinearLayout": 100,
+      "ViewGroup": 20,
+      "ViewPager": 20,
+      "RelativeLayout": 40,
+      "TextView": 40,
+      "ImageView": 100,
+      "ImageButton": 20,
+      "View": 20
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "483a77a1c491": 1,
+      "8b63a6f16621": 19
+    },
+    "activities": [
+      "com.crazyhitty.chdev.ks.munch/.ui.activities.SplashActivity"
+    ],
+    "revisit_rate": 0.9
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 120488,
+    "input_tokens": 119934,
+    "output_tokens": 554,
+    "avg_tokens_per_iteration": 6024.4,
+    "max_message_count": 1,
+    "total_time_ms": 21250.584363937378,
+    "avg_time_per_iteration_ms": 1062.529218196869
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 0,
+    "invalid_actions": 1,
+    "valid_rate": 0.0,
+    "action_types": {
+      "CLICK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.LinearLayout[] @ ((97, 1684), (983, 1697))",
+        "element": "android.widget.LinearLayout[] @ ((97, 1684), (983, 1697))"
+      }
+    ]
+  }
+}

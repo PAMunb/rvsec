@@ -1,0 +1,100 @@
+Requested API level 33 is larger than maximum we have, returning API level 28 instead.
+🎯 CONTEXT MODE TEST CONFIGURATION:
+  • APK: cryptoapp.apk
+  • State: 009
+  • Package: br.unb.cic.cryptoapp
+  • Test Mode: MOP_VISION
+  • Screenshot: /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/009.png
+  • State file: /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/009.state
+============================================================
+🧪 TESTING MOP VISION STRATEGY
+============================================================
+DEBUG: FragmentDictLoader.__init__ - Received fragments: dict_keys([])
+>>>>> Creating visitor: class=DefaultTextVisitor, activity=br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity
+🔧 MOP Strategy Configuration:
+  • Strategy Type: mop_vision
+  • LLM Model: gemma3:4b
+  • Context Mode: stateless
+
+🚀 Generating prompt with MOP Vision strategy...
+>>>>>>>>>>>>>>>>> Using vision template: mop_vision
+DEBUG: FragmentDictLoader.get_source - Looking for 'mop_vision_instructions' in fragments: dict_keys(['vision_system_consolidated', 'vision_format', 'batch_critical_task', 'standard_instructions', 'ui_patterns_guide', 'standard_guidelines', 'system_intro', 'context_status', 'batch_guidelines', 'user_base', 'vision_system_intro', 'vision_guidelines', 'batch_format', 'system_guidelines', 'history_section', 'mop_vision_instructions', 'vision_instructions', 'standard_format', 'batch_instructions'])
+DEBUG: FragmentDictLoader.get_source - Looking for 'vision_format' in fragments: dict_keys(['vision_system_consolidated', 'vision_format', 'batch_critical_task', 'standard_instructions', 'ui_patterns_guide', 'standard_guidelines', 'system_intro', 'context_status', 'batch_guidelines', 'user_base', 'vision_system_intro', 'vision_guidelines', 'batch_format', 'system_guidelines', 'history_section', 'mop_vision_instructions', 'vision_instructions', 'standard_format', 'batch_instructions'])
+DEBUG: FragmentDictLoader.get_source - Looking for 'monitored_operations' in fragments: dict_keys(['vision_system_consolidated', 'vision_format', 'batch_critical_task', 'standard_instructions', 'ui_patterns_guide', 'standard_guidelines', 'system_intro', 'context_status', 'batch_guidelines', 'user_base', 'vision_system_intro', 'vision_guidelines', 'batch_format', 'system_guidelines', 'history_section', 'mop_vision_instructions', 'vision_instructions', 'standard_format', 'batch_instructions'])
+Fragment not found: 'monitored_operations'
+Jinja2 template error: monitored_operations
+Traceback (most recent call last):
+  File "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-llm/src/rv_llm/llm/prompt/template/jinja_template.py", line 220, in render
+    result = self.compiled_template.render(**render_data)
+  File "/home/pedro/.cache/pypoetry/virtualenvs/rv-android-DqyzqEHC-py3.13/lib/python3.13/site-packages/jinja2/environment.py", line 1295, in render
+    self.environment.handle_exception()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/pedro/.cache/pypoetry/virtualenvs/rv-android-DqyzqEHC-py3.13/lib/python3.13/site-packages/jinja2/environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 14, in top-level template code
+  File "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-llm/src/rv_llm/llm/prompt/template/jinja_template.py", line 350, in get_source
+    raise jinja2.exceptions.TemplateNotFound(clean_template)
+jinja2.exceptions.TemplateNotFound: monitored_operations
+Error: monitored_operations
+Traceback (most recent call last):
+  File "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-llm/src/rv_llm/llm/prompt/template/jinja_template.py", line 220, in render
+    result = self.compiled_template.render(**render_data)
+  File "/home/pedro/.cache/pypoetry/virtualenvs/rv-android-DqyzqEHC-py3.13/lib/python3.13/site-packages/jinja2/environment.py", line 1295, in render
+    self.environment.handle_exception()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/pedro/.cache/pypoetry/virtualenvs/rv-android-DqyzqEHC-py3.13/lib/python3.13/site-packages/jinja2/environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "<template>", line 14, in top-level template code
+  File "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-llm/src/rv_llm/llm/prompt/template/jinja_template.py", line 350, in get_source
+    raise jinja2.exceptions.TemplateNotFound(clean_template)
+jinja2.exceptions.TemplateNotFound: monitored_operations
+✅ SUCCESS: Generated 2 messages using MOP_VISION strategy
+📋 Strategy: mop_vision
+📊 State keys: ['package_name', 'activity', 'view_tree', 'screenshot_path', 'structured_screen']
+
+📄 MESSAGE 1: LLMRole.SYSTEM
+  ✅ Content 1: Contains MOP-specific instructions
+
+📄 MESSAGE 2: LLMRole.USER
+  ✅ Content 1: Contains MOP-specific instructions
+  🖼️ Content 2: Image - /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/009.png
+
+🔍 Generated prompt: 2 messages
+
+────────────────────────────────────────
+MESSAGE 1: LLMRole.SYSTEM (1 content items)
+────────────────────────────────────────
+[TEXT: You are an Android testing specialist focused on monitored operations violation discovery using multimodal analysis.
+
+The application is instrumented with JavaMOP monitors that detect security and API usage violations. Your goal is to systematically trigger these violations through intelligent UI interaction.
+
+## PRIORITY SYSTEM:
+
+### **[DM] - Direct Monitored Operations (HIGHEST PRIORITY)**
+Actions marked [DM] provide direct access to monitored operations with maximum violation potential. These...]
+────────────────────────────────────────
+MESSAGE 2: LLMRole.USER (2 content items)
+────────────────────────────────────────
+[TEXT: TEMPLATE ERROR: monitored_operations
+
+Original template:
+{% if mop_screen_context %}
+## MOP CONTEXT
+{{ mop_screen_context }}
+{% endif %}
+
+{% if mop_action_sequence %}
+## ACTION SEQUENCE
+{{ mop_action_sequence }}
+{% endif %}
+
+UI Actions:
+{{ ui_elements }}
+
+{% include "monitored_operations" %}
+
+Screenshot shows current app state. Generate actions prioritizing [DM] elements:...]
+[IMAGE: /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/009.png]
+
+🎉 Context mode testing completed!
+💡 TIP: Modify TEST_MODE, apk, or prefix variables to test different scenarios

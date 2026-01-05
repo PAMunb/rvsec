@@ -1,0 +1,228 @@
+{
+  "app_name": "ca.farrelltonsolar.classic_314.apk",
+  "execution_time_s": 51.318721294403076,
+  "total_iterations": 25,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 2,
+      "BACK": 17,
+      "CLICK": 6
+    },
+    "valid": 23,
+    "invalid": 2,
+    "valid_rate": 0.92
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ImageButton",
+      "View",
+      "TextView",
+      "ViewGroup",
+      "RelativeLayout",
+      "g0",
+      "CheckBox",
+      "ListView",
+      "Spinner",
+      "FrameLayout",
+      "unknown",
+      "ViewPager",
+      "LinearLayout",
+      "ProgressBar",
+      "GridView",
+      "HorizontalScrollView",
+      "TableRow",
+      "TableLayout",
+      "ImageView",
+      "ScrollView",
+      "CheckedTextView",
+      "Button",
+      "DrawerLayout",
+      "WebView"
+    ],
+    "type_counts": {
+      "unknown": 25,
+      "FrameLayout": 92,
+      "LinearLayout": 311,
+      "ViewGroup": 27,
+      "ImageButton": 21,
+      "TextView": 430,
+      "g0": 13,
+      "DrawerLayout": 13,
+      "HorizontalScrollView": 13,
+      "ViewPager": 14,
+      "View": 125,
+      "ListView": 16,
+      "ProgressBar": 3,
+      "TableLayout": 2,
+      "TableRow": 1,
+      "RelativeLayout": 59,
+      "Spinner": 2,
+      "ImageView": 8,
+      "GridView": 1,
+      "WebView": 2,
+      "CheckBox": 26,
+      "Button": 20,
+      "CheckedTextView": 8,
+      "ScrollView": 4
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 16,
+    "screen_visits": {
+      "1ecdce70435a": 3,
+      "b14a7ed099c7": 1,
+      "182eb5822f70": 1,
+      "fc145de28bad": 1,
+      "ceae4f4c59d0": 1,
+      "6c729adbeb6b": 1,
+      "0c5aba563dd8": 1,
+      "6dd54b4931a2": 1,
+      "170615b66401": 1,
+      "00c1a28137c3": 1,
+      "f55b0e92114c": 1,
+      "0f1cb4bc84d5": 1,
+      "ab5fdbde72a5": 1,
+      "488ce5d22d54": 1,
+      "86ad34b0b0af": 4,
+      "39b168072f86": 5
+    },
+    "activities": [
+      "ca.farrelltonsolar.classic/.MonitorActivity",
+      "ca.farrelltonsolar.classic/.Settings"
+    ],
+    "revisit_rate": 0.36
+  },
+  "memory_graph": {
+    "graph_states": 16,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 74465,
+    "input_tokens": 73264,
+    "output_tokens": 1201,
+    "avg_tokens_per_iteration": 2978.6,
+    "max_message_count": 1,
+    "total_time_ms": 47985.36944389343,
+    "avg_time_per_iteration_ms": 1919.4147777557373
+  },
+  "device_actions": {
+    "total_actions": 15,
+    "valid_actions": 15,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 14,
+      "CLICK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 2,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 4,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 5,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 6,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 7,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 8,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 9,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 10,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 11,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 12,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 13,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 14,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      },
+      {
+        "step": 15,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[CANCEL] @ ((776, 1061), (978, 1187))"
+      }
+    ]
+  }
+}
