@@ -93,7 +93,8 @@ class StrategyRegistry:
         coordinate_converter: Optional[Any] = None,
         ui_coverage: Optional[Any] = None,
         plateau_window: int = 10,
-        max_input_variations: int = 3
+        max_input_variations: int = 3,
+        target_package: Optional[str] = None
     ) -> ExplorationStrategy:
         """
         Create and return configured strategy instance.
@@ -106,6 +107,7 @@ class StrategyRegistry:
             ui_coverage: Optional UICoverageTracker (required for rvagent)
             plateau_window: Plateau detection window size (rvagent only)
             max_input_variations: Max test values per input field (rvagent only)
+            target_package: Target app package name for filtering external elements
 
         Returns:
             Configured ExplorationStrategy instance
@@ -136,14 +138,16 @@ class StrategyRegistry:
                 coordinate_converter=coordinate_converter,
                 static_data=static_data,
                 plateau_window=plateau_window,
-                max_input_variations=max_input_variations
+                max_input_variations=max_input_variations,
+                target_package=target_package
             )
 
         # Standard strategies (DFS, BFS, etc.)
         return strategy_class(
             graph=graph,
             static_data=static_data,
-            coordinate_converter=coordinate_converter
+            coordinate_converter=coordinate_converter,
+            target_package=target_package
         )
 
     def list_strategies(self) -> list[str]:

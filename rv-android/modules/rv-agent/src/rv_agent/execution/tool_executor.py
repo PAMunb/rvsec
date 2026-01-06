@@ -352,7 +352,8 @@ class ToolExecutor:
         direction = action.get("direction", "up")
         distance = action.get("distance", "medium")
 
-        self.device.swipe(direction, distance)
+        # Use scroll() which accepts direction/distance, not swipe() which expects coordinates
+        self.device.scroll(direction, distance)
 
         self.logger.debug(f"Swiped {direction} ({distance})")
 
@@ -360,7 +361,7 @@ class ToolExecutor:
 
     def _execute_directional_scroll(self, action_type: str) -> Dict[str, Any]:
         """Execute directional scroll action (from algorithm)."""
-        # Map algorithm scroll types to device swipe direction
+        # Map algorithm scroll types to device scroll direction
         direction_map = {
             "SCROLL_UP": "up",
             "SCROLL_DOWN": "down",
@@ -369,7 +370,8 @@ class ToolExecutor:
         }
 
         direction = direction_map.get(action_type, "down")
-        self.device.swipe(direction, "medium")
+        # Use scroll() which accepts direction/distance, not swipe() which expects coordinates
+        self.device.scroll(direction, "medium")
 
         self.logger.debug(f"Scrolled {direction}")
 

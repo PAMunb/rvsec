@@ -11,7 +11,8 @@ Implements state space exploration with:
 import logging
 from dataclasses import dataclass
 from typing import Optional, List, Set, Tuple
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction, WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
+from rv_android_core.domain.widget import WidgetEventType
 
 from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.core.dynamic_state_graph import DynamicStateGraph
@@ -58,7 +59,8 @@ class RVAgentStrategy(ExplorationStrategy):
         coordinate_converter=None,
         static_data: Optional[StaticAnalysisData] = None,
         plateau_window: int = 10,
-        max_input_variations: int = 3
+        max_input_variations: int = 3,
+        target_package: Optional[str] = None
     ):
         """
         Initialize RVAgent exploration strategy.
@@ -70,11 +72,13 @@ class RVAgentStrategy(ExplorationStrategy):
             static_data: Optional static analysis data (WTG, REACH)
             plateau_window: Iterations without progress to detect plateau
             max_input_variations: Maximum test values per input field
+            target_package: Target app package name for filtering external elements
         """
         self.graph = graph
         self.ui_coverage = ui_coverage
         self.converter = coordinate_converter
         self.static_data = static_data
+        self.target_package = target_package
 
         # Helper components
         self.successor_tracker = SuccessorTracker(graph)
@@ -94,6 +98,8 @@ class RVAgentStrategy(ExplorationStrategy):
             f"RVAgentStrategy initialized: plateau_window={plateau_window}, "
             f"max_variations={max_input_variations}"
         )
+        if target_package:
+            logger.info(f"RVAgentStrategy: Filtering actions to package '{target_package}'")
 
     def select_next_action(
         self,
@@ -157,24 +163,50 @@ class RVAgentStrategy(ExplorationStrategy):
         if re_enabled > 0:
             logger.info(f"Re-enabled {re_enabled} actions due to incomplete successors")
 
-        # 4. Get untested actions
+        # 4. Get untested actions and all filtered actions
         untested_actions = self._get_untested_actions(node, screen_desc)
-
-        if not untested_actions:
-            logger.debug(f"State {current_hash[:8]}: No untested actions remaining")
-            return None
+        all_filtered_actions = self._get_all_filtered_actions(screen_desc)
 
         logger.info(
             f"RVAgent State Analysis - {current_hash[:8]}:\n"
             f"  Total actions: {len(screen_desc.items)}\n"
+            f"  Filtered actions: {len(all_filtered_actions)}\n"
             f"  Executed: {len(node.executed_actions)}\n"
             f"  Untested: {len(untested_actions)}"
         )
 
-        # 5. Select priority action
-        selected_action = self._select_priority_action(untested_actions, screen_desc)
-        if not selected_action:
-            return None
+        # 5. Select action based on availability
+        if untested_actions:
+            # UNTESTED: Select priority action from untested
+            selected_action = self._select_priority_action(untested_actions, screen_desc)
+            if selected_action:
+                logger.info(f"RVAgent DEEPEN: Selected UNTESTED action")
+            else:
+                # Fallback to first untested
+                selected_action = untested_actions[0]
+                logger.info(f"RVAgent DEEPEN: Fallback to first untested action")
+        elif all_filtered_actions:
+            # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
+            # Algorithm continues until timeout, never stops when "exhausted"
+            selected_action = self._select_least_executed_action(node, all_filtered_actions)
+            action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+            exec_count = node.get_action_execution_count(action_signature)
+            logger.info(f"RVAgent CONTINUOUS: Selected LEAST-EXECUTED action")
+            logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
+        else:
+            # No actions available (edge case) - return BACK to navigate
+            logger.info(f"RVAgent: No actions available on state {current_hash[:8]}, returning BACK")
+            back_action = ItemAction(
+                id=999,
+                text="BACK",
+                event=WidgetEventType.BACK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view={"system_action": True, "class": "SystemAction_BACK"},
+                coordinates=None,
+                text_input=None
+            )
+            return back_action
 
         self.current_depth += 1
 
@@ -298,6 +330,7 @@ class RVAgentStrategy(ExplorationStrategy):
 
         Filters:
         - Skip system actions (back/home/recent_apps buttons)
+        - Skip actions from external packages (systemui, launcher, etc)
         - Skip already executed actions (by coordinate signature)
 
         Args:
@@ -308,8 +341,16 @@ class RVAgentStrategy(ExplorationStrategy):
             List of untested ItemActions
         """
         untested = []
+        external_count = 0
 
         for item in screen_desc.items:
+            # Filter by package - only include items from target app
+            item_package = item.view.get('package', '')
+            if self.target_package and item_package:
+                if item_package != self.target_package:
+                    external_count += 1
+                    continue
+
             for action in item.actions:
                 # Skip system actions
                 if self._is_system_action(action):
@@ -321,7 +362,78 @@ class RVAgentStrategy(ExplorationStrategy):
                 if action_signature not in node.executed_actions:
                     untested.append(action)
 
+        if external_count > 0:
+            logger.info(f"Filtered {external_count} external package elements")
+
         return untested
+
+    def _get_all_filtered_actions(
+        self,
+        screen_desc: ScreenDescription
+    ) -> List[ItemAction]:
+        """
+        Get all actions filtered by package and system action criteria.
+
+        Unlike _get_untested_actions, this returns ALL valid actions
+        regardless of execution status, for continuous exploration.
+
+        Args:
+            screen_desc: Current screen description
+
+        Returns:
+            List of all valid ItemActions (excluding system/external)
+        """
+        filtered = []
+
+        for item in screen_desc.items:
+            # Filter by package - only include items from target app
+            item_package = item.view.get('package', '')
+            if self.target_package and item_package:
+                if item_package != self.target_package:
+                    continue
+
+            for action in item.actions:
+                # Skip system actions
+                if self._is_system_action(action):
+                    continue
+
+                filtered.append(action)
+
+        return filtered
+
+    def _select_least_executed_action(
+        self,
+        node,
+        actions: List[ItemAction]
+    ) -> ItemAction:
+        """
+        Select action with fewest executions for continuous exploration.
+
+        When all actions have been tested at least once, prioritizes:
+        1. Actions with fewer execution counts (least visited first)
+        2. MOP priority as tiebreaker (higher MOP = selected first)
+
+        This enables continuous exploration until timeout, always making
+        progress on less-explored paths.
+
+        Args:
+            node: ScreenNode with action execution counts
+            actions: List of all available actions (already tested)
+
+        Returns:
+            Action with lowest execution count (MOP priority as tiebreaker)
+        """
+        def sort_key(action: ItemAction):
+            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            exec_count = node.get_action_execution_count(action_signature)
+            # MOP priority: DM=3, M=2, regular=1
+            mop_priority = 3 if action.directly_reaches_mop else (2 if action.reaches_mop else 1)
+            # Sort by: (exec_count ASC, -mop_priority DESC)
+            # Lower exec_count first, then higher MOP priority
+            return (exec_count, -mop_priority)
+
+        sorted_actions = sorted(actions, key=sort_key)
+        return sorted_actions[0]
 
     def _select_priority_action(
         self,

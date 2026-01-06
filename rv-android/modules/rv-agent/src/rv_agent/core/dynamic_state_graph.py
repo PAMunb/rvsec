@@ -117,6 +117,7 @@ class ScreenNode:
     - Identified by structural hash, not activity name
     - Captures total actions count on first visit
     - Tracks executed actions by coordinates (not IDs) for stability across parsing sessions
+    - Tracks execution COUNT per action for continuous exploration prioritization
     - Computes coverage as ratio of executed/total actions
 
     ### Key Design: Coordinate-Based Tracking
@@ -124,6 +125,11 @@ class ScreenNode:
     - Same UI element can receive different IDs on different parses
     - Coordinates are stable identifiers for the same screen element
     - Solves the "repeated crash action" problem caused by ID instability
+
+    ### Continuous Exploration Design:
+    - Tracks how many times each action was executed (not just boolean)
+    - Enables prioritizing least-executed actions when all have been tried
+    - Algorithm continues until timeout, never stops when "exhausted"
 
     ### Role in the System:
     - Represents unique UI state in exploration graph
@@ -137,6 +143,7 @@ class ScreenNode:
     visit_count: int = 0
     total_actions: int = 0
     executed_actions: Set[Tuple[Tuple[int, int], str]] = field(default_factory=set)
+    action_execution_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
 
     def get_coverage(self) -> float:
         """
@@ -152,11 +159,25 @@ class ScreenNode:
     def record_action(self, action_signature: Tuple[Tuple[int, int], str]):
         """
         Record action execution by signature (coordinates + action type).
+        Increments execution count for continuous exploration prioritization.
 
         Args:
             action_signature: ((x, y), action_type) tuple identifying the action
         """
         self.executed_actions.add(action_signature)
+        self.action_execution_counts[action_signature] = self.action_execution_counts.get(action_signature, 0) + 1
+
+    def get_action_execution_count(self, action_signature: Tuple[Tuple[int, int], str]) -> int:
+        """
+        Get execution count for an action signature.
+
+        Args:
+            action_signature: ((x, y), action_type) tuple to check
+
+        Returns:
+            Number of times action was executed (0 if never executed)
+        """
+        return self.action_execution_counts.get(action_signature, 0)
 
     def is_action_executed(self, action_signature: Tuple[Tuple[int, int], str]) -> bool:
         """

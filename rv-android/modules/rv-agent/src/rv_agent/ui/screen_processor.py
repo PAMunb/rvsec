@@ -113,6 +113,12 @@ class ScreenProcessor:
         current_package = ui_state.get('current_package', '')
         is_external = current_package and current_package != target_package
 
+        # DEBUG: Always log package comparison
+        self.logger.info(
+            f"📦 PACKAGE CHECK: current='{current_package}' vs target='{target_package}' "
+            f"-> is_external={is_external}, count={external_navigation_count}"
+        )
+
         restart_occurred = False
 
         if is_external:

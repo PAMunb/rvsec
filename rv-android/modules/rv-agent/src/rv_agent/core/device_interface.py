@@ -385,3 +385,37 @@ class DeviceInterface:
         except Exception as e:
             self.logger.error(f"Keycode press failed: {e}")
             return False
+
+    def swipe(
+        self,
+        start_x: int,
+        start_y: int,
+        end_x: int,
+        end_y: int,
+        duration: float = 0.5
+    ) -> bool:
+        """
+        Swipe from start to end coordinates.
+
+        Args:
+            start_x: Start X coordinate
+            start_y: Start Y coordinate
+            end_x: End X coordinate
+            end_y: End Y coordinate
+            duration: Swipe duration in seconds (default 0.5)
+
+        Returns:
+            True if swipe successful
+        """
+        try:
+            self.logger.debug(
+                f"Swiping from ({start_x}, {start_y}) to ({end_x}, {end_y}) "
+                f"duration={duration}s"
+            )
+            success = self.ui_adapter.swipe(start_x, start_y, end_x, end_y, duration=duration)
+            if success:
+                time.sleep(0.5)  # Allow UI to settle after swipe
+            return success
+        except Exception as e:
+            self.logger.error(f"Swipe failed: {e}")
+            return False

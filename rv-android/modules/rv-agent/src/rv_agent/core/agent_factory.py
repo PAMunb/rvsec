@@ -115,7 +115,8 @@ class AgentFactory:
             coordinate_converter=None,  # Will use coordinate_utils directly
             ui_coverage=ui_coverage,  # Required for RVAgentStrategy
             plateau_window=config.plateau_window,  # RVAgent config
-            max_input_variations=config.max_input_variations  # RVAgent config
+            max_input_variations=config.max_input_variations,  # RVAgent config
+            target_package=config.package_name  # Filter actions by target package
         )
         logger.info(f"Created ExplorationStrategy: {config.strategy}")
 

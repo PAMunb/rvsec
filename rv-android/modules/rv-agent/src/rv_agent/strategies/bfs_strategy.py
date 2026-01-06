@@ -15,6 +15,7 @@ from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.core.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,8 @@ class BFSStrategy(ExplorationStrategy):
         self,
         graph: DynamicStateGraph,
         static_data: Optional[StaticAnalysisData] = None,
-        coordinate_converter = None
+        coordinate_converter = None,
+        target_package: Optional[str] = None
     ):
         """
         Initialize BFS exploration strategy.
@@ -97,16 +99,21 @@ class BFSStrategy(ExplorationStrategy):
             graph: Dynamic state graph for history tracking
             static_data: Optional static analysis data for MOP markers
             coordinate_converter: CoordinateConverter for device/optimized space conversion
+            target_package: Target app package name for filtering external elements
         """
         self.graph = graph
         self.static_data = static_data
         self.converter = coordinate_converter
+        self.target_package = target_package
 
         # BFS traversal state - QUEUE (FIFO)
         self.state_queue: deque = deque()
         self.visited_states: Set[str] = set()
         self.current_state_hash: Optional[str] = None
         self.current_depth = 0
+
+        if target_package:
+            logger.info(f"BFS: Filtering actions to package '{target_package}'")
 
     def select_next_action(
         self,
@@ -188,38 +195,55 @@ class BFSStrategy(ExplorationStrategy):
         logger.info(f"  Untested: {len(untested_actions)}")
         logger.info(f"  Queue size: {len(self.state_queue)}")
 
-        # BREADTH: Exhaust current level before moving to next
+        # BREADTH: Select untested action if available (highest priority)
         if untested_actions:
             selected_action = self._select_priority_action(untested_actions)
 
             # Mark action as executed before execution to handle crashes
             action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
-            logger.info(f"BFS BREADTH: Selected action ID={selected_action.id}")
+            logger.info(f"BFS BREADTH: Selected UNTESTED action ID={selected_action.id}")
             logger.info(f"  Signature: {action_signature}")
             logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
+            logger.info(f"  Execution count: 0 (first time)")
             logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
             self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
 
             return selected_action
 
-        # Current state exhausted - remove from queue
-        logger.info(f"BFS: State {current_hash[:8]} exhausted")
+        # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
+        # Algorithm continues until timeout, never stops when "exhausted"
+        # Prioritizes actions with fewer executions for balanced coverage
+        if filtered_actions:
+            selected_action = self._select_least_executed_action(node, filtered_actions)
 
-        # Remove current state from queue if present
-        if self.state_queue and self.state_queue[0].screen_hash == current_hash:
-            self.state_queue.popleft()
-            logger.info(f"BFS: Removed exhausted state from queue, {len(self.state_queue)} states remaining")
+            action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+            exec_count = node.get_action_execution_count(action_signature)
+            logger.info(f"BFS CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}")
+            logger.info(f"  Signature: {action_signature}")
+            logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
+            logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
+            logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
-        # Signal need to move to next state in queue (backtracking/navigation)
-        if self.state_queue:
-            next_state = self.state_queue[0]
-            logger.info(f"BFS: Next state in queue: {next_state.screen_hash[:8]}")
-            logger.info(f"     Depth: {next_state.depth}, Untested: {next_state.untested_count}")
-        else:
-            logger.info(f"BFS: Queue empty, exploration complete")
+            self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
 
-        return None
+            return selected_action
+
+        # No actions available (edge case) - return BACK to navigate
+        logger.info(f"BFS: No actions available on state {current_hash[:8]}, returning BACK")
+
+        # Create a BACK ItemAction for navigation
+        back_action = ItemAction(
+            id=999,
+            text="BACK",
+            event=WidgetEventType.BACK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+            target_view={"system_action": True, "class": "SystemAction_BACK"},
+            coordinates=None,
+            text_input=None
+        )
+        return back_action
 
     def record_transition(
         self,
@@ -283,10 +307,11 @@ class BFSStrategy(ExplorationStrategy):
 
     def _filter_actions(self, actions: List[ItemAction]) -> List[ItemAction]:
         """
-        Filter out system actions and navigation bar interactions.
+        Filter out system actions, external package elements, and navigation bar interactions.
 
         ### Filtering Rules:
         - Remove actions marked as system_action (SYSTEM_BACK, RESTART_APP)
+        - Remove actions from packages other than target app (systemui, launcher, etc)
         - Remove actions without valid execution coordinates
         - Remove actions in navigation bar area (y > 1794 in device space)
         - BFS controls navigation algorithmically, does not need system actions
@@ -295,15 +320,27 @@ class BFSStrategy(ExplorationStrategy):
             actions: List of all available actions
 
         Returns:
-            Filtered list of actionable items
+            Filtered list of actionable items (only from target app package)
         """
         filtered = []
+        external_count = 0
 
         for action in actions:
             # Skip system actions
             if action.target_view.get('system_action', False):
                 logger.debug(f"Filtered system action: ID={action.id}")
                 continue
+
+            # Filter by package - only include actions from target app
+            action_package = action.target_view.get('package', '')
+            if self.target_package and action_package:
+                if action_package != self.target_package:
+                    external_count += 1
+                    logger.debug(
+                        f"Filtered external package: ID={action.id} "
+                        f"package='{action_package}' (target='{self.target_package}')"
+                    )
+                    continue
 
             # Get coordinates for validation and nav bar check
             coords = action.get_execution_coordinates()
@@ -320,6 +357,9 @@ class BFSStrategy(ExplorationStrategy):
                 continue
 
             filtered.append(action)
+
+        if external_count > 0:
+            logger.info(f"Filtered {external_count} external package elements")
 
         return filtered
 
@@ -374,6 +414,35 @@ class BFSStrategy(ExplorationStrategy):
         )
 
         return priority_sorted[0]
+
+    def _select_least_executed_action(self, node, actions: List[ItemAction]) -> ItemAction:
+        """
+        Select action with fewest executions for continuous exploration.
+
+        When all actions have been tested at least once, prioritizes:
+        1. Actions with fewer execution counts (least visited first)
+        2. MOP priority as tiebreaker (higher MOP = selected first)
+
+        This enables continuous exploration until timeout, always making
+        progress on less-explored paths.
+
+        Args:
+            node: ScreenNode with action execution counts
+            actions: List of all available actions (already tested)
+
+        Returns:
+            Action with lowest execution count (MOP priority as tiebreaker)
+        """
+        def sort_key(action: ItemAction):
+            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            exec_count = node.get_action_execution_count(action_signature)
+            mop_priority = self._get_mop_priority(action)
+            # Sort by: (exec_count ASC, -mop_priority DESC)
+            # Lower exec_count first, then higher MOP priority
+            return (exec_count, -mop_priority)
+
+        sorted_actions = sorted(actions, key=sort_key)
+        return sorted_actions[0]
 
     def _get_mop_priority(self, action: ItemAction) -> int:
         """
