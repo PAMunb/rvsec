@@ -15,14 +15,15 @@ rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-uiautomator = {path = "../rv-uiautomator", develop = true}
 
 # LangChain ecosystem (SGLang via OpenAI-compatible API)
-langchain = "^0.3.0"
-langchain-core = "^0.3.0"
-langchain-openai = "^0.2.0"
+# Updated 2026-01-06 - using 0.3.x series for LangGraph compatibility
+langchain = "^0.3"
+langchain-core = "^0.3"
+langchain-openai = "^0.3"
 
 # LangGraph for workflow
-langgraph = "^0.2.0"
-langgraph-checkpoint = "^2.0.0"
-langgraph-checkpoint-sqlite = "^2.0.0"
+langgraph = "^0.3"
+langgraph-checkpoint = "^2.0"
+langgraph-checkpoint-sqlite = "^2.0"
 
 # Utils
 requests = "^2.32.0"

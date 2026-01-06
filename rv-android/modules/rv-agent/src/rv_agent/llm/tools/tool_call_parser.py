@@ -1,14 +1,15 @@
 """
 Tool Call Parser - Parses tool calls from LLM text responses.
 
-Supports multiple output formats that vision models may produce:
+Copied from RVAgent for compatibility.
+Supports multiple output formats that vision models may produce.
+
+Formats supported:
 1. JSON array: [{"name": "tool", "parameters": {...}}, ...]
 2. Single JSON object: {"name": "tool", "parameters": {...}}
 3. XML <tool_call> tags: <tool_call>{"name": ...}</tool_call>
 4. Markdown code blocks: ```json {...} ```
 5. Pythonic function calls: android_click(x=540, y=1054, ...)
-
-Based on validation from rvsec-vision-llm benchmark (2,847 tests).
 """
 
 import json
@@ -26,13 +27,14 @@ class ParserResult:
 
     success: bool
     tool_calls: list[dict[str, Any]]
-    strategy_used: str | None
+    strategy_used: str | None  # Which parsing strategy succeeded
     strategies_attempted: list[str] = field(default_factory=list)
     error_message: str | None = None
-    json_fix_applied: bool = False
+    json_fix_applied: bool = False  # Whether _fix_malformed_json was needed
     raw_response_length: int = 0
 
 
+# Global parser statistics for metrics collection
 class ParserStats:
     """Tracks parser statistics across multiple calls."""
 
@@ -44,17 +46,17 @@ class ParserStats:
         self.successful_parses = 0
         self.failed_parses = 0
         self.strategy_success_counts: dict[str, int] = {
-            "native_tool_calls": 0,
-            "xml_tool_call": 0,
             "json_array": 0,
             "json_object": 0,
+            "xml_tool_call": 0,
             "markdown_code_block": 0,
             "pythonic_function": 0,
+            "native_tool_calls": 0,
         }
         self.strategy_attempt_counts: dict[str, int] = {
-            "xml_tool_call": 0,
             "json_array": 0,
             "json_object": 0,
+            "xml_tool_call": 0,
             "markdown_code_block": 0,
             "pythonic_function": 0,
         }
@@ -95,28 +97,25 @@ class ParserStats:
 parser_stats = ParserStats()
 
 
-def normalize_tool_args(args: dict[str, Any] | None) -> dict[str, Any]:
+def normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]:
     """
     Normalize tool arguments by converting various coordinate formats.
 
     Handles multiple formats:
     - {"x": "681", "y": "777"} -> {"x": 681, "y": 777} (string to int)
-    - {"x": 352.7, "y": 624.3} -> {"x": 352, "y": 624} (float to int)
     - {"x": [499, 510]} -> {"x": 499, "y": 510} (Qwen3-VL array in x)
     - {"coordinate": [464, 487]} -> {"x": 464, "y": 487} (Fara-7B format)
     - {"coordinates": [464, 487]} -> {"x": 464, "y": 487} (alternative)
     - {"bbox": [464, 487]} -> {"x": 464, "y": 487} (Fara-7B bbox format)
     - {"bbox_2d": [464, 487]} -> {"x": 464, "y": 487} (Fara-7B bbox_2d format)
     - {"bounds": [464, 487]} -> {"x": 464, "y": 487} (Fara-7B bounds format)
-    - {"bndbox": [464, 487]} -> {"x": 464, "y": 487} (Fara-7B bndbox format)
-    - {"center": [464, 487]} -> {"x": 464, "y": 487} (Fara-7B center format)
     - {"arguments": {"coordinate": [x, y]}} -> {"x": x, "y": y} (nested Fara-7B)
 
     Note: Qwen3-VL [0,1000) coords should be converted separately using
     denormalize_qwen_coords() after extraction.
 
     Args:
-        args: Tool arguments dictionary (or None)
+        args: Tool arguments dictionary
 
     Returns:
         Normalized arguments with integer x, y coordinates
@@ -127,23 +126,30 @@ def normalize_tool_args(args: dict[str, Any] | None) -> dict[str, Any]:
     normalized = {}
 
     # Handle nested 'arguments' dict (Fara-7B alternative format)
+    # Format: {"name": "Deny", "arguments": {"type": "left_click", "coordinate": [x, y]}}
     if 'arguments' in args and isinstance(args['arguments'], dict):
         nested_args = args['arguments']
+        # Recursively normalize the nested arguments
         nested_normalized = normalize_tool_args(nested_args)
+        # Extract x, y from nested, keep name from outer
         if 'x' in nested_normalized and 'y' in nested_normalized:
             normalized['x'] = nested_normalized['x']
             normalized['y'] = nested_normalized['y']
+            # Also copy action type if present
             if 'type' in nested_args:
                 normalized['name'] = nested_args['type']
+            # Copy other top-level keys except 'arguments'
             for key, value in args.items():
                 if key != 'arguments' and key not in normalized:
                     normalized[key] = value
             return normalized
 
-    # Handle x as [x, y] array (Qwen3-VL format)
+    # Handle x as [x, y] array (Qwen3-VL format) - even if y is also present
+    # This happens when SGLang parses malformed JSON like {"x": 875, 235} as {"x": [875, 235]}
     if 'x' in args and isinstance(args['x'], list) and len(args['x']) >= 2:
         coord = args['x']
         normalized['x'] = int(coord[0]) if isinstance(coord[0], (int, float, str)) else coord[0]
+        # Only set y from array if not already present
         if 'y' not in args:
             normalized['y'] = int(coord[1]) if isinstance(coord[1], (int, float, str)) else coord[1]
         for key, value in args.items():
@@ -163,6 +169,7 @@ def normalize_tool_args(args: dict[str, Any] | None) -> dict[str, Any]:
         return result
 
     # Handle various coordinate array formats (Fara-7B uses multiple)
+    # Priority order: coordinate > coordinates > bbox > bbox_2d > bounds > bndbox > center
     for coord_key in ('coordinate', 'coordinates', 'bbox', 'bbox_2d', 'bounds', 'bndbox', 'center'):
         if coord_key in args and isinstance(args[coord_key], list):
             coord = args[coord_key]
@@ -171,12 +178,13 @@ def normalize_tool_args(args: dict[str, Any] | None) -> dict[str, Any]:
 
     # Standard processing for x, y format
     for key, value in args.items():
+        # Convert string/float numbers to integers for coordinate fields
         if key in ('x', 'y'):
             if isinstance(value, str):
                 try:
-                    normalized[key] = int(value)
+                    normalized[key] = int(float(value))
                 except ValueError:
-                    normalized[key] = value
+                    normalized[key] = value  # Keep as-is if conversion fails
             elif isinstance(value, float):
                 normalized[key] = int(value)
             else:
@@ -207,10 +215,12 @@ def denormalize_qwen_coords(
     Returns:
         Tuple of (pixel_x, pixel_y)
     """
+    # Only convert if values appear to be in [0, 1000) range
     if 0 <= x < 1000 and 0 <= y < 1000:
         pixel_x = int((x / 1000) * image_width)
         pixel_y = int((y / 1000) * image_height)
         return pixel_x, pixel_y
+    # Already in pixel coordinates
     return int(x), int(y)
 
 
@@ -304,6 +314,8 @@ def parse_tool_calls_from_text(response_content: str, track_stats: bool = True) 
 
         for match in xml_matches:
             json_str = match.group(1)
+
+            # Try to fix common JSON malformations before parsing
             fixed_json = _fix_malformed_json(json_str)
             parse_str = fixed_json if fixed_json else json_str
             if fixed_json:
@@ -312,6 +324,7 @@ def parse_tool_calls_from_text(response_content: str, track_stats: bool = True) 
             try:
                 parsed = json.loads(parse_str)
             except json.JSONDecodeError:
+                # If fixed version also fails, try original
                 if fixed_json:
                     try:
                         parsed = json.loads(json_str)
@@ -364,6 +377,7 @@ def parse_tool_calls_from_text(response_content: str, track_stats: bool = True) 
             # Gemma format: {"action": "android_click", "x": 480, "y": 1600}
             elif isinstance(parsed, dict) and 'action' in parsed:
                 action = parsed.get('action', '')
+                # Extract x, y from top-level
                 args = {k: v for k, v in parsed.items() if k != 'action'}
                 tool_calls.append({
                     'name': action,
@@ -380,22 +394,28 @@ def parse_tool_calls_from_text(response_content: str, track_stats: bool = True) 
         logger.debug(f"Code block parsing failed: {e}")
 
     # Strategy 5: Extract pythonic function calls (Gemma format)
+    # Matches: android_click(x=540, y=1054, ...) or ```tool_code\nandroid_click(...)```
     try:
         if track_stats:
             parser_stats.record_attempt("pythonic_function")
-        func_pattern = r'(android_click|android_type_text|android_long_click|android_swipe|android_back|android_home|android_scroll)\s*\(\s*([^)]+)\s*\)'
+        # Look for function call pattern: tool_name(args...)
+        func_pattern = r'(android_click|android_type_text|android_long_click|android_swipe|android_scroll|android_back|android_home)\s*\(\s*([^)]*)\s*\)'
         func_matches = re.finditer(func_pattern, response_content, re.DOTALL)
 
         for match in func_matches:
             func_name = match.group(1)
             args_str = match.group(2)
 
+            # Parse keyword arguments: x=540, y=1054, ...
             args = {}
+            # Match: key=value patterns (handles strings, numbers)
             arg_pattern = r'(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^,\s)]+))'
             for arg_match in re.finditer(arg_pattern, args_str):
                 key = arg_match.group(1)
+                # Get value from either quoted string or unquoted
                 value = arg_match.group(2) or arg_match.group(3) or arg_match.group(4)
 
+                # Try to convert to int/float
                 if value:
                     try:
                         if '.' in value:
@@ -424,6 +444,7 @@ def parse_tool_calls_from_text(response_content: str, track_stats: bool = True) 
     logger.warning("No tool calls found in response")
     logger.debug(f"Full response content:\n{response_content}")
     if track_stats:
+        # Determine failure reason
         if len(response_content) < 10:
             parser_stats.record_failure("response_too_short")
         elif "I cannot" in response_content or "I'm sorry" in response_content:
@@ -436,7 +457,7 @@ def parse_tool_calls_from_text(response_content: str, track_stats: bool = True) 
     return []
 
 
-def parse_tool_calls_with_strategy(
+def parse_tool_calls_from_text_with_strategy(
     response_content: str,
     track_stats: bool = True
 ) -> tuple[list[dict[str, Any]], str]:
@@ -449,7 +470,7 @@ def parse_tool_calls_with_strategy(
 
     Returns:
         Tuple of (list of tool call dicts, strategy name)
-        Strategy names: "native", "xml", "json_array", "json_object", "markdown", "pythonic", "none"
+        Strategy names: "xml", "json_array", "json_object", "markdown", "pythonic", "gemma", "none"
     """
     if not response_content or not isinstance(response_content, str):
         logger.warning("Empty or invalid response content")
@@ -572,6 +593,7 @@ def parse_tool_calls_with_strategy(
                     'name': parsed['name'],
                     'args': normalize_tool_args(args) if isinstance(args, dict) else {}
                 })
+            # Gemma format: {"action": "android_click", "x": 480, "y": 1600}
             elif isinstance(parsed, dict) and 'action' in parsed:
                 action = parsed.get('action', '')
                 args = {k: v for k, v in parsed.items() if k != 'action'}
@@ -597,7 +619,7 @@ def parse_tool_calls_with_strategy(
     try:
         if track_stats:
             parser_stats.record_attempt("pythonic_function")
-        func_pattern = r'(android_click|android_type_text|android_long_click|android_swipe|android_back|android_home)\s*\(\s*([^)]+)\s*\)'
+        func_pattern = r'(android_click|android_type_text|android_long_click|android_swipe|android_scroll|android_back|android_home)\s*\(\s*([^)]*)\s*\)'
         for match in re.finditer(func_pattern, response_content, re.DOTALL):
             func_name = match.group(1)
             args_str = match.group(2)
@@ -659,6 +681,7 @@ def _fix_malformed_json(s: str) -> str | None:
     original = s
 
     # Pattern 0: Fix missing leading zero in floats: .91 -> 0.91 (Qwen3-VL)
+    # This must come FIRST before other patterns
     s = re.sub(
         r':\s*\.(\d+)',
         r': 0.\1',
@@ -666,6 +689,7 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 0b: Fix double colon: "x":": 541 -> "x": 541
+    # Qwen3-VL sometimes outputs ":": instead of ":"
     s = re.sub(
         r'"([xy])":\s*"?:\s*(\d+)',
         r'"\1": \2',
@@ -673,6 +697,8 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 0c: Fix numeric value with trailing quote only: "y": 473" -> "y": 473
+    # Model outputs integer followed by errant quote (not a string, just trailing quote)
+    # Must match: comma or closing brace after the trailing quote to avoid false positives
     s = re.sub(
         r'"([xy])":\s*(\d+)"(\s*[,}])',
         r'"\1": \2\3',
@@ -680,6 +706,7 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 0d: "x": 867 335 -> "x": 867 (MiniCPM-V outputs two numbers with space)
+    # Take only the first number when there are two separated by space
     s = re.sub(
         r'"([xy])":\s*(\d+)\s+\d+',
         r'"\1": \2',
@@ -694,6 +721,7 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 2: "x": [352, 782] -> "x": 352, "y": 782
+    # Model sometimes outputs coordinates as array instead of separate x,y
     s = re.sub(
         r'"x":\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]',
         r'"x": \1, "y": \2',
@@ -701,6 +729,7 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 3: "x": [499", "499"] -> "x": 499, "y": 499
+    # vLLM malformed array with quotes inside
     s = re.sub(
         r'"x":\s*\[\s*(\d+)"?,\s*"?(\d+)"?\s*\]',
         r'"x": \1, "y": \2',
@@ -708,6 +737,7 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 4: "x": = 100 -> "x": 100
+    # vLLM equals sign instead of just colon
     s = re.sub(
         r'"([xy])":\s*=\s*(\d+)',
         r'"\1": \2',
@@ -715,6 +745,7 @@ def _fix_malformed_json(s: str) -> str | None:
     )
 
     # Pattern 5: Fix truncated JSON - add missing closing braces
+    # Count open vs close braces and add missing ones
     open_braces = s.count('{')
     close_braces = s.count('}')
     if open_braces > close_braces:
@@ -723,257 +754,5 @@ def _fix_malformed_json(s: str) -> str | None:
     return s if s != original else None
 
 
-# Backwards compatibility: keep old function name
-def execute_tool_call(
-    tool_call: dict[str, Any],
-    device,
-    converter
-) -> dict[str, Any]:
-    """
-    Execute a single parsed tool call.
-
-    Args:
-        tool_call: Dict with 'name' and 'args' keys
-        device: DeviceInterface instance
-        converter: CoordinateConverter instance
-
-    Returns:
-        Execution result dict with 'success', 'action_type', etc.
-    """
-    tool_name = tool_call.get('name', '')
-    tool_args = tool_call.get('args', {})
-
-    logger.info(f"Executing: {tool_name}({tool_args})")
-
-    try:
-        if tool_name == 'android_click':
-            return _execute_click(tool_args, device, converter)
-
-        elif tool_name == 'android_type_text':
-            return _execute_type_text(tool_args, device, converter)
-
-        elif tool_name == 'android_long_click':
-            return _execute_long_click(tool_args, device, converter)
-
-        elif tool_name == 'android_swipe':
-            return _execute_swipe(tool_args, device)
-
-        elif tool_name == 'android_scroll':
-            return _execute_scroll(tool_args, device)
-
-        elif tool_name == 'android_back':
-            return _execute_back(device)
-
-        elif tool_name == 'android_home':
-            return _execute_home(device)
-
-        else:
-            logger.warning(f"Unknown tool: {tool_name}")
-            return {
-                "success": False,
-                "action_type": "unknown",
-                "error": f"Unknown tool: {tool_name}"
-            }
-
-    except Exception as e:
-        logger.error(f"Tool execution failed: {e}", exc_info=True)
-        return {
-            "success": False,
-            "action_type": tool_name.replace('android_', ''),
-            "error": str(e)
-        }
-
-
-def _execute_click(args: dict, device, converter) -> dict[str, Any]:
-    """Execute android_click tool."""
-    element_description = args.get('element_description', 'unknown')
-    x = args.get('x', 0)
-    y = args.get('y', 0)
-
-    try:
-        converter.validate_optimized_coords(x, y)
-    except ValueError as e:
-        logger.warning(f"Coordinate validation failed: {e}")
-        return {
-            "success": False,
-            "llm_coords": (x, y),
-            "description": element_description,
-            "action_type": "click",
-            "error": f"Invalid coordinates: {e}"
-        }
-
-    device_x, device_y = converter.optimized_to_device(x, y)
-    success = device.click(device_x, device_y)
-
-    logger.info(
-        f"Click: {element_description} "
-        f"opt({x},{y}) -> dev({device_x},{device_y}) - "
-        f"{'success' if success else 'failed'}"
-    )
-
-    return {
-        "success": success,
-        "llm_coords": (x, y),
-        "device_coords": (device_x, device_y),
-        "description": element_description,
-        "action_type": "click"
-    }
-
-
-def _execute_type_text(args: dict, device, converter) -> dict[str, Any]:
-    """Execute android_type_text tool."""
-    element_description = args.get('element_description', 'unknown')
-    x = args.get('x', 0)
-    y = args.get('y', 0)
-    text = args.get('text', '')
-
-    try:
-        converter.validate_optimized_coords(x, y)
-    except ValueError as e:
-        logger.warning(f"Coordinate validation failed: {e}")
-        return {
-            "success": False,
-            "llm_coords": (x, y),
-            "description": element_description,
-            "action_type": "set_text",
-            "text": text,
-            "error": f"Invalid coordinates: {e}"
-        }
-
-    device_x, device_y = converter.optimized_to_device(x, y)
-    click_success = device.click(device_x, device_y)
-    if not click_success:
-        logger.warning(f"Failed to click text field at dev({device_x},{device_y})")
-        return {
-            "success": False,
-            "llm_coords": (x, y),
-            "description": element_description,
-            "action_type": "set_text",
-            "text": text,
-            "error": "Click failed"
-        }
-
-    input_success = device.input_text(text)
-
-    logger.info(
-        f"Text input: '{text}' into {element_description} "
-        f"opt({x},{y}) -> dev({device_x},{device_y}) - "
-        f"{'success' if input_success else 'failed'}"
-    )
-
-    return {
-        "success": input_success,
-        "llm_coords": (x, y),
-        "device_coords": (device_x, device_y),
-        "description": element_description,
-        "action_type": "set_text",
-        "text": text
-    }
-
-
-def _execute_long_click(args: dict, device, converter) -> dict[str, Any]:
-    """Execute android_long_click tool."""
-    element_description = args.get('element_description', 'unknown')
-    x = args.get('x', 0)
-    y = args.get('y', 0)
-
-    try:
-        converter.validate_optimized_coords(x, y)
-    except ValueError as e:
-        logger.warning(f"Coordinate validation failed: {e}")
-        return {
-            "success": False,
-            "llm_coords": (x, y),
-            "description": element_description,
-            "action_type": "long_click",
-            "error": f"Invalid coordinates: {e}"
-        }
-
-    device_x, device_y = converter.optimized_to_device(x, y)
-    success = device.long_click(device_x, device_y)
-
-    logger.info(
-        f"Long click: {element_description} "
-        f"opt({x},{y}) -> dev({device_x},{device_y}) - "
-        f"{'success' if success else 'failed'}"
-    )
-
-    return {
-        "success": success,
-        "llm_coords": (x, y),
-        "device_coords": (device_x, device_y),
-        "description": element_description,
-        "action_type": "long_click"
-    }
-
-
-def _execute_swipe(args: dict, device) -> dict[str, Any]:
-    """Execute android_swipe tool."""
-    direction = args.get('direction', 'up')
-    distance = args.get('distance', 'medium')
-
-    valid_directions = ['up', 'down', 'left', 'right']
-    if direction not in valid_directions:
-        error_msg = f"Invalid direction '{direction}'. Use: {', '.join(valid_directions)}"
-        logger.warning(error_msg)
-        return {
-            "success": False,
-            "action_type": "swipe",
-            "direction": direction,
-            "distance": distance,
-            "error": error_msg
-        }
-
-    valid_distances = ['short', 'medium', 'long']
-    if distance not in valid_distances:
-        error_msg = f"Invalid distance '{distance}'. Use: {', '.join(valid_distances)}"
-        logger.warning(error_msg)
-        return {
-            "success": False,
-            "action_type": "swipe",
-            "direction": direction,
-            "distance": distance,
-            "error": error_msg
-        }
-
-    success = device.swipe(direction, distance)
-
-    logger.info(
-        f"Swipe: {direction} ({distance}) - "
-        f"{'success' if success else 'failed'}"
-    )
-
-    return {
-        "success": success,
-        "action_type": "swipe",
-        "direction": direction,
-        "distance": distance
-    }
-
-
-def _execute_scroll(args: dict, device) -> dict[str, Any]:
-    """Execute android_scroll tool."""
-    direction = args.get('direction', 'down')
-    success = device.scroll(direction)
-
-    logger.info(f"Scroll: {direction} - {'success' if success else 'failed'}")
-
-    return {
-        "success": success,
-        "action_type": "scroll",
-        "direction": direction
-    }
-
-
-def _execute_back(device) -> dict[str, Any]:
-    """Execute android_back tool."""
-    success = device.back()
-    logger.info(f"Back button - {'success' if success else 'failed'}")
-    return {"success": success, "action_type": "back"}
-
-
-def _execute_home(device) -> dict[str, Any]:
-    """Execute android_home tool."""
-    success = device.home()
-    logger.info(f"Home button - {'success' if success else 'failed'}")
-    return {"success": success, "action_type": "home"}
+# Backwards compatibility alias for rv-agent
+parse_tool_calls_with_strategy = parse_tool_calls_from_text_with_strategy

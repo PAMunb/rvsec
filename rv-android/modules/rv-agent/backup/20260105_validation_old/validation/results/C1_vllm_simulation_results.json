@@ -1,0 +1,57 @@
+{
+  "model_name": "qwen2.5vl:7b",
+  "test_phase": "FASE_C1_SIMULATED",
+  "deployment": "vLLM_guided_json_simulation",
+  "status": "SIMULATED_EXCELLENT",
+  "metrics": {
+    "multimodal_support": true,
+    "tool_calling_detected": true,
+    "response_time": 2.0,
+    "iterations_completed": 3,
+    "tool_executions": 3,
+    "success_rate": 100.0,
+    "multimodal_history": [
+      true,
+      true,
+      true
+    ]
+  },
+  "coordinate_accuracy": 100.0,
+  "coordinate_validations": [
+    {
+      "iteration": 1,
+      "coords": [
+        200,
+        240
+      ],
+      "valid": true,
+      "distance": 0.0,
+      "element_description": "Message Digest button",
+      "confidence": "high"
+    },
+    {
+      "iteration": 2,
+      "coords": [
+        200,
+        360
+      ],
+      "valid": true,
+      "distance": 0.0,
+      "element_description": "Cipher button",
+      "confidence": "high"
+    },
+    {
+      "iteration": 3,
+      "coords": [
+        200,
+        480
+      ],
+      "valid": true,
+      "distance": 0.0,
+      "element_description": "Generated button",
+      "confidence": "medium"
+    }
+  ],
+  "note": "Simulated results - actual vLLM server not available",
+  "timestamp": "2025-09-16T10:39:15.105255"
+}

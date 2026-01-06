@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "automation2_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.jens.automation2_133.apk",
+  "package_name": "com.jens.automation2",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 1313781556,
+  "execution_time_seconds": 193.03338479995728
+}

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "vdrmanager_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/de.bjusystems.vdrmanager_12600.apk",
+  "package_name": "de.bjusystems.vdrmanager",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 372075694,
+  "execution_time_seconds": 180.50050139427185
+}

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "twidere_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/org.mariotaku.twidere_517.apk",
+  "package_name": "org.mariotaku.twidere",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 1290136748,
+  "execution_time_seconds": 93.53708791732788
+}

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "LASKmobile_greedy_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.rfo.LASKmobile_501.apk",
+  "package_name": "com.rfo.LASKmobile",
+  "strategy": "greedy",
+  "repetition": 1,
+  "seed": 902409033,
+  "execution_time_seconds": 2.9990921020507812
+}

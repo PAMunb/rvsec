@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'UICoverageTracker' object has no attribute 'get_coverage_percentage'",
+  "run_id": "KolabDroid_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/at.dasz.KolabDroid_94.apk",
+  "package_name": "at.dasz.KolabDroid",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 2069778439,
+  "execution_time_seconds": 4.284940004348755
+}

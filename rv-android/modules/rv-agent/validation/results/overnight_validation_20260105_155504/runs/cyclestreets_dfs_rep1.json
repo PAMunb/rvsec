@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "cyclestreets_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/net.cyclestreets_1579.apk",
+  "package_name": "net.cyclestreets",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 78966908,
+  "execution_time_seconds": 3.0103390216827393
+}

@@ -16,7 +16,7 @@ from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTrac
 from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
 from rv_agent.strategies.rvagent_strategy.coverage_metrics import CoverageMetrics
 from rv_agent.strategies.rvagent_strategy.input_value_generator import InputValueGenerator
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction, WidgetEventType
 
@@ -36,22 +36,25 @@ class TestRVAgentStrategy:
     def test_select_next_action_plateau(self, strategy):
         # Mock plateau detector to return True
         strategy.plateau_detector.is_plateau_reached = MagicMock(return_value=True)
-        
+
         # Even if plateau is reached, it should NOT stop exploration (informational only)
         # We need to mock other components to ensure it proceeds to selection
         strategy.graph.states = {}
         strategy.graph.get_or_create_state = MagicMock()
         strategy.successor_tracker.update_action_availability = MagicMock(return_value=0)
-        
+
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.activity = "MainActivity"
         screen_desc.items = []
-        
-        # Mock _get_untested_actions to return empty so it returns None gracefully
+
+        # Mock _get_untested_actions to return empty so it returns BACK (continuous exploration)
         strategy._get_untested_actions = MagicMock(return_value=[])
-        
+
         action = strategy.select_next_action("hash123", screen_desc)
-        assert action is None # Or whatever expected behavior when no actions
+        # Continuous exploration: returns BACK action instead of None when exhausted
+        assert action is not None
+        assert action.text == "BACK"
+        assert action.event == WidgetEventType.BACK
 
     def test_select_next_action_new_state(self, strategy):
         current_hash = "new_state_hash"

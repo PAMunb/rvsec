@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
 from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.llm.tools.sglang_tools import get_android_tools
 from rv_agent.llm.tools.tool_call_parser import (
     normalize_tool_args,
     parse_tool_calls_with_strategy,
@@ -27,118 +27,6 @@ from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 
 logger = logging.getLogger(__name__)
-
-
-# Android tools for LangChain tool calling
-@tool
-def android_click(x: int, y: int, element_description: str = "", reasoning: str = "") -> dict:
-    """Click on a UI element at coordinates (x, y).
-
-    Args:
-        x: X coordinate in optimized image space (0-704).
-        y: Y coordinate in optimized image space (0-1248).
-        element_description: Description of element being clicked.
-        reasoning: Why this element was chosen.
-
-    Returns:
-        Success status with coordinates.
-    """
-    return {"success": True, "x": x, "y": y, "element_description": element_description}
-
-
-@tool
-def android_type_text(x: int, y: int, text: str, element_description: str = "") -> dict:
-    """Type text into a text field at coordinates (x, y).
-
-    Args:
-        x: X coordinate of text field.
-        y: Y coordinate of text field.
-        text: Text to type.
-        element_description: Description of the text field.
-
-    Returns:
-        Success status with coordinates and text.
-    """
-    return {"success": True, "x": x, "y": y, "text": text, "element_description": element_description}
-
-
-@tool
-def android_long_click(x: int, y: int, element_description: str = "") -> dict:
-    """Long press on element at coordinates (x, y).
-
-    Args:
-        x: X coordinate.
-        y: Y coordinate.
-        element_description: Description of element.
-
-    Returns:
-        Success status with coordinates.
-    """
-    return {"success": True, "x": x, "y": y, "element_description": element_description}
-
-
-@tool
-def android_swipe(direction: str, distance: str = "medium") -> dict:
-    """Swipe in a direction.
-
-    Args:
-        direction: Swipe direction ('up', 'down', 'left', 'right').
-        distance: Swipe distance ('short', 'medium', 'long').
-
-    Returns:
-        Success status with swipe parameters.
-    """
-    return {"success": True, "direction": direction, "distance": distance}
-
-
-@tool
-def android_scroll(direction: str) -> dict:
-    """Scroll the screen.
-
-    Args:
-        direction: Scroll direction ('up', 'down').
-
-    Returns:
-        Success status with direction.
-    """
-    return {"success": True, "direction": direction}
-
-
-@tool
-def android_back() -> dict:
-    """Press the back button.
-
-    Returns:
-        Success status.
-    """
-    return {"success": True, "action": "back"}
-
-
-@tool
-def android_home() -> dict:
-    """Press the home button.
-
-    Returns:
-        Success status.
-    """
-    return {"success": True, "action": "home"}
-
-
-def get_android_tools() -> list:
-    """Get list of Android tools for LangChain.
-
-    Returns:
-        List of tool objects ready for bind_tools().
-    """
-    return [
-        android_click,
-        android_type_text,
-        android_long_click,
-        android_swipe,
-        android_scroll,
-        android_back,
-        android_home,
-    ]
 
 
 class LLMClient:
@@ -201,7 +89,7 @@ class LLMClient:
         temperature: float = None,
         top_p: float = None,
         top_k: int = None,
-        retry_count: int = 0
+        retry_count: int = 0,
     ) -> Dict[str, Any]:
         """
         Generate action decision using LLM with multimodal input.
@@ -226,7 +114,9 @@ class LLMClient:
             - success: Whether invocation succeeded
             - parser_strategy: Strategy used to extract tool calls
         """
-        self.logger.info(f"Generating action (iteration={iteration}, retry={retry_count})")
+        self.logger.info(
+            f"Generating action (iteration={iteration}, retry={retry_count})"
+        )
 
         start_time = time.perf_counter()
 
@@ -236,7 +126,7 @@ class LLMClient:
                 ui_elements_text=ui_elements_text,
                 screenshot_b64=screenshot_b64,
                 iteration=iteration,
-                last_action_summary=last_action_summary
+                last_action_summary=last_action_summary,
             )
 
             self.logger.debug(f"Built {len(messages)} messages")
@@ -297,7 +187,7 @@ class LLMClient:
         ui_elements_text: str,
         screenshot_b64: str,
         iteration: int,
-        last_action_summary: Optional[str]
+        last_action_summary: Optional[str],
     ) -> List:
         """
         Build LangChain messages with multimodal content.
@@ -387,12 +277,16 @@ class LLMClient:
             parser_strategy = "native"
             for tc in response.tool_calls:
                 raw_args = tc.get("args", tc.get("arguments", {}))
-                normalized_args = normalize_tool_args(raw_args) if isinstance(raw_args, dict) else {}
-                tool_calls.append({
-                    "name": tc.get("name", tc.get("function", {}).get("name")),
-                    "args": normalized_args,
-                    "id": tc.get("id"),
-                })
+                normalized_args = (
+                    normalize_tool_args(raw_args) if isinstance(raw_args, dict) else {}
+                )
+                tool_calls.append(
+                    {
+                        "name": tc.get("name", tc.get("function", {}).get("name")),
+                        "args": normalized_args,
+                        "id": tc.get("id"),
+                    }
+                )
             self.logger.debug(f"Native tool calls: {len(tool_calls)}")
 
         # Fallback: parse from text content
@@ -417,7 +311,9 @@ class LLMClient:
             "total_output_tokens": self.total_output_tokens,
             "total_tokens": self.total_input_tokens + self.total_output_tokens,
             "total_latency_ms": self.total_latency_ms,
-            "avg_latency_ms": self.total_latency_ms / self.total_calls if self.total_calls > 0 else 0,
+            "avg_latency_ms": (
+                self.total_latency_ms / self.total_calls if self.total_calls > 0 else 0
+            ),
             "parser_stats": parser_stats.get_stats(),
         }
 

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "client_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.biglybt.android.client_1030008.apk",
+  "package_name": "com.biglybt.android.client",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 746285607,
+  "execution_time_seconds": 186.78779864311218
+}

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "android_greedy_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.valleytg.oasvn.android_11.apk",
+  "package_name": "com.valleytg.oasvn.android",
+  "strategy": "greedy",
+  "repetition": 1,
+  "seed": 800572634,
+  "execution_time_seconds": 2.8578286170959473
+}

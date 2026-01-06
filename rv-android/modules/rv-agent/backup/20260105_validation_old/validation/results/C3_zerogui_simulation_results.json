@@ -1,0 +1,46 @@
+{
+  "model_name": "OpenGVLab/ZeroGUI-AndroidLab-7B",
+  "test_phase": "FASE_C3_SIMULATED",
+  "deployment": "HuggingFace_direct_android_specific_simulation",
+  "android_specialization": true,
+  "status": "SIMULATED_EXCELLENT",
+  "metrics": {
+    "multimodal_support": true,
+    "tool_calling_detected": true,
+    "response_time": 2.8,
+    "iterations_completed": 2,
+    "tool_executions": 2,
+    "success_rate": 100.0,
+    "multimodal_history": [
+      true,
+      true
+    ]
+  },
+  "coordinate_accuracy": 100.0,
+  "coordinate_validations": [
+    {
+      "iteration": 1,
+      "coords": [
+        200,
+        240
+      ],
+      "valid": true,
+      "distance": 0.0,
+      "element_description": "com.example.cryptoapp:id/btn_message_digest",
+      "android_specific": true
+    },
+    {
+      "iteration": 2,
+      "coords": [
+        200,
+        360
+      ],
+      "valid": true,
+      "distance": 0.0,
+      "element_description": "android.widget.Button:Cipher",
+      "android_specific": true
+    }
+  ],
+  "note": "Simulated results - Android-specific model expected to excel",
+  "timestamp": "2025-09-16T10:58:30.208881"
+}

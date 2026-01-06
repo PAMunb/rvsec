@@ -9,7 +9,7 @@ import logging
 import time
 from typing import Dict, Any, List, Optional
 
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "openbeauty_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/openfoodfacts.github.scrachx.openbeauty_582.apk",
+  "package_name": "openfoodfacts.github.scrachx.openbeauty",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1417497303,
+  "execution_time_seconds": 36.11331224441528
+}

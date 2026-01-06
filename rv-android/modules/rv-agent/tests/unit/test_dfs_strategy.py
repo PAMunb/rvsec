@@ -3,11 +3,11 @@ Unit tests for DFSStrategy.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 from dataclasses import dataclass
 
 from rv_agent.strategies.dfs_strategy import DFSStrategy, DFSState
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
 
 # =============================================================================
@@ -440,16 +440,26 @@ class TestDFSStrategySelectNextAction:
 
         mock_graph.get_or_create_state.assert_not_called()
 
-    def test_exhausted_state_returns_none(self, dfs_strategy, mock_graph, mock_screen_desc, mock_screen_node):
-        """Test that exhausted state returns None."""
+    def test_exhausted_state_returns_back_action(self, dfs_strategy, mock_graph, mock_screen_desc, mock_screen_node):
+        """Test that exhausted state (all actions failed) returns BACK action.
+
+        With continuous exploration mode, when all actions have permanently failed,
+        the strategy returns a BACK action for navigation instead of None.
+        """
         # Mark all actions as executed
         mock_screen_node.executed_actions = {((97, 97), "CLICK")}  # Optimized coords
+        # Mark all actions as permanently failed
+        mock_screen_node.is_action_failed = Mock(return_value=True)
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
-        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None), \
+             patch.object(dfs_strategy, '_try_generate_scroll_action', return_value=None):
             result = dfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
-        assert result is None
+        # With continuous exploration, BACK is returned when all actions failed
+        assert result is not None
+        assert result.text == "BACK"
+        assert result.id == 999
 
     def test_records_action_before_returning(self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node):
         """Test that action is recorded before returning."""

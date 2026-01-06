@@ -10,7 +10,8 @@ import time
 from unittest.mock import MagicMock, patch, call
 
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph, ScreenNode
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker

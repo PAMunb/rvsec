@@ -17,7 +17,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from rv_agent.vision.image_handler import ImageHandler
+from rv_agent.services.vision_service import ImageHandler
 
 
 # =============================================================================
@@ -86,7 +86,7 @@ class TestImageHandlerInit:
         """Test that initialization creates output directory."""
         output_dir = tmp_path / "new_screenshots"
 
-        with patch('rv_agent.vision.image_handler.LoggingManager') as mock_logging:
+        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(output_dir))
 
@@ -96,7 +96,7 @@ class TestImageHandlerInit:
         """Test initialization with default parameters."""
         output_dir = tmp_path / "screenshots"
 
-        with patch('rv_agent.vision.image_handler.LoggingManager') as mock_logging:
+        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(output_dir))
 
@@ -108,7 +108,7 @@ class TestImageHandlerInit:
         """Test initialization with custom parameters."""
         output_dir = tmp_path / "screenshots"
 
-        with patch('rv_agent.vision.image_handler.LoggingManager') as mock_logging:
+        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(
                 str(output_dir),
@@ -399,7 +399,7 @@ class TestImageHandlerIntegration:
 
     def test_full_workflow(self, temp_output_dir, sample_png_bytes):
         """Test complete screenshot workflow."""
-        with patch('rv_agent.vision.image_handler.LoggingManager') as mock_logging:
+        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(temp_output_dir), rotation_limit=5)
 
@@ -425,7 +425,7 @@ class TestImageHandlerIntegration:
 
     def test_rotation_workflow(self, temp_output_dir, sample_png_bytes):
         """Test rotation workflow with multiple screenshots."""
-        with patch('rv_agent.vision.image_handler.LoggingManager') as mock_logging:
+        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(temp_output_dir), rotation_limit=3)
 
@@ -445,7 +445,7 @@ class TestImageHandlerIntegration:
 
     def test_optimize_preserves_aspect_ratio(self, temp_output_dir):
         """Test that optimization preserves aspect ratio."""
-        with patch('rv_agent.vision.image_handler.LoggingManager') as mock_logging:
+        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(temp_output_dir))
 

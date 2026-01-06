@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from rv_agent.execution.tool_executor import ToolExecutor
-from rv_agent.core.device_interface import DeviceInterface
+from rv_agent.agent.device_interface import DeviceInterface
 
 class TestToolExecutor:
     @pytest.fixture
@@ -118,7 +118,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
 
         assert result["success"] is True
-        executor.device.swipe.assert_called_with("up", "long")
+        executor.device.scroll.assert_called_with("up", "long")
 
     def test_execute_swipe_default_distance(self, executor):
         """Test swipe with default distance."""
@@ -130,7 +130,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
 
         assert result["success"] is True
-        executor.device.swipe.assert_called_with("left", "medium")
+        executor.device.scroll.assert_called_with("left", "medium")
 
     def test_execute_directional_scroll_up(self, executor):
         """Test directional scroll up (algorithm format)."""
@@ -139,7 +139,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
 
         assert result["success"] is True
-        executor.device.swipe.assert_called_with("up", "medium")
+        executor.device.scroll.assert_called_with("up", "medium")
 
     def test_execute_directional_scroll_down(self, executor):
         """Test directional scroll down (algorithm format)."""
@@ -148,7 +148,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
 
         assert result["success"] is True
-        executor.device.swipe.assert_called_with("down", "medium")
+        executor.device.scroll.assert_called_with("down", "medium")
 
     def test_execute_directional_scroll_left(self, executor):
         """Test directional scroll left (algorithm format)."""
@@ -157,7 +157,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
 
         assert result["success"] is True
-        executor.device.swipe.assert_called_with("left", "medium")
+        executor.device.scroll.assert_called_with("left", "medium")
 
     def test_execute_directional_scroll_right(self, executor):
         """Test directional scroll right (algorithm format)."""
@@ -166,7 +166,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
 
         assert result["success"] is True
-        executor.device.swipe.assert_called_with("right", "medium")
+        executor.device.scroll.assert_called_with("right", "medium")
 
     def test_execute_press_enter(self, executor):
         """Test ENTER key press."""

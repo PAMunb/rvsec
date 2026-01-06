@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.strategies.dfs_strategy import DFSStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
@@ -452,7 +452,7 @@ class TestTryGenerateTextInput:
 
         # Calculate center: (100+400)/2 = 250, (200+300)/2 = 250
         # Convert to optimized space
-        from rv_agent.core import coordinate_utils
+        from rv_agent.services import coordinate_utils
         opt_x, opt_y = coordinate_utils.device_to_optimized(
             250, 250,
             (1080, 1920),
@@ -490,3 +490,357 @@ class TestTryGenerateTextInput:
             result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
 
         assert result is None
+
+
+# =============================================================================
+# Scrollable Container Detection Tests
+# =============================================================================
+
+class TestDetectScrollableContainers:
+    """Test _detect_scrollable_containers method."""
+
+    @pytest.fixture
+    def strategy(self):
+        graph = DynamicStateGraph()
+        return DFSStrategy(graph=graph)
+
+    def test_detect_recycler_view(self, strategy):
+        """Detects RecyclerView as vertical scrollable."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'androidx.recyclerview.widget.RecyclerView',
+            'bounds': [[0, 100], [1080, 1800]],
+            'scrollable': True,
+            'resource_id': 'list_container'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'RecyclerView'
+        assert scrollables[0]['direction'] == 'vertical'
+        assert scrollables[0]['center'] == (540, 950)
+
+    def test_detect_horizontal_scroll_view(self, strategy):
+        """Detects HorizontalScrollView as horizontal scrollable."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.HorizontalScrollView',
+            'bounds': [[0, 500], [1080, 700]],
+            'scrollable': True,
+            'resource_id': 'horizontal_container'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'HorizontalScrollView'
+        assert scrollables[0]['direction'] == 'horizontal'
+
+    def test_detect_list_view(self, strategy):
+        """Detects ListView as vertical scrollable."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.ListView',
+            'bounds': [[0, 200], [1080, 1600]],
+            'scrollable': True,
+            'resource_id': 'list_view'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'ListView'
+        assert scrollables[0]['direction'] == 'vertical'
+
+    def test_detect_scroll_view(self, strategy):
+        """Detects ScrollView as vertical scrollable."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.ScrollView',
+            'bounds': [[0, 100], [1080, 1900]],
+            'scrollable': True,
+            'resource_id': 'scroll_view'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'ScrollView'
+        assert scrollables[0]['direction'] == 'vertical'
+
+    def test_detect_nested_scroll_view(self, strategy):
+        """Detects NestedScrollView as vertical scrollable."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'androidx.core.widget.NestedScrollView',
+            'bounds': [[0, 100], [1080, 1900]],
+            'scrollable': True,
+            'resource_id': 'nested_scroll'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'NestedScrollView'
+        assert scrollables[0]['direction'] == 'vertical'
+
+    def test_detect_view_pager(self, strategy):
+        """Detects ViewPager as horizontal scrollable."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'androidx.viewpager.widget.ViewPager',
+            'bounds': [[0, 200], [1080, 800]],
+            'scrollable': True,
+            'resource_id': 'view_pager'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'ViewPager'
+        assert scrollables[0]['direction'] == 'horizontal'
+
+    def test_detect_by_scrollable_attribute(self, strategy):
+        """Detects scrollable by attribute when type not recognized."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'com.custom.ScrollableWidget',
+            'bounds': [[0, 100], [1080, 1800]],
+            'scrollable': True,
+            'resource_id': 'custom_scroll'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 1
+        assert scrollables[0]['scrollable_type'] == 'scrollable'
+        assert scrollables[0]['direction'] == 'vertical'
+
+    def test_skip_small_containers(self, strategy):
+        """Skips containers smaller than 100x100."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.ScrollView',
+            'bounds': [[0, 0], [50, 50]],  # Too small
+            'scrollable': True,
+            'resource_id': 'tiny_scroll'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 0
+
+    def test_no_scrollables_detected(self, strategy):
+        """Returns empty list when no scrollable containers."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.Button',
+            'bounds': [[100, 100], [300, 200]],
+            'scrollable': False,
+            'resource_id': 'btn'
+        }
+        screen_desc.items = [item]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 0
+
+    def test_multiple_scrollables(self, strategy):
+        """Detects multiple scrollable containers."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+
+        item1 = MagicMock()
+        item1.view = {
+            'class': 'android.widget.ListView',
+            'bounds': [[0, 100], [540, 900]],
+            'scrollable': True,
+            'resource_id': 'list1'
+        }
+
+        item2 = MagicMock()
+        item2.view = {
+            'class': 'android.widget.HorizontalScrollView',
+            'bounds': [[0, 950], [1080, 1100]],
+            'scrollable': True,
+            'resource_id': 'horizontal1'
+        }
+
+        screen_desc.items = [item1, item2]
+
+        scrollables = strategy._detect_scrollable_containers(screen_desc)
+
+        assert len(scrollables) == 2
+
+
+# =============================================================================
+# Scroll Action Generation Tests
+# =============================================================================
+
+class TestTryGenerateScrollAction:
+    """Test _try_generate_scroll_action method."""
+
+    @pytest.fixture
+    def strategy(self):
+        graph = DynamicStateGraph()
+        return DFSStrategy(graph=graph)
+
+    @pytest.fixture
+    def mock_node(self):
+        node = MagicMock()
+        node.screen_hash = "test_hash"
+        return node
+
+    def test_generates_scroll_when_scrollable_exists(self, strategy, mock_node):
+        """Generates scroll action when scrollable container exists."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.RecyclerView',
+            'bounds': [[0, 100], [1080, 1800]],
+            'scrollable': True,
+            'resource_id': 'list'
+        }
+        screen_desc.items = [item]
+
+        scrolled_positions = set()
+
+        with patch('random.random', return_value=0.1):
+            action = strategy._try_generate_scroll_action(
+                screen_desc, mock_node, scrolled_positions, probability=0.3
+            )
+
+        assert action is not None
+        assert action.text == "SWIPE (vertical)"
+        assert 'swipe_start' in action.target_view
+        assert 'swipe_end' in action.target_view
+
+    def test_no_scroll_when_probability_fails(self, strategy, mock_node):
+        """Returns None when probability check fails."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.RecyclerView',
+            'bounds': [[0, 100], [1080, 1800]],
+            'scrollable': True,
+            'resource_id': 'list'
+        }
+        screen_desc.items = [item]
+
+        scrolled_positions = set()
+
+        with patch('random.random', return_value=0.9):
+            action = strategy._try_generate_scroll_action(
+                screen_desc, mock_node, scrolled_positions, probability=0.3
+            )
+
+        assert action is None
+
+    def test_no_scroll_when_no_scrollables(self, strategy, mock_node):
+        """Returns None when no scrollable containers."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.Button',
+            'bounds': [[100, 100], [300, 200]],
+            'scrollable': False,
+            'resource_id': 'btn'
+        }
+        screen_desc.items = [item]
+
+        scrolled_positions = set()
+
+        with patch('random.random', return_value=0.1):
+            action = strategy._try_generate_scroll_action(
+                screen_desc, mock_node, scrolled_positions, probability=0.3
+            )
+
+        assert action is None
+
+    def test_no_scroll_when_already_scrolled(self, strategy, mock_node):
+        """Returns None when container already scrolled."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.RecyclerView',
+            'bounds': [[0, 100], [1080, 1800]],
+            'scrollable': True,
+            'resource_id': 'list'
+        }
+        screen_desc.items = [item]
+
+        # Mark as already scrolled
+        container_id = f"list|[[0, 100], [1080, 1800]]"
+        scrolled_positions = {("test_hash", container_id, "vertical")}
+
+        with patch('random.random', return_value=0.1):
+            action = strategy._try_generate_scroll_action(
+                screen_desc, mock_node, scrolled_positions, probability=0.3
+            )
+
+        assert action is None
+
+    def test_scroll_marks_position_as_scrolled(self, strategy, mock_node):
+        """Scroll action marks position in scrolled_positions set."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.RecyclerView',
+            'bounds': [[0, 100], [1080, 1800]],
+            'scrollable': True,
+            'resource_id': 'list'
+        }
+        screen_desc.items = [item]
+
+        scrolled_positions = set()
+
+        with patch('random.random', return_value=0.1):
+            action = strategy._try_generate_scroll_action(
+                screen_desc, mock_node, scrolled_positions, probability=0.3
+            )
+
+        assert action is not None
+        assert len(scrolled_positions) == 1
+
+    def test_horizontal_scroll_coordinates(self, strategy, mock_node):
+        """Horizontal scroll generates correct swipe coordinates."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.HorizontalScrollView',
+            'bounds': [[0, 500], [1080, 700]],
+            'scrollable': True,
+            'resource_id': 'horizontal'
+        }
+        screen_desc.items = [item]
+
+        scrolled_positions = set()
+
+        with patch('random.random', return_value=0.1):
+            action = strategy._try_generate_scroll_action(
+                screen_desc, mock_node, scrolled_positions, probability=0.3
+            )
+
+        assert action is not None
+        assert action.text == "SWIPE (horizontal)"
+        # Horizontal: start_x > end_x (swipe left)
+        start_x = action.target_view['swipe_start'][0]
+        end_x = action.target_view['swipe_end'][0]
+        assert start_x > end_x

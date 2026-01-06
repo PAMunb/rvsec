@@ -1,0 +1,18 @@
+{
+  "test_id": "A2_1_langgraph_multimodal_context_fix",
+  "phase": "A_LangChain_Architecture_Fix",
+  "model_name": "PetrosStav/gemma3-tools:4b",
+  "multimodal_support": true,
+  "tool_calling_detected": true,
+  "tool_parsing_success": false,
+  "coordinate_accuracy": Infinity,
+  "hit_rate": 0.0,
+  "coordinate_format": "",
+  "response_time": 4.83441162109375,
+  "memory_usage_mb": 0,
+  "success_rate": 1.0,
+  "error_messages": [],
+  "raw_response": "Okay, I will click on the \"Message Digest\" button.\n\n",
+  "parsed_tools": [],
+  "timestamp": "2025-09-16T09:45:15.914822"
+}

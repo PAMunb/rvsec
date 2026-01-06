@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "music_cyclon_greedy_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/max.music_cyclon_4.apk",
+  "package_name": "max.music_cyclon",
+  "strategy": "greedy",
+  "repetition": 1,
+  "seed": 377024244,
+  "execution_time_seconds": 2.8296689987182617
+}

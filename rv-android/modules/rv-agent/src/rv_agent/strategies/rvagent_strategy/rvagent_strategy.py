@@ -15,7 +15,7 @@ from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Item
 from rv_android_core.domain.widget import WidgetEventType
 
 from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_android_core.domain.static import StaticAnalysisData
 
@@ -93,6 +93,9 @@ class RVAgentStrategy(ExplorationStrategy):
 
         # Previous state for transition tracking
         self.previous_hash: Optional[str] = None
+
+        # Scroll tracking to avoid infinite scrolling loops
+        self.scrolled_positions: Set[Tuple[str, str, str]] = set()
 
         logger.info(
             f"RVAgentStrategy initialized: plateau_window={plateau_window}, "
@@ -175,6 +178,16 @@ class RVAgentStrategy(ExplorationStrategy):
             f"  Untested: {len(untested_actions)}"
         )
 
+        # Try to generate SWIPE action for scrollable containers (30% probability)
+        # This reveals hidden content in lists, feeds, and scrollable views
+        scroll_action = self._try_generate_scroll_action(
+            screen_desc, node, self.scrolled_positions, probability=0.3
+        )
+        if scroll_action:
+            self.current_depth += 1
+            logger.info(f"RVAgent SCROLL: Generating scroll action to reveal content")
+            return scroll_action
+
         # 5. Select action based on availability
         if untested_actions:
             # UNTESTED: Select priority action from untested
@@ -188,7 +201,24 @@ class RVAgentStrategy(ExplorationStrategy):
         elif all_filtered_actions:
             # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
             # Algorithm continues until timeout, never stops when "exhausted"
+            # Filters out permanently failed actions to avoid repeated crashes
             selected_action = self._select_least_executed_action(node, all_filtered_actions)
+
+            # If all actions have failed, fall through to BACK
+            if selected_action is None:
+                logger.info(f"RVAgent: All actions failed on state {current_hash[:8]}, returning BACK")
+                back_action = ItemAction(
+                    id=999,
+                    text="BACK",
+                    event=WidgetEventType.BACK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view={"system_action": True, "class": "SystemAction_BACK"},
+                    coordinates=None,
+                    text_input=None
+                )
+                return back_action
+
             action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
             exec_count = node.get_action_execution_count(action_signature)
             logger.info(f"RVAgent CONTINUOUS: Selected LEAST-EXECUTED action")
@@ -405,24 +435,38 @@ class RVAgentStrategy(ExplorationStrategy):
         self,
         node,
         actions: List[ItemAction]
-    ) -> ItemAction:
+    ) -> Optional[ItemAction]:
         """
         Select action with fewest executions for continuous exploration.
 
         When all actions have been tested at least once, prioritizes:
-        1. Actions with fewer execution counts (least visited first)
-        2. MOP priority as tiebreaker (higher MOP = selected first)
+        1. Filter out permanently failed actions (crash-causing)
+        2. Actions with fewer execution counts (least visited first)
+        3. MOP priority as tiebreaker (higher MOP = selected first)
 
         This enables continuous exploration until timeout, always making
-        progress on less-explored paths.
+        progress on less-explored paths while avoiding repeated crashes.
 
         Args:
             node: ScreenNode with action execution counts
             actions: List of all available actions (already tested)
 
         Returns:
-            Action with lowest execution count (MOP priority as tiebreaker)
+            Action with lowest execution count, or None if all actions failed
         """
+        # Filter out permanently failed actions
+        safe_actions = []
+        for action in actions:
+            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            if not node.is_action_failed(action_signature):
+                safe_actions.append(action)
+            else:
+                logger.debug(f"Skipping permanently failed action: {action_signature}")
+
+        if not safe_actions:
+            logger.warning(f"All actions have permanently failed on state {node.screen_hash[:8]}")
+            return None
+
         def sort_key(action: ItemAction):
             action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
             exec_count = node.get_action_execution_count(action_signature)
@@ -432,7 +476,7 @@ class RVAgentStrategy(ExplorationStrategy):
             # Lower exec_count first, then higher MOP priority
             return (exec_count, -mop_priority)
 
-        sorted_actions = sorted(actions, key=sort_key)
+        sorted_actions = sorted(safe_actions, key=sort_key)
         return sorted_actions[0]
 
     def _select_priority_action(
@@ -582,14 +626,15 @@ class RVAgentStrategy(ExplorationStrategy):
         Reset exploration state.
 
         Clears DFS stack, visited states, successor mappings, plateau history,
-        input value tracking, and MOP coverage. Graph and UI coverage are
-        managed separately.
+        input value tracking, scroll positions, and MOP coverage. Graph and UI
+        coverage are managed separately.
         """
         # Reset DFS state
         self.state_stack.clear()
         self.visited_states.clear()
         self.current_depth = 0
         self.previous_hash = None
+        self.scrolled_positions.clear()
 
         # Reset tracking components (simple and direct)
         self.successor_tracker.successors.clear()

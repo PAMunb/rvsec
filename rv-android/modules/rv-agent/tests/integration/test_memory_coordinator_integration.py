@@ -14,7 +14,7 @@ from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAuto
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.long_term import LongTermMemory

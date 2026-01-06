@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "sandwichroulette_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.maxfierke.sandwichroulette_2.apk",
+  "package_name": "com.maxfierke.sandwichroulette",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 908205601,
+  "execution_time_seconds": 181.31259322166443
+}

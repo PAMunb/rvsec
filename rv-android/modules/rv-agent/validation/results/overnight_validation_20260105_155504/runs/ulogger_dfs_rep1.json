@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "ulogger_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/net.fabiszewski.ulogger_309.apk",
+  "package_name": "net.fabiszewski.ulogger",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 1408470317,
+  "execution_time_seconds": 181.88267135620117
+}

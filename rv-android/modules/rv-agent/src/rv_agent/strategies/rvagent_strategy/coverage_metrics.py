@@ -10,7 +10,7 @@ Aggregates metrics from multiple sources:
 import logging
 from typing import Dict, Any, Set
 
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 
 

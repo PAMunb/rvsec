@@ -7,10 +7,10 @@ Tests factory pattern for creating fully configured RVAgent instances.
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 
-from rv_agent.core.agent_factory import AgentFactory
+from rv_agent.agent.agent_factory import AgentFactory
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.core.device_interface import DeviceInterface
-from rv_agent.core.rv_agent import RVAgent
+from rv_agent.agent.device_interface import DeviceInterface
+from rv_agent.agent.rv_agent import RVAgent
 
 
 @pytest.fixture
@@ -43,21 +43,21 @@ def mock_device():
 class TestAgentFactoryCreateAgent:
     """Test create_agent method."""
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_creates_agent_pure_algorithm(
         self,
         mock_rv_agent,
@@ -88,21 +88,21 @@ class TestAgentFactoryCreateAgent:
         mock_rv_agent.assert_called_once()
         mock_device_interface.assert_called_once_with(device_id="emulator-5554")
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_uses_injected_device(
         self,
         mock_rv_agent,
@@ -140,21 +140,21 @@ class TestAgentFactoryCreateAgent:
         with pytest.raises(ValueError, match="Invalid mode: invalid_mode"):
             AgentFactory.create_agent(base_config)
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_creates_strategy_via_registry(
         self,
         mock_rv_agent,
@@ -189,21 +189,21 @@ class TestAgentFactoryCreateAgent:
         assert call_kwargs['plateau_window'] == 5
         assert call_kwargs['max_input_variations'] == 3
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_passes_static_data(
         self,
         mock_rv_agent,
@@ -242,21 +242,21 @@ class TestAgentFactoryCreateAgent:
 class TestAgentFactoryLLMModes:
     """Test LLM mode configurations."""
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     @patch.object(AgentFactory, '_create_llm_client')
     def test_creates_llm_client_for_llm_only(
         self,
@@ -290,21 +290,21 @@ class TestAgentFactoryLLMModes:
 
         mock_create_llm.assert_called_once_with(base_config)
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     @patch.object(AgentFactory, '_create_llm_client')
     def test_creates_llm_client_for_multimode(
         self,
@@ -338,21 +338,21 @@ class TestAgentFactoryLLMModes:
 
         mock_create_llm.assert_called_once_with(base_config)
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     @patch.object(AgentFactory, '_create_llm_client')
     def test_no_llm_client_for_pure_algorithm(
         self,
@@ -392,8 +392,8 @@ class TestAgentFactoryLLMModes:
 class TestAgentFactoryCreateLLMClient:
     """Test _create_llm_client method."""
 
-    @patch('rv_agent.core.agent_factory.LLMClient')
-    @patch('rv_agent.core.agent_factory.importlib')
+    @patch('rv_agent.agent.agent_factory.LLMClient')
+    @patch('rv_agent.agent.agent_factory.importlib')
     def test_creates_llm_with_config(
         self,
         mock_importlib,
@@ -414,8 +414,8 @@ class TestAgentFactoryCreateLLMClient:
             prompt_module=mock_prompt_module
         )
 
-    @patch('rv_agent.core.agent_factory.LLMClient')
-    @patch('rv_agent.core.agent_factory.importlib')
+    @patch('rv_agent.agent.agent_factory.LLMClient')
+    @patch('rv_agent.agent.agent_factory.importlib')
     def test_loads_prompt_module_dynamically(
         self,
         mock_importlib,
@@ -431,8 +431,8 @@ class TestAgentFactoryCreateLLMClient:
 
         mock_importlib.import_module.assert_called_with("rv_agent.prompts.v13")
 
-    @patch('rv_agent.core.agent_factory.LLMClient')
-    @patch('rv_agent.core.agent_factory.importlib')
+    @patch('rv_agent.agent.agent_factory.LLMClient')
+    @patch('rv_agent.agent.agent_factory.importlib')
     def test_falls_back_to_v12_on_import_error(
         self,
         mock_importlib,
@@ -449,8 +449,8 @@ class TestAgentFactoryCreateLLMClient:
         # LLMClient should still be called (with fallback module from import)
         mock_llm_client.assert_called_once()
 
-    @patch('rv_agent.core.agent_factory.LLMClient')
-    @patch('rv_agent.core.agent_factory.importlib')
+    @patch('rv_agent.agent.agent_factory.LLMClient')
+    @patch('rv_agent.agent.agent_factory.importlib')
     def test_passes_config_to_llm_client(
         self,
         mock_importlib,
@@ -471,21 +471,21 @@ class TestAgentFactoryCreateLLMClient:
 class TestAgentFactoryComponentCreation:
     """Test component creation order and wiring."""
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_creates_image_handler_with_config(
         self,
         mock_rv_agent,
@@ -519,21 +519,21 @@ class TestAgentFactoryComponentCreation:
             quality=85
         )
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_creates_screen_processor_with_dependencies(
         self,
         mock_rv_agent,
@@ -570,21 +570,21 @@ class TestAgentFactoryComponentCreation:
         assert call_kwargs['device_dimensions'] == (1080, 1920)
         assert call_kwargs['optimized_dimensions'] == (704, 1248)
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_creates_routing_manager_with_dependencies(
         self,
         mock_rv_agent,
@@ -621,21 +621,21 @@ class TestAgentFactoryComponentCreation:
         assert call_kwargs['fallback_manager'] == mock_fb
         assert call_kwargs['exploration_strategy'] == mock_strategy_instance
 
-    @patch('rv_agent.core.agent_factory.DeviceInterface')
-    @patch('rv_agent.core.agent_factory.DynamicStateGraph')
-    @patch('rv_agent.core.agent_factory.UICoverageTracker')
-    @patch('rv_agent.core.agent_factory.StrategyRegistry')
-    @patch('rv_agent.core.agent_factory.ImageHandler')
-    @patch('rv_agent.core.agent_factory.ScreenProcessor')
-    @patch('rv_agent.core.agent_factory.LoopDetector')
-    @patch('rv_agent.core.agent_factory.FallbackManager')
-    @patch('rv_agent.core.agent_factory.RoutingManager')
-    @patch('rv_agent.core.agent_factory.ToolExecutor')
-    @patch('rv_agent.core.agent_factory.LongTermMemory')
-    @patch('rv_agent.core.agent_factory.ShortTermMemory')
-    @patch('rv_agent.core.agent_factory.AgentMemoryManager')
-    @patch('rv_agent.core.agent_factory.MemoryCoordinator')
-    @patch('rv_agent.core.agent_factory.RVAgent')
+    @patch('rv_agent.agent.agent_factory.DeviceInterface')
+    @patch('rv_agent.agent.agent_factory.DynamicStateGraph')
+    @patch('rv_agent.agent.agent_factory.UICoverageTracker')
+    @patch('rv_agent.agent.agent_factory.StrategyRegistry')
+    @patch('rv_agent.agent.agent_factory.ImageHandler')
+    @patch('rv_agent.agent.agent_factory.ScreenProcessor')
+    @patch('rv_agent.agent.agent_factory.LoopDetector')
+    @patch('rv_agent.agent.agent_factory.FallbackManager')
+    @patch('rv_agent.agent.agent_factory.RoutingManager')
+    @patch('rv_agent.agent.agent_factory.ToolExecutor')
+    @patch('rv_agent.agent.agent_factory.LongTermMemory')
+    @patch('rv_agent.agent.agent_factory.ShortTermMemory')
+    @patch('rv_agent.agent.agent_factory.AgentMemoryManager')
+    @patch('rv_agent.agent.agent_factory.MemoryCoordinator')
+    @patch('rv_agent.agent.agent_factory.RVAgent')
     def test_creates_memory_coordinator_with_all_components(
         self,
         mock_rv_agent,

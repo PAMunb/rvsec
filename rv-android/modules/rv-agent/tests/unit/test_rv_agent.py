@@ -14,13 +14,23 @@ import pytest
 import time
 from unittest.mock import MagicMock, patch, PropertyMock
 
-from rv_agent.core.rv_agent import RVAgent
+from rv_agent.agent.rv_agent import RVAgent
+from rv_agent.agent.nodes import (
+    parse_ui_node,
+    decision_router_node,
+    algorithm_node,
+    capture_screenshot_node,
+    llm_generate_node,
+    validation_router_node,
+    execute_node,
+    learn_node,
+)
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.core.device_interface import DeviceInterface
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.device_interface import DeviceInterface
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.vision.image_handler import ImageHandler
-from rv_agent.ui.screen_processor import ScreenProcessor
+from rv_agent.services.vision_service import ImageHandler
+from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.llm.llm_client import LLMClient
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.execution.tool_executor import ToolExecutor
@@ -149,7 +159,7 @@ class TestParseUINode:
         }
 
         state = {"external_navigation_count": 0}
-        result = agent._parse_ui_node(state)
+        result = parse_ui_node(agent, state)
 
         assert result["current_screen_hash"] == "hash123"
         assert result["current_activity"] == "MainActivity"
@@ -168,7 +178,7 @@ class TestParseUINode:
         }
 
         state = {"external_navigation_count": 0}
-        result = agent._parse_ui_node(state)
+        result = parse_ui_node(agent, state)
 
         assert result["is_external"] is True
         assert result["external_navigation_count"] == 1
@@ -185,7 +195,7 @@ class TestParseUINode:
         }
 
         state = {}
-        result = agent._parse_ui_node(state)
+        result = parse_ui_node(agent, state)
 
         assert len(result["ui_elements_text"]) < 50
 
@@ -198,7 +208,7 @@ class TestDecisionRouterNode:
         mock_dependencies["routing_manager"].route_decision.return_value = "algorithm"
 
         state = {"iteration": 1}
-        result = agent._decision_router_node(state)
+        result = decision_router_node(agent, state)
 
         assert result["decision_path"] == "algorithm"
         assert result["decision_maker"] == "algorithm"
@@ -208,7 +218,7 @@ class TestDecisionRouterNode:
         mock_dependencies["routing_manager"].route_decision.return_value = "llm"
 
         state = {"iteration": 1}
-        result = agent._decision_router_node(state)
+        result = decision_router_node(agent, state)
 
         assert result["decision_path"] == "llm"
         assert result["decision_maker"] == "llm"
@@ -218,7 +228,7 @@ class TestDecisionRouterNode:
         mock_dependencies["routing_manager"].route_decision.return_value = "llm"
 
         state = {"iteration": 1, "force_back_action": True}
-        result = agent._decision_router_node(state)
+        result = decision_router_node(agent, state)
 
         assert result["decision_path"] == "algorithm"
         assert result["decision_maker"] == "algorithm"
@@ -228,8 +238,8 @@ class TestDecisionRouterNode:
         """Force back increments forced_back_count."""
         state = {"iteration": 1, "force_back_action": True}
 
-        agent._decision_router_node(state)
-        agent._decision_router_node(state)
+        decision_router_node(agent, state)
+        decision_router_node(agent, state)
 
         assert agent.routing_manager.forced_back_count == 2
 
@@ -247,7 +257,7 @@ class TestAlgorithmNode:
         mock_dependencies["exploration_strategy"].select_next_action.return_value = item_action
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
-        result = agent._algorithm_node(state)
+        result = algorithm_node(agent, state)
 
         assert result["current_action"]["action_type"] == "CLICK"
         assert result["current_action"]["x"] == 100
@@ -257,7 +267,7 @@ class TestAlgorithmNode:
     def test_force_back_returns_back_action(self, agent, mock_dependencies):
         """Force back flag generates BACK action."""
         state = {"force_back_action": True}
-        result = agent._algorithm_node(state)
+        result = algorithm_node(agent, state)
 
         assert result["current_action"]["action_type"] == "BACK"
         assert result["current_action"]["reason"] == "stuck_state_recovery"
@@ -268,7 +278,7 @@ class TestAlgorithmNode:
         agent.consecutive_no_action = 3  # At threshold
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
-        result = agent._algorithm_node(state)
+        result = algorithm_node(agent, state)
 
         assert result["current_action"]["action_type"] == "BACK"
         assert result["current_action"]["reason"] == "deadlock_escape"
@@ -279,7 +289,7 @@ class TestAlgorithmNode:
         mock_dependencies["exploration_strategy"].select_next_action.return_value = None
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
-        agent._algorithm_node(state)
+        algorithm_node(agent, state)
 
         assert agent.consecutive_no_action == 1
 
@@ -290,7 +300,7 @@ class TestAlgorithmNode:
         mock_dependencies["exploration_strategy"].select_next_action.return_value = item_action
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
-        result = agent._algorithm_node(state)
+        result = algorithm_node(agent, state)
 
         assert result["current_action"] is None
         assert result["decision_path"] == "end"
@@ -307,7 +317,7 @@ class TestAlgorithmNode:
         mock_dependencies["exploration_strategy"].select_next_action.return_value = item_action
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
-        agent._algorithm_node(state)
+        algorithm_node(agent, state)
 
         assert agent.consecutive_no_action == 0
 
@@ -321,7 +331,7 @@ class TestCaptureScreenshotNode:
         mock_dependencies["image_handler"].optimize.return_value = "base64_data"
 
         state = {}
-        result = agent._capture_screenshot_node(state)
+        result = capture_screenshot_node(agent, state)
 
         assert result["screenshot_b64"] == "base64_data"
         mock_dependencies["device"].take_screenshot.assert_called_once()
@@ -336,7 +346,7 @@ class TestCaptureScreenshotNode:
         mock_dependencies["image_handler"].optimize.return_value = None
 
         state = {}
-        result = agent._capture_screenshot_node(state)
+        result = capture_screenshot_node(agent, state)
 
         assert result["screenshot_b64"] == ""
         assert result["decision_path"] == "end"
@@ -346,7 +356,7 @@ class TestCaptureScreenshotNode:
         mock_dependencies["device"].take_screenshot.side_effect = Exception("Device error")
 
         state = {}
-        result = agent._capture_screenshot_node(state)
+        result = capture_screenshot_node(agent, state)
 
         assert result["screenshot_b64"] == ""
         assert result["decision_path"] == "end"
@@ -376,7 +386,7 @@ class TestLLMGenerateNode:
             "llm_tokens_output": 10,
             "llm_time_ms": 200
         }
-        result = agent._llm_generate_node(state)
+        result = llm_generate_node(agent, state)
 
         assert result["llm_action"]["action_type"] == "CLICK"
         assert result["has_tool_calls"] is True
@@ -390,7 +400,7 @@ class TestLLMGenerateNode:
         agent = RVAgent(config=agent_config, **mock_dependencies)
 
         state = {}
-        result = agent._llm_generate_node(state)
+        result = llm_generate_node(agent, state)
 
         assert result["llm_action"] is None
         assert result["has_tool_calls"] is False
@@ -414,7 +424,7 @@ class TestValidationRouterNode:
             "llm_action": {"action_type": "CLICK", "x": 100},
             "recent_action_window": []
         }
-        result = agent._validation_router_node(state)
+        result = validation_router_node(agent, state)
 
         assert result["validation_path"] == "execute"
         assert result["loop_detected"] is False
@@ -433,7 +443,7 @@ class TestValidationRouterNode:
             "current_action": {"action_type": "BACK"},
             "recent_action_window": []
         }
-        result = agent._validation_router_node(state)
+        result = validation_router_node(agent, state)
 
         assert result["validation_path"] == "execute"
         assert result["decision_maker"] == "algorithm"
@@ -452,7 +462,7 @@ class TestValidationRouterNode:
             "llm_action": {"action_type": "CLICK", "x": 100},
             "recent_action_window": [{"action_type": "CLICK", "x": 100}] * 5
         }
-        result = agent._validation_router_node(state)
+        result = validation_router_node(agent, state)
 
         assert result["loop_detected"] is True
         assert result["used_fallback"] is True
@@ -472,7 +482,7 @@ class TestExecuteNode:
             "current_action": {"action_type": "CLICK", "x": 100},
             "decision_maker": "algorithm"
         }
-        result = agent._execute_node(state)
+        result = execute_node(agent, state)
 
         assert result["action_success"] is True
         mock_dependencies["tool_executor"].execute_action.assert_called_with(
@@ -491,7 +501,7 @@ class TestExecuteNode:
             "current_action": {"action_type": "CLICK", "x": 50},
             "decision_maker": "llm"
         }
-        result = agent._execute_node(state)
+        result = execute_node(agent, state)
 
         mock_dependencies["tool_executor"].execute_action.assert_called_with(
             {"action_type": "CLICK", "x": 50},
@@ -513,14 +523,14 @@ class TestExecuteNode:
             "current_screen_hash": "hash2",
             "current_item_action": item_action
         }
-        agent._execute_node(state)
+        execute_node(agent, state)
 
         mock_dependencies["exploration_strategy"].record_transition.assert_called_once()
 
     def test_no_action_returns_none(self, agent, mock_dependencies):
         """No action to execute returns None."""
         state = {"current_action": None}
-        result = agent._execute_node(state)
+        result = execute_node(agent, state)
 
         assert result["action_executed"] is None
 
@@ -559,7 +569,7 @@ class TestLearnNode:
             "start_time": time.time(),
             "timeout": 100
         }
-        agent._learn_node(state)
+        learn_node(agent, state)
 
         mock_dependencies["memory_coordinator"].update_memories.assert_called_once()
         mock_dependencies["memory_coordinator"].generate_summaries.assert_called_once()
@@ -572,7 +582,7 @@ class TestLearnNode:
         agent.stuck_screen_count = 0
 
         state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
-        agent._learn_node(state)
+        learn_node(agent, state)
 
         assert agent.stuck_screen_count == 1
 
@@ -583,7 +593,7 @@ class TestLearnNode:
         agent.stuck_screen_count = 2
 
         state = {"current_screen_hash": "hash2", "start_time": time.time(), "timeout": 100}
-        agent._learn_node(state)
+        learn_node(agent, state)
 
         assert agent.stuck_screen_count == 0
         assert agent.last_screen_hash == "hash2"
@@ -595,7 +605,7 @@ class TestLearnNode:
         agent.stuck_screen_count = 2  # Will become 3 (threshold)
 
         state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
-        result = agent._learn_node(state)
+        result = learn_node(agent, state)
 
         assert result.get("force_back_action") is True
         assert agent.stuck_screen_count == 0  # Reset after triggering
@@ -605,7 +615,7 @@ class TestLearnNode:
         self._setup_memory_mocks(mock_dependencies)
 
         state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
-        result = agent._learn_node(state)
+        result = learn_node(agent, state)
 
         assert result["action_history_summary"] == "history"
         assert result["exploration_summary"] == "exploration"
@@ -736,7 +746,7 @@ class TestBuildAgentGraph:
 
     def test_graph_has_correct_nodes(self, agent_config, mock_dependencies):
         """Graph contains all expected nodes."""
-        with patch('rv_agent.core.rv_agent.StateGraph') as mock_sg:
+        with patch('rv_agent.agent.rv_agent.StateGraph') as mock_sg:
             mock_workflow = MagicMock()
             mock_sg.return_value = mock_workflow
 

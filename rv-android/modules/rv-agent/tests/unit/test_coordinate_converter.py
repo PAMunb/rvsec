@@ -15,7 +15,7 @@ class TestCoordinateConverter:
 
     def test_create_default(self):
         """Create converter with default dimensions."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
 
@@ -26,7 +26,7 @@ class TestCoordinateConverter:
 
     def test_create_custom(self):
         """Create converter with custom dimensions."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter(
             device_dimensions=(1440, 2560),
@@ -40,7 +40,7 @@ class TestCoordinateConverter:
 
     def test_device_to_optimized_center(self):
         """Convert device center to optimized center."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
 
@@ -53,7 +53,7 @@ class TestCoordinateConverter:
 
     def test_device_to_optimized_origin(self):
         """Convert device origin to optimized origin."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
         opt_x, opt_y = converter.device_to_optimized(0, 0)
@@ -63,7 +63,7 @@ class TestCoordinateConverter:
 
     def test_device_to_optimized_corner(self):
         """Convert device corner to optimized corner."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
         opt_x, opt_y = converter.device_to_optimized(1079, 1919)
@@ -74,7 +74,7 @@ class TestCoordinateConverter:
 
     def test_optimized_to_device_center(self):
         """Convert optimized center to device center."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
 
@@ -87,7 +87,7 @@ class TestCoordinateConverter:
 
     def test_roundtrip_conversion(self):
         """Device -> Optimized -> Device is approximately identity."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
 
@@ -101,7 +101,7 @@ class TestCoordinateConverter:
 
     def test_bounds_device_to_optimized(self):
         """Convert device bounds to optimized bounds."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
 
@@ -118,7 +118,7 @@ class TestCoordinateConverter:
 
     def test_calculate_center_optimized(self):
         """Calculate center of bounds in optimized space."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
 
@@ -131,7 +131,7 @@ class TestCoordinateConverter:
 
     def test_get_dimensions_info(self):
         """Get dimensions info returns dict."""
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         converter = CoordinateConverter()
         info = converter.get_dimensions_info()
@@ -147,7 +147,7 @@ class TestDenormalizeQwenCoords:
 
     def test_center_normalized(self):
         """Convert normalized center (500, 500) to pixel center."""
-        from rv_agent.core.coordinate_converter import denormalize_qwen_coords
+        from rv_agent.services.coordinate_converter import denormalize_qwen_coords
 
         pixel_x, pixel_y = denormalize_qwen_coords(500, 500, 1080, 1920)
 
@@ -157,7 +157,7 @@ class TestDenormalizeQwenCoords:
 
     def test_origin_normalized(self):
         """Convert normalized origin (0, 0) to pixel origin."""
-        from rv_agent.core.coordinate_converter import denormalize_qwen_coords
+        from rv_agent.services.coordinate_converter import denormalize_qwen_coords
 
         pixel_x, pixel_y = denormalize_qwen_coords(0, 0, 1080, 1920)
 
@@ -166,7 +166,7 @@ class TestDenormalizeQwenCoords:
 
     def test_corner_normalized(self):
         """Convert normalized corner (999, 999) to pixel corner."""
-        from rv_agent.core.coordinate_converter import denormalize_qwen_coords
+        from rv_agent.services.coordinate_converter import denormalize_qwen_coords
 
         pixel_x, pixel_y = denormalize_qwen_coords(999, 999, 1080, 1920)
 
@@ -176,7 +176,7 @@ class TestDenormalizeQwenCoords:
 
     def test_passthrough_large_values(self):
         """Values >= 1000 are passed through."""
-        from rv_agent.core.coordinate_converter import denormalize_qwen_coords
+        from rv_agent.services.coordinate_converter import denormalize_qwen_coords
 
         pixel_x, pixel_y = denormalize_qwen_coords(1500, 2000, 1080, 1920)
 
@@ -186,7 +186,7 @@ class TestDenormalizeQwenCoords:
 
     def test_default_dimensions(self):
         """Uses default 1080x1920 if not specified."""
-        from rv_agent.core.coordinate_converter import denormalize_qwen_coords
+        from rv_agent.services.coordinate_converter import denormalize_qwen_coords
 
         pixel_x, pixel_y = denormalize_qwen_coords(500, 500)
 
@@ -199,7 +199,7 @@ class TestIsNormalizedCoords:
 
     def test_normalized_coords(self):
         """Values in [0, 1000) are normalized."""
-        from rv_agent.core.coordinate_converter import is_normalized_coords
+        from rv_agent.services.coordinate_converter import is_normalized_coords
 
         assert is_normalized_coords(0, 0)
         assert is_normalized_coords(500, 500)
@@ -207,7 +207,7 @@ class TestIsNormalizedCoords:
 
     def test_not_normalized_large(self):
         """Values >= 1000 are not normalized."""
-        from rv_agent.core.coordinate_converter import is_normalized_coords
+        from rv_agent.services.coordinate_converter import is_normalized_coords
 
         assert not is_normalized_coords(1000, 500)
         assert not is_normalized_coords(500, 1000)
@@ -215,7 +215,7 @@ class TestIsNormalizedCoords:
 
     def test_not_normalized_negative(self):
         """Negative values are not normalized."""
-        from rv_agent.core.coordinate_converter import is_normalized_coords
+        from rv_agent.services.coordinate_converter import is_normalized_coords
 
         assert not is_normalized_coords(-1, 500)
         assert not is_normalized_coords(500, -1)
@@ -226,7 +226,7 @@ class TestConvenienceFunctions:
 
     def test_device_to_optimized_function(self):
         """Module-level device_to_optimized works."""
-        from rv_agent.core.coordinate_converter import device_to_optimized
+        from rv_agent.services.coordinate_converter import device_to_optimized
 
         opt_x, opt_y = device_to_optimized(540, 960)
 
@@ -235,7 +235,7 @@ class TestConvenienceFunctions:
 
     def test_optimized_to_device_function(self):
         """Module-level optimized_to_device works."""
-        from rv_agent.core.coordinate_converter import optimized_to_device
+        from rv_agent.services.coordinate_converter import optimized_to_device
 
         dev_x, dev_y = optimized_to_device(352, 624)
 
@@ -248,7 +248,7 @@ class TestConstants:
 
     def test_qwen3_vl_dimensions(self):
         """Qwen3-VL dimensions are correct."""
-        from rv_agent.core.coordinate_converter import QWEN3_VL_WIDTH, QWEN3_VL_HEIGHT
+        from rv_agent.services.coordinate_converter import QWEN3_VL_WIDTH, QWEN3_VL_HEIGHT
 
         # Must be multiples of 32 for Qwen3-VL
         assert QWEN3_VL_WIDTH == 704
@@ -258,7 +258,7 @@ class TestConstants:
 
     def test_device_presets(self):
         """Device presets are defined."""
-        from rv_agent.core.coordinate_converter import (
+        from rv_agent.services.coordinate_converter import (
             DEVICE_1080P,
             DEVICE_1440P,
             DEVICE_720P,

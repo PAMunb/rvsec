@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "android_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.valleytg.oasvn.android_11.apk",
+  "package_name": "com.valleytg.oasvn.android",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 1980578392,
+  "execution_time_seconds": 2.8950695991516113
+}

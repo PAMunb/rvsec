@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import logging
 
 from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
@@ -103,6 +103,9 @@ class DFSStrategy(ExplorationStrategy):
         self.visited_states: Set[str] = set()
         self.current_depth = 0
 
+        # Scroll tracking to avoid infinite scrolling loops
+        self.scrolled_positions: Set[Tuple[str, str, str]] = set()
+
         if target_package:
             logger.info(f"DFS: Filtering actions to package '{target_package}'")
 
@@ -192,6 +195,16 @@ class DFSStrategy(ExplorationStrategy):
 
             return text_action
 
+        # Try to generate SWIPE action for scrollable containers (30% probability)
+        # This reveals hidden content in lists, feeds, and scrollable views
+        scroll_action = self._try_generate_scroll_action(
+            screen_desc, node, self.scrolled_positions, probability=0.3
+        )
+        if scroll_action:
+            self.current_depth += 1
+            logger.info(f"DFS SCROLL: Generating scroll action to reveal content")
+            return scroll_action
+
         # DEEPEN: Select untested action if available (highest priority)
         if untested_actions:
             selected_action = self._select_priority_action(untested_actions)
@@ -212,21 +225,25 @@ class DFSStrategy(ExplorationStrategy):
         # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
         # Algorithm continues until timeout, never stops when "exhausted"
         # Prioritizes actions with fewer executions for balanced coverage
+        # Filters out permanently failed actions to avoid repeated crashes
         if filtered_actions:
             selected_action = self._select_least_executed_action(node, filtered_actions)
-            self.current_depth += 1
 
-            action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
-            exec_count = node.get_action_execution_count(action_signature)
-            logger.info(f"DFS CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}")
-            logger.info(f"  Signature: {action_signature}")
-            logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
-            logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
-            logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
+            # If all actions have failed, fall through to BACK
+            if selected_action is not None:
+                self.current_depth += 1
 
-            self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+                action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+                exec_count = node.get_action_execution_count(action_signature)
+                logger.info(f"DFS CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}")
+                logger.info(f"  Signature: {action_signature}")
+                logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
+                logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
+                logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
-            return selected_action
+                self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+
+                return selected_action
 
         # No actions available (edge case) - return BACK to navigate
         logger.info(f"DFS: No actions available on state {current_hash[:8]}, returning BACK")
@@ -292,12 +309,13 @@ class DFSStrategy(ExplorationStrategy):
         """
         Reset strategy state for new exploration session.
 
-        Clears all traversal state including stack, visited states, and depth tracking.
-        Graph state is maintained separately and not reset here.
+        Clears all traversal state including stack, visited states, depth tracking,
+        and scroll positions. Graph state is maintained separately and not reset here.
         """
         self.state_stack.clear()
         self.visited_states.clear()
         self.current_depth = 0
+        self.scrolled_positions.clear()
         logger.info("DFS strategy state reset")
 
     def _filter_actions(self, actions: List[ItemAction]) -> List[ItemAction]:
@@ -411,24 +429,38 @@ class DFSStrategy(ExplorationStrategy):
 
         return priority_sorted[0]
 
-    def _select_least_executed_action(self, node, actions: List[ItemAction]) -> ItemAction:
+    def _select_least_executed_action(self, node, actions: List[ItemAction]) -> Optional[ItemAction]:
         """
         Select action with fewest executions for continuous exploration.
 
         When all actions have been tested at least once, prioritizes:
-        1. Actions with fewer execution counts (least visited first)
-        2. MOP priority as tiebreaker (higher MOP = selected first)
+        1. Filter out permanently failed actions (crash-causing)
+        2. Actions with fewer execution counts (least visited first)
+        3. MOP priority as tiebreaker (higher MOP = selected first)
 
         This enables continuous exploration until timeout, always making
-        progress on less-explored paths.
+        progress on less-explored paths while avoiding repeated crashes.
 
         Args:
             node: ScreenNode with action execution counts
             actions: List of all available actions (already tested)
 
         Returns:
-            Action with lowest execution count (MOP priority as tiebreaker)
+            Action with lowest execution count, or None if all actions failed
         """
+        # Filter out permanently failed actions
+        safe_actions = []
+        for action in actions:
+            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            if not node.is_action_failed(action_signature):
+                safe_actions.append(action)
+            else:
+                logger.debug(f"Skipping permanently failed action: {action_signature}")
+
+        if not safe_actions:
+            logger.warning(f"All actions have permanently failed on state {node.screen_hash[:8]}")
+            return None
+
         def sort_key(action: ItemAction):
             action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
             exec_count = node.get_action_execution_count(action_signature)
@@ -437,7 +469,7 @@ class DFSStrategy(ExplorationStrategy):
             # Lower exec_count first, then higher MOP priority
             return (exec_count, -mop_priority)
 
-        sorted_actions = sorted(actions, key=sort_key)
+        sorted_actions = sorted(safe_actions, key=sort_key)
         return sorted_actions[0]
 
     def _get_mop_priority(self, action: ItemAction) -> int:

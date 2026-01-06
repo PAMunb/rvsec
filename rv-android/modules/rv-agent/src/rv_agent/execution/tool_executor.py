@@ -8,8 +8,8 @@ error handling and result reporting.
 import logging
 from typing import Dict, Any, Optional
 
-from rv_agent.core.device_interface import DeviceInterface
-from rv_agent.vision.image_handler import ImageHandler
+from rv_agent.agent.device_interface import DeviceInterface
+from rv_agent.services.vision_service import ImageHandler
 
 
 class ToolExecutor:

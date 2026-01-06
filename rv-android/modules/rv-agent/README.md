@@ -13,10 +13,10 @@ RV-Agent is an advanced, autonomous Android testing tool designed to explore app
     -   **`pure_algorithm`**: Fast, deterministic exploration without LLMs.
     -   **`llm_only`**: Pure LLM-driven exploration (experimental).
     -   **`multimode`**: Hybrid approach using algorithms for structure and LLMs for complex reasoning.
--   **Flexible LLM Support**:
-    -   **Ollama**: Easy local deployment (GGUF models).
-    -   **vLLM**: High-performance production serving (OpenAI-compatible).
-    -   **HuggingFace Direct**: Native execution using `transformers` (no server required).
+-   **SGLang Backend**:
+    -   Uses **SGLang** with **Qwen3-VL-4B-Instruct** for multimodal inference
+    -   OpenAI-compatible API for easy integration
+    -   Native tool calling support via `--tool-call-parser qwen`
 -   **Robust Architecture**: Built on `LangGraph` for stateful, resilient workflow orchestration.
 
 ## 🏗️ Architecture
@@ -40,9 +40,7 @@ graph TD
     Memory --> Graph[Dynamic State Graph]
     Memory --> UI[UI Coverage Tracker]
     
-    LLM --> Ollama[Ollama Provider]
-    LLM --> vLLM[vLLM Provider]
-    LLM --> HF[HF Direct Provider]
+    LLM --> SGLang[SGLang Server]
 ```
 
 ### Core Components
@@ -64,7 +62,7 @@ Prerequisites:
 cd modules/rv-agent
 
 # Install dependencies
-poetry install --extras "ollama anthropic"
+poetry install
 
 # Activate virtual environment
 poetry shell
@@ -77,38 +75,44 @@ RV-Agent can be configured via CLI arguments or environment variables.
 ### 1. Basic Usage (Standalone)
 
 ```bash
-# Run with default settings (Ollama + Qwen3-VL)
+# Run with default settings (SGLang + Qwen3-VL)
 rv-agent --package-name com.example.app --device emulator-5554
 ```
 
-### 2. LLM Provider Configuration
+### 2. SGLang Server Configuration
 
-#### Option A: Ollama (Default)
-Easiest for local testing, but may suffer from token repetition bugs with some models.
+RV-Agent uses **SGLang** with **Qwen3-VL-4B-Instruct** as the LLM backend. SGLang provides:
+- OpenAI-compatible API
+- Native tool calling via `--tool-call-parser qwen`
+- High performance with FlashInfer attention
+
+#### Starting the SGLang Server
+
 ```bash
-# Ensure Ollama is running
-ollama serve
+# Install SGLang (if not already installed)
+pip install sglang[all]
 
-# Run agent
-rv-agent --package-name com.example.app --llm-provider ollama
+# Start SGLang server with Qwen3-VL
+python -m sglang.launch_server \
+    --model-path Qwen/Qwen3-VL-4B-Instruct \
+    --port 30000 \
+    --attention-backend flashinfer \
+    --tool-call-parser qwen \
+    --trust-remote-code
 ```
 
-#### Option B: vLLM (Recommended for Production)
-High performance, no loop bugs.
-```bash
-# 1. Start vLLM server (OpenAI compatible)
-python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen3-VL-4B-Instruct --port 8000
+#### Connecting RV-Agent to SGLang
 
-# 2. Run agent pointing to vLLM
+```bash
+# Default configuration (localhost:30000)
+rv-agent --package-name com.example.app
+
+# Remote SGLang server
 rv-agent --package-name com.example.app \
-  --llm-provider vllm \
-  --llm-base-url http://localhost:8000/v1
-```
+  --llm-base-url http://192.168.0.21:30000/v1
 
-#### Option C: HuggingFace Direct
-Runs the model natively in the agent process. Requires GPU.
-```bash
-export RVAGENT_LLM_PROVIDER=hf_direct
+# Environment variable configuration
+export RVAGENT_LLM_BASE_URL=http://192.168.0.21:30000/v1
 rv-agent --package-name com.example.app
 ```
 
@@ -122,27 +126,41 @@ rv-agent --package-name com.example.app --agent-mode pure_algorithm
 rv-agent --package-name com.example.app --agent-mode multimode
 ```
 
-## 📊 Validation Results (Phase 0)
+## 📊 Validation Results
 
--   **Optimal Configuration**: Temperature 0.25, Top-P 0.8, Top-K 50.
--   **Success Rate**: Achieved **81.6%** success rate in validation benchmarks.
--   **Coordinate Enhancement**: Explicit coordinate guidance improved success rate from 30% to **100%** in complex UI scenarios.
+Based on comprehensive validation with **2,847 tests** from the rvsec-vision-llm benchmark:
+
+-   **Model**: Qwen/Qwen3-VL-4B-Instruct via SGLang
+-   **Hit Rate**: 57.7% (elements correctly identified)
+-   **Tool Call Rate**: 90.3% (valid structured outputs)
+-   **Coordinate System**: Normalized [0, 1000) with conversion to device space
+-   **Optimal Configuration**: Temperature 0.25, Top-P 0.8, Top-K 50
 
 ## 📂 Project Structure
 
--   `src/rv_agent/core`: Main agent logic and factory.
--   `src/rv_agent/strategies`: Exploration algorithms (`rvagent_strategy`, `dfs`, etc.).
--   `src/rv_agent/llm`: LLM integration and tool definitions.
--   `src/rv_agent/memory`: State management and coverage tracking.
--   `src/rv_agent/ui`: Screen parsing and element processing.
--   `tests/`: Comprehensive unit and integration tests.
+-   `src/rv_agent/agent/`: Main agent orchestration
+    -   `rv_agent.py`: Central LangGraph orchestrator
+    -   `nodes/`: Externalized workflow nodes (parse, decision, algorithm, llm, execute, learn)
+-   `src/rv_agent/core/`: Core components (factory, dynamic graph, device interface)
+-   `src/rv_agent/strategies/`: Exploration algorithms (`rvagent_strategy`, `dfs`, `bfs`, `greedy`)
+-   `src/rv_agent/llm/`: LLM integration and tool definitions
+-   `src/rv_agent/routing/`: Decision routing between LLM and algorithm paths
+-   `src/rv_agent/memory/`: State management and coverage tracking
+-   `src/rv_agent/ui/`: Screen parsing and element processing
+-   `tests/`: Comprehensive unit and integration tests
 
 ## 🐛 Troubleshooting
 
-### Token Repetition / Infinite Loops
-If you observe the LLM repeating the same text indefinitely:
-1.  **Cause**: Known issue with Ollama's GGUF sampler for Qwen3-VL.
-2.  **Fix**: Switch to **vLLM** or **HuggingFace Direct** provider.
+### SGLang Connection Issues
+If the agent cannot connect to SGLang:
+1.  **Verify server is running**: `curl http://localhost:30000/health`
+2.  **Check firewall**: Ensure port 30000 is accessible
+3.  **Verify model loaded**: Check SGLang logs for model initialization
+
+### Tool Calling Not Working
+If the LLM outputs text instead of tool calls:
+1.  **Ensure `--tool-call-parser qwen`** is passed to SGLang server
+2.  **Check model**: Only Qwen3-VL models support native tool calling
 
 ### "Combobox Problem"
 If the agent gets stuck re-opening a dropdown:

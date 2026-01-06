@@ -12,10 +12,8 @@ from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
-from rv_agent.strategies.simulated_annealing_strategy import SimulatedAnnealingStrategy
-from rv_agent.strategies.genetic_algorithm_strategy import GeneticAlgorithmStrategy
 from rv_agent.strategies.rvagent_strategy import RVAgentStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_android_core.domain.static import StaticAnalysisData
 
 logger = logging.getLogger(__name__)
@@ -59,12 +57,10 @@ class StrategyRegistry:
         self.register("dfs", DFSStrategy)
         self.register("bfs", BFSStrategy)
 
-        # Advanced learning-based strategies
+        # Heuristic strategy
         self.register("greedy", GreedyStrategy)
-        self.register("simulated_annealing", SimulatedAnnealingStrategy)
-        self.register("genetic_algorithm", GeneticAlgorithmStrategy)
 
-        logger.debug("Registered built-in strategies: rvagent (default), dfs, bfs, greedy, simulated_annealing, genetic_algorithm")
+        logger.debug("Registered built-in strategies: rvagent (default), dfs, bfs, greedy")
 
     def register(self, name: str, strategy_class: Type[ExplorationStrategy]):
         """

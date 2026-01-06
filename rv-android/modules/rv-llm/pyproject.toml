@@ -14,7 +14,7 @@ pydantic = "^2.9.0"
 
 # LLM-specific dependencies
 requests = "^2.32.0"  # Para APIs HTTP
-httpx = "^0.27.0"  # Cliente HTTP async moderno
+httpx = "^0.28.0"  # Cliente HTTP async moderno
 jinja2 = "^3.1.0"  # Template engine para prompts
 
 # Provider-specific dependencies

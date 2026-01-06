@@ -88,13 +88,15 @@ class TestGetAndroidTools:
         }
         assert tool_names == expected
 
-    def test_tools_are_callable(self):
-        """All tools are callable."""
+    def test_tools_have_callable_func(self):
+        """All tools have callable functions."""
         from rv_agent.llm.llm_client import get_android_tools
 
         tools = get_android_tools()
         for tool in tools:
-            assert callable(tool)
+            # StructuredTool objects have a .func attribute that is callable
+            assert hasattr(tool, 'func'), f"Tool {tool.name} missing func attribute"
+            assert callable(tool.func), f"Tool {tool.name}.func is not callable"
 
 
 class TestExtractToolCalls:
@@ -297,11 +299,11 @@ class TestBuildMessages:
 
 
 class TestAndroidTools:
-    """Test Android tool functions."""
+    """Test Android tool functions from sglang_tools module."""
 
     def test_android_click(self):
         """android_click returns success with coordinates."""
-        from rv_agent.llm.llm_client import android_click
+        from rv_agent.llm.tools.sglang_tools import android_click
 
         result = android_click.invoke({"x": 100, "y": 200, "element_description": "OK button"})
 
@@ -312,7 +314,7 @@ class TestAndroidTools:
 
     def test_android_type_text(self):
         """android_type_text returns success with text."""
-        from rv_agent.llm.llm_client import android_type_text
+        from rv_agent.llm.tools.sglang_tools import android_type_text
 
         result = android_type_text.invoke({"x": 100, "y": 200, "text": "hello"})
 
@@ -321,7 +323,7 @@ class TestAndroidTools:
 
     def test_android_long_click(self):
         """android_long_click returns success."""
-        from rv_agent.llm.llm_client import android_long_click
+        from rv_agent.llm.tools.sglang_tools import android_long_click
 
         result = android_long_click.invoke({"x": 100, "y": 200})
 
@@ -329,7 +331,7 @@ class TestAndroidTools:
 
     def test_android_swipe(self):
         """android_swipe returns success with direction."""
-        from rv_agent.llm.llm_client import android_swipe
+        from rv_agent.llm.tools.sglang_tools import android_swipe
 
         result = android_swipe.invoke({"direction": "up", "distance": "long"})
 
@@ -339,7 +341,7 @@ class TestAndroidTools:
 
     def test_android_scroll(self):
         """android_scroll returns success with direction."""
-        from rv_agent.llm.llm_client import android_scroll
+        from rv_agent.llm.tools.sglang_tools import android_scroll
 
         result = android_scroll.invoke({"direction": "down"})
 
@@ -348,7 +350,7 @@ class TestAndroidTools:
 
     def test_android_back(self):
         """android_back returns success."""
-        from rv_agent.llm.llm_client import android_back
+        from rv_agent.llm.tools.sglang_tools import android_back
 
         result = android_back.invoke({})
 
@@ -357,7 +359,7 @@ class TestAndroidTools:
 
     def test_android_home(self):
         """android_home returns success."""
-        from rv_agent.llm.llm_client import android_home
+        from rv_agent.llm.tools.sglang_tools import android_home
 
         result = android_home.invoke({})
 

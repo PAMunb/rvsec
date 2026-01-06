@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "yaab_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/biz.gyrus.yaab_30.apk",
+  "package_name": "biz.gyrus.yaab",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 1432741027,
+  "execution_time_seconds": 183.6824369430542
+}

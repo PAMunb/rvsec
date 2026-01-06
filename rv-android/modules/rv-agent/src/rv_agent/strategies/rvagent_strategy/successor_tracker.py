@@ -10,7 +10,7 @@ Solves the "combobox problem":
 import logging
 from typing import Dict, Tuple, Set, Optional
 
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
 
 logger = logging.getLogger(__name__)

@@ -8,8 +8,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 import time
 
-from rv_agent.ui.screen_processor import ScreenProcessor
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
@@ -356,7 +356,7 @@ class TestParseCurrentScreen:
         screen_desc.items = []
         screen_desc.activity = 'MainActivity'
 
-        with patch('rv_agent.ui.screen_processor.ParserFactory') as mock_factory:
+        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
@@ -387,7 +387,7 @@ class TestParseCurrentScreen:
         screen_desc.items = []
         screen_desc.activity = 'SearchActivity'
 
-        with patch('rv_agent.ui.screen_processor.ParserFactory') as mock_factory:
+        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
@@ -423,7 +423,7 @@ class TestParseCurrentScreen:
         screen_desc.items = []
         screen_desc.activity = 'MainActivity'
 
-        with patch('rv_agent.ui.screen_processor.ParserFactory') as mock_factory:
+        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
@@ -453,7 +453,7 @@ class TestParseCurrentScreen:
         screen_desc.items = []
         screen_desc.activity = 'MainActivity'
 
-        with patch('rv_agent.ui.screen_processor.ParserFactory') as mock_factory:
+        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
@@ -483,7 +483,7 @@ class TestParseCurrentScreen:
         ui_coverage = MagicMock()
         ui_coverage.annotate_screen_elements.return_value = "Annotated elements"
 
-        with patch('rv_agent.ui.screen_processor.ParserFactory') as mock_factory:
+        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser

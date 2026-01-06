@@ -1,5 +1,6 @@
 import pytest
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph, ScreenNode
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.domain.screen_node import ScreenNode
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 class TestDynamicStateGraph:

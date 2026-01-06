@@ -213,7 +213,7 @@ class ExplorationStrategy(ABC):
                     signature = ((center_x, center_y), "SET_TEXT")
 
                     # Convert to optimized space for comparison
-                    from rv_agent.core import coordinate_utils
+                    from rv_agent.services import coordinate_utils
                     opt_x, opt_y = coordinate_utils.device_to_optimized(
                         center_x, center_y,
                         (1080, 1920),  # device dimensions
@@ -289,3 +289,196 @@ class ExplorationStrategy(ABC):
         logger.info(f"   Hint analysis: {hint[:100]}...")
 
         return text_action
+
+    def _detect_scrollable_containers(
+        self,
+        screen_desc: ScreenDescription
+    ) -> List[Dict[str, Any]]:
+        """
+        Detect scrollable containers in the current screen.
+
+        Identifies containers that can be scrolled to reveal additional content:
+        - RecyclerView: Most common in modern Android apps
+        - ScrollView: Traditional scrolling container
+        - ListView: Legacy list implementation
+        - NestedScrollView: For nested scrolling scenarios
+        - HorizontalScrollView: For horizontal scrolling
+
+        Args:
+            screen_desc: Parsed screen description
+
+        Returns:
+            List of scrollable container info dicts with:
+            - bounds: Container bounds [[x1, y1], [x2, y2]]
+            - center: (center_x, center_y)
+            - scrollable_type: Type of scrollable container
+            - direction: 'vertical', 'horizontal', or 'both'
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Scrollable container types (ordered: more specific patterns first)
+        # HorizontalScrollView must come before ScrollView to avoid false matches
+        SCROLLABLE_TYPES = [
+            ('HorizontalScrollView', 'horizontal'),
+            ('NestedScrollView', 'vertical'),
+            ('RecyclerView', 'vertical'),
+            ('ScrollView', 'vertical'),
+            ('ListView', 'vertical'),
+            ('ViewPager2', 'horizontal'),
+            ('ViewPager', 'horizontal'),
+        ]
+
+        scrollables = []
+
+        for item in screen_desc.items:
+            view = item.view
+            elem_class = view.get('class', '')
+
+            # Check if this is a scrollable container
+            scrollable_type = None
+            direction = None
+
+            for scroll_type, default_dir in SCROLLABLE_TYPES:
+                if scroll_type in elem_class:
+                    scrollable_type = scroll_type
+                    direction = default_dir
+                    break
+
+            # Also check scrollable attribute
+            if not scrollable_type and view.get('scrollable', False):
+                scrollable_type = 'scrollable'
+                direction = 'vertical'  # Default to vertical
+
+            if scrollable_type:
+                bounds = view.get('bounds', [])
+                if bounds and len(bounds) == 2:
+                    x1, y1 = bounds[0]
+                    x2, y2 = bounds[1]
+                    center_x = (x1 + x2) // 2
+                    center_y = (y1 + y2) // 2
+
+                    # Skip if too small (likely not a content area)
+                    width = x2 - x1
+                    height = y2 - y1
+                    if width < 100 or height < 100:
+                        continue
+
+                    scrollables.append({
+                        'bounds': bounds,
+                        'center': (center_x, center_y),
+                        'scrollable_type': scrollable_type,
+                        'direction': direction,
+                        'resource_id': view.get('resource_id', ''),
+                        'width': width,
+                        'height': height
+                    })
+
+                    logger.debug(
+                        f"Found scrollable: {scrollable_type} at ({center_x}, {center_y}) "
+                        f"direction={direction} size={width}x{height}"
+                    )
+
+        return scrollables
+
+    def _try_generate_scroll_action(
+        self,
+        screen_desc: ScreenDescription,
+        node,
+        scrolled_positions: set,
+        probability: float = 0.3
+    ) -> Optional[ItemAction]:
+        """
+        Try to generate SWIPE action for scrollable containers.
+
+        This reveals hidden content in lists, feeds, and scrollable views.
+        Uses a probability gate and tracks scrolled positions to avoid
+        infinite scrolling loops.
+
+        Args:
+            screen_desc: Parsed screen description
+            node: ScreenNode with execution history
+            scrolled_positions: Set of already scrolled (screen_hash, container_id, direction)
+            probability: Probability of generating scroll action (0.0-1.0)
+
+        Returns:
+            SWIPE ItemAction if generated, None otherwise
+        """
+        import random
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Probability gate
+        if random.random() > probability:
+            return None
+
+        # Detect scrollable containers
+        scrollables = self._detect_scrollable_containers(screen_desc)
+
+        if not scrollables:
+            return None
+
+        # Filter out already-scrolled containers
+        screen_hash = getattr(node, 'screen_hash', 'unknown')
+        unscrolled = []
+
+        for container in scrollables:
+            container_id = f"{container['resource_id']}|{container['bounds']}"
+            scroll_key = (screen_hash, container_id, container['direction'])
+
+            if scroll_key not in scrolled_positions:
+                unscrolled.append((container, container_id))
+
+        if not unscrolled:
+            logger.debug("All scrollable containers already scrolled on this screen")
+            return None
+
+        # Select first unscrolled container
+        target_container, container_id = unscrolled[0]
+
+        # Calculate swipe coordinates based on direction
+        center_x, center_y = target_container['center']
+
+        if target_container['direction'] == 'vertical':
+            # Swipe up to scroll down (reveal more content below)
+            start_x = center_x
+            start_y = center_y + target_container['height'] // 4  # Start lower
+            end_x = center_x
+            end_y = center_y - target_container['height'] // 4  # End higher
+        else:  # horizontal
+            # Swipe left to scroll right (reveal more content to the right)
+            start_x = center_x + target_container['width'] // 4
+            start_y = center_y
+            end_x = center_x - target_container['width'] // 4
+            end_y = center_y
+
+        # Mark as scrolled
+        scroll_key = (screen_hash, container_id, target_container['direction'])
+        scrolled_positions.add(scroll_key)
+
+        # Create SWIPE ItemAction
+        from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
+
+        # Use hash as unique int id
+        action_id = hash((start_x, start_y, end_x, end_y)) & 0x7FFFFFFF
+
+        swipe_action = ItemAction(
+            id=action_id,
+            text=f"SWIPE ({target_container['direction']})",
+            event=WidgetEventType.SCROLL,
+            target_view={
+                'class': target_container['scrollable_type'],
+                'bounds': target_container['bounds'],
+                'resource_id': target_container['resource_id'],
+                'swipe_start': (start_x, start_y),
+                'swipe_end': (end_x, end_y),
+            },
+            coordinates=(start_x, start_y),  # Start coordinates
+        )
+
+        logger.info(
+            f"📜 Generating SWIPE action: {target_container['scrollable_type']} "
+            f"({target_container['direction']}) from ({start_x}, {start_y}) to ({end_x}, {end_y})"
+        )
+
+        return swipe_action

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "tazreader_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/de.thecode.android.tazreader_3140000.apk",
+  "package_name": "de.thecode.android.tazreader",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1772059952,
+  "execution_time_seconds": 181.84389114379883
+}

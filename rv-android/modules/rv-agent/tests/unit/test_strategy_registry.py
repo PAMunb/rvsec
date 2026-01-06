@@ -12,7 +12,7 @@ from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 
 
@@ -27,8 +27,6 @@ class TestStrategyRegistryInit:
         assert registry.has_strategy("bfs")
         assert registry.has_strategy("greedy")
         assert registry.has_strategy("rvagent")
-        assert registry.has_strategy("simulated_annealing")
-        assert registry.has_strategy("genetic_algorithm")
 
     def test_list_strategies(self):
         """List all registered strategies."""
@@ -40,7 +38,7 @@ class TestStrategyRegistryInit:
         assert "bfs" in strategies
         assert "greedy" in strategies
         assert "rvagent" in strategies
-        assert len(strategies) >= 6
+        assert len(strategies) >= 4
 
 
 class TestStrategyRegistration:

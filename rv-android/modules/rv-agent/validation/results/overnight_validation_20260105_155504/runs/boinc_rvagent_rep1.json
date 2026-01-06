@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "boinc_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/edu.berkeley.boinc_72202.apk",
+  "package_name": "edu.berkeley.boinc",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1259266901,
+  "execution_time_seconds": 180.6261019706726
+}

@@ -11,11 +11,11 @@ Tests verify:
 """
 
 import pytest
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 from collections import deque
 
 from rv_agent.strategies.bfs_strategy import BFSState, BFSStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
@@ -59,6 +59,7 @@ def mock_screen_desc(mock_action):
     screen = MagicMock(spec=ScreenDescription)
     screen.activity = "com.test.MainActivity"
     screen.get_all_actions.return_value = [mock_action]
+    screen.items = []  # Empty items to avoid scroll detection
     return screen
 
 
@@ -552,19 +553,34 @@ class TestBFSStrategySelectNextAction:
 
         mock_graph.get_or_create_state.assert_not_called()
 
-    def test_exhausted_state_returns_none(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
-        """Test that exhausted state returns None."""
+    def test_exhausted_state_returns_back_action(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+        """Test that exhausted state (all actions failed) returns BACK action.
+
+        With continuous exploration mode, when all actions have permanently failed,
+        the strategy returns a BACK action for navigation instead of None.
+        """
         # Mark all actions as executed
         expected_sig = ((int(540 * 704 / 1080), int(960 * 1248 / 1920)), "CLICK")
         mock_screen_node.executed_actions = {expected_sig}
+        # Mark all actions as permanently failed
+        mock_screen_node.is_action_failed = Mock(return_value=True)
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
-        selected = bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
+        with patch.object(bfs_strategy, '_try_generate_text_input', return_value=None), \
+             patch.object(bfs_strategy, '_try_generate_scroll_action', return_value=None):
+            selected = bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
-        assert selected is None
+        # With continuous exploration, BACK is returned when all actions failed
+        assert selected is not None
+        assert selected.text == "BACK"
+        assert selected.id == 999
 
-    def test_exhausted_state_removed_from_queue(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
-        """Test that exhausted state is removed from queue front."""
+    def test_exhausted_state_stays_in_queue_with_continuous_exploration(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+        """Test that state stays in queue with continuous exploration.
+
+        With continuous exploration mode, states are not removed from queue when
+        exhausted - they can be re-explored with least-executed actions.
+        """
         # Setup exhausted state at front of queue
         bfs_state = BFSState("exhausted_hash", 0, None, 0)
         bfs_strategy.state_queue.append(bfs_state)
@@ -572,11 +588,16 @@ class TestBFSStrategySelectNextAction:
         # Mark all actions as executed
         expected_sig = ((int(540 * 704 / 1080), int(960 * 1248 / 1920)), "CLICK")
         mock_screen_node.executed_actions = {expected_sig}
+        # Mark all actions as permanently failed
+        mock_screen_node.is_action_failed = Mock(return_value=True)
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
-        bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
+        with patch.object(bfs_strategy, '_try_generate_text_input', return_value=None), \
+             patch.object(bfs_strategy, '_try_generate_scroll_action', return_value=None):
+            bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
-        assert len(bfs_strategy.state_queue) == 0
+        # With continuous exploration, state stays in queue for potential re-exploration
+        assert len(bfs_strategy.state_queue) == 1
 
     def test_records_action_before_returning(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
         """Test that selected action is recorded before returning."""
@@ -618,6 +639,7 @@ class TestBFSStrategyQueueBehavior:
         # Create mock screen descriptions for different states
         mock_screen_root = MagicMock(spec=ScreenDescription)
         mock_screen_root.activity = "RootActivity"
+        mock_screen_root.items = []  # Empty items to avoid scroll detection
         mock_action_root = MagicMock(spec=ItemAction)
         mock_action_root.id = "root_action"
         mock_action_root.target_view = {}
@@ -682,6 +704,7 @@ class TestBFSStrategyIntegration:
         screen1 = MagicMock(spec=ScreenDescription)
         screen1.activity = "Activity1"
         screen1.get_all_actions.return_value = [action1, action2]
+        screen1.items = []  # Empty items to avoid scroll detection
 
         action3 = MagicMock(spec=ItemAction)
         action3.id = "3"
@@ -692,6 +715,7 @@ class TestBFSStrategyIntegration:
         screen2 = MagicMock(spec=ScreenDescription)
         screen2.activity = "Activity2"
         screen2.get_all_actions.return_value = [action3]
+        screen2.items = []  # Empty items to avoid scroll detection
 
         # First state - should select first action
         mock_graph.states = {}

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "chiver_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/io.github.chiver_211.apk",
+  "package_name": "io.github.chiver",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1566146184,
+  "execution_time_seconds": 81.69949245452881
+}

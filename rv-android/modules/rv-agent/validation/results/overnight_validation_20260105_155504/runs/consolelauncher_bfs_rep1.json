@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "consolelauncher_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/ohi.andre.consolelauncher_205.apk",
+  "package_name": "ohi.andre.consolelauncher",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 2039988176,
+  "execution_time_seconds": 2.925982713699341
+}

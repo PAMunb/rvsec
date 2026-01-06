@@ -19,11 +19,11 @@ class TestImports:
 
         assert rv_agent is not None
 
-    def test_import_core_modules(self):
-        """Core modules import without error."""
-        from rv_agent.core import rv_agent
-        from rv_agent.core import agent_factory
-        from rv_agent.core import coordinate_converter
+    def test_import_agent_modules(self):
+        """Agent modules import without error."""
+        from rv_agent.agent import rv_agent
+        from rv_agent.agent import agent_factory
+        from rv_agent.services import coordinate_converter
 
         assert rv_agent is not None
         assert agent_factory is not None
@@ -94,23 +94,27 @@ class TestImports:
         assert routing_manager is not None
         assert loop_detector is not None
 
-    def test_import_ui(self):
+    def test_import_services(self):
+        """Services modules import without error."""
+        from rv_agent.services import screen_analyzer
+        from rv_agent.services import vision_service
+        from rv_agent.services import coordinate_converter
+
+        assert screen_analyzer is not None
+        assert vision_service is not None
+        assert coordinate_converter is not None
+
+    def test_import_ui_module(self):
         """UI modules import without error."""
-        from rv_agent.ui import screen_processor
+        from rv_agent.ui import rvagent_visitor
+        from rv_agent.ui.rvagent_visitor import RVAgentVisitor
 
-        assert screen_processor is not None
-
-    def test_import_validation(self):
-        """Validation modules import without error."""
-        from rv_agent.validation import mock_device
-        from rv_agent.validation import comparative_report
-
-        assert mock_device is not None
-        assert comparative_report is not None
+        assert rvagent_visitor is not None
+        assert RVAgentVisitor is not None
 
     def test_import_coordinate_converter_functions(self):
         """Coordinate converter functions import."""
-        from rv_agent.core.coordinate_converter import (
+        from rv_agent.services.coordinate_converter import (
             CoordinateConverter,
             denormalize_qwen_coords,
             is_normalized_coords,
@@ -133,12 +137,12 @@ class TestImports:
         # Import all modules in different orders
         from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
-        from rv_agent.core.coordinate_converter import CoordinateConverter
+        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         # Reimport in different order
         from rv_agent.config.agent_config import RVAgentConfig as RC2
         from rv_agent.llm.llm_client import LLMClient as LC2
-        from rv_agent.core.coordinate_converter import CoordinateConverter as CC2
+        from rv_agent.services.coordinate_converter import CoordinateConverter as CC2
 
         assert RC2 is RVAgentConfig
         assert LC2 is LLMClient

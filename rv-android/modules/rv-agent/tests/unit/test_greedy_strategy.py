@@ -5,10 +5,10 @@ Tests value calculation, action selection, and transition recording.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
-from rv_agent.core.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 
@@ -532,17 +532,25 @@ class TestSelectNextAction:
         assert result.id == "action1"
         assert "new_hash" in strategy.visited_states
 
-    def test_select_returns_none_when_exhausted(self, strategy):
-        """Returns None when all actions executed."""
+    def test_select_returns_back_when_exhausted(self, strategy):
+        """Returns BACK action when all actions exhausted.
+
+        With continuous exploration mode, when no actions are available,
+        the strategy returns a BACK action for navigation.
+        """
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.activity = "TestActivity"
         screen_desc.items = []
         screen_desc.get_all_actions.return_value = []
 
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(strategy, '_try_generate_text_input', return_value=None), \
+             patch.object(strategy, '_try_generate_scroll_action', return_value=None):
             result = strategy.select_next_action("hash1", screen_desc)
 
-        assert result is None
+        # With continuous exploration, BACK is returned when no actions available
+        assert result is not None
+        assert result.text == "BACK"
+        assert result.id == 999
 
     def test_select_prioritizes_high_value_actions(self, strategy):
         """Greedy selection prioritizes high-value actions."""

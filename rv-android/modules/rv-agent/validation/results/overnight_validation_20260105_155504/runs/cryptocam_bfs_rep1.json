@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "cryptocam_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.tnibler.cryptocam_17.apk",
+  "package_name": "com.tnibler.cryptocam",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 1257804484,
+  "execution_time_seconds": 181.57603216171265
+}
