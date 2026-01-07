@@ -102,6 +102,191 @@ class TestRVAgentStrategy:
         # Should prioritize Direct MOP
         assert selected == action_dm
 
+    def test_select_next_action_scroll_action(self, strategy):
+        """Test that a scroll action is prioritized if generated."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        screen_desc.items = []
+        screen_desc.activity = "MainActivity"
+        strategy.graph.states = {}
+        scroll_action = ItemAction(id=1, event=WidgetEventType.SCROLL, text="scroll", reaches_mop=False, directly_reaches_mop=False, target_view={}, coordinates=None, text_input=None)
+        
+        with patch.object(strategy, '_try_generate_scroll_action', return_value=scroll_action) as mock_scroll:
+            strategy.graph.get_or_create_state = MagicMock()
+            strategy.successor_tracker.update_action_availability = MagicMock(return_value=0)
+            action = strategy.select_next_action("hash1", screen_desc)
+            mock_scroll.assert_called_once()
+            assert action == scroll_action
+            assert strategy.current_depth == 1
+
+    def test_select_next_action_no_untested_uses_least_executed(self, strategy):
+        """Test that it falls back to least executed action when no untested actions are left."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        screen_desc.items = []
+        screen_desc.activity = "MainActivity"
+        mock_node = MagicMock()
+        strategy.graph.states = {"hash1": mock_node}
+        
+        least_executed_action = ItemAction(id=1, event=WidgetEventType.CLICK, text="click", reaches_mop=False, directly_reaches_mop=False, target_view={}, coordinates=(1,1), text_input=None)
+
+        strategy._get_untested_actions = MagicMock(return_value=[]) # No untested
+        strategy._get_all_filtered_actions = MagicMock(return_value=[least_executed_action])
+        strategy._select_least_executed_action = MagicMock(return_value=least_executed_action)
+        strategy._convert_signature_to_optimized = MagicMock(return_value='sig') # Mock conversion
+
+        action = strategy.select_next_action("hash1", screen_desc)
+        
+        strategy._select_least_executed_action.assert_called_once()
+        assert action == least_executed_action
+
+    def test_select_next_action_all_failed_returns_back(self, strategy):
+        """Test that it returns BACK if all actions have failed."""
+        screen_desc = MagicMock(spec=ScreenDescription)
+        screen_desc.items = []
+        screen_desc.activity = "MainActivity"
+        mock_node = MagicMock()
+        strategy.graph.states = {"hash1": mock_node}
+        
+        failed_action = ItemAction(id=1, event=WidgetEventType.CLICK, text="click", reaches_mop=False, directly_reaches_mop=False, target_view={}, coordinates=(1,1), text_input=None)
+
+        strategy._get_untested_actions = MagicMock(return_value=[])
+        strategy._get_all_filtered_actions = MagicMock(return_value=[failed_action])
+        strategy._select_least_executed_action = MagicMock(return_value=None) # All failed
+
+        action = strategy.select_next_action("hash1", screen_desc)
+        
+        assert action.event == WidgetEventType.BACK
+
+    def test_record_transition(self, strategy):
+        """Test that record_transition calls its helper components."""
+        strategy.successor_tracker = MagicMock(spec=SuccessorTracker)
+        strategy.plateau_detector = MagicMock(spec=PlateauDetector)
+        
+        # Fix: Create a mock with the property, don't set it
+        action = MagicMock(spec=ItemAction)
+        action.event = WidgetEventType.CLICK
+        action.callback_signature="mop.method"
+        type(action).coords_for_matching = ((1,1), "click")
+        strategy._convert_signature_to_optimized = MagicMock(return_value='sig')
+
+
+        strategy.record_transition("hash1", "hash2", action)
+
+        strategy.graph.record_transition.assert_called_once()
+        strategy.successor_tracker.record_successor.assert_called_once()
+        strategy.plateau_detector.record_iteration.assert_called_once_with(
+            discovered_new_state=True,
+            new_mop_method="mop.method"
+        )
+
+    def test_should_backtrack_incomplete_successors(self, strategy):
+        """Test that it does not backtrack if successors are incomplete."""
+        strategy.graph.states = {"hash1": MagicMock()}
+        strategy.successor_tracker = MagicMock(spec=SuccessorTracker)
+        strategy.successor_tracker.has_incomplete_successors.return_value = True
+        
+        assert strategy.should_backtrack("hash1") is False
+
+    def test_should_backtrack_state_exhausted(self, strategy):
+        """Test that it backtracks if state is exhausted."""
+        mock_node = MagicMock()
+        mock_node.total_actions = 5
+        mock_node.executed_actions = {1, 2, 3, 4, 5} # Exhausted
+        strategy.graph.states = {"hash1": mock_node}
+        
+        # Fix: Patch the method on the real object
+        with patch.object(strategy.successor_tracker, 'has_incomplete_successors', return_value=False):
+            assert strategy.should_backtrack("hash1") is True
+
+class TestRVAgentStrategyHelpers:
+    """Test helper methods of RVAgentStrategy."""
+
+    @pytest.fixture
+    def strategy(self):
+        graph = MagicMock(spec=DynamicStateGraph)
+        ui_coverage = MagicMock(spec=UICoverageTracker)
+        return RVAgentStrategy(graph, ui_coverage, target_package="com.example.app")
+
+    def test_get_untested_actions_filtering(self, strategy):
+        """Test that actions are filtered by package and system type."""
+        mock_node = MagicMock()
+        mock_node.executed_actions = set()
+        
+        # Action from the correct package
+        action_good = MagicMock(spec=ItemAction)
+        type(action_good).coords_for_matching = ((1,1), "click")
+        
+        # Action from a different package
+        action_external = MagicMock(spec=ItemAction)
+        type(action_external).coords_for_matching = ((2,2), "click")
+
+        # System action (e.g., in nav bar)
+        action_system = MagicMock(spec=ItemAction)
+        type(action_system).coords_for_matching = ((3, 1850), "click") # y > 1800
+
+        item_good = MagicMock()
+        item_good.view = {'package': 'com.example.app'}
+        item_good.actions = [action_good]
+
+        item_external = MagicMock()
+        item_external.view = {'package': 'com.android.systemui'}
+        item_external.actions = [action_external]
+        
+        item_system = MagicMock()
+        item_system.view = {'package': 'com.example.app'}
+        item_system.actions = [action_system]
+
+        screen_desc = MagicMock(spec=ScreenDescription)
+        screen_desc.items = [item_good, item_external, item_system]
+        
+        strategy._is_system_action = lambda action: action == action_system # Mock private method
+
+        untested = strategy._get_untested_actions(mock_node, screen_desc)
+
+        assert len(untested) == 1
+        assert untested[0] == action_good
+
+    def test_select_least_executed_action(self, strategy):
+        """Test sorting and selection of the least executed action."""
+        mock_node = MagicMock()
+        
+        action1 = MagicMock(spec=ItemAction); type(action1).coords_for_matching = ((1,1),"c"); action1.directly_reaches_mop=False; action1.reaches_mop=False
+        action2 = MagicMock(spec=ItemAction); type(action2).coords_for_matching = ((2,2),"c"); action2.directly_reaches_mop=False; action2.reaches_mop=True # MOP
+        action3 = MagicMock(spec=ItemAction); type(action3).coords_for_matching = ((3,3),"c"); action3.directly_reaches_mop=False; action3.reaches_mop=False
+        action4_failed = MagicMock(spec=ItemAction); type(action4_failed).coords_for_matching = ((4,4),"c");
+
+        actions = [action1, action2, action3, action4_failed]
+        
+        # Mock execution counts and failed status
+        strategy._convert_signature_to_optimized = lambda x: x # Passthrough
+        mock_node.get_action_execution_count.side_effect = lambda sig: {
+            ((1,1),"c"): 2,
+            ((2,2),"c"): 1,
+            ((3,3),"c"): 1,
+        }.get(sig, 0)
+        mock_node.is_action_failed.side_effect = lambda sig: sig == ((4,4),"c")
+
+        selected = strategy._select_least_executed_action(mock_node, actions)
+
+        # action4 is skipped (failed)
+        # action2 and action3 both have 1 execution
+        # action2 is chosen because it has MOP priority
+        assert selected == action2
+
+    def test_prepare_input_action_exhausted(self, strategy):
+        """Test that _prepare_input_action returns None when values are exhausted."""
+        action = MagicMock(spec=ItemAction)
+        action.widget_id = "input1"
+        action.reaches_mop = False
+        action.directly_reaches_mop = False
+        
+        # Mock value generator to be exhausted
+        strategy.value_generator.get_next_value = MagicMock(return_value=None)
+        
+        result = strategy._prepare_input_action(action, "hash1")
+        
+        assert result is None
+        strategy.value_generator.get_next_value.assert_called_once()
+
 
 class TestCoverageMetrics:
     """Test CoverageMetrics class."""
@@ -493,13 +678,13 @@ class TestInputValueGenerator:
 
     def test_get_next_value(self, generator):
         """get_next_value returns test value."""
-        result = generator.get_next_value("element1", is_mop=False)
+        result = generator.get_next_value("element1", is_mop=False, input_type="text")
         assert result is not None
 
     def test_get_next_value_tracks_tested(self, generator):
         """get_next_value tracks tested values."""
-        result1 = generator.get_next_value("element1")
-        result2 = generator.get_next_value("element1")
+        result1 = generator.get_next_value("element1", input_type="text")
+        result2 = generator.get_next_value("element1", input_type="text")
 
         # Should return different values
         assert result1 != result2 or result1 is None or result2 is None
@@ -508,18 +693,47 @@ class TestInputValueGenerator:
         """get_next_value returns None when exhausted."""
         # Use all variations
         for _ in range(generator.max_variations + 5):
-            result = generator.get_next_value("element1")
+            result = generator.get_next_value("element1", input_type="text")
             if result is None:
                 break
 
         # Eventually returns None
-        final_result = generator.get_next_value("element1")
+        final_result = generator.get_next_value("element1", input_type="text")
         assert final_result is None
 
     def test_get_next_value_mop_element(self, generator):
         """get_next_value handles MOP elements."""
-        result = generator.get_next_value("element1", is_mop=True)
+        result = generator.get_next_value("element1", is_mop=True, input_type="text")
         assert result is not None
+
+    def test_get_next_value_with_different_types(self, generator):
+        """get_next_value works with different input types."""
+        result_email = generator.get_next_value("element1", is_mop=False, input_type="email")
+        result_name = generator.get_next_value("element2", is_mop=False, input_type="name")
+        result_phone = generator.get_next_value("element3", is_mop=False, input_type="phone")
+
+        assert result_email is not None
+        assert result_name is not None
+        assert result_phone is not None
+
+    def test_get_next_value_with_locales(self):
+        """InputValueGenerator works with different locales."""
+        generator = InputValueGenerator(max_variations=3, locales=['en_US', 'pt_BR'])
+        result = generator.get_next_value("element1", is_mop=False, input_type="name")
+        assert result is not None
+
+    def test_get_next_value_all_input_types(self, generator):
+        """get_next_value works with all input types."""
+        input_types = ["email", "name", "phone", "address", "text", "username",
+                      "password", "city", "country", "company", "unknown_type"]
+
+        for input_type in input_types:
+            result = generator.get_next_value(f"element_{input_type}", is_mop=False, input_type=input_type)
+            assert result is not None
+
+            # Get a second value to ensure variety
+            result2 = generator.get_next_value(f"element_{input_type}", is_mop=False, input_type=input_type)
+            assert result2 is not None
 
     def test_get_tested_count(self, generator):
         """get_tested_count returns correct count."""

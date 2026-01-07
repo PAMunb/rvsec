@@ -1,39 +1,41 @@
 """
-Tool execution management for agent actions.
+Tool execution for RVAgent actions.
 
-Executes actions on Android device via DeviceInterface with proper
-error handling and result reporting.
+Executes unified-format actions on Android devices via DeviceInterface.
 """
 
 import logging
 from typing import Dict, Any, Optional
 
 from rv_agent.agent.device_interface import DeviceInterface
+from rv_agent.domain.exceptions import DeviceError
 from rv_agent.services.vision_service import ImageHandler
 
 
 class ToolExecutor:
     """
-    Executes actions on Android device.
+    Executes actions on Android device via DeviceInterface.
+
+    Receives actions in unified format (from ActionNormalizer) and delegates
+    execution to the appropriate DeviceInterface method.
 
     ### Architectural Decisions:
-    - Delegates to DeviceInterface for actual execution
-    - Provides unified interface for all action types
-    - Handles coordinate conversion from optimized to device space
-    - Implements error handling with detailed reporting
-    - Captures screenshots after actions when needed
+    - Expects unified action format with device-space coordinates
+    - Delegates all device interaction to DeviceInterface
+    - Raises DeviceError on execution failures
+    - Stateless execution with no action history
 
     ### Role in the System:
-    - Executes LLM-generated and algorithmic actions
-    - Bridges agent decisions to device operations
-    - Provides execution results for state updates
-    - Manages action timing and error recovery
+    - Bridges action decisions to device execution
+    - Provides consistent action execution interface
+    - Maps action types to DeviceInterface methods
+    - Reports execution results to caller
 
-    ### Integration Points:
-    - Used by RVAgent execute_tools node
-    - Calls DeviceInterface for actual execution
-    - Uses ImageHandler for screenshot management
-    - Reports results to agent state
+    ### Action Format:
+    - action_type: CLICK, SET_TEXT, BACK, SCROLL, etc.
+    - x, y: Coordinates in device space (already converted)
+    - text: For SET_TEXT actions
+    - source: "llm" or "algorithm" (for metrics)
     """
 
     def __init__(
@@ -52,83 +54,19 @@ class ToolExecutor:
         self.image_handler = image_handler
         self.logger = logging.getLogger(__name__)
 
-        # Get device screen size and calculate coordinate conversion factors
-        self.device_size = self._get_device_size()
+        self.logger.info("ToolExecutor initialized")
 
-        # Get optimized image size from image handler or use default
-        if image_handler:
-            self.optimized_size = image_handler.target_size
-        else:
-            self.optimized_size = (704, 1248)  # Default for Qwen3-VL
-
-        # Calculate scale factors for coordinate conversion
-        self.scale_x = self.device_size[0] / self.optimized_size[0]
-        self.scale_y = self.device_size[1] / self.optimized_size[1]
-
-        self.logger.info(
-            f"ToolExecutor initialized: device={self.device_size}, "
-            f"optimized={self.optimized_size}, scale=({self.scale_x:.3f}, {self.scale_y:.3f})"
-        )
-
-    # Tool name mapping (LLM format → internal format)
-    TOOL_NAME_TO_ACTION_TYPE = {
-        "android_click": "CLICK",
-        "android_type_text": "SET_TEXT",
-        "android_long_click": "LONG_CLICK",
-        "android_swipe": "SWIPE",
-        "android_scroll": "SCROLL",
-        "android_back": "BACK",
-        "android_home": "HOME",
-        "android_press_enter": "PRESS_ENTER",
-        "android_restart": "RESTART_APP"
-    }
-
-    def _get_device_size(self) -> tuple:
-        """
-        Get device screen size from UIAutomator2.
-
-        Returns:
-            Tuple of (width, height) in pixels
-        """
-        # Use DeviceInterface.get_screen_size() which queries UIAutomator2
-        size = self.device.get_screen_size()
-        self.logger.debug(f"Device size from UIAutomator: {size}")
-        return size
-
-    def _convert_to_device(self, x: int, y: int) -> tuple:
-        """
-        Convert coordinates from optimized image space to device space.
-
-        LLM sees optimized screenshots (e.g., 704x1248) but device operates
-        in real resolution (e.g., 1080x1920). This method scales coordinates
-        appropriately.
-
-        Args:
-            x: X coordinate in optimized space
-            y: Y coordinate in optimized space
-
-        Returns:
-            Tuple of (x, y) in device space
-        """
-        device_x = int(x * self.scale_x)
-        device_y = int(y * self.scale_y)
-        return (device_x, device_y)
-
-    def execute_action(
-        self,
-        action: Dict[str, Any],
-        convert_coordinates: bool = True
-    ) -> Dict[str, Any]:
+    def execute_action(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute action on device.
 
-        Supports both formats:
-        - Algorithm format: {"action_type": "CLICK", "x": 100, "y": 200}
-        - LLM format: {"tool_name": "android_click", "tool_args": {"x": 100, "y": 200}}
+        Actions must be in unified format (from ActionNormalizer):
+        {"action_type": "CLICK", "x": 540, "y": 383, "source": "llm"|"algorithm"}
+
+        Coordinates are expected to already be in device space.
 
         Args:
-            action: Action dictionary with type and parameters
-            convert_coordinates: Whether to convert from optimized to device space
+            action: Action dictionary in unified format
 
         Returns:
             Result dictionary with:
@@ -136,25 +74,22 @@ class ToolExecutor:
             - action_executed: Copy of executed action
             - error: Error message if failed
         """
-        # Normalize LLM format to internal format
-        normalized_action = self._normalize_action(action)
-        action_type = normalized_action.get("action_type", "UNKNOWN")
+        action_type = action.get("action_type", "UNKNOWN")
 
-        self.logger.info(f"Executing action: {action_type}")
+        self.logger.info(f"Executing action: {action_type} (source={action.get('source', 'unknown')})")
 
         try:
             if action_type == "CLICK":
-                result = self._execute_click(normalized_action, convert_coordinates)
+                result = self._execute_click(action)
             elif action_type == "LONG_CLICK":
-                result = self._execute_long_click(normalized_action, convert_coordinates)
+                result = self._execute_long_click(action)
             elif action_type == "SET_TEXT":
-                result = self._execute_type_text(normalized_action, convert_coordinates)
+                result = self._execute_type_text(action)
             elif action_type == "SWIPE":
-                result = self._execute_swipe(normalized_action)
+                result = self._execute_swipe(action)
             elif action_type == "SCROLL":
-                result = self._execute_scroll(normalized_action)
+                result = self._execute_scroll(action)
             elif action_type in ("SCROLL_UP", "SCROLL_DOWN", "SCROLL_LEFT", "SCROLL_RIGHT"):
-                # Algorithm-specific scroll actions
                 result = self._execute_directional_scroll(action_type)
             elif action_type == "BACK":
                 result = self._execute_back()
@@ -165,103 +100,44 @@ class ToolExecutor:
             elif action_type == "PRESS_ENTER":
                 result = self._execute_press_enter()
             elif action_type == "RESTART_APP":
-                result = self._execute_restart(normalized_action)
+                result = self._execute_restart(action)
             else:
-                # Detailed logging for unknown action types
-                self.logger.warning(f"❌ UNKNOWN ACTION TYPE: {action_type}")
-                self.logger.warning(f"   Original action received: {action}")
-                self.logger.warning(f"   Normalized action: {normalized_action}")
-                self.logger.warning(f"   Available action types: {list(self.TOOL_NAME_TO_ACTION_TYPE.keys())}")
-
-                # Log all fields in normalized_action
-                for key, value in normalized_action.items():
-                    self.logger.warning(f"   - {key}: {value}")
-
+                self.logger.warning(f"Unknown action type: {action_type}")
                 result = {
                     "success": False,
                     "error": f"Unknown action type: {action_type}"
                 }
 
-            result["action_executed"] = normalized_action
+            result["action_executed"] = action
             return result
 
+        except DeviceError:
+            raise
         except Exception as e:
             self.logger.error(f"Action execution failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "action_executed": normalized_action,
-                "error": str(e)
-            }
+            raise DeviceError(f"Action execution failed: {e}") from e
 
-    def _normalize_action(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Normalize action from LLM format to internal format.
-
-        LLM format: {"tool_name": "android_click", "tool_args": {"x": 100, "y": 200}}
-        Internal format: {"action_type": "CLICK", "x": 100, "y": 200}
-
-        Args:
-            action: Action in either format
-
-        Returns:
-            Action in internal format
-        """
-        # Already in internal format
-        if "action_type" in action:
-            return action
-
-        # Convert from LLM format
-        tool_name = action.get("tool_name", "")
-        tool_args = action.get("tool_args", {})
-
-        # Map tool name to action type
-        action_type = self.TOOL_NAME_TO_ACTION_TYPE.get(tool_name, "UNKNOWN")
-
-        # Build normalized action
-        normalized = {
-            "action_type": action_type,
-            **tool_args  # Flatten tool_args into action
-        }
-
-        self.logger.debug(f"Normalized LLM action: {tool_name} → {action_type}")
-
-        return normalized
-
-    def _execute_click(
-        self,
-        action: Dict[str, Any],
-        convert: bool
-    ) -> Dict[str, Any]:
+    def _execute_click(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Execute click action."""
         x = action.get("x", 0)
         y = action.get("y", 0)
 
-        # Convert coordinates if from LLM (optimized space → device space)
-        if convert:
-            original_x, original_y = x, y
-            x, y = self._convert_to_device(original_x, original_y)
-            self.logger.info(
-                f"🔄 Coordinate conversion: ({original_x}, {original_y}) OPTIMIZED "
-                f"→ ({x}, {y}) DEVICE"
-            )
-
-            # Update action with device coordinates for memory recording
-            action["x"] = x
-            action["y"] = y
-        else:
-            self.logger.debug(f"Using coordinates as-is (algorithm path): ({x}, {y})")
-
         self.device.click(x, y)
-
         self.logger.debug(f"Clicked at ({x}, {y})")
 
         return {"success": True}
 
-    def _execute_type_text(
-        self,
-        action: Dict[str, Any],
-        convert: bool
-    ) -> Dict[str, Any]:
+    def _execute_long_click(self, action: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute long click action."""
+        x = action.get("x", 0)
+        y = action.get("y", 0)
+
+        self.device.long_click(x, y)
+        self.logger.debug(f"Long clicked at ({x}, {y})")
+
+        return {"success": True}
+
+    def _execute_type_text(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Execute type text action."""
         x = action.get("x", 0)
         y = action.get("y", 0)
@@ -274,27 +150,8 @@ class ToolExecutor:
                 "error": "No text provided for SET_TEXT"
             }
 
-        # Convert coordinates if from LLM (optimized space → device space)
-        if convert:
-            original_x, original_y = x, y
-            x, y = self._convert_to_device(original_x, original_y)
-            self.logger.info(
-                f"🔄 Coordinate conversion: ({original_x}, {original_y}) OPTIMIZED "
-                f"→ ({x}, {y}) DEVICE"
-            )
-
-            # Update action with device coordinates for memory recording
-            action["x"] = x
-            action["y"] = y
-        else:
-            self.logger.debug(f"Using coordinates as-is (algorithm path): ({x}, {y})")
-
-        # Click on field first
         self.device.click(x, y)
-
-        # Type text
         self.device.input_text(text)
-
         self.logger.debug(f"Typed '{text}' at ({x}, {y})")
 
         return {"success": True}
@@ -304,64 +161,22 @@ class ToolExecutor:
         direction = action.get("direction", "down")
 
         self.device.scroll(direction, "medium")
-
         self.logger.debug(f"Scrolled {direction}")
 
         return {"success": True}
 
-    def _execute_back(self) -> Dict[str, Any]:
-        """Execute back action."""
-        self.device.back()
-
-        self.logger.debug("Pressed BACK")
-
-        return {"success": True}
-
-    def _execute_long_click(
-        self,
-        action: Dict[str, Any],
-        convert: bool
-    ) -> Dict[str, Any]:
-        """Execute long click action."""
-        x = action.get("x", 0)
-        y = action.get("y", 0)
-
-        # Convert coordinates if from LLM (optimized space → device space)
-        if convert:
-            original_x, original_y = x, y
-            x, y = self._convert_to_device(original_x, original_y)
-            self.logger.info(
-                f"🔄 Coordinate conversion: ({original_x}, {original_y}) OPTIMIZED "
-                f"→ ({x}, {y}) DEVICE"
-            )
-
-            # Update action with device coordinates for memory recording
-            action["x"] = x
-            action["y"] = y
-        else:
-            self.logger.debug(f"Using coordinates as-is (algorithm path): ({x}, {y})")
-
-        self.device.long_click(x, y)
-
-        self.logger.debug(f"Long clicked at ({x}, {y})")
-
-        return {"success": True}
-
     def _execute_swipe(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute swipe action (from LLM tools)."""
+        """Execute swipe action."""
         direction = action.get("direction", "up")
         distance = action.get("distance", "medium")
 
-        # Use scroll() which accepts direction/distance, not swipe() which expects coordinates
         self.device.scroll(direction, distance)
-
         self.logger.debug(f"Swiped {direction} ({distance})")
 
         return {"success": True}
 
     def _execute_directional_scroll(self, action_type: str) -> Dict[str, Any]:
-        """Execute directional scroll action (from algorithm)."""
-        # Map algorithm scroll types to device scroll direction
+        """Execute directional scroll action."""
         direction_map = {
             "SCROLL_UP": "up",
             "SCROLL_DOWN": "down",
@@ -370,26 +185,28 @@ class ToolExecutor:
         }
 
         direction = direction_map.get(action_type, "down")
-        # Use scroll() which accepts direction/distance, not swipe() which expects coordinates
         self.device.scroll(direction, "medium")
-
         self.logger.debug(f"Scrolled {direction}")
+
+        return {"success": True}
+
+    def _execute_back(self) -> Dict[str, Any]:
+        """Execute back action."""
+        self.device.back()
+        self.logger.debug("Pressed BACK")
 
         return {"success": True}
 
     def _execute_home(self) -> Dict[str, Any]:
         """Execute home action."""
         self.device.home()
-
         self.logger.debug("Pressed HOME")
 
         return {"success": True}
 
     def _execute_press_enter(self) -> Dict[str, Any]:
         """Execute ENTER key press action."""
-        # Press ENTER key (keycode 66 in Android)
         self.device.press_keycode(66)
-
         self.logger.debug("Pressed ENTER key")
 
         return {"success": True}
@@ -407,7 +224,6 @@ class ToolExecutor:
 
         self.device.stop_app(package)
         self.device.start_app(package)
-
         self.logger.debug(f"Restarted app: {package}")
 
         return {"success": True}

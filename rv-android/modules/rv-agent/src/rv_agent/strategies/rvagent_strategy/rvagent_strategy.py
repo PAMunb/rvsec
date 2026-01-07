@@ -10,7 +10,7 @@ Implements state space exploration with:
 
 import logging
 from dataclasses import dataclass
-from typing import Optional, List, Set, Tuple
+from typing import Optional, List, Set, Tuple, TYPE_CHECKING
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.widget import WidgetEventType
 
@@ -23,6 +23,9 @@ from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTrac
 from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
 from rv_agent.strategies.rvagent_strategy.input_value_generator import InputValueGenerator
 from rv_agent.strategies.rvagent_strategy.coverage_metrics import CoverageMetrics
+
+if TYPE_CHECKING:
+    from rv_agent.services.transition_manager import TransitionManager
 
 
 logger = logging.getLogger(__name__)
@@ -58,6 +61,7 @@ class RVAgentStrategy(ExplorationStrategy):
         ui_coverage: UICoverageTracker,
         coordinate_converter=None,
         static_data: Optional[StaticAnalysisData] = None,
+        transition_manager: Optional["TransitionManager"] = None,
         plateau_window: int = 10,
         max_input_variations: int = 3,
         target_package: Optional[str] = None
@@ -70,6 +74,7 @@ class RVAgentStrategy(ExplorationStrategy):
             ui_coverage: UICoverageTracker for UI element coverage
             coordinate_converter: CoordinateConverter for device/optimized space
             static_data: Optional static analysis data (WTG, REACH)
+            transition_manager: Optional TransitionManager for WTG-guided navigation
             plateau_window: Iterations without progress to detect plateau
             max_input_variations: Maximum test values per input field
             target_package: Target app package name for filtering external elements
@@ -78,6 +83,7 @@ class RVAgentStrategy(ExplorationStrategy):
         self.ui_coverage = ui_coverage
         self.converter = coordinate_converter
         self.static_data = static_data
+        self.transition_manager = transition_manager
         self.target_package = target_package
 
         # Helper components
@@ -99,7 +105,8 @@ class RVAgentStrategy(ExplorationStrategy):
 
         logger.info(
             f"RVAgentStrategy initialized: plateau_window={plateau_window}, "
-            f"max_variations={max_input_variations}"
+            f"max_variations={max_input_variations}, "
+            f"transition_manager={'enabled' if transition_manager else 'disabled'}"
         )
         if target_package:
             logger.info(f"RVAgentStrategy: Filtering actions to package '{target_package}'")
@@ -242,11 +249,29 @@ class RVAgentStrategy(ExplorationStrategy):
 
         # 6. Handle input fields with value generation
         if selected_action.event == WidgetEventType.TEXT_CHANGE:
+            original_action = selected_action
             selected_action = self._prepare_input_action(selected_action, current_hash)
             if not selected_action:
-                # Value exhausted, try another action
-                logger.debug("Input values exhausted, selecting different action")
-                return self.select_next_action(current_hash, screen_desc)
+                # Value exhausted - mark action as executed to prevent re-selection
+                action_signature = self._convert_signature_to_optimized(original_action.coords_for_matching)
+                self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+                logger.debug("Input values exhausted, marking action as executed and selecting different action")
+                # Use iterative approach instead of recursion
+                untested_actions = self._get_untested_actions(node, screen_desc)
+                if untested_actions:
+                    selected_action = self._select_priority_action(untested_actions, screen_desc) or untested_actions[0]
+                else:
+                    # Fallback to BACK if no untested actions
+                    return ItemAction(
+                        id=999,
+                        text="BACK",
+                        event=WidgetEventType.BACK,
+                        reaches_mop=False,
+                        directly_reaches_mop=False,
+                        target_view={"system_action": True, "class": "SystemAction_BACK"},
+                        coordinates=None,
+                        text_input=None
+                    )
 
         # 7. Pre-mark action as executed (crash handling)
         action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
@@ -490,8 +515,9 @@ class RVAgentStrategy(ExplorationStrategy):
         Priority order:
         1. Direct MOP ([DM]) - directly reaches monitored operation
         2. Transitive MOP ([M]) - transitively reaches MOP
-        3. Untested UI elements - never interacted with
-        4. Least tested elements - lowest test count
+        3. WTG-guided actions - lead to unvisited screens (if TransitionManager available)
+        4. Untested UI elements - never interacted with
+        5. Least tested elements - lowest test count
 
         Args:
             actions: Candidate actions
@@ -515,7 +541,14 @@ class RVAgentStrategy(ExplorationStrategy):
             logger.debug(f"Selecting [M] action (transitive MOP)")
             return m_actions[0]
 
-        # Priority 3: Completely untested elements
+        # Priority 3: WTG-guided actions (lead to unvisited screens)
+        if self.transition_manager:
+            wtg_action = self._get_wtg_guided_action(actions, screen_desc)
+            if wtg_action:
+                logger.debug(f"Selecting WTG-guided action (leads to unvisited screen)")
+                return wtg_action
+
+        # Priority 4: Completely untested elements
         untested_ui = []
         for action in actions:
             element_id = action.widget_id or f"coords:{action.coordinates}"
@@ -526,7 +559,7 @@ class RVAgentStrategy(ExplorationStrategy):
             logger.debug(f"Selecting untested UI element")
             return untested_ui[0]
 
-        # Priority 4: Least tested element
+        # Priority 5: Least tested element
         def get_test_count(action):
             element_id = action.widget_id or f"coords:{action.coordinates}"
             return self.ui_coverage.get_element_test_count(element_id)
@@ -534,6 +567,61 @@ class RVAgentStrategy(ExplorationStrategy):
         least_tested = min(actions, key=get_test_count)
         logger.debug(f"Selecting least tested element (count={get_test_count(least_tested)})")
         return least_tested
+
+    def _get_wtg_guided_action(
+        self,
+        actions: List[ItemAction],
+        screen_desc: ScreenDescription
+    ) -> Optional[ItemAction]:
+        """
+        Get action guided by WTG (Window Transition Graph) analysis.
+
+        Uses TransitionManager to find actions that lead to unvisited screens,
+        prioritizing exploration of new app areas over revisiting known screens.
+
+        Args:
+            actions: Available candidate actions
+            screen_desc: Current screen description
+
+        Returns:
+            Action that leads to unvisited screen, or None if no guidance available
+        """
+        if not self.transition_manager:
+            return None
+
+        # Get navigation guidance from TransitionManager
+        guidance = self.transition_manager.get_navigation_guidance(
+            current_activity=screen_desc.activity,
+            screen_desc=screen_desc
+        )
+
+        if not guidance.get("has_static_guidance"):
+            return None
+
+        # Get suggested actions (mapped from WTG to current screen)
+        suggested = guidance.get("suggested_actions", [])
+        if not suggested:
+            return None
+
+        # Log guidance info
+        unvisited_count = len([t for t in guidance.get("unvisited_targets", []) if not t.get("visited")])
+        if unvisited_count > 0:
+            logger.info(f"WTG guidance: {unvisited_count} unvisited screens reachable from here")
+
+        # Match suggested actions with available actions
+        for suggestion in suggested:
+            action_id = suggestion.get("action_id")
+            if action_id is None:
+                continue
+
+            # Find matching action in candidates
+            for action in actions:
+                if action.id == action_id:
+                    target = suggestion.get("target_activity", "unknown")
+                    logger.info(f"WTG: Selected action leading to '{target}'")
+                    return action
+
+        return None
 
     def _prepare_input_action(
         self,
@@ -557,7 +645,7 @@ class RVAgentStrategy(ExplorationStrategy):
         is_mop = action.reaches_mop or action.directly_reaches_mop
 
         # Get next test value
-        test_value = self.value_generator.get_next_value(element_id, is_mop=is_mop)
+        test_value = self.value_generator.get_next_value(element_id, is_mop=is_mop, input_type="text")
 
         if test_value is None:
             logger.debug(f"Input field {element_id}: all variations tested")
@@ -604,7 +692,7 @@ class RVAgentStrategy(ExplorationStrategy):
             True if system action (should skip)
         """
         # Get execution coordinates
-        coords = action.get_execution_coordinates()
+        coords = action.coordinates
         if not coords:
             # No valid coordinates - skip this action
             return True
@@ -660,7 +748,7 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             Dictionary with all component statistics
         """
-        return {
+        stats = {
             "strategy": "rvagent",
             "depth": self.current_depth,
             "states_visited": len(self.visited_states),
@@ -670,3 +758,9 @@ class RVAgentStrategy(ExplorationStrategy):
             "successor_tracking": self.successor_tracker.get_statistics(),
             "input_generation": self.value_generator.get_statistics(),
         }
+
+        # Add TransitionManager stats if available
+        if self.transition_manager:
+            stats["wtg_guidance"] = self.transition_manager.get_exploration_summary()
+
+        return stats

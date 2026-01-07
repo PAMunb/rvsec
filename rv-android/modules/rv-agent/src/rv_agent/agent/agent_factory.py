@@ -7,7 +7,12 @@ to simplify agent instantiation and testing.
 
 import logging
 import importlib
-from typing import Optional
+from typing import Optional, Any, TYPE_CHECKING
+
+# INSTRUMENTATION: Type hint for metrics collector
+# This import can be removed for production
+if TYPE_CHECKING:
+    from validation.multimodal.collector import MultimodalMetricsCollector
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.rv_agent import RVAgent
@@ -28,6 +33,9 @@ from rv_agent.memory.agent_memory import AgentMemoryManager
 from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.services.transition_manager import TransitionManager
+from rv_agent.services.navigation_guidance import NavigationGuidance
+from rv_agent.domain.action import ActionNormalizer
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_android_core.domain.static import StaticAnalysisData
@@ -66,7 +74,9 @@ class AgentFactory:
     def create_agent(
         config: RVAgentConfig,
         static_data: Optional[StaticAnalysisData] = None,
-        device: Optional[DeviceInterface] = None
+        device: Optional[DeviceInterface] = None,
+        # INSTRUMENTATION: Optional metrics collector for validation experiments
+        metrics_collector: Optional["MultimodalMetricsCollector"] = None
     ) -> RVAgent:
         """
         Create fully configured RVAgent instance.
@@ -102,6 +112,17 @@ class AgentFactory:
         dynamic_graph = DynamicStateGraph()
         logger.info("Created DynamicStateGraph")
 
+        # Create transition manager (integrates WTG with dynamic graph)
+        transition_manager = TransitionManager(
+            static_data=static_data,
+            dynamic_graph=dynamic_graph
+        )
+        logger.info("Created TransitionManager")
+
+        # Create navigation guidance (unified interface for algorithm and LLM)
+        navigation_guidance = NavigationGuidance(transition_manager=transition_manager)
+        logger.info("Created NavigationGuidance")
+
         # Create UI coverage tracker (needed by RVAgentStrategy and ScreenProcessor)
         ui_coverage = UICoverageTracker()
         logger.info("Created UICoverageTracker")
@@ -114,6 +135,7 @@ class AgentFactory:
             static_data=static_data,
             coordinate_converter=None,  # Will use coordinate_utils directly
             ui_coverage=ui_coverage,  # Required for RVAgentStrategy
+            transition_manager=transition_manager,  # WTG integration
             plateau_window=config.plateau_window,  # RVAgent config
             max_input_variations=config.max_input_variations,  # RVAgent config
             target_package=config.package_name  # Filter actions by target package
@@ -130,13 +152,13 @@ class AgentFactory:
         logger.info(f"Created ImageHandler: {config.screenshot_dir}")
 
         # Create screen processor
+        # Formats UI elements with normalized [0, 1000) coordinates for LLM
         screen_processor = ScreenProcessor(
             device=device,
             dynamic_graph=dynamic_graph,
             ui_coverage=ui_coverage,
             static_data=static_data,
             device_dimensions=config.device_dimensions,
-            optimized_dimensions=config.optimized_dimensions,
             max_external_attempts=config.max_external_attempts
         )
         logger.info("Created ScreenProcessor")
@@ -171,6 +193,15 @@ class AgentFactory:
         )
         logger.info("Created ToolExecutor")
 
+        # Create action normalizer (unified action format)
+        # Converts LLM [0, 1000) coords to device pixels
+        device_size = device.get_screen_size()
+        action_normalizer = ActionNormalizer(
+            device_width=device_size[0],
+            device_height=device_size[1]
+        )
+        logger.info(f"Created ActionNormalizer: device={device_size}")
+
         # Create memory components (ui_coverage already created above)
         long_term_memory = LongTermMemory(static_data=static_data)
         short_term_memory = ShortTermMemory()
@@ -192,6 +223,7 @@ class AgentFactory:
         logger.info("Created MemoryCoordinator")
 
         # Create RVAgent
+        # INSTRUMENTATION: Pass metrics_collector for validation experiments
         agent = RVAgent(
             config=config,
             device=device,
@@ -203,7 +235,10 @@ class AgentFactory:
             routing_manager=routing_manager,
             tool_executor=tool_executor,
             memory_coordinator=memory_coordinator,
-            static_data=static_data
+            navigation_guidance=navigation_guidance,
+            action_normalizer=action_normalizer,
+            static_data=static_data,
+            metrics_collector=metrics_collector  # INSTRUMENTATION: Can be removed for production
         )
 
         logger.info("AgentFactory: RVAgent created successfully")

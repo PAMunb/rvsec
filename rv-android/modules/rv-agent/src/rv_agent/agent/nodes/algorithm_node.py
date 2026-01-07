@@ -33,16 +33,24 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Check for stuck state override - force BACK action
     if state.get("force_back_action", False):
-        logger.warning("Forcing BACK action due to stuck state detection")
+        agent.routing_manager.forced_back_count += 1
+        logger.warning(
+            f"Stuck recovery: Generating BACK action "
+            f"(forced_back_count={agent.routing_manager.forced_back_count})"
+        )
         action = {
             "action_type": "BACK",
+            "x": 0,
+            "y": 0,
+            "text": "",
+            "source": "algorithm",
             "reason": "stuck_state_recovery"
         }
         agent.consecutive_no_action = 0
         return {
             "current_action": action,
             "current_item_action": None,
-            "decision_maker": "algorithm",
+            "decision_maker": "stuck_recovery",
             "force_back_action": False
         }
 
@@ -54,6 +62,10 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         )
         action = {
             "action_type": "BACK",
+            "x": 0,
+            "y": 0,
+            "text": "",
+            "source": "algorithm",
             "reason": "deadlock_escape"
         }
         agent.consecutive_no_action = 0
@@ -90,13 +102,14 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     x, y = coords
 
-    # Convert ItemAction to action dict
+    # Convert ItemAction to unified action format
     action = {
         "action_type": item_action.action_type.upper(),
         "x": x,
         "y": y,
-        "id": item_action.id,
-        "text": item_action.text or ""
+        "text": item_action.text or "",
+        "source": "algorithm",
+        "id": item_action.id
     }
 
     logger.info(f"Algorithm selected: {action['action_type']} at ({x}, {y})")

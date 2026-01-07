@@ -62,8 +62,7 @@ def screen_processor(mock_device, graph, ui_coverage):
         device=mock_device,
         dynamic_graph=graph,
         ui_coverage=ui_coverage,
-        device_dimensions=(1080, 1920),
-        optimized_dimensions=(704, 1248)
+        device_dimensions=(1080, 1920)
     )
 
 
@@ -90,7 +89,8 @@ class TestUIElementFormatting:
         # Should have categorized sections
         assert "CLICKABLE ELEMENTS" in formatted
         assert "position" in formatted
-        assert "bounds" in formatted
+        # Should have action info
+        assert "CLICK" in formatted or "Actions" in formatted
 
     def test_format_includes_coordinates(self, screen_processor, parser):
         """Formatted output includes element coordinates."""
@@ -106,29 +106,29 @@ class TestUIElementFormatting:
 
         assert len(matches) > 0, "Should have coordinate positions"
 
-    def test_format_includes_bounds(self, screen_processor, parser):
-        """Formatted output includes element bounds."""
+    def test_format_includes_element_info(self, screen_processor, parser):
+        """Formatted output includes element info."""
         xml_content = load_xml_content("cryptoapp", "001")
         screen_desc = parser.parse(xml_content, activity="MainActivity")
 
         formatted = screen_processor.format_ui_elements(screen_desc)
 
-        # Should have bounds format like [[x1, y1], [x2, y2]]
+        # Should have position format like "at position (x, y)"
         import re
-        bounds_pattern = r"bounds\[\[\d+, \d+\], \[\d+, \d+\]\]"
-        matches = re.findall(bounds_pattern, formatted)
+        position_pattern = r"at position \(\d+, \d+\)"
+        matches = re.findall(position_pattern, formatted)
 
-        assert len(matches) > 0, "Should have element bounds"
+        assert len(matches) > 0, "Should have element positions"
 
-    def test_format_screen_resolution(self, screen_processor, parser):
-        """Formatted output includes screen resolution."""
+    def test_format_coordinate_info(self, screen_processor, parser):
+        """Formatted output includes coordinate information."""
         xml_content = load_xml_content("cryptoapp", "001")
         screen_desc = parser.parse(xml_content, activity="MainActivity")
 
         formatted = screen_processor.format_ui_elements(screen_desc)
 
-        # Should mention optimized resolution
-        assert "704x1248" in formatted
+        # Should mention coordinate range or usage instructions
+        assert "normalized" in formatted.lower() or "coordinates" in formatted.lower()
 
     def test_format_empty_screen(self, screen_processor):
         """Format empty screen description."""
@@ -156,10 +156,10 @@ class TestUIElementFormatting:
 # =============================================================================
 
 class TestCoordinateTransformation:
-    """Test coordinate transformation from device to optimized space."""
+    """Test coordinate validation in device space."""
 
-    def test_coordinates_in_optimized_range(self, screen_processor, parser):
-        """All coordinates should be within optimized dimensions."""
+    def test_coordinates_in_device_range(self, screen_processor, parser):
+        """All coordinates should be within device dimensions."""
         xml_content = load_xml_content("cryptoapp", "001")
         screen_desc = parser.parse(xml_content, activity="MainActivity")
 
@@ -170,15 +170,15 @@ class TestCoordinateTransformation:
         coord_pattern = r"position \((\d+), (\d+)\)"
         matches = re.findall(coord_pattern, formatted)
 
-        opt_width, opt_height = 704, 1248
+        device_width, device_height = 1080, 1920
 
         for x_str, y_str in matches:
             x, y = int(x_str), int(y_str)
-            assert 0 <= x <= opt_width, f"X coordinate {x} out of range"
-            assert 0 <= y <= opt_height, f"Y coordinate {y} out of range"
+            assert 0 <= x <= device_width, f"X coordinate {x} out of range"
+            assert 0 <= y <= device_height, f"Y coordinate {y} out of range"
 
-    def test_bounds_in_optimized_range(self, screen_processor, parser):
-        """All bounds should be within optimized dimensions."""
+    def test_bounds_in_device_range(self, screen_processor, parser):
+        """All bounds should be within device dimensions."""
         xml_content = load_xml_content("cryptoapp", "001")
         screen_desc = parser.parse(xml_content, activity="MainActivity")
 
@@ -189,19 +189,16 @@ class TestCoordinateTransformation:
         bounds_pattern = r"bounds\[\[(\d+), (\d+)\], \[(\d+), (\d+)\]\]"
         matches = re.findall(bounds_pattern, formatted)
 
-        opt_width, opt_height = 704, 1248
+        device_width, device_height = 1080, 1920
 
         for x1, y1, x2, y2 in matches:
-            assert 0 <= int(x1) <= opt_width
-            assert 0 <= int(y1) <= opt_height
-            assert 0 <= int(x2) <= opt_width
-            assert 0 <= int(y2) <= opt_height
+            assert 0 <= int(x1) <= device_width
+            assert 0 <= int(y1) <= device_height
+            assert 0 <= int(x2) <= device_width
+            assert 0 <= int(y2) <= device_height
 
-    def test_coordinate_scaling_ratio(self, screen_processor, parser):
-        """Verify coordinate scaling ratio is correct."""
-        # Device: 1080x1920, Optimized: 704x1248
-        # Ratio: 704/1080 = 0.652, 1248/1920 = 0.65
-
+    def test_coordinate_bounds_consistency(self, screen_processor, parser):
+        """Verify coordinates are within element bounds."""
         xml_content = load_xml_content("cryptoapp", "001")
         screen_desc = parser.parse(xml_content, activity="MainActivity")
 
@@ -209,16 +206,15 @@ class TestCoordinateTransformation:
         for item in screen_desc.items:
             bounds = item.view.get('bounds')
             if bounds and item.view.get('clickable'):
-                device_x = (bounds[0][0] + bounds[1][0]) // 2
-                device_y = (bounds[0][1] + bounds[1][1]) // 2
+                x1, y1 = bounds[0]
+                x2, y2 = bounds[1]
 
-                # Expected optimized coordinates
-                expected_x = int(device_x * 704 / 1080)
-                expected_y = int(device_y * 1248 / 1920)
+                # Center coordinates should be within bounds
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
 
-                # Verify the scaling is approximately correct
-                assert abs(expected_x - device_x * 704 // 1080) <= 1
-                assert abs(expected_y - device_y * 1248 // 1920) <= 1
+                assert x1 <= center_x <= x2, "Center X not within bounds"
+                assert y1 <= center_y <= y2, "Center Y not within bounds"
                 break
 
 

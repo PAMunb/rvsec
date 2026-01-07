@@ -162,7 +162,8 @@ class StrategyComparison:
         by_app: Dict[str, List[Dict[str, Any]]] = {}
 
         for result in self.results:
-            app = result.get("app", "unknown")
+            # Support both "app" and "package_name" fields
+            app = result.get("app") or result.get("package_name", "unknown")
             if app not in by_app:
                 by_app[app] = []
             by_app[app].append(result)
@@ -348,7 +349,21 @@ def load_results(experiment_dir: Path) -> List[Dict[str, Any]]:
             elif isinstance(data, dict) and "results" in data:
                 results = data["results"]
 
-    # Also check for run_*.json files
+    # Also check for individual run files in runs/ subdirectory
+    runs_dir = experiment_dir / "runs"
+    if runs_dir.exists():
+        for run_file in runs_dir.glob("*.json"):
+            try:
+                with open(run_file) as f:
+                    result = json.load(f)
+                    # Check if already in results
+                    run_id = result.get("run_id", "")
+                    if not any(r.get("run_id") == run_id for r in results):
+                        results.append(result)
+            except Exception:
+                continue
+
+    # Also check for run_*.json files in experiment directory (legacy format)
     for run_file in experiment_dir.glob("run_*.json"):
         try:
             with open(run_file) as f:

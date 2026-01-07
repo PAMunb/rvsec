@@ -6,13 +6,49 @@ This module contains the EXACT implementations from the prototype that achieved
 NOT be modified without scientific validation.
 
 Source: Phase 0 validation (12,193 tests) - overnight execution results.
+
+UPDATED 2026-01-07: Coordinates now output as NORMALIZED [0, 1000) instead of
+pixels. This ensures consistency with ActionNormalizer which expects [0, 1000)
+and converts to device pixels. Validation confirmed LLM copies text coords.
 """
 import xml.etree.ElementTree as ET
 import re
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 
 
-def extract_clickable_elements_with_coords(xml_content: str) -> List[Dict]:
+# Default device dimensions for coordinate normalization
+DEFAULT_DEVICE_WIDTH = 1080
+DEFAULT_DEVICE_HEIGHT = 1920
+
+
+def pixels_to_normalized(pixel_x: int, pixel_y: int,
+                         width: int = DEFAULT_DEVICE_WIDTH,
+                         height: int = DEFAULT_DEVICE_HEIGHT) -> Tuple[int, int]:
+    """
+    Convert pixel coordinates to normalized [0, 1000) range.
+
+    This ensures coordinates in the prompt match the format expected by
+    ActionNormalizer, which converts [0, 1000) back to pixels.
+
+    Args:
+        pixel_x: X coordinate in pixels
+        pixel_y: Y coordinate in pixels
+        width: Device screen width in pixels
+        height: Device screen height in pixels
+
+    Returns:
+        Normalized (x, y) coordinates in [0, 1000) range
+    """
+    norm_x = int((pixel_x / width) * 1000)
+    norm_y = int((pixel_y / height) * 1000)
+    return (norm_x, norm_y)
+
+
+def extract_clickable_elements_with_coords(
+    xml_content: str,
+    device_width: int = DEFAULT_DEVICE_WIDTH,
+    device_height: int = DEFAULT_DEVICE_HEIGHT,
+) -> List[Dict]:
     """
     Extração de coordenadas VALIDADA em 12,193 testes.
 
@@ -22,11 +58,16 @@ def extract_clickable_elements_with_coords(xml_content: str) -> List[Dict]:
     CRITICAL: This function is the key to 100% vs 30% success rate.
     DO NOT MODIFY without extensive scientific validation.
 
+    UPDATED 2026-01-07: Coordinates now output as NORMALIZED [0, 1000).
+    This ensures consistency with ActionNormalizer which expects [0, 1000).
+
     Args:
         xml_content: UIAutomator XML content as string
+        device_width: Device screen width in pixels (default 1080)
+        device_height: Device screen height in pixels (default 1920)
 
     Returns:
-        List of elements with enhanced descriptions including coordinates
+        List of elements with enhanced descriptions including NORMALIZED coordinates
     """
     elements = []
     root = ET.fromstring(xml_content)
@@ -43,6 +84,11 @@ def extract_clickable_elements_with_coords(xml_content: str) -> List[Dict]:
 
                     center_x = (x1 + x2) // 2
                     center_y = (y1 + y2) // 2
+
+                    # Convert pixel coordinates to normalized [0, 1000)
+                    norm_x, norm_y = pixels_to_normalized(
+                        center_x, center_y, device_width, device_height
+                    )
 
                     # Build enhanced description WITH COORDINATES
                     text = node.get('text', '')
@@ -65,11 +111,13 @@ def extract_clickable_elements_with_coords(xml_content: str) -> List[Dict]:
                     description = ' '.join(desc_parts) if desc_parts else 'Interactive element'
 
                     # FORMATO VALIDADO: "at position (x, y)" É MANDATÓRIO!
-                    enhanced_description = f"{description} at position ({center_x}, {center_y})"
+                    # UPDATED: Now outputs NORMALIZED [0, 1000) coordinates
+                    enhanced_description = f"{description} at position ({norm_x}, {norm_y})"
 
                     elements.append({
                         'description': enhanced_description,
-                        'center': (center_x, center_y),
+                        'center': (center_x, center_y),  # Keep original pixels for reference
+                        'center_normalized': (norm_x, norm_y),  # Add normalized coords
                         'bounds': [x1, y1, x2, y2]
                     })
 

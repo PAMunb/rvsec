@@ -199,7 +199,7 @@ class TestCounterTracking:
 
         assert "algorithm_chosen" in counters
         assert "llm_executed" in counters
-        assert "llm_fallback" in counters
+        assert "llm_validation_failed" in counters
         assert counters["algorithm_chosen"] == 5
 
     def test_llm_percentage_calculation(self, routing_manager_multimode):
@@ -237,25 +237,27 @@ class TestActionValidation:
 
         assert result["validation_path"] == "execute"
         assert result["loop_detected"] is False
-        assert result["used_fallback"] is False
+        # Action should be returned unchanged when valid
+        assert result["current_action"]["action_type"] == "CLICK"
 
-    def test_validate_action_without_type_fallback(self, routing_manager_multimode):
-        """Validate action without action_type triggers fallback."""
+    def test_validate_action_without_type_returns_back(self, routing_manager_multimode):
+        """Invalid action without action_type returns BACK."""
         action = {"x": 100, "y": 200}  # Missing action_type
         recent_actions = []
 
         result = routing_manager_multimode.validate_action(action, recent_actions)
 
-        assert result["validation_path"] == "algorithm_fallback"
-        assert result["used_fallback"] is True
-        assert result["fallback_reason"] == "no_valid_action"
+        # Now returns "execute" with BACK action instead of algorithm_fallback
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
 
-    def test_validate_none_action_fallback(self, routing_manager_multimode):
-        """Validate None action triggers fallback."""
+    def test_validate_none_action_returns_back(self, routing_manager_multimode):
+        """Validate None action returns BACK."""
         result = routing_manager_multimode.validate_action(None, [])
 
-        assert result["validation_path"] == "algorithm_fallback"
-        assert result["used_fallback"] is True
+        # Now returns "execute" with BACK action instead of algorithm_fallback
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
 
     def test_validate_back_action(self, routing_manager_multimode):
         """Validate BACK action."""
@@ -312,10 +314,10 @@ class TestLoopDetectionIntegration:
 
         result = routing_manager_multimode.validate_action(action, recent_actions)
 
-        # Should detect loop and trigger fallback
+        # Should detect loop and execute BACK instead
         assert result["loop_detected"] is True
-        assert result["validation_path"] == "algorithm_fallback"
-        assert result["used_fallback"] is True
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
 
     def test_no_loop_with_varied_actions(self, routing_manager_multimode):
         """No loop detected with varied actions."""
@@ -332,8 +334,8 @@ class TestLoopDetectionIntegration:
         assert result["loop_detected"] is False
         assert result["validation_path"] == "execute"
 
-    def test_spatial_loop_triggers_fallback(self, routing_manager_multimode):
-        """Spatial loop triggers fallback."""
+    def test_spatial_loop_triggers_back(self, routing_manager_multimode):
+        """Spatial loop triggers BACK action."""
         # 5 clicks clustered in 50px radius
         recent_actions = [
             {"action_type": "CLICK", "x": 350, "y": 270},
@@ -346,80 +348,75 @@ class TestLoopDetectionIntegration:
 
         result = routing_manager_multimode.validate_action(current, recent_actions)
 
-        # Should detect spatial loop
+        # Should detect spatial loop and execute BACK
         if result["loop_detected"]:
-            assert result["validation_path"] == "algorithm_fallback"
+            assert result["validation_path"] == "execute"
+            assert result["current_action"]["action_type"] == "BACK"
 
 
 # =============================================================================
-# Recovery Mode Tests
+# Validation Counter Tests (Recovery mode was removed)
 # =============================================================================
 
-class TestRecoveryMode:
-    """Test recovery mode activation and exit."""
+class TestValidationCounting:
+    """Test validation failure counting."""
 
-    def test_recovery_mode_activation(self, routing_manager_multimode):
-        """Recovery mode activates after consecutive failures."""
-        # Simulate consecutive failures
-        for _ in range(5):
-            routing_manager_multimode.validate_action(None, [])
+    def test_llm_validation_failed_increments(self, routing_manager_multimode):
+        """LLM validation failed counter increments on invalid action."""
+        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
 
-        # Check consecutive failures tracked
-        assert routing_manager_multimode.consecutive_llm_failures >= 3
-
-    def test_recovery_mode_resets_on_success(self, routing_manager_multimode):
-        """Recovery mode resets on successful action."""
-        # Simulate some failures
-        for _ in range(2):
-            routing_manager_multimode.validate_action(None, [])
-
-        # Then success
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
-        routing_manager_multimode.validate_action(action, [], decision_maker="llm")
-
-        # Counter should reset
-        assert routing_manager_multimode.consecutive_llm_failures == 0
-
-    def test_recovery_mode_forces_algorithm(self, routing_manager_multimode):
-        """Recovery mode forces algorithm path."""
-        # Trigger recovery mode
-        for _ in range(5):
-            routing_manager_multimode.validate_action(None, [])
-
-        # Now routing should return algorithm during recovery
-        if routing_manager_multimode.recovery_mode_active:
-            decision = routing_manager_multimode.route_decision(iteration=100)
-            assert decision == "algorithm"
-
-
-# =============================================================================
-# Fallback Counting Tests
-# =============================================================================
-
-class TestFallbackCounting:
-    """Test fallback action counting."""
-
-    def test_llm_fallback_increments(self, routing_manager_multimode):
-        """LLM fallback counter increments."""
-        initial = routing_manager_multimode.get_decision_counters()["llm_fallback"]
-
-        # Trigger fallback
+        # Trigger validation failure (None action)
         routing_manager_multimode.validate_action(None, [])
 
         counters = routing_manager_multimode.get_decision_counters()
-        assert counters["llm_fallback"] == initial + 1
+        assert counters["llm_validation_failed"] == initial + 1
 
-    def test_loop_detection_fallback_increments(self, routing_manager_multimode):
-        """Loop detection fallback increments counter."""
+    def test_valid_action_does_not_increment_failure(self, routing_manager_multimode):
+        """Valid action does not increment failure counter."""
+        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
+
+        action = {"action_type": "CLICK", "x": 100, "y": 200}
+        routing_manager_multimode.validate_action(action, [], decision_maker="llm")
+
+        counters = routing_manager_multimode.get_decision_counters()
+        assert counters["llm_validation_failed"] == initial
+
+    def test_invalid_action_returns_back(self, routing_manager_multimode):
+        """Invalid action returns BACK for execution."""
+        result = routing_manager_multimode.validate_action(None, [])
+
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
+
+
+# =============================================================================
+# Validation Failure Counting Tests
+# =============================================================================
+
+class TestValidationFailureCounting:
+    """Test validation failure counting."""
+
+    def test_validation_failed_increments(self, routing_manager_multimode):
+        """Validation failed counter increments."""
+        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
+
+        # Trigger validation failure
+        routing_manager_multimode.validate_action(None, [])
+
+        counters = routing_manager_multimode.get_decision_counters()
+        assert counters["llm_validation_failed"] == initial + 1
+
+    def test_loop_detection_increments_validation_failed(self, routing_manager_multimode):
+        """Loop detection increments validation failed counter."""
         action = {"action_type": "CLICK", "x": 100, "y": 200}
         recent_actions = [action] * 10
 
-        initial = routing_manager_multimode.get_decision_counters()["llm_fallback"]
+        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
 
         routing_manager_multimode.validate_action(action, recent_actions)
 
         counters = routing_manager_multimode.get_decision_counters()
-        assert counters["llm_fallback"] >= initial
+        assert counters["llm_validation_failed"] >= initial
 
 
 # =============================================================================
@@ -523,26 +520,28 @@ class TestProportionTracking:
 class TestEdgeCases:
     """Test routing edge cases."""
 
-    def test_empty_action_dict_fallback(self, routing_manager_multimode):
-        """Empty action dict triggers fallback."""
+    def test_empty_action_dict_returns_back(self, routing_manager_multimode):
+        """Empty action dict returns BACK."""
         result = routing_manager_multimode.validate_action({}, [])
 
-        assert result["validation_path"] == "algorithm_fallback"
-        assert result["used_fallback"] is True
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
 
-    def test_action_with_empty_action_type(self, routing_manager_multimode):
-        """Action with empty action_type triggers fallback."""
+    def test_action_with_empty_action_type_returns_back(self, routing_manager_multimode):
+        """Action with empty action_type returns BACK."""
         action = {"action_type": "", "x": 100, "y": 200}
         result = routing_manager_multimode.validate_action(action, [])
 
-        assert result["validation_path"] == "algorithm_fallback"
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
 
-    def test_action_with_none_action_type(self, routing_manager_multimode):
-        """Action with None action_type triggers fallback."""
+    def test_action_with_none_action_type_returns_back(self, routing_manager_multimode):
+        """Action with None action_type returns BACK."""
         action = {"action_type": None, "x": 100, "y": 200}
         result = routing_manager_multimode.validate_action(action, [])
 
-        assert result["validation_path"] == "algorithm_fallback"
+        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
 
     def test_large_iteration_number(self, routing_manager_pure):
         """Handle large iteration numbers."""

@@ -129,17 +129,18 @@ class TestActionSelection:
         # Should have selected 3 different actions
         assert len(selected_coords) == 3
 
-    def test_returns_none_when_exhausted(self, rvagent_strategy, simple_screen):
-        """Returns None when all actions are exhausted."""
+    def test_continues_exploration_after_exhausted(self, rvagent_strategy, simple_screen):
+        """Continues exploration (least-visited) after all actions executed once."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
         # Execute all 3 actions
         for _ in range(3):
             rvagent_strategy.select_next_action(screen_hash, simple_screen)
 
-        # Fourth call should return None
+        # Fourth call should return least-visited action (continuous exploration mode)
         action = rvagent_strategy.select_next_action(screen_hash, simple_screen)
-        assert action is None
+        # In continuous mode, returns least-visited action instead of None
+        assert action is not None
 
 
 class TestMOPPrioritization:
@@ -679,9 +680,10 @@ class TestExplorationScenarios:
         assert "opt_privacy" in selected_widget_ids
         assert "opt_about" in selected_widget_ids
 
-        # Should backtrack when exhausted (no more actions)
+        # In continuous exploration mode, still returns actions (least-visited)
+        # But should_backtrack still returns True when all unique actions tested
         next_action = rvagent_strategy.select_next_action(settings_hash, settings_screen)
-        assert next_action is None
+        assert next_action is not None  # Continuous mode returns least-visited
         assert rvagent_strategy.should_backtrack(settings_hash) is True
 
     def test_mop_driven_exploration(self, rvagent_strategy):

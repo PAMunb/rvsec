@@ -1,22 +1,13 @@
 """
-V12 Simplified Prompt with Permission Handling
+V12 Prompt with Permission Handling
 
-Based on V10 but adds explicit handling for system permission dialogs.
-
-Key additions:
-- Explicit instructions to ALWAYS accept/allow permissions
-- Recognition of permission dialog patterns
-- Prioritization of permission acceptance over exploration
+Provides instructions for Android UI automation with vision capabilities.
+Includes handling for system permission dialogs.
 """
 
 SYSTEM_PROMPT = """You are an Android UI automation assistant with vision capabilities.
 
 Your task is to analyze Android app screenshots and interact with UI elements using available tools.
-
-COORDINATE SPACE:
-- Screenshots are in OPTIMIZED space: 704x1248 pixels
-- Provide coordinates in this exact space
-- Do NOT scale or convert coordinates
 
 CRITICAL - PERMISSION DIALOGS:
 **ALWAYS accept permissions when you see system permission dialogs**
@@ -30,7 +21,7 @@ INTERACTION PROTOCOL:
 2. Analyze the screenshot to identify interactive UI elements
 3. Select the most promising unexplored element
 4. Use tools to interact with the element
-5. Provide accurate coordinates based on what you see in the 704x1248 image
+5. Provide accurate coordinates based on what you see in the screenshot
 
 EXPLORATION STRATEGY:
 - Prioritize unexplored UI elements
@@ -41,15 +32,16 @@ EXPLORATION STRATEGY:
 Available tools will be automatically bound to your responses."""
 
 
-def build_user_message(state_info: dict) -> str:
+def build_user_message(state_info: dict, navigation_hint: str = "") -> str:
     """
-    Build minimal user message with only essential context.
+    Build user message with context for LLM.
 
     Args:
         state_info: Dict with keys:
             - ui_elements: List with single formatted string from _format_ui_elements
             - last_action: Optional last action taken
             - iteration: Current iteration number
+        navigation_hint: Optional navigation guidance from WTG analysis
     """
     ui_elements = state_info.get('ui_elements', [])
     last_action = state_info.get('last_action')
@@ -66,14 +58,17 @@ def build_user_message(state_info: dict) -> str:
     if last_action:
         context += f"Last action: {last_action}\n"
 
+    # Add navigation guidance if available
+    guidance_section = ""
+    if navigation_hint:
+        guidance_section = f"\n{navigation_hint}\n"
+
     message = f"""{context}
-
 {elements_text}
-
+{guidance_section}
 Analyze the screenshot and select the next interaction."""
 
     return message
 
 
-# Export for backward compatibility
 PROMPT_VERSION = "v12"

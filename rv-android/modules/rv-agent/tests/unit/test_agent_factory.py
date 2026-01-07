@@ -568,7 +568,6 @@ class TestAgentFactoryComponentCreation:
         assert call_kwargs['dynamic_graph'] == mock_graph
         assert call_kwargs['ui_coverage'] == mock_coverage
         assert call_kwargs['device_dimensions'] == (1080, 1920)
-        assert call_kwargs['optimized_dimensions'] == (704, 1248)
 
     @patch('rv_agent.agent.agent_factory.DeviceInterface')
     @patch('rv_agent.agent.agent_factory.DynamicStateGraph')

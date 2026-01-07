@@ -16,7 +16,6 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_agent.ui.rvagent_visitor import RVAgentVisitor
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
 from rv_agent.agent.device_interface import DeviceInterface
-from rv_agent.services import coordinate_utils
 from rv_agent.memory.ui_coverage import UICoverageTracker
 
 
@@ -52,7 +51,6 @@ class ScreenProcessor:
         ui_coverage: Optional[UICoverageTracker] = None,
         static_data: Optional[StaticAnalysisData] = None,
         device_dimensions: Tuple[int, int] = (1080, 1920),
-        optimized_dimensions: Tuple[int, int] = (704, 1248),
         max_external_attempts: int = 3
     ):
         """
@@ -64,7 +62,6 @@ class ScreenProcessor:
             ui_coverage: UI coverage tracker for element annotations
             static_data: Optional static analysis data for MOP markers
             device_dimensions: Device screen size (width, height)
-            optimized_dimensions: Optimized image size for LLM
             max_external_attempts: Maximum external navigation attempts before restart
         """
         self.device = device
@@ -72,7 +69,6 @@ class ScreenProcessor:
         self.ui_coverage = ui_coverage
         self.static_data = static_data
         self.device_dimensions = device_dimensions
-        self.optimized_dimensions = optimized_dimensions
         self.max_external_attempts = max_external_attempts
 
         # Initialize UI parser using factory pattern with RVAgentVisitor
@@ -173,7 +169,9 @@ class ScreenProcessor:
             "ui_elements_text": ui_elements_text,
             "is_external": is_external,
             "external_navigation_count": external_navigation_count,
-            "restart_occurred": restart_occurred
+            "restart_occurred": restart_occurred,
+            # INSTRUMENTATION: Raw XML for hit classification
+            "ui_xml": ui_state.get('xml', '')
         }
 
     def format_ui_elements(self, screen_description: ScreenDescription) -> str:
@@ -258,10 +256,9 @@ class ScreenProcessor:
                     lines.append(desc)
             lines.append("")
 
-        # Add screen dimensions
-        opt_width, opt_height = self.optimized_dimensions
+        # Add coordinate system info
         lines.extend([
-            f"Screen resolution: {opt_width}x{opt_height} pixels",
+            "Coordinates are normalized [0, 1000) range",
             "Use EXACT coordinates from 'at position (x, y)' for tool calls"
         ])
 
@@ -288,7 +285,11 @@ class ScreenProcessor:
         category_label: Optional[str] = None
     ) -> str:
         """
-        Format single element with optimized coordinates.
+        Format single element with normalized [0, 1000) coordinates.
+
+        Coordinates are normalized to [0, 1000) range to match Qwen3-VL's
+        coordinate system. When LLM copies these coords, ActionNormalizer
+        converts them back to device pixels correctly.
 
         Args:
             index: Element index in list
@@ -312,26 +313,11 @@ class ScreenProcessor:
         device_center_x = (bounds[0][0] + bounds[1][0]) // 2
         device_center_y = (bounds[0][1] + bounds[1][1]) // 2
 
-        # Transform to optimized space
-        optimized_center_x, optimized_center_y = coordinate_utils.device_to_optimized(
-            device_center_x,
-            device_center_y,
-            self.device_dimensions,
-            self.optimized_dimensions
-        )
-
-        # Transform bounds to optimized space
-        opt_x1, opt_y1 = coordinate_utils.device_to_optimized(
-            bounds[0][0], bounds[0][1],
-            self.device_dimensions,
-            self.optimized_dimensions
-        )
-        opt_x2, opt_y2 = coordinate_utils.device_to_optimized(
-            bounds[1][0], bounds[1][1],
-            self.device_dimensions,
-            self.optimized_dimensions
-        )
-        optimized_bounds = [[opt_x1, opt_y1], [opt_x2, opt_y2]]
+        # Convert to normalized [0, 1000) coordinates
+        # This matches Qwen3-VL's coordinate system
+        device_width, device_height = self.device_dimensions
+        norm_x = int((device_center_x / device_width) * 1000)
+        norm_y = int((device_center_y / device_height) * 1000)
 
         # Build description
         desc_parts = [f"{index}."]
@@ -345,7 +331,7 @@ class ScreenProcessor:
             desc_parts.append(f"({resource_id})")
 
         desc = " ".join(desc_parts)
-        desc += f" at position ({optimized_center_x}, {optimized_center_y}) - bounds{optimized_bounds}"
+        desc += f" at position ({norm_x}, {norm_y})"
 
         # Add actions and MOP markers
         if hasattr(item, 'actions') and item.actions:

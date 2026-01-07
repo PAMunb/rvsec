@@ -124,6 +124,16 @@ class RVAgentConfig(BaseValidatedModel):
         description="Maximum actions outside target app before restart"
     )
 
+    # === LOGGING CONFIGURATION ===
+    log_level: str = Field(
+        default="INFO",
+        description="Log level: DEBUG, INFO, WARNING, ERROR"
+    )
+    verbose_counters: bool = Field(
+        default=False,
+        description="Enable detailed counter tracking logs ([COUNTER] messages)"
+    )
+
     # === COORDINATE CONFIGURATION ===
     coordinate_tolerance: int = Field(
         default=RVAgentConstants.COORDINATE_TOLERANCE,
@@ -263,6 +273,35 @@ class RVAgentConfig(BaseValidatedModel):
         if env_mode and env_mode in valid_modes:
             return env_mode
         return self.agent_mode
+
+    def get_log_level(self) -> int:
+        """
+        Get logging level with environment variable override.
+
+        Environment variable RVAGENT_LOG_LEVEL overrides config setting.
+
+        Returns:
+            Logging level as integer (e.g., logging.INFO)
+        """
+        import os
+        import logging
+        level_str = os.getenv("RVAGENT_LOG_LEVEL", self.log_level).upper()
+        return getattr(logging, level_str, logging.INFO)
+
+    def get_verbose_counters(self) -> bool:
+        """
+        Get verbose_counters setting with environment variable override.
+
+        Environment variable RVAGENT_VERBOSE_COUNTERS overrides config setting.
+
+        Returns:
+            True if verbose counter logging is enabled
+        """
+        import os
+        env_val = os.getenv("RVAGENT_VERBOSE_COUNTERS", "")
+        if env_val:
+            return env_val.lower() in ("1", "true", "yes")
+        return self.verbose_counters
 
     def get_loop_threshold(self, action_type: str) -> int:
         """

@@ -126,8 +126,8 @@ class TestToolBinding:
             assert "name" in tool_call or "function" in tool_call
         else:
             # Fallback: tool call might be in content
-            from rv_agent.llm.tools.tool_call_parser import parse_tool_calls_from_text
+            from rv_agent.llm.tools.tool_call_parser import parse_tool_calls_with_strategy
 
-            tool_calls = parse_tool_calls_from_text(response.content)
+            tool_calls, _ = parse_tool_calls_with_strategy(response.content)
             # At least verify parsing doesn't crash
             assert isinstance(tool_calls, list)

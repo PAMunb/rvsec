@@ -21,7 +21,7 @@ from rv_agent.agent.nodes import (
     algorithm_node,
     capture_screenshot_node,
     llm_generate_node,
-    validation_router_node,
+    validate_action_node,
     execute_node,
     learn_node,
 )
@@ -35,6 +35,7 @@ from rv_agent.llm.llm_client import LLMClient
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.domain.action import ActionNormalizer
 
 
 @pytest.fixture
@@ -51,6 +52,16 @@ def agent_config():
 @pytest.fixture
 def mock_dependencies():
     """Standard mock dependencies."""
+    # Create ActionNormalizer mock that properly normalizes LLM actions
+    mock_action_normalizer = MagicMock(spec=ActionNormalizer)
+    mock_action_normalizer.from_llm.side_effect = lambda raw: {
+        "action_type": raw.get("tool_name", "CLICK").upper(),
+        "x": raw.get("tool_args", {}).get("x", 0),
+        "y": raw.get("tool_args", {}).get("y", 0),
+        "text": raw.get("tool_args", {}).get("text", ""),
+        "source": "llm"
+    }
+
     mock_deps = {
         "device": MagicMock(spec=DeviceInterface),
         "dynamic_graph": MagicMock(spec=DynamicStateGraph),
@@ -61,10 +72,22 @@ def mock_dependencies():
         "routing_manager": MagicMock(),
         "tool_executor": MagicMock(spec=ToolExecutor),
         "memory_coordinator": MagicMock(spec=MemoryCoordinator),
+        "action_normalizer": mock_action_normalizer,
     }
     mock_deps["routing_manager"].forced_back_count = 0
     mock_deps["routing_manager"].llm_executed = 0
     mock_deps["routing_manager"].algorithm_chosen = 0
+    mock_deps["routing_manager"].llm_validation_failed = 0
+    mock_deps["routing_manager"].get_decision_counters.return_value = {
+        "total_actions": 0,
+        "llm_executed": 0,
+        "algorithm_chosen": 0,
+        "llm_percentage": 0.0,
+        "algorithm_percentage": 0.0,
+        "llm_validation_failed": 0,
+        "forced_back": 0,
+        "primary_total": 0
+    }
     return mock_deps
 
 
@@ -231,16 +254,24 @@ class TestDecisionRouterNode:
         result = decision_router_node(agent, state)
 
         assert result["decision_path"] == "algorithm"
-        assert result["decision_maker"] == "algorithm"
+        assert result["decision_maker"] == "stuck_recovery"
         assert agent.routing_manager.forced_back_count == 1
 
     def test_force_back_increments_counter(self, agent, mock_dependencies):
         """Force back increments forced_back_count."""
+        # Set up initial value for the mock
+        agent.routing_manager.forced_back_count = 0
+
         state = {"iteration": 1, "force_back_action": True}
 
+        # Call once
         decision_router_node(agent, state)
-        decision_router_node(agent, state)
+        # The counter should be incremented
+        assert agent.routing_manager.forced_back_count == 1
 
+        # Call again
+        decision_router_node(agent, state)
+        # The counter should be incremented again
         assert agent.routing_manager.forced_back_count == 2
 
 
@@ -367,10 +398,19 @@ class TestLLMGenerateNode:
 
     def test_calls_llm_with_context(self, agent, mock_dependencies):
         """LLM node calls generate_action with context."""
+        # Create a mock response object with tool_calls attribute
+        mock_response = MagicMock()
+        mock_response.tool_calls = [
+            {
+                "name": "click",
+                "args": {"x": 100, "y": 200, "text": "button"}
+            }
+        ]
+        mock_response.content = "Clicking the button"
+
         mock_dependencies["llm_client"].generate_action.return_value = {
-            "action": {"action_type": "CLICK", "x": 100, "y": 200},
-            "has_tool_calls": True,
-            "reasoning": "Clicking button",
+            "response": mock_response,
+            "success": True,
             "tokens_input": 1000,
             "tokens_output": 50,
             "time_ms": 500
@@ -394,8 +434,8 @@ class TestLLMGenerateNode:
         assert result["llm_tokens_input"] == 1100  # 100 + 1000
         assert result["llm_tokens_output"] == 60  # 10 + 50
 
-    def test_no_llm_client_returns_fallback(self, agent_config, mock_dependencies):
-        """No LLM client returns algorithm fallback."""
+    def test_no_llm_client_returns_no_action(self, agent_config, mock_dependencies):
+        """No LLM client returns no action (will be handled by validation)."""
         mock_dependencies["llm_client"] = None
         agent = RVAgent(config=agent_config, **mock_dependencies)
 
@@ -404,19 +444,17 @@ class TestLLMGenerateNode:
 
         assert result["llm_action"] is None
         assert result["has_tool_calls"] is False
-        assert result["validation_path"] == "algorithm_fallback"
+        assert result["decision_maker"] == "llm"
 
 
-class TestValidationRouterNode:
-    """Test validation_router_node behavior."""
+class TestValidateActionNode:
+    """Test validate_action_node behavior."""
 
     def test_validates_llm_action(self, agent, mock_dependencies):
         """Validates LLM action through routing manager."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
             "current_action": {"action_type": "CLICK", "x": 100},
-            "validation_path": "execute",
-            "loop_detected": False,
-            "used_fallback": False
+            "loop_detected": False
         }
 
         state = {
@@ -424,18 +462,16 @@ class TestValidationRouterNode:
             "llm_action": {"action_type": "CLICK", "x": 100},
             "recent_action_window": []
         }
-        result = validation_router_node(agent, state)
+        result = validate_action_node(agent, state)
 
-        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "CLICK"
         assert result["loop_detected"] is False
 
     def test_validates_algorithm_action(self, agent, mock_dependencies):
         """Validates algorithm action through routing manager."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
             "current_action": {"action_type": "BACK"},
-            "validation_path": "execute",
-            "loop_detected": False,
-            "used_fallback": False
+            "loop_detected": False
         }
 
         state = {
@@ -443,18 +479,16 @@ class TestValidationRouterNode:
             "current_action": {"action_type": "BACK"},
             "recent_action_window": []
         }
-        result = validation_router_node(agent, state)
+        result = validate_action_node(agent, state)
 
-        assert result["validation_path"] == "execute"
+        assert result["current_action"]["action_type"] == "BACK"
         assert result["decision_maker"] == "algorithm"
 
-    def test_loop_detected_uses_fallback(self, agent, mock_dependencies):
-        """Loop detected routes to algorithm fallback."""
+    def test_loop_detected_updates_flag(self, agent, mock_dependencies):
+        """Loop detection updates the loop_detected flag."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
-            "current_action": None,
-            "validation_path": "algorithm_fallback",
-            "loop_detected": True,
-            "used_fallback": True
+            "current_action": {"action_type": "BACK", "reason": "loop_detected"},
+            "loop_detected": True
         }
 
         state = {
@@ -462,17 +496,17 @@ class TestValidationRouterNode:
             "llm_action": {"action_type": "CLICK", "x": 100},
             "recent_action_window": [{"action_type": "CLICK", "x": 100}] * 5
         }
-        result = validation_router_node(agent, state)
+        result = validate_action_node(agent, state)
 
         assert result["loop_detected"] is True
-        assert result["used_fallback"] is True
+        assert result["current_action"]["action_type"] == "BACK"
 
 
 class TestExecuteNode:
     """Test execute_node behavior."""
 
-    def test_executes_action_without_conversion(self, agent, mock_dependencies):
-        """Algorithm action executed without coordinate conversion."""
+    def test_executes_action(self, agent, mock_dependencies):
+        """Action executed via tool executor."""
         mock_dependencies["tool_executor"].execute_action.return_value = {
             "success": True,
             "action_executed": {"action_type": "CLICK", "x": 100}
@@ -486,12 +520,11 @@ class TestExecuteNode:
 
         assert result["action_success"] is True
         mock_dependencies["tool_executor"].execute_action.assert_called_with(
-            {"action_type": "CLICK", "x": 100},
-            convert_coordinates=False
+            {"action_type": "CLICK", "x": 100}
         )
 
-    def test_executes_llm_action_with_conversion(self, agent, mock_dependencies):
-        """LLM action executed with coordinate conversion."""
+    def test_executes_llm_action(self, agent, mock_dependencies):
+        """LLM action executed via tool executor."""
         mock_dependencies["tool_executor"].execute_action.return_value = {
             "success": True,
             "action_executed": {"action_type": "CLICK", "x": 100}
@@ -504,8 +537,7 @@ class TestExecuteNode:
         result = execute_node(agent, state)
 
         mock_dependencies["tool_executor"].execute_action.assert_called_with(
-            {"action_type": "CLICK", "x": 50},
-            convert_coordinates=True
+            {"action_type": "CLICK", "x": 50}
         )
 
     def test_records_transition_on_success(self, agent, mock_dependencies):
@@ -660,9 +692,9 @@ class TestRunMethod:
             "algorithm_chosen": 3,
             "llm_percentage": 70.0,
             "algorithm_percentage": 30.0,
-            "llm_fallback": 0,
+            "llm_validation_failed": 0,
             "forced_back": 0,
-            "recovery_actions": 0
+            "primary_total": 10
         }
 
         # Mock memory stats
@@ -756,7 +788,7 @@ class TestBuildAgentGraph:
             node_calls = [call[0][0] for call in mock_workflow.add_node.call_args_list]
             expected_nodes = [
                 "parse_ui", "decision_router", "algorithm_node",
-                "capture_screenshot", "llm_generate", "validation_router",
+                "capture_screenshot", "llm_generate", "validate_action",
                 "execute", "learn"
             ]
             for node in expected_nodes:

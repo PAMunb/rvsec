@@ -24,7 +24,7 @@ applications using a modular component-based design with dependency injection.
 
 import time
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from langgraph.graph import StateGraph, END
 
@@ -46,14 +46,23 @@ from rv_agent.memory.agent_memory import AgentMemoryManager
 from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.services.navigation_guidance import NavigationGuidance
+from rv_agent.domain.action import ActionNormalizer
 from rv_android_core.domain.static import StaticAnalysisData
+
+# INSTRUMENTATION: Optional metrics collector for validation experiments
+# This import and usage can be removed for production
+try:
+    from validation.multimodal.collector import MultimodalMetricsCollector
+except ImportError:
+    MultimodalMetricsCollector = None  # Not available outside validation context
 from rv_agent.agent.nodes import (
     parse_ui_node,
     decision_router_node,
     algorithm_node,
     capture_screenshot_node,
     llm_generate_node,
-    validation_router_node,
+    validate_action_node,
     execute_node,
     learn_node,
 )
@@ -103,7 +112,11 @@ class RVAgent:
         routing_manager: RoutingManager,
         tool_executor: ToolExecutor,
         memory_coordinator: MemoryCoordinator,
-        static_data: Optional[StaticAnalysisData] = None
+        navigation_guidance: Optional[NavigationGuidance] = None,
+        action_normalizer: Optional[ActionNormalizer] = None,
+        static_data: Optional[StaticAnalysisData] = None,
+        # INSTRUMENTATION: Optional metrics collector for validation
+        metrics_collector: Optional[Any] = None
     ):
         """
         Initialize RVAgent with injected dependencies.
@@ -119,7 +132,10 @@ class RVAgent:
             routing_manager: Decision routing manager
             tool_executor: Action execution manager
             memory_coordinator: Memory coordination manager
+            navigation_guidance: Optional navigation guidance for WTG integration
+            action_normalizer: Action format normalizer for unified format
             static_data: Optional static analysis data
+            metrics_collector: INSTRUMENTATION - Optional collector for validation metrics
         """
         self.config = config
         self.device = device
@@ -131,7 +147,15 @@ class RVAgent:
         self.routing_manager = routing_manager
         self.tool_executor = tool_executor
         self.memory_coordinator = memory_coordinator
+        self.navigation_guidance = navigation_guidance
+        self.action_normalizer = action_normalizer
         self.static_data = static_data
+
+        # INSTRUMENTATION: Store metrics collector for validation
+        # Can be removed for production
+        self.metrics_collector = metrics_collector
+        if metrics_collector:
+            logger.info("INSTRUMENTATION: Metrics collector attached for validation")
 
         # Validate LLM client for modes that need it
         mode = config.get_agent_mode()
@@ -162,27 +186,30 @@ class RVAgent:
         Build unified LangGraph workflow for all modes.
 
         Workflow structure:
-                   start
-                     ↓
-                 parse_ui
-                     ↓
-              decision_router
-             ↙      ↓      ↘
-          algorithm  llm   end
-             ↓        ↓
-        algorithm_node  capture_screenshot
-             ↓        ↓
-             │     llm_generate
-             │        ↓
-             │    validation_router
-             │     ↙       ↘
-             │  execute  algorithm_node
-             │     ↓         ↓
-             └─→ execute ←───┘
-                   ↓
-                 learn
-                   ↓
-                  END
+                      start
+                        ↓
+                    parse_ui
+                        ↓
+                 decision_router
+                ↙      ↓      ↘
+           algorithm   llm    end
+                ↓        ↓
+                ↓   capture_screenshot
+                ↓        ↓
+                ↓   llm_generate
+                ↓        ↓
+                └──→ validate_action
+                           ↓
+                        execute
+                           ↓
+                         learn
+                           ↓
+                          END
+
+        Notes:
+        - validate_action always proceeds to execute (no fallback cycle)
+        - If action is invalid or loop detected, BACK action is substituted
+        - Stuck detection handled in learn_node, forces algorithm path with BACK
 
         Returns:
             Compiled LangGraph workflow
@@ -198,7 +225,7 @@ class RVAgent:
         workflow.add_node("algorithm_node", lambda s: algorithm_node(self, s))
         workflow.add_node("capture_screenshot", lambda s: capture_screenshot_node(self, s))
         workflow.add_node("llm_generate", lambda s: llm_generate_node(self, s))
-        workflow.add_node("validation_router", lambda s: validation_router_node(self, s))
+        workflow.add_node("validate_action", lambda s: validate_action_node(self, s))
         workflow.add_node("execute", lambda s: execute_node(self, s))
         workflow.add_node("learn", lambda s: learn_node(self, s))
 
@@ -219,21 +246,13 @@ class RVAgent:
 
         # LLM path
         workflow.add_edge("capture_screenshot", "llm_generate")
-        workflow.add_edge("llm_generate", "validation_router")
+        workflow.add_edge("llm_generate", "validate_action")
 
-        # Validation routing
-        workflow.add_conditional_edges(
-            "validation_router",
-            lambda s: s.get("validation_path", "execute"),
-            {
-                "execute": "execute",
-                "algorithm_fallback": "algorithm_node"
-            }
-        )
+        # Algorithm path also goes through validation
+        workflow.add_edge("algorithm_node", "validate_action")
 
-        # Algorithm path - UNIFIED VALIDATION
-        # Both LLM and Algorithm actions go through validation_router
-        workflow.add_edge("algorithm_node", "validation_router")
+        # Validation always goes to execute (no fallback cycle)
+        workflow.add_edge("validate_action", "execute")
 
         # Common path
         workflow.add_edge("execute", "learn")
@@ -301,7 +320,9 @@ class RVAgent:
             "llm_action": None,
             "has_tool_calls": False,
             "llm_reasoning": "",
-            "validation_path": ""
+            "validation_path": "",
+            # INSTRUMENTATION: Raw XML for hit classification
+            "ui_xml": ""
         }
 
         # External execution loop
@@ -318,7 +339,8 @@ class RVAgent:
                 state["iteration"] = iteration
 
                 # Invoke graph for one iteration
-                result = self.graph.invoke(state)
+                # Set recursion_limit to prevent infinite loops in validation routing
+                result = self.graph.invoke(state, {"recursion_limit": 100})
 
                 # Update state with results
                 state.update(result)
@@ -333,6 +355,16 @@ class RVAgent:
 
         # Compute final metrics
         execution_time = time.time() - start_time
+
+        # INSTRUMENTATION: Finalize metrics collection
+        # This block can be removed for production
+        if self.metrics_collector:
+            try:
+                self.metrics_collector.finalize()
+                logger.info("INSTRUMENTATION: Metrics collection finalized")
+            except Exception as e:
+                logger.warning(f"INSTRUMENTATION: Failed to finalize metrics: {e}")
+        # END INSTRUMENTATION
 
         # Get decision counters (detailed breakdown)
         counters = self.routing_manager.get_decision_counters()
@@ -350,7 +382,7 @@ class RVAgent:
             "llm_tokens_output": state["llm_tokens_output"],
             "llm_time_ms": state["llm_time_ms"],
 
-            # Decision counters - detailed breakdown
+            # Decision counters
             "total_actions": counters["total_actions"],
 
             # Primary counters (validate 70/30 proportion)
@@ -359,10 +391,9 @@ class RVAgent:
             "llm_percentage": counters["llm_percentage"],
             "algorithm_percentage": counters["algorithm_percentage"],
 
-            # Auxiliary counters (special cases - not in 70/30)
-            "llm_fallback": counters["llm_fallback"],
+            # Event counters
+            "llm_validation_failed": counters["llm_validation_failed"],
             "forced_back": counters["forced_back"],
-            "recovery_actions": counters["recovery_actions"],
 
             "memory_stats": memory_stats
         }

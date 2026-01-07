@@ -26,23 +26,20 @@ class TestScreenProcessorInit:
         assert processor.device is device
         assert processor.dynamic_graph is graph
         assert processor.device_dimensions == (1080, 1920)
-        assert processor.optimized_dimensions == (704, 1248)
         assert processor.max_external_attempts == 3
 
     def test_initialization_with_custom_dimensions(self):
-        """Processor accepts custom dimensions."""
+        """Processor accepts custom device dimensions."""
         device = MagicMock()
         graph = DynamicStateGraph()
 
         processor = ScreenProcessor(
             device=device,
             dynamic_graph=graph,
-            device_dimensions=(1440, 2560),
-            optimized_dimensions=(540, 960)
+            device_dimensions=(1440, 2560)
         )
 
         assert processor.device_dimensions == (1440, 2560)
-        assert processor.optimized_dimensions == (540, 960)
 
 
 class TestFormatUIElements:

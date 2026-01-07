@@ -11,7 +11,7 @@ Node Functions:
 - algorithm_node: Generate action using algorithmic strategy
 - capture_screenshot_node: Capture and optimize screenshot for LLM
 - llm_generate_node: Generate action using LLM
-- validation_router_node: Validate action and route to execution
+- validate_action_node: Validate action before execution
 - execute_node: Execute action on device
 - learn_node: Update memory systems and detect stuck states
 """
@@ -21,7 +21,7 @@ from rv_agent.agent.nodes.decision_node import decision_router_node
 from rv_agent.agent.nodes.algorithm_node import algorithm_node
 from rv_agent.agent.nodes.capture_node import capture_screenshot_node
 from rv_agent.agent.nodes.llm_node import llm_generate_node
-from rv_agent.agent.nodes.validation_node import validation_router_node
+from rv_agent.agent.nodes.validation_node import validate_action_node
 from rv_agent.agent.nodes.execute_node import execute_node
 from rv_agent.agent.nodes.learn_node import learn_node
 
@@ -31,7 +31,7 @@ __all__ = [
     "algorithm_node",
     "capture_screenshot_node",
     "llm_generate_node",
-    "validation_router_node",
+    "validate_action_node",
     "execute_node",
     "learn_node",
 ]

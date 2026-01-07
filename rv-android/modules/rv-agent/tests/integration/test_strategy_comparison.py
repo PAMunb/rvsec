@@ -234,7 +234,7 @@ class TestCoverageAchievement:
             strategy = StrategyClass(graph=graph)
             screen_hash = compute_screen_hash_from_description(screen_desc)
 
-            while True:
+            for _ in range(100):  # Safety limit
                 action = strategy.select_next_action(screen_hash, screen_desc)
                 if action is None:
                     break
@@ -310,7 +310,7 @@ class TestMultiScreenStrategies:
             _, screen_desc = load_fixture("cryptoapp", screen_num)
             screen_hash = compute_screen_hash_from_description(screen_desc)
 
-            while True:
+            for _ in range(100):  # Safety limit
                 action = strategy.select_next_action(screen_hash, screen_desc)
                 if action is None:
                     break
@@ -329,7 +329,7 @@ class TestMultiScreenStrategies:
             _, screen_desc = load_fixture("cryptoapp", screen_num)
             screen_hash = compute_screen_hash_from_description(screen_desc)
 
-            while True:
+            for _ in range(100):  # Safety limit
                 action = strategy.select_next_action(screen_hash, screen_desc)
                 if action is None:
                     break
@@ -347,7 +347,7 @@ class TestMultiScreenStrategies:
             _, screen_desc = load_fixture("cryptoapp", screen_num)
             screen_hash = compute_screen_hash_from_description(screen_desc)
 
-            while True:
+            for _ in range(100):  # Safety limit
                 action = strategy.select_next_action(screen_hash, screen_desc)
                 if action is None:
                     break

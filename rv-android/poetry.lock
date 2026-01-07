@@ -1084,6 +1084,21 @@ files = [
 tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipython", "littleutils", "pytest", "rich ; python_version >= \"3.11\""]
 
 [[package]]
+name = "faker"
+version = "29.0.0"
+description = "Faker is a Python package that generates fake data for you."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "Faker-29.0.0-py3-none-any.whl", hash = "sha256:32d0ee7d42925ff06e4a7d906ee7efbf34f5052a41a2a1eb8bb174a422a5498f"},
+    {file = "faker-29.0.0.tar.gz", hash = "sha256:34e89aec594cad9773431ca479ee95c7ce03dd9f22fda2524e2373b880a2fa77"},
+]
+
+[package.dependencies]
+python-dateutil = ">=2.4"
+
+[[package]]
 name = "filelock"
 version = "3.20.0"
 description = "A platform independent file lock."
@@ -4883,6 +4898,7 @@ develop = true
 [package.dependencies]
 backoff = "^2.2.1"
 click = "^8.1.0"
+faker = "^29.0.0"
 httpx = "^0.28.0"
 langchain = "^0.3"
 langchain-core = "^0.3"
@@ -4896,6 +4912,7 @@ python-dotenv = "^1.0.0"
 requests = "^2.32.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 rv-uiautomator = {path = "../rv-uiautomator", develop = true}
 scipy = "^1.14.0"
 
@@ -6555,4 +6572,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "ac01dd2de3d20068ec03f7893f0157cbc3dac7e5edd4b943efbedcb93f1bb76e"
+content-hash = "eb534a31a69ce5c7aae2b3c3a748c70349040ea087f8b690523b6d0727cd841d"

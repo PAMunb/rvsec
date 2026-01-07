@@ -19,8 +19,9 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     """
     Route decision between LLM and algorithm paths.
 
-    Checks for forced BACK action from stuck state detection, then
-    delegates to routing_manager for mode-based decision.
+    When force_back_action is set (stuck detection), routes to algorithm
+    path which will generate a BACK action. Otherwise delegates to
+    routing_manager for mode-based probabilistic routing.
 
     Args:
         agent: RVAgent instance with routing_manager
@@ -31,26 +32,15 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     """
     logger.info("DECISION_ROUTER: Routing decision")
 
+    # Check for forced BACK action from stuck detection
+    # Routes to algorithm path which handles BACK generation
     force_back = state.get("force_back_action", False)
-    logger.debug(f"force_back_action = {force_back}")
-
-    # Check for forced BACK action BEFORE routing
-    # Stuck state detection sets force_back_action=True to force BACK via algorithm
     if force_back:
+        logger.warning("force_back_action=True -> Routing to algorithm for BACK")
         agent.routing_manager.forced_back_count += 1
-        current_hash = state.get("current_screen_hash", "UNKNOWN")
-        iteration = state.get("iteration", 0)
-        logger.warning("force_back_action=True -> Forcing algorithm path for BACK")
-        logger.warning(
-            f"[AUXILIARY_COUNTER] forced_back++ (now={agent.routing_manager.forced_back_count}) | "
-            f"iteration={iteration} | screen_hash={current_hash[:12]}... | "
-            f"stuck_count_was={agent.stuck_screen_count} | threshold={agent.STUCK_THRESHOLD} | "
-            f"llm_exec={agent.routing_manager.llm_executed} | "
-            f"alg_chosen={agent.routing_manager.algorithm_chosen}"
-        )
         return {
             "decision_path": "algorithm",
-            "decision_maker": "algorithm"
+            "decision_maker": "stuck_recovery"
         }
 
     iteration = state.get("iteration", 0)

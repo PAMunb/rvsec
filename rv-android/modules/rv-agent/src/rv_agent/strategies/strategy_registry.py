@@ -14,6 +14,7 @@ from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
 from rv_agent.strategies.rvagent_strategy import RVAgentStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.services.transition_manager import TransitionManager
 from rv_android_core.domain.static import StaticAnalysisData
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ class StrategyRegistry:
         static_data: Optional[StaticAnalysisData] = None,
         coordinate_converter: Optional[Any] = None,
         ui_coverage: Optional[Any] = None,
+        transition_manager: Optional[TransitionManager] = None,
         plateau_window: int = 10,
         max_input_variations: int = 3,
         target_package: Optional[str] = None
@@ -101,6 +103,7 @@ class StrategyRegistry:
             static_data: Optional static analysis data for MOP guidance
             coordinate_converter: Optional coordinate converter for space transformations
             ui_coverage: Optional UICoverageTracker (required for rvagent)
+            transition_manager: Optional TransitionManager for WTG integration (rvagent only)
             plateau_window: Plateau detection window size (rvagent only)
             max_input_variations: Max test values per input field (rvagent only)
             target_package: Target app package name for filtering external elements
@@ -133,6 +136,7 @@ class StrategyRegistry:
                 ui_coverage=ui_coverage,
                 coordinate_converter=coordinate_converter,
                 static_data=static_data,
+                transition_manager=transition_manager,
                 plateau_window=plateau_window,
                 max_input_variations=max_input_variations,
                 target_package=target_package

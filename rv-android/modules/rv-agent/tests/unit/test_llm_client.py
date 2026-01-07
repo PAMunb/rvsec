@@ -488,24 +488,24 @@ class TestGenerateAction:
         assert client.total_calls == 1
 
     def test_generate_action_failure(self, client):
-        """generate_action handles exceptions."""
+        """generate_action raises LLMError on exception."""
         from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
+        from rv_agent.domain.exceptions import LLMError
 
         client.llm_with_tools.invoke = MagicMock(side_effect=Exception("Connection failed"))
 
         mock_screen_desc = MagicMock(spec=ScreenDescription)
         mock_screen_desc.items = []
 
-        result = client.generate_action(
-            screen_description=mock_screen_desc,
-            ui_elements_text="OK button",
-            screenshot_b64="base64image",
-            iteration=1
-        )
+        with pytest.raises(LLMError) as exc_info:
+            client.generate_action(
+                screen_description=mock_screen_desc,
+                ui_elements_text="OK button",
+                screenshot_b64="base64image",
+                iteration=1
+            )
 
-        assert result["success"] is False
-        assert "error" in result
-        assert result["parser_strategy"] == "none"
+        assert "Connection failed" in str(exc_info.value)
 
 
 class TestResetStats:

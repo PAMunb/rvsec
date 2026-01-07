@@ -13,6 +13,7 @@ python = ">=3.12,<4.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-uiautomator = {path = "../rv-uiautomator", develop = true}
+rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 
 # LangChain ecosystem (SGLang via OpenAI-compatible API)
 # Updated 2026-01-06 - using 0.3.x series for LangGraph compatibility
@@ -33,6 +34,7 @@ pillow = "^10.0.0"
 python-dotenv = "^1.0.0"
 backoff = "^2.2.1"
 scipy = "^1.14.0"
+faker = "^29.0.0"
 
 # CLI
 click = "^8.1.0"
@@ -43,6 +45,7 @@ rv-agent = "rv_agent.cli.main:cli"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-cov = "^7.0.0"
+hypothesis = "^6.100.2"
 
 [build-system]
 requires = ["poetry-core"]

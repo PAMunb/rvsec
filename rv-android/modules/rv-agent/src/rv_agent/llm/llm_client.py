@@ -1,10 +1,7 @@
 """
-LLM Client for SGLang backend with Qwen3-VL vision model.
+LLM client for vision-based action generation.
 
-Handles multimodal LLM communication using LangChain ChatOpenAI
-with SGLang's OpenAI-compatible API.
-
-Based on validation from rvsec-vision-llm benchmark (2,847 tests).
+Handles multimodal LLM communication using LangChain with SGLang backend.
 """
 
 import base64
@@ -17,6 +14,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
 
 from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.domain.exceptions import LLMError
 from rv_agent.llm.tools.sglang_tools import get_android_tools
 from rv_agent.llm.tools.tool_call_parser import (
     normalize_tool_args,
@@ -31,11 +29,29 @@ logger = logging.getLogger(__name__)
 
 class LLMClient:
     """
-    LangChain-based client for SGLang vision LLM inference.
+    Vision LLM client for action generation using SGLang backend.
 
-    Wraps ChatOpenAI for SGLang's OpenAI-compatible endpoint.
-    Provides tool binding, multimodal message construction,
-    and fallback parsing for tool calls.
+    Wraps LangChain ChatOpenAI for multimodal inference with tool calling.
+    Handles message construction, tool binding, and response parsing.
+
+    ### Architectural Decisions:
+    - Uses LangChain ChatOpenAI with SGLang's OpenAI-compatible API
+    - Binds Android tools for structured action output
+    - Implements fallback parsing for tool calls from text
+    - Tracks token usage and latency metrics
+    - Raises LLMError on invocation failures
+
+    ### Role in the System:
+    - Generates actions from screenshot and UI description
+    - Provides tool-based action output format
+    - Tracks LLM usage metrics (tokens, latency)
+    - Supports navigation hints from WTG analysis
+
+    ### Integration Points:
+    - Receives configuration via RVAgentConfig
+    - Uses prompt module for message construction
+    - Returns raw tool calls for ActionNormalizer
+    - Reports metrics to caller
     """
 
     def __init__(self, config: RVAgentConfig, prompt_module: Any):
@@ -86,6 +102,7 @@ class LLMClient:
         ui_elements_text: str,
         iteration: int = 0,
         last_action_summary: Optional[str] = None,
+        navigation_hint: str = "",
         temperature: float = None,
         top_p: float = None,
         top_k: int = None,
@@ -100,6 +117,7 @@ class LLMClient:
             ui_elements_text: Formatted UI elements text
             iteration: Current iteration number
             last_action_summary: Summary of last executed action
+            navigation_hint: Optional navigation guidance from WTG analysis
             temperature: Override temperature (uses config default if None)
             top_p: Override top_p (uses config default if None)
             top_k: Override top_k (unused in ChatOpenAI)
@@ -127,6 +145,7 @@ class LLMClient:
                 screenshot_b64=screenshot_b64,
                 iteration=iteration,
                 last_action_summary=last_action_summary,
+                navigation_hint=navigation_hint,
             )
 
             self.logger.debug(f"Built {len(messages)} messages")
@@ -168,19 +187,12 @@ class LLMClient:
                 "parser_strategy": parser_strategy,
             }
 
+        except LLMError:
+            raise
         except Exception as e:
             latency_ms = (time.perf_counter() - start_time) * 1000
             self.logger.error(f"LLM invocation failed: {e}", exc_info=True)
-
-            return {
-                "response": None,
-                "tokens_input": 0,
-                "tokens_output": 0,
-                "time_ms": latency_ms,
-                "success": False,
-                "error": str(e),
-                "parser_strategy": "none",
-            }
+            raise LLMError(f"LLM invocation failed: {e}") from e
 
     def _build_messages(
         self,
@@ -188,6 +200,7 @@ class LLMClient:
         screenshot_b64: str,
         iteration: int,
         last_action_summary: Optional[str],
+        navigation_hint: str = "",
     ) -> List:
         """
         Build LangChain messages with multimodal content.
@@ -197,6 +210,7 @@ class LLMClient:
             screenshot_b64: Base64-encoded screenshot
             iteration: Current iteration
             last_action_summary: Last action summary
+            navigation_hint: Optional navigation guidance from WTG
 
         Returns:
             List of LangChain messages
@@ -210,7 +224,7 @@ class LLMClient:
             "last_action": last_action_summary,
             "iteration": iteration,
         }
-        user_text = self.prompt_module.build_user_message(state_info)
+        user_text = self.prompt_module.build_user_message(state_info, navigation_hint=navigation_hint)
 
         # Create multimodal human message
         messages = [

@@ -23,11 +23,9 @@ class TestImports:
         """Agent modules import without error."""
         from rv_agent.agent import rv_agent
         from rv_agent.agent import agent_factory
-        from rv_agent.services import coordinate_converter
 
         assert rv_agent is not None
         assert agent_factory is not None
-        assert coordinate_converter is not None
 
     def test_import_config(self):
         """Config module imports."""
@@ -50,13 +48,11 @@ class TestImports:
         """Tool modules import without error."""
         from rv_agent.llm.tools import tool_call_parser
         from rv_agent.llm.tools.tool_call_parser import (
-            parse_tool_calls_from_text,
             parse_tool_calls_with_strategy,
             normalize_tool_args,
         )
 
         assert tool_call_parser is not None
-        assert parse_tool_calls_from_text is not None
         assert parse_tool_calls_with_strategy is not None
         assert normalize_tool_args is not None
 
@@ -98,11 +94,9 @@ class TestImports:
         """Services modules import without error."""
         from rv_agent.services import screen_analyzer
         from rv_agent.services import vision_service
-        from rv_agent.services import coordinate_converter
 
         assert screen_analyzer is not None
         assert vision_service is not None
-        assert coordinate_converter is not None
 
     def test_import_ui_module(self):
         """UI modules import without error."""
@@ -112,41 +106,18 @@ class TestImports:
         assert rvagent_visitor is not None
         assert RVAgentVisitor is not None
 
-    def test_import_coordinate_converter_functions(self):
-        """Coordinate converter functions import."""
-        from rv_agent.services.coordinate_converter import (
-            CoordinateConverter,
-            denormalize_qwen_coords,
-            is_normalized_coords,
-            device_to_optimized,
-            optimized_to_device,
-            QWEN3_VL_WIDTH,
-            QWEN3_VL_HEIGHT,
-        )
-
-        assert CoordinateConverter is not None
-        assert denormalize_qwen_coords is not None
-        assert is_normalized_coords is not None
-        assert device_to_optimized is not None
-        assert optimized_to_device is not None
-        assert QWEN3_VL_WIDTH == 704
-        assert QWEN3_VL_HEIGHT == 1248
-
     def test_no_circular_dependencies(self):
         """No circular imports between core modules."""
         # Import all modules in different orders
         from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
-        from rv_agent.services.coordinate_converter import CoordinateConverter
 
         # Reimport in different order
         from rv_agent.config.agent_config import RVAgentConfig as RC2
         from rv_agent.llm.llm_client import LLMClient as LC2
-        from rv_agent.services.coordinate_converter import CoordinateConverter as CC2
 
         assert RC2 is RVAgentConfig
         assert LC2 is LLMClient
-        assert CC2 is CoordinateConverter
 
     def test_import_prompts(self):
         """Prompt modules import without error."""

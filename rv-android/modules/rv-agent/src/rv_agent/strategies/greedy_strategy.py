@@ -1,8 +1,9 @@
 """
 Greedy exploration strategy for RVAgent.
 
-Prioritizes actions with highest immediate value, focusing on security-sensitive
-code paths and actions that have historically led to new state discoveries.
+Prioritizes actions with highest immediate value, focusing on code paths
+reaching monitored operations and actions that have historically led to
+new state discoveries.
 """
 
 import logging
@@ -24,7 +25,7 @@ class GreedyStrategy(ExplorationStrategy):
     Greedy exploration strategy that always selects the action with highest immediate value.
 
     ### Algorithm Implementation:
-    - Prioritizes actions with MOP markers (security-sensitive code)
+    - Prioritizes actions with MOP markers (monitored operations)
     - Favors actions that have discovered new states in the past
     - Maintains action value estimates based on success rates
     - Uses coordinate-based action tracking for repeatability
@@ -38,7 +39,7 @@ class GreedyStrategy(ExplorationStrategy):
     ### Trade-offs:
     - **Advantages**: Fast convergence to valuable areas, efficient MOP coverage
     - **Disadvantages**: May miss less-obvious paths, can get stuck in local optima
-    - **Best for**: Security testing, targeted exploration, short test durations
+    - **Best for**: Runtime verification, targeted exploration, short test durations
     """
 
     def __init__(
@@ -400,7 +401,7 @@ class GreedyStrategy(ExplorationStrategy):
         # Start with historical value or neutral
         value = self.action_values.get(action_signature, 0.5)
 
-        # MOP prioritization (security-sensitive code)
+        # MOP prioritization (monitored operations)
         if getattr(action, 'directly_reaches_mop', False):
             value += 0.3
         elif getattr(action, 'reaches_mop', False):

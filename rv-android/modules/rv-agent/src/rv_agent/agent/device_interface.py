@@ -14,6 +14,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_uiautomator import UIAutomator2Adapter
 
 from ..constants import RVAgentConstants
+from ..domain.exceptions import DeviceError
 
 
 class DeviceInterface:
@@ -76,7 +77,7 @@ class DeviceInterface:
             self.disable_soft_keyboard()
 
         except Exception as e:
-            raise RuntimeError(f"Failed to connect to emulator {device_id}: {e}")
+            raise DeviceError(f"Failed to connect to emulator {device_id}: {e}") from e
 
     def _is_emulator_device(self, device_id: str) -> bool:
         """
@@ -176,18 +177,17 @@ class DeviceInterface:
         try:
             self.logger.info(f"Launching app: {package_name}")
             success = self.ui_adapter.launch_app(package_name)
-            print(f"Launch app: {success}")
             if success:
                 time.sleep(2)  # Wait for app to initialize
                 return success
             else:
-                self.logger.error(f"App launch failed")
-                raise RuntimeError(f"Failed to launch app {package_name}")
+                self.logger.error("App launch failed")
+                raise DeviceError(f"Failed to launch app {package_name}")
+        except DeviceError:
+            raise
         except Exception as e:
             self.logger.error(f"App launch failed: {e}")
-            raise RuntimeError(f"Failed to launch app {package_name}: {e}")
-            # self.logger.error(f"App launch failed: {e}")
-            # return False
+            raise DeviceError(f"Failed to launch app {package_name}: {e}") from e
 
     def stop_app(self, package_name: str) -> bool:
         """Stop application."""
