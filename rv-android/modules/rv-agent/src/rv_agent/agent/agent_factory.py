@@ -268,8 +268,8 @@ class AgentFactory:
             logger.info(f"Loaded prompt module: {prompt_version}")
         except ImportError as e:
             logger.error(f"Failed to load prompt module '{prompt_version}': {e}")
-            logger.warning("Falling back to v12")
-            from rv_agent.prompts import v12 as prompt_module
+            logger.warning("Falling back to v13")
+            from rv_agent.prompts import v13 as prompt_module
 
         # Create LLM client (creates ChatOpenAI internally)
         return LLMClient(

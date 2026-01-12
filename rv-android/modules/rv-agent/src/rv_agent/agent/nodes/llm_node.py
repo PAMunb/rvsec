@@ -94,10 +94,10 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     if not llm_action:
         logger.warning("LLM_GENERATE: No action extracted from response")
 
-    # INSTRUMENTATION: Record LLM action metrics for validation
-    # This block can be removed for production
+    # Record LLM action metrics for validation
     if agent.metrics_collector and llm_action:
         try:
+            ui_xml = state.get("ui_xml", "")
             agent.metrics_collector.record_llm_action(
                 iteration=state.get("iteration", 0),
                 raw_coords=llm_action.get("original_coords", (0, 0)),
@@ -110,13 +110,10 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                 parser_strategy=result.get("parse_strategy", "native"),
                 activity=state.get("current_activity", "unknown"),
                 screen_hash=state.get("current_screen_hash", "unknown"),
-                # INSTRUMENTATION: UI dump for hit classification
-                ui_dump=state.get("ui_xml", ""),
+                ui_dump=ui_xml,
             )
-            logger.debug("INSTRUMENTATION: Recorded LLM action metrics with UI dump")
         except Exception as e:
-            logger.warning(f"INSTRUMENTATION: Failed to record metrics: {e}")
-    # END INSTRUMENTATION
+            logger.warning(f"Failed to record metrics: {e}")
 
     return {
         "llm_action": llm_action,

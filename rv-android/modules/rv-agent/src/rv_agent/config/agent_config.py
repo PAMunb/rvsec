@@ -70,8 +70,8 @@ class RVAgentConfig(BaseValidatedModel):
         description="SGLang server URL (OpenAI-compatible API)"
     )
     prompt_version: str = Field(
-        default="v12",
-        description="Prompt version to use"
+        default="v13",
+        description="Prompt version to use (v13 includes dialog handling)"
     )
 
     # Inference parameters (validated from benchmark)

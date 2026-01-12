@@ -10,18 +10,15 @@ be modified without scientific validation.
 class RVAgentConstants:
     """Constants for RVAgent client operation."""
 
-    # === PHASE 0 VALIDATED LLM PARAMETERS ===
-    # Source: overnight execution (9,855 tests) and breakthrough testing
+    # === LLM PARAMETERS (validated 2026-01) ===
+    # Optimal for tool calling with SGLang + Qwen3-VL
+    DEFAULT_TEMPERATURE = 0.01  # Low temperature for consistent tool calls
+    DEFAULT_TOP_P = 0.6         # Controlled sampling
+    DEFAULT_TOP_K = 50          # Controlled diversity
+    DEFAULT_MAX_TOKENS = 800    # Sufficient for tool call response
 
-    # LLM parameters VALIDATED in 12,193 tests (overnight execution)
-    # Source: modules/rv-agent/run_overnight_execution.py
-    DEFAULT_TEMPERATURE = 0.25  # Optimal balance (tested 0.01-0.5 range)
-    DEFAULT_TOP_P = 0.8        # Best consistency (tested 0.6-0.95 range)
-    DEFAULT_TOP_K = 50         # Controlled diversity (tested 10-60 range)
-    DEFAULT_MAX_TOKENS = 800   # Sufficient for JSON response
-
-    # Model selection (Tool-calling support + JSON parser)
-    DEFAULT_MODEL = "qwen3-vl:4b"  # Qwen3-VL 4B with vision+tools support
+    # Model selection (SGLang OpenAI-compatible API)
+    DEFAULT_MODEL = "Qwen/Qwen3-VL-4B-Instruct"  # Qwen3-VL 4B with vision+tools
 
     # === SCREENSHOT OPTIMIZATION (Qwen3-VL specific) ===
     # Dimensions MUST be multiples of 32 for Qwen3-VL
