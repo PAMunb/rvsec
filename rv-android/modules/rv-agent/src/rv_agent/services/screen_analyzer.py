@@ -156,7 +156,18 @@ class ScreenProcessor:
         # Annotate elements with UI coverage status
         if self.ui_coverage:
             ui_elements_text = self.ui_coverage.annotate_screen_elements(ui_elements_text, screen_hash)
-            self.logger.debug("UI coverage annotations applied")
+            # INSTRUMENTATION: Count annotation types and show sample
+            untested = ui_elements_text.count("[UNTESTED]")
+            tested = ui_elements_text.count("[TESTED-")
+            well_tested = ui_elements_text.count("[WELL-TESTED]")
+            self.logger.info(
+                f"[INSTRUMENTATION] UI_ANNOTATIONS: untested={untested} tested={tested} well_tested={well_tested}"
+            )
+            # Show first annotated element for debugging
+            for line in ui_elements_text.split('\n'):
+                if '[UNTESTED]' in line or '[TESTED' in line:
+                    self.logger.info(f"[INSTRUMENTATION] SAMPLE_ANNOTATION: {line[:100]}")
+                    break
 
         self.logger.info(f"Activity: {ui_state['current_activity']}")
         self.logger.info(f"Screen hash: {screen_hash[:12]}...")
@@ -333,12 +344,9 @@ class ScreenProcessor:
         desc = " ".join(desc_parts)
         desc += f" at position ({norm_x}, {norm_y})"
 
-        # Add actions and MOP markers
+        # Add MOP markers (for guiding exploration toward monitored operations)
+        # Note: "Actions:" text removed as it's not useful for LLM decision-making
         if hasattr(item, 'actions') and item.actions:
-            actions_text = ", ".join(action.text for action in item.actions if hasattr(action, 'text'))
-            if actions_text:
-                desc += f". Actions: {actions_text}"
-
             action = item.actions[0]
             if action.directly_reaches_mop:
                 desc += " [DM]"

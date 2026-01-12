@@ -373,6 +373,29 @@ The system supports two distinct specification sets for runtime verification:
 - Default model: Qwen/Qwen3-VL-4B-Instruct
 - Multimode default: 70% LLM / 30% algorithm decisions
 
+### Tool Calling Híbrido (Qwen3-VL + SGLang)
+
+**Contexto**: O SGLang não possui suporte oficial a tool calling para modelos Qwen3-VL (vision/multimodal). O comportamento observado é não-determinístico: ~50% native tool_calls, ~50% XML no content.
+
+**Decisão (2026-01-07)**: Usar abordagem híbrida com fallback parser.
+
+**Fluxo**:
+1. LangChain `bind_tools()` tenta obter `response.tool_calls` (native)
+2. Se vazio, `tool_call_parser.py` extrai do `response.content` (XML/JSON)
+3. Ambas as estratégias funcionam com 100% de sucesso
+
+**Estratégias de parsing** (em ordem de prioridade):
+- `native`: tool_calls estruturados da API
+- `xml`: tags `<tool_call>` no content (formato Hermes)
+- `json_array`, `json_object`, `markdown`, `pythonic`: fallbacks adicionais
+
+**Observações**:
+- Latência XML (~700ms) é menor que native (~1500ms) devido a menos tokens gerados
+- Parser robusto em `rv_agent/llm/tools/tool_call_parser.py`
+- Métricas coletadas via `parser_stats.get_stats()`
+
+**Documentação completa**: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-vision-llm/docs/022_problema_sglang_native_tools.md`
+
 ### Qwen3-VL Coordinate System
 - Qwen3-VL returns coordinates in normalized [0, 1000) range for both x and y
 - Conversion to device pixels: `pixel_x = int((x / 1000) * device_width)`

@@ -91,6 +91,17 @@ class ActionNormalizer:
             f"Coordinate conversion: ({x_raw}, {y_raw}) [0,1000) -> ({x_dev}, {y_dev}) pixels"
         )
 
+        # [DEBUG_NAVBAR] Check if coordinates are in navigation bar area
+        navbar_threshold_norm = 950  # ~95% of screen height in [0,1000) space
+        navbar_threshold_px = int(self.device_height * 0.95)
+        is_navbar_area = y_raw > navbar_threshold_norm or y_dev > navbar_threshold_px
+
+        logger.info(
+            f"[DEBUG_NAVBAR] LLM coords: raw=({x_raw}, {y_raw}) -> pixels=({x_dev}, {y_dev}) "
+            f"| device={self.device_width}x{self.device_height} "
+            f"| NAVBAR={'YES' if is_navbar_area else 'no'}"
+        )
+
         return {
             "action_type": action_type,
             "x": x_dev,

@@ -255,6 +255,14 @@ class RVAgentStrategy(ExplorationStrategy):
                 # Value exhausted - mark action as executed to prevent re-selection
                 action_signature = self._convert_signature_to_optimized(original_action.coords_for_matching)
                 self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+                # Also mark in UI coverage tracker now that all variations are tested
+                element_id = original_action.widget_id or f"coords:{original_action.coordinates}"
+                self.ui_coverage.record_interaction(
+                    element_id=element_id,
+                    action_type=original_action.event.value,
+                    screen_hash=current_hash,
+                    success=True
+                )
                 logger.debug("Input values exhausted, marking action as executed and selecting different action")
                 # Use iterative approach instead of recursion
                 untested_actions = self._get_untested_actions(node, screen_desc)
@@ -274,17 +282,25 @@ class RVAgentStrategy(ExplorationStrategy):
                     )
 
         # 7. Pre-mark action as executed (crash handling)
-        action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
-        self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+        # NOTE: Skip TEXT_CHANGE actions - they should only be marked as executed
+        # when all input variations are exhausted (handled in step 6 above).
+        # Marking them here would prevent testing of remaining variations.
+        if selected_action.event != WidgetEventType.TEXT_CHANGE:
+            action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+            self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
 
         # 8. Update UI coverage tracker
-        element_id = selected_action.widget_id or f"coords:{selected_action.coordinates}"
-        self.ui_coverage.record_interaction(
-            element_id=element_id,
-            action_type=selected_action.event.value,
-            screen_hash=current_hash,
-            success=True
-        )
+        # NOTE: Skip TEXT_CHANGE actions - they should only be marked as tested
+        # when all input variations are exhausted (handled in step 6 above).
+        # Marking them here would cause priority selection to skip them prematurely.
+        if selected_action.event != WidgetEventType.TEXT_CHANGE:
+            element_id = selected_action.widget_id or f"coords:{selected_action.coordinates}"
+            self.ui_coverage.record_interaction(
+                element_id=element_id,
+                action_type=selected_action.event.value,
+                screen_hash=current_hash,
+                success=True
+            )
 
         # 9. Record MOP if applicable
         if selected_action.callback_signature:
@@ -651,11 +667,13 @@ class RVAgentStrategy(ExplorationStrategy):
             logger.debug(f"Input field {element_id}: all variations tested")
             return None
 
-        # Set text input value
-        action.text_input = test_value
+        # Create a NEW action with the text input value
+        # IMPORTANT: Do NOT mutate the original action, as it may be selected again
+        # with a different test value if input variations are not exhausted
+        action_with_input = action.model_copy(update={'text_input': test_value})
 
         logger.info(f"Input field {element_id}: testing value '{test_value[:20]}'")
-        return action
+        return action_with_input
 
     def _convert_signature_to_optimized(
         self,

@@ -159,7 +159,7 @@ class MultimodalValidationConfig:
     # LLM settings
     llm_base_url: str = "http://192.168.0.21:30000/v1"
     llm_model: str = "Qwen/Qwen3-VL-4B-Instruct"
-    llm_temperature: float = 0.0
+    llm_temperature: float = 0.001
     llm_top_p: float = 0.6  # RVAgentConfig default, range [0.0, 1.0]
     llm_top_k: int = 50  # RVAgentConfig default, range [1, 100]
 

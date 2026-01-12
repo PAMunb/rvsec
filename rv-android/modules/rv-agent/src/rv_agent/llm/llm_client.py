@@ -160,6 +160,18 @@ class LLMClient:
             # Extract tool calls with fallback parsing
             tool_calls, parser_strategy = self._extract_tool_calls(response)
 
+            # [INSTRUMENTATION] Log raw tool call args including element_description
+            if tool_calls:
+                for tc in tool_calls:
+                    tc_name = tc.get('name', 'unknown')
+                    tc_args = tc.get('args', {})
+                    elem_desc = tc_args.get('element_description', '')
+                    coords = f"({tc_args.get('x', '?')}, {tc_args.get('y', '?')})"
+                    self.logger.info(
+                        f"[INSTRUMENTATION] LLM_TOOL_CALL: {tc_name} {coords} | "
+                        f"element_description='{elem_desc}' | full_args={tc_args}"
+                    )
+
             # Inject tool calls into response if found via parser
             if tool_calls and not response.tool_calls:
                 response.tool_calls = tool_calls

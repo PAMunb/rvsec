@@ -5,7 +5,7 @@ Updates memory systems and detects stuck states.
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Dict, Any, Optional
 
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
@@ -109,6 +109,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     if stuck_action_override:
         result["force_back_action"] = True
 
+    # Record UI coverage interaction for element tracking
+    _record_ui_coverage(agent, state)
+
     # INSTRUMENTATION: Record exploration metrics for validation
     # This block can be removed for production
     if agent.metrics_collector:
@@ -130,3 +133,202 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # END INSTRUMENTATION
 
     return result
+
+
+def _record_ui_coverage(agent: "RVAgent", state: AgentState) -> None:
+    """
+    Record UI element interaction for coverage tracking.
+
+    Uses proximity matching to find the closest UI element to the clicked
+    coordinates, then records that element's ID for proper annotation.
+
+    Args:
+        agent: RVAgent instance with screen_processor.ui_coverage
+        state: Current agent state with action details
+    """
+    try:
+        # Get ui_coverage from screen_processor
+        ui_coverage = getattr(agent.screen_processor, 'ui_coverage', None)
+        if not ui_coverage:
+            return
+
+        current_action = state.get("current_action")
+        if not current_action:
+            return
+
+        # Skip non-coordinate actions (like BACK)
+        action_type = current_action.get("action_type", "").upper()
+        if action_type in ("BACK", "HOME", "SCROLL"):
+            return
+
+        screen_hash = state.get("current_screen_hash", "unknown")
+
+        # Get click coordinates (use original_coords which are normalized [0,1000))
+        original_coords = current_action.get("original_coords")
+        if not original_coords or len(original_coords) != 2:
+            return
+
+        click_x, click_y = original_coords
+
+        # Find matching element from screen description
+        screen_desc = state.get("screen_description")
+
+        # Get device dimensions from screen_processor (default to 1080x1920)
+        device_dims = getattr(agent.screen_processor, 'device_dimensions', (1080, 1920))
+        element_id = _find_element_at_coords(screen_desc, click_x, click_y, device_dimensions=device_dims)
+
+        if not element_id:
+            # Fallback to coordinate-based ID
+            element_id = f"coords:{click_x},{click_y}:CLICK"
+
+        # Record the interaction
+        ui_coverage.record_interaction(
+            element_id=element_id,
+            action_type=action_type.lower(),
+            screen_hash=screen_hash,
+            success=True
+        )
+
+        # INSTRUMENTATION: Log UI coverage recording
+        test_count = ui_coverage.get_element_test_count(element_id)
+        logger.info(
+            f"[INSTRUMENTATION] UI_COVERAGE: {action_type} on {element_id[:50]} "
+            f"| count={test_count} | screen={screen_hash[:8]}"
+        )
+
+    except Exception as e:
+        logger.warning(f"UI_COVERAGE: Failed to record interaction: {e}")
+
+
+def _find_element_at_coords(
+    screen_desc,
+    click_x: int,
+    click_y: int,
+    device_dimensions: tuple = (1080, 1920)
+) -> Optional[str]:
+    """
+    Find the UI element closest to the click coordinates using proximity matching.
+
+    This solves the coordinate matching problem where LLM clicks may not be
+    exactly at element centers. We find the nearest element and return its ID
+    in the same format used by annotate_screen_elements.
+
+    Args:
+        screen_desc: ScreenDescription object with items
+        click_x: Click X coordinate in normalized [0, 1000) space
+        click_y: Click Y coordinate in normalized [0, 1000) space
+        device_dimensions: Device screen dimensions (width, height)
+
+    Returns:
+        Element ID string matching annotate_screen_elements format, or None
+    """
+    if not screen_desc or not hasattr(screen_desc, 'items') or not screen_desc.items:
+        return None
+
+    device_width, device_height = device_dimensions
+    best_match = None
+    min_distance = float('inf')
+
+    for item in screen_desc.items:
+        bounds = item.view.get('bounds')
+        if not (bounds and len(bounds) == 2 and len(bounds[0]) == 2 and len(bounds[1]) == 2):
+            continue
+
+        # Calculate element center in device pixels
+        device_center_x = (bounds[0][0] + bounds[1][0]) // 2
+        device_center_y = (bounds[0][1] + bounds[1][1]) // 2
+
+        # Convert to normalized [0, 1000) space (same as screen_analyzer)
+        norm_x = int((device_center_x / device_width) * 1000)
+        norm_y = int((device_center_y / device_height) * 1000)
+
+        # Calculate Euclidean distance in normalized space
+        distance = ((click_x - norm_x) ** 2 + (click_y - norm_y) ** 2) ** 0.5
+
+        if distance < min_distance:
+            min_distance = distance
+            best_match = (norm_x, norm_y, item)
+
+    # Only accept matches within a reasonable threshold (150 units in normalized space)
+    # This corresponds to ~15% of screen dimension (accommodates LLM coordinate variance)
+    PROXIMITY_THRESHOLD = 150
+
+    if best_match and min_distance <= PROXIMITY_THRESHOLD:
+        norm_x, norm_y, item = best_match
+
+        # Generate element ID in the same format as annotate_screen_elements
+        # Primary: use coordinates (matches _generate_element_id in ui_coverage.py)
+        element_id = f"coords:{norm_x},{norm_y}:CLICK"
+
+        logger.debug(
+            f"[INSTRUMENTATION] PROXIMITY_MATCH: click({click_x},{click_y}) -> "
+            f"element({norm_x},{norm_y}) distance={min_distance:.1f}"
+        )
+
+        return element_id
+
+    logger.debug(
+        f"[INSTRUMENTATION] NO_PROXIMITY_MATCH: click({click_x},{click_y}) "
+        f"min_distance={min_distance:.1f} > threshold={PROXIMITY_THRESHOLD}"
+    )
+    return None
+
+
+def _generate_element_id_from_action(action: Dict[str, Any], state: AgentState) -> str:
+    """
+    Generate consistent element ID from action for coverage tracking.
+
+    Uses coordinates and element description to create a unique identifier
+    that matches the format used by annotate_screen_elements.
+
+    Args:
+        action: Action dictionary with coordinates and description
+        state: Agent state with screen context
+
+    Returns:
+        Element identifier string or empty string if cannot generate
+    """
+    # Try to get element description from action
+    element_desc = action.get("element_description", "")
+
+    # If we have a description with id:, text:, or desc:, use it
+    if element_desc:
+        import re
+
+        # Extract ID
+        id_match = re.search(r'id[=:](\w+)', element_desc, re.IGNORECASE)
+        if id_match:
+            return f"id:{id_match.group(1)}"
+
+        # Extract quoted text
+        text_match = re.search(r'"([^"]+)"', element_desc)
+        if text_match:
+            return f'text:"{text_match.group(1)}"'
+
+        # Extract parenthesized text (common in descriptions like "Button (submit)")
+        paren_match = re.search(r'\(([^)]+)\)', element_desc)
+        if paren_match:
+            return f'id:{paren_match.group(1)}'
+
+    # Fallback: use coordinates + action type as identifier
+    # CRITICAL: Use original_coords (normalized [0,1000)) to match screen_analyzer format
+    # The screen description uses normalized coords, so we must use the same space
+    original_coords = action.get("original_coords")
+    if original_coords and len(original_coords) == 2:
+        x, y = original_coords
+        action_type = action.get("action_type", "CLICK")
+        return f"coords:{x},{y}:{action_type}"
+
+    # Fallback to device coords if no original_coords available
+    coords = action.get("coordinates")
+    if coords:
+        x, y = coords.get("x", 0), coords.get("y", 0)
+    else:
+        x = action.get("x")
+        y = action.get("y")
+
+    if x is not None and y is not None:
+        action_type = action.get("action_type", "CLICK")
+        return f"coords:{x},{y}:{action_type}"
+
+    return ""

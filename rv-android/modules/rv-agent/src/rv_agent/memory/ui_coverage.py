@@ -197,9 +197,10 @@ class UICoverageTracker:
                     parts = line.split(' at position')
                     if len(parts) >= 2:
                         element_desc = parts[0]
+                        coords_part = parts[1]  # e.g., " (500, 170)"
 
-                        # Generate simple element_id from description
-                        element_id = self._generate_element_id(element_desc)
+                        # Generate element_id - pass FULL line to extract coordinates
+                        element_id = self._generate_element_id(line)
 
                         # Track this element for this screen
                         self.screen_elements[screen_hash].add(element_id)
@@ -222,8 +223,13 @@ class UICoverageTracker:
 
             result = '\n'.join(annotated_lines)
 
-            self.logger.debug(f"[RVAGENT_DEBUG] Annotated {len(self.screen_elements[screen_hash])} "
-                            f"elements for screen {screen_hash[:8]}")
+            # [INSTRUMENTATION] Log tracked elements for debugging
+            tracked_elements = list(self.screen_elements[screen_hash])[:3]  # First 3 for brevity
+            self.logger.info(
+                f"[INSTRUMENTATION] UI_ELEMENTS_TRACKED: screen={screen_hash[:8]} "
+                f"count={len(self.screen_elements[screen_hash])} "
+                f"sample={tracked_elements}"
+            )
 
             return result
 
@@ -232,27 +238,36 @@ class UICoverageTracker:
             return screen_description
 
     def _generate_element_id(self, element_desc: str) -> str:
-        """Generate consistent element ID from description."""
-        import re
-        # Extract key identifiers from description
-        # Look for patterns like id:button_name, "Button Text", desc:"Description"
+        """Generate consistent element ID from description.
 
-        # Extract ID
+        Uses coordinates as primary identifier for consistency with
+        _generate_element_id_from_action in learn_node.
+        """
+        import re
+
+        # PRIMARY: Extract coordinates from "at position (x, y)" or bounds
+        # This matches how learn_node generates IDs from actions
+        pos_match = re.search(r'at position\s*\((\d+),\s*(\d+)\)', element_desc)
+        if pos_match:
+            x, y = pos_match.group(1), pos_match.group(2)
+            return f"coords:{x},{y}:CLICK"
+
+        # FALLBACK: Extract ID
         id_match = re.search(r'id:(\w+)', element_desc)
         if id_match:
             return f"id:{id_match.group(1)}"
 
-        # Extract quoted text
+        # FALLBACK: Extract quoted text
         text_match = re.search(r'"([^"]+)"', element_desc)
         if text_match:
             return f'text:"{text_match.group(1)}"'
 
-        # Extract description
+        # FALLBACK: Extract description
         desc_match = re.search(r'desc:"([^"]+)"', element_desc)
         if desc_match:
             return f'desc:"{desc_match.group(1)}"'
 
-        # Fallback to hash of description
+        # FALLBACK: hash of description
         import hashlib
         return f"hash:{hashlib.md5(element_desc.encode()).hexdigest()[:8]}"
 
