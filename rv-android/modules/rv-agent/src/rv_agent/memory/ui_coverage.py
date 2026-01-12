@@ -1,8 +1,32 @@
 """
 UI Coverage Tracker for RVAgent - Element discovery and testing tracking.
 
-Implementation EXATA do plano para suporte a decisões LLM com annotations.
-Process isolation: logging básico sem singletons server-side.
+Key Design Decisions:
+
+1. COORDINATE-BASED ELEMENT IDs
+   Problem: Same UI element may have different resource IDs across app versions,
+   or no ID at all (common in custom views and games).
+   Solution: Use normalized coordinates (x, y) as primary identifier.
+   Format: "coords:{x},{y}:{action_type}" matches how LLM specifies actions.
+
+2. ANNOTATION SYSTEM FOR LLM GUIDANCE
+   Problem: LLM doesn't know which elements have been tested and may repeatedly
+   click the same button while ignoring unexplored options.
+   Solution: Annotate screen descriptions with [UNTESTED], [TESTED-Nx] tags.
+   The LLM sees "[UNTESTED] Button 'Submit'" and knows to prioritize it.
+
+3. SCREEN-ELEMENT TRACKING
+   Problem: Need to know coverage per screen to detect when a screen is fully explored.
+   Solution: Maintain screen_elements dict mapping screen_hash -> set of element IDs.
+   This enables per-screen coverage statistics and exploration suggestions.
+
+4. TEST COUNT THRESHOLDS
+   - 0 tests: [UNTESTED] - highest priority
+   - 1-2 tests: [TESTED-Nx] - medium priority (may need more testing)
+   - >WELL_TESTED_THRESHOLD: [WELL-TESTED] - low priority
+
+   WHY MULTIPLE TESTS: Some elements have state-dependent behavior (e.g., toggle
+   buttons, checkboxes). Testing once may not reveal all behaviors.
 """
 import time
 from typing import Dict, Set, Optional, List, Any
@@ -37,14 +61,19 @@ class UIElementStats:
 
 class UICoverageTracker:
     """
-    Rastreamento de cobertura de elementos UI para decisões LLM.
+    Tracks UI element interactions for exploration guidance and coverage metrics.
 
-    Diferenças do original:
-    - Error handling cliente (não ErrorHandler decorators)
-    - Logging básico (não LoggingManager singleton)
-    - Constants locais (não UI_COVERAGE_CONSTANTS)
+    Provides:
+    - Element test count tracking (how many times each element was clicked)
+    - Screen-element mapping (which elements exist on each screen)
+    - Annotation generation for LLM prompts ([UNTESTED], [TESTED-Nx])
+    - Coverage statistics per screen and overall
+    - Exploration suggestions based on testing history
 
-    Target: br.unb.cic.cryptoapp - Track UI element interactions
+    Used by:
+    - RVAgentStrategy: to prioritize untested/least-tested elements
+    - ScreenProcessor: to annotate screen descriptions for LLM
+    - MemoryCoordinator: to track element discovery over time
     """
 
     def __init__(self):

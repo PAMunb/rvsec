@@ -5,7 +5,7 @@ Provides reusable components for testing RVAgentStrategy and related modules.
 """
 
 import pytest
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import List, Optional, Tuple, Any
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
@@ -38,6 +38,12 @@ class MockItemAction:
     def get_execution_coordinates(self) -> Optional[Tuple[int, int]]:
         """Return coordinates for action execution."""
         return self.coordinates
+
+    def model_copy(self, update: dict = None) -> "MockItemAction":
+        """Mimic Pydantic's model_copy for compatibility with RVAgentStrategy."""
+        if update is None:
+            update = {}
+        return replace(self, **update)
 
 
 @dataclass

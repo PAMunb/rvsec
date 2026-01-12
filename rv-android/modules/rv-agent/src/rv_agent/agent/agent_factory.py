@@ -127,6 +127,9 @@ class AgentFactory:
         ui_coverage = UICoverageTracker()
         logger.info("Created UICoverageTracker")
 
+        # Get device dimensions for strategy
+        device_size = device.get_screen_size()
+
         # Create exploration strategy
         strategy_registry = StrategyRegistry()
         exploration_strategy = strategy_registry.get_strategy(
@@ -138,7 +141,8 @@ class AgentFactory:
             transition_manager=transition_manager,  # WTG integration
             plateau_window=config.plateau_window,  # RVAgent config
             max_input_variations=config.max_input_variations,  # RVAgent config
-            target_package=config.package_name  # Filter actions by target package
+            target_package=config.package_name,  # Filter actions by target package
+            device_dimensions=device_size  # For system action detection
         )
         logger.info(f"Created ExplorationStrategy: {config.strategy}")
 
@@ -195,7 +199,6 @@ class AgentFactory:
 
         # Create action normalizer (unified action format)
         # Converts LLM [0, 1000) coords to device pixels
-        device_size = device.get_screen_size()
         action_normalizer = ActionNormalizer(
             device_width=device_size[0],
             device_height=device_size[1]

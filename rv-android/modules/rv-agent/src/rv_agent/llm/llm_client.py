@@ -34,18 +34,28 @@ class LLMClient:
     Wraps LangChain ChatOpenAI for multimodal inference with tool calling.
     Handles message construction, tool binding, and response parsing.
 
-    ### Architectural Decisions:
-    - Uses LangChain ChatOpenAI with SGLang's OpenAI-compatible API
-    - Binds Android tools for structured action output
-    - Implements fallback parsing for tool calls from text
-    - Tracks token usage and latency metrics
-    - Raises LLMError on invocation failures
+    ### Key Design Decisions:
 
-    ### Role in the System:
-    - Generates actions from screenshot and UI description
-    - Provides tool-based action output format
-    - Tracks LLM usage metrics (tokens, latency)
-    - Supports navigation hints from WTG analysis
+    1. HYBRID TOOL CALL PARSING
+       Problem: SGLang doesn't have official tool calling support for Qwen3-VL.
+       The behavior is non-deterministic: ~50% native tool_calls, ~50% XML in content.
+       Solution: Try native tool_calls first, then parse from content if empty.
+       Supports multiple formats: XML (Hermes), JSON array, JSON object, markdown.
+
+    2. STATELESS LLM CONTEXT
+       Problem: Full conversation history would exceed context limits quickly.
+       Solution: Build fresh messages each iteration from summaries (~2500 tokens).
+       No conversation memory - each call is independent with summarized context.
+
+    3. COORDINATE NORMALIZATION
+       The LLM returns coordinates in Qwen3-VL's [0, 1000) normalized space.
+       ActionNormalizer (separate component) converts to device pixels.
+       This separation keeps LLMClient focused on LLM interaction.
+
+    4. NAVIGATION HINTS
+       WTG (Window Transition Graph) analysis provides hints about which actions
+       lead to unvisited screens. These hints are included in the user message
+       to guide the LLM toward unexplored app areas.
 
     ### Integration Points:
     - Receives configuration via RVAgentConfig

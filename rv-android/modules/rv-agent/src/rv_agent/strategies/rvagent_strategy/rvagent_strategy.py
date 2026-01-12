@@ -44,16 +44,53 @@ class RVAgentStrategy(ExplorationStrategy):
     """
     Depth-first exploration with successor state tracking.
 
-    Tracks action-to-successor mappings and re-enables actions when
-    destination states remain incompletely explored. Prevents premature
-    backtracking in states that lead to partially explored destinations.
+    Key Design Decisions:
 
-    Action prioritization: [DM] MOP > [M] MOP > untested UI > least tested UI
+    1. SUCCESSOR TRACKING (SuccessorTracker)
+       Problem: Standard DFS marks actions as "done" after one execution, but some
+       actions lead to states with multiple sub-options (e.g., dropdown menus).
+       Solution: Track which state each action leads to. If that destination state
+       has untested actions, re-enable the original action for re-execution.
+       This prevents premature backtracking from states like "Settings" that lead
+       to screens with many unexplored options.
 
-    Example scenario:
+    2. CONTINUOUS EXPLORATION (no "exhausted" state)
+       Problem: Traditional exploration stops when all actions are tested once,
+       but Android apps often have dynamic content and time-dependent behaviors.
+       Solution: Never declare a state "exhausted". When all actions are tested,
+       select the least-executed action and continue until timeout. This maximizes
+       coverage of dynamic content and state-dependent behaviors.
+
+    3. PRE-MARKING ACTIONS
+       Problem: If the app crashes during action execution, we might retry the
+       same crash-causing action indefinitely.
+       Solution: Mark actions as executed BEFORE execution. If crash occurs, the
+       action is already marked and won't be retried. Failed actions are tracked
+       separately and filtered from future selection.
+
+    4. MOP PRIORITIZATION
+       Problem: Random exploration wastes time on UI elements that don't trigger
+       monitored operations (the focus of runtime verification).
+       Solution: Prioritize actions that reach MOPs (from static analysis) over
+       regular UI exploration. This focuses testing effort on security-relevant
+       or specification-critical code paths.
+
+    Action prioritization: [DM] MOP > [M] MOP > WTG > untested UI > least tested
+
+    Example - Successor Tracking:
         State A: Click "Dropdown" → State B (menu with 3 items)
         If only 1/3 items tested in State B, action in State A is re-enabled
     """
+
+    # BACK action identifier
+    BACK_ACTION_ID = 999
+
+    # Scroll action probability
+    SCROLL_PROBABILITY = 0.3
+
+    # System action detection thresholds (percentage of screen height)
+    NAVBAR_Y_PERCENT = 0.94   # Actions below 94% of screen height are navbar
+    STATUSBAR_Y_PERCENT = 0.05  # Actions above 5% of screen height are statusbar
 
     def __init__(
         self,
@@ -64,7 +101,8 @@ class RVAgentStrategy(ExplorationStrategy):
         transition_manager: Optional["TransitionManager"] = None,
         plateau_window: int = 10,
         max_input_variations: int = 3,
-        target_package: Optional[str] = None
+        target_package: Optional[str] = None,
+        device_dimensions: Tuple[int, int] = (1080, 1920)
     ):
         """
         Initialize RVAgent exploration strategy.
@@ -78,6 +116,7 @@ class RVAgentStrategy(ExplorationStrategy):
             plateau_window: Iterations without progress to detect plateau
             max_input_variations: Maximum test values per input field
             target_package: Target app package name for filtering external elements
+            device_dimensions: Device screen size (width, height) in pixels
         """
         self.graph = graph
         self.ui_coverage = ui_coverage
@@ -85,6 +124,7 @@ class RVAgentStrategy(ExplorationStrategy):
         self.static_data = static_data
         self.transition_manager = transition_manager
         self.target_package = target_package
+        self.device_dimensions = device_dimensions
 
         # Helper components
         self.successor_tracker = SuccessorTracker(graph)
@@ -137,7 +177,11 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         logger.debug(f"RVAgent: Processing state {current_hash[:8]}, depth={self.current_depth}")
 
-        # 1. Check plateau detection (informational only - does NOT stop exploration)
+        # 1. Plateau detection is informational only
+        # WHY: We don't stop on plateau because:
+        # - Dynamic content may appear later (e.g., after login, after delay)
+        # - Time-dependent behaviors may trigger new states
+        # - The timeout is the only reliable termination condition
         if self.plateau_detector.is_plateau_reached():
             logger.info("Plateau detected - continuing exploration (timeout is only stop condition)")
             plateau_metrics = self.plateau_detector.get_metrics()
@@ -168,7 +212,10 @@ class RVAgentStrategy(ExplorationStrategy):
             node.visit_count += 1
             logger.debug(f"RVAgent: Revisiting state (visit #{node.visit_count})")
 
-        # 3. Re-enable actions with incomplete successors (prevents premature backtracking)
+        # 3. Re-enable actions whose destination states have untested actions
+        # WHY: An action like "Open Settings" should be re-enabled if the Settings
+        # screen still has unexplored options. This solves the "combobox problem"
+        # where clicking a dropdown once doesn't explore all menu items.
         re_enabled = self.successor_tracker.update_action_availability(current_hash)
         if re_enabled > 0:
             logger.info(f"Re-enabled {re_enabled} actions due to incomplete successors")
@@ -214,17 +261,7 @@ class RVAgentStrategy(ExplorationStrategy):
             # If all actions have failed, fall through to BACK
             if selected_action is None:
                 logger.info(f"RVAgent: All actions failed on state {current_hash[:8]}, returning BACK")
-                back_action = ItemAction(
-                    id=999,
-                    text="BACK",
-                    event=WidgetEventType.BACK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view={"system_action": True, "class": "SystemAction_BACK"},
-                    coordinates=None,
-                    text_input=None
-                )
-                return back_action
+                return self._create_back_action()
 
             action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
             exec_count = node.get_action_execution_count(action_signature)
@@ -233,17 +270,7 @@ class RVAgentStrategy(ExplorationStrategy):
         else:
             # No actions available (edge case) - return BACK to navigate
             logger.info(f"RVAgent: No actions available on state {current_hash[:8]}, returning BACK")
-            back_action = ItemAction(
-                id=999,
-                text="BACK",
-                event=WidgetEventType.BACK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view={"system_action": True, "class": "SystemAction_BACK"},
-                coordinates=None,
-                text_input=None
-            )
-            return back_action
+            return self._create_back_action()
 
         self.current_depth += 1
 
@@ -270,21 +297,14 @@ class RVAgentStrategy(ExplorationStrategy):
                     selected_action = self._select_priority_action(untested_actions, screen_desc) or untested_actions[0]
                 else:
                     # Fallback to BACK if no untested actions
-                    return ItemAction(
-                        id=999,
-                        text="BACK",
-                        event=WidgetEventType.BACK,
-                        reaches_mop=False,
-                        directly_reaches_mop=False,
-                        target_view={"system_action": True, "class": "SystemAction_BACK"},
-                        coordinates=None,
-                        text_input=None
-                    )
+                    return self._create_back_action()
 
-        # 7. Pre-mark action as executed (crash handling)
-        # NOTE: Skip TEXT_CHANGE actions - they should only be marked as executed
-        # when all input variations are exhausted (handled in step 6 above).
-        # Marking them here would prevent testing of remaining variations.
+        # 7. Pre-mark action as executed BEFORE actual execution
+        # WHY: If the app crashes during execution, we won't retry the same action.
+        # The action is already in executed_actions, so next iteration selects different action.
+        # Failed actions are tracked separately in node.failed_actions for permanent exclusion.
+        # EXCEPTION: TEXT_CHANGE actions are marked only when all input variations are exhausted
+        # (step 6), because we want to test multiple values (e.g., "test", "123", "@#$").
         if selected_action.event != WidgetEventType.TEXT_CHANGE:
             action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
             self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
@@ -391,18 +411,31 @@ class RVAgentStrategy(ExplorationStrategy):
 
         return exhausted
 
+    def _create_back_action(self) -> ItemAction:
+        """
+        Create BACK action for navigation.
+
+        Returns:
+            ItemAction configured as BACK navigation action
+        """
+        return ItemAction(
+            id=self.BACK_ACTION_ID,
+            text="BACK",
+            event=WidgetEventType.BACK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+            target_view={"system_action": True, "class": "SystemAction_BACK"},
+            coordinates=None,
+            text_input=None
+        )
+
     def _get_untested_actions(
         self,
         node,
         screen_desc: ScreenDescription
     ) -> List[ItemAction]:
         """
-        Get untested actions filtered by various criteria.
-
-        Filters:
-        - Skip system actions (back/home/recent_apps buttons)
-        - Skip actions from external packages (systemui, launcher, etc)
-        - Skip already executed actions (by coordinate signature)
+        Get untested actions (not yet executed) from current screen.
 
         Args:
             node: ScreenNode from graph
@@ -411,30 +444,13 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             List of untested ItemActions
         """
+        all_actions = self._get_all_filtered_actions(screen_desc)
         untested = []
-        external_count = 0
 
-        for item in screen_desc.items:
-            # Filter by package - only include items from target app
-            item_package = item.view.get('package', '')
-            if self.target_package and item_package:
-                if item_package != self.target_package:
-                    external_count += 1
-                    continue
-
-            for action in item.actions:
-                # Skip system actions
-                if self._is_system_action(action):
-                    continue
-
-                # Check if already executed
-                action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
-
-                if action_signature not in node.executed_actions:
-                    untested.append(action)
-
-        if external_count > 0:
-            logger.info(f"Filtered {external_count} external package elements")
+        for action in all_actions:
+            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            if action_signature not in node.executed_actions:
+                untested.append(action)
 
         return untested
 
@@ -682,6 +698,17 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         Convert action signature from device space to optimized space.
 
+        WHY COORDINATE CONVERSION:
+        The same UI element may have different pixel coordinates across:
+        - Different device resolutions (1080p vs 1440p)
+        - Same device with different DPI settings
+        - Emulator vs physical device
+
+        By converting to a normalized "optimized space" (704x1248), we can:
+        - Match actions across sessions even if device resolution changes
+        - Use screenshots resized to optimized dimensions for LLM processing
+        - Maintain consistent action signatures in the state graph
+
         Args:
             signature: ((device_x, device_y), action_type)
 
@@ -693,7 +720,7 @@ class RVAgentStrategy(ExplorationStrategy):
         if self.converter:
             optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
         else:
-            # Fallback conversion
+            # Fallback: assume 1080x1920 device, convert to 704x1248 optimized
             optimized_x = int(device_x * 704 / 1080)
             optimized_y = int(device_y * 1248 / 1920)
 
@@ -701,7 +728,9 @@ class RVAgentStrategy(ExplorationStrategy):
 
     def _is_system_action(self, action: ItemAction) -> bool:
         """
-        Check if action is a system action (navigation bar, etc).
+        Check if action is a system action (navigation bar, status bar).
+
+        Uses percentage-based thresholds to work across different screen resolutions.
 
         Args:
             action: Action to check
@@ -709,20 +738,19 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             True if system action (should skip)
         """
-        # Get execution coordinates
         coords = action.coordinates
         if not coords:
-            # No valid coordinates - skip this action
             return True
 
         x, y = coords
+        screen_height = self.device_dimensions[1]
 
-        # Skip navigation bar (bottom ~100px)
-        if y > 1800:  # Device space
+        # Skip navigation bar (bottom ~6% of screen)
+        if y > screen_height * self.NAVBAR_Y_PERCENT:
             return True
 
-        # Skip status bar (top ~100px)
-        if y < 100:
+        # Skip status bar (top ~5% of screen)
+        if y < screen_height * self.STATUSBAR_Y_PERCENT:
             return True
 
         return False

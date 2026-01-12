@@ -298,8 +298,8 @@ class TestFormatElement:
 
         assert "[M]" in result
 
-    def test_format_element_with_actions(self, processor):
-        """Element with actions shows action text."""
+    def test_format_element_with_mop_action(self, processor):
+        """Element with MOP action shows [DM] marker."""
         item = MagicMock()
         item.view = {
             'class': 'android.widget.Button',
@@ -310,14 +310,16 @@ class TestFormatElement:
 
         action = MagicMock(spec=ItemAction)
         action.text = "click"
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_mop = True
+        action.reaches_mop = True
         item.actions = [action]
 
         result = processor._format_element(1, item, None)
 
-        assert "Actions:" in result
-        assert "click" in result
+        # Current format: "1. Button 'Submit' at position (x, y) [DM]"
+        assert "Button" in result
+        assert "'Submit'" in result
+        assert "[DM]" in result
 
 
 class TestRestartApp:

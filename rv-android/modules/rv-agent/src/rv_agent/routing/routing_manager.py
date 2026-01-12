@@ -19,12 +19,36 @@ class RoutingManager:
     """
     Routes decisions between LLM and algorithmic strategies.
 
-    Supports three modes: pure_algorithm, llm_only, multimode.
-    Implements probabilistic routing for multimode and validates
-    actions against loop detection. When validation fails, generates
-    BACK action instead of cycling back to algorithm.
+    Key Design Decisions:
 
-    Counters:
+    1. THREE EXECUTION MODES
+       - pure_algorithm: Only algorithmic exploration (DFS/BFS), no LLM calls
+       - llm_only: Only LLM-guided exploration, no algorithmic fallback
+       - multimode: Probabilistic mix (default 70% LLM, 30% algorithm)
+
+       WHY MULTIMODE: LLMs excel at semantic understanding (recognizing login forms,
+       understanding UI context) but are expensive and can get stuck in loops.
+       Algorithmic exploration is cheaper and systematic but lacks semantic understanding.
+       The 70/30 mix balances coverage with cost-effectiveness.
+
+    2. VALIDATION WITHOUT FALLBACK LOOPS
+       Problem: If LLM action fails validation, routing to algorithm which routes
+       back to LLM creates an infinite loop.
+       Solution: Always return "execute" path. If validation fails, substitute
+       a BACK action instead of the invalid action. No cycles, no fallback loops.
+
+    3. LOOP DETECTION (for LLM mode only)
+       The LLM can get stuck repeating the same action or clicking in the same area.
+       We detect three types of loops:
+       - Consecutive repetition: same action N times in a row
+       - Sequence repetition: A-B-A-B-A-B pattern
+       - Spatial clustering: clicks concentrated in small area
+
+       WHY NOT FOR ALGORITHM: The algorithmic strategy has its own loop prevention
+       (action marking, successor tracking, plateau detection). Adding loop detection
+       would interfere with its systematic exploration.
+
+    Counters track execution for 70/30 validation:
     - llm_executed: LLM actions that passed validation
     - algorithm_chosen: Algorithm path chosen by decision_router
     - forced_back_count: BACK actions from stuck detection

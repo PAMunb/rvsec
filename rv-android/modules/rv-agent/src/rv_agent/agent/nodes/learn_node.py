@@ -2,6 +2,30 @@
 Learn node for RVAgent workflow.
 
 Updates memory systems and detects stuck states.
+
+Key Design Decisions:
+
+1. STUCK STATE DETECTION
+   Problem: The agent can get stuck in a state where actions don't change the screen
+   (e.g., clicking a disabled button, animation loops, unresponsive dialogs).
+   Solution: Track consecutive iterations where screen hash doesn't change.
+   After STUCK_THRESHOLD (default: 3) unchanged screens, set force_back_action=True.
+
+2. INTERACTION WITH DECISION_ROUTER
+   The learn_node sets force_back_action flag, but doesn't execute BACK directly.
+   This maintains separation of concerns:
+   - learn_node: DETECTS stuck state, sets flag
+   - decision_router: CHECKS flag, routes to algorithm path
+   - algorithm_node: GENERATES BACK action when flag is set
+
+   WHY THIS SEPARATION: Keeps each node focused on one responsibility.
+   Learn node updates memories, decision_router routes, algorithm_node generates actions.
+
+3. UI COVERAGE TRACKING
+   Records which elements were interacted with for coverage metrics.
+   Uses proximity matching because LLM clicks may not be exactly at element centers.
+   The PROXIMITY_THRESHOLD (150 units in normalized [0,1000) space) accommodates
+   typical LLM coordinate variance while avoiding false matches.
 """
 
 import logging

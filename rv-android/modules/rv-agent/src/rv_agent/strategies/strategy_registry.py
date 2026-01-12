@@ -92,7 +92,8 @@ class StrategyRegistry:
         transition_manager: Optional[TransitionManager] = None,
         plateau_window: int = 10,
         max_input_variations: int = 3,
-        target_package: Optional[str] = None
+        target_package: Optional[str] = None,
+        device_dimensions: tuple[int, int] = (1080, 1920)
     ) -> ExplorationStrategy:
         """
         Create and return configured strategy instance.
@@ -107,6 +108,7 @@ class StrategyRegistry:
             plateau_window: Plateau detection window size (rvagent only)
             max_input_variations: Max test values per input field (rvagent only)
             target_package: Target app package name for filtering external elements
+            device_dimensions: Device screen size (width, height) in pixels
 
         Returns:
             Configured ExplorationStrategy instance
@@ -139,7 +141,8 @@ class StrategyRegistry:
                 transition_manager=transition_manager,
                 plateau_window=plateau_window,
                 max_input_variations=max_input_variations,
-                target_package=target_package
+                target_package=target_package,
+                device_dimensions=device_dimensions
             )
 
         # Standard strategies (DFS, BFS, etc.)
