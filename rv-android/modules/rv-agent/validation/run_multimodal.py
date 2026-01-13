@@ -36,11 +36,22 @@ try:
     from rv_agent.agent.agent_factory import AgentFactory
     from multimodal.collector import MultimodalMetricsCollector
     from rv_android_core.domain.app import App
+    from rv_android_core.domain.static import StaticAnalysisData
     RVAGENT_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"rv-agent imports not available: {e}")
     RVAGENT_AVAILABLE = False
     App = None  # Fallback
+    StaticAnalysisData = None
+
+# Import static analysis parser (optional - for WTG experiments)
+try:
+    from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
+    STATIC_ANALYSIS_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"rv-static-analysis imports not available: {e}")
+    STATIC_ANALYSIS_AVAILABLE = False
+    StaticAnalysisParser = None
 
 
 # =============================================================================
@@ -134,6 +145,83 @@ def discover_apks(apks_dir: Path) -> Dict[str, Path]:
 
 
 # =============================================================================
+# Static Analysis Data Loading
+# =============================================================================
+
+def load_static_data_for_app(
+    static_data_dir: Path,
+    package_name: str,
+    apk_mapping: Dict[str, Path]
+) -> Optional["StaticAnalysisData"]:
+    """
+    Load static analysis data (WTG, GESDA, REACH) for an app.
+
+    Args:
+        static_data_dir: Directory containing static analysis files
+        package_name: Package name of the app
+        apk_mapping: Mapping of package names to APK paths
+
+    Returns:
+        StaticAnalysisData if files found, None otherwise
+    """
+    if not STATIC_ANALYSIS_AVAILABLE:
+        logger.warning("Static analysis parser not available")
+        return None
+
+    if not static_data_dir or not static_data_dir.exists():
+        logger.warning(f"Static data directory not found: {static_data_dir}")
+        return None
+
+    # Find the APK name for this package
+    apk_path = apk_mapping.get(package_name)
+    if apk_path:
+        apk_name = apk_path.name  # e.g., "cryptoapp.apk"
+    else:
+        # Try to find by matching package in directory names
+        apk_name = None
+        for subdir in static_data_dir.iterdir():
+            if subdir.is_dir() and subdir.name.endswith(".apk"):
+                # Check if any file in subdir contains package reference
+                apk_name = subdir.name
+                break
+
+    if not apk_name:
+        logger.warning(f"Could not find APK name for package: {package_name}")
+        return None
+
+    # Build path to static data directory for this app
+    # Structure: static_data_dir/{apk_name}/{apk_name}.{wtg,gesda,reach}
+    app_static_dir = static_data_dir / apk_name
+
+    if not app_static_dir.exists():
+        logger.warning(f"Static data directory not found for {apk_name}: {app_static_dir}")
+        return None
+
+    # Check if required files exist
+    wtg_file = app_static_dir / f"{apk_name}.wtg"
+    gesda_file = app_static_dir / f"{apk_name}.gesda"
+    reach_file = app_static_dir / f"{apk_name}.reach"
+
+    if not wtg_file.exists():
+        logger.warning(f"WTG file not found: {wtg_file}")
+        return None
+
+    # Parse static analysis data
+    try:
+        parser = StaticAnalysisParser()
+        static_data = parser.read_static_analysis_files(
+            results_dir=str(app_static_dir),
+            apk=apk_name,
+            package=package_name
+        )
+        logger.info(f"Loaded static data for {package_name}: {static_data.wtg is not None} WTG")
+        return static_data
+    except Exception as e:
+        logger.error(f"Error loading static data for {package_name}: {e}")
+        return None
+
+
+# =============================================================================
 # Configuration
 # =============================================================================
 
@@ -171,10 +259,11 @@ class MultimodalValidationConfig:
     save_screenshots: bool = True
     save_ui_dumps: bool = True
 
-    # Optional: WTG comparison
-    compare_wtg: bool = False
+    # WTG integration settings
+    use_wtg: bool = False  # Enable WTG guidance (requires static_data_dir)
+    compare_wtg: bool = False  # Run with and without WTG for comparison
 
-    # Static analysis data path (optional)
+    # Static analysis data path (required for WTG)
     static_data_dir: Optional[str] = None
 
     @classmethod
@@ -244,6 +333,8 @@ def run_single_experiment(
     run_number: int,
     total_runs: int,
     apk_path: Optional[Path] = None,
+    static_data: Optional["StaticAnalysisData"] = None,
+    wtg_variant: Optional[str] = None,  # "with_wtg" or "without_wtg" for compare mode
 ) -> Dict[str, Any]:
     """
     Run a single experiment (one app, one mode, one seed).
@@ -253,6 +344,10 @@ def run_single_experiment(
     2. Run test
     3. Uninstall APK after test
 
+    Args:
+        static_data: Optional static analysis data for WTG integration
+        wtg_variant: Optional variant name for WTG comparison experiments
+
     Returns:
         Dictionary with run results and metrics path
     """
@@ -261,6 +356,10 @@ def run_single_experiment(
     logger.info(f"App: {app_package}")
     logger.info(f"Mode: {mode}")
     logger.info(f"Seed: {seed}")
+    if wtg_variant:
+        logger.info(f"WTG: {wtg_variant}")
+    elif static_data:
+        logger.info(f"WTG: enabled")
     if apk_path:
         logger.info(f"APK: {apk_path.name}")
     logger.info(f"{'='*60}")
@@ -317,15 +416,18 @@ def run_single_experiment(
         "app_package": app_package,
         "mode": mode,
         "seed": seed,
+        "wtg_variant": wtg_variant,  # "with_wtg", "without_wtg", or None
+        "wtg_enabled": static_data is not None,
         "status": "unknown",
         "error": None,
         "metrics_path": None,
     }
 
     try:
-        # Create agent with metrics collector
+        # Create agent with metrics collector and optional static data
         agent = AgentFactory.create_agent(
             config=agent_config,
+            static_data=static_data,  # Pass WTG data if available
             metrics_collector=collector,
         )
 
@@ -349,7 +451,9 @@ def run_single_experiment(
     # Finalize collector (saves metrics)
     try:
         session = collector.finalize()
-        result["metrics_path"] = str(output_dir / f"multimodal_metrics_{app_package}_{mode}_seed{seed}.json")
+        # Include WTG variant in filename if present
+        wtg_suffix = f"_{wtg_variant}" if wtg_variant else ""
+        result["metrics_path"] = str(output_dir / f"multimodal_metrics_{app_package}_{mode}{wtg_suffix}_seed{seed}.json")
         result["hit_rate"] = session.hit_rate
         result["activity_coverage"] = session.activity_coverage
         logger.info(f"Metrics saved: hit_rate={session.hit_rate:.2%}, coverage={session.activity_coverage:.2%}")
@@ -404,11 +508,21 @@ def run_validation(config: MultimodalValidationConfig) -> None:
             logger.error(f"Config error: {error}")
         sys.exit(1)
 
+    # Determine WTG variants for comparison mode
+    wtg_variants = []
+    if config.compare_wtg:
+        wtg_variants = ["with_wtg", "without_wtg"]
+    elif config.use_wtg:
+        wtg_variants = ["with_wtg"]
+    else:
+        wtg_variants = [None]  # No WTG
+
     # Calculate total runs
     total_runs = (
         len(config.app_packages) *
         len(config.agent_modes) *
-        len(config.seeds)
+        len(config.seeds) *
+        len(wtg_variants)
     )
 
     logger.info("=" * 60)
@@ -418,12 +532,34 @@ def run_validation(config: MultimodalValidationConfig) -> None:
     logger.info(f"APKs available: {len(apk_mapping)}")
     logger.info(f"Modes: {config.agent_modes}")
     logger.info(f"Seeds: {config.seeds}")
+    if config.compare_wtg:
+        logger.info(f"WTG comparison: with_wtg vs without_wtg")
+    elif config.use_wtg:
+        logger.info(f"WTG: enabled")
+    else:
+        logger.info(f"WTG: disabled")
     logger.info(f"Total runs: {total_runs}")
     logger.info(f"Timeout per run: {config.timeout_seconds}s")
     logger.info(f"LLM: {config.llm_model} @ {config.llm_base_url}")
     logger.info(f"LLM params: T={config.llm_temperature}, top_p={config.llm_top_p}, top_k={config.llm_top_k}")
     logger.info(f"Output dir: {config.output_dir}")
     logger.info("=" * 60)
+
+    # Pre-load static data for all apps if WTG is enabled
+    static_data_cache: Dict[str, Any] = {}  # app_package -> StaticAnalysisData or None
+    if config.use_wtg or config.compare_wtg:
+        if config.static_data_dir:
+            static_data_path = Path(config.static_data_dir)
+            logger.info(f"Pre-loading static data from: {static_data_path}")
+            for app_package in config.app_packages:
+                static_data = load_static_data_for_app(static_data_path, app_package, apk_mapping)
+                static_data_cache[app_package] = static_data
+                if static_data:
+                    logger.info(f"  {app_package}: WTG loaded")
+                else:
+                    logger.warning(f"  {app_package}: WTG not found")
+        else:
+            logger.warning("WTG enabled but static_data_dir not set")
 
     # Create output directory
     output_dir = Path(config.output_dir)
@@ -443,23 +579,32 @@ def run_validation(config: MultimodalValidationConfig) -> None:
 
         for mode in config.agent_modes:
             for seed in config.seeds:
-                run_number += 1
+                for wtg_variant in wtg_variants:
+                    run_number += 1
 
-                result = run_single_experiment(
-                    app_package=app_package,
-                    mode=mode,
-                    seed=seed,
-                    config=config,
-                    output_dir=output_dir,
-                    run_number=run_number,
-                    total_runs=total_runs,
-                    apk_path=apk_path,
-                )
-                results.append(result)
+                    # Determine static_data for this run
+                    static_data = None
+                    if wtg_variant == "with_wtg":
+                        static_data = static_data_cache.get(app_package)
+                    # "without_wtg" or None: static_data remains None
 
-                # Save intermediate results
-                with open(output_dir / "results_progress.json", "w") as f:
-                    json.dump(results, f, indent=2)
+                    result = run_single_experiment(
+                        app_package=app_package,
+                        mode=mode,
+                        seed=seed,
+                        config=config,
+                        output_dir=output_dir,
+                        run_number=run_number,
+                        total_runs=total_runs,
+                        apk_path=apk_path,
+                        static_data=static_data,
+                        wtg_variant=wtg_variant,
+                    )
+                    results.append(result)
+
+                    # Save intermediate results
+                    with open(output_dir / "results_progress.json", "w") as f:
+                        json.dump(results, f, indent=2)
 
     # Save final results
     with open(output_dir / "results_final.json", "w") as f:
@@ -540,6 +685,18 @@ def main():
         "--output", type=str, default="validation_results/multimodal",
         help="Output directory"
     )
+    run_parser.add_argument(
+        "--use-wtg", action="store_true",
+        help="Enable WTG navigation guidance (requires --static-data-dir)"
+    )
+    run_parser.add_argument(
+        "--compare-wtg", action="store_true",
+        help="Run with and without WTG for comparison (E2 experiment)"
+    )
+    run_parser.add_argument(
+        "--static-data-dir", type=str,
+        help="Directory containing static analysis files (.wtg, .gesda, .reach)"
+    )
 
     # Generate config template
     template_parser = subparsers.add_parser(
@@ -569,6 +726,13 @@ def main():
         # Load or create config
         if args.config:
             config = MultimodalValidationConfig.from_json(args.config)
+            # Allow command-line overrides for WTG options
+            if args.use_wtg:
+                config.use_wtg = True
+            if args.compare_wtg:
+                config.compare_wtg = True
+            if args.static_data_dir:
+                config.static_data_dir = args.static_data_dir
         else:
             config = MultimodalValidationConfig(
                 app_packages=args.apps.split(",") if args.apps else [],
@@ -577,6 +741,9 @@ def main():
                 timeout_seconds=args.timeout,
                 seeds=[int(s) for s in args.seeds.split(",")],
                 output_dir=args.output,
+                use_wtg=getattr(args, 'use_wtg', False),
+                compare_wtg=getattr(args, 'compare_wtg', False),
+                static_data_dir=getattr(args, 'static_data_dir', None),
             )
 
         run_validation(config)
