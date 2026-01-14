@@ -13,7 +13,7 @@ set -euo pipefail  # Strict error handling
 # Static module list in dependency order - no dynamic discovery
 declare -ra MODULES=(
     "rv-android-core"           # Foundation - core utilities and domain models
-    "rv-monitor-generator"      # Monitor generation from MOP specifications  
+    "rv-monitor-generator"      # Monitor generation from MOP specifications
     "rv-instrumentation"        # APK instrumentation with monitors
     "rv-static-analysis"        # Static analysis tools (GATOR, GESDA, REACH)
     "rv-coverage"               # Coverage analysis tools
@@ -21,6 +21,8 @@ declare -ra MODULES=(
     "rv-llm"                    # Language Model integration infrastructure
     "rv-tools"                  # Tool registry and plugin system
     "rv-platform"               # Central execution platform for Android experiments
+    "rv-agent"                  # LLM-driven autonomous testing agent
+    "rv-agent-validation"       # Validation framework for rv-agent experiments
     "rvandroid-tool"            # RVAndroid tool implementation with LLM integration
     "rv-experiment"             # Experiment orchestration and coordination
 #    "rvandroid"                 # Main framework module

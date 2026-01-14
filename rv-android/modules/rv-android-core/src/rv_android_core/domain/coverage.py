@@ -350,6 +350,10 @@ class CoverageMetrics(BaseValidatedModel):
         default=0,
         description="Total number of methods that can reach monitored operations"
     )
+    total_direct_mop_methods: int = Field(
+        default=0,
+        description="Total number of methods that directly invoke monitored operations"
+    )
 
     # Called counts from dynamic execution
     called_classes: int = Field(
@@ -372,6 +376,10 @@ class CoverageMetrics(BaseValidatedModel):
         default=0,
         description="Number of MOP-reaching methods that were called during execution"
     )
+    called_direct_mop_methods: int = Field(
+        default=0,
+        description="Number of directly MOP-invoking methods that were called during execution"
+    )
 
     # Error counts from runtime verification
     total_errors: int = Field(
@@ -392,12 +400,14 @@ class CoverageMetrics(BaseValidatedModel):
             "total_methods": self.total_methods,
             "total_reachable_methods": self.total_reachable_methods,
             "total_mop_methods": self.total_mop_methods,
+            "total_direct_mop_methods": self.total_direct_mop_methods,
 
             "called_classes": self.called_classes,
             "called_activities": self.called_activities,
             "called_methods": self.called_methods,
             "called_reachable_methods": self.called_reachable_methods,
             "called_mop_methods": self.called_mop_methods,
+            "called_direct_mop_methods": self.called_direct_mop_methods,
 
             "total_errors": self.total_errors,
             "unique_errors": self.unique_errors,
@@ -409,7 +419,9 @@ class CoverageMetrics(BaseValidatedModel):
             "reachable_method_coverage": self._percentage(
                 self.called_reachable_methods, self.total_reachable_methods),
             "mop_method_coverage": self._percentage(
-                self.called_mop_methods, self.total_mop_methods)
+                self.called_mop_methods, self.total_mop_methods),
+            "direct_mop_method_coverage": self._percentage(
+                self.called_direct_mop_methods, self.total_direct_mop_methods)
         }
 
     @staticmethod
@@ -561,6 +573,7 @@ class LogcatRepository:
             metrics.total_methods = self._static_totals.get("total_methods", 0)
             metrics.total_reachable_methods = self._static_totals.get("total_reachable_methods", 0)
             metrics.total_mop_methods = self._static_totals.get("total_mop_methods", 0)
+            metrics.total_direct_mop_methods = self._static_totals.get("total_direct_mop_methods", 0)
         else:
             self.logger.warning("Static totals not available, metrics may be inaccurate")
 
@@ -584,6 +597,8 @@ class LogcatRepository:
                         metrics.called_reachable_methods += 1
                     if method.reaches_mop:
                         metrics.called_mop_methods += 1
+                    if method.directly_reaches_mop:
+                        metrics.called_direct_mop_methods += 1
 
         return metrics
 
@@ -627,6 +642,9 @@ class LogcatRepository:
             'total_mop_methods': metrics_dict.get('total_mop_methods', 0),
             'called_mop_methods': metrics_dict.get('called_mop_methods', 0),
             'mop_method_coverage_percentage': metrics_dict.get('mop_method_coverage', 0.0),
+            'total_direct_mop_methods': metrics_dict.get('total_direct_mop_methods', 0),
+            'called_direct_mop_methods': metrics_dict.get('called_direct_mop_methods', 0),
+            'direct_mop_method_coverage_percentage': metrics_dict.get('direct_mop_method_coverage', 0.0),
             'total_errors': metrics_dict.get('total_errors', 0),
             'unique_errors': metrics_dict.get('unique_errors', 0),
             'timestamp': time.time()
@@ -639,7 +657,8 @@ class LogcatRepository:
             "total_activities": 0,
             "total_methods": 0,
             "total_reachable_methods": 0,
-            "total_mop_methods": 0
+            "total_mop_methods": 0,
+            "total_direct_mop_methods": 0
         }
 
         # Count all classes and methods from static analysis
@@ -658,6 +677,9 @@ class LogcatRepository:
 
                 if method.reaches_mop:
                     totals["total_mop_methods"] += 1
+
+                if method.directly_reaches_mop:
+                    totals["total_direct_mop_methods"] += 1
 
         # Cache the results
         self._static_totals = totals
