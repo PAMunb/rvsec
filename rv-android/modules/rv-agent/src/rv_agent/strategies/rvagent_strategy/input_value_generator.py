@@ -127,8 +127,8 @@ class InputValueGenerator:
         Returns:
             List of realistic test values
         """
-        # Add some basic values that are always useful
-        basic_values = ["", "test"]
+        # Common PIN/password values for testing (try these first for lock screens)
+        common_pins = ["1234", "0000", "123456", "password", "admin", "test", "demo"]
 
         # Generate unique values based on input type
         unique_values = set()
@@ -147,8 +147,9 @@ class InputValueGenerator:
                 unique_values.add(self.faker.text(max_nb_chars=50))
             elif input_type == "username":
                 unique_values.add(self.faker.user_name())
-            elif input_type == "password":
-                unique_values.add(self.faker.password(length=12))
+            elif input_type in ("password", "pin"):
+                # For password/PIN fields, use common test values
+                unique_values.update(common_pins)
             elif input_type == "city":
                 unique_values.add(self.faker.city())
             elif input_type == "country":
@@ -159,10 +160,14 @@ class InputValueGenerator:
                 # Default to text if input type is unknown
                 unique_values.add(self.faker.text(max_nb_chars=50))
 
-        # Convert to list and limit to max_variations, excluding basic values already added
+        # Convert to list and limit to max_variations
         unique_list = list(unique_values)[:self.max_variations]
 
-        return basic_values + unique_list
+        # Prepend common PINs for unknown input types (helps with lock screens)
+        if input_type not in ("email", "name", "phone", "address", "city", "country", "company"):
+            return common_pins[:3] + unique_list
+        else:
+            return ["", "test"] + unique_list
 
     def _get_mop_values(self, input_type: str = "text") -> List[str]:
         """

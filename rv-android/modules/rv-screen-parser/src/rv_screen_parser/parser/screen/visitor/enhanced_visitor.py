@@ -700,7 +700,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             ))
 
         # Calculate current position as percentage
-        current_percent = int((node.progress / node.max) * 100) if node.max > 0 else 0
+        current_percent = int((node.progress / node.max_progress) * 100) if node.max_progress > 0 else 0
 
         # Determine slider purpose
         slider_purpose = self._determine_slider_purpose(node)
@@ -711,7 +711,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             f"{self._with_description(node)}"
             f"{self._with_resource_id(node)}"
             f"{bounds_info} at depth {node_depth} "
-            f"(range: 0-{node.max})"
+            f"(range: 0-{node.max_progress})"
         )
 
         # Track as form element
@@ -719,7 +719,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             "id": node.resource_id or "unnamed_slider",
             "type": "slider",
             "value": current_percent,
-            "max": node.max
+            "max": node.max_progress
         })
 
         item = ScreenItem(node.data, description, actions)

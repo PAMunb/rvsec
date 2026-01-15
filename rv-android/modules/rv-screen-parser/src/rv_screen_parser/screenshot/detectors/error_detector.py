@@ -540,7 +540,7 @@ class ErrorDetector:
 
                     toast = self._create_error_indicator(
                         bbox.x, bbox.y, bbox.width, bbox.height,
-                        confidence, ErrorType.TOAST, text_element.text
+                        confidence, ErrorType.DIALOG_ERROR, text_element.text
                     )
                     if toast:
                         toasts.append(toast)
@@ -639,7 +639,16 @@ class ErrorDetector:
         """Classify error text and return error type with confidence."""
         text_lower = text.lower().strip()
         max_confidence = 0.0
-        detected_type = ErrorType.GENERAL
+        detected_type = ErrorType.GENERAL_ERROR
+
+        # Define mapping from pattern categories to ErrorType enum values
+        category_to_error_type = {
+            "network": ErrorType.NETWORK_ERROR,
+            "permission": ErrorType.PERMISSION_ERROR,
+            "validation": ErrorType.VALIDATION_ERROR,
+            "system": ErrorType.SYSTEM_ERROR,
+            "general": ErrorType.GENERAL_ERROR
+        }
 
         # Check against error patterns
         for error_category, patterns in self.error_patterns.items():
@@ -648,7 +657,7 @@ class ErrorDetector:
                     confidence = 0.8 if error_category != "general" else 0.6
                     if confidence > max_confidence:
                         max_confidence = confidence
-                        detected_type = ErrorType(error_category.upper())
+                        detected_type = category_to_error_type.get(error_category, ErrorType.GENERAL_ERROR)
 
         # Check for error icons in text
         for icon_category, icons in self.error_icons.items():

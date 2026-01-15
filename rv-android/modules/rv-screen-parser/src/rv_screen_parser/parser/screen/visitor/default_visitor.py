@@ -442,7 +442,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 False
             ))
 
-        current_percent = int((node.progress / node.max) * 100) if node.max > 0 else 0
+        current_percent = int((node.progress / node.max_progress) * 100) if node.max_progress > 0 else 0
         text = f"Slider currently at {current_percent}% {self._with_text(node)}{self._with_description(node)}"
 
         item = ScreenItem(node.data, text, actions)

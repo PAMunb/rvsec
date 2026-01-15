@@ -157,11 +157,21 @@ class ToolExecutor:
         return {"success": True}
 
     def _execute_scroll(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute scroll action."""
-        direction = action.get("direction", "down")
+        """Execute scroll action with specific coordinates or direction."""
+        # Try to use specific swipe coordinates if available
+        swipe_start = action.get("swipe_start")
+        swipe_end = action.get("swipe_end")
 
-        self.device.scroll(direction, "medium")
-        self.logger.debug(f"Scrolled {direction}")
+        if swipe_start and swipe_end:
+            start_x, start_y = swipe_start
+            end_x, end_y = swipe_end
+            self.device.swipe(start_x, start_y, end_x, end_y)
+            self.logger.debug(f"Swiped from ({start_x}, {start_y}) to ({end_x}, {end_y})")
+        else:
+            # Fallback to direction-based scroll
+            direction = action.get("direction", "down")
+            self.device.scroll(direction, "medium")
+            self.logger.debug(f"Scrolled {direction}")
 
         return {"success": True}
 
