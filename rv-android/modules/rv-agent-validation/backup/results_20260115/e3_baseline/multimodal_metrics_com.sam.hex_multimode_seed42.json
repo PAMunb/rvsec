@@ -1,0 +1,653 @@
+{
+  "session": {
+    "app_package": "com.sam.hex",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768434586.8593411,
+    "end_time": 1768434759.2978716,
+    "duration_seconds": 172.43853044509888
+  },
+  "llm_metrics": {
+    "total_llm_calls": 18,
+    "total_tokens_input": 44552,
+    "total_tokens_output": 2234,
+    "total_tokens": 46786,
+    "total_latency_ms": 34110.10012902261,
+    "avg_latency_ms": 1895.0055627234785,
+    "tokens_per_action": 2752.1176470588234
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 17,
+    "hits": 14,
+    "near_misses": 0,
+    "ui_misses": 3,
+    "empty_misses": 0,
+    "hit_rate": 0.8235294117647058,
+    "tool_call_rate": 0.9444444444444444
+  },
+  "exploration_metrics": {
+    "total_activities": 10,
+    "activities_discovered": 4,
+    "activity_coverage": 0.4,
+    "total_iterations": 23,
+    "actions_per_activity": 5.75
+  },
+  "stuck_metrics": {
+    "stuck_events": 1,
+    "stuck_recovered": 1,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 19.84536082474227,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 77,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_com.sam.hex_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        302,
+        675
+      ],
+      "device_coords": [
+        326,
+        1296
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1568.995965004433,
+      "tokens_input": 2483,
+      "tokens_output": 97,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".startup.StartUpActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        823,
+        564
+      ],
+      "device_coords": [
+        888,
+        1082
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1849.4502529938472,
+      "tokens_input": 2338,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".startup.InstructionsActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1373.1503220042214,
+      "tokens_input": 2458,
+      "tokens_output": 77,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".startup.InstructionsActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        302,
+        356
+      ],
+      "device_coords": [
+        326,
+        683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2356.2495600053808,
+      "tokens_input": 2506,
+      "tokens_output": 151,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".startup.StartUpActivity"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        499,
+        478
+      ],
+      "device_coords": [
+        538,
+        917
+      ],
+      "hit_classification": "ui_miss",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1580.9322589921067,
+      "tokens_input": 2459,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".HexGame"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        499,
+        478
+      ],
+      "device_coords": [
+        538,
+        917
+      ],
+      "hit_classification": "ui_miss",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2216.528435004875,
+      "tokens_input": 2459,
+      "tokens_output": 154,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".HexGame"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        499,
+        478
+      ],
+      "device_coords": [
+        538,
+        917
+      ],
+      "hit_classification": "ui_miss",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2220.326032009325,
+      "tokens_input": 2459,
+      "tokens_output": 154,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".HexGame"
+    },
+    {
+      "iteration": 10,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1951.4870889979647,
+      "tokens_input": 2480,
+      "tokens_output": 132,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1836.6204969934188,
+      "tokens_input": 2480,
+      "tokens_output": 120,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        302,
+        356
+      ],
+      "device_coords": [
+        326,
+        683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2171.8831449979916,
+      "tokens_input": 2517,
+      "tokens_output": 150,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".startup.StartUpActivity"
+    },
+    {
+      "iteration": 13,
+      "raw_coords": [
+        787,
+        967
+      ],
+      "device_coords": [
+        849,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2098.3726840058807,
+      "tokens_input": 2480,
+      "tokens_output": 144,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1652.0960339985322,
+      "tokens_input": 2480,
+      "tokens_output": 110,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        302,
+        356
+      ],
+      "device_coords": [
+        326,
+        683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2166.999238994322,
+      "tokens_input": 2517,
+      "tokens_output": 143,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".startup.StartUpActivity"
+    },
+    {
+      "iteration": 16,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1669.6686990035232,
+      "tokens_input": 2480,
+      "tokens_output": 112,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1666.769937000936,
+      "tokens_input": 2480,
+      "tokens_output": 110,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1724.1277220018674,
+      "tokens_input": 2480,
+      "tokens_output": 122,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        302,
+        675
+      ],
+      "device_coords": [
+        326,
+        1296
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1907.7243820065632,
+      "tokens_input": 2516,
+      "tokens_output": 127,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".startup.StartUpActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2098.7178750074236,
+      "tokens_input": 2480,
+      "tokens_output": 110,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".HexGame",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 9,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 10,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 11,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 12,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 13,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 14,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 15,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 16,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 17,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 18,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 19,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 20,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 21,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 22,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 23,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    }
+  ]
+}

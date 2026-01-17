@@ -1,0 +1,36 @@
+{
+  "experiment_id": "static_validation_20260106_193819",
+  "experiment_name": "Strategy Validation with Static Analysis",
+  "apk_paths": [
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/cryptoapp.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/byrne.utilities.hashpass_2.apk/byrne.utilities.hashpass_2.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/com.sam.hex_16.apk/com.sam.hex_16.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/org.secuso.privacyfriendlyludo_5.apk/org.secuso.privacyfriendlyludo_5.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/org.secuso.privacyfriendlydicer_8.apk/org.secuso.privacyfriendlydicer_8.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/ca.farrelltonsolar.classic_314.apk/ca.farrelltonsolar.classic_314.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/com.gianlu.dnshero_40.apk/com.gianlu.dnshero_40.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/com.github.axet.hourlyreminder_476.apk/com.github.axet.hourlyreminder_476.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/com.hwloc.lstopo_271.apk/com.hwloc.lstopo_271.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/info.zamojski.soft.towercollector_2140302.apk/info.zamojski.soft.towercollector_2140302.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/livio.rssreader_101.apk/livio.rssreader_101.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/org.emunix.insteadlauncher_80601.apk/org.emunix.insteadlauncher_80601.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/org.pulpdust.lesserpad_42.apk/org.pulpdust.lesserpad_42.apk",
+    "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/t20kdc.offlinepuzzlesolver_4.apk/t20kdc.offlinepuzzlesolver_4.apk"
+  ],
+  "strategies": [
+    "rvagent",
+    "dfs",
+    "bfs",
+    "greedy"
+  ],
+  "repetitions": 3,
+  "timeout_seconds": 180,
+  "agent_mode": "pure_algorithm",
+  "base_seed": 42,
+  "results_dir": "results",
+  "device_serial": "emulator-5554",
+  "enable_static_analysis": true,
+  "static_analysis_dir": "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots",
+  "total_runs": 168,
+  "estimated_time_hours": 9.8
+}

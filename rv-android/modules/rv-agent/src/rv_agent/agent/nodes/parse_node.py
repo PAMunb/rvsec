@@ -29,6 +29,7 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with screen_hash, activity, description, and UI text
     """
+    logger.info("DEBUG_TRACE: parse_ui_node ENTER")
     logger.info("PARSE_UI: Parsing screen")
 
     result = agent.screen_processor.parse_current_screen(
@@ -41,6 +42,27 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     if not ui_elements_text or len(ui_elements_text) < 50:
         logger.warning(f"UI elements text is empty or too short: '{ui_elements_text[:100]}'")
+
+    # Register screen elements for UI coverage tracking (core functionality)
+    screen_hash = result["screen_hash"]
+    screen_desc = result.get("screen_description")
+    if screen_hash and screen_desc and hasattr(agent, 'ui_coverage'):
+        try:
+            agent.ui_coverage.register_screen_elements(screen_hash, screen_desc)
+        except Exception as e:
+            logger.warning(f"Failed to register screen elements: {e}")
+
+    # INSTRUMENTATION: Also record to validation collector if present
+    if agent.metrics_collector:
+        try:
+            ui_xml = result.get("ui_xml", "")
+            if screen_hash and ui_xml:
+                agent.metrics_collector.record_screen_elements(
+                    screen_hash=screen_hash,
+                    ui_dump=ui_xml
+                )
+        except Exception as e:
+            logger.debug(f"INSTRUMENTATION: Failed to record screen elements: {e}")
 
     return {
         "current_screen_hash": result["screen_hash"],

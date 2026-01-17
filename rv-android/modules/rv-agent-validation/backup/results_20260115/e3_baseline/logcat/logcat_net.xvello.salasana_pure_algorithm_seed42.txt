@@ -1,0 +1,56 @@
+--------- beginning of main
+--------- beginning of system
+01-14 23:28:44.438  6663  6663 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:28:44.517  6663  6663 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:28:45.058  6663  6663 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:28:51.154  6663  6663 V RVSEC-COV: <net.xvello.salasana.MainActivity: void generatePassword(android.view.View)>
+01-14 23:28:51.154  6663  6663 V RVSEC-COV: <net.xvello.salasana.MainActivity: java.lang.String encodePassword(java.lang.String)>
+01-14 23:28:51.206  6663  6663 V RVSEC   : net.xvello.salasana.MainActivity.generatePassword(Unknown Source:1) ::: Object_MonitorOwner notify() and notifyAll() can be called only by the owner of this object's monitor.
+01-14 23:29:00.838  6807  6807 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:29:00.905  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:29:01.261  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:29:09.535  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: void resetForm(android.view.View)>
+01-14 23:29:11.786  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>
+01-14 23:29:11.786  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: void switchNightMode()>
+01-14 23:29:14.063  6807  6807 V RVSEC-COV: <net.xvello.salasana.AboutActivity: void onCreate(android.os.Bundle)>
+01-14 23:29:18.267  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: void generatePassword(android.view.View)>
+01-14 23:29:18.267  6807  6807 V RVSEC-COV: <net.xvello.salasana.MainActivity: java.lang.String encodePassword(java.lang.String)>
+01-14 23:29:18.294  6807  6807 V RVSEC   : net.xvello.salasana.MainActivity.generatePassword(Unknown Source:1) ::: Object_MonitorOwner notify() and notifyAll() can be called only by the owner of this object's monitor.
+01-14 23:29:29.002  7014  7014 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:29:29.059  7014  7014 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:29:29.342  7014  7014 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:29:37.785  7014  7014 V RVSEC-COV: <net.xvello.salasana.MainActivity: void resetForm(android.view.View)>
+01-14 23:29:44.401  7014  7014 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>
+01-14 23:29:44.401  7014  7014 V RVSEC-COV: <net.xvello.salasana.MainActivity: void switchNightMode()>
+01-14 23:29:57.797  7214  7214 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:29:57.861  7214  7214 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:29:58.167  7214  7214 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:30:06.555  7214  7214 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>
+01-14 23:30:06.636  7214  7214 V RVSEC-COV: <net.xvello.salasana.AboutActivity: void onCreate(android.os.Bundle)>
+01-14 23:30:25.146  7214  7214 V RVSEC-COV: <net.xvello.salasana.MainActivity: void switchNightMode()>
+01-14 23:31:01.432  7214  7214 V RVSEC-COV: <net.xvello.salasana.MainActivity: void generatePassword(android.view.View)>
+01-14 23:31:01.432  7214  7214 V RVSEC-COV: <net.xvello.salasana.MainActivity: java.lang.String encodePassword(java.lang.String)>
+01-14 23:31:01.454  7214  7214 V RVSEC   : net.xvello.salasana.MainActivity.generatePassword(Unknown Source:1) ::: Object_MonitorOwner notify() and notifyAll() can be called only by the owner of this object's monitor.
+01-14 23:31:12.161  7930  7930 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:31:12.215  7930  7930 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:31:12.508  7930  7930 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:31:44.707  8200  8200 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:31:44.784  8200  8200 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:31:45.062  8200  8200 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:31:53.467  8200  8200 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>
+01-14 23:31:53.467  8200  8200 V RVSEC-COV: <net.xvello.salasana.MainActivity: void switchNightMode()>
+01-14 23:31:55.664  8200  8200 V RVSEC-COV: <net.xvello.salasana.AboutActivity: void onCreate(android.os.Bundle)>
+01-14 23:32:34.012  8644  8644 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:32:34.058  8644  8644 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:32:34.362  8644  8644 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:32:42.771  8644  8644 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>
+01-14 23:32:42.772  8644  8644 V RVSEC-COV: <net.xvello.salasana.MainActivity: void switchNightMode()>
+01-14 23:33:02.209  8866  8866 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:33:02.265  8866  8866 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:33:02.557  8866  8866 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:33:24.069  9023  9023 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:33:24.126  9023  9023 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:33:24.392  9023  9023 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 23:33:43.691  9162  9162 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
+01-14 23:33:43.751  9162  9162 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
+01-14 23:33:44.052  9162  9162 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>

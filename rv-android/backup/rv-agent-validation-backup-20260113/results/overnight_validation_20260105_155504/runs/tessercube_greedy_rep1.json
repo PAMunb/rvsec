@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "tessercube_greedy_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.dimension.tessercube_200.apk",
+  "package_name": "com.dimension.tessercube",
+  "strategy": "greedy",
+  "repetition": 1,
+  "seed": 642069058,
+  "execution_time_seconds": 76.30244183540344
+}

@@ -1,0 +1,683 @@
+{
+  "session": {
+    "app_package": "net.jjc1138.android.scrobbler",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768443965.4380937,
+    "end_time": 1768444106.2213347,
+    "duration_seconds": 140.78324103355408
+  },
+  "llm_metrics": {
+    "total_llm_calls": 19,
+    "total_tokens_input": 49458,
+    "total_tokens_output": 2255,
+    "total_tokens": 51713,
+    "total_latency_ms": 35598.92287601542,
+    "avg_latency_ms": 1873.6275197902853,
+    "tokens_per_action": 2721.7368421052633
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 19,
+    "hits": 18,
+    "near_misses": 0,
+    "ui_misses": 1,
+    "empty_misses": 0,
+    "hit_rate": 0.9473684210526315,
+    "tool_call_rate": 1.0
+  },
+  "exploration_metrics": {
+    "total_activities": 1,
+    "activities_discovered": 3,
+    "activity_coverage": 3.0,
+    "total_iterations": 24,
+    "actions_per_activity": 8.0
+  },
+  "stuck_metrics": {
+    "stuck_events": 0,
+    "stuck_recovered": 0,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 36.84210526315789,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 56,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_net.jjc1138.android.scrobbler_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        500,
+        310
+      ],
+      "device_coords": [
+        540,
+        595
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1609.880111005623,
+      "tokens_input": 2572,
+      "tokens_output": 96,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        500,
+        402
+      ],
+      "device_coords": [
+        540,
+        771
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1474.7482709935866,
+      "tokens_input": 2644,
+      "tokens_output": 89,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        177,
+        468
+      ],
+      "device_coords": [
+        191,
+        898
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1418.78551300033,
+      "tokens_input": 2667,
+      "tokens_output": 84,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        500,
+        164
+      ],
+      "device_coords": [
+        540,
+        314
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "CheckBox",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1793.049535001046,
+      "tokens_input": 2616,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        560,
+        468
+      ],
+      "device_coords": [
+        604,
+        898
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1727.2318259929307,
+      "tokens_input": 2686,
+      "tokens_output": 114,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        195,
+        451
+      ],
+      "device_coords": [
+        210,
+        865
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 3528.1692360003944,
+      "tokens_input": 2625,
+      "tokens_output": 264,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        426,
+        70
+      ],
+      "device_coords": [
+        460,
+        134
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1656.7395970050711,
+      "tokens_input": 2463,
+      "tokens_output": 105,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        823,
+        564
+      ],
+      "device_coords": [
+        888,
+        1082
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 760.4403119912604,
+      "tokens_input": 2403,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        177,
+        468
+      ],
+      "device_coords": [
+        191,
+        898
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2484.7933150012977,
+      "tokens_input": 2687,
+      "tokens_output": 172,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        500,
+        98
+      ],
+      "device_coords": [
+        540,
+        188
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "CheckBox",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1941.360293989419,
+      "tokens_input": 2627,
+      "tokens_output": 132,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        500,
+        402
+      ],
+      "device_coords": [
+        540,
+        771
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1496.9320380041609,
+      "tokens_input": 2688,
+      "tokens_output": 90,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        177,
+        468
+      ],
+      "device_coords": [
+        191,
+        898
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1974.7674340032972,
+      "tokens_input": 2688,
+      "tokens_output": 113,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        195,
+        517
+      ],
+      "device_coords": [
+        210,
+        992
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1830.2662030037027,
+      "tokens_input": 2689,
+      "tokens_output": 105,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        177,
+        468
+      ],
+      "device_coords": [
+        191,
+        898
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1781.5980810119072,
+      "tokens_input": 2666,
+      "tokens_output": 112,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2120.9397299971897,
+      "tokens_input": 2604,
+      "tokens_output": 126,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1813.1817940011388,
+      "tokens_input": 2480,
+      "tokens_output": 118,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        284,
+        436
+      ],
+      "device_coords": [
+        306,
+        837
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1841.2545320024947,
+      "tokens_input": 2557,
+      "tokens_output": 115,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        195,
+        451
+      ],
+      "device_coords": [
+        210,
+        865
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2566.237955004908,
+      "tokens_input": 2631,
+      "tokens_output": 162,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ScrobblerConfig"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        280,
+        428
+      ],
+      "device_coords": [
+        302,
+        821
+      ],
+      "hit_classification": "ui_miss",
+      "hit_element_type": "WebView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1778.5470990056638,
+      "tokens_input": 2465,
+      "tokens_output": 110,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 21,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 22,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".ScrobblerConfig",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 24,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    }
+  ]
+}

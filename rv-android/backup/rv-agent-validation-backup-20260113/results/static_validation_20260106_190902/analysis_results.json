@@ -1,0 +1,1134 @@
+{
+  "timestamp": "2026-01-06T19:31:45.128238",
+  "n_results": 4,
+  "n_strategies": 4,
+  "strategies": [
+    "bfs",
+    "dfs",
+    "greedy",
+    "rvagent"
+  ],
+  "composite_rankings": {
+    "rankings": [
+      {
+        "rank": 1,
+        "strategy": "bfs",
+        "composite_score": 33.68,
+        "components": {
+          "coverage_score": 22.0,
+          "mop_score": 0.0,
+          "efficiency_score": 76.32,
+          "robustness_score": 40.0,
+          "composite_score": 33.68
+        }
+      },
+      {
+        "rank": 2,
+        "strategy": "rvagent",
+        "composite_score": 31.42,
+        "components": {
+          "coverage_score": 19.0,
+          "mop_score": 12.0,
+          "efficiency_score": 58.88,
+          "robustness_score": 40.0,
+          "composite_score": 31.42
+        }
+      },
+      {
+        "rank": 3,
+        "strategy": "dfs",
+        "composite_score": 26.54,
+        "components": {
+          "coverage_score": 16.0,
+          "mop_score": 0.0,
+          "efficiency_score": 54.95,
+          "robustness_score": 40.0,
+          "composite_score": 26.54
+        }
+      },
+      {
+        "rank": 4,
+        "strategy": "greedy",
+        "composite_score": 24.06,
+        "components": {
+          "coverage_score": 16.0,
+          "mop_score": 0.0,
+          "efficiency_score": 45.04,
+          "robustness_score": 40.0,
+          "composite_score": 24.06
+        }
+      }
+    ],
+    "summary": {
+      "dfs": {
+        "n_runs": 1,
+        "composite_score": {
+          "mean": 26.54,
+          "std": 0.0,
+          "min": 26.54,
+          "max": 26.54
+        },
+        "states_discovered": {
+          "mean": 16.0,
+          "std": 0.0
+        },
+        "total_actions": {
+          "mean": 65.0,
+          "std": 0.0
+        },
+        "ui_coverage_percentage": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "mop_methods_reached": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "states_per_action": {
+          "mean": 0.2462,
+          "std": 0.0
+        }
+      },
+      "bfs": {
+        "n_runs": 1,
+        "composite_score": {
+          "mean": 33.68,
+          "std": 0.0,
+          "min": 33.68,
+          "max": 33.68
+        },
+        "states_discovered": {
+          "mean": 22.0,
+          "std": 0.0
+        },
+        "total_actions": {
+          "mean": 63.0,
+          "std": 0.0
+        },
+        "ui_coverage_percentage": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "mop_methods_reached": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "states_per_action": {
+          "mean": 0.3492,
+          "std": 0.0
+        }
+      },
+      "greedy": {
+        "n_runs": 1,
+        "composite_score": {
+          "mean": 24.06,
+          "std": 0.0,
+          "min": 24.06,
+          "max": 24.06
+        },
+        "states_discovered": {
+          "mean": 16.0,
+          "std": 0.0
+        },
+        "total_actions": {
+          "mean": 65.0,
+          "std": 0.0
+        },
+        "ui_coverage_percentage": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "mop_methods_reached": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "states_per_action": {
+          "mean": 0.2462,
+          "std": 0.0
+        }
+      },
+      "rvagent": {
+        "n_runs": 1,
+        "composite_score": {
+          "mean": 31.42,
+          "std": 0.0,
+          "min": 31.42,
+          "max": 31.42
+        },
+        "states_discovered": {
+          "mean": 19.0,
+          "std": 0.0
+        },
+        "total_actions": {
+          "mean": 72.0,
+          "std": 0.0
+        },
+        "ui_coverage_percentage": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "mop_methods_reached": {
+          "mean": 6.0,
+          "std": 0.0
+        },
+        "states_per_action": {
+          "mean": 0.2639,
+          "std": 0.0
+        }
+      }
+    }
+  },
+  "descriptive_stats": {
+    "states_discovered": {
+      "dfs": {
+        "n": 1,
+        "mean": 16.0,
+        "std": 0.0,
+        "median": 16.0,
+        "min": 16.0,
+        "max": 16.0,
+        "q1": 16.0,
+        "q3": 16.0,
+        "iqr": 0.0
+      },
+      "bfs": {
+        "n": 1,
+        "mean": 22.0,
+        "std": 0.0,
+        "median": 22.0,
+        "min": 22.0,
+        "max": 22.0,
+        "q1": 22.0,
+        "q3": 22.0,
+        "iqr": 0.0
+      },
+      "greedy": {
+        "n": 1,
+        "mean": 16.0,
+        "std": 0.0,
+        "median": 16.0,
+        "min": 16.0,
+        "max": 16.0,
+        "q1": 16.0,
+        "q3": 16.0,
+        "iqr": 0.0
+      },
+      "rvagent": {
+        "n": 1,
+        "mean": 19.0,
+        "std": 0.0,
+        "median": 19.0,
+        "min": 19.0,
+        "max": 19.0,
+        "q1": 19.0,
+        "q3": 19.0,
+        "iqr": 0.0
+      }
+    },
+    "ui_coverage_percentage": {
+      "dfs": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "bfs": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "greedy": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "rvagent": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      }
+    },
+    "mop_methods_reached": {
+      "dfs": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "bfs": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "greedy": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "rvagent": {
+        "n": 1,
+        "mean": 6.0,
+        "std": 0.0,
+        "median": 6.0,
+        "min": 6.0,
+        "max": 6.0,
+        "q1": 6.0,
+        "q3": 6.0,
+        "iqr": 0.0
+      }
+    },
+    "states_per_action": {
+      "dfs": {
+        "n": 1,
+        "mean": 0.2462,
+        "std": 0.0,
+        "median": 0.2462,
+        "min": 0.2462,
+        "max": 0.2462,
+        "q1": 0.2462,
+        "q3": 0.2462,
+        "iqr": 0.0
+      },
+      "bfs": {
+        "n": 1,
+        "mean": 0.3492,
+        "std": 0.0,
+        "median": 0.3492,
+        "min": 0.3492,
+        "max": 0.3492,
+        "q1": 0.3492,
+        "q3": 0.3492,
+        "iqr": 0.0
+      },
+      "greedy": {
+        "n": 1,
+        "mean": 0.2462,
+        "std": 0.0,
+        "median": 0.2462,
+        "min": 0.2462,
+        "max": 0.2462,
+        "q1": 0.2462,
+        "q3": 0.2462,
+        "iqr": 0.0
+      },
+      "rvagent": {
+        "n": 1,
+        "mean": 0.2639,
+        "std": 0.0,
+        "median": 0.2639,
+        "min": 0.2639,
+        "max": 0.2639,
+        "q1": 0.2639,
+        "q3": 0.2639,
+        "iqr": 0.0
+      }
+    },
+    "action_validity_rate": {
+      "dfs": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "bfs": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "greedy": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      },
+      "rvagent": {
+        "n": 1,
+        "mean": 0.0,
+        "std": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "q1": 0.0,
+        "q3": 0.0,
+        "iqr": 0.0
+      }
+    },
+    "total_actions": {
+      "dfs": {
+        "n": 1,
+        "mean": 65.0,
+        "std": 0.0,
+        "median": 65.0,
+        "min": 65.0,
+        "max": 65.0,
+        "q1": 65.0,
+        "q3": 65.0,
+        "iqr": 0.0
+      },
+      "bfs": {
+        "n": 1,
+        "mean": 63.0,
+        "std": 0.0,
+        "median": 63.0,
+        "min": 63.0,
+        "max": 63.0,
+        "q1": 63.0,
+        "q3": 63.0,
+        "iqr": 0.0
+      },
+      "greedy": {
+        "n": 1,
+        "mean": 65.0,
+        "std": 0.0,
+        "median": 65.0,
+        "min": 65.0,
+        "max": 65.0,
+        "q1": 65.0,
+        "q3": 65.0,
+        "iqr": 0.0
+      },
+      "rvagent": {
+        "n": 1,
+        "mean": 72.0,
+        "std": 0.0,
+        "median": 72.0,
+        "min": 72.0,
+        "max": 72.0,
+        "q1": 72.0,
+        "q3": 72.0,
+        "iqr": 0.0
+      }
+    }
+  },
+  "significance": {
+    "states_discovered": {
+      "metric": "states_discovered",
+      "kruskal_wallis": {
+        "test": "kruskal_wallis",
+        "H_statistic": 3.0,
+        "p_value": 0.391625,
+        "significant": "False",
+        "alpha": 0.05,
+        "n_groups": 4
+      },
+      "pairwise_wilcoxon": [
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_dfs"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "greedy_vs_rvagent"
+        }
+      ]
+    },
+    "ui_coverage_percentage": {
+      "metric": "ui_coverage_percentage",
+      "kruskal_wallis": {
+        "error": "All numbers are identical in kruskal"
+      },
+      "pairwise_wilcoxon": [
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_dfs"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "greedy_vs_rvagent"
+        }
+      ]
+    },
+    "mop_methods_reached": {
+      "metric": "mop_methods_reached",
+      "kruskal_wallis": {
+        "test": "kruskal_wallis",
+        "H_statistic": 3.0,
+        "p_value": 0.391625,
+        "significant": "False",
+        "alpha": 0.05,
+        "n_groups": 4
+      },
+      "pairwise_wilcoxon": [
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_dfs"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "greedy_vs_rvagent"
+        }
+      ]
+    },
+    "states_per_action": {
+      "metric": "states_per_action",
+      "kruskal_wallis": {
+        "test": "kruskal_wallis",
+        "H_statistic": 3.0,
+        "p_value": 0.391625,
+        "significant": "False",
+        "alpha": 0.05,
+        "n_groups": 4
+      },
+      "pairwise_wilcoxon": [
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_dfs"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "greedy_vs_rvagent"
+        }
+      ]
+    },
+    "action_validity_rate": {
+      "metric": "action_validity_rate",
+      "kruskal_wallis": {
+        "error": "All numbers are identical in kruskal"
+      },
+      "pairwise_wilcoxon": [
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_dfs"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "greedy_vs_rvagent"
+        }
+      ]
+    },
+    "total_actions": {
+      "metric": "total_actions",
+      "kruskal_wallis": {
+        "test": "kruskal_wallis",
+        "H_statistic": 3.0,
+        "p_value": 0.391625,
+        "significant": "False",
+        "alpha": 0.05,
+        "n_groups": 4
+      },
+      "pairwise_wilcoxon": [
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_dfs"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "bfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_greedy"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "dfs_vs_rvagent"
+        },
+        {
+          "error": "Need at least 5 paired samples, got 0",
+          "comparison": "greedy_vs_rvagent"
+        }
+      ]
+    }
+  },
+  "effect_sizes": {
+    "states_discovered": [
+      {
+        "comparison": "bfs_vs_dfs",
+        "metric": "states_discovered",
+        "cliff_delta": 1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "a > b"
+      },
+      {
+        "comparison": "bfs_vs_greedy",
+        "metric": "states_discovered",
+        "cliff_delta": 1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "a > b"
+      },
+      {
+        "comparison": "bfs_vs_rvagent",
+        "metric": "states_discovered",
+        "cliff_delta": 1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "a > b"
+      },
+      {
+        "comparison": "dfs_vs_greedy",
+        "metric": "states_discovered",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_rvagent",
+        "metric": "states_discovered",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "greedy_vs_rvagent",
+        "metric": "states_discovered",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      }
+    ],
+    "ui_coverage_percentage": [
+      {
+        "comparison": "bfs_vs_dfs",
+        "metric": "ui_coverage_percentage",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "bfs_vs_greedy",
+        "metric": "ui_coverage_percentage",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "bfs_vs_rvagent",
+        "metric": "ui_coverage_percentage",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_greedy",
+        "metric": "ui_coverage_percentage",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_rvagent",
+        "metric": "ui_coverage_percentage",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "greedy_vs_rvagent",
+        "metric": "ui_coverage_percentage",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      }
+    ],
+    "mop_methods_reached": [
+      {
+        "comparison": "bfs_vs_dfs",
+        "metric": "mop_methods_reached",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "bfs_vs_greedy",
+        "metric": "mop_methods_reached",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "bfs_vs_rvagent",
+        "metric": "mop_methods_reached",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "dfs_vs_greedy",
+        "metric": "mop_methods_reached",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_rvagent",
+        "metric": "mop_methods_reached",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "greedy_vs_rvagent",
+        "metric": "mop_methods_reached",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      }
+    ],
+    "states_per_action": [
+      {
+        "comparison": "bfs_vs_dfs",
+        "metric": "states_per_action",
+        "cliff_delta": 1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "a > b"
+      },
+      {
+        "comparison": "bfs_vs_greedy",
+        "metric": "states_per_action",
+        "cliff_delta": 1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "a > b"
+      },
+      {
+        "comparison": "bfs_vs_rvagent",
+        "metric": "states_per_action",
+        "cliff_delta": 1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "a > b"
+      },
+      {
+        "comparison": "dfs_vs_greedy",
+        "metric": "states_per_action",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_rvagent",
+        "metric": "states_per_action",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "greedy_vs_rvagent",
+        "metric": "states_per_action",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      }
+    ],
+    "action_validity_rate": [
+      {
+        "comparison": "bfs_vs_dfs",
+        "metric": "action_validity_rate",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "bfs_vs_greedy",
+        "metric": "action_validity_rate",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "bfs_vs_rvagent",
+        "metric": "action_validity_rate",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_greedy",
+        "metric": "action_validity_rate",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_rvagent",
+        "metric": "action_validity_rate",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "greedy_vs_rvagent",
+        "metric": "action_validity_rate",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      }
+    ],
+    "total_actions": [
+      {
+        "comparison": "bfs_vs_dfs",
+        "metric": "total_actions",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "bfs_vs_greedy",
+        "metric": "total_actions",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "bfs_vs_rvagent",
+        "metric": "total_actions",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "dfs_vs_greedy",
+        "metric": "total_actions",
+        "cliff_delta": 0.0,
+        "cliff_interpretation": "negligible",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "equal"
+      },
+      {
+        "comparison": "dfs_vs_rvagent",
+        "metric": "total_actions",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      },
+      {
+        "comparison": "greedy_vs_rvagent",
+        "metric": "total_actions",
+        "cliff_delta": -1.0,
+        "cliff_interpretation": "large",
+        "cohen_d": NaN,
+        "cohen_interpretation": "large",
+        "n_a": 1,
+        "n_b": 1,
+        "direction": "b > a"
+      }
+    ]
+  },
+  "per_app": {
+    "br.unb.cic.cryptoapp": {
+      "n_runs": 4,
+      "best_strategy": "bfs",
+      "best_score": 33.68,
+      "by_strategy": {
+        "bfs": {
+          "n_runs": 1,
+          "mean_score": 33.68,
+          "scores": [
+            33.68
+          ]
+        },
+        "dfs": {
+          "n_runs": 1,
+          "mean_score": 26.54,
+          "scores": [
+            26.54
+          ]
+        },
+        "greedy": {
+          "n_runs": 1,
+          "mean_score": 24.06,
+          "scores": [
+            24.06
+          ]
+        },
+        "rvagent": {
+          "n_runs": 1,
+          "mean_score": 31.42,
+          "scores": [
+            31.42
+          ]
+        }
+      }
+    }
+  },
+  "recommendation": {
+    "recommendation": "bfs",
+    "composite_score": 33.68,
+    "component_scores": {
+      "coverage_score": 22.0,
+      "mop_score": 0.0,
+      "efficiency_score": 76.32,
+      "robustness_score": 40.0,
+      "composite_score": 33.68
+    },
+    "gap_to_second": 2.26,
+    "second_place": "rvagent",
+    "confidence": "low"
+  }
+}

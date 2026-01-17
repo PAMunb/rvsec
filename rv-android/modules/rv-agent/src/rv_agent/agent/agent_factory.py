@@ -142,7 +142,9 @@ class AgentFactory:
             plateau_window=config.plateau_window,  # RVAgent config
             max_input_variations=config.max_input_variations,  # RVAgent config
             target_package=config.package_name,  # Filter actions by target package
-            device_dimensions=device_size  # For system action detection
+            device_dimensions=device_size,  # For system action detection
+            stochastic_probability=config.stochastic_probability,  # Gumbel-max probability
+            stochastic_temperature=config.stochastic_temperature  # Gumbel-max temperature
         )
         logger.info(f"Created ExplorationStrategy: {config.strategy}")
 
@@ -241,6 +243,7 @@ class AgentFactory:
             navigation_guidance=navigation_guidance,
             action_normalizer=action_normalizer,
             static_data=static_data,
+            ui_coverage=ui_coverage,
             metrics_collector=metrics_collector  # INSTRUMENTATION: Can be removed for production
         )
 

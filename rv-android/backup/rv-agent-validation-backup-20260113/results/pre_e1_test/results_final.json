@@ -1,0 +1,16 @@
+[
+  {
+    "app_package": "br.unb.cic.cryptoapp",
+    "mode": "llm_only",
+    "seed": 42,
+    "status": "completed",
+    "error": null,
+    "metrics_path": "validation/results/pre_e1_test/multimodal_metrics_br.unb.cic.cryptoapp_llm_only_seed42.json",
+    "iterations": 26,
+    "unique_states": 7,
+    "execution_time_s": 183.757883310318,
+    "hit_rate": 1.0,
+    "activity_coverage": 0.0,
+    "total_time_s": 186.27704882621765
+  }
+]

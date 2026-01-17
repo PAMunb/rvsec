@@ -1,0 +1,994 @@
+{
+  "session": {
+    "app_package": "com.mareksebera.simpledilbert",
+    "agent_mode": "pure_algorithm",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768432122.6931512,
+    "end_time": 1768432425.4829054,
+    "duration_seconds": 302.789754152298
+  },
+  "llm_metrics": {
+    "total_llm_calls": 0,
+    "total_tokens_input": 0,
+    "total_tokens_output": 0,
+    "total_tokens": 0,
+    "total_latency_ms": 0.0,
+    "avg_latency_ms": 0.0,
+    "tokens_per_action": 0.0
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 0,
+    "hits": 0,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 0.0,
+    "tool_call_rate": 0.0
+  },
+  "exploration_metrics": {
+    "total_activities": 4,
+    "activities_discovered": 3,
+    "activity_coverage": 0.75,
+    "total_iterations": 103,
+    "actions_per_activity": 34.333333333333336
+  },
+  "stuck_metrics": {
+    "stuck_events": 5,
+    "stuck_recovered": 5,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 30.0,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 69,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 1,
+    "total_errors": 1,
+    "logcat_file": "results/e3_baseline/logcat/logcat_com.mareksebera.simpledilbert_pure_algorithm_seed42.txt"
+  },
+  "llm_actions": [],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "SCROLL_UP",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": true,
+      "action_type": "SCROLL",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 17,
+      "activity": "com.android.internal.app.ChooserActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 22,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "SCROLL",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 26,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 27,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 36,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 41,
+      "activity": "com.android.internal.app.ChooserActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "SCROLL",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 42,
+      "activity": "com.android.internal.app.ChooserActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 43,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 45,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "SCROLL",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 48,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 49,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 50,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 51,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "SCROLL_UP",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 53,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 54,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 55,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 56,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 57,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 58,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 59,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 60,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 61,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 62,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 32,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 63,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 33,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 64,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 34,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 65,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 35,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 66,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 36,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 67,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 37,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 68,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 38,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 69,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 39,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 70,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 40,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 71,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 41,
+      "is_stuck": false,
+      "action_type": "SCROLL_DOWN",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 72,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 42,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 73,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 43,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 74,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 44,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 75,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 45,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 76,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 46,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 77,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 47,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 78,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 48,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 79,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 49,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 80,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 50,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 81,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 51,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 82,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 52,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 83,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 53,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 84,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 54,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 85,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 55,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 86,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 56,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 87,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 57,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 88,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 58,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 89,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 59,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 90,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 60,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 91,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 61,
+      "is_stuck": false,
+      "action_type": "LONG_CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 92,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 62,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 93,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 63,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 94,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 64,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 95,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 65,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 96,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 66,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 97,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 67,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 98,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 68,
+      "is_stuck": false,
+      "action_type": "SCROLL_UP",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 99,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 69,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 100,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 70,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 101,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 71,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 102,
+      "activity": ".core.DilbertFragmentActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 72,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 103,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 73,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    }
+  ]
+}

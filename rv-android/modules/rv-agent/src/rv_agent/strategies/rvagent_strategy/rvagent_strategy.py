@@ -3,27 +3,38 @@ Coverage-optimized depth-first exploration with successor tracking.
 
 Implements state space exploration with:
 1. Successor state tracking to re-enable actions when destination states are incomplete
-2. MOP-aware action prioritization
+2. MOP-aware action prioritization via ActionRanker
 3. Plateau detection for automatic termination
 4. Input field value variation generation
 """
 
 import logging
+import random
 from dataclasses import dataclass
-from typing import Optional, List, Set, Tuple, TYPE_CHECKING
+from typing import Optional, List, Set, Tuple, Dict, TYPE_CHECKING
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.widget import WidgetEventType
 
 from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.memory.element_id import make_element_id_from_tuple
 from rv_android_core.domain.static import StaticAnalysisData
 
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
 from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
 from rv_agent.strategies.rvagent_strategy.input_value_generator import InputValueGenerator
 from rv_agent.strategies.rvagent_strategy.coverage_metrics import CoverageMetrics
-
+from rv_agent.strategies.rvagent_strategy.ranking import (
+    ActionRanker,
+    RankingContext,
+    MopScorer,
+    WtgScorer,
+    UntestedScorer,
+    ExecutionCountScorer,
+    FailedActionScorer,
+    ComponentPriorityScorer,
+)
 if TYPE_CHECKING:
     from rv_agent.services.transition_manager import TransitionManager
 
@@ -92,6 +103,17 @@ class RVAgentStrategy(ExplorationStrategy):
     NAVBAR_Y_PERCENT = 0.94   # Actions below 94% of screen height are navbar
     STATUSBAR_Y_PERCENT = 0.05  # Actions above 5% of screen height are statusbar
 
+    # System packages that render dialogs/alerts for apps
+    # These should NOT be filtered out even when target_package is set,
+    # because they render UI elements that are part of the app's flow
+    # (e.g., permission dialogs, compatibility warnings, system alerts)
+    SYSTEM_DIALOG_PACKAGES = frozenset({
+        "android",                      # System dialogs, alerts, compatibility warnings
+        "com.android.packageinstaller", # Permission dialogs, install prompts
+        "com.android.permissioncontroller",  # Runtime permission dialogs (Android 10+)
+        "com.google.android.permissioncontroller",  # Google's permission controller
+    })
+
     def __init__(
         self,
         graph: DynamicStateGraph,
@@ -102,7 +124,9 @@ class RVAgentStrategy(ExplorationStrategy):
         plateau_window: int = 10,
         max_input_variations: int = 3,
         target_package: Optional[str] = None,
-        device_dimensions: Tuple[int, int] = (1080, 1920)
+        device_dimensions: Tuple[int, int] = (1080, 1920),
+        stochastic_probability: float = 0.3,
+        stochastic_temperature: float = 1.0
     ):
         """
         Initialize RVAgent exploration strategy.
@@ -117,6 +141,8 @@ class RVAgentStrategy(ExplorationStrategy):
             max_input_variations: Maximum test values per input field
             target_package: Target app package name for filtering external elements
             device_dimensions: Device screen size (width, height) in pixels
+            stochastic_probability: Probability of using Gumbel-max selection (0-1)
+            stochastic_temperature: Temperature for Gumbel-max (higher = more random)
         """
         self.graph = graph
         self.ui_coverage = ui_coverage
@@ -126,11 +152,25 @@ class RVAgentStrategy(ExplorationStrategy):
         self.target_package = target_package
         self.device_dimensions = device_dimensions
 
+        # Gumbel-max stochastic selection parameters
+        self.stochastic_probability = stochastic_probability
+        self.stochastic_temperature = stochastic_temperature
+
         # Helper components
         self.successor_tracker = SuccessorTracker(graph)
         self.plateau_detector = PlateauDetector(window_size=plateau_window)
         self.value_generator = InputValueGenerator(max_variations=max_input_variations)
         self.coverage_metrics = CoverageMetrics(graph, ui_coverage)
+
+        # Action ranking system (scores calibrated from UI dump analysis)
+        self.action_ranker = ActionRanker(scorers=[
+            MopScorer(),
+            WtgScorer(),
+            UntestedScorer(),
+            ComponentPriorityScorer(),
+            ExecutionCountScorer(coordinate_converter=coordinate_converter),
+            FailedActionScorer(coordinate_converter=coordinate_converter),
+        ])
 
         # DFS state
         self.state_stack: List[RVAgentState] = []
@@ -146,7 +186,8 @@ class RVAgentStrategy(ExplorationStrategy):
         logger.info(
             f"RVAgentStrategy initialized: plateau_window={plateau_window}, "
             f"max_variations={max_input_variations}, "
-            f"transition_manager={'enabled' if transition_manager else 'disabled'}"
+            f"transition_manager={'enabled' if transition_manager else 'disabled'}, "
+            f"stochastic_prob={stochastic_probability}, temp={stochastic_temperature}"
         )
         if target_package:
             logger.info(f"RVAgentStrategy: Filtering actions to package '{target_package}'")
@@ -283,12 +324,15 @@ class RVAgentStrategy(ExplorationStrategy):
                 action_signature = self._convert_signature_to_optimized(original_action.coords_for_matching)
                 self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
                 # Also mark in UI coverage tracker now that all variations are tested
-                element_id = original_action.widget_id or f"coords:{original_action.coordinates}"
+                element_id = original_action.widget_id or make_element_id_from_tuple(original_action.coordinates)
+                comp_class = original_action.target_view.get('class', '') if original_action.target_view else ''
+                comp_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
                 self.ui_coverage.record_interaction(
                     element_id=element_id,
                     action_type=original_action.event.value,
                     screen_hash=current_hash,
-                    success=True
+                    success=True,
+                    component_type=comp_type
                 )
                 logger.debug("Input values exhausted, marking action as executed and selecting different action")
                 # Use iterative approach instead of recursion
@@ -314,12 +358,15 @@ class RVAgentStrategy(ExplorationStrategy):
         # when all input variations are exhausted (handled in step 6 above).
         # Marking them here would cause priority selection to skip them prematurely.
         if selected_action.event != WidgetEventType.TEXT_CHANGE:
-            element_id = selected_action.widget_id or f"coords:{selected_action.coordinates}"
+            element_id = selected_action.widget_id or make_element_id_from_tuple(selected_action.coordinates)
+            comp_class = selected_action.target_view.get('class', '') if selected_action.target_view else ''
+            comp_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
             self.ui_coverage.record_interaction(
                 element_id=element_id,
                 action_type=selected_action.event.value,
                 screen_hash=current_hash,
-                success=True
+                success=True,
+                component_type=comp_type
             )
 
         # 9. Record MOP if applicable
@@ -472,19 +519,42 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         filtered = []
 
+        # [DEBUG_ACTION_SELECTION] Log all items before filtering
+        logger.info(f"[DEBUG_ACTION_SELECTION] === Item Filtering Debug ===")
+        logger.info(f"[DEBUG_ACTION_SELECTION] Total screen items: {len(screen_desc.items)}")
+
         for item in screen_desc.items:
-            # Filter by package - only include items from target app
+            item_class = item.view.get('class', 'unknown')
             item_package = item.view.get('package', '')
+            item_actions_count = len(item.actions)
+
+            # [DEBUG_ACTION_SELECTION] Log each item
+            logger.debug(f"[DEBUG_ACTION_SELECTION]   Item: {item_class} pkg={item_package} actions={item_actions_count}")
+
+            # Filter by package - only include items from target app
+            # BUT allow system dialog packages (they render UI as part of app flow)
             if self.target_package and item_package:
                 if item_package != self.target_package:
-                    continue
+                    # Allow system dialog packages (permission dialogs, alerts, etc.)
+                    if item_package not in self.SYSTEM_DIALOG_PACKAGES:
+                        logger.debug(f"[DEBUG_ACTION_SELECTION]     FILTERED: external package {item_package}")
+                        continue
 
             for action in item.actions:
                 # Skip system actions
                 if self._is_system_action(action):
+                    logger.debug(f"[DEBUG_ACTION_SELECTION]     FILTERED: system action")
                     continue
 
                 filtered.append(action)
+                logger.debug(f"[DEBUG_ACTION_SELECTION]     INCLUDED: {action.event.value} at {action.coordinates}")
+
+        # [DEBUG_ACTION_SELECTION] Summary by widget type
+        type_counts = {}
+        for action in filtered:
+            target_class = action.target_view.get('class', 'unknown') if action.target_view else 'no_target'
+            type_counts[target_class] = type_counts.get(target_class, 0) + 1
+        logger.info(f"[DEBUG_ACTION_SELECTION] Actions by widget type: {type_counts}")
 
         return filtered
 
@@ -542,14 +612,22 @@ class RVAgentStrategy(ExplorationStrategy):
         screen_desc: ScreenDescription
     ) -> Optional[ItemAction]:
         """
-        Select highest priority action from candidates.
+        Select action using ActionRanker with optional Gumbel-max stochastic selection.
 
-        Priority order:
-        1. Direct MOP ([DM]) - directly reaches monitored operation
-        2. Transitive MOP ([M]) - transitively reaches MOP
-        3. WTG-guided actions - lead to unvisited screens (if TransitionManager available)
-        4. Untested UI elements - never interacted with
-        5. Least tested elements - lowest test count
+        Uses stochastic_probability to decide between deterministic (select_best)
+        and stochastic (select_stochastic with Gumbel-max) selection. Stochastic
+        selection adds controlled randomness while preserving priority order.
+
+        Delegates scoring to registered Scorers:
+        - UntestedScorer: +200 (never tested)
+        - MopScorer: +100 (DM), +50 (M)
+        - WtgScorer: +100 (WTG-guided)
+        - ExecutionCountScorer: 10/(1+count)
+        - FailedActionScorer: -9999 (blacklisted)
+
+        Gumbel-max stochastic selection adds controlled randomness while
+        preserving priority order. With balanced scores, exploration is
+        more diverse while still favoring untested and MOP-reaching elements.
 
         Args:
             actions: Candidate actions
@@ -561,99 +639,86 @@ class RVAgentStrategy(ExplorationStrategy):
         if not actions:
             return None
 
-        # Priority 1: Direct MOP
-        dm_actions = [a for a in actions if a.directly_reaches_mop]
-        if dm_actions:
-            logger.debug(f"Selecting [DM] action (direct MOP)")
-            return dm_actions[0]
+        context = self._build_ranking_context(screen_desc)
 
-        # Priority 2: Transitive MOP
-        m_actions = [a for a in actions if a.reaches_mop]
-        if m_actions:
-            logger.debug(f"Selecting [M] action (transitive MOP)")
-            return m_actions[0]
-
-        # Priority 3: WTG-guided actions (lead to unvisited screens)
-        if self.transition_manager:
-            wtg_action = self._get_wtg_guided_action(actions, screen_desc)
-            if wtg_action:
-                logger.debug(f"Selecting WTG-guided action (leads to unvisited screen)")
-                return wtg_action
-
-        # Priority 4: Completely untested elements
-        untested_ui = []
+        # [DEBUG_ACTION_SELECTION] Log all candidate actions with scores
+        logger.info(f"[DEBUG_ACTION_SELECTION] === Action Selection Debug ===")
+        logger.info(f"[DEBUG_ACTION_SELECTION] Candidate actions: {len(actions)}")
+        scored_actions = []
         for action in actions:
-            element_id = action.widget_id or f"coords:{action.coordinates}"
-            if self.ui_coverage.is_element_untested(element_id):
-                untested_ui.append(action)
+            # Get individual scorer contributions
+            scorer_scores = {}
+            for scorer in self.action_ranker.scorers:
+                scorer_name = scorer.__class__.__name__
+                scorer_scores[scorer_name] = scorer.score(action, context)
 
-        if untested_ui:
-            logger.debug(f"Selecting untested UI element")
-            return untested_ui[0]
+            total_score = sum(scorer_scores.values())
+            coords = action.coordinates if action.coordinates else "no_coords"
+            event_type = action.event.value if action.event else "unknown"
+            target_class = action.target_view.get('class', 'unknown') if action.target_view else "no_target"
+            scored_actions.append((total_score, action, coords, event_type, target_class, scorer_scores))
 
-        # Priority 5: Least tested element
-        def get_test_count(action):
-            element_id = action.widget_id or f"coords:{action.coordinates}"
-            return self.ui_coverage.get_element_test_count(element_id)
+        # Sort by score descending and log
+        scored_actions.sort(key=lambda x: x[0], reverse=True)
+        for i, (score, action, coords, event_type, target_class, scorer_scores) in enumerate(scored_actions[:10]):
+            dm_flag = "[DM]" if action.directly_reaches_mop else ""
+            m_flag = "[M]" if action.reaches_mop else ""
+            # Format scorer breakdown
+            breakdown = " ".join([f"{k[:3]}={v:.0f}" for k, v in scorer_scores.items() if v != 0])
+            logger.info(f"[DEBUG_ACTION_SELECTION]   {i+1}. score={score:.1f} [{breakdown}] {dm_flag}{m_flag} {event_type} at {coords} ({target_class})")
+        if len(scored_actions) > 10:
+            logger.info(f"[DEBUG_ACTION_SELECTION]   ... and {len(scored_actions) - 10} more actions")
 
-        least_tested = min(actions, key=get_test_count)
-        logger.debug(f"Selecting least tested element (count={get_test_count(least_tested)})")
-        return least_tested
+        # Use stochastic selection based on configured probability
+        use_stochastic = random.random() < self.stochastic_probability
+        if use_stochastic and len(actions) > 1:
+            selected = self.action_ranker.select_stochastic(
+                actions, context, temperature=self.stochastic_temperature
+            )
+            selection_mode = "stochastic"
+        else:
+            selected = self.action_ranker.select_best(actions, context)
+            selection_mode = "deterministic"
 
-    def _get_wtg_guided_action(
-        self,
-        actions: List[ItemAction],
-        screen_desc: ScreenDescription
-    ) -> Optional[ItemAction]:
+        if selected:
+            priority_label = "[DM]" if selected.directly_reaches_mop else (
+                "[M]" if selected.reaches_mop else "UI"
+            )
+            logger.info(f"[DEBUG_ACTION_SELECTION] SELECTED ({selection_mode}): {selected.event.value} at {selected.coordinates} priority={priority_label}")
+
+        return selected
+
+    def _build_ranking_context(self, screen_desc: ScreenDescription) -> RankingContext:
         """
-        Get action guided by WTG (Window Transition Graph) analysis.
-
-        Uses TransitionManager to find actions that lead to unvisited screens,
-        prioritizing exploration of new app areas over revisiting known screens.
+        Build ranking context for Scorers.
 
         Args:
-            actions: Available candidate actions
             screen_desc: Current screen description
 
         Returns:
-            Action that leads to unvisited screen, or None if no guidance available
+            RankingContext with all required data for scoring
         """
-        if not self.transition_manager:
-            return None
+        current_hash = self.graph.get_current_state_hash() if hasattr(self.graph, 'get_current_state_hash') else ""
+        if not current_hash and self.state_stack:
+            current_hash = self.state_stack[-1].screen_hash
 
-        # Get navigation guidance from TransitionManager
-        guidance = self.transition_manager.get_navigation_guidance(
-            current_activity=screen_desc.activity,
-            screen_desc=screen_desc
+        return RankingContext(
+            screen_desc=screen_desc,
+            graph=self.graph,
+            ui_coverage=self.ui_coverage,
+            current_state_hash=current_hash,
+            visited_activities=self._get_visited_activities(),
+            transition_manager=self.transition_manager,
         )
 
-        if not guidance.get("has_static_guidance"):
-            return None
-
-        # Get suggested actions (mapped from WTG to current screen)
-        suggested = guidance.get("suggested_actions", [])
-        if not suggested:
-            return None
-
-        # Log guidance info
-        unvisited_count = len([t for t in guidance.get("unvisited_targets", []) if not t.get("visited")])
-        if unvisited_count > 0:
-            logger.info(f"WTG guidance: {unvisited_count} unvisited screens reachable from here")
-
-        # Match suggested actions with available actions
-        for suggestion in suggested:
-            action_id = suggestion.get("action_id")
-            if action_id is None:
-                continue
-
-            # Find matching action in candidates
-            for action in actions:
-                if action.id == action_id:
-                    target = suggestion.get("target_activity", "unknown")
-                    logger.info(f"WTG: Selected action leading to '{target}'")
-                    return action
-
-        return None
+    def _get_visited_activities(self) -> Set[str]:
+        """Get set of visited activity names."""
+        activities = set()
+        for state_hash in self.visited_states:
+            node = self.graph.states.get(state_hash)
+            if node and node.activity:
+                activities.add(node.activity)
+        return activities
 
     def _prepare_input_action(
         self,
@@ -673,7 +738,7 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             Action with test value, or None if exhausted
         """
-        element_id = action.widget_id or f"coords:{action.coordinates}"
+        element_id = action.widget_id or make_element_id_from_tuple(action.coordinates)
         is_mop = action.reaches_mop or action.directly_reaches_mop
 
         # Get next test value

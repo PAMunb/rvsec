@@ -1,0 +1,256 @@
+{
+  "session": {
+    "app_package": "org.emunix.insteadlauncher",
+    "agent_mode": "llm_only",
+    "timeout_seconds": 300,
+    "seed": 456,
+    "start_time": 1767820414.3957021,
+    "end_time": 1767820446.9349334,
+    "duration_seconds": 32.539231300354004
+  },
+  "llm_metrics": {
+    "total_llm_calls": 7,
+    "total_tokens_input": 15727,
+    "total_tokens_output": 244,
+    "total_tokens": 15971,
+    "total_latency_ms": 5667.362561012851,
+    "avg_latency_ms": 809.6232230018359,
+    "tokens_per_action": 2281.5714285714284
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 7,
+    "hits": 6,
+    "near_misses": 0,
+    "ui_misses": 1,
+    "empty_misses": 0,
+    "hit_rate": 0.8571428571428571,
+    "tool_call_rate": 1.0
+  },
+  "exploration_metrics": {
+    "total_activities": 0,
+    "activities_discovered": 2,
+    "activity_coverage": 0.0,
+    "total_iterations": 6,
+    "actions_per_activity": 3.0
+  },
+  "stuck_metrics": {
+    "stuck_events": 0,
+    "stuck_recovered": 0,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "llm_actions": [
+    {
+      "iteration": 0,
+      "raw_coords": [
+        892,
+        873
+      ],
+      "device_coords": [
+        963,
+        1676
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageButton",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 984.4473680132069,
+      "tokens_input": 2164,
+      "tokens_output": 50,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.launcher.LauncherActivity"
+    },
+    {
+      "iteration": 1,
+      "raw_coords": [
+        615,
+        170
+      ],
+      "device_coords": [
+        664,
+        326
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ViewGroup",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 736.5449240023736,
+      "tokens_input": 2306,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.launcher.LauncherActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        816,
+        544
+      ],
+      "device_coords": [
+        881,
+        1044
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1029.0032039920334,
+      "tokens_input": 2556,
+      "tokens_output": 44,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.launcher.LauncherActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        67,
+        70
+      ],
+      "device_coords": [
+        72,
+        134
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageButton",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 763.7913379876409,
+      "tokens_input": 2528,
+      "tokens_output": 28,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.launcher.LauncherActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        500,
+        170
+      ],
+      "device_coords": [
+        540,
+        326
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ViewGroup",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 724.9367610202171,
+      "tokens_input": 2327,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.launcher.LauncherActivity"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        853,
+        544
+      ],
+      "device_coords": [
+        921,
+        1044
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 848.2703370100353,
+      "tokens_input": 2381,
+      "tokens_output": 41,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.launcher.LauncherActivity"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        698,
+        437
+      ],
+      "device_coords": [
+        753,
+        839
+      ],
+      "hit_classification": "ui_miss",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 580.368628987344,
+      "tokens_input": 1465,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "org.emunix.instead.ui.InsteadActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".ui.launcher.LauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".ui.launcher.LauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".ui.launcher.LauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".ui.launcher.LauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".ui.launcher.LauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".ui.launcher.LauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": "org.emunix.instead.ui.InsteadActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    }
+  ]
+}

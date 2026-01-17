@@ -1,0 +1,5 @@
+class,method,parameters,signature,is_activity,reachable,reaches_mop,directly_reaches_mop,androguard
+me.carda.awesome_notifications.notifications.broadcastReceivers.DismissedNotificationReceiver,onReceive,"android.content.Context,android.content.Intent","onReceive(android.content.Context,android.content.Intent)",False,True,False,False,True
+me.carda.awesome_notifications.notifications.broadcastReceivers.KeepOnTopActionReceiver,onReceive,"android.content.Context,android.content.Intent","onReceive(android.content.Context,android.content.Intent)",False,True,False,False,True
+me.carda.awesome_notifications.notifications.broadcastReceivers.RefreshSchedulesReceiver,onReceive,"android.content.Context,android.content.Intent","onReceive(android.content.Context,android.content.Intent)",False,True,False,False,True
+me.carda.awesome_notifications.notifications.broadcastReceivers.ScheduledNotificationReceiver,onReceive,"android.content.Context,android.content.Intent","onReceive(android.content.Context,android.content.Intent)",False,True,False,False,True

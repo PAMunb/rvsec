@@ -1,0 +1,977 @@
+{
+  "session": {
+    "app_package": "com.pindroid",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768433659.5441651,
+    "end_time": 1768433969.9430828,
+    "duration_seconds": 310.3989176750183
+  },
+  "llm_metrics": {
+    "total_llm_calls": 27,
+    "total_tokens_input": 68116,
+    "total_tokens_output": 2946,
+    "total_tokens": 71062,
+    "total_latency_ms": 47809.12924995937,
+    "avg_latency_ms": 1770.708490739236,
+    "tokens_per_action": 2631.925925925926
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 27,
+    "hits": 27,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 1.0
+  },
+  "exploration_metrics": {
+    "total_activities": 11,
+    "activities_discovered": 3,
+    "activity_coverage": 0.2727272727272727,
+    "total_iterations": 38,
+    "actions_per_activity": 12.666666666666666
+  },
+  "stuck_metrics": {
+    "stuck_events": 1,
+    "stuck_recovered": 1,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 8.90625,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 57,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_com.pindroid_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2008.7092129979283,
+      "tokens_input": 2531,
+      "tokens_output": 136,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        500,
+        442
+      ],
+      "device_coords": [
+        540,
+        848
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2320.605082990369,
+      "tokens_input": 2540,
+      "tokens_output": 162,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        500,
+        576
+      ],
+      "device_coords": [
+        540,
+        1105
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1551.8857440038119,
+      "tokens_input": 2560,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        500,
+        576
+      ],
+      "device_coords": [
+        540,
+        1105
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1325.150611999561,
+      "tokens_input": 2569,
+      "tokens_output": 88,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1616.8992479942972,
+      "tokens_input": 2480,
+      "tokens_output": 103,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        475,
+        138
+      ],
+      "device_coords": [
+        513,
+        264
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1903.3143499982543,
+      "tokens_input": 2644,
+      "tokens_output": 128,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 8,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1329.7598679928342,
+      "tokens_input": 2541,
+      "tokens_output": 73,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 10,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1649.7834710025927,
+      "tokens_input": 2567,
+      "tokens_output": 96,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        475,
+        138
+      ],
+      "device_coords": [
+        513,
+        264
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 3995.710806004354,
+      "tokens_input": 2646,
+      "tokens_output": 152,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 13,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1751.0053400037577,
+      "tokens_input": 2482,
+      "tokens_output": 105,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1299.0958570007933,
+      "tokens_input": 2542,
+      "tokens_output": 73,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1522.064151999075,
+      "tokens_input": 2482,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 16,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1965.2752300025895,
+      "tokens_input": 2482,
+      "tokens_output": 135,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1223.6499120044755,
+      "tokens_input": 2542,
+      "tokens_output": 73,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        500,
+        576
+      ],
+      "device_coords": [
+        540,
+        1105
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2007.6571740064537,
+      "tokens_input": 2543,
+      "tokens_output": 128,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1749.9098829866853,
+      "tokens_input": 2482,
+      "tokens_output": 107,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1783.7156599998707,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1823.8617009919835,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1787.8521289967466,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1294.6735199948307,
+      "tokens_input": 2543,
+      "tokens_output": 73,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 31,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1900.6783179938793,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 33,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1819.5828140014783,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 34,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1832.351735996781,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 35,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1278.3238279953366,
+      "tokens_input": 2542,
+      "tokens_output": 73,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    },
+    {
+      "iteration": 36,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1877.2370200022124,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 37,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1781.3253509957576,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 38,
+      "raw_coords": [
+        500,
+        360
+      ],
+      "device_coords": [
+        540,
+        691
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1409.0512300026603,
+      "tokens_input": 2542,
+      "tokens_output": 73,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".authenticator.AuthenticatorActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 12,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 13,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 14,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 15,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 16,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 17,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 18,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 19,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 20,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 21,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 22,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 23,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 24,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 25,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 26,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 27,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 28,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 29,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 30,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 31,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 32,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 33,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 34,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 35,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 36,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 37,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 38,
+      "activity": ".authenticator.AuthenticatorActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    }
+  ]
+}

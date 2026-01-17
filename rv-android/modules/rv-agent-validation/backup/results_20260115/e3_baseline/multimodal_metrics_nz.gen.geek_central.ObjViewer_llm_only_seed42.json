@@ -1,0 +1,1109 @@
+{
+  "session": {
+    "app_package": "nz.gen.geek_central.ObjViewer",
+    "agent_mode": "llm_only",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768446037.6610184,
+    "end_time": 1768446347.9097645,
+    "duration_seconds": 310.2487461566925
+  },
+  "llm_metrics": {
+    "total_llm_calls": 35,
+    "total_tokens_input": 86458,
+    "total_tokens_output": 4095,
+    "total_tokens": 90553,
+    "total_latency_ms": 62520.46787599102,
+    "avg_latency_ms": 1786.299082171172,
+    "tokens_per_action": 3773.0416666666665
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 24,
+    "hits": 24,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 0.6857142857142857
+  },
+  "exploration_metrics": {
+    "total_activities": 2,
+    "activities_discovered": 3,
+    "activity_coverage": 1.5,
+    "total_iterations": 34,
+    "actions_per_activity": 11.333333333333334
+  },
+  "stuck_metrics": {
+    "stuck_events": 0,
+    "stuck_recovered": 0,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 14.545454545454545,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 8,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_nz.gen.geek_central.ObjViewer_llm_only_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 0,
+      "raw_coords": [
+        823,
+        564
+      ],
+      "device_coords": [
+        888,
+        1082
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1967.0233320066473,
+      "tokens_input": 2323,
+      "tokens_output": 128,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 1,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1410.1248619990656,
+      "tokens_input": 2304,
+      "tokens_output": 85,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1819.8590270039858,
+      "tokens_input": 2458,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        499,
+        860
+      ],
+      "device_coords": [
+        538,
+        1651
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2129.1400550107937,
+      "tokens_input": 2546,
+      "tokens_output": 139,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1460.7848029991146,
+      "tokens_input": 2325,
+      "tokens_output": 91,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        500,
+        831
+      ],
+      "device_coords": [
+        540,
+        1595
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1806.7711039911956,
+      "tokens_input": 2553,
+      "tokens_output": 117,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        500,
+        517
+      ],
+      "device_coords": [
+        540,
+        992
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1699.2239399987739,
+      "tokens_input": 2674,
+      "tokens_output": 106,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1371.6442979930434,
+      "tokens_input": 2332,
+      "tokens_output": 91,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 8,
+      "raw_coords": [
+        500,
+        517
+      ],
+      "device_coords": [
+        540,
+        992
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2049.6376160008367,
+      "tokens_input": 2682,
+      "tokens_output": 135,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        500,
+        715
+      ],
+      "device_coords": [
+        540,
+        1372
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1721.2703559926013,
+      "tokens_input": 2691,
+      "tokens_output": 107,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 10,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1661.4139970042743,
+      "tokens_input": 2334,
+      "tokens_output": 102,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        500,
+        720
+      ],
+      "device_coords": [
+        540,
+        1382
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1879.8905440053204,
+      "tokens_input": 2690,
+      "tokens_output": 119,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        500,
+        720
+      ],
+      "device_coords": [
+        540,
+        1382
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2261.6109040100127,
+      "tokens_input": 2694,
+      "tokens_output": 157,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 13,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1581.4141769951675,
+      "tokens_input": 2334,
+      "tokens_output": 102,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        500,
+        720
+      ],
+      "device_coords": [
+        540,
+        1382
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1670.9891450009309,
+      "tokens_input": 2691,
+      "tokens_output": 103,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        500,
+        831
+      ],
+      "device_coords": [
+        540,
+        1595
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1804.274860987789,
+      "tokens_input": 2556,
+      "tokens_output": 119,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 16,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1474.7699700092198,
+      "tokens_input": 2333,
+      "tokens_output": 92,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        499,
+        860
+      ],
+      "device_coords": [
+        538,
+        1651
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2031.58702699875,
+      "tokens_input": 2561,
+      "tokens_output": 139,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 18,
+      "raw_coords": [
+        284,
+        436
+      ],
+      "device_coords": [
+        306,
+        837
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "View",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2046.4325350039871,
+      "tokens_input": 2559,
+      "tokens_output": 140,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1660.4597359983018,
+      "tokens_input": 2333,
+      "tokens_output": 113,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1906.6560509963892,
+      "tokens_input": 2482,
+      "tokens_output": 129,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1763.0523200059542,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        500,
+        967
+      ],
+      "device_coords": [
+        540,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2508.002980990568,
+      "tokens_input": 2333,
+      "tokens_output": 174,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1904.4969280075748,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1886.3613919966156,
+      "tokens_input": 2482,
+      "tokens_output": 135,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1726.073047000682,
+      "tokens_input": 2333,
+      "tokens_output": 113,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1555.1433600048767,
+      "tokens_input": 2482,
+      "tokens_output": 107,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 27,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1587.4165809946135,
+      "tokens_input": 2482,
+      "tokens_output": 107,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 28,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1402.2351220046403,
+      "tokens_input": 2333,
+      "tokens_output": 86,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 29,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1799.4787959905807,
+      "tokens_input": 2482,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 30,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1967.9712759971153,
+      "tokens_input": 2482,
+      "tokens_output": 128,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 31,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1690.9024979977403,
+      "tokens_input": 2333,
+      "tokens_output": 90,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    },
+    {
+      "iteration": 32,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1952.5460839940934,
+      "tokens_input": 2482,
+      "tokens_output": 134,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 33,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1972.5830120005412,
+      "tokens_input": 2482,
+      "tokens_output": 133,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 34,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1389.22613899922,
+      "tokens_input": 2333,
+      "tokens_output": 90,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".Main"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".Main",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 9,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 11,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 14,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 15,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 16,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 17,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 18,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 19,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 20,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 21,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 22,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 23,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 24,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 25,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 26,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 27,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 28,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 29,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 30,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 31,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 32,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 33,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 34,
+      "activity": ".Main",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    }
+  ]
+}

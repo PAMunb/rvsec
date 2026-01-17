@@ -71,7 +71,7 @@ class RVAgentConfig(BaseValidatedModel):
     )
     prompt_version: str = Field(
         default="v13",
-        description="Prompt version to use (v13 includes dialog handling)"
+        description="Prompt version (v13: dialog handling, v14: structured reasoning)"
     )
 
     # Inference parameters (validated from benchmark)
@@ -196,6 +196,18 @@ class RVAgentConfig(BaseValidatedModel):
         ge=1,
         le=10,
         description="Maximum test value variations per input field"
+    )
+    stochastic_probability: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description="Probability of using Gumbel-max stochastic action selection (0=deterministic, 1=always stochastic)"
+    )
+    stochastic_temperature: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=5.0,
+        description="Temperature for Gumbel-max selection (higher = more random)"
     )
 
     # === FALLBACK CONFIGURATION ===

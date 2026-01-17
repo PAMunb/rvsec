@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "binauralbeats_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.github.axet.binauralbeats_160.apk",
+  "package_name": "com.github.axet.binauralbeats",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 307120624,
+  "execution_time_seconds": 180.68211364746094
+}

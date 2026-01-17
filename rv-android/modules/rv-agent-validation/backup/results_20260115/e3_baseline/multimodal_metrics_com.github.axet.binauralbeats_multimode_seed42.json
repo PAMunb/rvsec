@@ -1,0 +1,1616 @@
+{
+  "session": {
+    "app_package": "com.github.axet.binauralbeats",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768430148.4794161,
+    "end_time": 1768430452.7813778,
+    "duration_seconds": 304.30196166038513
+  },
+  "llm_metrics": {
+    "total_llm_calls": 45,
+    "total_tokens_input": 114887,
+    "total_tokens_output": 6282,
+    "total_tokens": 121169,
+    "total_latency_ms": 95701.87074498972,
+    "avg_latency_ms": 2126.7082387775495,
+    "tokens_per_action": 2884.9761904761904
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 42,
+    "hits": 42,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 0.9333333333333333
+  },
+  "exploration_metrics": {
+    "total_activities": 2,
+    "activities_discovered": 4,
+    "activity_coverage": 2.0,
+    "total_iterations": 67,
+    "actions_per_activity": 16.75
+  },
+  "stuck_metrics": {
+    "stuck_events": 1,
+    "stuck_recovered": 1,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 62.568306010928964,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 229,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 4,
+    "total_errors": 4,
+    "logcat_file": "results/e3_baseline/logcat/logcat_com.github.axet.binauralbeats_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        249,
+        560
+      ],
+      "device_coords": [
+        268,
+        1075
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1770.615628993255,
+      "tokens_input": 2558,
+      "tokens_output": 107,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        500,
+        525
+      ],
+      "device_coords": [
+        540,
+        1008
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1689.661457989132,
+      "tokens_input": 2572,
+      "tokens_output": 110,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        892,
+        873
+      ],
+      "device_coords": [
+        963,
+        1676
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageButton",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1798.7232580053387,
+      "tokens_input": 2493,
+      "tokens_output": 116,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        822,
+        809
+      ],
+      "device_coords": [
+        887,
+        1553
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2621.4292259974172,
+      "tokens_input": 2539,
+      "tokens_output": 190,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        265,
+        231
+      ],
+      "device_coords": [
+        286,
+        443
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2165.8004070050083,
+      "tokens_input": 2534,
+      "tokens_output": 151,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        113,
+        384
+      ],
+      "device_coords": [
+        122,
+        737
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2326.5936079988023,
+      "tokens_input": 2588,
+      "tokens_output": 163,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        258,
+        232
+      ],
+      "device_coords": [
+        278,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2061.501751988544,
+      "tokens_input": 2590,
+      "tokens_output": 135,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        258,
+        232
+      ],
+      "device_coords": [
+        278,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2115.407987992512,
+      "tokens_input": 2590,
+      "tokens_output": 135,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        258,
+        232
+      ],
+      "device_coords": [
+        278,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2172.519891988486,
+      "tokens_input": 2591,
+      "tokens_output": 135,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        267,
+        232
+      ],
+      "device_coords": [
+        288,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2184.769352010335,
+      "tokens_input": 2538,
+      "tokens_output": 139,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        770,
+        337
+      ],
+      "device_coords": [
+        831,
+        647
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2199.7134200064465,
+      "tokens_input": 2538,
+      "tokens_output": 148,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        770,
+        337
+      ],
+      "device_coords": [
+        831,
+        647
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2228.9387899945723,
+      "tokens_input": 2540,
+      "tokens_output": 148,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2376.362376002362,
+      "tokens_input": 2591,
+      "tokens_output": 166,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1965.505841988488,
+      "tokens_input": 2480,
+      "tokens_output": 125,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        268,
+        232
+      ],
+      "device_coords": [
+        289,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1735.0362889992539,
+      "tokens_input": 2510,
+      "tokens_output": 111,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        500,
+        317
+      ],
+      "device_coords": [
+        540,
+        608
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2441.5742220007814,
+      "tokens_input": 2581,
+      "tokens_output": 171,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        267,
+        232
+      ],
+      "device_coords": [
+        288,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1734.0248779946705,
+      "tokens_input": 2510,
+      "tokens_output": 118,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        919,
+        663
+      ],
+      "device_coords": [
+        992,
+        1272
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1973.104175995104,
+      "tokens_input": 2583,
+      "tokens_output": 129,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        113,
+        602
+      ],
+      "device_coords": [
+        122,
+        1155
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1870.9678270097356,
+      "tokens_input": 2595,
+      "tokens_output": 127,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        500,
+        525
+      ],
+      "device_coords": [
+        540,
+        1008
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2359.780482001952,
+      "tokens_input": 2598,
+      "tokens_output": 163,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        500,
+        483
+      ],
+      "device_coords": [
+        540,
+        927
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2348.174623999512,
+      "tokens_input": 2536,
+      "tokens_output": 159,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 27,
+      "raw_coords": [
+        500,
+        525
+      ],
+      "device_coords": [
+        540,
+        1008
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2336.558235998382,
+      "tokens_input": 2598,
+      "tokens_output": 161,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 28,
+      "raw_coords": [
+        500,
+        483
+      ],
+      "device_coords": [
+        540,
+        927
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1923.4616799949436,
+      "tokens_input": 2538,
+      "tokens_output": 119,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 34,
+      "raw_coords": [
+        900,
+        251
+      ],
+      "device_coords": [
+        972,
+        481
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2070.6509230076335,
+      "tokens_input": 2431,
+      "tokens_output": 132,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.SettingsActivity"
+    },
+    {
+      "iteration": 35,
+      "raw_coords": [
+        67,
+        70
+      ],
+      "device_coords": [
+        72,
+        134
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageButton",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2117.2567780013196,
+      "tokens_input": 2431,
+      "tokens_output": 148,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.SettingsActivity"
+    },
+    {
+      "iteration": 36,
+      "raw_coords": [
+        113,
+        384
+      ],
+      "device_coords": [
+        122,
+        737
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2378.435124992393,
+      "tokens_input": 2593,
+      "tokens_output": 164,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 38,
+      "raw_coords": [
+        920,
+        530
+      ],
+      "device_coords": [
+        993,
+        1017
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1817.8797910077265,
+      "tokens_input": 2540,
+      "tokens_output": 115,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 41,
+      "raw_coords": [
+        267,
+        232
+      ],
+      "device_coords": [
+        288,
+        445
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2111.660028996994,
+      "tokens_input": 2540,
+      "tokens_output": 142,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 42,
+      "raw_coords": [
+        950,
+        70
+      ],
+      "device_coords": [
+        1026,
+        134
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2504.966874010279,
+      "tokens_input": 2588,
+      "tokens_output": 166,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 43,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1908.2233619992621,
+      "tokens_input": 2444,
+      "tokens_output": 125,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 44,
+      "raw_coords": [
+        500,
+        354
+      ],
+      "device_coords": [
+        540,
+        679
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2735.6621790095232,
+      "tokens_input": 2590,
+      "tokens_output": 155,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 45,
+      "raw_coords": [
+        500,
+        372
+      ],
+      "device_coords": [
+        540,
+        714
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2421.7943090043264,
+      "tokens_input": 2592,
+      "tokens_output": 158,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 46,
+      "raw_coords": [
+        851,
+        469
+      ],
+      "device_coords": [
+        919,
+        900
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2333.3333720074734,
+      "tokens_input": 2594,
+      "tokens_output": 162,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 47,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1671.1198699922534,
+      "tokens_input": 2596,
+      "tokens_output": 98,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 50,
+      "raw_coords": [
+        500,
+        679
+      ],
+      "device_coords": [
+        540,
+        1303
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2232.254106987966,
+      "tokens_input": 2514,
+      "tokens_output": 114,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 51,
+      "raw_coords": [
+        500,
+        622
+      ],
+      "device_coords": [
+        540,
+        1194
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1682.18859800254,
+      "tokens_input": 2595,
+      "tokens_output": 106,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 52,
+      "raw_coords": [
+        250,
+        320
+      ],
+      "device_coords": [
+        270,
+        614
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1675.3452099947026,
+      "tokens_input": 2534,
+      "tokens_output": 108,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 53,
+      "raw_coords": [
+        500,
+        416
+      ],
+      "device_coords": [
+        540,
+        798
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1949.6453650062904,
+      "tokens_input": 2591,
+      "tokens_output": 122,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 59,
+      "raw_coords": [
+        892,
+        873
+      ],
+      "device_coords": [
+        963,
+        1676
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageButton",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2165.184412006056,
+      "tokens_input": 2534,
+      "tokens_output": 142,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 61,
+      "raw_coords": [
+        820,
+        801
+      ],
+      "device_coords": [
+        885,
+        1537
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2757.404048999888,
+      "tokens_input": 2555,
+      "tokens_output": 190,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 62,
+      "raw_coords": [
+        500,
+        254
+      ],
+      "device_coords": [
+        540,
+        487
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2093.154008995043,
+      "tokens_input": 2531,
+      "tokens_output": 142,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 63,
+      "raw_coords": [
+        922,
+        630
+      ],
+      "device_coords": [
+        995,
+        1209
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2090.0840050016996,
+      "tokens_input": 2586,
+      "tokens_output": 137,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 65,
+      "raw_coords": [
+        920,
+        630
+      ],
+      "device_coords": [
+        993,
+        1209
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2260.3090470074676,
+      "tokens_input": 2586,
+      "tokens_output": 148,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 66,
+      "raw_coords": [
+        500,
+        491
+      ],
+      "device_coords": [
+        540,
+        942
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1830.1887929992517,
+      "tokens_input": 2598,
+      "tokens_output": 115,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    },
+    {
+      "iteration": 67,
+      "raw_coords": [
+        500,
+        450
+      ],
+      "device_coords": [
+        540,
+        864
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2494.9051260045962,
+      "tokens_input": 2533,
+      "tokens_output": 167,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".activities.MainActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 22,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 26,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 27,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".activities.SettingsActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".activities.SettingsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 36,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 41,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 42,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 43,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 45,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 48,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 49,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 50,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 51,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 53,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 54,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 55,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 56,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 57,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 58,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 59,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 60,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 61,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 62,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 63,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 64,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 65,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 66,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 67,
+      "activity": ".activities.MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    }
+  ]
+}

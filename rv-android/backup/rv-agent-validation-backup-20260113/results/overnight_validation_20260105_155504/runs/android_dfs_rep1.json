@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "android_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/org.piwigo.android_102.apk",
+  "package_name": "org.piwigo.android",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 658947942,
+  "execution_time_seconds": 184.20924139022827
+}

@@ -16,6 +16,7 @@ from .metrics import (
     SessionMetrics,
     HitClassification,
     ElementBounds,
+    UIElementMetrics,
 )
 from .hit_classifier import HitClassifier, UIElement, parse_ui_elements_from_dump
 
@@ -38,6 +39,7 @@ class MultimodalMetricsCollector:
         seed: int = 0,
         total_activities: int = 0,
         output_dir: Optional[Path] = None,
+        strategy: str = "rvagent",
     ):
         """
         Initialize collector.
@@ -49,10 +51,12 @@ class MultimodalMetricsCollector:
             seed: Random seed used
             total_activities: Total activities from static analysis
             output_dir: Directory for saving metrics (optional)
+            strategy: Exploration strategy (dfs, bfs, greedy, rvagent)
         """
         self.session = SessionMetrics(
             app_package=app_package,
             agent_mode=agent_mode,
+            strategy=strategy,
             timeout_seconds=timeout_seconds,
             seed=seed,
             total_activities=total_activities,
@@ -67,9 +71,14 @@ class MultimodalMetricsCollector:
         self._stuck_counter: int = 0
         self._actions_since_new_activity: int = 0
 
+        # UI element tracking
+        self._element_interactions: Dict[str, int] = {}  # element_id -> count
+        self._elements_by_screen: Dict[str, set] = {}  # screen_hash -> set of element_ids
+        self._component_types: Dict[str, str] = {}  # element_id -> component_type
+
         logger.info(
             f"MultimodalMetricsCollector initialized: "
-            f"app={app_package}, mode={agent_mode}"
+            f"app={app_package}, mode={agent_mode}, strategy={strategy}"
         )
 
     def record_llm_action(
@@ -179,6 +188,17 @@ class MultimodalMetricsCollector:
             else:
                 self.session.empty_misses += 1
 
+        # Track UI element metrics
+        if hit_element_type and tool_name in click_actions:
+            element_id = f"{device_coords[0]}:{device_coords[1]}"
+            self._element_interactions[element_id] = self._element_interactions.get(element_id, 0) + 1
+            self._component_types[element_id] = hit_element_type
+
+            if screen_hash:
+                if screen_hash not in self._elements_by_screen:
+                    self._elements_by_screen[screen_hash] = set()
+                self._elements_by_screen[screen_hash].add(element_id)
+
         logger.info(
             f"Recorded LLM action: {tool_name} at {device_coords} -> "
             f"{hit_classification.value}"
@@ -259,6 +279,39 @@ class MultimodalMetricsCollector:
 
         return record
 
+    def record_screen_elements(
+        self,
+        screen_hash: str,
+        ui_dump: str,
+    ) -> None:
+        """
+        Record all elements present on a screen for coverage tracking.
+
+        Args:
+            screen_hash: Screen state hash
+            ui_dump: UIAutomator XML dump
+        """
+        if not ui_dump:
+            return
+
+        ui_elements = parse_ui_elements_from_dump(ui_dump)
+
+        if screen_hash not in self._elements_by_screen:
+            self._elements_by_screen[screen_hash] = set()
+
+        for elem in ui_elements:
+            # Create element_id from bounds center
+            center_x, center_y = elem.bounds.center
+            element_id = f"{center_x}:{center_y}"
+
+            self._elements_by_screen[screen_hash].add(element_id)
+            if element_id not in self._component_types:
+                self._component_types[element_id] = elem.element_type
+
+        logger.debug(
+            f"Recorded {len(ui_elements)} elements for screen {screen_hash[:8]}"
+        )
+
     def set_coverage_metrics(self, coverage_metrics: Dict[str, Any]) -> None:
         """
         Set coverage metrics from CoverageTracker.
@@ -284,6 +337,40 @@ class MultimodalMetricsCollector:
             f"direct_mop={self.session.direct_mop_method_coverage:.1f}%"
         )
 
+    def set_ui_coverage_from_agent(self, ui_coverage: Dict[str, Any]) -> None:
+        """
+        Set UI coverage metrics from agent's core UICoverageTracker.
+
+        This receives the comprehensive metrics from the agent's ui_coverage tracker,
+        which tracks element discovery and interactions during exploration.
+
+        Args:
+            ui_coverage: Dictionary from UICoverageTracker.get_comprehensive_metrics()
+        """
+        ui = self.session.ui_metrics
+
+        ui.total_unique_elements = ui_coverage.get("total_unique_elements", 0)
+        ui.total_interactions = ui_coverage.get("total_interactions", 0)
+        # avg_interactions_per_element and element_coverage are calculated properties
+
+        dist = ui_coverage.get("element_distribution", {})
+        ui.untested_elements = dist.get("untested", 0)
+        ui.tested_once = dist.get("tested_once", 0)
+        ui.tested_multiple = dist.get("tested_multiple", 0)
+        ui.well_tested = dist.get("well_tested", 0)
+
+        ui.actions_by_component = ui_coverage.get("interactions_by_type", {})
+        ui.elements_by_component = ui_coverage.get("elements_by_type", {})
+        ui.coverage_by_component = ui_coverage.get("coverage_by_type", {})
+        ui.screens_visited = ui_coverage.get("screens_visited", 0)
+        ui.elements_per_screen = ui_coverage.get("elements_per_screen", {})
+        ui.coverage_per_screen = ui_coverage.get("coverage_per_screen", {})
+
+        logger.info(
+            f"UI coverage from agent: {ui.total_unique_elements} elements, "
+            f"{ui.element_coverage:.1f}% tested, {ui.screens_visited} screens"
+        )
+
     def finalize(self) -> SessionMetrics:
         """
         Finalize collection and calculate final metrics.
@@ -297,6 +384,9 @@ class MultimodalMetricsCollector:
         if self._stuck_counter >= 3:
             self.session.stuck_failed += 1
 
+        # Calculate UI element metrics
+        self._calculate_ui_metrics()
+
         logger.info(
             f"Session finalized: "
             f"hit_rate={self.session.hit_rate:.2%}, "
@@ -309,6 +399,72 @@ class MultimodalMetricsCollector:
             self.save(self.output_dir)
 
         return self.session
+
+    def _calculate_ui_metrics(self) -> None:
+        """Calculate UI element metrics from tracked data."""
+        ui = self.session.ui_metrics
+
+        # If UI coverage was already set from agent's UICoverageTracker, preserve it
+        if ui.total_unique_elements > 0 or ui.total_interactions > 0:
+            logger.info(
+                f"UI metrics already set from agent: "
+                f"elements={ui.total_unique_elements}, "
+                f"interactions={ui.total_interactions}, "
+                f"element_coverage={ui.element_coverage:.1f}%"
+            )
+            return
+
+        # Total unique elements and interactions (fallback for LLM-only mode)
+        ui.total_unique_elements = len(self._component_types)
+        ui.total_interactions = sum(self._element_interactions.values())
+
+        # Element testing distribution
+        for element_id, count in self._element_interactions.items():
+            if count == 1:
+                ui.tested_once += 1
+            elif count <= 3:
+                ui.tested_multiple += 1
+            else:
+                ui.well_tested += 1
+
+        # Untested elements = discovered but never interacted
+        interacted_elements = set(self._element_interactions.keys())
+        all_elements = set(self._component_types.keys())
+        ui.untested_elements = len(all_elements - interacted_elements)
+
+        # Actions by component type
+        for element_id, count in self._element_interactions.items():
+            comp_type = self._component_types.get(element_id, "Unknown")
+            ui.actions_by_component[comp_type] = ui.actions_by_component.get(comp_type, 0) + count
+
+        # Elements by component type
+        for element_id, comp_type in self._component_types.items():
+            ui.elements_by_component[comp_type] = ui.elements_by_component.get(comp_type, 0) + 1
+
+        # Coverage by component type
+        for comp_type in set(self._component_types.values()):
+            elements_of_type = [eid for eid, ct in self._component_types.items() if ct == comp_type]
+            tested_of_type = [eid for eid in elements_of_type if eid in self._element_interactions]
+            ui.coverage_by_component[comp_type] = {
+                "total": len(elements_of_type),
+                "tested": len(tested_of_type),
+                "coverage": len(tested_of_type) / len(elements_of_type) * 100 if elements_of_type else 0
+            }
+
+        # Per-screen metrics
+        ui.screens_visited = len(self._elements_by_screen)
+        for screen_hash, elements in self._elements_by_screen.items():
+            ui.elements_per_screen[screen_hash[:8]] = len(elements)
+            tested = len([e for e in elements if e in self._element_interactions])
+            ui.coverage_per_screen[screen_hash[:8]] = tested / len(elements) * 100 if elements else 0
+
+        logger.info(
+            f"UI metrics calculated: "
+            f"elements={ui.total_unique_elements}, "
+            f"interactions={ui.total_interactions}, "
+            f"screens={ui.screens_visited}, "
+            f"element_coverage={ui.element_coverage:.1f}%"
+        )
 
     def save(self, output_dir: Path) -> Path:
         """
@@ -327,6 +483,7 @@ class MultimodalMetricsCollector:
             f"multimodal_metrics_"
             f"{self.session.app_package}_"
             f"{self.session.agent_mode}_"
+            f"{self.session.strategy}_"
             f"seed{self.session.seed}.json"
         )
         filepath = output_dir / filename
@@ -345,6 +502,7 @@ class MultimodalMetricsCollector:
             "session": {
                 "app_package": self.session.app_package,
                 "agent_mode": self.session.agent_mode,
+                "strategy": self.session.strategy,
                 "timeout_seconds": self.session.timeout_seconds,
                 "seed": self.session.seed,
                 "start_time": self.session.start_time,
@@ -425,6 +583,24 @@ class MultimodalMetricsCollector:
                 }
                 for r in self.session.exploration_records
             ],
+            "ui_metrics": {
+                "total_unique_elements": self.session.ui_metrics.total_unique_elements,
+                "total_interactions": self.session.ui_metrics.total_interactions,
+                "avg_interactions_per_element": self.session.ui_metrics.avg_interactions_per_element,
+                "element_coverage": self.session.ui_metrics.element_coverage,
+                "element_distribution": {
+                    "untested": self.session.ui_metrics.untested_elements,
+                    "tested_once": self.session.ui_metrics.tested_once,
+                    "tested_multiple": self.session.ui_metrics.tested_multiple,
+                    "well_tested": self.session.ui_metrics.well_tested,
+                },
+                "actions_by_component": self.session.ui_metrics.actions_by_component,
+                "elements_by_component": self.session.ui_metrics.elements_by_component,
+                "coverage_by_component": self.session.ui_metrics.coverage_by_component,
+                "screens_visited": self.session.ui_metrics.screens_visited,
+                "elements_per_screen": self.session.ui_metrics.elements_per_screen,
+                "coverage_per_screen": self.session.ui_metrics.coverage_per_screen,
+            },
         }
 
     @classmethod
@@ -484,5 +660,23 @@ class MultimodalMetricsCollector:
             session.unique_errors = cov.get("unique_errors", 0)
             session.total_errors = cov.get("total_errors", 0)
             session.logcat_file = cov.get("logcat_file", "")
+
+        # Restore UI metrics if present
+        if "ui_metrics" in data:
+            ui = data["ui_metrics"]
+            session.ui_metrics.total_unique_elements = ui.get("total_unique_elements", 0)
+            session.ui_metrics.total_interactions = ui.get("total_interactions", 0)
+            session.ui_metrics.actions_by_component = ui.get("actions_by_component", {})
+            session.ui_metrics.elements_by_component = ui.get("elements_by_component", {})
+            session.ui_metrics.coverage_by_component = ui.get("coverage_by_component", {})
+            session.ui_metrics.screens_visited = ui.get("screens_visited", 0)
+            session.ui_metrics.elements_per_screen = ui.get("elements_per_screen", {})
+            session.ui_metrics.coverage_per_screen = ui.get("coverage_per_screen", {})
+
+            dist = ui.get("element_distribution", {})
+            session.ui_metrics.untested_elements = dist.get("untested", 0)
+            session.ui_metrics.tested_once = dist.get("tested_once", 0)
+            session.ui_metrics.tested_multiple = dist.get("tested_multiple", 0)
+            session.ui_metrics.well_tested = dist.get("well_tested", 0)
 
         return session

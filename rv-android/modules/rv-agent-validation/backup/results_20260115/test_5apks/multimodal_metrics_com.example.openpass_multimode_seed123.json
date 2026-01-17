@@ -1,0 +1,1685 @@
+{
+  "session": {
+    "app_package": "com.example.openpass",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 123,
+    "start_time": 1768412645.8585896,
+    "end_time": 1768412953.6747339,
+    "duration_seconds": 307.81614422798157
+  },
+  "llm_metrics": {
+    "total_llm_calls": 47,
+    "total_tokens_input": 119017,
+    "total_tokens_output": 5035,
+    "total_tokens": 124052,
+    "total_latency_ms": 77911.53128609585,
+    "avg_latency_ms": 1657.692155023316,
+    "tokens_per_action": 2884.9302325581393
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 43,
+    "hits": 43,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 0.9148936170212766
+  },
+  "exploration_metrics": {
+    "total_activities": 5,
+    "activities_discovered": 3,
+    "activity_coverage": 0.6,
+    "total_iterations": 70,
+    "actions_per_activity": 23.333333333333332
+  },
+  "stuck_metrics": {
+    "stuck_events": 1,
+    "stuck_recovered": 1,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 37.142857142857146,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 26,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/test_5apks/logcat/logcat_com.example.openpass_multimode_seed123.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        159,
+        879
+      ],
+      "device_coords": [
+        171,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1949.9811989953741,
+      "tokens_input": 2393,
+      "tokens_output": 127,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1668.3586009894498,
+      "tokens_input": 2376,
+      "tokens_output": 119,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1474.59966900351,
+      "tokens_input": 2577,
+      "tokens_output": 94,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1522.2387820103904,
+      "tokens_input": 2397,
+      "tokens_output": 98,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1610.932078998303,
+      "tokens_input": 2594,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 8,
+      "raw_coords": [
+        159,
+        879
+      ],
+      "device_coords": [
+        171,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1620.767718006391,
+      "tokens_input": 2464,
+      "tokens_output": 106,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1413.79916400183,
+      "tokens_input": 2397,
+      "tokens_output": 89,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 10,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1524.3836059962632,
+      "tokens_input": 2591,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 13,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1591.517806999036,
+      "tokens_input": 2594,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        159,
+        879
+      ],
+      "device_coords": [
+        171,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1752.2382870083675,
+      "tokens_input": 2505,
+      "tokens_output": 108,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        159,
+        879
+      ],
+      "device_coords": [
+        171,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2398.46343100362,
+      "tokens_input": 2505,
+      "tokens_output": 171,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 18,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1390.5313260038383,
+      "tokens_input": 2398,
+      "tokens_output": 89,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        500,
+        967
+      ],
+      "device_coords": [
+        540,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2303.290277006454,
+      "tokens_input": 2593,
+      "tokens_output": 166,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        823,
+        564
+      ],
+      "device_coords": [
+        888,
+        1082
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1661.918030004017,
+      "tokens_input": 2385,
+      "tokens_output": 97,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        159,
+        879
+      ],
+      "device_coords": [
+        171,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1665.2541380026378,
+      "tokens_input": 2507,
+      "tokens_output": 113,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1610.0932709960034,
+      "tokens_input": 2597,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        159,
+        879
+      ],
+      "device_coords": [
+        171,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1782.5941310002236,
+      "tokens_input": 2528,
+      "tokens_output": 112,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1503.8072030001786,
+      "tokens_input": 2597,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 29,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1588.0727780022426,
+      "tokens_input": 2594,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 32,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1560.2405030076625,
+      "tokens_input": 2517,
+      "tokens_output": 91,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 35,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1521.0752069979208,
+      "tokens_input": 2595,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 36,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1371.2664490012685,
+      "tokens_input": 2517,
+      "tokens_output": 91,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 37,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1502.5205790007021,
+      "tokens_input": 2596,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 38,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1513.2106410019333,
+      "tokens_input": 2517,
+      "tokens_output": 94,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 40,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1508.5140870069154,
+      "tokens_input": 2517,
+      "tokens_output": 95,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 41,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1700.735539998277,
+      "tokens_input": 2598,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 42,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1958.6144050117582,
+      "tokens_input": 2517,
+      "tokens_output": 134,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 43,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2058.3890060079284,
+      "tokens_input": 2482,
+      "tokens_output": 139,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 45,
+      "raw_coords": [
+        155,
+        877
+      ],
+      "device_coords": [
+        167,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1537.4439430015627,
+      "tokens_input": 2504,
+      "tokens_output": 91,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 46,
+      "raw_coords": [
+        500,
+        194
+      ],
+      "device_coords": [
+        540,
+        372
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2441.350667999359,
+      "tokens_input": 2595,
+      "tokens_output": 175,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 47,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1502.3670280061197,
+      "tokens_input": 2597,
+      "tokens_output": 94,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 48,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1425.9610089939088,
+      "tokens_input": 2504,
+      "tokens_output": 91,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 49,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1420.7000890019117,
+      "tokens_input": 2596,
+      "tokens_output": 94,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 50,
+      "raw_coords": [
+        155,
+        877
+      ],
+      "device_coords": [
+        167,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1534.0705450071255,
+      "tokens_input": 2504,
+      "tokens_output": 95,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 53,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1572.4487819970818,
+      "tokens_input": 2598,
+      "tokens_output": 93,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 54,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1477.1803759940667,
+      "tokens_input": 2504,
+      "tokens_output": 91,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 55,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1662.011179010733,
+      "tokens_input": 2597,
+      "tokens_output": 109,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 56,
+      "raw_coords": [
+        155,
+        877
+      ],
+      "device_coords": [
+        167,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1573.086353004328,
+      "tokens_input": 2504,
+      "tokens_output": 95,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 58,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1644.8579120042268,
+      "tokens_input": 2599,
+      "tokens_output": 109,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 59,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1492.553706993931,
+      "tokens_input": 2504,
+      "tokens_output": 95,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    },
+    {
+      "iteration": 60,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1557.1472560113762,
+      "tokens_input": 2600,
+      "tokens_output": 104,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 63,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1766.073400998721,
+      "tokens_input": 2590,
+      "tokens_output": 108,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 64,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1643.788511006278,
+      "tokens_input": 2590,
+      "tokens_output": 104,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 65,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1572.621290004463,
+      "tokens_input": 2590,
+      "tokens_output": 98,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 66,
+      "raw_coords": [
+        606,
+        522
+      ],
+      "device_coords": [
+        654,
+        1002
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1642.0790720003424,
+      "tokens_input": 2590,
+      "tokens_output": 113,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".AddTokenActivity"
+    },
+    {
+      "iteration": 69,
+      "raw_coords": [
+        787,
+        967
+      ],
+      "device_coords": [
+        849,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2268.3327779959654,
+      "tokens_input": 2484,
+      "tokens_output": 152,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 70,
+      "raw_coords": [
+        154,
+        877
+      ],
+      "device_coords": [
+        166,
+        1683
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1450.0494730018545,
+      "tokens_input": 2519,
+      "tokens_output": 91,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".TokenListActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".TokenListActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 1,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 13,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 16,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 17,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 21,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 22,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 26,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 27,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 36,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 41,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 42,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 43,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 45,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 48,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 49,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 50,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 51,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 32,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 53,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 33,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 54,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 34,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 55,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 35,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 56,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 36,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 57,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 37,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 58,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 38,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 59,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 39,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 60,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 40,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 61,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 41,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 62,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 42,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 63,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 43,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 64,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 44,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 65,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 45,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 66,
+      "activity": ".AddTokenActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 46,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 67,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 47,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 68,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 48,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 69,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 49,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 70,
+      "activity": ".TokenListActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 50,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    }
+  ]
+}

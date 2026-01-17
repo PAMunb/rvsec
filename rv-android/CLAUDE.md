@@ -369,7 +369,7 @@ The system supports two distinct specification sets for runtime verification:
 
 ### RV-Agent Specifics
 - Uses LangGraph for workflow orchestration
-- SGLang server required for LLM backend (default: http://192.168.0.21:30000/v1)
+- SGLang server required for LLM backend (default: http://192.168.0.36:30000/v1)
 - Default model: Qwen/Qwen3-VL-4B-Instruct
 - Multimode default: 70% LLM / 30% algorithm decisions
 

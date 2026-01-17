@@ -1,0 +1,34 @@
+--------- beginning of main
+--------- beginning of system
+01-14 17:24:32.982 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.controller.AppController: void onCreate()>
+01-14 17:24:32.982 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.controller.AppController: void init()>
+01-14 17:24:32.983 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.helpers.NetworkManager: void init(android.content.Context)>
+01-14 17:24:33.057 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void onCreate(android.os.Bundle)>
+01-14 17:24:33.094 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.adapter.TabsAdapter: int getCount()>
+01-14 17:24:33.099 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void onTabSelected(android.support.v7.app.ActionBar.Tab,android.support.v4.app.FragmentTransaction)>
+01-14 17:24:33.101 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void updateTitle()>
+01-14 17:24:33.102 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void enableBootReceiver()>
+01-14 17:24:33.103 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.controller.AppController: void scheduleAlarm(android.content.Context)>
+01-14 17:24:33.104 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.helpers.AlarmHelper: void scheduleUnconditionally()>
+01-14 17:24:33.104 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.controller.AppController$1: android.app.PendingIntent pendingIntent(android.content.Context,int)>
+01-14 17:24:33.115 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void onResume()>
+01-14 17:24:33.134 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.adapter.TabsAdapter: android.support.v4.app.Fragment getItem(int)>
+01-14 17:24:33.137 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: android.view.View onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)>
+01-14 17:24:33.140 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: com.freezingwind.animereleasenotifier.updater.AnimeUpdater getAnimeUpdater()>
+01-14 17:24:33.140 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.updater.AnimeUpdater: java.util.ArrayList getAnimeList()>
+01-14 17:24:33.140 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: void setupAnimeListView()>
+01-14 17:24:33.144 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: void update()>
+01-14 17:24:33.144 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: java.lang.String getCacheKey()>
+01-14 17:24:33.144 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: void displayUserNameMissingNotification()>
+01-14 17:24:33.154 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: void onResume()>
+01-14 17:24:33.156 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.CompletedListFragment: com.freezingwind.animereleasenotifier.updater.AnimeUpdater getAnimeUpdater()>
+01-14 17:24:33.158 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.CompletedListFragment: java.lang.String getCacheKey()>
+01-14 17:24:33.158 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.CompletedListFragment: void displayUserNameMissingNotification()>
+01-14 17:24:33.175 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity$1: void onPageScrolled(int,float,int)>
+01-14 17:24:33.285 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 17:24:33.287 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void updateActionBar()>
+01-14 17:24:33.451 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.settings.SettingsActivity: void onCreate(android.os.Bundle)>
+01-14 17:24:33.459 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.settings.SettingsFragment: void onCreate(android.os.Bundle)>
+01-14 17:24:33.482 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListActivity: void onSharedPreferenceChanged(android.content.SharedPreferences,java.lang.String)>
+01-14 17:24:33.482 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.animelist.AnimeListFragment: void onSharedPreferenceChanged(android.content.SharedPreferences,java.lang.String)>
+01-14 17:24:33.584 19258 19258 V RVSEC-COV: <com.freezingwind.animereleasenotifier.ui.settings.SettingsActivity: boolean onCreateOptionsMenu(android.view.Menu)>

@@ -1,0 +1,3 @@
+--------- beginning of main
+--------- beginning of system
+01-14 17:18:38.808 16893 16893 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>

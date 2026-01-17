@@ -6,7 +6,7 @@ Defines structured records for LLM actions and exploration tracking.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 import time
 
 
@@ -152,6 +152,53 @@ class ExplorationRecord:
 
 
 @dataclass
+class UIElementMetrics:
+    """
+    Metrics for UI element interaction tracking.
+
+    Tracks actions and coverage by component type and per screen.
+    """
+
+    # Actions by component type (Button, EditText, ImageView, etc.)
+    actions_by_component: Dict[str, int] = field(default_factory=dict)
+
+    # Elements discovered by component type
+    elements_by_component: Dict[str, int] = field(default_factory=dict)
+
+    # Coverage by component type (tested/total)
+    coverage_by_component: Dict[str, Dict[str, int]] = field(default_factory=dict)
+
+    # Per-screen metrics
+    screens_visited: int = 0
+    elements_per_screen: Dict[str, int] = field(default_factory=dict)  # screen -> count
+    coverage_per_screen: Dict[str, float] = field(default_factory=dict)  # screen -> coverage%
+
+    # Element testing distribution
+    untested_elements: int = 0
+    tested_once: int = 0
+    tested_multiple: int = 0
+    well_tested: int = 0  # >3 times
+
+    # Total unique elements
+    total_unique_elements: int = 0
+    total_interactions: int = 0
+
+    @property
+    def avg_interactions_per_element(self) -> float:
+        if self.total_unique_elements == 0:
+            return 0.0
+        return self.total_interactions / self.total_unique_elements
+
+    @property
+    def element_coverage(self) -> float:
+        """Percentage of discovered elements that were tested."""
+        if self.total_unique_elements == 0:
+            return 0.0
+        tested = self.tested_once + self.tested_multiple + self.well_tested
+        return tested / self.total_unique_elements * 100
+
+
+@dataclass
 class SessionMetrics:
     """
     Aggregated metrics for a complete validation session.
@@ -160,6 +207,7 @@ class SessionMetrics:
     # Session info
     app_package: str = ""
     agent_mode: str = ""                          # pure_algorithm, llm_only, multimode
+    strategy: str = ""                            # dfs, bfs, greedy, rvagent
     timeout_seconds: int = 0
     seed: int = 0
     start_time: float = field(default_factory=time.time)
@@ -202,6 +250,9 @@ class SessionMetrics:
     unique_errors: int = 0
     total_errors: int = 0
     logcat_file: str = ""
+
+    # UI element metrics
+    ui_metrics: UIElementMetrics = field(default_factory=UIElementMetrics)
 
     @property
     def duration_seconds(self) -> float:

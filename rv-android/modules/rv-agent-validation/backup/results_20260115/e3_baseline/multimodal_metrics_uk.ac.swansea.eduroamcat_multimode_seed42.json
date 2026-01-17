@@ -1,0 +1,1355 @@
+{
+  "session": {
+    "app_package": "uk.ac.swansea.eduroamcat",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768451773.8117702,
+    "end_time": 1768452024.4325402,
+    "duration_seconds": 250.62076997756958
+  },
+  "llm_metrics": {
+    "total_llm_calls": 39,
+    "total_tokens_input": 97175,
+    "total_tokens_output": 5695,
+    "total_tokens": 102870,
+    "total_latency_ms": 86868.50497903652,
+    "avg_latency_ms": 2227.397563565039,
+    "tokens_per_action": 2637.6923076923076
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 39,
+    "hits": 38,
+    "near_misses": 0,
+    "ui_misses": 1,
+    "empty_misses": 0,
+    "hit_rate": 0.9743589743589743,
+    "tool_call_rate": 1.0
+  },
+  "exploration_metrics": {
+    "total_activities": 3,
+    "activities_discovered": 4,
+    "activity_coverage": 1.3333333333333333,
+    "total_iterations": 52,
+    "actions_per_activity": 13.0
+  },
+  "stuck_metrics": {
+    "stuck_events": 1,
+    "stuck_recovered": 1,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 27.79783393501805,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 77,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_uk.ac.swansea.eduroamcat_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1975.5396920081694,
+      "tokens_input": 2529,
+      "tokens_output": 117,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        500,
+        893
+      ],
+      "device_coords": [
+        540,
+        1714
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Switch",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1995.963899011258,
+      "tokens_input": 2508,
+      "tokens_output": 136,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        281,
+        572
+      ],
+      "device_coords": [
+        303,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2263.517932005925,
+      "tokens_input": 2445,
+      "tokens_output": 154,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        195,
+        65
+      ],
+      "device_coords": [
+        210,
+        124
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2080.595453007845,
+      "tokens_input": 2524,
+      "tokens_output": 138,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1907.173509011045,
+      "tokens_input": 2561,
+      "tokens_output": 129,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        647,
+        891
+      ],
+      "device_coords": [
+        698,
+        1710
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Switch",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1798.673190001864,
+      "tokens_input": 2526,
+      "tokens_output": 116,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        281,
+        572
+      ],
+      "device_coords": [
+        303,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2593.021022999892,
+      "tokens_input": 2461,
+      "tokens_output": 171,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1834.7116240183823,
+      "tokens_input": 2557,
+      "tokens_output": 125,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2149.8363279970363,
+      "tokens_input": 2558,
+      "tokens_output": 139,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        645,
+        890
+      ],
+      "device_coords": [
+        696,
+        1708
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Switch",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 4736.366971977986,
+      "tokens_input": 2527,
+      "tokens_output": 144,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        500,
+        478
+      ],
+      "device_coords": [
+        540,
+        917
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1128.3284760138486,
+      "tokens_input": 2487,
+      "tokens_output": 54,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        717,
+        572
+      ],
+      "device_coords": [
+        774,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2207.0333669835236,
+      "tokens_input": 2497,
+      "tokens_output": 149,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1684.3976169766393,
+      "tokens_input": 2559,
+      "tokens_output": 112,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        649,
+        893
+      ],
+      "device_coords": [
+        700,
+        1714
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Switch",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2173.784156999318,
+      "tokens_input": 2438,
+      "tokens_output": 145,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        281,
+        572
+      ],
+      "device_coords": [
+        303,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2138.8383129960857,
+      "tokens_input": 2466,
+      "tokens_output": 134,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        500,
+        204
+      ],
+      "device_coords": [
+        540,
+        391
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "RelativeLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2457.041532994481,
+      "tokens_input": 2534,
+      "tokens_output": 171,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        283,
+        879
+      ],
+      "device_coords": [
+        305,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2248.100383003475,
+      "tokens_input": 2492,
+      "tokens_output": 151,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".EAPMetadata"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        500,
+        478
+      ],
+      "device_coords": [
+        540,
+        917
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2246.1539449868724,
+      "tokens_input": 2466,
+      "tokens_output": 146,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        717,
+        572
+      ],
+      "device_coords": [
+        774,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2288.714558002539,
+      "tokens_input": 2495,
+      "tokens_output": 162,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2484.3196390138473,
+      "tokens_input": 2414,
+      "tokens_output": 156,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2326.161500008311,
+      "tokens_input": 2414,
+      "tokens_output": 162,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 27,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2238.356482004747,
+      "tokens_input": 2559,
+      "tokens_output": 154,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 28,
+      "raw_coords": [
+        649,
+        893
+      ],
+      "device_coords": [
+        700,
+        1714
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Switch",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1709.5297340129036,
+      "tokens_input": 2440,
+      "tokens_output": 115,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 34,
+      "raw_coords": [
+        375,
+        278
+      ],
+      "device_coords": [
+        405,
+        533
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "RelativeLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2435.714865976479,
+      "tokens_input": 2529,
+      "tokens_output": 161,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 35,
+      "raw_coords": [
+        500,
+        204
+      ],
+      "device_coords": [
+        540,
+        391
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "RelativeLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2418.882598984055,
+      "tokens_input": 2529,
+      "tokens_output": 178,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 36,
+      "raw_coords": [
+        500,
+        204
+      ],
+      "device_coords": [
+        540,
+        391
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "RelativeLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2413.5598610155284,
+      "tokens_input": 2529,
+      "tokens_output": 168,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 38,
+      "raw_coords": [
+        252,
+        855
+      ],
+      "device_coords": [
+        272,
+        1641
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1700.0320049992297,
+      "tokens_input": 2558,
+      "tokens_output": 111,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 39,
+      "raw_coords": [
+        500,
+        293
+      ],
+      "device_coords": [
+        540,
+        562
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "RelativeLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2529.538300994318,
+      "tokens_input": 2529,
+      "tokens_output": 172,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 40,
+      "raw_coords": [
+        283,
+        879
+      ],
+      "device_coords": [
+        305,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2806.6819600062445,
+      "tokens_input": 2495,
+      "tokens_output": 197,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".EAPMetadata"
+    },
+    {
+      "iteration": 41,
+      "raw_coords": [
+        650,
+        893
+      ],
+      "device_coords": [
+        702,
+        1714
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Switch",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2269.4706399925053,
+      "tokens_input": 2413,
+      "tokens_output": 162,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 42,
+      "raw_coords": [
+        281,
+        572
+      ],
+      "device_coords": [
+        303,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2602.9397520178463,
+      "tokens_input": 2466,
+      "tokens_output": 189,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 44,
+      "raw_coords": [
+        283,
+        879
+      ],
+      "device_coords": [
+        305,
+        1687
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2176.617396005895,
+      "tokens_input": 2495,
+      "tokens_output": 160,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".EAPMetadata"
+    },
+    {
+      "iteration": 45,
+      "raw_coords": [
+        500,
+        478
+      ],
+      "device_coords": [
+        540,
+        917
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2786.710028012749,
+      "tokens_input": 2466,
+      "tokens_output": 194,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 46,
+      "raw_coords": [
+        717,
+        572
+      ],
+      "device_coords": [
+        774,
+        1098
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2660.630455997307,
+      "tokens_input": 2495,
+      "tokens_output": 195,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 47,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1979.7516739927232,
+      "tokens_input": 2414,
+      "tokens_output": 137,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 48,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2266.126311995322,
+      "tokens_input": 2414,
+      "tokens_output": 162,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ViewProfiles"
+    },
+    {
+      "iteration": 50,
+      "raw_coords": [
+        741,
+        131
+      ],
+      "device_coords": [
+        800,
+        251
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1964.5144469977822,
+      "tokens_input": 2434,
+      "tokens_output": 129,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".eduroamCAT"
+    },
+    {
+      "iteration": 51,
+      "raw_coords": [
+        499,
+        865
+      ],
+      "device_coords": [
+        538,
+        1660
+      ],
+      "hit_classification": "ui_miss",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1545.667639002204,
+      "tokens_input": 2476,
+      "tokens_output": 89,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".picker.PickActivity"
+    },
+    {
+      "iteration": 52,
+      "raw_coords": [
+        137,
+        153
+      ],
+      "device_coords": [
+        147,
+        293
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Chip",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1645.5077170103323,
+      "tokens_input": 2476,
+      "tokens_output": 111,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".picker.PickActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".ViewProfiles",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".eduroamCAT",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 22,
+      "activity": ".EAPMetadata",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 26,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 27,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 36,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".EAPMetadata",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 41,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 42,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 43,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".EAPMetadata",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 45,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 48,
+      "activity": ".ViewProfiles",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 49,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 50,
+      "activity": ".eduroamCAT",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 51,
+      "activity": ".picker.PickActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".picker.PickActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    }
+  ]
+}

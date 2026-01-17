@@ -7,7 +7,7 @@ Key Design Decisions:
    Problem: Same UI element may have different resource IDs across app versions,
    or no ID at all (common in custom views and games).
    Solution: Use normalized coordinates (x, y) as primary identifier.
-   Format: "coords:{x},{y}:{action_type}" matches how LLM specifies actions.
+   Format: "coords:{x},{y}" - standardized via element_id module.
 
 2. ANNOTATION SYSTEM FOR LLM GUIDANCE
    Problem: LLM doesn't know which elements have been tested and may repeatedly
@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 
 from ..constants import RVAgentConstants
+from .element_id import make_element_id
 
 
 @dataclass
@@ -86,6 +87,9 @@ class UICoverageTracker:
         self.action_type_counts: Dict[str, int] = {}
         self.screen_elements: Dict[str, Set[str]] = {}
 
+        # Component type tracking (element_id -> component class name)
+        self.element_types: Dict[str, str] = {}
+
         # Temporal tracking
         self.first_interactions: Dict[str, float] = {}
         self.last_interactions: Dict[str, float] = {}
@@ -96,7 +100,8 @@ class UICoverageTracker:
         self.logger.info("[RVAGENT_DEBUG] UICoverageTracker initialized")
 
     def record_interaction(self, element_id: str, action_type: str = "click",
-                         screen_hash: Optional[str] = None, success: bool = True) -> None:
+                         screen_hash: Optional[str] = None, success: bool = True,
+                         component_type: Optional[str] = None) -> None:
         """
         Registra interação com elemento com tipo de ação para guidance balanceado.
 
@@ -105,9 +110,14 @@ class UICoverageTracker:
             action_type: Type of action performed
             screen_hash: Hash of screen state
             success: Whether interaction was successful
+            component_type: Component type (Button, EditText, etc.) for auto-registration
         """
         try:
             current_time = time.time()
+
+            # Auto-register element if not in element_types (ensures coverage consistency)
+            if element_id not in self.element_types and component_type:
+                self.element_types[element_id] = component_type
 
             # Track element interaction count
             was_new_element = element_id not in self.tested_elements
@@ -269,17 +279,16 @@ class UICoverageTracker:
     def _generate_element_id(self, element_desc: str) -> str:
         """Generate consistent element ID from description.
 
-        Uses coordinates as primary identifier for consistency with
-        _generate_element_id_from_action in learn_node.
+        Uses coordinates as primary identifier via make_element_id()
+        for consistency across all components.
         """
         import re
 
         # PRIMARY: Extract coordinates from "at position (x, y)" or bounds
-        # This matches how learn_node generates IDs from actions
         pos_match = re.search(r'at position\s*\((\d+),\s*(\d+)\)', element_desc)
         if pos_match:
-            x, y = pos_match.group(1), pos_match.group(2)
-            return f"coords:{x},{y}:CLICK"
+            x, y = int(pos_match.group(1)), int(pos_match.group(2))
+            return make_element_id(x, y)
 
         # FALLBACK: Extract ID
         id_match = re.search(r'id:(\w+)', element_desc)
@@ -444,9 +453,149 @@ class UICoverageTracker:
         self.tested_elements.clear()
         self.action_type_counts.clear()
         self.screen_elements.clear()
+        self.element_types.clear()
         self.first_interactions.clear()
         self.last_interactions.clear()
         self.discovery_timeline.clear()
 
         self.logger.info(f"[RVAGENT_DEBUG] UI coverage reset complete: "
                         f"{cleared_elements} elements, {cleared_screens} screens")
+
+    def register_screen_elements(self, screen_hash: str, screen_desc: Any) -> None:
+        """
+        Register all elements from a ScreenDescription with their component types.
+
+        This enables tracking coverage by component type (Button, EditText, Spinner, etc.)
+        and is called during screen parsing to capture all discoverable elements.
+
+        Args:
+            screen_hash: Hash of the screen state
+            screen_desc: ScreenDescription object with items
+        """
+        try:
+            if screen_hash not in self.screen_elements:
+                self.screen_elements[screen_hash] = set()
+
+            element_count = 0
+            for item in getattr(screen_desc, 'items', []):
+                view = getattr(item, 'view', {}) if hasattr(item, 'view') else item.get('view', {})
+
+                # Get component class name
+                component_class = view.get('class', 'unknown')
+                # Extract simple class name (e.g., "android.widget.Button" -> "Button")
+                simple_class = component_class.split('.')[-1] if component_class else 'unknown'
+
+                # Get element coordinates for ID
+                bounds = view.get('bounds', [[0, 0], [0, 0]])
+                if bounds and len(bounds) == 2:
+                    center_x = (bounds[0][0] + bounds[1][0]) // 2
+                    center_y = (bounds[0][1] + bounds[1][1]) // 2
+                    element_id = make_element_id(center_x, center_y)
+
+                    self.screen_elements[screen_hash].add(element_id)
+                    if element_id not in self.element_types:
+                        self.element_types[element_id] = simple_class
+                    element_count += 1
+
+            self.logger.debug(
+                f"Registered {element_count} elements for screen {screen_hash[:8]}"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to register screen elements: {e}")
+
+    def get_comprehensive_metrics(self) -> Dict[str, Any]:
+        """
+        Get comprehensive UI coverage metrics including component type breakdown.
+
+        Returns:
+            Dict with detailed coverage metrics:
+            - total_unique_elements: Number of unique elements discovered
+            - total_interactions: Total interaction count
+            - element_coverage: Percentage of elements tested at least once
+            - elements_by_type: Count of elements per component type
+            - interactions_by_type: Count of interactions per component type
+            - coverage_by_type: Coverage percentage per component type
+            - screens_visited: Number of unique screens visited
+            - elements_per_screen: Element counts per screen
+            - coverage_per_screen: Coverage percentage per screen
+        """
+        try:
+            # Basic counts
+            # Count only elements that are properly registered
+            total_elements = len(self.element_types)
+            # Count tested elements as those in BOTH element_types AND tested_elements
+            # This ensures coverage never exceeds 100%
+            tested_elements = len(set(self.tested_elements.keys()) & set(self.element_types.keys()))
+            total_interactions = sum(self.tested_elements.values())
+
+            # Elements and interactions by component type
+            elements_by_type: Dict[str, int] = {}
+            interactions_by_type: Dict[str, int] = {}
+
+            for element_id, comp_type in self.element_types.items():
+                elements_by_type[comp_type] = elements_by_type.get(comp_type, 0) + 1
+                if element_id in self.tested_elements:
+                    interactions_by_type[comp_type] = (
+                        interactions_by_type.get(comp_type, 0) +
+                        self.tested_elements[element_id]
+                    )
+
+            # Coverage by component type
+            coverage_by_type: Dict[str, Dict[str, Any]] = {}
+            for comp_type, total_count in elements_by_type.items():
+                tested_count = sum(
+                    1 for eid, ct in self.element_types.items()
+                    if ct == comp_type and eid in self.tested_elements
+                )
+                coverage_by_type[comp_type] = {
+                    "total": total_count,
+                    "tested": tested_count,
+                    "coverage": (tested_count / total_count * 100) if total_count > 0 else 0
+                }
+
+            # Screen metrics
+            elements_per_screen: Dict[str, int] = {}
+            coverage_per_screen: Dict[str, float] = {}
+
+            for screen_hash, elements in self.screen_elements.items():
+                screen_key = screen_hash[:8]
+                elements_per_screen[screen_key] = len(elements)
+                tested = sum(1 for e in elements if e in self.tested_elements)
+                coverage_per_screen[screen_key] = (
+                    (tested / len(elements) * 100) if elements else 0
+                )
+
+            # Element distribution by test count (only for registered elements)
+            registered_and_tested = set(self.tested_elements.keys()) & set(self.element_types.keys())
+            untested = total_elements - len(registered_and_tested)
+            tested_once = sum(1 for eid in registered_and_tested if self.tested_elements.get(eid, 0) == 1)
+            tested_multiple = sum(1 for eid in registered_and_tested if 2 <= self.tested_elements.get(eid, 0) <= 3)
+            well_tested = sum(1 for eid in registered_and_tested if self.tested_elements.get(eid, 0) > 3)
+
+            return {
+                "total_unique_elements": total_elements,
+                "total_interactions": total_interactions,
+                "avg_interactions_per_element": (
+                    total_interactions / tested_elements if tested_elements > 0 else 0
+                ),
+                "element_coverage": (
+                    tested_elements / total_elements * 100 if total_elements > 0 else 0
+                ),
+                "element_distribution": {
+                    "untested": untested,
+                    "tested_once": tested_once,
+                    "tested_multiple": tested_multiple,
+                    "well_tested": well_tested
+                },
+                "elements_by_type": elements_by_type,
+                "interactions_by_type": interactions_by_type,
+                "coverage_by_type": coverage_by_type,
+                "screens_visited": len(self.screen_elements),
+                "elements_per_screen": elements_per_screen,
+                "coverage_per_screen": coverage_per_screen
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to get comprehensive metrics: {e}")
+            return {"error": str(e)}

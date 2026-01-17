@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "anki_greedy_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.ichi2.anki_21605300.apk",
+  "package_name": "com.ichi2.anki",
+  "strategy": "greedy",
+  "repetition": 1,
+  "seed": 974728280,
+  "execution_time_seconds": 16.39761781692505
+}

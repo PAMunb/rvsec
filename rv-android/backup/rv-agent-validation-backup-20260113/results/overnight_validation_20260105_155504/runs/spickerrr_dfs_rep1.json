@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "spickerrr_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/de.piratentools.spickerrr_4.apk",
+  "package_name": "de.piratentools.spickerrr",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 1633772159,
+  "execution_time_seconds": 2.9131710529327393
+}

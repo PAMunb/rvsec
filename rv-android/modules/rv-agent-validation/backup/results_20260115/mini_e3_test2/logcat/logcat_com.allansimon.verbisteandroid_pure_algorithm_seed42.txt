@@ -1,0 +1,3 @@
+--------- beginning of main
+--------- beginning of system
+01-14 13:01:29.688 10422 10422 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>

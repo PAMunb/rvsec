@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "rssreader_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/livio.rssreader_101.apk",
+  "package_name": "livio.rssreader",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1447210242,
+  "execution_time_seconds": 181.5469615459442
+}

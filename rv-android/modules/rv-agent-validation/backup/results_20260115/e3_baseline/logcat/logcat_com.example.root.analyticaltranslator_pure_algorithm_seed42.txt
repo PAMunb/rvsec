@@ -1,0 +1,31 @@
+--------- beginning of main
+--------- beginning of system
+01-14 18:58:52.923 24624 24624 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:59:01.902 24624 24624 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onclickactivity(android.view.View)>
+01-14 18:59:01.948 24624 24705 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$6: java.util.Map getParams()>
+01-14 18:59:01.948 24624 24705 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: android.widget.TextView access$100(com.example.root.analyticaltranslator.MainActivity)>
+01-14 18:59:01.951 24624 24703 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$3: java.util.Map getParams()>
+01-14 18:59:04.469 24624 24624 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$2: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 18:59:04.480 24624 24624 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$5: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 18:59:22.030 24868 24868 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:59:33.103 24868 24868 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onclickactivity(android.view.View)>
+01-14 18:59:33.157 24868 24948 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$6: java.util.Map getParams()>
+01-14 18:59:33.157 24868 24948 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: android.widget.TextView access$100(com.example.root.analyticaltranslator.MainActivity)>
+01-14 18:59:33.160 24868 24949 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$3: java.util.Map getParams()>
+01-14 18:59:35.706 24868 24868 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$5: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 18:59:35.713 24868 24868 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$2: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 18:59:52.770 25090 25090 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:00:23.304 25307 25307 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:00:56.562 25571 25571 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:01:21.947 25760 25760 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:01:52.135 25975 25975 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:02:18.310 26158 26158 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:02:40.858 26308 26308 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:03:02.525 26459 26459 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:03:13.673 26459 26459 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onclickactivity(android.view.View)>
+01-14 19:03:13.717 26459 26538 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$6: java.util.Map getParams()>
+01-14 19:03:13.717 26459 26537 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$3: java.util.Map getParams()>
+01-14 19:03:13.717 26459 26538 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: android.widget.TextView access$100(com.example.root.analyticaltranslator.MainActivity)>
+01-14 19:03:16.230 26459 26459 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$2: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 19:03:16.295 26459 26459 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$5: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 19:03:33.313 26698 26698 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>

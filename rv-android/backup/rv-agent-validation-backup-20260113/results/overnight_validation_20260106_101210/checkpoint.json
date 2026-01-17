@@ -1,0 +1,13 @@
+{
+  "completed_runs": [
+    "KolabDroid_bfs_rep1",
+    "KolabDroid_dfs_rep1",
+    "KolabDroid_greedy_rep1",
+    "KolabDroid_rvagent_rep1"
+  ],
+  "failed_runs": [],
+  "start_time": "2026-01-06T10:12:10.951291",
+  "last_update": "2026-01-06T10:12:36.081519",
+  "total_completed": 4,
+  "total_failed": 0
+}

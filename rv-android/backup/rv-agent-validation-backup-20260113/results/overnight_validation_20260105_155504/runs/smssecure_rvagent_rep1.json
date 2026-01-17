@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "smssecure_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/org.smssecure.smssecure_145.apk",
+  "package_name": "org.smssecure.smssecure",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1798126158,
+  "execution_time_seconds": 180.98557424545288
+}

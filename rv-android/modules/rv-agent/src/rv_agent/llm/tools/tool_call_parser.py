@@ -215,6 +215,10 @@ def denormalize_qwen_coords(
     Returns:
         Tuple of (pixel_x, pixel_y)
     """
+    # Ensure x and y are numeric (may come as strings from LLM)
+    x = int(x) if isinstance(x, str) else x
+    y = int(y) if isinstance(y, str) else y
+
     # Only convert if values appear to be in [0, 1000) range
     if 0 <= x < 1000 and 0 <= y < 1000:
         pixel_x = int((x / 1000) * image_width)

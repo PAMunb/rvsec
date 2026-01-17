@@ -81,7 +81,8 @@ class AgentMemoryManager:
             "action_type": action.get("action_type", "unknown"),
             "explanation": action.get("explanation", ""),
             "activity": activity,
-            "success": success
+            "success": success,
+            "coords": (action.get("x", 0), action.get("y", 0))
         }
         self.action_history.append(action_record)
 
@@ -99,14 +100,14 @@ class AgentMemoryManager:
 
     def get_action_history_summary(self) -> str:
         """
-        Generate pre-formatted action history summary string.
+        Generate pre-formatted action history summary string with coordinates.
 
         ### Output Format:
         ```
         Recent actions (5):
-          1. CLICK: Tap on login button to access account
-          2. SET_TEXT: Enter email address in text field
-          3. CLICK: Submit login form
+          1. CLICK at (540, 633): Tap on login button
+          2. SET_TEXT at (540, 268): Enter email address
+          3. CLICK at (540, 800): Submit login form
           ...
         ```
 
@@ -120,10 +121,11 @@ class AgentMemoryManager:
         for i, action in enumerate(self.action_history, 1):
             action_type = action["action_type"]
             explanation = action["explanation"]
+            coords = action.get("coords", (0, 0))
             success_marker = "" if action["success"] else " [FAILED]"
 
-            # Format: "1. CLICK: Explanation text"
-            lines.append(f"  {i}. {action_type}: {explanation}{success_marker}")
+            # Format: "1. CLICK at (540, 633): Explanation text"
+            lines.append(f"  {i}. {action_type} at {coords}: {explanation}{success_marker}")
 
         return "\n".join(lines)
 

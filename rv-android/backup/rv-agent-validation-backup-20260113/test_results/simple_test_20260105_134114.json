@@ -1,0 +1,15 @@
+{
+  "timestamp": "20260105_134114",
+  "apk_path": "/home/pedro/desenvolvimento/RV_ANDROID/apks/cryptoapp.apk",
+  "package_name": "br.unb.cic.cryptoapp",
+  "timeout": 60,
+  "device": "emulator-5554",
+  "results": [
+    {
+      "strategy": "dfs",
+      "status": "error",
+      "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+      "execution_time": 63.8
+    }
+  ]
+}

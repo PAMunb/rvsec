@@ -1,0 +1,16 @@
+class,is_activity,method,reachable,use_jca
+byrne.utilities.hashpass.HashPassActivity,True,onClick,False,False
+byrne.utilities.hashpass.HashPassActivity,True,getSystemService,True,False
+byrne.utilities.hashpass.HashPassActivity,True,access$100,True,False
+byrne.utilities.hashpass.HashPassActivity,True,access$200,True,False
+byrne.utilities.hashpass.HashPassActivity,True,createHash,True,True
+byrne.utilities.hashpass.HashPassActivity,True,getResources,True,False
+byrne.utilities.hashpass.HashPassActivity,True,onCreate,False,False
+byrne.utilities.hashpass.HashPassActivity,True,findViewById,True,False
+byrne.utilities.hashpass.HashPassActivity,True,setContentView,True,False
+byrne.utilities.hashpass.HashPassActivity,True,getSharedPreferences,True,False
+byrne.utilities.hashpass.HashPassActivity,True,onItemSelected,False,False
+byrne.utilities.hashpass.HashPassActivity,True,onNothingSelected,False,False
+byrne.utilities.hashpass.HashPassActivity$PostHash,False,doInBackground,False,False
+byrne.utilities.hashpass.HashPassActivity$PostHash,False,onPostExecute,False,False
+byrne.utilities.hashpass.HashPassActivity$PostHash,False,execute,True,False

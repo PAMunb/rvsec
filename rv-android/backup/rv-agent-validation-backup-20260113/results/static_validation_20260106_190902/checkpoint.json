@@ -1,0 +1,13 @@
+{
+  "completed_runs": [
+    "cryptoapp_bfs_rep1",
+    "cryptoapp_dfs_rep1",
+    "cryptoapp_greedy_rep1",
+    "cryptoapp_rvagent_rep1"
+  ],
+  "failed_runs": [],
+  "start_time": "2026-01-06T19:09:02.934322",
+  "last_update": "2026-01-06T19:21:23.145457",
+  "total_completed": 4,
+  "total_failed": 0
+}

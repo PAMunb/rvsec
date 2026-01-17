@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "tellaFOSS_bfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/org.hzontal.tellaFOSS_149.apk",
+  "package_name": "org.hzontal.tellaFOSS",
+  "strategy": "bfs",
+  "repetition": 1,
+  "seed": 557193497,
+  "execution_time_seconds": 181.5795545578003
+}

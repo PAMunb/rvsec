@@ -1,0 +1,1102 @@
+{
+  "session": {
+    "app_package": "com.sam.hex",
+    "agent_mode": "pure_algorithm",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768433973.5579655,
+    "end_time": 1768434275.7086558,
+    "duration_seconds": 302.15069031715393
+  },
+  "llm_metrics": {
+    "total_llm_calls": 0,
+    "total_tokens_input": 0,
+    "total_tokens_output": 0,
+    "total_tokens": 0,
+    "total_latency_ms": 0.0,
+    "avg_latency_ms": 0.0,
+    "tokens_per_action": 0.0
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 0,
+    "hits": 0,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 0.0,
+    "tool_call_rate": 0.0
+  },
+  "exploration_metrics": {
+    "total_activities": 10,
+    "activities_discovered": 7,
+    "activity_coverage": 0.7,
+    "total_iterations": 115,
+    "actions_per_activity": 16.428571428571427
+  },
+  "stuck_metrics": {
+    "stuck_events": 4,
+    "stuck_recovered": 4,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 34.27835051546392,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 133,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_com.sam.hex_pure_algorithm_seed42.txt"
+  },
+  "llm_actions": [],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".HexGame",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".net.RegistrationActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".net.RegistrationActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".net.RegistrationActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".Preferences",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 22,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 26,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 27,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 36,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 41,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 42,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 43,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 45,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 48,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 49,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 50,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 51,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 53,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 54,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 55,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 56,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 32,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 57,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 33,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 58,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 34,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 59,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 35,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 60,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 36,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 61,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 37,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 62,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 38,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 63,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 39,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 64,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 40,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 65,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 41,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 66,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 42,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 67,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 43,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 68,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 44,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 69,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 45,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 70,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 46,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 71,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 47,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 72,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 48,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 73,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 49,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 74,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 50,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 75,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 51,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 76,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 52,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 77,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 53,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 78,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 54,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 79,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 55,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 80,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 56,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 81,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 57,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 82,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 58,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 83,
+      "activity": ".net.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 59,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 84,
+      "activity": ".net.RegistrationActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 60,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 85,
+      "activity": ".net.RegistrationActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 61,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 86,
+      "activity": ".net.RegistrationActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 62,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 87,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 63,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 88,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 64,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 89,
+      "activity": ".startup.InstructionsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 65,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 90,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 66,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 91,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 67,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 92,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 68,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 93,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 69,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 94,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 70,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 95,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 71,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 96,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 72,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 97,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 73,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 98,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 74,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 99,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 75,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 100,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 76,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 101,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 77,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 102,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 78,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 103,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 79,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 104,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 80,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 105,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 81,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 106,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 82,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 107,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 83,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 108,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 84,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 109,
+      "activity": ".startup.StartUpActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 85,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 110,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 86,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 111,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 87,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 112,
+      "activity": ".HexGame",
+      "is_new_activity": false,
+      "actions_since_last_new": 88,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 113,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 89,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 114,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 90,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 115,
+      "activity": ".Preferences",
+      "is_new_activity": false,
+      "actions_since_last_new": 91,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    }
+  ]
+}

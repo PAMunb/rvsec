@@ -140,6 +140,32 @@ def get_detected_package(apk_name: str, csv_path: Optional[Path] = None) -> Opti
 
 
 # =============================================================================
+# Retry Configuration
+# =============================================================================
+
+# Infrastructure errors that warrant automatic retry
+INFRASTRUCTURE_ERRORS = [
+    "INSTALL_FAILED",
+    "device not found",
+    "Connection refused",
+    "TimeoutError",
+    "ADB server",
+    "cannot connect",
+    "error: closed",
+    "daemon not running",
+]
+
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 5
+
+
+def is_infrastructure_error(error_msg: str) -> bool:
+    """Check if error is infrastructure-related (should retry)."""
+    error_lower = error_msg.lower()
+    return any(e.lower() in error_lower for e in INFRASTRUCTURE_ERRORS)
+
+
+# =============================================================================
 # APK Management Functions
 # =============================================================================
 
@@ -324,6 +350,12 @@ class MultimodalValidationConfig:
     # Agent modes to compare
     agent_modes: List[str] = field(default_factory=lambda: ["multimode"])
 
+    # Exploration strategies (for pure_algorithm mode)
+    strategies: List[str] = field(default_factory=lambda: ["rvagent"])
+
+    # LLM/algorithm probability for multimode
+    llm_probability: float = 0.7  # Default: 70% LLM, 30% algorithm
+
     # Execution settings
     timeout_seconds: int = 300
     seeds: List[int] = field(default_factory=lambda: [42, 123, 456])
@@ -332,9 +364,10 @@ class MultimodalValidationConfig:
     # LLM settings
     llm_base_url: str = "http://192.168.0.21:30000/v1"
     llm_model: str = "Qwen/Qwen3-VL-4B-Instruct"
-    llm_temperature: float = 0.001
+    llm_temperature: float = 0.01
     llm_top_p: float = 0.6  # RVAgentConfig default, range [0.0, 1.0]
     llm_top_k: int = 50  # RVAgentConfig default, range [1, 100]
+    prompt_version: str = "v13"  # Prompt version to use (v13, v14, etc.)
 
     # Device settings
     device_serial: str = "emulator-5554"
@@ -409,6 +442,69 @@ def validate_config(config: MultimodalValidationConfig) -> List[str]:
     return errors
 
 
+def run_single_experiment_with_retry(
+    app_package: str,
+    mode: str,
+    seed: int,
+    config: MultimodalValidationConfig,
+    output_dir: Path,
+    run_number: int,
+    total_runs: int,
+    apk_path: Optional[Path] = None,
+    static_data: Optional["StaticAnalysisData"] = None,
+    wtg_variant: Optional[str] = None,
+    strategy: str = "rvagent",
+    disable_static_autoload: bool = False,
+) -> Dict[str, Any]:
+    """
+    Run a single experiment with automatic retry for infrastructure errors.
+
+    Wraps run_single_experiment with retry logic for transient infrastructure failures.
+    """
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        result = run_single_experiment(
+            app_package=app_package,
+            mode=mode,
+            seed=seed,
+            config=config,
+            output_dir=output_dir,
+            run_number=run_number,
+            total_runs=total_runs,
+            apk_path=apk_path,
+            static_data=static_data,
+            wtg_variant=wtg_variant,
+            strategy=strategy,
+            disable_static_autoload=disable_static_autoload,
+        )
+
+        # Check if run succeeded
+        if result.get("status") not in ("error", "failed"):
+            return result
+
+        # Check if infrastructure error (should retry)
+        error_msg = str(result.get("error", ""))
+        if is_infrastructure_error(error_msg):
+            logger.warning(
+                f"Infrastructure error on attempt {attempt + 1}/{MAX_RETRIES}: {error_msg}"
+            )
+            last_error = error_msg
+            if attempt < MAX_RETRIES - 1:
+                logger.info(f"Retrying in {RETRY_DELAY_SECONDS}s...")
+                time.sleep(RETRY_DELAY_SECONDS)
+                continue
+        else:
+            # Agent error, don't retry
+            return result
+
+    # All retries exhausted
+    logger.error(f"All {MAX_RETRIES} retries exhausted for {app_package}")
+    result["retries_attempted"] = MAX_RETRIES
+    result["final_error"] = last_error
+    return result
+
+
 def run_single_experiment(
     app_package: str,
     mode: str,
@@ -420,6 +516,8 @@ def run_single_experiment(
     apk_path: Optional[Path] = None,
     static_data: Optional["StaticAnalysisData"] = None,
     wtg_variant: Optional[str] = None,  # "with_wtg" or "without_wtg" for compare mode
+    strategy: str = "rvagent",  # Exploration strategy for pure_algorithm mode
+    disable_static_autoload: bool = False,  # Disable auto-loading static data from APK dir
 ) -> Dict[str, Any]:
     """
     Run a single experiment (one app, one mode, one seed).
@@ -432,6 +530,8 @@ def run_single_experiment(
     Args:
         static_data: Optional static analysis data for WTG integration
         wtg_variant: Optional variant name for WTG comparison experiments
+        strategy: Exploration strategy (rvagent, dfs, bfs, greedy)
+        disable_static_autoload: If True, skip auto-loading static data from APK dir
 
     Returns:
         Dictionary with run results and metrics path
@@ -440,6 +540,7 @@ def run_single_experiment(
     logger.info(f"RUN {run_number}/{total_runs}")
     logger.info(f"App: {app_package}")
     logger.info(f"Mode: {mode}")
+    logger.info(f"Strategy: {strategy}")
     logger.info(f"Seed: {seed}")
     if wtg_variant:
         logger.info(f"WTG: {wtg_variant}")
@@ -479,7 +580,7 @@ def run_single_experiment(
             # Create logcat directory and file
             logcat_dir = output_dir / "logcat"
             logcat_dir.mkdir(parents=True, exist_ok=True)
-            logcat_file = logcat_dir / f"logcat_{app_package}_{mode}{wtg_suffix}_seed{seed}.txt"
+            logcat_file = logcat_dir / f"logcat_{app_package}_{mode}_{strategy}{wtg_suffix}_seed{seed}.txt"
 
             # Initialize and start logcat capture
             logcat_manager = LogcatManager(device_serial=config.device_serial)
@@ -494,7 +595,8 @@ def run_single_experiment(
                     logger.info(f"Found methods file: {methods_file.name}")
 
                 # Auto-load static analysis data (WTG/GESDA/REACH) from APK directory
-                if static_data is None and StaticAnalysisParser:
+                # Skip if explicitly disabled (use_wtg: false)
+                if static_data is None and StaticAnalysisParser and not disable_static_autoload:
                     wtg_file = apk_path.parent / f"{apk_path.name}.wtg"
                     gesda_file = apk_path.parent / f"{apk_path.name}.gesda"
                     reach_file = apk_path.parent / f"{apk_path.name}.reach"
@@ -536,31 +638,38 @@ def run_single_experiment(
         seed=seed,
         total_activities=total_activities,
         output_dir=output_dir,
+        strategy=strategy,
     )
 
     # Create agent config
+    screenshot_suffix = f"{app_package}_{mode}_{strategy}_seed{seed}"
     agent_config = RVAgentConfig(
         package_name=app_package,
         device_id=config.device_serial,
         timeout=config.timeout_seconds,
         agent_mode=mode,
+        strategy=strategy,  # Exploration strategy
+        llm_probability=config.llm_probability,  # LLM/algorithm ratio for multimode
         llm_base_url=config.llm_base_url,
         llm_model=config.llm_model,
         llm_temperature=config.llm_temperature,
-        screenshot_dir=str(output_dir / "screenshots" / f"{app_package}_{mode}_seed{seed}"),
+        llm_top_p=config.llm_top_p,
+        llm_top_k=config.llm_top_k,
+        prompt_version=config.prompt_version,
+        screenshot_dir=str(output_dir / "screenshots" / screenshot_suffix),
     )
-
-    # Override LLM params if set
-    if hasattr(agent_config, 'llm_top_p'):
-        agent_config.llm_top_p = config.llm_top_p
-    if hasattr(agent_config, 'llm_top_k'):
-        agent_config.llm_top_k = config.llm_top_k
 
     start_time = time.time()
     result = {
         "app_package": app_package,
         "mode": mode,
+        "strategy": strategy,
         "seed": seed,
+        "llm_probability": config.llm_probability,
+        "prompt_version": config.prompt_version,
+        "llm_temperature": config.llm_temperature,
+        "llm_top_p": config.llm_top_p,
+        "llm_top_k": config.llm_top_k,
         "wtg_variant": wtg_variant,  # "with_wtg", "without_wtg", or None
         "wtg_enabled": static_data is not None,
         "status": "unknown",
@@ -586,6 +695,18 @@ def run_single_experiment(
         result["iterations"] = agent_result.get("iterations", 0)
         result["unique_states"] = agent_result.get("unique_states", 0)
         result["execution_time_s"] = agent_result.get("execution_time_s", 0)
+
+        # Capture UI coverage metrics from agent (core metrics, not just validation)
+        ui_coverage = agent_result.get("ui_coverage", {})
+        if ui_coverage:
+            result["ui_coverage"] = ui_coverage
+            # Also update collector with core metrics
+            collector.set_ui_coverage_from_agent(ui_coverage)
+            logger.info(
+                f"UI coverage: {ui_coverage.get('total_unique_elements', 0)} elements, "
+                f"{ui_coverage.get('element_coverage', 0):.1f}% tested, "
+                f"{ui_coverage.get('screens_visited', 0)} screens"
+            )
 
         logger.info(f"Agent completed: {result['iterations']} iterations, {result['unique_states']} states")
 
@@ -647,9 +768,9 @@ def run_single_experiment(
     # Finalize collector (saves metrics)
     try:
         session = collector.finalize()
-        # Include WTG variant in filename if present
+        # Include strategy and WTG variant in filename
         wtg_suffix = f"_{wtg_variant}" if wtg_variant else ""
-        result["metrics_path"] = str(output_dir / f"multimodal_metrics_{app_package}_{mode}{wtg_suffix}_seed{seed}.json")
+        result["metrics_path"] = str(output_dir / f"multimodal_metrics_{app_package}_{mode}_{strategy}{wtg_suffix}_seed{seed}.json")
         result["hit_rate"] = session.hit_rate
         result["activity_coverage"] = session.activity_coverage
         logger.info(f"Metrics saved: hit_rate={session.hit_rate:.2%}, coverage={session.activity_coverage:.2%}")
@@ -733,6 +854,7 @@ def run_validation(config: MultimodalValidationConfig) -> None:
     total_runs = (
         len(config.app_packages) *
         len(config.agent_modes) *
+        len(config.strategies) *
         len(config.seeds) *
         len(wtg_variants)
     )
@@ -743,7 +865,9 @@ def run_validation(config: MultimodalValidationConfig) -> None:
     logger.info(f"Apps: {len(config.app_packages)} - {config.app_packages}")
     logger.info(f"APKs available: {len(apk_mapping)}")
     logger.info(f"Modes: {config.agent_modes}")
+    logger.info(f"Strategies: {config.strategies}")
     logger.info(f"Seeds: {config.seeds}")
+    logger.info(f"LLM probability: {config.llm_probability}")
     if config.compare_wtg:
         logger.info(f"WTG comparison: with_wtg vs without_wtg")
     elif config.use_wtg:
@@ -754,6 +878,7 @@ def run_validation(config: MultimodalValidationConfig) -> None:
     logger.info(f"Timeout per run: {config.timeout_seconds}s")
     logger.info(f"LLM: {config.llm_model} @ {config.llm_base_url}")
     logger.info(f"LLM params: T={config.llm_temperature}, top_p={config.llm_top_p}, top_k={config.llm_top_k}")
+    logger.info(f"Prompt version: {config.prompt_version}")
     logger.info(f"Output dir: {config.output_dir}")
     logger.info("=" * 60)
 
@@ -790,33 +915,44 @@ def run_validation(config: MultimodalValidationConfig) -> None:
         apk_path = apk_mapping.get(app_package)
 
         for mode in config.agent_modes:
-            for seed in config.seeds:
-                for wtg_variant in wtg_variants:
-                    run_number += 1
+            for strategy in config.strategies:
+                for seed in config.seeds:
+                    for wtg_variant in wtg_variants:
+                        run_number += 1
 
-                    # Determine static_data for this run
-                    static_data = None
-                    if wtg_variant == "with_wtg":
-                        static_data = static_data_cache.get(app_package)
-                    # "without_wtg" or None: static_data remains None
+                        # Determine static_data for this run
+                        static_data = None
+                        if wtg_variant == "with_wtg":
+                            static_data = static_data_cache.get(app_package)
+                        # "without_wtg" or None: static_data remains None
 
-                    result = run_single_experiment(
-                        app_package=app_package,
-                        mode=mode,
-                        seed=seed,
-                        config=config,
-                        output_dir=output_dir,
-                        run_number=run_number,
-                        total_runs=total_runs,
-                        apk_path=apk_path,
-                        static_data=static_data,
-                        wtg_variant=wtg_variant,
-                    )
-                    results.append(result)
+                        # Disable auto-loading static data when WTG is not wanted:
+                        # - "without_wtg" variant (in compare mode)
+                        # - use_wtg=False (global setting)
+                        disable_autoload = (
+                            wtg_variant == "without_wtg" or
+                            (wtg_variant is None and not config.use_wtg)
+                        )
 
-                    # Save intermediate results
-                    with open(output_dir / "results_progress.json", "w") as f:
-                        json.dump(results, f, indent=2)
+                        result = run_single_experiment_with_retry(
+                            app_package=app_package,
+                            mode=mode,
+                            seed=seed,
+                            config=config,
+                            output_dir=output_dir,
+                            run_number=run_number,
+                            total_runs=total_runs,
+                            apk_path=apk_path,
+                            static_data=static_data,
+                            wtg_variant=wtg_variant,
+                            strategy=strategy,
+                            disable_static_autoload=disable_autoload,
+                        )
+                        results.append(result)
+
+                        # Save intermediate results
+                        with open(output_dir / "results_progress.json", "w") as f:
+                            json.dump(results, f, indent=2)
 
     # Save final results
     with open(output_dir / "results_final.json", "w") as f:
@@ -934,6 +1070,30 @@ def main():
         help="Output directory"
     )
     run_parser.add_argument(
+        "--strategies", type=str, default="rvagent",
+        help="Comma-separated exploration strategies (default: rvagent)"
+    )
+    run_parser.add_argument(
+        "--llm-probability", type=float, default=0.7,
+        help="LLM probability for multimode (default: 0.7)"
+    )
+    run_parser.add_argument(
+        "--prompt-version", type=str, default="v13",
+        help="Prompt version to use (default: v13)"
+    )
+    run_parser.add_argument(
+        "--llm-temperature", type=float, default=0.01,
+        help="LLM temperature (default: 0.01)"
+    )
+    run_parser.add_argument(
+        "--llm-top-p", type=float, default=0.6,
+        help="LLM top_p (default: 0.6)"
+    )
+    run_parser.add_argument(
+        "--llm-top-k", type=int, default=50,
+        help="LLM top_k (default: 50)"
+    )
+    run_parser.add_argument(
         "--use-wtg", action="store_true",
         help="Enable WTG navigation guidance (requires --static-data-dir)"
     )
@@ -974,18 +1134,36 @@ def main():
         # Load or create config
         if args.config:
             config = MultimodalValidationConfig.from_json(args.config)
-            # Allow command-line overrides for WTG options
+            # Allow command-line overrides
             if args.use_wtg:
                 config.use_wtg = True
             if args.compare_wtg:
                 config.compare_wtg = True
             if args.static_data_dir:
                 config.static_data_dir = args.static_data_dir
+            if hasattr(args, 'strategies') and args.strategies != "rvagent":
+                config.strategies = args.strategies.split(",")
+            if hasattr(args, 'llm_probability'):
+                config.llm_probability = args.llm_probability
+            if hasattr(args, 'prompt_version'):
+                config.prompt_version = args.prompt_version
+            if hasattr(args, 'llm_temperature'):
+                config.llm_temperature = args.llm_temperature
+            if hasattr(args, 'llm_top_p'):
+                config.llm_top_p = args.llm_top_p
+            if hasattr(args, 'llm_top_k'):
+                config.llm_top_k = args.llm_top_k
         else:
             config = MultimodalValidationConfig(
                 app_packages=args.apps.split(",") if args.apps else [],
                 apks_dir=args.apks_dir or "",
                 agent_modes=args.modes.split(","),
+                strategies=args.strategies.split(","),
+                llm_probability=args.llm_probability,
+                prompt_version=args.prompt_version,
+                llm_temperature=args.llm_temperature,
+                llm_top_p=args.llm_top_p,
+                llm_top_k=args.llm_top_k,
                 timeout_seconds=args.timeout,
                 seeds=[int(s) for s in args.seeds.split(",")],
                 output_dir=args.output,

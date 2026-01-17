@@ -95,6 +95,9 @@ class ToolExecutor:
                 result = self._execute_back()
             elif action_type == "SYSTEM_BACK":
                 result = self._execute_back()
+            elif action_type == "KEY_EVENT":
+                # KEY_EVENT is how BACK actions come through via WidgetEventType mapping
+                result = self._execute_back()
             elif action_type == "HOME":
                 result = self._execute_home()
             elif action_type == "PRESS_ENTER":

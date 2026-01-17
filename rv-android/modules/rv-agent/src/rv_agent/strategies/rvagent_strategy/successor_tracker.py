@@ -5,10 +5,13 @@ Solves the "combobox problem":
 - Clicking a dropdown opens a new state with multiple items
 - If not all items are explored, the dropdown action should be re-enabled
 - This tracker monitors successor state exploration and re-enables parent actions
+
+Also tracks BACK transitions for Backtrack BFS algorithm.
 """
 
 import logging
-from typing import Dict, Tuple, Set, Optional
+from collections import deque
+from typing import Dict, Tuple, Set, Optional, List
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
@@ -41,10 +44,19 @@ class SuccessorTracker:
     """
 
     # Maximum times an action can be re-enabled
-    MAX_RE_ENABLES = 2
+    # CALIBRATION NOTE (2026-01-17): Changed from 2 to 3
+    # Analysis of 72 runs showed apps with many incomplete successors
+    # (dnshero: 16, simplenotes: 45) hit the limit quickly, causing
+    # low coverage (14-15%). Increasing to 3 allows more revisits.
+    MAX_RE_ENABLES = 3
 
     # Only re-enable if successor coverage is below this threshold
-    COVERAGE_THRESHOLD = 0.7
+    # CALIBRATION NOTE (2026-01-16): Changed from 0.7 to 0.9
+    # With 0.7, states with 70-99% coverage didn't trigger re-enablement,
+    # causing 64%+ action repetition and 30+ untested elements per app.
+    # Higher threshold ensures we revisit successor states that still have
+    # untested elements (even with high coverage), improving exploration.
+    COVERAGE_THRESHOLD = 0.9
 
     def __init__(self, graph: DynamicStateGraph):
         """
@@ -64,6 +76,10 @@ class SuccessorTracker:
         # Tracks how many times each action has been re-enabled
         # Key: (state_hash, action_signature), Value: count
         self.re_enable_counts: Dict[Tuple[str, Tuple], int] = {}
+
+        # Maps: state_hash → set of states reachable via BACK action
+        # Used for Backtrack BFS to find unsaturated ancestors
+        self.back_successors: Dict[str, Set[str]] = {}
 
         logger.info("SuccessorTracker initialized")
 
@@ -249,9 +265,10 @@ class SuccessorTracker:
         """
         total_tracked = len(self.successors)
 
+        # Count successors below COVERAGE_THRESHOLD (same as re-enablement)
         incomplete_count = 0
         for (from_hash, action_sig), to_hash in self.successors.items():
-            if self.get_successor_coverage(to_hash) < 1.0:
+            if self.get_successor_coverage(to_hash) < self.COVERAGE_THRESHOLD:
                 incomplete_count += 1
 
         # Sum total re-enablements
@@ -261,9 +278,101 @@ class SuccessorTracker:
             "total_successors_tracked": total_tracked,
             "incomplete_successors": incomplete_count,
             "complete_successors": total_tracked - incomplete_count,
-            "total_re_enables": total_re_enables,
+            "successor_re_enables": total_re_enables,
             "actions_at_max_re_enables": sum(
                 1 for count in self.re_enable_counts.values()
                 if count >= self.MAX_RE_ENABLES
-            )
+            ),
+            "back_transitions_tracked": sum(len(s) for s in self.back_successors.values()),
         }
+
+    def record_back_transition(self, from_hash: str, to_hash: str) -> None:
+        """
+        Record a BACK transition from from_hash to to_hash.
+
+        Used by Backtrack BFS to navigate to unsaturated ancestor states.
+
+        Args:
+            from_hash: State where BACK was executed
+            to_hash: State reached after BACK
+        """
+        if from_hash not in self.back_successors:
+            self.back_successors[from_hash] = set()
+
+        if to_hash not in self.back_successors[from_hash]:
+            self.back_successors[from_hash].add(to_hash)
+            logger.debug(f"Recorded BACK transition: {from_hash[:8]} → {to_hash[:8]}")
+
+    def get_back_successors(self, state_hash: str) -> List[str]:
+        """
+        Get states reachable via BACK from the given state.
+
+        Args:
+            state_hash: State to check
+
+        Returns:
+            List of state hashes reachable via BACK
+        """
+        return list(self.back_successors.get(state_hash, set()))
+
+    def find_nearest_unsaturated(self, current_state: str) -> Optional[str]:
+        """
+        BFS to find the nearest unsaturated ancestor state.
+
+        An unsaturated state has actions that haven't been executed at least twice.
+        This implements the Backtrack BFS algorithm from APE.
+
+        Args:
+            current_state: Current state hash to start search from
+
+        Returns:
+            Hash of nearest unsaturated state, or None if all saturated
+        """
+        visited = {current_state}
+        queue = deque([current_state])
+
+        while queue:
+            state_hash = queue.popleft()
+
+            for back_target in self.back_successors.get(state_hash, []):
+                if back_target in visited:
+                    continue
+
+                visited.add(back_target)
+
+                if not self._is_saturated(back_target):
+                    logger.info(
+                        f"Backtrack BFS: Found unsaturated state {back_target[:8]} "
+                        f"(distance: {len(visited) - 1} BACK actions)"
+                    )
+                    return back_target
+
+                queue.append(back_target)
+
+        logger.info("Backtrack BFS: All reachable states are saturated")
+        return None
+
+    def _is_saturated(self, state_hash: str) -> bool:
+        """
+        Check if a state is saturated (all actions executed at least twice).
+
+        Args:
+            state_hash: State to check
+
+        Returns:
+            True if saturated, False otherwise
+        """
+        node = self.graph.states.get(state_hash)
+        if not node:
+            return True  # Unknown state considered saturated
+
+        if node.total_actions == 0:
+            return True  # No actions = saturated
+
+        # State is saturated if all actions have been executed at least twice
+        for action_sig in node.get_all_action_signatures():
+            count = node.get_action_execution_count(action_sig)
+            if count < 2:
+                return False
+
+        return True

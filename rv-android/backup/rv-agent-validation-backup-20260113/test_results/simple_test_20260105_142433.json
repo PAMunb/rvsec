@@ -1,0 +1,40 @@
+{
+  "timestamp": "20260105_142433",
+  "apk_path": "/home/pedro/desenvolvimento/RV_ANDROID/apks/cryptoapp.apk",
+  "package_name": "br.unb.cic.cryptoapp",
+  "timeout": 60,
+  "device": "emulator-5554",
+  "results": [
+    {
+      "strategy": "dfs",
+      "status": "completed",
+      "execution_time": 62.3,
+      "states_discovered": 7,
+      "transitions": 0,
+      "total_actions": 16,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "elements_discovered": 29,
+      "total_interactions": 235,
+      "action_distribution": {
+        "view": 235
+      },
+      "screens_explored": 7,
+      "most_tested_elements": [
+        [
+          "class:android.widget.ImageView",
+          20
+        ],
+        [
+          "class:android.widget.TextView",
+          17
+        ],
+        [
+          "com.android.systemui:id/clock",
+          16
+        ]
+      ],
+      "recent_discoveries": 29
+    }
+  ]
+}

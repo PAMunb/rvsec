@@ -1,0 +1,218 @@
+{
+  "session": {
+    "app_package": "max.music_cyclon",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768442690.8867106,
+    "end_time": 1768442727.6669989,
+    "duration_seconds": 36.780288219451904
+  },
+  "llm_metrics": {
+    "total_llm_calls": 5,
+    "total_tokens_input": 12261,
+    "total_tokens_output": 765,
+    "total_tokens": 13026,
+    "total_latency_ms": 11369.696428999305,
+    "avg_latency_ms": 2273.939285799861,
+    "tokens_per_action": 2605.2
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 5,
+    "hits": 5,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 1.0
+  },
+  "exploration_metrics": {
+    "total_activities": 2,
+    "activities_discovered": 1,
+    "activity_coverage": 0.5,
+    "total_iterations": 5,
+    "actions_per_activity": 5.0
+  },
+  "stuck_metrics": {
+    "stuck_events": 0,
+    "stuck_recovered": 0,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 43.333333333333336,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 52,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 3,
+    "total_errors": 3,
+    "logcat_file": "results/e3_baseline/logcat/logcat_max.music_cyclon_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        500,
+        757
+      ],
+      "device_coords": [
+        540,
+        1453
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1683.3430919941748,
+      "tokens_input": 2439,
+      "tokens_output": 107,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SynchronizeActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        824,
+        543
+      ],
+      "device_coords": [
+        889,
+        1042
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2943.038327997783,
+      "tokens_input": 2441,
+      "tokens_output": 218,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SynchronizeActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        500,
+        757
+      ],
+      "device_coords": [
+        540,
+        1453
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1860.8866120048333,
+      "tokens_input": 2455,
+      "tokens_output": 116,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SynchronizeActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        824,
+        543
+      ],
+      "device_coords": [
+        889,
+        1042
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2702.0578240044415,
+      "tokens_input": 2457,
+      "tokens_output": 199,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SynchronizeActivity"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        500,
+        757
+      ],
+      "device_coords": [
+        540,
+        1453
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "LinearLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2180.370572998072,
+      "tokens_input": 2469,
+      "tokens_output": 125,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SynchronizeActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".SynchronizeActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".SynchronizeActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".SynchronizeActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".SynchronizeActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".SynchronizeActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".SynchronizeActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    }
+  ]
+}

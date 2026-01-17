@@ -1,0 +1,818 @@
+{
+  "session": {
+    "app_package": "t20kdc.offlinepuzzlesolver",
+    "agent_mode": "llm_only",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768450720.0247579,
+    "end_time": 1768450849.8535795,
+    "duration_seconds": 129.82882165908813
+  },
+  "llm_metrics": {
+    "total_llm_calls": 25,
+    "total_tokens_input": 62226,
+    "total_tokens_output": 2919,
+    "total_tokens": 65145,
+    "total_latency_ms": 45894.00409297377,
+    "avg_latency_ms": 1835.760163718951,
+    "tokens_per_action": 2961.1363636363635
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 22,
+    "hits": 22,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 0.88
+  },
+  "exploration_metrics": {
+    "total_activities": 8,
+    "activities_discovered": 4,
+    "activity_coverage": 0.5,
+    "total_iterations": 25,
+    "actions_per_activity": 6.25
+  },
+  "stuck_metrics": {
+    "stuck_events": 1,
+    "stuck_recovered": 1,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 48.31460674157304,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 43,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_t20kdc.offlinepuzzlesolver_llm_only_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 0,
+      "raw_coords": [
+        500,
+        387
+      ],
+      "device_coords": [
+        540,
+        743
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1899.7907180018956,
+      "tokens_input": 2497,
+      "tokens_output": 116,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MainActivity"
+    },
+    {
+      "iteration": 1,
+      "raw_coords": [
+        166,
+        715
+      ],
+      "device_coords": [
+        179,
+        1372
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1596.6840180044528,
+      "tokens_input": 2528,
+      "tokens_output": 101,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        83,
+        161
+      ],
+      "device_coords": [
+        89,
+        309
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2276.3568879890954,
+      "tokens_input": 2537,
+      "tokens_output": 155,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        249,
+        715
+      ],
+      "device_coords": [
+        268,
+        1372
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1578.835357009666,
+      "tokens_input": 2546,
+      "tokens_output": 103,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        166,
+        161
+      ],
+      "device_coords": [
+        179,
+        309
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2074.6146970050177,
+      "tokens_input": 2553,
+      "tokens_output": 138,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        500,
+        256
+      ],
+      "device_coords": [
+        540,
+        491
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2107.524603998172,
+      "tokens_input": 2536,
+      "tokens_output": 139,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MainActivity"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        500,
+        259
+      ],
+      "device_coords": [
+        540,
+        497
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "CheckBox",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1778.8071140093962,
+      "tokens_input": 2514,
+      "tokens_output": 115,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.NCupsActivity"
+    },
+    {
+      "iteration": 8,
+      "raw_coords": [
+        873,
+        890
+      ],
+      "device_coords": [
+        942,
+        1708
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1851.3446199940518,
+      "tokens_input": 2516,
+      "tokens_output": 121,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.NCupsActivity"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1798.7584189977497,
+      "tokens_input": 2332,
+      "tokens_output": 116,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SolutionActivity"
+    },
+    {
+      "iteration": 10,
+      "raw_coords": [
+        500,
+        303
+      ],
+      "device_coords": [
+        540,
+        581
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "CheckBox",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1366.700951999519,
+      "tokens_input": 2519,
+      "tokens_output": 68,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.NCupsActivity"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        500,
+        346
+      ],
+      "device_coords": [
+        540,
+        664
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "CheckBox",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1697.9561949992785,
+      "tokens_input": 2521,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.NCupsActivity"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        639,
+        890
+      ],
+      "device_coords": [
+        690,
+        1708
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1659.5392180024646,
+      "tokens_input": 2523,
+      "tokens_output": 103,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.NCupsActivity"
+    },
+    {
+      "iteration": 13,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1573.5037370031932,
+      "tokens_input": 2333,
+      "tokens_output": 94,
+      "tool_name": "SCROLL",
+      "parser_strategy": "native",
+      "activity": ".SolutionActivity"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2283.664417002001,
+      "tokens_input": 2334,
+      "tokens_output": 150,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SolutionActivity"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1684.032794990344,
+      "tokens_input": 2526,
+      "tokens_output": 111,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".game.NCupsActivity"
+    },
+    {
+      "iteration": 16,
+      "raw_coords": [
+        500,
+        387
+      ],
+      "device_coords": [
+        540,
+        743
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1830.855852997047,
+      "tokens_input": 2540,
+      "tokens_output": 113,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MainActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        166,
+        161
+      ],
+      "device_coords": [
+        179,
+        309
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2112.0752389979316,
+      "tokens_input": 2562,
+      "tokens_output": 138,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 18,
+      "raw_coords": [
+        870,
+        822
+      ],
+      "device_coords": [
+        939,
+        1578
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1843.0736120062647,
+      "tokens_input": 2562,
+      "tokens_output": 106,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        210,
+        967
+      ],
+      "device_coords": [
+        226,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "ImageView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2182.3797919932986,
+      "tokens_input": 2333,
+      "tokens_output": 145,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SolutionActivity"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        870,
+        822
+      ],
+      "device_coords": [
+        939,
+        1578
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1669.7419919946697,
+      "tokens_input": 2561,
+      "tokens_output": 105,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        500,
+        967
+      ],
+      "device_coords": [
+        540,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1894.068209992838,
+      "tokens_input": 2333,
+      "tokens_output": 124,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".SolutionActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        166,
+        715
+      ],
+      "device_coords": [
+        179,
+        1372
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1555.6632049992913,
+      "tokens_input": 2561,
+      "tokens_output": 98,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        870,
+        820
+      ],
+      "device_coords": [
+        939,
+        1574
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2601.536585003487,
+      "tokens_input": 2563,
+      "tokens_output": 178,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1323.2835959934164,
+      "tokens_input": 2333,
+      "tokens_output": 79,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".SolutionActivity"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        250,
+        715
+      ],
+      "device_coords": [
+        270,
+        1372
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1653.2122599892318,
+      "tokens_input": 2563,
+      "tokens_output": 101,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".game.SudokuActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".MainActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".game.NCupsActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".game.NCupsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".SolutionActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 10,
+      "activity": ".game.NCupsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".game.NCupsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".game.NCupsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".SolutionActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "SCROLL",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".SolutionActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 15,
+      "activity": ".game.NCupsActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".MainActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".SolutionActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 20,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".SolutionActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 22,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".SolutionActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".game.SudokuActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "insteadlauncher_dfs_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/org.emunix.insteadlauncher_80601.apk",
+  "package_name": "org.emunix.insteadlauncher",
+  "strategy": "dfs",
+  "repetition": 1,
+  "seed": 2084329966,
+  "execution_time_seconds": 182.447847366333
+}

@@ -57,15 +57,71 @@ def experiment(config, output, resume, dry_run):
     Executes a full validation experiment with multiple APKs, modes, and seeds
     as defined in the configuration file.
     """
+    import json
+    from datetime import datetime
     from rv_agent_validation.experiment.runner import ExperimentRunner
+    from rv_agent_validation.experiment.config import ExperimentConfig
+
+    # Load config from JSON file
+    config_path = Path(config)
+    with open(config_path) as f:
+        config_data = json.load(f)
+
+    # Map JSON fields to ExperimentConfig fields
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    apks_dir = Path(config_data.get("apks_dir", "data/apks_instrumented"))
+
+    # Build APK paths from apks list
+    apk_paths = []
+    for apk_name in config_data.get("apks", []):
+        apk_path = apks_dir / apk_name / apk_name
+        if apk_path.exists():
+            apk_paths.append(str(apk_path))
+        else:
+            # Try without subdirectory
+            apk_path_alt = apks_dir / apk_name
+            if apk_path_alt.exists():
+                apk_paths.append(str(apk_path_alt))
+            else:
+                click.echo(f"Warning: APK not found: {apk_name}")
+
+    if not apk_paths:
+        click.echo("Error: No APKs found. Check apks_dir and apks list in config.")
+        return
+
+    # Create ExperimentConfig
+    exp_config = ExperimentConfig(
+        experiment_id=f"{config_data.get('experiment_name', 'experiment')}_{timestamp}",
+        experiment_name=config_data.get("experiment_name", "Experiment"),
+        apk_paths=apk_paths,
+        strategies=[config_data.get("strategy", "rvagent")],
+        repetitions=len(config_data.get("seeds", [42])),
+        timeout_seconds=config_data.get("timeout", 300),
+        agent_mode=config_data.get("mode", "pure_algorithm"),
+        base_seed=config_data.get("seeds", [42])[0],
+        results_dir=Path(output),
+        device_serial=config_data.get("device", "emulator-5554"),
+        enable_static_analysis=not config_data.get("use_wtg", True) == False,
+    )
+
+    click.echo(f"Experiment: {exp_config.experiment_name}")
+    click.echo(f"APKs: {len(apk_paths)}")
+    click.echo(f"Seeds: {config_data.get('seeds', [42])}")
+    click.echo(f"Timeout: {exp_config.timeout_seconds}s")
+    click.echo(f"Output: {output}")
+
+    if dry_run:
+        click.echo("\n[DRY RUN] Would execute the following runs:")
+        for apk in apk_paths:
+            for seed in config_data.get("seeds", [42]):
+                click.echo(f"  - {Path(apk).name} seed={seed}")
+        return
 
     runner = ExperimentRunner(
-        config_path=config,
-        output_dir=output,
-        resume=resume,
-        dry_run=dry_run,
+        config=exp_config,
+        base_dir=Path(output),
     )
-    runner.run()
+    runner.run_experiment(resume=resume)
 
 
 @cli.command()

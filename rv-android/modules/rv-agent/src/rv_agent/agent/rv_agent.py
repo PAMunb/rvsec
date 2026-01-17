@@ -40,6 +40,7 @@ from rv_agent.llm.llm_client import LLMClient
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.routing.loop_detector import LoopDetector
 from rv_agent.routing.fallback_manager import FallbackManager
+from rv_agent.routing.stuck_recovery import StuckRecovery
 from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.agent_memory import AgentMemoryManager
@@ -115,6 +116,7 @@ class RVAgent:
         navigation_guidance: Optional[NavigationGuidance] = None,
         action_normalizer: Optional[ActionNormalizer] = None,
         static_data: Optional[StaticAnalysisData] = None,
+        ui_coverage: Optional["UICoverageTracker"] = None,
         # INSTRUMENTATION: Optional metrics collector for validation
         metrics_collector: Optional[Any] = None
     ):
@@ -150,6 +152,7 @@ class RVAgent:
         self.navigation_guidance = navigation_guidance
         self.action_normalizer = action_normalizer
         self.static_data = static_data
+        self.ui_coverage = ui_coverage
 
         # INSTRUMENTATION: Store metrics collector for validation
         # Can be removed for production
@@ -162,10 +165,14 @@ class RVAgent:
         if mode in ["llm_only", "multimode"] and llm_client is None:
             raise ValueError(f"LLM client required for mode: {mode}")
 
-        # Stuck state detection
+        # Level 1 stuck detection (screen unchanged)
         self.last_screen_hash = None
         self.stuck_screen_count = 0
-        self.STUCK_THRESHOLD = 3  # Force BACK after 3 unchanged screens
+        self.STUCK_THRESHOLD = 8  # Force BACK after 8 unchanged screens
+
+        # Level 2 stuck detection (persistent same state)
+        # Uses Backtrack BFS to find unsaturated ancestors, then RESTART if none found
+        self.stuck_recovery = StuckRecovery(max_blocks=10)
 
         # Deadlock detection (no action available)
         self.consecutive_no_action = 0
@@ -281,6 +288,7 @@ class RVAgent:
             Metrics dictionary with exploration results
         """
         logger.info("Starting RVAgent execution")
+        logger.info(f"DEBUG_TRACE: run() called, timeout={self.config.timeout}")
 
         start_time = time.time()
         iteration = 0
@@ -290,6 +298,7 @@ class RVAgent:
             logger.info(f"Launching application: {self.config.package_name}")
             self.device.launch_app(self.config.package_name)
             time.sleep(2)
+            logger.info("DEBUG_TRACE: App launched successfully")
         except Exception as e:
             logger.error(f"Failed to launch app: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
@@ -326,9 +335,11 @@ class RVAgent:
         }
 
         # External execution loop
+        logger.info(f"DEBUG_TRACE: Starting loop, timeout={self.config.timeout}")
         try:
             while True:
                 elapsed = time.time() - start_time
+                logger.info(f"DEBUG_TRACE: Loop check, elapsed={elapsed:.1f}, timeout={self.config.timeout}")
 
                 if elapsed >= self.config.timeout:
                     logger.info(f"🏁 Timeout reached ({elapsed:.1f}s)")
@@ -340,17 +351,21 @@ class RVAgent:
 
                 # Invoke graph for one iteration
                 # Set recursion_limit to prevent infinite loops in validation routing
+                logger.info(f"DEBUG_TRACE: Before graph.invoke(), iteration={iteration}")
                 result = self.graph.invoke(state, {"recursion_limit": 100})
+                logger.info(f"DEBUG_TRACE: After graph.invoke(), result keys={list(result.keys()) if result else 'None'}")
 
                 # Update state with results
                 state.update(result)
 
                 iteration += 1
+                logger.info(f"DEBUG_TRACE: Iteration incremented to {iteration}")
                 time.sleep(0.5)
 
         except KeyboardInterrupt:
             logger.info("⚠️  Interrupted by user")
         except Exception as e:
+            logger.error(f"DEBUG_TRACE: Exception in loop: {type(e).__name__}: {e}")
             logger.error(f"❌ Execution error: {e}", exc_info=True)
 
         # Compute final metrics
@@ -371,6 +386,14 @@ class RVAgent:
 
         # Collect memory statistics
         memory_stats = self.get_memory_stats()
+
+        # Collect UI coverage metrics (core functionality)
+        ui_coverage_metrics = {}
+        if hasattr(self, 'ui_coverage'):
+            try:
+                ui_coverage_metrics = self.ui_coverage.get_comprehensive_metrics()
+            except Exception as e:
+                logger.warning(f"Failed to get UI coverage metrics: {e}")
 
         return {
             "status": "completed",
@@ -395,5 +418,6 @@ class RVAgent:
             "llm_validation_failed": counters["llm_validation_failed"],
             "forced_back": counters["forced_back"],
 
-            "memory_stats": memory_stats
+            "memory_stats": memory_stats,
+            "ui_coverage": ui_coverage_metrics
         }

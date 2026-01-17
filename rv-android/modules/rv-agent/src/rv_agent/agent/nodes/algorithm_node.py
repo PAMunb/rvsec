@@ -19,8 +19,8 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     """
     Generate action using algorithmic strategy.
 
-    Handles stuck state recovery, deadlock detection, and delegates
-    to the exploration strategy for action selection.
+    Handles stuck state recovery (BACK and RESTART), deadlock detection,
+    and delegates to the exploration strategy for action selection.
 
     Args:
         agent: RVAgent instance with strategy and counters
@@ -30,6 +30,26 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         State updates with current_action and decision_maker
     """
     logger.info("ALGORITHM: Generating action")
+
+    # Check for app restart override (Level 2 stuck recovery)
+    if state.get("force_restart_app", False):
+        logger.warning("Level 2 stuck recovery: Generating RESTART_APP action")
+        action = {
+            "action_type": "RESTART_APP",
+            "x": 0,
+            "y": 0,
+            "text": "",
+            "source": "algorithm",
+            "reason": "level2_stuck_recovery",
+            "package_name": agent.config.package_name
+        }
+        agent.consecutive_no_action = 0
+        return {
+            "current_action": action,
+            "current_item_action": None,
+            "decision_maker": "stuck_recovery",
+            "force_restart_app": False
+        }
 
     # Check for stuck state override - force BACK action
     if state.get("force_back_action", False):
@@ -91,10 +111,35 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             "decision_path": "end"
         }
 
-    # Get coordinates from ItemAction
+    # System actions don't require coordinates - they are triggered by action_type alone
+    # KEY_EVENT is how BACK actions come through via WidgetEventType mapping
+    action_type = item_action.action_type.upper()
+    system_actions = {"BACK", "RESTART_APP", "KEY_EVENT"}
+
+    if action_type in system_actions:
+        logger.info(f"Algorithm selected system action: {action_type}")
+        action = {
+            "action_type": action_type,
+            "x": 0,
+            "y": 0,
+            "text": item_action.text or "",
+            "source": "algorithm",
+            "id": item_action.id
+        }
+        agent.consecutive_no_action = 0
+        return {
+            "current_action": action,
+            "current_item_action": item_action,
+            "decision_maker": "algorithm"
+        }
+
+    # Get coordinates from ItemAction for regular actions
     coords = item_action.get_execution_coordinates()
     if not coords:
-        logger.error("Failed to get coordinates from ItemAction")
+        logger.error(
+            f"Failed to get coordinates from ItemAction: "
+            f"type={action_type}, id={item_action.id}, text={item_action.text[:50] if item_action.text else 'None'}"
+        )
         return {
             "current_action": None,
             "decision_path": "end"
@@ -104,7 +149,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Convert ItemAction to unified action format
     action = {
-        "action_type": item_action.action_type.upper(),
+        "action_type": action_type,
         "x": x,
         "y": y,
         "text": item_action.text or "",
@@ -112,7 +157,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "id": item_action.id
     }
 
-    logger.info(f"Algorithm selected: {action['action_type']} at ({x}, {y})")
+    logger.info(f"Algorithm selected: {action_type} at ({x}, {y})")
 
     # Reset deadlock counter on successful action
     agent.consecutive_no_action = 0

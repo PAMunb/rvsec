@@ -1,0 +1,43 @@
+[
+  {
+    "app_package": "byrne.utilities.hashpass",
+    "mode": "pure_algorithm",
+    "seed": 42,
+    "wtg_variant": null,
+    "wtg_enabled": false,
+    "status": "completed",
+    "error": null,
+    "metrics_path": "results/mini_e3_test/multimodal_metrics_byrne.utilities.hashpass_pure_algorithm_seed42.json",
+    "logcat_file": "results/mini_e3_test/logcat/logcat_byrne.utilities.hashpass_pure_algorithm_seed42.txt",
+    "coverage_metrics": {
+      "activity_coverage": 100.0,
+      "class_coverage": 50.0,
+      "method_coverage": 36.36363636363637,
+      "reachable_coverage": 50.0,
+      "reaches_mop_coverage": 0.0,
+      "directly_reaches_mop_coverage": 0.0,
+      "called_activities": 1,
+      "total_activities": 1,
+      "called_classes": 1,
+      "total_classes": 2,
+      "called_methods": 4,
+      "total_methods": 11,
+      "called_reachable": 4,
+      "total_reachable": 8,
+      "called_reaches_mop": 0,
+      "total_reaches_mop": 0,
+      "called_directly_reaches_mop": 0,
+      "total_directly_reaches_mop": 0,
+      "unique_errors": 0,
+      "total_errors": 0,
+      "error_specs": [],
+      "mismatched_signatures": 0
+    },
+    "iterations": 69,
+    "unique_states": 4,
+    "execution_time_s": 180.69285535812378,
+    "hit_rate": 0.0,
+    "activity_coverage": 0.0,
+    "total_time_s": 185.5208523273468
+  }
+]

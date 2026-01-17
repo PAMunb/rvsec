@@ -1,31 +1,34 @@
 """
 Learn node for RVAgent workflow.
 
-Updates memory systems and detects stuck states.
+Updates memory systems, detects stuck states, and manages recovery strategies.
 
 Key Design Decisions:
 
-1. STUCK STATE DETECTION
-   Problem: The agent can get stuck in a state where actions don't change the screen
-   (e.g., clicking a disabled button, animation loops, unresponsive dialogs).
-   Solution: Track consecutive iterations where screen hash doesn't change.
-   After STUCK_THRESHOLD (default: 3) unchanged screens, set force_back_action=True.
+1. STUCK STATE DETECTION (Two-Level)
+   Level 1 - Screen unchanged: After STUCK_THRESHOLD unchanged screens, force BACK.
+             Form actions (SET_TEXT, checkable elements) are excluded from counting.
+   Level 2 - StuckRecovery: After max_blocks iterations in same state, try:
+     a) Backtrack BFS: Find nearest unsaturated ancestor state
+     b) App Restart: Force stop and relaunch if BFS fails
 
-2. INTERACTION WITH DECISION_ROUTER
-   The learn_node sets force_back_action flag, but doesn't execute BACK directly.
-   This maintains separation of concerns:
-   - learn_node: DETECTS stuck state, sets flag
-   - decision_router: CHECKS flag, routes to algorithm path
-   - algorithm_node: GENERATES BACK action when flag is set
+2. BACKTRACK BFS (from APE paper)
+   When Level 2 stuck is detected, uses SuccessorTracker.find_nearest_unsaturated()
+   to find an ancestor state with unexplored actions. If found, navigates there
+   via BACK. If no unsaturated ancestor exists, triggers app restart.
 
-   WHY THIS SEPARATION: Keeps each node focused on one responsibility.
-   Learn node updates memories, decision_router routes, algorithm_node generates actions.
+3. BACK TRANSITION RECORDING
+   Records where BACK leads from each state. This builds a navigation graph
+   that Backtrack BFS uses to find paths to unsaturated ancestors.
 
-3. UI COVERAGE TRACKING
+4. INTERACTION WITH ALGORITHM_NODE
+   - force_back_action=True: Generates BACK action
+   - force_restart_app=True: Generates RESTART_APP action
+   This maintains separation between detection (learn_node) and action generation.
+
+5. UI COVERAGE TRACKING
    Records which elements were interacted with for coverage metrics.
    Uses proximity matching because LLM clicks may not be exactly at element centers.
-   The PROXIMITY_THRESHOLD (150 units in normalized [0,1000) space) accommodates
-   typical LLM coordinate variance while avoiding false matches.
 """
 
 import logging
@@ -82,34 +85,79 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         state_transitions=state.get("state_transitions", [])
     )
 
-    # Stuck state detection
+    # Record BACK transitions for Backtrack BFS
+    _record_back_transition(agent, state)
+
+    # Two-level stuck state detection
     current_hash = state.get("current_screen_hash")
-    stuck_action_override = None
+    force_back = False
+    force_restart = False
     stuck_count_before = agent.stuck_screen_count
 
-    if current_hash == agent.last_screen_hash:
+    # Get current action info for stuck detection logic
+    current_action = state.get("current_action", {})
+    action_type = (current_action.get("action_type", "") if current_action else "").upper()
+
+    # Check if action was on a checkable element (checkbox, radio, toggle)
+    item_action = state.get("current_item_action")
+    is_checkable = False
+    if item_action and hasattr(item_action, 'target_view'):
+        is_checkable = item_action.target_view.get("checkable", False)
+
+    # Level 1: Screen unchanged detection (quick recovery via BACK)
+    # Skip stuck counting for actions that don't change screen hash:
+    # - SET_TEXT: filling form fields
+    # - Checkable elements: checkbox/radio/toggle state changes
+    is_form_action = action_type in ("SET_TEXT", "TEXT_CHANGE") or is_checkable
+    if current_hash == agent.last_screen_hash and not is_form_action:
         agent.stuck_screen_count += 1
         logger.debug(f"Screen unchanged: {agent.stuck_screen_count}/{agent.STUCK_THRESHOLD}")
 
         if agent.stuck_screen_count >= agent.STUCK_THRESHOLD:
             logger.warning(
-                f"Stuck state detected: screen unchanged "
+                f"Level 1 stuck: screen unchanged "
                 f"{stuck_count_before}->{agent.stuck_screen_count} iterations -> Forcing BACK"
             )
-            stuck_action_override = {
-                "action_type": "BACK",
-                "reason": "stuck_state_recovery"
-            }
+            force_back = True
             agent.stuck_screen_count = 0
     else:
         if stuck_count_before > 0:
             logger.debug(
                 f"Screen changed, resetting stuck counter "
-                f"(was {stuck_count_before}, hash: {agent.last_screen_hash[:12]}... -> {current_hash[:12]}...)"
+                f"(was {stuck_count_before}, hash: {agent.last_screen_hash[:12] if agent.last_screen_hash else 'None'}... -> {current_hash[:12]}...)"
             )
         agent.stuck_screen_count = 0
 
     agent.last_screen_hash = current_hash
+
+    # Level 2: StuckRecovery check (persistent stuck state)
+    stuck_recovery = getattr(agent, 'stuck_recovery', None)
+    if stuck_recovery and current_hash:
+        recovery_action = stuck_recovery.check(current_hash)
+
+        if recovery_action == "restart":
+            # Try Backtrack BFS first
+            successor_tracker = getattr(agent.strategy, 'successor_tracker', None)
+            if successor_tracker:
+                unsaturated_target = successor_tracker.find_nearest_unsaturated(current_hash)
+                if unsaturated_target:
+                    logger.info(
+                        f"Level 2 stuck: Backtrack BFS found unsaturated state "
+                        f"{unsaturated_target[:8]}... -> Forcing BACK"
+                    )
+                    force_back = True
+                else:
+                    logger.warning(
+                        f"Level 2 stuck: No unsaturated ancestor found -> Forcing RESTART"
+                    )
+                    force_restart = True
+                    stuck_recovery.record_restart()
+            else:
+                logger.warning(
+                    f"Level 2 stuck: No successor_tracker available -> Forcing RESTART"
+                )
+                force_restart = True
+                stuck_recovery.record_restart()
 
     # Check continuation
     continuation = agent.memory_coordinator.check_continuation(
@@ -130,11 +178,13 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "loop_detected": False
     }
 
-    if stuck_action_override:
+    if force_restart:
+        result["force_restart_app"] = True
+    elif force_back:
         result["force_back_action"] = True
 
-    # Record UI coverage interaction for element tracking
-    _record_ui_coverage(agent, state)
+    # NOTE: UI coverage interaction is recorded in execute_node.py
+    # using device-space coordinates (not normalized [0,1000))
 
     # INSTRUMENTATION: Record exploration metrics for validation
     # This block can be removed for production
@@ -159,200 +209,42 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     return result
 
 
-def _record_ui_coverage(agent: "RVAgent", state: AgentState) -> None:
+def _record_back_transition(agent: "RVAgent", state: AgentState) -> None:
     """
-    Record UI element interaction for coverage tracking.
+    Record BACK transitions for Backtrack BFS navigation.
 
-    Uses proximity matching to find the closest UI element to the clicked
-    coordinates, then records that element's ID for proper annotation.
+    When a BACK action is executed and the screen changes, records the
+    transition in SuccessorTracker.back_successors. This builds a graph
+    of where BACK leads from each state.
 
     Args:
-        agent: RVAgent instance with screen_processor.ui_coverage
-        state: Current agent state with action details
+        agent: RVAgent instance with strategy.successor_tracker
+        state: Current agent state with action and hash information
     """
     try:
-        # Get ui_coverage from screen_processor
-        ui_coverage = getattr(agent.screen_processor, 'ui_coverage', None)
-        if not ui_coverage:
-            return
-
         current_action = state.get("current_action")
         if not current_action:
             return
 
-        # Skip non-coordinate actions (like BACK)
         action_type = current_action.get("action_type", "").upper()
-        if action_type in ("BACK", "HOME", "SCROLL"):
+        if action_type != "BACK":
             return
 
-        screen_hash = state.get("current_screen_hash", "unknown")
+        previous_hash = state.get("previous_screen_hash")
+        current_hash = state.get("current_screen_hash")
 
-        # Get click coordinates (use original_coords which are normalized [0,1000))
-        original_coords = current_action.get("original_coords")
-        if not original_coords or len(original_coords) != 2:
+        if not previous_hash or not current_hash:
             return
 
-        click_x, click_y = original_coords
+        if previous_hash == current_hash:
+            return
 
-        # Find matching element from screen description
-        screen_desc = state.get("screen_description")
-
-        # Get device dimensions from screen_processor (default to 1080x1920)
-        device_dims = getattr(agent.screen_processor, 'device_dimensions', (1080, 1920))
-        element_id = _find_element_at_coords(screen_desc, click_x, click_y, device_dimensions=device_dims)
-
-        if not element_id:
-            # Fallback to coordinate-based ID
-            element_id = f"coords:{click_x},{click_y}:CLICK"
-
-        # Record the interaction
-        ui_coverage.record_interaction(
-            element_id=element_id,
-            action_type=action_type.lower(),
-            screen_hash=screen_hash,
-            success=True
-        )
-
-        # INSTRUMENTATION: Log UI coverage recording
-        test_count = ui_coverage.get_element_test_count(element_id)
-        logger.info(
-            f"[INSTRUMENTATION] UI_COVERAGE: {action_type} on {element_id[:50]} "
-            f"| count={test_count} | screen={screen_hash[:8]}"
-        )
+        successor_tracker = getattr(agent.strategy, 'successor_tracker', None)
+        if successor_tracker:
+            successor_tracker.record_back_transition(previous_hash, current_hash)
+            logger.debug(
+                f"Recorded BACK transition: {previous_hash[:8]}... -> {current_hash[:8]}..."
+            )
 
     except Exception as e:
-        logger.warning(f"UI_COVERAGE: Failed to record interaction: {e}")
-
-
-def _find_element_at_coords(
-    screen_desc,
-    click_x: int,
-    click_y: int,
-    device_dimensions: tuple = (1080, 1920)
-) -> Optional[str]:
-    """
-    Find the UI element closest to the click coordinates using proximity matching.
-
-    This solves the coordinate matching problem where LLM clicks may not be
-    exactly at element centers. We find the nearest element and return its ID
-    in the same format used by annotate_screen_elements.
-
-    Args:
-        screen_desc: ScreenDescription object with items
-        click_x: Click X coordinate in normalized [0, 1000) space
-        click_y: Click Y coordinate in normalized [0, 1000) space
-        device_dimensions: Device screen dimensions (width, height)
-
-    Returns:
-        Element ID string matching annotate_screen_elements format, or None
-    """
-    if not screen_desc or not hasattr(screen_desc, 'items') or not screen_desc.items:
-        return None
-
-    device_width, device_height = device_dimensions
-    best_match = None
-    min_distance = float('inf')
-
-    for item in screen_desc.items:
-        bounds = item.view.get('bounds')
-        if not (bounds and len(bounds) == 2 and len(bounds[0]) == 2 and len(bounds[1]) == 2):
-            continue
-
-        # Calculate element center in device pixels
-        device_center_x = (bounds[0][0] + bounds[1][0]) // 2
-        device_center_y = (bounds[0][1] + bounds[1][1]) // 2
-
-        # Convert to normalized [0, 1000) space (same as screen_analyzer)
-        norm_x = int((device_center_x / device_width) * 1000)
-        norm_y = int((device_center_y / device_height) * 1000)
-
-        # Calculate Euclidean distance in normalized space
-        distance = ((click_x - norm_x) ** 2 + (click_y - norm_y) ** 2) ** 0.5
-
-        if distance < min_distance:
-            min_distance = distance
-            best_match = (norm_x, norm_y, item)
-
-    # Only accept matches within a reasonable threshold (150 units in normalized space)
-    # This corresponds to ~15% of screen dimension (accommodates LLM coordinate variance)
-    PROXIMITY_THRESHOLD = 150
-
-    if best_match and min_distance <= PROXIMITY_THRESHOLD:
-        norm_x, norm_y, item = best_match
-
-        # Generate element ID in the same format as annotate_screen_elements
-        # Primary: use coordinates (matches _generate_element_id in ui_coverage.py)
-        element_id = f"coords:{norm_x},{norm_y}:CLICK"
-
-        logger.debug(
-            f"[INSTRUMENTATION] PROXIMITY_MATCH: click({click_x},{click_y}) -> "
-            f"element({norm_x},{norm_y}) distance={min_distance:.1f}"
-        )
-
-        return element_id
-
-    logger.debug(
-        f"[INSTRUMENTATION] NO_PROXIMITY_MATCH: click({click_x},{click_y}) "
-        f"min_distance={min_distance:.1f} > threshold={PROXIMITY_THRESHOLD}"
-    )
-    return None
-
-
-def _generate_element_id_from_action(action: Dict[str, Any], state: AgentState) -> str:
-    """
-    Generate consistent element ID from action for coverage tracking.
-
-    Uses coordinates and element description to create a unique identifier
-    that matches the format used by annotate_screen_elements.
-
-    Args:
-        action: Action dictionary with coordinates and description
-        state: Agent state with screen context
-
-    Returns:
-        Element identifier string or empty string if cannot generate
-    """
-    # Try to get element description from action
-    element_desc = action.get("element_description", "")
-
-    # If we have a description with id:, text:, or desc:, use it
-    if element_desc:
-        import re
-
-        # Extract ID
-        id_match = re.search(r'id[=:](\w+)', element_desc, re.IGNORECASE)
-        if id_match:
-            return f"id:{id_match.group(1)}"
-
-        # Extract quoted text
-        text_match = re.search(r'"([^"]+)"', element_desc)
-        if text_match:
-            return f'text:"{text_match.group(1)}"'
-
-        # Extract parenthesized text (common in descriptions like "Button (submit)")
-        paren_match = re.search(r'\(([^)]+)\)', element_desc)
-        if paren_match:
-            return f'id:{paren_match.group(1)}'
-
-    # Fallback: use coordinates + action type as identifier
-    # CRITICAL: Use original_coords (normalized [0,1000)) to match screen_analyzer format
-    # The screen description uses normalized coords, so we must use the same space
-    original_coords = action.get("original_coords")
-    if original_coords and len(original_coords) == 2:
-        x, y = original_coords
-        action_type = action.get("action_type", "CLICK")
-        return f"coords:{x},{y}:{action_type}"
-
-    # Fallback to device coords if no original_coords available
-    coords = action.get("coordinates")
-    if coords:
-        x, y = coords.get("x", 0), coords.get("y", 0)
-    else:
-        x = action.get("x")
-        y = action.get("y")
-
-    if x is not None and y is not None:
-        action_type = action.get("action_type", "CLICK")
-        return f"coords:{x},{y}:{action_type}"
-
-    return ""
+        logger.warning(f"Failed to record BACK transition: {e}")

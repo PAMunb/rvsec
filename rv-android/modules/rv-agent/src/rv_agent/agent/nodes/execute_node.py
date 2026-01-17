@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent.domain.state import AgentState
+from rv_agent.memory.element_id import make_element_id_from_action
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     result = agent.tool_executor.execute_action(action)
 
-    # Record transition if action succeeded
+    # Record transition and interaction if action succeeded
     if result.get("success"):
         prev_hash = state.get("previous_screen_hash")
         current_hash = state.get("current_screen_hash", "")
@@ -54,6 +55,24 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         if prev_hash and item_action:
             agent.strategy.record_transition(prev_hash, current_hash, item_action)
             logger.debug(f"Recorded transition: {prev_hash[:8]} -> {current_hash[:8]}")
+
+        # Record interaction for UI coverage tracking (LLM actions only)
+        # Algorithm actions are already recorded in rvagent_strategy.py (pre-execution)
+        is_llm_action = source == "llm"
+        has_ui_cov = hasattr(agent, 'ui_coverage') and agent.ui_coverage is not None
+        if is_llm_action and has_ui_cov:
+            try:
+                element_id = make_element_id_from_action(action)
+                if element_id:
+                    agent.ui_coverage.record_interaction(
+                        element_id=element_id,
+                        action_type=action_type,
+                        screen_hash=current_hash,
+                        success=True
+                    )
+                    logger.debug(f"Recorded LLM interaction: {element_id} ({action_type})")
+            except Exception as e:
+                logger.warning(f"Failed to record LLM interaction: {e}")
 
     executed_action = result.get("action_executed")
 

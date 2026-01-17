@@ -1,0 +1,989 @@
+{
+  "session": {
+    "app_package": "de.srlabs.gsmmap",
+    "agent_mode": "llm_only",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768438284.3843284,
+    "end_time": 1768438439.8403604,
+    "duration_seconds": 155.45603203773499
+  },
+  "llm_metrics": {
+    "total_llm_calls": 31,
+    "total_tokens_input": 81353,
+    "total_tokens_output": 2676,
+    "total_tokens": 84029,
+    "total_latency_ms": 46842.290670014336,
+    "avg_latency_ms": 1511.0416345165916,
+    "tokens_per_action": 2710.6129032258063
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 31,
+    "hits": 31,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 1.0
+  },
+  "exploration_metrics": {
+    "total_activities": 2,
+    "activities_discovered": 3,
+    "activity_coverage": 1.5,
+    "total_iterations": 30,
+    "actions_per_activity": 10.0
+  },
+  "stuck_metrics": {
+    "stuck_events": 0,
+    "stuck_recovered": 0,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 6.474820143884892,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 18,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_de.srlabs.gsmmap_llm_only_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 0,
+      "raw_coords": [
+        823,
+        564
+      ],
+      "device_coords": [
+        888,
+        1082
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1641.3038870086893,
+      "tokens_input": 2348,
+      "tokens_output": 100,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 1,
+      "raw_coords": [
+        910,
+        65
+      ],
+      "device_coords": [
+        982,
+        124
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1535.1782580110012,
+      "tokens_input": 2828,
+      "tokens_output": 95,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1784.0833180089248,
+      "tokens_input": 2363,
+      "tokens_output": 112,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        910,
+        65
+      ],
+      "device_coords": [
+        982,
+        124
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2252.9441579972627,
+      "tokens_input": 2844,
+      "tokens_output": 157,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 4,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 660.1431270100875,
+      "tokens_input": 2379,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 5,
+      "raw_coords": [
+        910,
+        65
+      ],
+      "device_coords": [
+        982,
+        124
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2108.649129004334,
+      "tokens_input": 2858,
+      "tokens_output": 142,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 607.604356991942,
+      "tokens_input": 2386,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 7,
+      "raw_coords": [
+        910,
+        65
+      ],
+      "device_coords": [
+        982,
+        124
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1607.4587189941667,
+      "tokens_input": 2858,
+      "tokens_output": 96,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 8,
+      "raw_coords": [
+        687,
+        774
+      ],
+      "device_coords": [
+        741,
+        1486
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1986.994667997351,
+      "tokens_input": 2479,
+      "tokens_output": 132,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".NexusLauncherActivity"
+    },
+    {
+      "iteration": 9,
+      "raw_coords": [
+        188,
+        344
+      ],
+      "device_coords": [
+        203,
+        660
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "CheckBox",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1912.1004839980742,
+      "tokens_input": 2648,
+      "tokens_output": 116,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": "com.google.android.apps.chrome.Main"
+    },
+    {
+      "iteration": 10,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1689.3336229986744,
+      "tokens_input": 2862,
+      "tokens_output": 99,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2950.224004991469,
+      "tokens_input": 2388,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        870,
+        898
+      ],
+      "device_coords": [
+        939,
+        1724
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1569.4337180029834,
+      "tokens_input": 2862,
+      "tokens_output": 99,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 13,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 658.3581279992359,
+      "tokens_input": 2388,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 14,
+      "raw_coords": [
+        870,
+        898
+      ],
+      "device_coords": [
+        939,
+        1724
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2063.508641003864,
+      "tokens_input": 2862,
+      "tokens_output": 142,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 709.8492619988974,
+      "tokens_input": 2388,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 16,
+      "raw_coords": [
+        910,
+        65
+      ],
+      "device_coords": [
+        982,
+        124
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "TextView",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2191.4975339896046,
+      "tokens_input": 2862,
+      "tokens_output": 150,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 701.0612039885018,
+      "tokens_input": 2388,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 18,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1827.1246229996905,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 19,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1790.6599840061972,
+      "tokens_input": 2388,
+      "tokens_output": 111,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 20,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1646.5788909990806,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1731.212198996218,
+      "tokens_input": 2388,
+      "tokens_output": 115,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 22,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1622.0945389941335,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 23,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 687.6358600129606,
+      "tokens_input": 2388,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1663.5013080085628,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 25,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 671.472198999254,
+      "tokens_input": 2388,
+      "tokens_output": 27,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1645.7832379965112,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 27,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 926.6859679919435,
+      "tokens_input": 2388,
+      "tokens_output": 40,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 28,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1556.9427330046892,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 29,
+      "raw_coords": [
+        500,
+        597
+      ],
+      "device_coords": [
+        540,
+        1146
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 846.0712550004246,
+      "tokens_input": 2388,
+      "tokens_output": 40,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    },
+    {
+      "iteration": 30,
+      "raw_coords": [
+        870,
+        899
+      ],
+      "device_coords": [
+        939,
+        1726
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1596.8016530096065,
+      "tokens_input": 2862,
+      "tokens_output": 102,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".MapActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".MapActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 8,
+      "activity": ".NexusLauncherActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 9,
+      "activity": "com.google.android.apps.chrome.Main",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 22,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 24,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 26,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 27,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".MapActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    }
+  ]
+}

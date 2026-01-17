@@ -1,0 +1,23 @@
+--------- beginning of system
+--------- beginning of main
+01-14 14:02:54.080   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:03:09.619   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onUnlockButtonClicked(android.view.View)>
+01-14 14:03:09.619   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void unlock()>
+01-14 14:03:09.630   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.SettingsManager: com.aidinhut.simpletextcrypt.SettingsManager getInstance()>
+01-14 14:03:09.631   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.SettingsManager: java.lang.String tryGetPasscode(java.lang.String,android.content.Context)>
+01-14 14:03:09.700   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.MainActivity: void onCreate(android.os.Bundle)>
+01-14 14:03:09.745   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.MainActivity: void onResume()>
+01-14 14:03:09.746   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.SettingsManager: int getLockTimeout(android.content.Context)>
+01-14 14:03:09.918   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+01-14 14:03:26.642   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.MainActivity: void onPause()>
+01-14 14:03:26.643   773   773 V RVSEC-COV: <com.aidinhut.simpletextcrypt.MainActivity: void setText(java.lang.String)>
+01-14 14:03:51.830  1070  1070 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:04:18.215  1223  1223 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:04:44.164  1375  1375 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:05:09.880  1518  1518 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:05:36.468  1685  1685 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:06:02.731  2092  2092 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:06:29.643  2276  2276 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:06:56.849  2481  2481 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:07:24.695  2699  2699 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>
+01-14 14:07:52.685  2933  2933 V RVSEC-COV: <com.aidinhut.simpletextcrypt.LockActivity: void onCreate(android.os.Bundle)>

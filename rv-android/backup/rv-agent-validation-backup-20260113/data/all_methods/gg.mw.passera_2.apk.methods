@@ -1,0 +1,16 @@
+class,method,parameters,signature,is_activity,reachable,reaches_mop,directly_reaches_mop,androguard
+gg.mw.passera.Passera,passwd,"java.lang.String,int,boolean","passwd(java.lang.String,int,boolean)",True,True,False,False,True
+gg.mw.passera.Passera,onCreateOptionsMenu,android.view.Menu,onCreateOptionsMenu(android.view.Menu),True,True,False,False,True
+gg.mw.passera.Passera,encrypt,"byte[],java.lang.String","encrypt(byte[],java.lang.String)",True,True,False,False,True
+gg.mw.passera.Passera,access$100,"gg.mw.passera.Passera,java.lang.String,int,boolean","access$100(gg.mw.passera.Passera,java.lang.String,int,boolean)",True,True,False,False,True
+gg.mw.passera.Passera,hash,"java.lang.String,int,boolean","hash(java.lang.String,int,boolean)",True,True,False,False,True
+gg.mw.passera.Passera,pw,android.view.View,pw(android.view.View),True,True,False,False,True
+gg.mw.passera.Passera,pwhide,android.view.View,pwhide(android.view.View),True,True,False,False,True
+gg.mw.passera.Passera,onOptionsItemSelected,android.view.MenuItem,onOptionsItemSelected(android.view.MenuItem),True,True,False,False,True
+gg.mw.passera.Passera,access$000,"gg.mw.passera.Passera,java.lang.String,int,boolean","access$000(gg.mw.passera.Passera,java.lang.String,int,boolean)",True,True,False,False,True
+gg.mw.passera.Passera,onCreate,android.os.Bundle,onCreate(android.os.Bundle),True,True,False,False,True
+gg.mw.passera.Passera,pwshow,android.view.View,pwshow(android.view.View),True,True,False,False,True
+gg.mw.passera.Passera$2,run,,run(),False,True,False,False,True
+gg.mw.passera.Passera$2$1,run,,run(),False,True,False,False,True
+gg.mw.passera.Passera$1$1,run,,run(),False,True,False,False,True
+gg.mw.passera.Passera$1,run,,run(),False,True,False,False,True

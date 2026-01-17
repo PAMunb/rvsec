@@ -1,0 +1,1544 @@
+{
+  "session": {
+    "app_package": "nl.patrickkostjens.kandroid",
+    "agent_mode": "multimode",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768445393.2791097,
+    "end_time": 1768445696.9541814,
+    "duration_seconds": 303.6750717163086
+  },
+  "llm_metrics": {
+    "total_llm_calls": 39,
+    "total_tokens_input": 100102,
+    "total_tokens_output": 5182,
+    "total_tokens": 105284,
+    "total_latency_ms": 78347.48296497855,
+    "avg_latency_ms": 2008.9098196148348,
+    "tokens_per_action": 2770.6315789473683
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 38,
+    "hits": 38,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 1.0,
+    "tool_call_rate": 0.9743589743589743
+  },
+  "exploration_metrics": {
+    "total_activities": 6,
+    "activities_discovered": 1,
+    "activity_coverage": 0.16666666666666666,
+    "total_iterations": 73,
+    "actions_per_activity": 73.0
+  },
+  "stuck_metrics": {
+    "stuck_events": 5,
+    "stuck_recovered": 5,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 4.282115869017632,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 34,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_nl.patrickkostjens.kandroid_multimode_seed42.txt"
+  },
+  "llm_actions": [
+    {
+      "iteration": 1,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1941.238399987924,
+      "tokens_input": 2528,
+      "tokens_output": 131,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 2,
+      "raw_coords": [
+        500,
+        319
+      ],
+      "device_coords": [
+        540,
+        612
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1695.631234004395,
+      "tokens_input": 2542,
+      "tokens_output": 108,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 3,
+      "raw_coords": [
+        500,
+        319
+      ],
+      "device_coords": [
+        540,
+        612
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1712.9719790100353,
+      "tokens_input": 2551,
+      "tokens_output": 109,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 6,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2630.0686380127445,
+      "tokens_input": 2562,
+      "tokens_output": 193,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 8,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1540.9706350037595,
+      "tokens_input": 2562,
+      "tokens_output": 99,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 11,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1823.702105000848,
+      "tokens_input": 2565,
+      "tokens_output": 120,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 12,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1616.449469991494,
+      "tokens_input": 2571,
+      "tokens_output": 99,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 15,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1872.3182770045241,
+      "tokens_input": 2563,
+      "tokens_output": 124,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 16,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2850.884567000321,
+      "tokens_input": 2563,
+      "tokens_output": 201,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 17,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1851.6691400000127,
+      "tokens_input": 2569,
+      "tokens_output": 122,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 18,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1499.1785540041747,
+      "tokens_input": 2569,
+      "tokens_output": 93,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 21,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1958.7323699961416,
+      "tokens_input": 2563,
+      "tokens_output": 129,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 24,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1831.520633000764,
+      "tokens_input": 2562,
+      "tokens_output": 126,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 26,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1942.3334509920096,
+      "tokens_input": 2562,
+      "tokens_output": 135,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 27,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1836.2583330017515,
+      "tokens_input": 2563,
+      "tokens_output": 125,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 28,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1886.5589589986484,
+      "tokens_input": 2563,
+      "tokens_output": 128,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 33,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2269.4995759957237,
+      "tokens_input": 2564,
+      "tokens_output": 154,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 36,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2260.625810988131,
+      "tokens_input": 2564,
+      "tokens_output": 156,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 38,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1658.8493049930548,
+      "tokens_input": 2565,
+      "tokens_output": 106,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 39,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1616.2102800008142,
+      "tokens_input": 2571,
+      "tokens_output": 98,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 44,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1960.978624993004,
+      "tokens_input": 2563,
+      "tokens_output": 134,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 46,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1710.0948160077678,
+      "tokens_input": 2572,
+      "tokens_output": 98,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 47,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1929.221960992436,
+      "tokens_input": 2572,
+      "tokens_output": 123,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 48,
+      "raw_coords": [
+        500,
+        319
+      ],
+      "device_coords": [
+        540,
+        612
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1592.7741009945748,
+      "tokens_input": 2577,
+      "tokens_output": 94,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 49,
+      "raw_coords": [
+        500,
+        404
+      ],
+      "device_coords": [
+        540,
+        775
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2449.2604920087615,
+      "tokens_input": 2591,
+      "tokens_output": 173,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 50,
+      "raw_coords": [
+        932,
+        967
+      ],
+      "device_coords": [
+        1006,
+        1856
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "FrameLayout",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1992.0556589931948,
+      "tokens_input": 2592,
+      "tokens_output": 133,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 52,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2672.4146109918365,
+      "tokens_input": 2566,
+      "tokens_output": 190,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 53,
+      "raw_coords": [
+        500,
+        319
+      ],
+      "device_coords": [
+        540,
+        612
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2312.508164992323,
+      "tokens_input": 2572,
+      "tokens_output": 157,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 54,
+      "raw_coords": [
+        500,
+        404
+      ],
+      "device_coords": [
+        540,
+        775
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "Button",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2456.1527719924925,
+      "tokens_input": 2585,
+      "tokens_output": 167,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 56,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2295.3196270100307,
+      "tokens_input": 2566,
+      "tokens_output": 159,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 57,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2100.804854009766,
+      "tokens_input": 2572,
+      "tokens_output": 140,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 59,
+      "raw_coords": [
+        500,
+        319
+      ],
+      "device_coords": [
+        540,
+        612
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1565.659499989124,
+      "tokens_input": 2570,
+      "tokens_output": 89,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 61,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 1930.5107980035245,
+      "tokens_input": 2566,
+      "tokens_output": 124,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 62,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2179.4078340026317,
+      "tokens_input": 2574,
+      "tokens_output": 148,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 64,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2019.9587759998394,
+      "tokens_input": 2566,
+      "tokens_output": 135,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 67,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2238.4332270012237,
+      "tokens_input": 2565,
+      "tokens_output": 124,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 68,
+      "raw_coords": [
+        500,
+        242
+      ],
+      "device_coords": [
+        540,
+        464
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2270.043226002599,
+      "tokens_input": 2574,
+      "tokens_output": 163,
+      "tool_name": "CLICK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 70,
+      "raw_coords": [
+        500,
+        166
+      ],
+      "device_coords": [
+        540,
+        318
+      ],
+      "hit_classification": "hit",
+      "hit_element_type": "EditText",
+      "distance_to_target": Infinity,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2270.3137439966667,
+      "tokens_input": 2566,
+      "tokens_output": 159,
+      "tool_name": "SET_TEXT",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    },
+    {
+      "iteration": 73,
+      "raw_coords": [
+        0,
+        0
+      ],
+      "device_coords": [
+        0,
+        0
+      ],
+      "hit_classification": "empty_miss",
+      "hit_element_type": "",
+      "distance_to_target": 0.0,
+      "distance_to_nearest": 0.0,
+      "latency_ms": 2105.8984600094846,
+      "tokens_input": 2571,
+      "tokens_output": 116,
+      "tool_name": "BACK",
+      "parser_strategy": "native",
+      "activity": ".ui.LoginActivity"
+    }
+  ],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 14,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 15,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 16,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 19,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 20,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 22,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 23,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 25,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 26,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 27,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 28,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 32,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 33,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 34,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 35,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 36,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 36,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 37,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 38,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 39,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 40,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 41,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 41,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 42,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 42,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 43,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 43,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 44,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 45,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 45,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 46,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 47,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 48,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 48,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 49,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 49,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 50,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 50,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "validation"
+    },
+    {
+      "iteration": 51,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 51,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 52,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 53,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 53,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 54,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 54,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 55,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 55,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 56,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 56,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 57,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 57,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 58,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 58,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 59,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 59,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 60,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 60,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 61,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 61,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 62,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 62,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 63,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 63,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 64,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 64,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 65,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 65,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 66,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 66,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 67,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 67,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 68,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 68,
+      "is_stuck": true,
+      "action_type": "CLICK",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 69,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 69,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 70,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 70,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "llm"
+    },
+    {
+      "iteration": 71,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 71,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 72,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 72,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 73,
+      "activity": ".ui.LoginActivity",
+      "is_new_activity": false,
+      "actions_since_last_new": 73,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "llm"
+    }
+  ]
+}

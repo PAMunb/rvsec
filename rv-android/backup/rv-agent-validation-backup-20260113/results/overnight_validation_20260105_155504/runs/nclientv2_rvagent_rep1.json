@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "nclientv2_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.dar.nclientv2_302.apk",
+  "package_name": "com.dar.nclientv2",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 762550206,
+  "execution_time_seconds": 2.8522255420684814
+}

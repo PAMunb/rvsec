@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "dapnetmobile_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/de.hampager.dapnetmobile_25.apk",
+  "package_name": "de.hampager.dapnetmobile",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1932638649,
+  "execution_time_seconds": 180.84243083000183
+}

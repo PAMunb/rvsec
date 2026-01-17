@@ -1,0 +1,32 @@
+--------- beginning of system
+--------- beginning of main
+01-14 16:54:35.021  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity: void onCreate(android.os.Bundle)>
+01-14 16:54:35.021  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.ThemedActivity: void onCreate(android.os.Bundle)>
+01-14 16:54:35.022  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.ThemeHelper: int onActivityApplyCurrentTheme(android.app.Activity)>
+01-14 16:54:35.022  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.ThemeHelper: int getCurrentThemeId()>
+01-14 16:54:35.027  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: biz.gyrus.yaab.BrightnessController get()>
+01-14 16:54:35.027  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: biz.gyrus.yaab.BrightnessController$BrightnessStatus getBrightnessStatus()>
+01-14 16:54:35.027  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController$BrightnessStatusObservable: biz.gyrus.yaab.BrightnessController$BrightnessStatus getStatus()>
+01-14 16:54:35.079  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity: void onResume()>
+01-14 16:54:35.079  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.ThemedActivity: void onResume()>
+01-14 16:54:35.079  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: void addBrightnessStatusObserver(java.util.Observer)>
+01-14 16:54:35.082  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: int getAdjshift()>
+01-14 16:54:35.082  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: android.content.SharedPreferences getSP()>
+01-14 16:54:35.083  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: void upgradePrefs(android.content.SharedPreferences)>
+01-14 16:54:35.084  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: void updateBootReceiverState(boolean)>
+01-14 16:54:35.085  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: void commitAndLog(android.content.SharedPreferences.Editor)>
+01-14 16:54:35.090  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity$4: void onProgressChanged(android.widget.SeekBar,int,boolean)>
+01-14 16:54:35.090  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: int getNMBrightness()>
+01-14 16:54:35.090  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity$9: void onProgressChanged(android.widget.SeekBar,int,boolean)>
+01-14 16:54:35.094  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: void setManualAdjustment(int)>
+01-14 16:54:35.095  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: boolean isLightSensorPresent(android.content.Context)>
+01-14 16:54:35.100  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: java.lang.Boolean getAutostart()>
+01-14 16:54:35.100  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity$7: void onCheckedChanged(android.widget.CompoundButton,boolean)>
+01-14 16:54:35.101  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: void setAutostart(boolean)>
+01-14 16:54:35.106  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.AppSettings: java.lang.Boolean getAllowAutoNight()>
+01-14 16:54:35.106  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity: void updateControls()>
+01-14 16:54:35.106  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: biz.gyrus.yaab.BrightnessController$ServiceStatus getServiceStatus()>
+01-14 16:54:35.106  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController$ServiceStatusObservable: biz.gyrus.yaab.BrightnessController$ServiceStatus getStatus()>
+01-14 16:54:35.111  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: void addServiceStatusObserver(java.util.Observer)>
+01-14 16:54:35.111  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.BrightnessController: void addRunningBrightnessObserver(java.util.Observer)>
+01-14 16:54:35.284  6589  6589 V RVSEC-COV: <biz.gyrus.yaab.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>

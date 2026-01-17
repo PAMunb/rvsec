@@ -1,0 +1,27 @@
+{
+  "app_packages": [
+    "byrne.utilities.hashpass"
+  ],
+  "apks_dir": "data/apks_instrumented",
+  "apk_paths": {},
+  "agent_modes": [
+    "pure_algorithm"
+  ],
+  "timeout_seconds": 180,
+  "seeds": [
+    42
+  ],
+  "max_iterations": 500,
+  "llm_base_url": "http://192.168.0.21:30000/v1",
+  "llm_model": "Qwen/Qwen3-VL-4B-Instruct",
+  "llm_temperature": 0.001,
+  "llm_top_p": 0.6,
+  "llm_top_k": 50,
+  "device_serial": "emulator-5554",
+  "output_dir": "results/mini_e3_test2",
+  "save_screenshots": true,
+  "save_ui_dumps": true,
+  "use_wtg": false,
+  "compare_wtg": false,
+  "static_data_dir": null
+}

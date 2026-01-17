@@ -38,8 +38,24 @@ from .config import (
     get_apps_with_static_analysis,
 )
 from .checkpoint import CheckpointManager
+from rv_agent_validation.calibration import CalibrationMetricsCollector
 
 logger = logging.getLogger(__name__)
+
+# Infrastructure errors that warrant automatic retry
+INFRASTRUCTURE_ERRORS = [
+    "INSTALL_FAILED",
+    "device not found",
+    "Connection refused",
+    "TimeoutError",
+    "ADB server",
+    "cannot connect",
+    "error: closed",
+    "daemon not running",
+]
+
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 5
 
 
 class ExperimentRunner:
@@ -83,6 +99,9 @@ class ExperimentRunner:
         self.checkpoint = CheckpointManager(
             self.experiment_dir / "checkpoint.json"
         )
+
+        # Initialize calibration metrics collector
+        self.calibration_collector = CalibrationMetricsCollector()
 
         # Setup logging
         self._setup_logging()
@@ -177,8 +196,8 @@ class ExperimentRunner:
                         raise RuntimeError(f"Failed to install {run.apk_path}")
                     current_installed_package = run.package_name
 
-                # Execute run
-                result = self._execute_run(run)
+                # Execute run with retry for infrastructure errors
+                result = self._execute_run_with_retry(run)
                 self._save_run_result(run, result)
                 self.checkpoint.mark_completed(run)
 
@@ -198,6 +217,16 @@ class ExperimentRunner:
         if current_installed_package:
             logger.info(f"Cleanup: uninstalling {current_installed_package}")
             self._uninstall_app(current_installed_package)
+
+        # Generate calibration report
+        calibration_report_path = self.reports_dir / "calibration_report.txt"
+        self.calibration_collector.save_report(str(calibration_report_path))
+        logger.info(f"Calibration report saved: {calibration_report_path}")
+
+        # Log calibration summary
+        calib_report = self.calibration_collector.get_calibration_report()
+        for line in calib_report.split('\n'):
+            logger.warning(f"[CALIB] {line}")
 
         # Final summary
         progress = self.checkpoint.get_progress(len(all_runs))
@@ -269,6 +298,77 @@ class ExperimentRunner:
             logger.warning(f"Failed to load static analysis: {e}")
             return None
 
+    def _is_infrastructure_error(self, error_msg: str) -> bool:
+        """
+        Check if error is an infrastructure error (should retry).
+
+        Args:
+            error_msg: Error message string.
+
+        Returns:
+            True if error is infrastructure-related.
+        """
+        error_lower = error_msg.lower()
+        return any(e.lower() in error_lower for e in INFRASTRUCTURE_ERRORS)
+
+    def _execute_run_with_retry(self, run: RunConfig) -> Dict[str, Any]:
+        """
+        Execute a run with automatic retry for infrastructure errors.
+
+        Args:
+            run: Run configuration.
+
+        Returns:
+            Run results with metrics.
+        """
+        last_error = None
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                result = self._execute_run(run)
+
+                # Check if run succeeded
+                if result.get("status") not in ("error", "failed"):
+                    return result
+
+                # Check if infrastructure error (should retry)
+                error_msg = str(result.get("error", ""))
+                if self._is_infrastructure_error(error_msg):
+                    logger.warning(
+                        f"Infrastructure error on attempt {attempt + 1}/{MAX_RETRIES}: {error_msg}"
+                    )
+                    last_error = error_msg
+                    if attempt < MAX_RETRIES - 1:
+                        logger.info(f"Retrying in {RETRY_DELAY_SECONDS}s...")
+                        time.sleep(RETRY_DELAY_SECONDS)
+                        continue
+                else:
+                    # Agent error, don't retry
+                    return result
+
+            except Exception as e:
+                error_msg = str(e)
+                if self._is_infrastructure_error(error_msg):
+                    logger.warning(
+                        f"Infrastructure exception on attempt {attempt + 1}/{MAX_RETRIES}: {e}"
+                    )
+                    last_error = error_msg
+                    if attempt < MAX_RETRIES - 1:
+                        logger.info(f"Retrying in {RETRY_DELAY_SECONDS}s...")
+                        time.sleep(RETRY_DELAY_SECONDS)
+                        continue
+                else:
+                    raise
+
+        # All retries exhausted
+        logger.error(f"All {MAX_RETRIES} retries exhausted for {run.run_id}")
+        return {
+            "status": "failed",
+            "error": f"All retries exhausted: {last_error}",
+            "run_id": run.run_id,
+            "retries_attempted": MAX_RETRIES,
+        }
+
     def _execute_run(self, run: RunConfig) -> Dict[str, Any]:
         """
         Execute a single run.
@@ -326,6 +426,15 @@ class ExperimentRunner:
             metrics["repetition"] = run.repetition
             metrics["seed"] = run.seed
             metrics["static_analysis_enabled"] = static_data is not None
+
+            # Collect calibration metrics
+            self.calibration_collector.extract_metrics(
+                agent=agent,
+                run_id=run.run_id,
+                package_name=run.package_name,
+                seed=run.seed,
+                execution_time=end_time - start_time
+            )
 
             return metrics
 
@@ -385,10 +494,11 @@ class ExperimentRunner:
 
         # Get UI coverage percentage safely
         ui_coverage_pct = 0.0
+        ui_coverage_stats = {}
         if ui_coverage:
             try:
-                stats = ui_coverage.get_overall_statistics()
-                ui_coverage_pct = stats.get("coverage_percentage", 0.0)
+                ui_coverage_stats = ui_coverage.get_comprehensive_metrics()
+                ui_coverage_pct = ui_coverage_stats.get("element_coverage", 0.0)
             except Exception:
                 pass
 
@@ -405,6 +515,9 @@ class ExperimentRunner:
             "actions_per_minute": 0.0,
             "app_crashes": result.get("app_crashes", 0),
             "ui_coverage_percentage": ui_coverage_pct,
+            "ui_total_elements": ui_coverage_stats.get("total_unique_elements", 0),
+            "ui_total_interactions": ui_coverage_stats.get("total_interactions", 0),
+            "ui_element_distribution": ui_coverage_stats.get("element_distribution", {}),
             "actions_by_type": result.get("actions_by_type", {}),
             "start_time": datetime.fromtimestamp(start_time).isoformat(),
             "end_time": datetime.fromtimestamp(end_time).isoformat(),
@@ -490,7 +603,7 @@ class ExperimentRunner:
         if strategy and hasattr(strategy, 'successor_tracker'):
             try:
                 tracker_stats = strategy.successor_tracker.get_statistics()
-                metrics["successor_re_enables"] = tracker_stats.get("actions_re_enabled", 0)
+                metrics["successor_re_enables"] = tracker_stats.get("successor_re_enables", 0)
                 metrics["total_successors_tracked"] = tracker_stats.get("total_successors_tracked", 0)
                 metrics["incomplete_successors"] = tracker_stats.get("incomplete_successors", 0)
             except Exception as e:

@@ -1,0 +1,33 @@
+--------- beginning of system
+--------- beginning of main
+01-14 18:33:07.534 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:33:21.767 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void conjugate(android.view.View)>
+01-14 18:33:21.832 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: void onCreate(android.os.Bundle)>
+01-14 18:33:21.841 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: java.lang.String getVerb()>
+01-14 18:33:21.841 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: android.database.Cursor getConjugationsOf(java.lang.String)>
+01-14 18:33:21.842 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.ExternalDbOpenHelper: android.database.sqlite.SQLiteDatabase openDataBase()>
+01-14 18:33:21.842 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.ExternalDbOpenHelper: void createDataBase()>
+01-14 18:33:21.842 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.ExternalDbOpenHelper: boolean checkDataBase()>
+01-14 18:33:21.862 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.ExternalDbOpenHelper: void onCreate(android.database.sqlite.SQLiteDatabase)>
+01-14 18:33:21.867 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.ExternalDbOpenHelper: void copyDataBase()>
+01-14 18:33:22.415 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: long hash32Bits(java.lang.String)>
+01-14 18:33:22.418 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: long convertFourBytesToLong(byte,byte,byte,byte)>
+01-14 18:33:22.422 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: void addComposedTense(android.widget.LinearLayout,int,java.lang.String)>
+01-14 18:33:22.422 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: android.widget.TextView createModeTitle(android.view.ViewGroup)>
+01-14 18:33:22.427 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: android.widget.TextView createTenseTitle(android.view.ViewGroup)>
+01-14 18:33:22.429 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: android.widget.TableLayout createTenseLayout()>
+01-14 18:33:22.430 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: void addTextColumn(android.widget.TableRow,java.lang.String)>
+01-14 18:33:22.430 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: android.widget.TextView createTextView()>
+01-14 18:33:22.434 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: void addConjugatedColumn(android.widget.TableRow,java.lang.String,java.lang.String)>
+01-14 18:33:22.503 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: java.lang.String getPastParticiple(java.lang.String)>
+01-14 18:33:22.506 14791 14791 V RVSEC-COV: <com.allansimon.verbisteandroid.DisplayConjugationActivity: android.database.Cursor getAuxilliaryConjugation(java.lang.String)>
+01-14 18:34:00.415 15070 15070 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:34:27.386 15216 15216 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:34:54.334 15355 15355 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:35:20.588 15500 15500 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:35:47.230 15643 15643 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:36:15.248 15788 15788 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:36:42.736 15930 15930 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:37:09.679 16075 16075 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:37:36.765 16218 16218 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>
+01-14 18:38:03.169 16362 16362 V RVSEC-COV: <com.allansimon.verbisteandroid.MainActivity: void onCreate(android.os.Bundle)>

@@ -1,0 +1,20 @@
+--------- beginning of main
+--------- beginning of system
+01-14 13:01:06.718 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.Application: void onCreate()>
+01-14 13:01:06.721 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.FileLog: void d(java.lang.String,java.lang.String)>
+01-14 13:01:06.721 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.FileLog: java.lang.String getTimePrefix()>
+01-14 13:01:06.723 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.Utils: void deleteLogFilesWithPrefix(java.lang.String[])>
+01-14 13:01:06.724 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.FileLog: void i(java.lang.String,java.lang.String)>
+01-14 13:01:06.725 10044 10069 V RVSEC-COV: <de.srlabs.gsmmap.Utils$1: void run()>
+01-14 13:01:06.726 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Shell$SU: java.util.List run(java.lang.String)>
+01-14 13:01:06.727 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Shell: java.util.List run(java.lang.String,java.lang.String[],java.lang.String[],boolean)>
+01-14 13:01:06.730 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Debug: boolean getSanityChecksEnabledEffective()>
+01-14 13:01:06.730 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Debug: boolean getDebug()>
+01-14 13:01:06.730 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Debug: boolean getSanityChecksEnabled()>
+01-14 13:01:06.730 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Debug: boolean onMainThread()>
+01-14 13:01:06.731 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Debug: void logCommand(java.lang.String)>
+01-14 13:01:06.731 10044 10069 V RVSEC-COV: <eu.chainfire.libsuperuser.Debug: void logCommon(int,java.lang.String,java.lang.String)>
+01-14 13:01:06.874 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.MapActivity: void onCreate(android.os.Bundle)>
+01-14 13:01:06.884 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.FileLog: void init(java.io.File)>
+01-14 13:01:06.884 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.FileLog: java.io.PrintStream openLogFile()>
+01-14 13:01:07.766 10044 10044 V RVSEC-COV: <de.srlabs.gsmmap.MapActivity: boolean onCreateOptionsMenu(android.view.Menu)>

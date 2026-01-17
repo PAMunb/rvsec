@@ -1,0 +1,12 @@
+--------- beginning of main
+--------- beginning of system
+01-14 15:54:44.140  2180  2180 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onCreate(android.os.Bundle)>
+01-14 15:54:45.087  2180  2180 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onItemSelected(android.widget.AdapterView,android.view.View,int,long)>
+01-14 15:54:53.719  2180  2180 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onClick(android.view.View)>
+01-14 15:55:14.133  2508  2508 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onCreate(android.os.Bundle)>
+01-14 15:55:14.387  2508  2508 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onItemSelected(android.widget.AdapterView,android.view.View,int,long)>
+01-14 15:55:46.579  2910  2910 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onCreate(android.os.Bundle)>
+01-14 15:55:46.981  2910  2910 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onItemSelected(android.widget.AdapterView,android.view.View,int,long)>
+01-14 15:55:57.431  2910  2910 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onClick(android.view.View)>
+01-14 15:56:17.965  3207  3207 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onCreate(android.os.Bundle)>
+01-14 15:56:18.388  3207  3207 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onItemSelected(android.widget.AdapterView,android.view.View,int,long)>

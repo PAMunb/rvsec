@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "fdroid_greedy_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/com.oasisfeng.island.fdroid_51668.apk",
+  "package_name": "com.oasisfeng.island.fdroid",
+  "strategy": "greedy",
+  "repetition": 1,
+  "seed": 2114695970,
+  "execution_time_seconds": 182.81272792816162
+}

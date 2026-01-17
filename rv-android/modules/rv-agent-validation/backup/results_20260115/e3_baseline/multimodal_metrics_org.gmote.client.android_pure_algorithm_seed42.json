@@ -1,0 +1,1048 @@
+{
+  "session": {
+    "app_package": "org.gmote.client.android",
+    "agent_mode": "pure_algorithm",
+    "timeout_seconds": 300,
+    "seed": 42,
+    "start_time": 1768448554.1376786,
+    "end_time": 1768448854.9710689,
+    "duration_seconds": 300.8333902359009
+  },
+  "llm_metrics": {
+    "total_llm_calls": 0,
+    "total_tokens_input": 0,
+    "total_tokens_output": 0,
+    "total_tokens": 0,
+    "total_latency_ms": 0.0,
+    "avg_latency_ms": 0.0,
+    "tokens_per_action": 0.0
+  },
+  "hit_rate_metrics": {
+    "total_clicks": 0,
+    "hits": 0,
+    "near_misses": 0,
+    "ui_misses": 0,
+    "empty_misses": 0,
+    "hit_rate": 0.0,
+    "tool_call_rate": 0.0
+  },
+  "exploration_metrics": {
+    "total_activities": 9,
+    "activities_discovered": 3,
+    "activity_coverage": 0.3333333333333333,
+    "total_iterations": 109,
+    "actions_per_activity": 36.333333333333336
+  },
+  "stuck_metrics": {
+    "stuck_events": 3,
+    "stuck_recovered": 3,
+    "stuck_failed": 0,
+    "stuck_recovery_rate": 1.0
+  },
+  "coverage_metrics": {
+    "method_coverage": 20.37617554858934,
+    "mop_method_coverage": 0.0,
+    "direct_mop_method_coverage": 0.0,
+    "called_methods": 65,
+    "total_mop_methods": 0,
+    "called_mop_methods": 0,
+    "total_direct_mop_methods": 0,
+    "called_direct_mop_methods": 0,
+    "unique_errors": 0,
+    "total_errors": 0,
+    "logcat_file": "results/e3_baseline/logcat/logcat_org.gmote.client.android_pure_algorithm_seed42.txt"
+  },
+  "llm_actions": [],
+  "exploration_records": [
+    {
+      "iteration": 0,
+      "activity": ".GmoteClient",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 1,
+      "activity": ".GmoteClient",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 2,
+      "activity": ".ListServers",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 3,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 4,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 5,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 6,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 7,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 8,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 9,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 10,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 11,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 12,
+      "activity": ".ButtonControl",
+      "is_new_activity": true,
+      "actions_since_last_new": 0,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 13,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 1,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 14,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 2,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 15,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 3,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 16,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 4,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 17,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 5,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 18,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 6,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 19,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 7,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 20,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 8,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 21,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 9,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 22,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 10,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 23,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 11,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 24,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 12,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 25,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 13,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 26,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 14,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 27,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 15,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 28,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 16,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 29,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 17,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 30,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 18,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 31,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 19,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 32,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 20,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 33,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 21,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 34,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 22,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 35,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 23,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 36,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 24,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 37,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 25,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 38,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 26,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 39,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 27,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 40,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 28,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 41,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 29,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 42,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 30,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 43,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 31,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 44,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 32,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 45,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 33,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 46,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 34,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 47,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 35,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 48,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 36,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 49,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 37,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 50,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 38,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 51,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 39,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 52,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 40,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 53,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 41,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 54,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 42,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 55,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 43,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 56,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 44,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 57,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 45,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 58,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 46,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 59,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 47,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 60,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 48,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 61,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 49,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 62,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 50,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 63,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 51,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 64,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 52,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 65,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 53,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 66,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 54,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 67,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 55,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 68,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 56,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 69,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 57,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 70,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 58,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 71,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 59,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 72,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 60,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 73,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 61,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 74,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 62,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 75,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 63,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 76,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 64,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 77,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 65,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 78,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 66,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 79,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 67,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 80,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 68,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 81,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 69,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 82,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 70,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 83,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 71,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 84,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 72,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 85,
+      "activity": ".ButtonControl",
+      "is_new_activity": false,
+      "actions_since_last_new": 73,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 86,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 74,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 87,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 75,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 88,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 76,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 89,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 77,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 90,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 78,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 91,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 79,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 92,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 80,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 93,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 81,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 94,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 82,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 95,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 83,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 96,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 84,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 97,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 85,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 98,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 86,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 99,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 87,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 100,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 88,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 101,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 89,
+      "is_stuck": false,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 102,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 90,
+      "is_stuck": true,
+      "action_type": "SET_TEXT",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 103,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 91,
+      "is_stuck": true,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 104,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 92,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 105,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 93,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 106,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 94,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 107,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 95,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 108,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 96,
+      "is_stuck": false,
+      "action_type": "CLICK",
+      "action_source": "algorithm"
+    },
+    {
+      "iteration": 109,
+      "activity": ".ListServers",
+      "is_new_activity": false,
+      "actions_since_last_new": 97,
+      "is_stuck": false,
+      "action_type": "BACK",
+      "action_source": "algorithm"
+    }
+  ]
+}

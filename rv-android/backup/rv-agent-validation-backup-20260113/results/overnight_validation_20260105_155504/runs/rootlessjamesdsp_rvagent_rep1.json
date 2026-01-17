@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": "'DynamicStateGraph' object has no attribute 'get_total_nodes'",
+  "run_id": "rootlessjamesdsp_rvagent_rep1",
+  "apk_path": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-agent/apks/me.timschneeberger.rootlessjamesdsp_42.apk",
+  "package_name": "me.timschneeberger.rootlessjamesdsp",
+  "strategy": "rvagent",
+  "repetition": 1,
+  "seed": 1752419508,
+  "execution_time_seconds": 182.4072389602661
+}

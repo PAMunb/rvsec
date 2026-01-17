@@ -1,0 +1,19 @@
+--------- beginning of system
+--------- beginning of main
+01-14 19:03:57.624 26893 26893 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:04:16.636 26893 26893 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onclickactivity(android.view.View)>
+01-14 19:04:16.682 26893 27018 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$3: java.util.Map getParams()>
+01-14 19:04:16.682 26893 27018 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: android.widget.TextView access$100(com.example.root.analyticaltranslator.MainActivity)>
+01-14 19:04:16.683 26893 27016 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$6: java.util.Map getParams()>
+01-14 19:04:19.201 26893 26893 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$5: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 19:04:19.269 26893 26893 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity$2: void onErrorResponse(com.android.volley.VolleyError)>
+01-14 19:04:37.703 27151 27151 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:05:12.535 27421 27421 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:05:38.248 27556 27556 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:06:04.453 27695 27695 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:06:30.244 27836 27836 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:06:55.710 27977 27977 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:07:21.191 28113 28113 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:07:46.539 28255 28255 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:08:12.363 28391 28391 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
+01-14 19:08:37.933 28536 28536 V RVSEC-COV: <com.example.root.analyticaltranslator.MainActivity: void onCreate(android.os.Bundle)>
