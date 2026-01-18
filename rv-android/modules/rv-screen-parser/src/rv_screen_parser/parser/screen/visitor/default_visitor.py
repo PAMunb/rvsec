@@ -45,6 +45,10 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         self.logger.debug(f"Visiting node: {node.view_class}")
 
+        # NOTE: Do NOT call should_exclude_system_button here!
+        # Containers often span the full screen (bottom_y >= 1850), so filtering
+        # them would exclude ALL their children. Only filter leaf nodes.
+
         # Generate a unique identifier for the node
         node_id = node.unique_identifier
 
@@ -80,11 +84,16 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         self.logger.debug(f"Visiting leaf node: {leaf_node.view_class}")
 
+        # Skip system navigation buttons (navbar, status bar)
+        if self.should_exclude_system_button(leaf_node):
+            self.logger.debug(f"Excluding system button: {leaf_node.view_class}")
+            return
+
         # Generate a unique ID for the node
         node_id = leaf_node.unique_identifier
 
-        # Check if this node or its parent is actionable
-        is_actionable = leaf_node.actionable
+        # Check if this node or its parent is actionable (including inherently clickable types)
+        is_actionable = leaf_node.actionable or self.is_always_clickable_type(leaf_node)
 
         # If not actionable itself, check if it inherits actions from parent
         parent_clickable = False
@@ -165,14 +174,14 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         self.logger.debug(f"Visiting text view: {node.resource_id}")
 
-        # Check if node is actionable itself
-        is_actionable = node.clickable or node.long_clickable
+        # Check if node is actionable itself (including inherently clickable types)
+        is_actionable = node.clickable or node.long_clickable or self.is_always_clickable_type(node)
 
         # If not actionable itself, check if it inherits click from parent
         parent_clickable = False
         if not is_actionable:
             parent_clickable = self.is_parent_clickable(node)
-            is_actionable = parent_clickable # TODO
+            is_actionable = parent_clickable
 
         actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
 
@@ -245,14 +254,14 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         self.logger.debug(f"Visiting image: {node.resource_id}")
 
-        # Check if node is actionable itself
-        is_actionable = node.clickable or node.long_clickable
+        # Check if node is actionable itself (including inherently clickable types)
+        is_actionable = node.clickable or node.long_clickable or self.is_always_clickable_type(node)
 
         # If not actionable itself, check if it inherits click from parent
         parent_clickable = False
         if not is_actionable:
             parent_clickable = self.is_parent_clickable(node)
-            is_actionable = parent_clickable # TODO
+            is_actionable = parent_clickable
 
         actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
 
@@ -328,17 +337,32 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         self.logger.debug(f"Visiting spinner: {node.resource_id}")
         widget = self.find_matching_widget(node.data)
 
-        # For spinners, we want click action and a selective set of scroll actions
-        # Usually spinners need vertical scrolling, not horizontal
+        # For spinners, always generate click action to open dropdown
+        # Spinners may not be marked as clickable in UIAutomator dump
         actions = []
 
-        # Add click action
-        if node.clickable:
-            actions.append(ItemAction(
-                self.counter.increment(),
-                f"CLICK ({self.counter.get_current()})" + (f" on '{node.view_text}'" if node.view_text else ""),
-                WidgetEventType.CLICK, False, False
-            ))
+        # Extract coordinates from node
+        node_data = node.data
+        coordinates = None
+        if hasattr(node, 'center_coordinates'):
+            coordinates = node.center_coordinates
+        elif 'bounds' in node_data:
+            bounds = node_data['bounds']
+            if bounds and len(bounds) == 2:
+                x = (bounds[0][0] + bounds[1][0]) // 2
+                y = (bounds[0][1] + bounds[1][1]) // 2
+                coordinates = (x, y)
+
+        # Add click action (always for spinners)
+        actions.append(ItemAction(
+            id=self.counter.increment(),
+            text=f"CLICK ({self.counter.get_current()})" + (f" on '{node.view_text}'" if node.view_text else ""),
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+            target_view=node_data,
+            coordinates=coordinates
+        ))
 
         # Only add vertical scroll for spinners
         # if node.scrollable:

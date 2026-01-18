@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 @pytest.fixture
 def sglang_url():
     """SGLang server URL."""
-    return os.getenv("SGLANG_URL", "http://192.168.0.21:30000/v1")
+    return os.getenv("SGLANG_URL", "http://192.168.0.36:30000/v1")
 
 
 @pytest.fixture

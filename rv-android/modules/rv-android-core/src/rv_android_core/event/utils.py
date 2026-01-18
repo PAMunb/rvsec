@@ -140,8 +140,8 @@ def find_related_task_events(events: List[Event], task_id: str) -> List[Event]:
     for event in events:
         if isinstance(event, TaskEvent) and event.task_id == task_id:
             result.append(event)
-        elif isinstance(event, AnalysisEvent) and event.related_task_id == task_id:
-            result.append(event)
+        # elif isinstance(event, AnalysisEvent) and event.related_task_id == task_id:
+        #     result.append(event)
         elif isinstance(event, ExperimentEvent) and task_id in event.affected_tasks:
             result.append(event)
 
@@ -178,8 +178,8 @@ def find_unique_task_ids(events: List[Event]) -> Set[str]:
     for event in events:
         if isinstance(event, TaskEvent):
             task_ids.add(event.task_id)
-        elif isinstance(event, AnalysisEvent) and event.related_task_id:
-            task_ids.add(event.related_task_id)
+        # elif isinstance(event, AnalysisEvent) and event.related_task_id:
+        #     task_ids.add(event.related_task_id)
         elif isinstance(event, ExperimentEvent):
             task_ids.update(event.affected_tasks)
 

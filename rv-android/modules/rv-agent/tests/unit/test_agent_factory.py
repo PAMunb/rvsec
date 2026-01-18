@@ -31,6 +31,8 @@ def base_config():
     config.max_input_variations = 3
     config.llm_timeout = 30.0
     config.prompt_version = "v12"
+    config.stochastic_probability = 0.3
+    config.stochastic_temperature = 1.0
     return config
 
 

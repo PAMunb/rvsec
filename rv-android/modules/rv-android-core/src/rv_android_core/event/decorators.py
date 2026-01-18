@@ -127,7 +127,7 @@ def subscribe_to(event_types: Union[EventType, List[EventType]],
                 callback=cls_or_func,
                 filter_fn=filter_fn,
                 priority=priority,
-                channel=channel.value
+                channel=channel
             )
 
         # Return original function/class unchanged

@@ -1,355 +1,567 @@
-"""
-Unit tests for the utils module.
-
-This module contains comprehensive tests for utility functions
-used across the RV-Android framework.
-
-### Test Strategy:
-- Cover all utility functions with varied input scenarios
-- Test both successful and failure cases
-- Validate file and directory operations
-- Ensure proper error handling and edge cases
-"""
-
-import json
-import os
-import tempfile
-from unittest.mock import Mock
-
 import pytest
+from unittest.mock import MagicMock, patch, call
+import os
+import shutil
+import hashlib
+import json
+from datetime import datetime, timezone
+from zipfile import ZipFile, ZIP_DEFLATED
 
+from rv_android_core.util.utils import (
+    execute_command,
+    file_hash,
+    create_folder_if_not_exists,
+    reset_folder,
+    move_files_by_extension,
+    copy_files_by_extension,
+    copy_files,
+    delete_files_by_extension,
+    delete_file,
+    delete_dir,
+    check_folder_exists,
+    get_apks,
+    unzip,
+    zip_dir_content,
+    to_readable_time,
+    datetime_to_milliseconds,
+    datetime_to_string,
+    milliseconds_to_datetime,
+    get_env_or_default,
+    get_env_or_exception,
+    read_json,
+)
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
+from rv_android_core.domain.app import App
 from rv_android_core.constants import EXTENSION_APK
-from rv_android_core.util import utils
+from rv_android_core.util.error.exceptions import RVAndroidError
+from rv_android_core.util.logging.manager import LoggingManager
+
+
+# Mock LoggingManager globally
+@pytest.fixture(autouse=True)
+def mock_logging_manager(monkeypatch):
+    mock_manager = MagicMock()
+    mock_logger_instance = MagicMock()
+    mock_manager.get_logger.return_value = mock_logger_instance
+    monkeypatch.setattr("rv_android_core.util.utils.logging_manager", mock_manager)
+    yield mock_manager
+
+
+# Mock os and shutil functions
+@pytest.fixture(autouse=True)
+def mock_os_shutil():
+    with patch("os.path.exists") as mock_exists, patch(
+        "os.makedirs"
+    ) as mock_makedirs, patch("os.listdir") as mock_listdir, patch(
+        "os.remove"
+    ) as mock_remove, patch(
+        "os.getenv"
+    ) as mock_getenv, patch(
+        "shutil.rmtree"
+    ) as mock_rmtree, patch(
+        "shutil.move"
+    ) as mock_move, patch(
+        "shutil.copy2"
+    ) as mock_copy2, patch(
+        "os.path.isfile"
+    ) as mock_isfile, patch(
+        "os.path.isdir"
+    ) as mock_isdir, patch(
+        "os.walk"
+    ) as mock_walk, patch(
+        "os.path.relpath"
+    ) as mock_relpath, patch(
+        "os.stat"
+    ) as mock_stat:
+        yield {
+            "exists": mock_exists,
+            "makedirs": mock_makedirs,
+            "listdir": mock_listdir,
+            "remove": mock_remove,
+            "getenv": mock_getenv,
+            "rmtree": mock_rmtree,
+            "move": mock_move,
+            "copy2": mock_copy2,
+            "isfile": mock_isfile,
+            "isdir": mock_isdir,
+            "walk": mock_walk,
+            "relpath": mock_relpath,
+            "stat": mock_stat,
+        }
+
+
+# Mock Command class
+@pytest.fixture
+def mock_command_class():
+    with patch("rv_android_core.util.utils.Command") as mock_cmd:
+        yield mock_cmd
+
+
+# Mock App class
+@pytest.fixture
+def mock_app_class():
+    with patch("rv_android_core.util.utils.App") as mock_app:
+        yield mock_app
 
 
 class TestUtils:
-    """
-    Comprehensive unit tests for the utils module.
 
-    ### Test Strategy:
-    - Cover all utility functions with varied input scenarios
-    - Test both successful and failure cases
-    - Validate file and directory operations
-    - Ensure proper error handling
-    """
+    # Tests for execute_command
+    def test_execute_command_success(self, mock_command_class, mock_logging_manager):
+        mock_cmd_instance = MagicMock()
+        mock_cmd_instance.invoke.return_value = MagicMock(
+            code=0, stdout=b"output", stderr=b""
+        )
+        mock_command_class.return_value = mock_cmd_instance
 
-    @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for file operations."""
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            yield tmpdirname
-
-    def test_execute_command_success(self, monkeypatch):
-        """
-        Test successful command execution.
-
-        Validates that:
-        - Command is executed without exceptions
-        - Logging occurs correctly
-        """
-        # Create mock logging
-        mock_logger = Mock()
-        mock_logging_manager = Mock()
-        mock_logging_manager.get_logger.return_value = mock_logger
-
-        # Patch logging manager
-        monkeypatch.setattr(
-            'rv_android_core.util.utils.logging_manager',
-            mock_logging_manager
+        result = execute_command(mock_cmd_instance, "test_tag")
+        mock_cmd_instance.invoke.assert_called_once()
+        assert result.stdout == b"output"
+        mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+            "Command executed successfully"
         )
 
-        # Create a mock Command with expected behavior
-        mock_result = Mock()
-        mock_result.code = 0
-        mock_result.stderr = b''
-        mock_cmd = Mock(spec=Command)
-        mock_cmd.invoke.return_value = mock_result
-        mock_cmd.command = "test_command"
-        mock_cmd.args = ["arg1", "arg2"]
-
-        # Execute the utility function
-        try:
-            utils.execute_command(mock_cmd, "test_tag")
-        except Exception as e:
-            pytest.fail(f"Unexpected exception raised: {e}")
-
-        # Verify command was invoked
-        mock_cmd.invoke.assert_called_once_with(stdout=None)
-
-        # Verify logging
-        mock_logger.debug.assert_any_call(
-            f"Executing command: {mock_cmd.command} {' '.join(mock_cmd.args)}"
+    def test_execute_command_failure_with_stderr(
+        self, mock_command_class, mock_logging_manager
+    ):
+        mock_cmd_instance = MagicMock()
+        mock_cmd_instance.invoke.return_value = MagicMock(
+            code=1, stdout=b"", stderr=b"error"
         )
-        mock_logger.debug.assert_any_call("Command executed successfully")
+        mock_command_class.return_value = mock_cmd_instance
 
-    def test_execute_command_failure(self, monkeypatch):
-        """
-        Test command execution failure.
-
-        Validates that:
-        - CommandException is raised on non-zero exit code
-        - Error details are captured correctly
-        """
-        # Create mock logging
-        mock_logger = Mock()
-        mock_logging_manager = Mock()
-        mock_logging_manager.get_logger.return_value = mock_logger
-
-        # Patch logging manager
-        monkeypatch.setattr(
-            'rv_android_core.util.utils.logging_manager',
-            mock_logging_manager
-        )
-
-        # Create a mock Command with failure scenario
-        mock_result = Mock()
-        mock_result.code = 1
-        mock_result.stderr = b'Test error message'
-        mock_cmd = Mock(spec=Command)
-        mock_cmd.invoke.return_value = mock_result
-        mock_cmd.command = "test_command"
-        mock_cmd.args = ["arg1", "arg2"]
-
-        # Attempt to execute and expect CommandException
         with pytest.raises(CommandException) as excinfo:
-            utils.execute_command(mock_cmd, "test_tag")
-
-        # Verify exception details
-        expected_str = "CommandException[tool=test_tag ::: code=1 ::: message=Test error message]"
-        assert str(excinfo.value) == expected_str
+            execute_command(mock_cmd_instance, "test_tag")
         assert excinfo.value.tool == "test_tag"
         assert excinfo.value.code == 1
-        assert excinfo.value.message == "Test error message"
-
-        # Verify logging
-        mock_logger.debug.assert_any_call(
-            f"Executing command: {mock_cmd.command} {' '.join(mock_cmd.args)}"
+        assert "error" in excinfo.value.message
+        mock_logging_manager.get_logger.return_value.error.assert_called_once_with(
+            "Command execution failed: error"
         )
-        mock_logger.error.assert_called_once()
 
-    def test_file_hash_success(self, temp_dir):
-        """
-        Test file hash generation.
+    def test_execute_command_failure_without_stderr_check(
+        self, mock_command_class, mock_logging_manager
+    ):
+        mock_cmd_instance = MagicMock()
+        mock_cmd_instance.invoke.return_value = MagicMock(
+            code=1, stdout=b"", stderr=b"error"
+        )
+        mock_command_class.return_value = mock_cmd_instance
 
-        Validates that:
-        - Hash is generated correctly
-        - Works with different file contents
-        """
-        # Create a test file
-        test_file_path = os.path.join(temp_dir, "test_hash.txt")
-        with open(test_file_path, 'w') as f:
-            f.write("Test content")
+        result = execute_command(mock_cmd_instance, "test_tag", skip_stderr=True)
+        mock_cmd_instance.invoke.assert_called_once()
+        assert result.code == 1
+        mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+            "Command executed successfully"
+        )
 
-        # Generate hash
-        file_hash = utils.file_hash(test_file_path)
+    # Tests for file_hash
+    def test_file_hash_success(self, mock_logging_manager):
+        mock_file_content = b"test content"
+        with patch("builtins.open", MagicMock()) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.side_effect = [
+                mock_file_content,
+                b"",
+            ]
+            expected_hash = hashlib.sha256(mock_file_content).hexdigest()
 
-        # Verify hash generation
-        assert isinstance(file_hash, str)
-        assert len(file_hash) == 64  # SHA-256 hash length
+            result = file_hash("dummy_path.txt")
+            assert result == expected_hash
+            mock_logging_manager.get_logger.return_value.error.assert_not_called()
 
-        # Regenerate and compare
-        same_hash = utils.file_hash(test_file_path)
-        assert file_hash == same_hash
+    def test_file_hash_file_not_found(self, mock_logging_manager):
+        with patch("builtins.open", side_effect=FileNotFoundError):
+            with pytest.raises(FileNotFoundError):
+                file_hash("non_existent.txt")
+            mock_logging_manager.get_logger.return_value.error.assert_called_once()
 
-    def test_file_hash_nonexistent_file(self):
-        """
-        Test file hash generation for non-existent file.
+    # Tests for create_folder_if_not_exists
+    def test_create_folder_if_not_exists_new_folder(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = False
+        create_folder_if_not_exists("/new/path")
+        mock_os_shutil["makedirs"].assert_called_once_with("/new/path")
+        mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+            "Creating folder: /new/path"
+        )
 
-        Validates that:
-        - Appropriate exception is raised
-        """
-        with pytest.raises(FileNotFoundError):
-            utils.file_hash("/path/to/nonexistent/file")
+    def test_create_folder_if_not_exists_folder_exists(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        create_folder_if_not_exists("/existing/path")
+        mock_os_shutil["makedirs"].assert_not_called()
+        mock_logging_manager.get_logger.return_value.debug.assert_not_called()
 
-    def test_create_folder_if_not_exists(self, temp_dir):
-        """
-        Test folder creation utility.
+    def test_create_folder_if_not_exists_os_error(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = False
+        mock_os_shutil["makedirs"].side_effect = OSError("Permission denied")
+        with pytest.raises(OSError):
+            create_folder_if_not_exists("/protected/path")
+        mock_logging_manager.get_logger.return_value.error.assert_called_once()
 
-        Validates that:
-        - Folder is created when it doesn't exist
-        - No error occurs when folder already exists
-        """
-        new_folder = os.path.join(temp_dir, "new_folder")
+    # Tests for reset_folder
+    def test_reset_folder(self, mock_os_shutil, mock_logging_manager):
+        reset_folder("/test/path")
+        mock_os_shutil["rmtree"].assert_called_once_with(
+            "/test/path", ignore_errors=True
+        )
+        mock_os_shutil["makedirs"].assert_called_once_with("/test/path")
+        mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+            "Resetting folder: /test/path"
+        )
 
-        # First call should create the folder
-        utils.create_folder_if_not_exists(new_folder)
-        assert os.path.exists(new_folder)
-        assert os.path.isdir(new_folder)
+    # Tests for move_files_by_extension
+    def test_move_files_by_extension_success(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.txt", "file2.log", "file3.txt"]
 
-        # Second call should not raise an exception
-        try:
-            utils.create_folder_if_not_exists(new_folder)
-        except Exception as e:
-            pytest.fail(f"Unexpected exception: {e}")
+        with patch(
+            "rv_android_core.util.utils.check_folder_exists"
+        ) as mock_check_folder_exists:
+            move_files_by_extension(".txt", "/src", "/dest")
+            mock_check_folder_exists.assert_called_once_with(["/src", "/dest"])
+            assert mock_os_shutil["move"].call_count == 2
+            mock_os_shutil["move"].assert_has_calls(
+                [
+                    call(os.path.join("/src", "file1.txt"), "/dest"),
+                    call(os.path.join("/src", "file3.txt"), "/dest"),
+                ],
+                any_order=True,
+            )
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Moved 2 files"
+            )
 
-    def test_reset_folder(self, temp_dir):
-        """
-        Test folder reset utility.
+    def test_move_files_by_extension_no_match(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.log", "file2.log"]
+        with patch("rv_android_core.util.utils.check_folder_exists"):
+            move_files_by_extension(".txt", "/src", "/dest")
+            mock_os_shutil["move"].assert_not_called()
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Moved 0 files"
+            )
 
-        Validates that:
-        - Existing folder is cleared
-        - New empty folder is created
-        """
-        test_folder = os.path.join(temp_dir, "test_reset")
-        os.makedirs(test_folder)
+    def test_move_files_by_extension_os_error(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.txt"]
+        mock_os_shutil["move"].side_effect = OSError("Disk full")
+        with patch("rv_android_core.util.utils.check_folder_exists"):
+            with pytest.raises(Exception) as excinfo:
+                move_files_by_extension(".txt", "/src", "/dest")
+            assert "Disk full" in str(excinfo.value)
+            mock_logging_manager.get_logger.return_value.error.assert_called_once()
 
-        # Create some files
-        open(os.path.join(test_folder, "file1.txt"), 'w').close()
-        open(os.path.join(test_folder, "file2.txt"), 'w').close()
+    # Tests for copy_files_by_extension
+    def test_copy_files_by_extension_success(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.txt", "file2.log", "file3.txt"]
+        with patch("rv_android_core.util.utils.check_folder_exists"):
+            copy_files_by_extension(".txt", "/src", "/dest")
+            assert mock_os_shutil["copy2"].call_count == 2
+            mock_os_shutil["copy2"].assert_has_calls(
+                [
+                    call(os.path.join("/src", "file1.txt"), "/dest"),
+                    call(os.path.join("/src", "file3.txt"), "/dest"),
+                ],
+                any_order=True,
+            )
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Copied 2 files with extension .txt"
+            )
 
-        # Reset the folder
-        utils.reset_folder(test_folder)
+    def test_copy_files_by_extension_log_info(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.txt"]
+        with patch("rv_android_core.util.utils.check_folder_exists"):
+            copy_files_by_extension(".txt", "/src", "/dest", log_info=True)
+            mock_logging_manager.get_logger.return_value.info.assert_called_with(
+                "Copying 'file1.txt' to /dest"
+            )
 
-        # Verify folder exists and is empty
-        assert os.path.exists(test_folder)
-        assert os.path.isdir(test_folder)
-        assert len(os.listdir(test_folder)) == 0
+    # Tests for copy_files
+    def test_copy_files_success(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.txt", "dir1"]
+        mock_os_shutil["isfile"].side_effect = lambda x: x.endswith(".txt")
+        with patch("rv_android_core.util.utils.check_folder_exists"):
+            copy_files("/src", "/dest")
+            mock_os_shutil["copy2"].assert_called_once_with(
+                os.path.join("/src", "file1.txt"), "/dest"
+            )
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Copied 1 files"
+            )
 
-    def test_move_files_by_extension(self, temp_dir):
-        """
-        Test moving files by extension.
+    # Tests for delete_files_by_extension
+    def test_delete_files_by_extension_success(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["file1.txt", "file2.log", "file3.txt"]
+        with patch("rv_android_core.util.utils.check_folder_exists"):
+            delete_files_by_extension(".txt", "/src")
+            assert mock_os_shutil["remove"].call_count == 2
+            mock_os_shutil["remove"].assert_has_calls(
+                [
+                    call(os.path.join("/src", "file1.txt")),
+                    call(os.path.join("/src", "file3.txt")),
+                ],
+                any_order=True,
+            )
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Deleted 2 files with extension .txt"
+            )
 
-        Validates that:
-        - Files with specified extension are moved
-        - Only matching files are moved
-        """
-        source_dir = os.path.join(temp_dir, "source")
-        dest_dir = os.path.join(temp_dir, "destination")
-        os.makedirs(source_dir)
-        os.makedirs(dest_dir)
+    # Tests for delete_file
+    def test_delete_file_exists(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = True
+        delete_file("/path/to/file.txt")
+        mock_os_shutil["remove"].assert_called_once_with("/path/to/file.txt")
+        mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+            "Deleted file: /path/to/file.txt"
+        )
 
-        # Create test files
-        open(os.path.join(source_dir, "file1.txt"), 'w').close()
-        open(os.path.join(source_dir, "file2.txt"), 'w').close()
-        open(os.path.join(source_dir, "file3.log"), 'w').close()
+    def test_delete_file_not_exists(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = False
+        delete_file("/path/to/non_existent.txt")
+        mock_os_shutil["remove"].assert_not_called()
 
-        # Move .txt files
-        utils.move_files_by_extension(".txt", source_dir, dest_dir)
+    # Tests for delete_dir
+    def test_delete_dir_exists(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["isdir"].return_value = True
+        delete_dir("/path/to/dir")
+        mock_os_shutil["rmtree"].assert_called_once_with("/path/to/dir")
+        mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+            "Deleted directory: /path/to/dir"
+        )
 
-        # Verify files
-        assert len(os.listdir(source_dir)) == 1  # Only .log file remains
-        assert len(os.listdir(dest_dir)) == 2  # Two .txt files moved
+    def test_delete_dir_not_exists(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = False
+        delete_dir("/path/to/non_existent_dir")
+        mock_os_shutil["rmtree"].assert_not_called()
 
-    def test_to_readable_time(self):
-        """
-        Test conversion of seconds to human-readable time.
+    # Tests for check_folder_exists
+    def test_check_folder_exists_all_exist(self, mock_os_shutil):
+        mock_os_shutil["exists"].return_value = True
+        check_folder_exists(["/path1", "/path2"])
+        assert mock_os_shutil["exists"].call_count == 2
 
-        Validates different time ranges.
-        """
-        # Test seconds
-        assert utils.to_readable_time(30) == "30 seconds"
+    def test_check_folder_exists_one_missing(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].side_effect = [True, False]
+        with pytest.raises(Exception) as excinfo:
+            check_folder_exists(["/path1", "/path2"])
+        assert "Folder does not exist: /path2" in str(excinfo.value)
+        mock_logging_manager.get_logger.return_value.error.assert_called_once_with(
+            "Folder does not exist: /path2"
+        )
 
-        # Test minutes
-        assert utils.to_readable_time(125) == "2 minutes and 5 seconds"
+    # Tests for get_apks
+    def test_get_apks_success(
+        self, mock_os_shutil, mock_app_class, mock_logging_manager
+    ):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["isdir"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["app1.apk", "not_apk.txt", "app2.APK"]
+        mock_app_instance1 = MagicMock(spec=App)
+        mock_app_instance2 = MagicMock(spec=App)
+        mock_app_class.side_effect = [mock_app_instance1, mock_app_instance2]
 
-        # Test hours
-        assert utils.to_readable_time(3661) == "1 hours, 1 minutes and 1 seconds"
+        apks = get_apks("/apks")
+        assert len(apks) == 2
+        assert apks[0] == mock_app_instance1
+        assert apks[1] == mock_app_instance2
+        mock_logging_manager.get_logger.return_value.info.assert_called_with(
+            "Found 2 APK files in /apks"
+        )
 
-    def test_get_env_or_default(self, monkeypatch):
-        """
-        Test environment variable retrieval with defaults.
+    def test_get_apks_empty_dir(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["isdir"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["not_apk.txt"]
+        apks = get_apks("/apks")
+        assert len(apks) == 0
+        mock_logging_manager.get_logger.return_value.info.assert_called_with(
+            "Found 0 APK files in /apks"
+        )
 
-        Validates different type conversions and default handling.
-        """
-        # Mock environment variables
-        monkeypatch.setenv('TEST_STR', 'value')
-        monkeypatch.setenv('TEST_INT', '42')
-        monkeypatch.setenv('TEST_BOOL', 'true')
+    def test_get_apks_non_existent_dir(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["exists"].return_value = False
+        apks = get_apks("/non_existent")
+        assert len(apks) == 0
+        mock_logging_manager.get_logger.return_value.info.assert_called_with(
+            "Found 0 APK files in /non_existent"
+        )
 
-        # String conversion
-        assert utils.get_env_or_default('TEST_STR', 'default') == 'value'
+    # Tests for unzip
+    def test_unzip_success(self, mock_logging_manager):
+        mock_zip_file_instance = MagicMock()
+        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+            mock_zipfile_class.return_value.__enter__.return_value = (
+                mock_zip_file_instance
+            )
+            unzip("test.zip", "/out")
+            mock_zipfile_class.assert_called_once_with("test.zip", "r")
+            mock_zip_file_instance.extractall.assert_called_once_with(path="/out")
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Extraction completed successfully"
+            )
 
-        # Integer conversion
-        assert utils.get_env_or_default('TEST_INT', 0, value_type=int) == 42
+    def test_unzip_failure(self, mock_logging_manager):
+        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+            mock_zipfile_class.side_effect = Exception("Corrupt zip")
+            with pytest.raises(Exception) as excinfo:
+                unzip("corrupt.zip", "/out")
+            assert "Corrupt zip" in str(excinfo.value)
+            mock_logging_manager.get_logger.return_value.error.assert_called_once()
 
-        # Boolean conversion
-        assert utils.get_env_or_default('TEST_BOOL', False, value_type=bool) is True
+    # Tests for zip_dir_content
+    def test_zip_dir_content_success(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["walk"].return_value = [("/in", [], ["file1.txt", "file2.log"])]
+        mock_os_shutil["stat"].return_value = MagicMock(
+            st_size=100, st_mtime=time.time()
+        )
+        mock_zip_file_instance = MagicMock()
+        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+            mock_zipfile_class.return_value.__enter__.return_value = (
+                mock_zip_file_instance
+            )
+            zip_dir_content("output.zip", "/in")
+            mock_zipfile_class.assert_called_once_with("output.zip", "w", ZIP_DEFLATED)
+            assert mock_zip_file_instance.write.call_count == 2
+            mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                "Compressed 2 files successfully"
+            )
 
-        # Default when not set
-        assert utils.get_env_or_default('UNSET_VAR', 'default') == 'default'
+    def test_zip_dir_content_failure(self, mock_os_shutil, mock_logging_manager):
+        mock_os_shutil["walk"].return_value = [("/in", [], ["file1.txt"])]
+        mock_os_shutil["stat"].return_value = MagicMock(
+            st_size=100, st_mtime=time.time()
+        )
+        mock_zip_file_instance = MagicMock()
+        mock_zip_file_instance.__enter__.return_value.write.side_effect = Exception(
+            "Disk full"
+        )
+        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+            mock_zipfile_class.return_value.__enter__.return_value = (
+                mock_zip_file_instance
+            )
+            with pytest.raises(Exception) as excinfo:
+                zip_dir_content("output.zip", "/in")
+            assert "Disk full" in str(excinfo.value)
+            mock_logging_manager.get_logger.return_value.error.assert_called_once()
 
-    def test_read_json(self, temp_dir):
-        """
-        Test JSON file reading.
+    # Tests for to_readable_time
+    def test_to_readable_time_seconds(self):
+        assert to_readable_time(30) == "30 seconds"
 
-        Validates:
-        - Successful JSON parsing
-        - Error handling for invalid files
-        """
-        # Valid JSON file
-        valid_json_path = os.path.join(temp_dir, "valid.json")
-        with open(valid_json_path, 'w') as f:
-            json.dump({"key": "value"}, f)
+    def test_to_readable_time_minutes(self):
+        assert to_readable_time(150) == "2 minutes and 30 seconds"
 
-        # Read valid JSON
-        data = utils.read_json(valid_json_path)
-        assert data == {"key": "value"}
+    def test_to_readable_time_hours(self):
+        assert to_readable_time(3700) == "1 hours, 1 minutes and 40 seconds"
 
-        # Non-existent file
-        non_existent_path = os.path.join(temp_dir, "nonexistent.json")
-        data = utils.read_json(non_existent_path)
-        assert data == {}
+    # Tests for get_env_or_default
+    def test_get_env_or_default_str_exists(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = "env_value"
+        assert get_env_or_default("TEST_VAR", "default") == "env_value"
 
-        # Invalid JSON file
-        invalid_json_path = os.path.join(temp_dir, "invalid.json")
-        with open(invalid_json_path, 'w') as f:
-            f.write("{invalid json")
+    def test_get_env_or_default_str_default(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = None
+        assert get_env_or_default("TEST_VAR", "default") == "default"
 
-        data = utils.read_json(invalid_json_path)
-        assert data == {}
+    def test_get_env_or_default_int(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = "123"
+        assert get_env_or_default("TEST_VAR", 0, value_type=int) == 123
 
-    def test_get_apks(self, temp_dir, monkeypatch):
-        """
-        Test APK file retrieval.
+    def test_get_env_or_default_bool(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = "True"
+        assert get_env_or_default("TEST_VAR", False, value_type=bool) is True
 
-        Validates that:
-        - Only APK files are returned
-        - App objects are created correctly
-        """
-        # Create APK-like files
-        apk_contents = b'\x50\x4b\x03\x04\x14\x00\x08\x00\x08\x00'  # Minimal valid ZIP/APK header
-
-        # Create files with APK extension
-        apk_paths = [
-            os.path.join(temp_dir, "app1.apk"),
-            os.path.join(temp_dir, "app2.APK"),
-            os.path.join(temp_dir, "not_an_apk.txt")
+    def test_get_env_or_default_list_str(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = "item1 item2"
+        assert get_env_or_default("TEST_VAR", [], value_type=list, separator=" ") == [
+            "item1",
+            "item2",
         ]
 
-        # Write APK-like content to first two files
-        for path in apk_paths[:2]:
-            with open(path, 'wb') as f:
-                f.write(apk_contents)
+    def test_get_env_or_default_list_int(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = "1 2 3"
+        assert get_env_or_default(
+            "TEST_VAR", [], value_type=list[int], separator=" "
+        ) == [1, 2, 3]
 
-        # Create a non-APK file
-        open(apk_paths[2], 'w').close()
+    def test_get_env_or_default_conversion_error(
+        self, mock_os_shutil, mock_logging_manager
+    ):
+        mock_os_shutil["getenv"].return_value = "not_an_int"
+        result = get_env_or_default("TEST_VAR", 0, value_type=int)
+        assert result == 0
+        mock_logging_manager.get_logger.return_value.error.assert_called_once()
 
-        # Create a mock App class
-        def mock_app_init(path):
-            mock_app = Mock()
-            mock_app.path = path
-            mock_app.name = os.path.basename(path)
-            return mock_app
+    # Tests for get_env_or_exception
+    def test_get_env_or_exception_exists(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = "env_value"
+        assert get_env_or_exception("TEST_VAR") == "env_value"
 
-        # Patch App initialization
-        monkeypatch.setattr('rv_android_core.util.utils.App', mock_app_init)
+    def test_get_env_or_exception_not_exists(self, mock_os_shutil):
+        mock_os_shutil["getenv"].return_value = None
+        with pytest.raises(RVAndroidError) as excinfo:
+            get_env_or_exception("TEST_VAR")
+        assert "Environment variable TEST_VAR is not set" in str(excinfo.value)
 
-        # Patch Androguard APK parsing to always succeed
-        def mock_apk_init(path):
-            mock_apk = Mock()
-            mock_apk.get_package.return_value = 'test.package'
-            mock_apk.get_effective_target_sdk_version.return_value = 30
-            mock_apk.get_permissions.return_value = []
-            mock_apk.get_min_sdk_version.return_value = 21
-            return mock_apk
+    # Tests for read_json
+    def test_read_json_success(self, mock_logging_manager):
+        mock_json_content = '{"key": "value"}'
+        with patch("builtins.open", MagicMock()) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = (
+                mock_json_content
+            )
+            with patch("json.load", return_value={"key": "value"}) as mock_json_load:
+                result = read_json("test.json")
+                assert result == {"key": "value"}
+                mock_json_load.assert_called_once()
+                mock_logging_manager.get_logger.return_value.debug.assert_called_with(
+                    "Reading JSON file: test.json"
+                )
 
-        monkeypatch.setattr('rv_android_core.domain.app.APK', mock_apk_init)
+    def test_read_json_file_not_found(self, mock_logging_manager):
+        with patch("builtins.open", side_effect=FileNotFoundError):
+            result = read_json("non_existent.json")
+            assert result == {}
+            mock_logging_manager.get_logger.return_value.error.assert_called_with(
+                "File not found: non_existent.json"
+            )
 
-        # Retrieve APKs
-        apks = utils.get_apks(temp_dir)
-
-        # Verify
-        assert len(apks) == 2, f"Expected 2 APKs, found {len(apks)}"
-        assert all(apk.name.lower().endswith(EXTENSION_APK) for apk in apks)
+    def test_read_json_decode_error(self, mock_logging_manager):
+        mock_json_content = '{"key": "value"'
+        with patch("builtins.open", MagicMock()) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = (
+                mock_json_content
+            )
+            with patch(
+                "json.load", side_effect=json.JSONDecodeError("Invalid JSON", "", 0)
+            ):
+                result = read_json("malformed.json")
+                assert result == {}
+                mock_logging_manager.get_logger.return_value.error.assert_called_with(
+                    "Failed to parse JSON from file: malformed.json"
+                )

@@ -66,7 +66,7 @@ class RVAgentConfig(BaseValidatedModel):
         description="LLM model identifier"
     )
     llm_base_url: str = Field(
-        default="http://192.168.0.21:30000/v1",
+        default="http://192.168.0.36:30000/v1",
         description="SGLang server URL (OpenAI-compatible API)"
     )
     prompt_version: str = Field(

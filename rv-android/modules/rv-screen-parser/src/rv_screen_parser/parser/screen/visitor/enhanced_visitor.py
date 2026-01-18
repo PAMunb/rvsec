@@ -764,8 +764,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         if prioritize_check and node.checkable:
             self.create_checked_action(actions, coordinates, counter, node, node_data)
 
-        # Handle click actions
-        elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):
+        # Handle click actions (including inherently clickable types like ActionBar$Tab)
+        elif (node.clickable or inherit_click or self.is_always_clickable_type(node)) and not (prioritize_check and node.checkable):
             text_suffix = ""
             if node.view_text:
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"

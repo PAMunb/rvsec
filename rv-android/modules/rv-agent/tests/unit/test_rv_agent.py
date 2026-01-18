@@ -119,7 +119,7 @@ class TestRVAgentInitialization:
         """Agent initializes stuck and deadlock detection thresholds."""
         agent = RVAgent(config=agent_config, **mock_dependencies)
 
-        assert agent.STUCK_THRESHOLD == 3
+        assert agent.STUCK_THRESHOLD == 8
         assert agent.NO_ACTION_THRESHOLD == 3
         assert agent.stuck_screen_count == 0
         assert agent.consecutive_no_action == 0

@@ -336,8 +336,11 @@ class RVAgent:
 
         # External execution loop
         logger.info(f"DEBUG_TRACE: Starting loop, timeout={self.config.timeout}")
-        try:
-            while True:
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+
+        while True:
+            try:
                 elapsed = time.time() - start_time
                 logger.info(f"DEBUG_TRACE: Loop check, elapsed={elapsed:.1f}, timeout={self.config.timeout}")
 
@@ -359,14 +362,23 @@ class RVAgent:
                 state.update(result)
 
                 iteration += 1
+                consecutive_errors = 0  # Reset on success
                 logger.info(f"DEBUG_TRACE: Iteration incremented to {iteration}")
                 time.sleep(0.5)
 
-        except KeyboardInterrupt:
-            logger.info("⚠️  Interrupted by user")
-        except Exception as e:
-            logger.error(f"DEBUG_TRACE: Exception in loop: {type(e).__name__}: {e}")
-            logger.error(f"❌ Execution error: {e}", exc_info=True)
+            except KeyboardInterrupt:
+                logger.info("⚠️  Interrupted by user")
+                break
+            except Exception as e:
+                consecutive_errors += 1
+                logger.error(f"DEBUG_TRACE: Exception in iteration {iteration}: {type(e).__name__}: {e}")
+                logger.error(f"❌ Iteration error (attempt {consecutive_errors}/{max_consecutive_errors}): {e}")
+
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error(f"❌ Too many consecutive errors ({max_consecutive_errors}), but continuing until timeout")
+                    consecutive_errors = 0  # Reset to allow more attempts
+
+                time.sleep(1)  # Brief pause before retry
 
         # Compute final metrics
         execution_time = time.time() - start_time

@@ -215,7 +215,7 @@ class TestActionHistorySummary:
         summary = memory.get_action_history_summary()
 
         assert "Recent actions (1)" in summary
-        assert "1. CLICK: Tap login button" in summary
+        assert "1. CLICK at (0, 0): Tap login button" in summary
 
     def test_multiple_actions_summary(self, memory):
         """Multiple actions formatted with numbers."""
@@ -226,9 +226,9 @@ class TestActionHistorySummary:
         summary = memory.get_action_history_summary()
 
         assert "Recent actions (3)" in summary
-        assert "1. CLICK: Click A" in summary
-        assert "2. SCROLL: Scroll down" in summary
-        assert "3. SET_TEXT: Enter text" in summary
+        assert "1. CLICK at (0, 0): Click A" in summary
+        assert "2. SCROLL at (0, 0): Scroll down" in summary
+        assert "3. SET_TEXT at (0, 0): Enter text" in summary
 
     def test_failed_action_marker(self, memory):
         """Failed actions marked with [FAILED]."""

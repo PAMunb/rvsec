@@ -9,6 +9,20 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
 
 
+# Element types that should always be considered clickable even without clickable=true
+# These are UI elements that are inherently interactive but may not be marked as such
+ALWAYS_CLICKABLE_TYPES = {
+    "ActionBar$Tab",      # Navigation tabs
+    "Tab",                # Generic tabs
+    "TabLayout",          # Tab container (individual tabs)
+    "TabView",            # Tab views
+    "NavigationBarView",  # Bottom navigation items
+    "BottomNavigationItemView",  # Bottom nav items
+    "ActionMenuItemView", # Action bar menu items
+    "MenuItemView",       # Menu items
+}
+
+
 class AbstractScreenVisitor(ABC):
     """
     Abstract base visitor implementation for processing Android UI elements.
@@ -138,6 +152,34 @@ class AbstractScreenVisitor(ABC):
             if parent.clickable:
                 return True
             parent = parent.parent
+        return False
+
+    def is_always_clickable_type(self, node: Node) -> bool:
+        """
+        Check if the node's class type is inherently clickable.
+
+        Some UI elements like ActionBar$Tab are clickable but may not have
+        the clickable attribute set to true in UIAutomator dump.
+
+        Args:
+            node: Current node
+
+        Returns:
+            True if the node type is always clickable, False otherwise
+        """
+        if not node.view_class:
+            return False
+
+        # Check exact match
+        class_name = node.view_class.split(".")[-1]  # Get simple class name
+        if class_name in ALWAYS_CLICKABLE_TYPES:
+            return True
+
+        # Check partial match for nested classes (e.g., ActionBar$Tab)
+        for clickable_type in ALWAYS_CLICKABLE_TYPES:
+            if clickable_type in class_name:
+                return True
+
         return False
 
     def _check_method_reaches_mop(self, signature: str) -> bool:
@@ -323,8 +365,9 @@ class AbstractScreenVisitor(ABC):
                 self._update_action_mop_related_info(action, node)
                 actions.append(action)
 
-        # Handle click actions
-        elif (node.clickable or inherit_click) and not (prioritize_check and node.checkable):
+        # Handle click actions (skip for editable elements - they use TEXT_CHANGE instead)
+        # Also consider elements that are inherently clickable by type (e.g., ActionBar$Tab)
+        elif (node.clickable or inherit_click or self.is_always_clickable_type(node)) and not (prioritize_check and node.checkable) and not node.editable:
             text_suffix = ""
             if node.view_text:
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"

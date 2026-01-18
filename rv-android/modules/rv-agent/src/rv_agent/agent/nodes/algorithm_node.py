@@ -148,16 +148,24 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     x, y = coords
 
     # Convert ItemAction to unified action format
+    # For SET_TEXT actions, use text_input (actual value to type) not text (description)
+    if action_type == "SET_TEXT":
+        text_value = item_action.text_input or ""
+        if not text_value:
+            logger.warning(f"SET_TEXT action has no text_input value, action will fail")
+    else:
+        text_value = item_action.text or ""
+
     action = {
         "action_type": action_type,
         "x": x,
         "y": y,
-        "text": item_action.text or "",
+        "text": text_value,
         "source": "algorithm",
         "id": item_action.id
     }
 
-    logger.info(f"Algorithm selected: {action_type} at ({x}, {y})")
+    logger.info(f"Algorithm selected: {action_type} at ({x}, {y})" + (f" text='{text_value[:20]}'" if text_value else ""))
 
     # Reset deadlock counter on successful action
     agent.consecutive_no_action = 0

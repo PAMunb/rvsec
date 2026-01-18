@@ -28,7 +28,7 @@ from rv_agent.agent.device_interface import DeviceInterface
 DATASET_ROOT = Path("/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots")
 APKS_ROOT = Path("/home/pedro/desenvolvimento/RV_ANDROID/apks")
 DEVICE_ID = os.getenv("ANDROID_DEVICE_ID", "emulator-5554")
-SGLANG_URL = os.getenv("SGLANG_URL", "http://192.168.0.21:30000/v1")
+SGLANG_URL = os.getenv("SGLANG_URL", "http://192.168.0.36:30000/v1")
 SGLANG_MODEL = os.getenv("SGLANG_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
 
 

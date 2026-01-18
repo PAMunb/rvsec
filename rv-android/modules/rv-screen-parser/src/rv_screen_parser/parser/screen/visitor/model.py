@@ -841,13 +841,18 @@ class Node(BaseValidatedModel):
     def _handle_leaf_node(self, visitor) -> None:
         """
         Handle visitor pattern for leaf nodes with element-specific processing.
-        
+
         Dispatches to specialized visitor methods based on widget class,
         enabling element-specific analysis and processing strategies.
-        
+
         Args:
             visitor: Visitor implementation
         """
+        # Check for system navigation buttons (navbar, status bar) before processing
+        exclude_check = getattr(visitor, "should_exclude_system_button", None)
+        if exclude_check and callable(exclude_check) and exclude_check(self):
+            return
+
         # Mapping of widget classes to specialized visitor methods
         widget_handler_mapping = {
             "android.widget.Button": "visit_button",
@@ -878,13 +883,17 @@ class Node(BaseValidatedModel):
     def _handle_container_node(self, visitor) -> None:
         """
         Handle visitor pattern for container nodes with recursive traversal.
-        
+
         Provides specialized handling for specific container types while
         maintaining recursive traversal for comprehensive UI analysis.
-        
+
         Args:
             visitor: Visitor implementation
         """
+        # NOTE: Do NOT check should_exclude_system_button for containers!
+        # Containers often span the full screen height, and filtering them
+        # would exclude ALL their children. Only filter leaf nodes.
+
         # Specialized container handling for specific widget types
         if self.view_class == "android.widget.Spinner":
             spinner_handler = getattr(visitor, "visit_spinner", None)

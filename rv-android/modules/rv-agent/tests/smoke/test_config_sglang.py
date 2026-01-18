@@ -38,7 +38,7 @@ class TestConfigSGLang:
         config = RVAgentConfig.create_default(package_name="test")
 
         # SGLang server URL
-        assert "192.168.0.21:30000" in config.llm_base_url
+        assert "192.168.0.36:30000" in config.llm_base_url
         assert "/v1" in config.llm_base_url
 
         # Qwen model
