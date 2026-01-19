@@ -12,14 +12,30 @@ from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem,
 # Element types that should always be considered clickable even without clickable=true
 # These are UI elements that are inherently interactive but may not be marked as such
 ALWAYS_CLICKABLE_TYPES = {
-    "ActionBar$Tab",      # Navigation tabs
-    "Tab",                # Generic tabs
-    "TabLayout",          # Tab container (individual tabs)
-    "TabView",            # Tab views
-    "NavigationBarView",  # Bottom navigation items
-    "BottomNavigationItemView",  # Bottom nav items
-    "ActionMenuItemView", # Action bar menu items
-    "MenuItemView",       # Menu items
+    # Standard Android Tabs
+    "ActionBar$Tab",
+    "Tab",
+    "TabLayout",
+    "TabView",
+    # Navigation Components
+    "NavigationBarView",
+    "BottomNavigationItemView",
+    "NavigationRailView",
+    # Menu Items
+    "ActionMenuItemView",
+    "MenuItemView",
+    "OverflowMenuButton",
+    # Material Design Components
+    "Chip",
+    "com.google.android.material.chip.Chip",
+    "com.google.android.material.tabs.TabItem",
+    "com.google.android.material.tabs.TabLayout$TabView",
+    "com.google.android.material.bottomnavigation.BottomNavigationItemView",
+    "com.google.android.material.navigation.NavigationBarItemView",
+    "com.google.android.material.floatingactionbutton.FloatingActionButton",
+    # AndroidX Components
+    "androidx.appcompat.widget.ActionMenuView",
+    "androidx.appcompat.view.menu.ActionMenuItemView",
 }
 
 

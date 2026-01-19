@@ -165,6 +165,16 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "id": item_action.id
     }
 
+    # Extract swipe/drag data from target_view if available
+    # This is needed for SeekBar, ViewPager, and other drag-based interactions
+    if item_action.target_view:
+        if "swipe_start" in item_action.target_view:
+            action["swipe_start"] = item_action.target_view["swipe_start"]
+        if "swipe_end" in item_action.target_view:
+            action["swipe_end"] = item_action.target_view["swipe_end"]
+        if "direction" in item_action.target_view:
+            action["direction"] = item_action.target_view["direction"]
+
     logger.info(f"Algorithm selected: {action_type} at ({x}, {y})" + (f" text='{text_value[:20]}'" if text_value else ""))
 
     # Reset deadlock counter on successful action

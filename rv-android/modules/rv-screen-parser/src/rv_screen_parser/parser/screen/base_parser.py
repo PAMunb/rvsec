@@ -136,7 +136,6 @@ class BaseScreenParser(Generic[T], ABC):
             AbstractScreenVisitor instance
         """
         self.logger.debug(f"Creating visitor: class={self.visitor_class.__name__}, activity={activity}")
-        print(f">>>>> Creating visitor: class={self.visitor_class.__name__}, activity={activity}")
         return self.visitor_class(static_data, activity)
 
     @abstractmethod

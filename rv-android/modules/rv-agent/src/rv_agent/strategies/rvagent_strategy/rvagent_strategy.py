@@ -30,7 +30,7 @@ from rv_agent.strategies.rvagent_strategy.ranking import (
     RankingContext,
     MopScorer,
     WtgScorer,
-    UntestedScorer,
+    GradualDecayScorer,
     ExecutionCountScorer,
     FailedActionScorer,
     ComponentPriorityScorer,
@@ -166,7 +166,7 @@ class RVAgentStrategy(ExplorationStrategy):
         self.action_ranker = ActionRanker(scorers=[
             MopScorer(),
             WtgScorer(),
-            UntestedScorer(),
+            GradualDecayScorer(),
             ComponentPriorityScorer(),
             ExecutionCountScorer(coordinate_converter=coordinate_converter),
             FailedActionScorer(coordinate_converter=coordinate_converter),
@@ -619,15 +619,16 @@ class RVAgentStrategy(ExplorationStrategy):
         selection adds controlled randomness while preserving priority order.
 
         Delegates scoring to registered Scorers:
-        - UntestedScorer: +200 (never tested)
+        - GradualDecayScorer: 200 * (0.7 ^ visits), decays with each interaction
         - MopScorer: +100 (DM), +50 (M)
         - WtgScorer: +100 (WTG-guided)
+        - ComponentPriorityScorer: +50 (buttons), +40 (toggles)
         - ExecutionCountScorer: 10/(1+count)
         - FailedActionScorer: -9999 (blacklisted)
 
         Gumbel-max stochastic selection adds controlled randomness while
         preserving priority order. With balanced scores, exploration is
-        more diverse while still favoring untested and MOP-reaching elements.
+        more diverse while still favoring less-tested and MOP-reaching elements.
 
         Args:
             actions: Candidate actions

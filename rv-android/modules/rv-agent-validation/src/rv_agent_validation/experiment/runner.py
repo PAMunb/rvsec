@@ -464,7 +464,7 @@ class ExperimentRunner:
                 strategy=run.strategy,
             )
 
-        # Create agent config
+        # Create agent config with LLM parameters from run
         agent_config = RVAgentConfig(
             package_name=run.package_name,
             agent_mode=self.config.agent_mode,
@@ -472,6 +472,11 @@ class ExperimentRunner:
             timeout=self.config.timeout_seconds,
             device_id=self.config.device_serial,
             results_dir=str(self.runs_dir),
+            # LLM parameters (Phase 2)
+            prompt_version=run.prompt_version,
+            llm_temperature=run.llm_temperature,
+            llm_top_p=run.llm_top_p,
+            llm_top_k=run.llm_top_k,
         )
 
         # Execute agent

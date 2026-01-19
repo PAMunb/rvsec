@@ -10,11 +10,10 @@ from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     Scorer,
     MopScorer,
     WtgScorer,
-    UntestedScorer,
+    GradualDecayScorer,
     ExecutionCountScorer,
     FailedActionScorer,
     ComponentPriorityScorer,
-    DropdownScorer,  # Alias for backwards compatibility
 )
 
 __all__ = [
@@ -24,9 +23,8 @@ __all__ = [
     "Scorer",
     "MopScorer",
     "WtgScorer",
-    "UntestedScorer",
+    "GradualDecayScorer",
     "ExecutionCountScorer",
     "FailedActionScorer",
     "ComponentPriorityScorer",
-    "DropdownScorer",
 ]

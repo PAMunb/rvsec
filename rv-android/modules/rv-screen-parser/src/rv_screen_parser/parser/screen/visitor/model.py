@@ -20,6 +20,10 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 # Canonical mapping from WidgetEventType to standardized action type strings
 # This is the SINGLE SOURCE OF TRUTH for action type classification
+#
+# SCROLL = direction-based scrolling for lists/containers (up/down/left/right)
+# DRAG = coordinate-based movement from point A to B (for SeekBar, sliders)
+# SWIPE = alias for SCROLL (direction-based gesture)
 WIDGET_EVENT_TO_ACTION_TYPE = {
     WidgetEventType.CLICK: "click",
     WidgetEventType.LONG_CLICK: "long_click",
@@ -27,7 +31,7 @@ WIDGET_EVENT_TO_ACTION_TYPE = {
     WidgetEventType.SCROLL: "scroll",
     WidgetEventType.BACK: "key_event",
     WidgetEventType.KEY: "key_event",
-    WidgetEventType.DRAG: "swipe",
+    WidgetEventType.DRAG: "drag",
     WidgetEventType.GESTURE: "swipe",
     WidgetEventType.FOCUS: "click",
     WidgetEventType.SELECTION: "click",
@@ -855,6 +859,7 @@ class Node(BaseValidatedModel):
 
         # Mapping of widget classes to specialized visitor methods
         widget_handler_mapping = {
+            # Standard Android Widgets
             "android.widget.Button": "visit_button",
             "android.widget.EditText": "visit_edit_text",
             "android.widget.TextView": "visit_text_view",
@@ -865,7 +870,33 @@ class Node(BaseValidatedModel):
             "android.widget.ToggleButton": "visit_toggle_button",
             "android.widget.Switch": "visit_switch",
             "android.widget.RadioButton": "visit_radio_button",
-            "android.widget.SeekBar": "visit_slider"
+            "android.widget.SeekBar": "visit_slider",
+            "android.widget.RatingBar": "visit_slider",
+            "android.widget.AutoCompleteTextView": "visit_edit_text",
+            "android.widget.MultiAutoCompleteTextView": "visit_edit_text",
+            # AndroidX AppCompat Widgets
+            "androidx.appcompat.widget.AppCompatButton": "visit_button",
+            "androidx.appcompat.widget.AppCompatEditText": "visit_edit_text",
+            "androidx.appcompat.widget.AppCompatTextView": "visit_text_view",
+            "androidx.appcompat.widget.AppCompatCheckBox": "visit_checkbox",
+            "androidx.appcompat.widget.AppCompatImageButton": "visit_image_button",
+            "androidx.appcompat.widget.AppCompatImageView": "visit_image",
+            "androidx.appcompat.widget.AppCompatRadioButton": "visit_radio_button",
+            "androidx.appcompat.widget.AppCompatSeekBar": "visit_slider",
+            "androidx.appcompat.widget.SwitchCompat": "visit_switch",
+            "androidx.appcompat.widget.AppCompatToggleButton": "visit_toggle_button",
+            "androidx.appcompat.widget.AppCompatCheckedTextView": "visit_checked_text",
+            # Material Design Components
+            "com.google.android.material.chip.Chip": "visit_button",
+            "com.google.android.material.button.MaterialButton": "visit_button",
+            "com.google.android.material.textfield.TextInputEditText": "visit_edit_text",
+            "com.google.android.material.switchmaterial.SwitchMaterial": "visit_switch",
+            "com.google.android.material.checkbox.MaterialCheckBox": "visit_checkbox",
+            "com.google.android.material.radiobutton.MaterialRadioButton": "visit_radio_button",
+            "com.google.android.material.slider.Slider": "visit_slider",
+            "com.google.android.material.slider.RangeSlider": "visit_slider",
+            "com.google.android.material.floatingactionbutton.FloatingActionButton": "visit_button",
+            "com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton": "visit_button",
         }
         
         # Get specialized handler or fall back to generic leaf handling
@@ -895,14 +926,25 @@ class Node(BaseValidatedModel):
         # would exclude ALL their children. Only filter leaf nodes.
 
         # Specialized container handling for specific widget types
-        if self.view_class == "android.widget.Spinner":
+        # Spinner variants
+        if self.view_class in ("android.widget.Spinner", "androidx.appcompat.widget.AppCompatSpinner"):
             spinner_handler = getattr(visitor, "visit_spinner", None)
             if spinner_handler and callable(spinner_handler):
                 spinner_handler(self)
+        # RadioGroup variants
         elif self.view_class == "android.widget.RadioGroup":
             radio_group_handler = getattr(visitor, "visit_radio_group", None)
             if radio_group_handler and callable(radio_group_handler):
                 radio_group_handler(self)
+        # ChipGroup (similar to RadioGroup - contains multiple Chips)
+        elif self.view_class == "com.google.android.material.chip.ChipGroup":
+            chip_group_handler = getattr(visitor, "visit_chip_group", None)
+            if chip_group_handler and callable(chip_group_handler):
+                chip_group_handler(self)
+            else:
+                # Fallback: process children individually
+                for child in self.children:
+                    child.accept(visitor)
         else:
             # Generic container handling with recursive traversal
             generic_handler = getattr(visitor, "visit_node", None)

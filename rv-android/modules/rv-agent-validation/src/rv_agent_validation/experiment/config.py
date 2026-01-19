@@ -157,11 +157,28 @@ class RunConfig:
     seed: int
     run_id: str = field(default="")
 
+    # LLM parameters (Phase 2)
+    prompt_version: str = field(default="v13")
+    llm_temperature: float = field(default=0.01)
+    llm_top_p: float = field(default=0.6)
+    llm_top_k: int = field(default=50)
+    param_config_name: str = field(default="default")  # Human-readable config name
+
     def __post_init__(self):
         if not self.run_id:
             # Use package name for run_id (more readable)
             pkg_short = self.package_name.split(".")[-1]  # e.g., "cryptoapp"
             self.run_id = f"{pkg_short}_{self.strategy}_rep{self.repetition}"
+
+
+# LLM parameter configurations for Phase 2
+LLM_PARAM_CONFIGS: Dict[str, Dict[str, Any]] = {
+    "default": {"temperature": 0.01, "top_p": 0.6, "top_k": 50},
+    "low_temp": {"temperature": 0.001, "top_p": 0.6, "top_k": 50},
+    "high_diversity": {"temperature": 0.1, "top_p": 0.9, "top_k": 70},
+    "conservative": {"temperature": 0.01, "top_p": 0.5, "top_k": 30},
+    "balanced": {"temperature": 0.05, "top_p": 0.7, "top_k": 50},
+}
 
 
 @dataclass
@@ -197,6 +214,10 @@ class ExperimentConfig:
     enable_static_analysis: bool = True
     static_analysis_dir: Path = field(default_factory=lambda: DEFAULT_STATIC_ANALYSIS_DIR)
 
+    # LLM parameters (Phase 2)
+    prompt_versions: List[str] = field(default_factory=lambda: ["v13"])
+    llm_param_configs: List[str] = field(default_factory=lambda: ["default"])
+
     @classmethod
     def create_default(cls, apk_paths: List[str]) -> "ExperimentConfig":
         """Create default experiment configuration."""
@@ -210,6 +231,10 @@ class ExperimentConfig:
     def generate_runs(self, app_info_cache: dict = None) -> List[RunConfig]:
         """
         Generate all run configurations for the experiment.
+
+        For Phase 1 (pure_algorithm), iterates over strategies.
+        For Phase 2 (llm_only), iterates over prompts × param_configs.
+        For Phase 3 (multimode), iterates over llm_probability values.
 
         Args:
             app_info_cache: Optional dict mapping apk_path -> package_name
@@ -230,21 +255,51 @@ class ExperimentConfig:
                 if app_info_cache and apk_path in app_info_cache:
                     package_name = app_info_cache[apk_path]
 
-                for strategy in self.strategies:
-                    seed = seed_manager.get_seed(apk_path, strategy, rep)
-                    runs.append(RunConfig(
-                        apk_path=apk_path,
-                        package_name=package_name,
-                        strategy=strategy,
-                        repetition=rep,
-                        seed=seed,
-                    ))
+                # Phase 2: iterate over prompt_versions × llm_param_configs
+                if self.agent_mode == "llm_only" and len(self.prompt_versions) > 1 or len(self.llm_param_configs) > 1:
+                    for prompt_version in self.prompt_versions:
+                        for param_config_name in self.llm_param_configs:
+                            params = LLM_PARAM_CONFIGS.get(param_config_name, LLM_PARAM_CONFIGS["default"])
+                            strategy = self.strategies[0] if self.strategies else "rvagent"
+                            seed = seed_manager.get_seed(apk_path, f"{prompt_version}_{param_config_name}", rep)
+
+                            pkg_short = package_name.split(".")[-1] if package_name else Path(apk_path).stem.split("_")[0]
+                            run_id = f"{pkg_short}_{prompt_version}_{param_config_name}_rep{rep}"
+
+                            runs.append(RunConfig(
+                                apk_path=apk_path,
+                                package_name=package_name,
+                                strategy=strategy,
+                                repetition=rep,
+                                seed=seed,
+                                run_id=run_id,
+                                prompt_version=prompt_version,
+                                llm_temperature=params["temperature"],
+                                llm_top_p=params["top_p"],
+                                llm_top_k=params["top_k"],
+                                param_config_name=param_config_name,
+                            ))
+                else:
+                    # Phase 1/3: iterate over strategies
+                    for strategy in self.strategies:
+                        seed = seed_manager.get_seed(apk_path, strategy, rep)
+                        runs.append(RunConfig(
+                            apk_path=apk_path,
+                            package_name=package_name,
+                            strategy=strategy,
+                            repetition=rep,
+                            seed=seed,
+                        ))
 
         return runs
 
     @property
     def total_runs(self) -> int:
         """Total number of runs in the experiment."""
+        # Phase 2: prompts × params × apps × reps
+        if self.agent_mode == "llm_only" and (len(self.prompt_versions) > 1 or len(self.llm_param_configs) > 1):
+            return len(self.apk_paths) * len(self.prompt_versions) * len(self.llm_param_configs) * self.repetitions
+        # Phase 1/3: strategies × apps × reps
         return len(self.apk_paths) * len(self.strategies) * self.repetitions
 
     @property
@@ -270,6 +325,8 @@ class ExperimentConfig:
             "device_serial": self.device_serial,
             "enable_static_analysis": self.enable_static_analysis,
             "static_analysis_dir": str(self.static_analysis_dir),
+            "prompt_versions": self.prompt_versions,
+            "llm_param_configs": self.llm_param_configs,
             "total_runs": self.total_runs,
             "estimated_time_hours": round(self.estimated_time_hours, 2),
         }
@@ -290,6 +347,8 @@ class ExperimentConfig:
             device_serial=data.get("device_serial", "emulator-5554"),
             enable_static_analysis=data.get("enable_static_analysis", True),
             static_analysis_dir=Path(data.get("static_analysis_dir", str(DEFAULT_STATIC_ANALYSIS_DIR))),
+            prompt_versions=data.get("prompt_versions", ["v13"]),
+            llm_param_configs=data.get("llm_param_configs", ["default"]),
         )
 
     @classmethod

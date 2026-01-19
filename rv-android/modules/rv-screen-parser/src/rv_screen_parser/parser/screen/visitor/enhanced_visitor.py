@@ -562,15 +562,25 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 rb_node_id = rb.unique_identifier
                 self.processed_parents.add(rb_node_id)
 
+                # Calculate coordinates from radio button bounds
+                bounds = rb.bounds if hasattr(rb, 'bounds') else rb.data.get('bounds')
+                coordinates = None
+                if bounds and len(bounds) == 2:
+                    x1, y1 = bounds[0]
+                    x2, y2 = bounds[1]
+                    coordinates = ((x1 + x2) // 2, (y1 + y2) // 2)
+
                 action_text = f"SELECT ({self.counter.increment()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get_current()})"
+                target_view = dict(rb.data) if rb.data else {}
 
                 action = ItemAction(
-                    self.counter.get_current(),
-                    action_text,
-                    WidgetEventType.CLICK,
-                    False,
-                    False,
-                    target_view=rb.data
+                    id=self.counter.get_current(),
+                    text=action_text,
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=target_view,
+                    coordinates=coordinates
                 )
 
                 group_actions.append(action)
@@ -678,6 +688,10 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         """
         Visit a slider (SeekBar) element with detailed information.
 
+        Uses DRAG action type with calculated swipe coordinates for each
+        target position. The swipe goes from the current slider center to
+        the target position.
+
         Args:
             node: The slider node to visit
         """
@@ -687,15 +701,44 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         actions = []
 
-        # Create actions for different positions on the slider
-        slider_positions = [0, 25, 50, 75, 100]
-        for position in slider_positions:
+        # Get slider bounds for coordinate calculation
+        bounds = node.bounds if hasattr(node, 'bounds') else node.data.get('bounds')
+        if bounds and len(bounds) == 2:
+            x1, y1 = bounds[0]
+            x2, y2 = bounds[1]
+            center_y = (y1 + y2) // 2
+            width = x2 - x1
+            center_x = (x1 + x2) // 2
+
+            # Create DRAG actions for different positions on the slider
+            slider_positions = [0, 25, 50, 75, 100]
+            for position in slider_positions:
+                # Calculate target X coordinate based on position percentage
+                target_x = x1 + int(width * (position / 100))
+
+                # Create target_view with swipe coordinates
+                target_view = dict(node.data) if node.data else {}
+                target_view['swipe_start'] = (center_x, center_y)
+                target_view['swipe_end'] = (target_x, center_y)
+
+                actions.append(ItemAction(
+                    id=self.counter.increment(),
+                    text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
+                    event=WidgetEventType.DRAG,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=target_view,
+                    coordinates=(center_x, center_y)
+                ))
+        else:
+            # Fallback if bounds not available - use CLICK at slider center
+            self.logger.warning(f"Slider bounds not available, using click fallback")
             actions.append(ItemAction(
-                self.counter.increment(),
-                f"SET_SLIDER ({self.counter.get_current()}) to {position}%",
-                WidgetEventType.SCROLL,
-                False,
-                False,
+                id=self.counter.increment(),
+                text=f"CLICK ({self.counter.get_current()}) on slider",
+                event=WidgetEventType.CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
                 target_view=node.data
             ))
 

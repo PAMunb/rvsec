@@ -100,14 +100,27 @@ class WtgScorer(Scorer):
         return 0.0
 
 
-class UntestedScorer(Scorer):
+class GradualDecayScorer(Scorer):
     """
-    Scores actions based on UI element testing status.
+    Scores actions with gradual decay based on visit count.
 
-    Elements that have never been interacted with get bonus priority.
+    Instead of binary scoring (200 for untested, 0 for tested), this scorer
+    uses exponential decay to provide smoother priority transitions:
+
+    - Visit 0: 200.0 (untested - highest priority)
+    - Visit 1: 140.0 (70% retained)
+    - Visit 2: 98.0 (49% retained)
+    - Visit 3: 68.6 (34% retained)
+    - Visit 4: 48.0 (24% retained)
+    - Visit 5+: 0.0 (well tested - lowest priority)
+
+    This prevents the "cliff effect" where elements drop from high to zero
+    priority after a single interaction, causing premature abandonment.
     """
 
-    UNTESTED_SCORE = 200.0
+    BASE_SCORE = 200.0
+    DECAY_RATE = 0.7  # 70% retention per visit
+    MIN_VISITS_FOR_ZERO = 5  # After 5 visits, score = 0
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         # Use standardized element ID
@@ -115,16 +128,21 @@ class UntestedScorer(Scorer):
         if not element_id:
             return 0.0
 
-        is_untested = context.ui_coverage.is_element_untested(element_id)
+        visit_count = context.ui_coverage.get_element_test_count(element_id)
         target_class = action.target_view.get('class', 'unknown') if action.target_view else 'unknown'
 
-        # [DEBUG_ACTION_SELECTION] Log untested scoring
-        logger.info(f"[DEBUG_UNTESTED] UntestedScorer: {target_class} id={element_id} untested={is_untested}")
+        # Calculate decayed score
+        if visit_count >= self.MIN_VISITS_FOR_ZERO:
+            score = 0.0
+        else:
+            score = self.BASE_SCORE * (self.DECAY_RATE ** visit_count)
 
-        if is_untested:
-            return self.UNTESTED_SCORE
+        # [DEBUG_ACTION_SELECTION] Log gradual decay scoring
+        logger.info(f"[DEBUG_DECAY] GradualDecayScorer: {target_class} id={element_id} visits={visit_count} score={score:.1f}")
 
-        return 0.0
+        return score
+
+
 
 
 class ExecutionCountScorer(Scorer):
@@ -171,23 +189,69 @@ class ComponentPriorityScorer(Scorer):
     """
 
     # All interactive components have same base priority
-    # UntestedScorer (+200) handles systematic visitation
+    # GradualDecayScorer handles systematic visitation with exponential decay
     HIGH_PRIORITY = {
-        "Spinner": 50.0,       # Dropdown menus
-        "Button": 50.0,        # Primary actions
-        "ImageButton": 50.0,   # Navigation and actions
-        "EditText": 50.0,      # Form inputs
-        "DrawerLayout": 50.0,  # Navigation drawer
+        # Buttons - primary actions
+        "Button": 50.0,
+        "ImageButton": 50.0,
+        "MaterialButton": 50.0,
+        "FloatingActionButton": 50.0,
+        "ExtendedFloatingActionButton": 50.0,
+        # Form inputs
+        "EditText": 50.0,
+        "AutoCompleteTextView": 50.0,
+        "MultiAutoCompleteTextView": 50.0,
+        "TextInputEditText": 50.0,
+        # Dropdowns
+        "Spinner": 50.0,
+        "AppCompatSpinner": 50.0,
+        # Navigation drawer
+        "DrawerLayout": 50.0,
+        # Tabs - reveal new content/screens
+        "Tab": 50.0,
+        "TabLayout": 50.0,
+        "TabView": 50.0,
+        "ActionBar$Tab": 50.0,
+        "TabItem": 50.0,
+        # Bottom/Side navigation
+        "BottomNavigationItemView": 50.0,
+        "NavigationBarItemView": 50.0,
+        "NavigationBarView": 50.0,
+        "NavigationRailView": 50.0,
+        # Menus
+        "ActionMenuItemView": 50.0,
+        "MenuItemView": 50.0,
+        "OverflowMenuButton": 50.0,
+        # Chips
+        "Chip": 50.0,
     }
 
-    # Medium priority: state changes, content navigation
+    # Medium priority: state changes, sliders, content navigation
     MEDIUM_PRIORITY = {
-        "CheckBox": 40.0,         # Toggle state
-        "Switch": 40.0,           # Toggle settings
-        "RadioButton": 40.0,      # Selection options
-        "ViewPager": 40.0,        # Screen navigation
-        "RecyclerView": 40.0,     # Content lists
-        "CheckedTextView": 40.0,  # Selectable list items
+        # Toggles
+        "CheckBox": 40.0,
+        "MaterialCheckBox": 40.0,
+        "AppCompatCheckBox": 40.0,
+        "Switch": 40.0,
+        "SwitchCompat": 40.0,
+        "SwitchMaterial": 40.0,
+        "ToggleButton": 40.0,
+        "AppCompatToggleButton": 40.0,
+        # Radio buttons
+        "RadioButton": 40.0,
+        "MaterialRadioButton": 40.0,
+        "AppCompatRadioButton": 40.0,
+        # Sliders
+        "SeekBar": 40.0,
+        "AppCompatSeekBar": 40.0,
+        "Slider": 40.0,
+        "RangeSlider": 40.0,
+        "RatingBar": 40.0,
+        # Content navigation
+        "ViewPager": 40.0,
+        "RecyclerView": 40.0,
+        "CheckedTextView": 40.0,
+        "AppCompatCheckedTextView": 40.0,
     }
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
@@ -207,10 +271,6 @@ class ComponentPriorityScorer(Scorer):
                 return score
 
         return 0.0
-
-
-# Alias for backwards compatibility
-DropdownScorer = ComponentPriorityScorer
 
 
 class FailedActionScorer(Scorer):

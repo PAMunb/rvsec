@@ -166,9 +166,11 @@ class RVAgent:
             raise ValueError(f"LLM client required for mode: {mode}")
 
         # Level 1 stuck detection (screen unchanged)
+        # Dynamic threshold based on screen complexity (number of elements)
         self.last_screen_hash = None
         self.stuck_screen_count = 0
-        self.STUCK_THRESHOLD = 8  # Force BACK after 8 unchanged screens
+        self.BASE_STUCK_THRESHOLD = 8  # Minimum threshold for simple screens
+        self.STUCK_THRESHOLD_FACTOR = 1.5  # Multiplier: threshold = max(base, elements * factor)
 
         # Level 2 stuck detection (persistent same state)
         # Uses Backtrack BFS to find unsaturated ancestors, then RESTART if none found

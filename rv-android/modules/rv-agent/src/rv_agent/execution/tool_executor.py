@@ -87,6 +87,8 @@ class ToolExecutor:
                 result = self._execute_type_text(action)
             elif action_type == "SWIPE":
                 result = self._execute_swipe(action)
+            elif action_type == "DRAG":
+                result = self._execute_drag(action)
             elif action_type == "SCROLL":
                 result = self._execute_scroll(action)
             elif action_type in ("SCROLL_UP", "SCROLL_DOWN", "SCROLL_LEFT", "SCROLL_RIGHT"):
@@ -179,12 +181,32 @@ class ToolExecutor:
         return {"success": True}
 
     def _execute_swipe(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute swipe action."""
+        """Execute swipe action (direction-based)."""
         direction = action.get("direction", "up")
         distance = action.get("distance", "medium")
 
         self.device.scroll(direction, distance)
         self.logger.debug(f"Swiped {direction} ({distance})")
+
+        return {"success": True}
+
+    def _execute_drag(self, action: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute drag action with specific coordinates (for SeekBar, sliders, etc.)."""
+        swipe_start = action.get("swipe_start")
+        swipe_end = action.get("swipe_end")
+
+        if not swipe_start or not swipe_end:
+            self.logger.warning("DRAG action missing swipe_start or swipe_end coordinates")
+            return {
+                "success": False,
+                "error": "DRAG requires swipe_start and swipe_end coordinates"
+            }
+
+        start_x, start_y = swipe_start
+        end_x, end_y = swipe_end
+
+        self.device.swipe(start_x, start_y, end_x, end_y)
+        self.logger.debug(f"Dragged from ({start_x}, {start_y}) to ({end_x}, {end_y})")
 
         return {"success": True}
 

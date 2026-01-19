@@ -6,7 +6,8 @@ Updates memory systems, detects stuck states, and manages recovery strategies.
 Key Design Decisions:
 
 1. STUCK STATE DETECTION (Two-Level)
-   Level 1 - Screen unchanged: After STUCK_THRESHOLD unchanged screens, force BACK.
+   Level 1 - Screen unchanged: After dynamic threshold of unchanged screens, force BACK.
+             Threshold = max(BASE_STUCK_THRESHOLD, num_elements * STUCK_THRESHOLD_FACTOR)
              Form actions (SET_TEXT, checkable elements) are excluded from counting.
    Level 2 - StuckRecovery: After max_blocks iterations in same state, try:
      a) Backtrack BFS: Find nearest unsaturated ancestor state
@@ -40,6 +41,33 @@ if TYPE_CHECKING:
 from rv_agent.domain.state import AgentState
 
 logger = logging.getLogger(__name__)
+
+
+def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
+    """
+    Calculate stuck threshold based on screen complexity.
+
+    More elements on screen = more iterations allowed before forcing BACK.
+    This prevents premature backtracking on complex screens.
+
+    Args:
+        agent: RVAgent instance with BASE_STUCK_THRESHOLD and STUCK_THRESHOLD_FACTOR
+        state: Current agent state with available_actions
+
+    Returns:
+        Dynamic threshold: max(base, num_elements * factor)
+    """
+    base = getattr(agent, 'BASE_STUCK_THRESHOLD', 8)
+    factor = getattr(agent, 'STUCK_THRESHOLD_FACTOR', 1.5)
+
+    # Get number of available actions (interactive elements)
+    available_actions = state.get("available_actions", [])
+    num_elements = len(available_actions)
+
+    # Calculate dynamic threshold
+    dynamic_threshold = max(base, int(num_elements * factor))
+
+    return dynamic_threshold
 
 
 def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
@@ -108,15 +136,20 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Skip stuck counting for actions that don't change screen hash:
     # - SET_TEXT: filling form fields
     # - Checkable elements: checkbox/radio/toggle state changes
+    #
+    # Dynamic threshold: more elements = more iterations allowed
+    # threshold = max(BASE_STUCK_THRESHOLD, num_elements * STUCK_THRESHOLD_FACTOR)
+    dynamic_threshold = _get_dynamic_stuck_threshold(agent, state)
+
     is_form_action = action_type in ("SET_TEXT", "TEXT_CHANGE") or is_checkable
     if current_hash == agent.last_screen_hash and not is_form_action:
         agent.stuck_screen_count += 1
-        logger.debug(f"Screen unchanged: {agent.stuck_screen_count}/{agent.STUCK_THRESHOLD}")
+        logger.debug(f"Screen unchanged: {agent.stuck_screen_count}/{dynamic_threshold} (elements={len(state.get('available_actions', []))})")
 
-        if agent.stuck_screen_count >= agent.STUCK_THRESHOLD:
+        if agent.stuck_screen_count >= dynamic_threshold:
             logger.warning(
                 f"Level 1 stuck: screen unchanged "
-                f"{stuck_count_before}->{agent.stuck_screen_count} iterations -> Forcing BACK"
+                f"{stuck_count_before}->{agent.stuck_screen_count} iterations (threshold={dynamic_threshold}) -> Forcing BACK"
             )
             force_back = True
             agent.stuck_screen_count = 0
