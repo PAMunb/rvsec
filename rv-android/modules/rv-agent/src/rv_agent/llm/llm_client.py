@@ -79,14 +79,18 @@ class LLMClient:
         lc_config = config.get_langchain_config()
 
         # Initialize LangChain ChatOpenAI for SGLang
-        self.llm = ChatOpenAI(
-            base_url=lc_config["base_url"],
-            model=lc_config["model"],
-            temperature=lc_config["temperature"],
-            max_tokens=lc_config["max_tokens"],
-            api_key=lc_config["api_key"],
-            model_kwargs=lc_config.get("model_kwargs", {}),
-        )
+        llm_kwargs = {
+            "base_url": lc_config["base_url"],
+            "model": lc_config["model"],
+            "temperature": lc_config["temperature"],
+            "max_tokens": lc_config["max_tokens"],
+            "top_p": lc_config.get("top_p", 0.95),
+            "api_key": lc_config["api_key"],
+        }
+        # Add extra_body for top_k (SGLang supports, OpenAI doesn't)
+        if "extra_body" in lc_config:
+            llm_kwargs["extra_body"] = lc_config["extra_body"]
+        self.llm = ChatOpenAI(**llm_kwargs)
 
         # Bind tools
         self.tools = get_android_tools()
@@ -98,10 +102,16 @@ class LLMClient:
         self.total_calls = 0
         self.total_latency_ms = 0
 
+        # Extract top_k for logging
+        top_k = lc_config.get("extra_body", {}).get("top_k", -1)
+
         self.logger.info(
             f"LLMClient initialized: "
             f"model={lc_config['model']}, "
             f"server={lc_config['base_url']}, "
+            f"temperature={lc_config['temperature']}, "
+            f"top_p={lc_config.get('top_p')}, "
+            f"top_k={top_k}, "
             f"tools={len(self.tools)}"
         )
 

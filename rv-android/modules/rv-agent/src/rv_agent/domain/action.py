@@ -19,6 +19,7 @@ TOOL_TO_ACTION = {
     "android_type_text": "SET_TEXT",
     "android_long_click": "LONG_CLICK",
     "android_swipe": "SWIPE",
+    "android_drag": "DRAG",
     "android_scroll": "SCROLL",
     "android_back": "BACK",
     "android_home": "HOME",
@@ -76,6 +77,10 @@ class ActionNormalizer:
             logger.warning(f"Unknown tool name: {tool_name}")
             return None
 
+        # Handle DRAG action separately (has start/end coordinates)
+        if action_type == "DRAG":
+            return self._normalize_drag_action(tool_args)
+
         # Get raw coordinates from LLM (in [0, 1000) normalized space)
         x_raw = tool_args.get("x", 0)
         y_raw = tool_args.get("y", 0)
@@ -110,6 +115,49 @@ class ActionNormalizer:
             "direction": tool_args.get("direction", ""),
             "source": "llm",
             "original_coords": (x_raw, y_raw),
+        }
+
+    def _normalize_drag_action(self, tool_args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize DRAG action with start/end coordinates.
+
+        Args:
+            tool_args: Tool arguments with start_x, start_y, end_x, end_y
+
+        Returns:
+            Normalized DRAG action with swipe_start and swipe_end
+        """
+        # Get raw coordinates
+        start_x_raw = tool_args.get("start_x", 0)
+        start_y_raw = tool_args.get("start_y", 0)
+        end_x_raw = tool_args.get("end_x", 0)
+        end_y_raw = tool_args.get("end_y", 0)
+
+        # Convert from [0, 1000) normalized to device pixels
+        start_x, start_y = denormalize_qwen_coords(
+            start_x_raw, start_y_raw,
+            image_width=self.device_width,
+            image_height=self.device_height
+        )
+        end_x, end_y = denormalize_qwen_coords(
+            end_x_raw, end_y_raw,
+            image_width=self.device_width,
+            image_height=self.device_height
+        )
+
+        logger.info(
+            f"[DRAG] Normalized: ({start_x_raw},{start_y_raw})->({end_x_raw},{end_y_raw}) "
+            f"to pixels ({start_x},{start_y})->({end_x},{end_y})"
+        )
+
+        return {
+            "action_type": "DRAG",
+            "x": start_x,  # Use start as primary coordinate
+            "y": start_y,
+            "swipe_start": (start_x, start_y),
+            "swipe_end": (end_x, end_y),
+            "source": "llm",
+            "original_coords": (start_x_raw, start_y_raw),
         }
 
     def from_algorithm(self, algo_action: Dict[str, Any]) -> Optional[Dict[str, Any]]:

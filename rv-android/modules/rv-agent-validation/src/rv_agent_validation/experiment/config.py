@@ -157,12 +157,18 @@ class RunConfig:
     seed: int
     run_id: str = field(default="")
 
+    # Static analysis
+    enable_static_analysis: bool = field(default=True)
+
     # LLM parameters (Phase 2)
     prompt_version: str = field(default="v13")
     llm_temperature: float = field(default=0.01)
     llm_top_p: float = field(default=0.6)
     llm_top_k: int = field(default=50)
     param_config_name: str = field(default="default")  # Human-readable config name
+
+    # Multimode parameters (Phase 3)
+    llm_probability: float = field(default=0.7)
 
     def __post_init__(self):
         if not self.run_id:
@@ -174,10 +180,8 @@ class RunConfig:
 # LLM parameter configurations for Phase 2
 LLM_PARAM_CONFIGS: Dict[str, Dict[str, Any]] = {
     "default": {"temperature": 0.01, "top_p": 0.6, "top_k": 50},
-    "low_temp": {"temperature": 0.001, "top_p": 0.6, "top_k": 50},
-    "high_diversity": {"temperature": 0.1, "top_p": 0.9, "top_k": 70},
-    "conservative": {"temperature": 0.01, "top_p": 0.5, "top_k": 30},
-    "balanced": {"temperature": 0.05, "top_p": 0.7, "top_k": 50},
+    "deterministic": {"temperature": 0.001, "top_p": 0.5, "top_k": 30},
+    "explorative": {"temperature": 0.1, "top_p": 0.9, "top_k": 70},
 }
 
 
@@ -197,12 +201,11 @@ class ExperimentConfig:
     ])
 
     # Execution parameters
-    repetitions: int = 3
     timeout_seconds: int = 300
     agent_mode: str = "pure_algorithm"
 
-    # Reproducibility
-    base_seed: int = 42
+    # Reproducibility - list of seeds instead of base_seed
+    seeds: List[int] = field(default_factory=lambda: [42, 123, 456])
 
     # Paths (configurable)
     results_dir: Path = field(default_factory=lambda: Path("results"))
@@ -210,13 +213,16 @@ class ExperimentConfig:
     # Device
     device_serial: str = "emulator-5554"
 
-    # Static analysis
-    enable_static_analysis: bool = True
+    # Static analysis variants (Phase 1/2/3)
+    static_analysis_variants: List[bool] = field(default_factory=lambda: [True])
     static_analysis_dir: Path = field(default_factory=lambda: DEFAULT_STATIC_ANALYSIS_DIR)
 
     # LLM parameters (Phase 2)
     prompt_versions: List[str] = field(default_factory=lambda: ["v13"])
     llm_param_configs: List[str] = field(default_factory=lambda: ["default"])
+
+    # Multimode parameters (Phase 3)
+    llm_probability_variants: List[float] = field(default_factory=lambda: [0.7])
 
     @classmethod
     def create_default(cls, apk_paths: List[str]) -> "ExperimentConfig":
@@ -232,39 +238,59 @@ class ExperimentConfig:
         """
         Generate all run configurations for the experiment.
 
-        For Phase 1 (pure_algorithm), iterates over strategies.
-        For Phase 2 (llm_only), iterates over prompts × param_configs.
-        For Phase 3 (multimode), iterates over llm_probability values.
+        Phase 1 (pure_algorithm): strategies × static_variants × apps × seeds
+        Phase 2 (llm_only): prompts × params × static_variants × apps × seeds
+        Phase 3 (multimode): llm_probabilities × static_variants × apps × seeds
 
         Args:
             app_info_cache: Optional dict mapping apk_path -> package_name
-                           (to avoid re-parsing APKs multiple times)
 
         Returns:
             List of RunConfig instances.
         """
-        from .seed_manager import SeedManager
-
-        seed_manager = SeedManager(self.base_seed)
         runs = []
 
-        for rep in range(1, self.repetitions + 1):
+        for seed_idx, seed in enumerate(self.seeds):
+            rep = seed_idx + 1
             for apk_path in self.apk_paths:
                 # Get package name from cache or placeholder
                 package_name = ""
                 if app_info_cache and apk_path in app_info_cache:
                     package_name = app_info_cache[apk_path]
+                pkg_short = package_name.split(".")[-1] if package_name else Path(apk_path).stem.split("_")[0]
 
-                # Phase 2: iterate over prompt_versions × llm_param_configs
-                if self.agent_mode == "llm_only" and len(self.prompt_versions) > 1 or len(self.llm_param_configs) > 1:
-                    for prompt_version in self.prompt_versions:
-                        for param_config_name in self.llm_param_configs:
-                            params = LLM_PARAM_CONFIGS.get(param_config_name, LLM_PARAM_CONFIGS["default"])
-                            strategy = self.strategies[0] if self.strategies else "rvagent"
-                            seed = seed_manager.get_seed(apk_path, f"{prompt_version}_{param_config_name}", rep)
+                for static_enabled in self.static_analysis_variants:
+                    static_suffix = "sa" if static_enabled else "nosa"
 
-                            pkg_short = package_name.split(".")[-1] if package_name else Path(apk_path).stem.split("_")[0]
-                            run_id = f"{pkg_short}_{prompt_version}_{param_config_name}_rep{rep}"
+                    if self.agent_mode == "llm_only":
+                        # Phase 2: prompts × params × static × apps × seeds
+                        strategy = self.strategies[0] if self.strategies else "rvagent"
+                        for prompt_version in self.prompt_versions:
+                            for param_config_name in self.llm_param_configs:
+                                params = LLM_PARAM_CONFIGS.get(param_config_name, LLM_PARAM_CONFIGS["default"])
+                                run_id = f"{pkg_short}_{prompt_version}_{param_config_name}_{static_suffix}_rep{rep}"
+
+                                runs.append(RunConfig(
+                                    apk_path=apk_path,
+                                    package_name=package_name,
+                                    strategy=strategy,
+                                    repetition=rep,
+                                    seed=seed,
+                                    run_id=run_id,
+                                    enable_static_analysis=static_enabled,
+                                    prompt_version=prompt_version,
+                                    llm_temperature=params["temperature"],
+                                    llm_top_p=params["top_p"],
+                                    llm_top_k=params["top_k"],
+                                    param_config_name=param_config_name,
+                                ))
+
+                    elif self.agent_mode == "multimode":
+                        # Phase 3: llm_probabilities × static × apps × seeds
+                        strategy = self.strategies[0] if self.strategies else "rvagent"
+                        for llm_prob in self.llm_probability_variants:
+                            prob_name = f"llm{int(llm_prob * 100)}"
+                            run_id = f"{pkg_short}_{prob_name}_{static_suffix}_rep{rep}"
 
                             runs.append(RunConfig(
                                 apk_path=apk_path,
@@ -273,34 +299,49 @@ class ExperimentConfig:
                                 repetition=rep,
                                 seed=seed,
                                 run_id=run_id,
-                                prompt_version=prompt_version,
-                                llm_temperature=params["temperature"],
-                                llm_top_p=params["top_p"],
-                                llm_top_k=params["top_k"],
-                                param_config_name=param_config_name,
+                                enable_static_analysis=static_enabled,
+                                llm_probability=llm_prob,
                             ))
-                else:
-                    # Phase 1/3: iterate over strategies
-                    for strategy in self.strategies:
-                        seed = seed_manager.get_seed(apk_path, strategy, rep)
-                        runs.append(RunConfig(
-                            apk_path=apk_path,
-                            package_name=package_name,
-                            strategy=strategy,
-                            repetition=rep,
-                            seed=seed,
-                        ))
+
+                    else:
+                        # Phase 1 (pure_algorithm): strategies × static × apps × seeds
+                        for strategy in self.strategies:
+                            run_id = f"{pkg_short}_{strategy}_{static_suffix}_rep{rep}"
+
+                            runs.append(RunConfig(
+                                apk_path=apk_path,
+                                package_name=package_name,
+                                strategy=strategy,
+                                repetition=rep,
+                                seed=seed,
+                                run_id=run_id,
+                                enable_static_analysis=static_enabled,
+                            ))
 
         return runs
 
     @property
     def total_runs(self) -> int:
         """Total number of runs in the experiment."""
-        # Phase 2: prompts × params × apps × reps
-        if self.agent_mode == "llm_only" and (len(self.prompt_versions) > 1 or len(self.llm_param_configs) > 1):
-            return len(self.apk_paths) * len(self.prompt_versions) * len(self.llm_param_configs) * self.repetitions
-        # Phase 1/3: strategies × apps × reps
-        return len(self.apk_paths) * len(self.strategies) * self.repetitions
+        n_seeds = len(self.seeds)
+        n_apps = len(self.apk_paths)
+        n_static = len(self.static_analysis_variants)
+
+        if self.agent_mode == "llm_only":
+            # Phase 2: prompts × params × static × apps × seeds
+            n_prompts = len(self.prompt_versions)
+            n_params = len(self.llm_param_configs)
+            return n_prompts * n_params * n_static * n_apps * n_seeds
+
+        elif self.agent_mode == "multimode":
+            # Phase 3: llm_probabilities × static × apps × seeds
+            n_probs = len(self.llm_probability_variants)
+            return n_probs * n_static * n_apps * n_seeds
+
+        else:
+            # Phase 1 (pure_algorithm): strategies × static × apps × seeds
+            n_strategies = len(self.strategies)
+            return n_strategies * n_static * n_apps * n_seeds
 
     @property
     def estimated_time_hours(self) -> float:
@@ -317,16 +358,16 @@ class ExperimentConfig:
             "experiment_name": self.experiment_name,
             "apk_paths": self.apk_paths,
             "strategies": self.strategies,
-            "repetitions": self.repetitions,
             "timeout_seconds": self.timeout_seconds,
             "agent_mode": self.agent_mode,
-            "base_seed": self.base_seed,
+            "seeds": self.seeds,
             "results_dir": str(self.results_dir),
             "device_serial": self.device_serial,
-            "enable_static_analysis": self.enable_static_analysis,
+            "static_analysis_variants": self.static_analysis_variants,
             "static_analysis_dir": str(self.static_analysis_dir),
             "prompt_versions": self.prompt_versions,
             "llm_param_configs": self.llm_param_configs,
+            "llm_probability_variants": self.llm_probability_variants,
             "total_runs": self.total_runs,
             "estimated_time_hours": round(self.estimated_time_hours, 2),
         }
@@ -339,16 +380,16 @@ class ExperimentConfig:
             experiment_name=data["experiment_name"],
             apk_paths=data["apk_paths"],
             strategies=data.get("strategies", ["rvagent", "dfs", "bfs", "greedy"]),
-            repetitions=data.get("repetitions", 3),
             timeout_seconds=data.get("timeout_seconds", 300),
             agent_mode=data.get("agent_mode", "pure_algorithm"),
-            base_seed=data.get("base_seed", 42),
+            seeds=data.get("seeds", [42, 123, 456]),
             results_dir=Path(data.get("results_dir", "results")),
             device_serial=data.get("device_serial", "emulator-5554"),
-            enable_static_analysis=data.get("enable_static_analysis", True),
+            static_analysis_variants=data.get("static_analysis_variants", [True]),
             static_analysis_dir=Path(data.get("static_analysis_dir", str(DEFAULT_STATIC_ANALYSIS_DIR))),
             prompt_versions=data.get("prompt_versions", ["v13"]),
             llm_param_configs=data.get("llm_param_configs", ["default"]),
+            llm_probability_variants=data.get("llm_probability_variants", [0.7]),
         )
 
     @classmethod

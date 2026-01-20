@@ -187,132 +187,62 @@ class ScreenProcessor:
 
     def format_ui_elements(self, screen_description: ScreenDescription) -> str:
         """
-        Format UI elements for LLM consumption with coordinate transformation.
+        Format UI elements as a simple list with type, text, and coordinates.
 
-        Categorizes elements into:
-        1. Text Input Fields (EditText) - for SET_TEXT actions
-        2. Dropdown Selectors (Spinner) - for selection flows
-        3. Clickable Elements - buttons, images, etc.
+        Each element is formatted as:
+            1. ComponentType "text" at (x, y) [MOP markers if applicable]
 
-        All coordinates are transformed to optimized space before presentation.
+        Tool usage instructions are in the system prompt, not here.
 
         Args:
             screen_description: Parsed screen description
 
         Returns:
-            Formatted string with categorized UI elements
+            Formatted string listing all interactive elements
         """
         if not screen_description or not screen_description.items:
             return "No interactive elements found."
 
-        # Categorize elements
-        text_inputs = []
-        spinners = []
-        clickable_items = []
+        # Filter to interactive elements only
+        interactive_items = [
+            item for item in screen_description.items
+            if item.view.get('clickable', False)
+        ]
 
-        for item in screen_description.items:
-            if not item.view.get('clickable', False):
-                continue
-
-            elem_class = item.view.get('class', '')
-            if 'EditText' in elem_class or 'AutoCompleteTextView' in elem_class:
-                text_inputs.append(item)
-            elif 'Spinner' in elem_class:
-                spinners.append(item)
-            else:
-                clickable_items.append(item)
-
-        # Check if we have any elements
-        if not text_inputs and not spinners and not clickable_items:
+        if not interactive_items:
             return "No interactive elements found."
 
         lines = []
+        for i, item in enumerate(interactive_items, 1):
+            desc = self._format_element(i, item)
+            if desc:
+                lines.append(desc)
 
-        # Text input fields section
-        if text_inputs:
-            lines.extend([
-                "=== TEXT INPUT FIELDS ===",
-                "Use android_type_text() tool for these elements, NOT android_click()",
-                ""
-            ])
-            for i, item in enumerate(text_inputs[:5], 1):
-                desc = self._format_element(i, item, "TEXT INPUT")
-                if desc:
-                    lines.append(desc)
-            lines.append("")
-
-        # Dropdown selectors section
-        if spinners:
-            lines.extend([
-                "=== DROPDOWN SELECTORS ===",
-                "Use android_click() to open dropdown, then select option in next iteration",
-                ""
-            ])
-            for i, item in enumerate(spinners[:5], 1):
-                desc = self._format_element(i, item, "DROPDOWN")
-                if desc:
-                    lines.append(desc)
-            lines.append("")
-
-        # Clickable elements section
-        if clickable_items:
-            lines.extend([
-                "=== CLICKABLE ELEMENTS ===",
-                "Use android_click() for buttons, images, checkboxes, switches, icons",
-                ""
-            ])
-            for i, item in enumerate(clickable_items[:10], 1):
-                desc = self._format_element(i, item, None)
-                if desc:
-                    lines.append(desc)
-            lines.append("")
-
-        # Add coordinate system info
-        lines.extend([
-            "Coordinates are normalized [0, 1000) range",
-            "Use EXACT coordinates from 'at position (x, y)' for tool calls"
-        ])
-
-        # Log categorization
-        total_count = len(screen_description.items)
-        self.logger.debug(
-            f"UI description: {total_count} total, "
-            f"{len(text_inputs)} text inputs, "
-            f"{len(spinners)} spinners, "
-            f"{len(clickable_items)} clickable"
-        )
-
-        if text_inputs:
-            self.logger.info(f"{len(text_inputs)} text input field(s) detected - must use android_type_text")
-        if spinners:
-            self.logger.info(f"{len(spinners)} spinner(s) detected - click to open dropdown")
+        self.logger.debug(f"Formatted {len(lines)} interactive elements")
 
         return "\n".join(lines)
 
-    def _format_element(
-        self,
-        index: int,
-        item: ScreenItem,
-        category_label: Optional[str] = None
-    ) -> str:
+    def _format_element(self, index: int, item: ScreenItem) -> str:
         """
-        Format single element with normalized [0, 1000) coordinates.
+        Format single element with type, text, and normalized coordinates.
 
-        Coordinates are normalized to [0, 1000) range to match Qwen3-VL's
-        coordinate system. When LLM copies these coords, ActionNormalizer
-        converts them back to device pixels correctly.
+        Output format: "N. ComponentType 'text' at position (x, y) [MOP]"
+
+        Only includes information useful for LLM decision-making:
+        - Type: to choose correct tool (SeekBar->drag, EditText->type_text)
+        - Text: to understand element purpose
+        - Coordinates: to call the tool
+        - MOP markers: for prioritization
 
         Args:
             index: Element index in list
             item: ScreenItem to format
-            category_label: Optional category label (e.g., "TEXT INPUT")
 
         Returns:
             Formatted element description or empty string if invalid bounds
         """
         elem_type = item.view.get('class', 'View').split('.')[-1]
         text = item.view.get('text', '')
-        resource_id = item.view.get('resource_id', '').split('/')[-1]
         bounds = item.view.get('bounds')
 
         # Validate bounds
@@ -320,32 +250,21 @@ class ScreenProcessor:
             self.logger.debug(f"Element {index} has invalid bounds: {bounds}")
             return ""
 
-        # Calculate center in device space
+        # Calculate center and normalize to [0, 1000)
         device_center_x = (bounds[0][0] + bounds[1][0]) // 2
         device_center_y = (bounds[0][1] + bounds[1][1]) // 2
-
-        # Convert to normalized [0, 1000) coordinates
-        # This matches Qwen3-VL's coordinate system
         device_width, device_height = self.device_dimensions
         norm_x = int((device_center_x / device_width) * 1000)
         norm_y = int((device_center_y / device_height) * 1000)
 
-        # Build description
-        desc_parts = [f"{index}."]
-        if category_label:
-            desc_parts.append(f"[{category_label}]")
-        desc_parts.append(elem_type)
-
+        # Build description: "N. Type 'text' at position (x, y)"
+        parts = [f"{index}.", elem_type]
         if text:
-            desc_parts.append(f"'{text}'")
-        if resource_id:
-            desc_parts.append(f"({resource_id})")
+            parts.append(f"'{text}'")
 
-        desc = " ".join(desc_parts)
-        desc += f" at position ({norm_x}, {norm_y})"
+        desc = " ".join(parts) + f" at position ({norm_x}, {norm_y})"
 
-        # Add MOP markers (for guiding exploration toward monitored operations)
-        # Note: "Actions:" text removed as it's not useful for LLM decision-making
+        # Add MOP markers
         if hasattr(item, 'actions') and item.actions:
             action = item.actions[0]
             if action.directly_reaches_mop:

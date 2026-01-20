@@ -345,13 +345,37 @@ class Windows(BaseValidatedModel):
         """
         Retrieve a window by its name.
 
+        Supports both exact matching and partial matching for relative Android
+        activity names (e.g., ".TutorialActivity" matches
+        "com.example.app.TutorialActivity").
+
         Args:
-            window_name: Window name to look for
+            window_name: Window name to look for (can be relative or absolute)
 
         Returns:
             Window if found, None otherwise
         """
-        return next((w for w in self.windows if w.name == window_name), None)
+        # Strategy 1: Exact match
+        result = next((w for w in self.windows if w.name == window_name), None)
+        if result:
+            return result
+
+        # Strategy 2: Relative name match (e.g., ".TutorialActivity" or ".tutorial.TutorialActivity")
+        # Android uses relative activity names starting with '.'
+        if window_name.startswith('.'):
+            result = next((w for w in self.windows if w.name.endswith(window_name)), None)
+            if result:
+                return result
+
+        # Strategy 3: Match by activity class name (last part)
+        # e.g., "TutorialActivity" matches "com.example.app.tutorial.TutorialActivity"
+        class_name = window_name.split('.')[-1] if '.' in window_name else window_name
+        if class_name:
+            result = next((w for w in self.windows if w.name.endswith(class_name)), None)
+            if result:
+                return result
+
+        return None
 
     def add_widget(self, window: Window, widget: Widget) -> bool:
         """

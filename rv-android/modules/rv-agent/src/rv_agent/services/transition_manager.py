@@ -397,33 +397,24 @@ class TransitionManager:
         """
         Find ItemAction that corresponds to a static widget ID.
 
-        Tries multiple matching strategies:
-        1. Direct widget_id match on action
-        2. Resource ID match in target_view
+        The visitor (RVAgentVisitor) sets widget_id on actions during parsing.
+        This method simply looks up the action by that ID.
 
         Args:
-            widget_id: Static widget ID.
+            widget_id: Static widget ID (e.g., "2131755177").
             screen_desc: Current screen description.
 
         Returns:
             Matching ItemAction or None.
         """
-        # Find widget name from static data
-        widget = self._find_widget_globally(widget_id)
-        widget_name = widget.name if widget and hasattr(widget, 'name') else None
+        # Direct match via events_by_id
+        # The visitor should have set widget_id during parsing
+        for action in screen_desc.events_by_id.values():
+            if hasattr(action, 'widget_id') and action.widget_id == widget_id:
+                self.logger.debug(f"WTG match found: widget_id={widget_id}, action_id={action.id}")
+                return action
 
-        for item in screen_desc.items:
-            for action in item.actions:
-                # Strategy 1: Direct widget_id match
-                if hasattr(action, 'widget_id') and action.widget_id == widget_id:
-                    return action
-
-                # Strategy 2: Resource ID match
-                if widget_name:
-                    resource_id = item.view.get('resource_id', '') or item.view.get('resource-id', '')
-                    if resource_id and widget_name in resource_id:
-                        return action
-
+        self.logger.debug(f"WTG match not found: widget_id={widget_id}")
         return None
 
     def get_exploration_summary(self) -> Dict[str, Any]:

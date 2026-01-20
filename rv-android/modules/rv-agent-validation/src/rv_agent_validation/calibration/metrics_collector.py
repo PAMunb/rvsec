@@ -134,7 +134,7 @@ class CalibrationMetricsCollector:
 
             # Log summary
             logger.warning(
-                f"[CALIB_METRICS] run={run_id} states={metrics.states_discovered} "
+                f"[METRICS] run={run_id} states={metrics.states_discovered} "
                 f"actions={metrics.total_actions} ui_cov={metrics.ui_coverage_percent:.1f}% "
                 f"elem_cov={metrics.element_coverage_percent:.1f}%"
             )
@@ -143,7 +143,7 @@ class CalibrationMetricsCollector:
             low_coverage_screens = [s for s in metrics.screens if s["coverage_percent"] < 60]
             if low_coverage_screens:
                 logger.warning(
-                    f"[CALIB_METRICS] low_coverage_screens={len(low_coverage_screens)} "
+                    f"[METRICS] low_coverage_screens={len(low_coverage_screens)} "
                     f"(screens with <60% action coverage)"
                 )
 
@@ -223,7 +223,7 @@ class CalibrationMetricsCollector:
 
     def get_calibration_report(self) -> str:
         """
-        Generate human-readable calibration report.
+        Generate human-readable metrics report.
 
         Returns:
             Formatted report string
@@ -234,7 +234,7 @@ class CalibrationMetricsCollector:
 
         lines = [
             "=" * 60,
-            "CALIBRATION METRICS REPORT",
+            "EXPERIMENT METRICS REPORT",
             "=" * 60,
             "",
             f"Total runs: {agg['total_runs']}",

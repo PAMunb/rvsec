@@ -303,8 +303,8 @@ class ExperimentRunner:
         # Generate all runs
         all_runs = self.config.generate_runs(app_info_cache)
 
-        # Randomize order
-        random.seed(self.config.base_seed)
+        # Randomize order using first seed
+        random.seed(self.config.seeds[0] if self.config.seeds else 42)
         random.shuffle(all_runs)
 
         # Get pending runs
@@ -362,7 +362,7 @@ class ExperimentRunner:
 
         # Generate reports
         if self.calibration_collector:
-            report_path = self.reports_dir / "calibration_report.txt"
+            report_path = self.reports_dir / "metrics_report.txt"
             self.calibration_collector.save_report(str(report_path))
 
         # Final summary
@@ -420,10 +420,10 @@ class ExperimentRunner:
         random.seed(run.seed)
         clear_app_data(run.package_name, self.config.device_serial)
 
-        # Load static analysis if available
+        # Load static analysis if enabled for this run
         apk_path = Path(run.apk_path)
         static_data = None
-        if self.config.enable_static_analysis:
+        if run.enable_static_analysis:
             static_data = load_static_data(apk_path, run.package_name)
 
         # Setup logcat capture
@@ -488,6 +488,10 @@ class ExperimentRunner:
             "strategy": run.strategy,
             "repetition": run.repetition,
             "seed": run.seed,
+            "enable_static_analysis": run.enable_static_analysis,
+            "prompt_version": run.prompt_version,
+            "param_config_name": run.param_config_name,
+            "llm_probability": run.llm_probability,
             "status": "unknown",
             "error": None,
             "logcat_file": str(logcat_file) if logcat_file else None,
@@ -711,13 +715,12 @@ def main():
                 experiment_name=args.name or "Validation Experiment",
                 apk_paths=apk_paths,
                 strategies=args.strategies.split(","),
-                repetitions=args.repetitions,
                 timeout_seconds=args.timeout,
                 agent_mode=args.mode,
-                base_seed=args.seed,
+                seeds=[args.seed],
                 results_dir=Path(args.output),
                 device_serial=args.device,
-                enable_static_analysis=not args.no_static,
+                static_analysis_variants=[not args.no_static],
             )
 
         # Run experiment

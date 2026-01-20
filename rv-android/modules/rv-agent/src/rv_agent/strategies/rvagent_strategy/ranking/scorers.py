@@ -67,11 +67,13 @@ class WtgScorer(Scorer):
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if not context.transition_manager:
+            logger.warning("[WTG_DEBUG] WtgScorer: no transition_manager")
             return 0.0
 
         # Check if WTG is actually available
         has_wtg = hasattr(context.transition_manager, 'wtg') and context.transition_manager.wtg is not None
         if not has_wtg:
+            logger.warning("[WTG_DEBUG] WtgScorer: no WTG available")
             return 0.0
 
         guidance = context.transition_manager.get_navigation_guidance(
@@ -81,20 +83,25 @@ class WtgScorer(Scorer):
 
         has_guidance = guidance.get("has_static_guidance", False)
         suggested = guidance.get("suggested_actions", [])
+        unvisited = guidance.get("unvisited_targets", [])
+
+        # [WTG_DEBUG] Log guidance details
+        logger.info(f"[WTG_DEBUG] WtgScorer: activity={context.screen_desc.activity}, has_guidance={has_guidance}, unvisited_targets={len(unvisited)}, suggested_actions={len(suggested)}")
 
         if not has_guidance:
             return 0.0
 
         suggested_ids = [s.get("action_id") for s in suggested]
 
-        # [DEBUG_ACTION_SELECTION] Log only when we have actual guidance
+        # [WTG_DEBUG] Log action being scored
         target_class = action.target_view.get('class', 'unknown') if action.target_view else 'unknown'
-        logger.info(f"[DEBUG_ACTION_SELECTION] WtgScorer: has_guidance={has_guidance} action_id={action.id} target={target_class} suggested_ids={suggested_ids[:5]}")
+        action_widget_id = getattr(action, 'widget_id', None)
+        logger.info(f"[WTG_DEBUG] WtgScorer: scoring action_id={action.id}, widget_id={action_widget_id}, suggested_ids={suggested_ids[:5]}")
 
         for suggestion in suggested:
             if suggestion.get("action_id") == action.id:
                 target_class = action.target_view.get('class', 'unknown') if action.target_view else 'unknown'
-                logger.debug(f"[DEBUG_ACTION_SELECTION] WtgScorer: +100 for {target_class} id={action.id}")
+                logger.info(f"[WTG_DEBUG] WtgScorer: +100 MATCH! action_id={action.id} matched suggestion")
                 return self.WTG_GUIDED_SCORE
 
         return 0.0

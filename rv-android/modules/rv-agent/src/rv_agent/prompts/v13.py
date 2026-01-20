@@ -51,6 +51,13 @@ EXPLORATION STRATEGY:
 - Explore different screens and features
 - Use android_back() to navigate or dismiss dialogs if stuck
 
+SPECIAL UI ELEMENTS:
+- SeekBar/Slider: Use android_drag(start_x, start_y, end_x, end_y) to move the slider
+  - Drag from current position to a new position along the slider track
+- Menu buttons (hamburger icon, three dots): Click to open navigation/options menus
+- Spinners/Dropdowns: Click to expand, then click an option
+- Long press items for context menus using android_long_click()
+
 Available tools will be automatically bound to your responses."""
 
 

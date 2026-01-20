@@ -159,6 +159,7 @@ class RoutingManager:
         mode = self.config.get_agent_mode()
 
         # In pure_algorithm mode, skip loop detection
+        # The algorithmic strategy has its own loop prevention (backtracking, successor tracking)
         if mode == "pure_algorithm":
             if not action or not action.get("action_type"):
                 self.logger.warning(f"No action from {decision_maker} in pure_algorithm mode")
@@ -167,6 +168,34 @@ class RoutingManager:
                     "loop_detected": False,
                     "current_action": None
                 }
+            return {
+                "validation_path": "execute",
+                "loop_detected": False,
+                "current_action": action
+            }
+
+        # TODO: Revisar estratégia do loop detector para os diferentes modos
+        # Problema: Loop detector muito agressivo para ações LLM
+        # - pure_algorithm: Não usa (tem próprio controle via backtracking)
+        # - llm_only: Desabilitado temporariamente para experimentos de validação
+        # - multimode: Usa loop detector, mas pode ter mesmo problema quando LLM é escolhida
+        #
+        # Opções a considerar:
+        # 1. Aumentar thresholds (SPATIAL_LOOP_RADIUS=100, SPATIAL_LOOP_WINDOW=5)
+        # 2. Usar stuck detection (learn_node) ao invés de loop detector para LLM
+        # 3. Detectar stuck real vs ação intencional (ex: screen hash mudou?)
+        #
+        # Por enquanto: desabilitar para llm_only, manter para multimode
+        if mode == "llm_only":
+            if not action or not action.get("action_type"):
+                self.llm_validation_failed += 1
+                self.logger.warning(f"No action from LLM in llm_only mode -> executing BACK")
+                return {
+                    "validation_path": "execute",
+                    "loop_detected": True,
+                    "current_action": self._create_back_action("no_valid_action")
+                }
+            self.llm_executed += 1
             return {
                 "validation_path": "execute",
                 "loop_detected": False,

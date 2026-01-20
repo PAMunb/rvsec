@@ -30,6 +30,11 @@ RULES:
 - TEXT FIELDS: Use android_type_text() for EditText, NOT android_click()
 - VARIETY: Explore different elements, avoid clicking same position repeatedly
 
+SPECIAL ELEMENTS:
+- SeekBar/Slider: Use android_drag(start_x, start_y, end_x, end_y) to drag the slider
+- Menu icons: Click hamburger (three lines) or overflow (three dots) to open menus
+- Long press for context menus: Use android_long_click() on list items
+
 Call the appropriate tool after your analysis."""
 
 

@@ -9,14 +9,14 @@ This visitor extends DefaultTextVisitor to provide:
 """
 
 import logging
-from typing import Optional, Dict, List, Set
+from typing import Optional, Dict, List
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Window
-from rv_android_core.domain.widget import Widget, WidgetEventType
+from rv_android_core.domain.widget import Widget
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription, Node
 
 
 class RVAgentVisitor(DefaultTextVisitor):
@@ -27,13 +27,16 @@ class RVAgentVisitor(DefaultTextVisitor):
     - MOP marker enrichment ([M], [DM]) via widget → event → signature → method
     - WTG integration for navigation guidance
     - Resource-ID and text-based widget matching with multiple fallback strategies
-    - Activity-to-window matching with partial name support
+    - Activity-to-window matching with partial name support (via parent class)
 
     Attributes:
         wtg: Window Transition Graph for navigation analysis
-        static_window: Matched Window from static analysis for current activity
         widget_cache: Cache of matched widgets to avoid repeated lookups
         mop_stats: Statistics about MOP marker assignments
+
+    Note:
+        Window matching is handled by AbstractScreenVisitor (parent) via
+        Windows.get_window() which supports relative activity names.
     """
 
     def __init__(self, static_data: Optional[StaticAnalysisData], activity: str):
@@ -45,6 +48,7 @@ class RVAgentVisitor(DefaultTextVisitor):
                         operates without MOP enrichment.
             activity: Current activity name for window matching.
         """
+        # Parent sets self.window via Windows.get_window(activity)
         super().__init__(static_data, activity)
 
         self.logger = logging.getLogger(__name__)
@@ -53,9 +57,6 @@ class RVAgentVisitor(DefaultTextVisitor):
         self.wtg: Optional[WindowTransitionGraph] = None
         if static_data and hasattr(static_data, 'wtg'):
             self.wtg = static_data.wtg
-
-        # Find matching static window for this activity
-        self.static_window: Optional[Window] = self._find_static_window(activity)
 
         # Cache and stats
         self.widget_cache: Dict[str, Optional[Widget]] = {}
@@ -70,66 +71,9 @@ class RVAgentVisitor(DefaultTextVisitor):
 
         self.logger.info(
             f"RVAgentVisitor initialized for activity '{activity}'. "
-            f"Static window: {self.static_window.name if self.static_window else 'None'}. "
+            f"Window: {self.window.name if self.window else 'None'}. "
             f"WTG: {'available' if self.wtg else 'not available'}"
         )
-
-    def _find_static_window(self, activity: str) -> Optional[Window]:
-        """
-        Find the static Window matching the current activity.
-
-        Uses multiple matching strategies:
-        1. Exact match on window.activity
-        2. Exact match on window.name
-        3. Partial match (activity class name in window name or vice versa)
-
-        Args:
-            activity: Runtime activity name (e.g., "com.example.MainActivity")
-
-        Returns:
-            Matching Window or None if not found
-        """
-        if not self.static_info or not hasattr(self.static_info, 'windows'):
-            return None
-
-        windows = self.static_info.windows
-        if not windows:
-            return None
-
-        # Get all windows
-        all_windows = list(windows.get_windows()) if hasattr(windows, 'get_windows') else []
-        if not all_windows:
-            return None
-
-        # Strategy 1: Exact match on activity field
-        for window in all_windows:
-            if hasattr(window, 'activity') and window.activity == activity:
-                self.logger.debug(f"Found window by exact activity match: {window.name}")
-                return window
-
-        # Strategy 2: Exact match on name field
-        for window in all_windows:
-            if window.name == activity:
-                self.logger.debug(f"Found window by exact name match: {window.name}")
-                return window
-
-        # Strategy 3: Partial match - activity class name
-        activity_parts = activity.split('.')
-        activity_class = activity_parts[-1] if activity_parts else activity
-
-        for window in all_windows:
-            # Check if activity class is in window name
-            if activity_class in window.name:
-                self.logger.debug(f"Found window by partial match: {window.name}")
-                return window
-
-            # Check if window name is in activity
-            if window.name in activity:
-                self.logger.debug(f"Found window by partial match: {window.name}")
-                return window
-
-        self.logger.debug(f"No matching window found for activity: {activity}")
-        return None
 
     def find_matching_widget(self, node_data: Dict) -> Optional[Widget]:
         """
@@ -139,8 +83,7 @@ class RVAgentVisitor(DefaultTextVisitor):
         1. Resource ID match (inherited)
         2. Text content match (inherited)
         3. Hint text match
-        4. Content description match
-        5. Global widget search (across all windows)
+        4. Global widget search (across all windows)
 
         Args:
             node_data: Node data dictionary with UI element properties
@@ -153,25 +96,17 @@ class RVAgentVisitor(DefaultTextVisitor):
         if cache_key in self.widget_cache:
             return self.widget_cache[cache_key]
 
-        # Try parent implementation first (uses self.window from AbstractScreenVisitor)
+        # Try parent implementation first (uses self.window)
         widget = super().find_matching_widget(node_data)
         if widget:
             self.widget_cache[cache_key] = widget
             self.mop_stats["widgets_matched"] += 1
             return widget
 
-        # If no match and we have a different static_window, try with it
-        if self.static_window and self.static_window != self.window:
-            widget = self._find_widget_in_window(node_data, self.static_window)
-            if widget:
-                self.widget_cache[cache_key] = widget
-                self.mop_stats["widgets_matched"] += 1
-                return widget
-
-        # Try hint text match
+        # Try hint text match in current window
         hint = node_data.get("hint", "") or node_data.get("content-desc", "")
-        if hint and self.static_window:
-            for widget_id, widget in self.static_window.widgets.items():
+        if hint and self.window and hasattr(self.window, 'widgets'):
+            for widget_id, widget in self.window.widgets.items():
                 if hasattr(widget, 'hint') and widget.hint == hint:
                     self.widget_cache[cache_key] = widget
                     self.mop_stats["widgets_matched"] += 1
@@ -190,48 +125,17 @@ class RVAgentVisitor(DefaultTextVisitor):
         self.mop_stats["widgets_not_matched"] += 1
         return None
 
-    def _find_widget_in_window(self, node_data: Dict, window: Window) -> Optional[Widget]:
-        """
-        Find widget within a specific window.
-
-        Args:
-            node_data: Node data dictionary
-            window: Window to search in
-
-        Returns:
-            Matching Widget or None
-        """
-        if not window or not hasattr(window, 'widgets'):
-            return None
-
-        resource_id = node_data.get("resource-id", "") or node_data.get("resource_id", "")
-        text = node_data.get("text", "")
-
-        # Try resource ID
-        if resource_id:
-            parts = resource_id.split("/")
-            widget_id = parts[-1] if len(parts) > 1 else parts[0]
-
-            if hasattr(window, 'get_widget_by_name'):
-                widget = window.get_widget_by_name(widget_id)
-                if widget:
-                    return widget
-
-            # Direct lookup
-            if widget_id in window.widgets:
-                return window.widgets[widget_id]
-
-        # Try text match
-        if text:
-            for widget_id, widget in window.widgets.items():
-                if hasattr(widget, 'text') and widget.text == text:
-                    return widget
-
-        return None
-
     def _find_widget_globally(self, node_data: Dict) -> Optional[Widget]:
         """
-        Search for widget across all windows.
+        Search for widget across all windows by resource_id name.
+
+        This is the fallback when widget is not found in current window.
+        GESDA sometimes maps widgets to different windows than runtime activity.
+
+        Strategies:
+        1. Try global widgets dict by name
+        2. Search all windows by widget name (resource_id suffix)
+        3. Search all windows by widget_id if available
 
         Args:
             node_data: Node data dictionary
@@ -243,15 +147,39 @@ class RVAgentVisitor(DefaultTextVisitor):
             return None
 
         resource_id = node_data.get("resource-id", "") or node_data.get("resource_id", "")
-        if resource_id:
-            parts = resource_id.split("/")
-            widget_id = parts[-1] if len(parts) > 1 else parts[0]
+        if not resource_id:
+            return None
 
-            # Try global widgets dict
-            if hasattr(self.static_info.windows, 'widgets'):
-                if widget_id in self.static_info.windows.widgets:
-                    return self.static_info.windows.widgets[widget_id]
+        # Extract widget name from resource_id
+        parts = resource_id.split("/")
+        widget_name = parts[-1] if len(parts) > 1 else parts[0]
 
+        # Strategy 1: Try global widgets dict by name
+        if hasattr(self.static_info.windows, 'widgets'):
+            if widget_name in self.static_info.windows.widgets:
+                widget = self.static_info.windows.widgets[widget_name]
+                self.logger.debug(f"[WTG_FALLBACK] Found widget '{widget_name}' in global dict")
+                return widget
+
+        # Strategy 2: Search ALL windows by widget name
+        for window in self.static_info.windows.windows:
+            if hasattr(window, 'widgets') and window.widgets:
+                widget = window.get_widget_by_name(widget_name)
+                if widget:
+                    self.logger.info(
+                        f"[WTG_FALLBACK] Found widget '{widget_name}' in window '{window.name}' "
+                        f"(current activity: {self.activity})"
+                    )
+                    return widget
+
+        # Strategy 3: Also check by widget_id in global dict (numeric ID)
+        # Some widgets are stored by ID not name
+        for wid, widget in self.static_info.windows.widgets.items():
+            if hasattr(widget, 'name') and widget.name == widget_name:
+                self.logger.debug(f"[WTG_FALLBACK] Found widget by name match in global dict: {wid}")
+                return widget
+
+        self.logger.debug(f"[WTG_FALLBACK] Widget '{widget_name}' not found in any window")
         return None
 
     def _generate_cache_key(self, node_data: Dict) -> str:
@@ -371,10 +299,10 @@ class RVAgentVisitor(DefaultTextVisitor):
         Returns:
             List of transition dicts with target, widget_id, event_type
         """
-        if not self.wtg or not self.static_window:
+        if not self.wtg or not self.window:
             return []
 
-        window_id = getattr(self.static_window, 'id', None)
+        window_id = getattr(self.window, 'id', None)
         if not window_id:
             return []
 

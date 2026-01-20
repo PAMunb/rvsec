@@ -259,16 +259,18 @@ class RVAgentConfig(BaseValidatedModel):
         Returns:
             Dictionary with ChatOpenAI initialization parameters
         """
-        return {
+        config = {
             "base_url": self.llm_base_url,
             "model": self.llm_model,
             "temperature": self.llm_temperature,
             "max_tokens": self.llm_max_tokens,
+            "top_p": self.llm_top_p,
             "api_key": "not-needed",  # SGLang doesn't require API key
-            "model_kwargs": {
-                "top_p": self.llm_top_p,
-            },
         }
+        # top_k via extra_body (SGLang supports, OpenAI doesn't)
+        if self.llm_top_k > 0:
+            config["extra_body"] = {"top_k": self.llm_top_k}
+        return config
 
     def get_agent_mode(self) -> str:
         """

@@ -353,23 +353,10 @@ class RVAgentStrategy(ExplorationStrategy):
             action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
             self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
 
-        # 8. Update UI coverage tracker
-        # NOTE: Skip TEXT_CHANGE actions - they should only be marked as tested
-        # when all input variations are exhausted (handled in step 6 above).
-        # Marking them here would cause priority selection to skip them prematurely.
-        if selected_action.event != WidgetEventType.TEXT_CHANGE:
-            element_id = selected_action.widget_id or make_element_id_from_tuple(selected_action.coordinates)
-            comp_class = selected_action.target_view.get('class', '') if selected_action.target_view else ''
-            comp_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
-            self.ui_coverage.record_interaction(
-                element_id=element_id,
-                action_type=selected_action.event.value,
-                screen_hash=current_hash,
-                success=True,
-                component_type=comp_type
-            )
+        # NOTE: UI coverage tracking is now unified in execute_node.py (post-execution)
+        # This ensures consistent tracking for both algorithm and LLM actions.
 
-        # 9. Record MOP if applicable
+        # 8. Record MOP if applicable
         if selected_action.callback_signature:
             self.coverage_metrics.record_mop_execution(selected_action.callback_signature)
 
@@ -721,6 +708,30 @@ class RVAgentStrategy(ExplorationStrategy):
                 activities.add(node.activity)
         return activities
 
+    def _infer_input_type(self, target_view: Optional[Dict]) -> str:
+        """Infer input type from target_view data."""
+        if not target_view:
+            return "text"
+
+        # Password field detection (from UIAutomator)
+        if target_view.get('password') or target_view.get('is_password'):
+            return "password"
+
+        # Infer from resource_id
+        resource_id = (target_view.get('resource_id') or '').lower()
+        if 'email' in resource_id:
+            return "email"
+        if 'phone' in resource_id or 'mobile' in resource_id:
+            return "phone"
+        if 'username' in resource_id or 'user_name' in resource_id:
+            return "username"
+        if 'name' in resource_id:
+            return "name"
+        if 'address' in resource_id:
+            return "address"
+
+        return "text"
+
     def _prepare_input_action(
         self,
         action: ItemAction,
@@ -742,8 +753,11 @@ class RVAgentStrategy(ExplorationStrategy):
         element_id = action.widget_id or make_element_id_from_tuple(action.coordinates)
         is_mop = action.reaches_mop or action.directly_reaches_mop
 
+        # Infer input type from target_view
+        input_type = self._infer_input_type(action.target_view)
+
         # Get next test value
-        test_value = self.value_generator.get_next_value(element_id, is_mop=is_mop, input_type="text")
+        test_value = self.value_generator.get_next_value(element_id, is_mop=is_mop, input_type=input_type)
 
         if test_value is None:
             logger.debug(f"Input field {element_id}: all variations tested")
@@ -754,7 +768,7 @@ class RVAgentStrategy(ExplorationStrategy):
         # with a different test value if input variations are not exhausted
         action_with_input = action.model_copy(update={'text_input': test_value})
 
-        logger.info(f"Input field {element_id}: testing value '{test_value[:20]}'")
+        logger.info(f"Input field {element_id} ({input_type}): testing value '{test_value[:20]}'")
         return action_with_input
 
     def _convert_signature_to_optimized(

@@ -171,6 +171,54 @@ class UICoverageTracker:
             return False
         return element_id not in self.tested_elements
 
+    def find_nearest_element(
+        self,
+        x: int,
+        y: int,
+        screen_hash: Optional[str] = None,
+        max_distance: float = 100.0
+    ) -> Optional[tuple]:
+        """
+        Find the nearest registered element to given coordinates.
+
+        Used for matching LLM click coordinates to registered elements,
+        since LLM clicks may not be exactly at element centers.
+
+        Args:
+            x: X coordinate of click
+            y: Y coordinate of click
+            screen_hash: Screen context (if provided, only searches that screen)
+            max_distance: Maximum distance to consider a match (default 100px)
+
+        Returns:
+            Tuple of (element_id, component_type, distance) or None if no match
+        """
+        from .element_id import parse_element_id
+
+        best_match = None
+        best_distance = max_distance
+
+        # Get elements to search
+        if screen_hash and screen_hash in self.screen_elements:
+            elements_to_check = self.screen_elements[screen_hash]
+        else:
+            elements_to_check = set(self.element_types.keys())
+
+        for element_id in elements_to_check:
+            coords = parse_element_id(element_id)
+            if not coords:
+                continue
+
+            ex, ey = coords
+            distance = ((x - ex) ** 2 + (y - ey) ** 2) ** 0.5
+
+            if distance < best_distance:
+                best_distance = distance
+                comp_type = self.element_types.get(element_id, "Unknown")
+                best_match = (element_id, comp_type, distance)
+
+        return best_match
+
     def get_element_test_count(self, element_id: str, screen_hash: Optional[str] = None) -> int:
         """
         Get how many times an element has been tested.

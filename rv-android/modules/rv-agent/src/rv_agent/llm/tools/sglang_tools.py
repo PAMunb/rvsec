@@ -86,6 +86,32 @@ def android_swipe(direction: str, distance: str = "medium") -> dict:
 
 
 @tool
+def android_drag(
+    start_x: int, start_y: int, end_x: int, end_y: int, element_description: str = ""
+) -> dict:
+    """Drag from one point to another. Use for sliders, SeekBars, and drag operations.
+
+    Args:
+        start_x: Starting X coordinate.
+        start_y: Starting Y coordinate.
+        end_x: Ending X coordinate.
+        end_y: Ending Y coordinate.
+        element_description: Description of the element being dragged.
+
+    Returns:
+        Success status with coordinates.
+    """
+    return {
+        "success": True,
+        "start_x": start_x,
+        "start_y": start_y,
+        "end_x": end_x,
+        "end_y": end_y,
+        "element_description": element_description,
+    }
+
+
+@tool
 def android_scroll(direction: str) -> dict:
     """Scroll the screen in a direction.
 
@@ -125,6 +151,7 @@ def get_android_tools() -> List:
         android_type_text,
         android_long_click,
         android_swipe,
+        android_drag,
         android_scroll,
         android_back,
         android_home,
