@@ -96,15 +96,14 @@ def extract_clickable_elements_with_coords(
                     resource_id = node.get('resource-id', '')
                     class_name = node.get('class', '').split('.')[-1]
 
-                    # FORMATO CRÍTICO - NÃO ALTERAR!
+                    # FORMATO CRÍTICO - LLM usa coordenadas, não IDs
+                    # UPDATED 2026-01-20: Removido id:xxx - desnecessário para LLM
                     desc_parts = []
                     if text:
                         desc_parts.append(f'"{text}"')
                     if content_desc:
                         desc_parts.append(f'desc:"{content_desc}"')
-                    if resource_id:
-                        res_id = resource_id.split('/')[-1] if '/' in resource_id else resource_id
-                        desc_parts.append(f'id:{res_id}')
+                    # resource_id não incluído - LLM usa coordenadas para interação
                     if class_name:
                         desc_parts.append(class_name)
 

@@ -150,24 +150,14 @@ class ScreenProcessor:
         # Compute screen hash
         screen_hash = compute_screen_hash_from_description(screen_description)
 
-        # Format UI elements for LLM/display
-        ui_elements_text = self.format_ui_elements(screen_description)
+        # Format UI elements with test status, scores, and sorting
+        ui_elements_text = self.format_ui_elements(screen_description, screen_hash)
 
-        # Annotate elements with UI coverage status
-        if self.ui_coverage:
-            ui_elements_text = self.ui_coverage.annotate_screen_elements(ui_elements_text, screen_hash)
-            # INSTRUMENTATION: Count annotation types and show sample
-            untested = ui_elements_text.count("[UNTESTED]")
-            tested = ui_elements_text.count("[TESTED-")
-            well_tested = ui_elements_text.count("[WELL-TESTED]")
-            self.logger.info(
-                f"[INSTRUMENTATION] UI_ANNOTATIONS: untested={untested} tested={tested} well_tested={well_tested}"
-            )
-            # Show first annotated element for debugging
-            for line in ui_elements_text.split('\n'):
-                if '[UNTESTED]' in line or '[TESTED' in line:
-                    self.logger.info(f"[INSTRUMENTATION] SAMPLE_ANNOTATION: {line[:100]}")
-                    break
+        # Log element stats
+        untested = ui_elements_text.count("[UNTESTED]")
+        tested = ui_elements_text.count("[TESTED-")
+        well_tested = ui_elements_text.count("[WELL-TESTED]")
+        self.logger.info(f"Elements: untested={untested} tested={tested} well_tested={well_tested}")
 
         self.logger.info(f"Activity: {ui_state['current_activity']}")
         self.logger.info(f"Screen hash: {screen_hash[:12]}...")
@@ -185,20 +175,24 @@ class ScreenProcessor:
             "ui_xml": ui_state.get('xml', '')
         }
 
-    def format_ui_elements(self, screen_description: ScreenDescription) -> str:
+    def format_ui_elements(self, screen_description: ScreenDescription, screen_hash: str = "") -> str:
         """
-        Format UI elements as a simple list with type, text, and coordinates.
+        Format UI elements with test status, scores, and MOP markers.
 
-        Each element is formatted as:
-            1. ComponentType "text" at (x, y) [MOP markers if applicable]
+        Output format (sorted by score, highest first):
+            1. [UNTESTED] Button 'Submit' at position (500, 416) [score:260]
+            2. [TESTED-1x] EditText 'Password' at position (500, 312) [score:140]
 
-        Tool usage instructions are in the system prompt, not here.
+        Score calculation:
+            - Base: UNTESTED=200, TESTED-1x=140, TESTED-2x=98, WELL-TESTED=50
+            - MOP bonus: +100 for [DM], +50 for [M]
 
         Args:
             screen_description: Parsed screen description
+            screen_hash: Screen hash for test count lookup
 
         Returns:
-            Formatted string listing all interactive elements
+            Formatted string with elements sorted by priority score
         """
         if not screen_description or not screen_description.items:
             return "No interactive elements found."
@@ -212,34 +206,39 @@ class ScreenProcessor:
         if not interactive_items:
             return "No interactive elements found."
 
-        lines = []
-        for i, item in enumerate(interactive_items, 1):
-            desc = self._format_element(i, item)
-            if desc:
-                lines.append(desc)
+        # Process each element with scores
+        scored_elements = []
+        for item in interactive_items:
+            element_data = self._process_element(item, screen_hash)
+            if element_data:
+                scored_elements.append(element_data)
 
-        self.logger.debug(f"Formatted {len(lines)} interactive elements")
+        if not scored_elements:
+            return "No interactive elements found."
+
+        # Sort by score descending
+        scored_elements.sort(key=lambda x: x['score'], reverse=True)
+
+        # Format output with sequential numbering
+        lines = []
+        for i, elem in enumerate(scored_elements, 1):
+            line = f"{i}. {elem['tag']} {elem['description']} at position ({elem['x']}, {elem['y']}) [score:{elem['score']}]"
+            lines.append(line)
+
+        self.logger.debug(f"Formatted {len(lines)} elements (sorted by score)")
 
         return "\n".join(lines)
 
-    def _format_element(self, index: int, item: ScreenItem) -> str:
+    def _process_element(self, item: ScreenItem, screen_hash: str) -> dict:
         """
-        Format single element with type, text, and normalized coordinates.
-
-        Output format: "N. ComponentType 'text' at position (x, y) [MOP]"
-
-        Only includes information useful for LLM decision-making:
-        - Type: to choose correct tool (SeekBar->drag, EditText->type_text)
-        - Text: to understand element purpose
-        - Coordinates: to call the tool
-        - MOP markers: for prioritization
+        Process element and calculate priority score.
 
         Args:
-            index: Element index in list
-            item: ScreenItem to format
+            item: ScreenItem to process
+            screen_hash: Screen hash for test count lookup
 
         Returns:
-            Formatted element description or empty string if invalid bounds
+            Dict with description, tag, score, coordinates, or None if invalid
         """
         elem_type = item.view.get('class', 'View').split('.')[-1]
         text = item.view.get('text', '')
@@ -247,8 +246,7 @@ class ScreenProcessor:
 
         # Validate bounds
         if not (bounds and len(bounds) == 2 and len(bounds[0]) == 2 and len(bounds[1]) == 2):
-            self.logger.debug(f"Element {index} has invalid bounds: {bounds}")
-            return ""
+            return None
 
         # Calculate center and normalize to [0, 1000)
         device_center_x = (bounds[0][0] + bounds[1][0]) // 2
@@ -257,22 +255,63 @@ class ScreenProcessor:
         norm_x = int((device_center_x / device_width) * 1000)
         norm_y = int((device_center_y / device_height) * 1000)
 
-        # Build description: "N. Type 'text' at position (x, y)"
-        parts = [f"{index}.", elem_type]
-        if text:
-            parts.append(f"'{text}'")
+        # Get test count and determine status tag
+        test_count = 0
+        if self.ui_coverage:
+            from rv_agent.memory.ui_coverage import make_element_id
+            element_id = make_element_id(norm_x, norm_y)
+            test_count = self.ui_coverage.get_element_test_count(element_id)
+            # Track element for this screen
+            if screen_hash:
+                if screen_hash not in self.ui_coverage.screen_elements:
+                    self.ui_coverage.screen_elements[screen_hash] = set()
+                self.ui_coverage.screen_elements[screen_hash].add(element_id)
 
-        desc = " ".join(parts) + f" at position ({norm_x}, {norm_y})"
+        # Calculate base score from test status
+        # TODO: Usar os scorers reais do rvagent_strategy (MopScorer, WtgScorer,
+        # GradualDecayScorer, ComponentPriorityScorer, etc.) em vez desta versao
+        # simplificada. Isso requer passar os scorers como dependencia.
+        if test_count == 0:
+            tag = "[UNTESTED]"
+            base_score = 200
+        elif test_count == 1:
+            tag = "[TESTED-1x]"
+            base_score = 140
+        elif test_count <= 3:
+            tag = f"[TESTED-{test_count}x]"
+            base_score = 98
+        else:
+            tag = "[WELL-TESTED]"
+            base_score = 50
 
-        # Add MOP markers
+        # MOP bonus (simplificado - MopScorer real usa mesmos valores)
+        mop_bonus = 0
+        mop_marker = ""
         if hasattr(item, 'actions') and item.actions:
             action = item.actions[0]
             if action.directly_reaches_mop:
-                desc += " [DM]"
+                mop_bonus = 100
+                mop_marker = " [DM]"
             elif action.reaches_mop:
-                desc += " [M]"
+                mop_bonus = 50
+                mop_marker = " [M]"
 
-        return desc
+        total_score = base_score + mop_bonus
+
+        # Build description
+        parts = [elem_type]
+        if text:
+            parts.append(f"'{text}'")
+        description = " ".join(parts) + mop_marker
+
+        return {
+            'description': description,
+            'tag': tag,
+            'score': total_score,
+            'x': norm_x,
+            'y': norm_y,
+            'test_count': test_count,
+        }
 
     def _restart_app(self, package_name: str):
         """

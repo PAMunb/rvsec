@@ -286,22 +286,24 @@ class ExperimentConfig:
                                 ))
 
                     elif self.agent_mode == "multimode":
-                        # Phase 3: llm_probabilities × static × apps × seeds
+                        # Multimode: prompts × llm_probabilities × static × apps × seeds
                         strategy = self.strategies[0] if self.strategies else "rvagent"
-                        for llm_prob in self.llm_probability_variants:
-                            prob_name = f"llm{int(llm_prob * 100)}"
-                            run_id = f"{pkg_short}_{prob_name}_{static_suffix}_rep{rep}"
+                        for prompt_version in self.prompt_versions:
+                            for llm_prob in self.llm_probability_variants:
+                                prob_name = f"llm{int(llm_prob * 100)}"
+                                run_id = f"{pkg_short}_{prompt_version}_{prob_name}_{static_suffix}_rep{rep}"
 
-                            runs.append(RunConfig(
-                                apk_path=apk_path,
-                                package_name=package_name,
-                                strategy=strategy,
-                                repetition=rep,
-                                seed=seed,
-                                run_id=run_id,
-                                enable_static_analysis=static_enabled,
-                                llm_probability=llm_prob,
-                            ))
+                                runs.append(RunConfig(
+                                    apk_path=apk_path,
+                                    package_name=package_name,
+                                    strategy=strategy,
+                                    repetition=rep,
+                                    seed=seed,
+                                    run_id=run_id,
+                                    enable_static_analysis=static_enabled,
+                                    prompt_version=prompt_version,
+                                    llm_probability=llm_prob,
+                                ))
 
                     else:
                         # Phase 1 (pure_algorithm): strategies × static × apps × seeds
@@ -334,9 +336,10 @@ class ExperimentConfig:
             return n_prompts * n_params * n_static * n_apps * n_seeds
 
         elif self.agent_mode == "multimode":
-            # Phase 3: llm_probabilities × static × apps × seeds
+            # Multimode: prompts × llm_probabilities × static × apps × seeds
+            n_prompts = len(self.prompt_versions)
             n_probs = len(self.llm_probability_variants)
-            return n_probs * n_static * n_apps * n_seeds
+            return n_prompts * n_probs * n_static * n_apps * n_seeds
 
         else:
             # Phase 1 (pure_algorithm): strategies × static × apps × seeds

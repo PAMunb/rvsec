@@ -46,13 +46,21 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             if navigation_hint:
                 logger.info(f"LLM_GENERATE: Adding navigation guidance ({len(context.unvisited_screens)} unvisited)")
 
+    # Get screen info for v15 prompt
+    screen_line = ""
+    screen_hash = state.get("current_screen_hash", "")
+    if agent.dynamic_graph and screen_hash:
+        screen_line = agent.dynamic_graph.get_screen_line(screen_hash)
+        logger.debug(f"LLM_GENERATE: {screen_line}")
+
     result = agent.llm_client.generate_action(
         screen_description=state.get("screen_description"),
         screenshot_b64=state.get("screenshot_b64", ""),
         ui_elements_text=state.get("ui_elements_text", ""),
         iteration=state.get("iteration", 0),
         last_action_summary=state.get("action_history_summary"),
-        navigation_hint=navigation_hint
+        navigation_hint=navigation_hint,
+        screen_line=screen_line,
     )
 
     # Extract action from LLM response and normalize to unified format

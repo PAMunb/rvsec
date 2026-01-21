@@ -123,6 +123,7 @@ class LLMClient:
         iteration: int = 0,
         last_action_summary: Optional[str] = None,
         navigation_hint: str = "",
+        screen_line: str = "",
         temperature: float = None,
         top_p: float = None,
         top_k: int = None,
@@ -138,6 +139,7 @@ class LLMClient:
             iteration: Current iteration number
             last_action_summary: Summary of last executed action
             navigation_hint: Optional navigation guidance from WTG analysis
+            screen_line: Screen info (activity, coverage, visit count)
             temperature: Override temperature (uses config default if None)
             top_p: Override top_p (uses config default if None)
             top_k: Override top_k (unused in ChatOpenAI)
@@ -166,6 +168,7 @@ class LLMClient:
                 iteration=iteration,
                 last_action_summary=last_action_summary,
                 navigation_hint=navigation_hint,
+                screen_line=screen_line,
             )
 
             self.logger.debug(f"Built {len(messages)} messages")
@@ -233,6 +236,7 @@ class LLMClient:
         iteration: int,
         last_action_summary: Optional[str],
         navigation_hint: str = "",
+        screen_line: str = "",
     ) -> List:
         """
         Build LangChain messages with multimodal content.
@@ -243,6 +247,7 @@ class LLMClient:
             iteration: Current iteration
             last_action_summary: Last action summary
             navigation_hint: Optional navigation guidance from WTG
+            screen_line: Screen info (activity, coverage, visit count)
 
         Returns:
             List of LangChain messages
@@ -256,7 +261,12 @@ class LLMClient:
             "last_action": last_action_summary,
             "iteration": iteration,
         }
-        user_text = self.prompt_module.build_user_message(state_info, navigation_hint=navigation_hint)
+
+        user_text = self.prompt_module.build_user_message(
+            state_info,
+            navigation_hint=navigation_hint,
+            screen_line=screen_line,
+        )
 
         # Create multimodal human message
         messages = [

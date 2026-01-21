@@ -109,6 +109,11 @@ class ScreenNode:
         consecutive failures. This provides tolerance for transient network issues,
         emulator timeouts, or temporary conditions.
 
+        TODO: Esta funcao NAO esta sendo chamada em nenhum lugar do workflow.
+        Os dados de failed_actions estao sempre vazios. Verificar se devemos
+        conectar deteccao de falhas (crash, timeout, erro) a esta funcao,
+        ou remover o codigo relacionado (FailedActionScorer, is_action_failed, etc).
+
         Args:
             action_signature: ((x, y), action_type) tuple identifying the action
         """

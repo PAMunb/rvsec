@@ -320,4 +320,565 @@ A taxa de 59.4% de elementos untested é alta, mas a análise por tipo revela:
 
 ---
 
-*Relatório gerado em 2026-01-18 13:31 | Análise profunda: 2026-01-18 15:45*
+## 12. Análise Técnica: Fluxo Completo de Ações
+
+### 12.1 Visão Geral do Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          FLUXO DE AÇÕES NO RV-AGENT                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. VISITOR (rv-screen-parser)                                              │
+│     enhanced_visitor.py                                                     │
+│     ┌─────────────────────────────────────────────┐                         │
+│     │  ItemAction(                                │                         │
+│     │    id=123,                                  │                         │
+│     │    event=WidgetEventType.SCROLL,            │  ← Tipo de evento       │
+│     │    coordinates=(540, 960),                  │  ← Ponto de click       │
+│     │    target_view={                            │                         │
+│     │      'class': 'SeekBar',                    │                         │
+│     │      'swipe_start': (300, 960),  ← AQUI!   │  ← Não é extraído!      │
+│     │      'swipe_end': (780, 960)     ← AQUI!   │                         │
+│     │    }                                        │                         │
+│     │  )                                          │                         │
+│     └─────────────────────────────────────────────┘                         │
+│                            │                                                │
+│                            ▼                                                │
+│  2. STRATEGY (rv-agent)                                                     │
+│     rvagent_strategy.py → algorithm_node.py                                 │
+│     ┌─────────────────────────────────────────────┐                         │
+│     │  action = {                                 │                         │
+│     │    "action_type": "SCROLL",                 │                         │
+│     │    "x": 540,                                │                         │
+│     │    "y": 960,                                │                         │
+│     │    "source": "algorithm"                    │                         │
+│     │    # NÃO TEM: swipe_start, swipe_end !!!   │  ← PROBLEMA!            │
+│     │  }                                          │                         │
+│     └─────────────────────────────────────────────┘                         │
+│                            │                                                │
+│                            ▼                                                │
+│  3. EXECUTOR (rv-agent)                                                     │
+│     tool_executor.py                                                        │
+│     ┌─────────────────────────────────────────────┐                         │
+│     │  _execute_scroll(action):                   │                         │
+│     │    swipe_start = action.get("swipe_start")  │  ← None!               │
+│     │    swipe_end = action.get("swipe_end")      │  ← None!               │
+│     │    if swipe_start and swipe_end:            │                         │
+│     │      device.swipe(...)  # Não executa       │                         │
+│     │    else:                                    │                         │
+│     │      device.scroll("down")  # Fallback!    │  ← Não funciona!        │
+│     └─────────────────────────────────────────────┘                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.2 Mapeamento de Tipos de Evento
+
+| WidgetEventType | action_type | Executor Method | Comportamento |
+|-----------------|-------------|-----------------|---------------|
+| `CLICK` | "click" | `_execute_click()` | ✅ Funciona |
+| `LONG_CLICK` | "long_click" | `_execute_long_click()` | ✅ Funciona |
+| `TEXT_CHANGE` | "set_text" | `_execute_type_text()` | ✅ Funciona |
+| `SCROLL` | "scroll" | `_execute_scroll()` | ⚠️ Fallback direcional |
+| `DRAG` | "swipe" | `_execute_swipe()` | ❌ Usa scroll direcional! |
+| `GESTURE` | "swipe" | `_execute_swipe()` | ❌ Usa scroll direcional! |
+| `BACK` | "key_event" | `_execute_back()` | ✅ Funciona |
+
+### 12.3 Problema Central: Perda de Dados no Pipeline
+
+**O `algorithm_node.py` não extrai `swipe_start`/`swipe_end` do `target_view`!**
+
+Código atual (linha 159-166):
+```python
+action = {
+    "action_type": action_type,
+    "x": x,
+    "y": y,
+    "text": text_value,
+    "source": "algorithm",
+    "id": item_action.id
+    # FALTA: swipe_start, swipe_end, direction, etc.
+}
+```
+
+### 12.4 Análise por Componente
+
+#### CheckBox (46% coverage - BAIXO)
+
+| Fator | Status | Impacto |
+|-------|--------|---------|
+| Handler existe | ✅ `visit_checkbox()` | OK |
+| prioritize_check | ✅ True | OK |
+| Gera ação CLICK | ✅ | OK |
+| Coordenadas | ✅ | OK |
+
+**Investigação necessária:**
+- Checkboxes podem estar ocultos (scroll)
+- Checkboxes podem estar em diálogos não acessados
+- Estado `checked=true` pode não gerar ação de toggle em alguns visitors
+
+#### SeekBar (0% coverage - CRÍTICO)
+
+| Fator | Status | Impacto |
+|-------|--------|---------|
+| Handler existe | ✅ `visit_slider()` | OK |
+| Tipo de evento | ❌ `SCROLL` | PROBLEMA |
+| Coordenadas swipe | ❌ Em `target_view` | NÃO EXTRAÍDO |
+| Executor | ❌ Fallback direcional | NÃO FUNCIONA |
+
+**Correção:** Usar `DRAG` com coordenadas explícitas + extrair no algorithm_node.
+
+#### RadioGroup (0% coverage - CRÍTICO)
+
+| Fator | Status | Impacto |
+|-------|--------|---------|
+| Handler existe | ✅ `visit_radio_group()` | OK |
+| Lógica | ⚠️ Condicional | PARCIAL |
+| RadioButton | ❓ | VERIFICAR |
+
+**Investigação:** O RadioButton pode não estar sendo reconhecido como clicável.
+
+#### Chip (0% coverage)
+
+| Fator | Status | Impacto |
+|-------|--------|---------|
+| Handler | ❌ Não mapeado | PROBLEMA |
+| Fallback | ⚠️ `visit_leaf_node()` | PARCIAL |
+| clickable | ❓ | VERIFICAR |
+
+**Correção:** Adicionar ao `widget_handler_mapping`.
+
+### 12.5 Confusão Semântica: SCROLL vs SWIPE vs DRAG
+
+| Conceito | Semântica Esperada | Implementação Atual | Status |
+|----------|-------------------|---------------------|--------|
+| **SCROLL** | Rolagem de lista (direção) | `device.scroll(direction)` | ✅ OK |
+| **SWIPE** | Gesto de deslizar (direção) | `device.scroll(direction)` | ⚠️ Redundante |
+| **DRAG** | Movimento de A→B (coordenadas) | `device.scroll(direction)` | ❌ ERRADO |
+
+**Solução proposta:**
+- `SCROLL` → Rolagem de containers (direção)
+- `DRAG` → Movimento preciso (coordenadas start→end)
+- `SWIPE` → Alias para `SCROLL` (manter compatibilidade)
+
+### 12.6 Correções Necessárias (Ordenadas por Impacto)
+
+#### Correção 1: algorithm_node.py - Extrair dados de swipe
+
+```python
+# Após linha 165
+# Extrair dados de swipe do target_view se disponível
+if item_action.target_view:
+    if "swipe_start" in item_action.target_view:
+        action["swipe_start"] = item_action.target_view["swipe_start"]
+    if "swipe_end" in item_action.target_view:
+        action["swipe_end"] = item_action.target_view["swipe_end"]
+    if "direction" in item_action.target_view:
+        action["direction"] = item_action.target_view["direction"]
+```
+
+#### Correção 2: visit_slider() - Gerar coordenadas de swipe
+
+```python
+def visit_slider(self, node: Node) -> None:
+    bounds = node.bounds
+    if bounds and len(bounds) == 2:
+        x1, y1 = bounds[0]
+        x2, y2 = bounds[1]
+        center_y = (y1 + y2) // 2
+        width = x2 - x1
+
+        positions = [0, 25, 50, 75, 100]
+        for pos in positions:
+            target_x = x1 + int(width * (pos / 100))
+            start_x = (x1 + x2) // 2  # Sempre do centro
+
+            action = ItemAction(
+                id=self.counter.increment(),
+                text=f"DRAG_SLIDER to {pos}%",
+                event=WidgetEventType.DRAG,  # Usar DRAG, não SCROLL
+                target_view={
+                    **node.data,
+                    'swipe_start': (start_x, center_y),
+                    'swipe_end': (target_x, center_y),
+                },
+                coordinates=(start_x, center_y),
+            )
+```
+
+#### Correção 3: tool_executor.py - Handler para DRAG
+
+```python
+elif action_type == "DRAG":
+    result = self._execute_drag(action)
+
+def _execute_drag(self, action: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute coordinate-based drag action (for SeekBar, sliders, etc.)."""
+    swipe_start = action.get("swipe_start")
+    swipe_end = action.get("swipe_end")
+
+    if not swipe_start or not swipe_end:
+        return {"success": False, "error": "DRAG requires swipe_start and swipe_end"}
+
+    start_x, start_y = swipe_start
+    end_x, end_y = swipe_end
+    self.device.swipe(start_x, start_y, end_x, end_y)
+    self.logger.debug(f"Dragged from ({start_x}, {start_y}) to ({end_x}, {end_y})")
+    return {"success": True}
+```
+
+#### Correção 4: Adicionar Chip ao mapping
+
+```python
+# model.py
+widget_handler_mapping = {
+    ...
+    "com.google.android.material.chip.Chip": "visit_button",
+    "Chip": "visit_button",
+}
+```
+
+### 12.7 Impacto Esperado das Correções
+
+| Correção | Elementos | APKs Afetados | Melhoria UI Coverage |
+|----------|-----------|---------------|----------------------|
+| SeekBar (DRAG) | 78 | 7 | +5-10% nos APKs afetados |
+| algorithm_node (extração) | Todos | Todos | Correção de base |
+| RadioGroup | 24 | 2 | +5-8% em diceware... |
+| Chip | 4 | 1 | +1% |
+| **TOTAL** | 106+ | 10+ | **37.2% → ~45%** |
+
+---
+
+## 13. Arquivos Modificados
+
+| Arquivo | Módulo | Mudança | Status |
+|---------|--------|---------|--------|
+| `algorithm_node.py` | rv-agent | Extrair swipe_start/swipe_end do target_view | ✅ FEITO |
+| `tool_executor.py` | rv-agent | Adicionar handler para DRAG | ✅ FEITO |
+| `model.py` | rv-screen-parser | Mapear DRAG → "drag" (era "swipe") | ✅ FEITO |
+| `default_visitor.py` | rv-screen-parser | Usar DRAG para SeekBar com coordenadas | ✅ FEITO |
+| `enhanced_visitor.py` | rv-screen-parser | Usar DRAG para SeekBar com coordenadas | ✅ FEITO |
+| `model.py` | rv-screen-parser | Adicionar Chip ao widget_handler_mapping | ✅ FEITO |
+| `abstract_visitor.py` | rv-screen-parser | Adicionar Chip a ALWAYS_CLICKABLE_TYPES | ✅ FEITO |
+
+---
+
+## 14. Correções Aplicadas (2026-01-18)
+
+### 14.1 Resumo das Correções
+
+| Correção | Descrição | Impacto |
+|----------|-----------|---------|
+| **algorithm_node.py** | Extrai `swipe_start`, `swipe_end`, `direction` do `target_view` | SeekBar, ViewPager, scroll |
+| **tool_executor.py** | Novo handler `_execute_drag()` para ações com coordenadas | SeekBar funcionando |
+| **model.py** | `DRAG` mapeia para "drag" (não "swipe") | Semântica clara |
+| **visit_slider()** | Usa `WidgetEventType.DRAG` com coordenadas calculadas | 78 elementos SeekBar |
+| **ALWAYS_CLICKABLE_TYPES** | Adicionado `Chip` e classe completa | 4 elementos Chip |
+| **widget_handler_mapping** | Chip tratado como button | 4 elementos Chip |
+
+### 14.2 Backup
+
+Arquivos originais salvos em: `backup/20260118_action_fixes/`
+
+### 14.3 Próximos Passos
+
+1. **Executar testes unitários** para validar as correções
+2. **Rodar mini-calibração** com 3-5 APKs afetados para verificar melhoria
+3. **Comparar métricas** antes/depois
+
+---
+
+## 15. Validação das Correções (2026-01-18 15:00)
+
+### 15.1 Teste Rápido: dicewarepasswordgenerator
+
+| Métrica | Antes | Depois | Mudança |
+|---------|-------|--------|---------|
+| UI Coverage | 17.8% | **33.3%** | **+87%** |
+| Method Coverage | 48.1% | **76.5%** | **+59%** |
+| States Discovered | 8 | 5 | -37% |
+| Iterations | 32 | 35 | +9% |
+
+### 15.2 Cobertura por Componente (dicewarepasswordgenerator)
+
+| Componente | Antes | Depois | Status |
+|------------|-------|--------|--------|
+| **SeekBar** | 0% | **50%** | ✅ CORRIGIDO |
+| **RadioButton** | N/A | **100%** | ✅ CORRIGIDO |
+| RadioGroup | 0% | 0% | ⚪ Container (esperado) |
+| CheckBox | 50% | **100%** | ✅ |
+| Button | 66.7% | **100%** | ✅ |
+| ImageButton | 100% | **100%** | ✅ |
+| ScrollView | 100% | **50%** | ⚠️ |
+
+**Nota:** RadioGroup mostra 0% porque é um container - o importante é que os RadioButton filhos estão sendo clicados (100%).
+
+---
+
+## 16. Análise Completa de Componentes Android (2026-01-18 16:00)
+
+### 16.1 Componentes Agora Suportados
+
+#### Standard Android Widgets (android.widget.*)
+
+| Componente | Handler | Status |
+|------------|---------|--------|
+| Button | `visit_button` | ✅ |
+| EditText | `visit_edit_text` | ✅ |
+| TextView | `visit_text_view` | ✅ |
+| CheckBox | `visit_checkbox` | ✅ |
+| CheckedTextView | `visit_checked_text` | ✅ |
+| ImageButton | `visit_image_button` | ✅ |
+| ImageView | `visit_image` | ✅ |
+| ToggleButton | `visit_toggle_button` | ✅ |
+| Switch | `visit_switch` | ✅ |
+| RadioButton | `visit_radio_button` | ✅ |
+| RadioGroup | `visit_radio_group` | ✅ CORRIGIDO |
+| SeekBar | `visit_slider` | ✅ CORRIGIDO |
+| **RatingBar** | `visit_slider` | ✅ NOVO |
+| **AutoCompleteTextView** | `visit_edit_text` | ✅ NOVO |
+| **MultiAutoCompleteTextView** | `visit_edit_text` | ✅ NOVO |
+| Spinner | `visit_spinner` | ✅ |
+
+#### AndroidX AppCompat Widgets (androidx.appcompat.widget.*)
+
+| Componente | Handler | Status |
+|------------|---------|--------|
+| AppCompatButton | `visit_button` | ✅ NOVO |
+| AppCompatEditText | `visit_edit_text` | ✅ NOVO |
+| AppCompatTextView | `visit_text_view` | ✅ NOVO |
+| AppCompatCheckBox | `visit_checkbox` | ✅ NOVO |
+| AppCompatImageButton | `visit_image_button` | ✅ NOVO |
+| AppCompatImageView | `visit_image` | ✅ NOVO |
+| AppCompatRadioButton | `visit_radio_button` | ✅ NOVO |
+| AppCompatSeekBar | `visit_slider` | ✅ NOVO |
+| SwitchCompat | `visit_switch` | ✅ NOVO |
+| AppCompatToggleButton | `visit_toggle_button` | ✅ NOVO |
+| AppCompatCheckedTextView | `visit_checked_text` | ✅ NOVO |
+| AppCompatSpinner | `visit_spinner` | ✅ NOVO |
+
+#### Material Design Components (com.google.android.material.*)
+
+| Componente | Handler | Status |
+|------------|---------|--------|
+| Chip | `visit_button` | ✅ CORRIGIDO |
+| ChipGroup | container (children) | ✅ NOVO |
+| MaterialButton | `visit_button` | ✅ NOVO |
+| TextInputEditText | `visit_edit_text` | ✅ NOVO |
+| SwitchMaterial | `visit_switch` | ✅ NOVO |
+| MaterialCheckBox | `visit_checkbox` | ✅ NOVO |
+| MaterialRadioButton | `visit_radio_button` | ✅ NOVO |
+| Slider | `visit_slider` | ✅ NOVO |
+| RangeSlider | `visit_slider` | ✅ NOVO |
+| FloatingActionButton | `visit_button` | ✅ NOVO |
+| ExtendedFloatingActionButton | `visit_button` | ✅ NOVO |
+
+### 16.2 Elementos Sempre Clicáveis (ALWAYS_CLICKABLE_TYPES)
+
+| Categoria | Componentes |
+|-----------|-------------|
+| **Tabs** | ActionBar$Tab, Tab, TabLayout, TabView |
+| **Navigation** | NavigationBarView, BottomNavigationItemView, NavigationRailView |
+| **Menus** | ActionMenuItemView, MenuItemView, OverflowMenuButton |
+| **Material Design** | Chip, TabItem, TabLayout$TabView, BottomNavigationItemView, NavigationBarItemView, FloatingActionButton |
+| **AndroidX** | ActionMenuView, ActionMenuItemView |
+
+### 16.3 Containers com Tratamento Especial
+
+| Container | Comportamento |
+|-----------|---------------|
+| Spinner | `visit_spinner()` - trata como dropdown |
+| AppCompatSpinner | `visit_spinner()` - trata como dropdown |
+| RadioGroup | `visit_radio_group()` - itera filhos RadioButton |
+| ChipGroup | Itera filhos Chip individualmente |
+
+---
+
+## 17. Resumo das Correções Completas
+
+### 17.1 Arquivos Modificados
+
+| Arquivo | Módulo | Mudanças |
+|---------|--------|----------|
+| `algorithm_node.py` | rv-agent | Extrai swipe_start/swipe_end/direction do target_view |
+| `tool_executor.py` | rv-agent | Novo handler `_execute_drag()` |
+| `model.py` | rv-screen-parser | +25 mapeamentos de widgets (AndroidX, Material) |
+| `model.py` | rv-screen-parser | DRAG → "drag", ChipGroup como container |
+| `default_visitor.py` | rv-screen-parser | `visit_radio_group()` com coordenadas |
+| `enhanced_visitor.py` | rv-screen-parser | `visit_radio_group()` com coordenadas |
+| `abstract_visitor.py` | rv-screen-parser | +13 elementos em ALWAYS_CLICKABLE_TYPES |
+
+### 17.2 Impacto Estimado
+
+| Correção | Componentes | Impacto |
+|----------|-------------|---------|
+| SeekBar (DRAG) | 78 | +10% UI Coverage em 7 APKs |
+| RadioGroup (coordenadas) | 24 | +8% UI Coverage em 2 APKs |
+| Chip | 4+ | +1% |
+| AndroidX/Material mappings | Variável | Suporte a apps modernos |
+| ALWAYS_CLICKABLE_TYPES | Variável | Melhor navegação em tabs/menus |
+
+### 17.3 Próximos Passos
+
+1. ✅ Correções implementadas
+2. ✅ Teste rápido validou correções (dicewarepasswordgenerator)
+3. ⏳ Executar mini-calibração com 5-10 APKs para validação estatística
+4. ⏳ Comparar métricas com baseline (37.2% → esperado >45%)
+5. ⏳ Atualizar documentação de componentes suportados
+
+---
+
+## 18. Correções Adicionais (2026-01-18 18:00)
+
+### 18.1 Stuck Detection Dinâmico
+
+**Problema Identificado**: Threshold fixo de 8 iterações causava BACK prematuro em telas complexas.
+
+**Arquivos Modificados**:
+- `rv_agent.py` - Novos parâmetros configuráveis
+- `learn_node.py` - Lógica de threshold dinâmico
+
+**Implementação**:
+```python
+# rv_agent.py
+self.BASE_STUCK_THRESHOLD = 8      # Mínimo para telas simples
+self.STUCK_THRESHOLD_FACTOR = 1.5  # Multiplicador (calibrável)
+
+# learn_node.py
+def _get_dynamic_stuck_threshold(agent, state) -> int:
+    base = getattr(agent, 'BASE_STUCK_THRESHOLD', 8)
+    factor = getattr(agent, 'STUCK_THRESHOLD_FACTOR', 1.5)
+    num_elements = len(state.get("available_actions", []))
+    return max(base, int(num_elements * factor))
+```
+
+**Tabela de Impacto**:
+
+| Elementos | Factor=1.5 | Factor=2.0 |
+|-----------|------------|------------|
+| 5 | 8 (min) | 10 |
+| 10 | 15 | 20 |
+| 20 | 30 | 40 |
+| 30 | 45 | 60 |
+
+### 18.2 ComponentPriorityScorer Expandido
+
+**Problema Identificado**: Apenas 11 componentes tinham prioridade configurada. Tabs e muitos componentes AndroidX/Material não tinham prioridade.
+
+**Arquivo Modificado**: `scorers.py`
+
+**HIGH_PRIORITY (50.0) - 19 componentes**:
+
+| Categoria | Componentes |
+|-----------|-------------|
+| Buttons | Button, ImageButton, MaterialButton, FloatingActionButton, ExtendedFloatingActionButton |
+| Form Inputs | EditText, AutoCompleteTextView, MultiAutoCompleteTextView, TextInputEditText |
+| Dropdowns | Spinner, AppCompatSpinner |
+| Navigation | DrawerLayout, Tab, TabLayout, TabView, ActionBar$Tab, TabItem |
+| Bottom/Side Nav | BottomNavigationItemView, NavigationBarItemView, NavigationBarView, NavigationRailView |
+| Menus | ActionMenuItemView, MenuItemView, OverflowMenuButton |
+| Chips | Chip |
+
+**MEDIUM_PRIORITY (40.0) - 16 componentes**:
+
+| Categoria | Componentes |
+|-----------|-------------|
+| Toggles | CheckBox, MaterialCheckBox, AppCompatCheckBox, Switch, SwitchCompat, SwitchMaterial, ToggleButton, AppCompatToggleButton |
+| Radio | RadioButton, MaterialRadioButton, AppCompatRadioButton |
+| Sliders | SeekBar, AppCompatSeekBar, Slider, RangeSlider, RatingBar |
+| Content | ViewPager, RecyclerView, CheckedTextView, AppCompatCheckedTextView |
+
+**Total**: 35 componentes com prioridade (antes eram 11)
+
+### 18.3 Resumo das Correções da Sessão
+
+| # | Correção | Arquivo | Impacto |
+|---|----------|---------|---------|
+| 1 | Stuck Detection Dinâmico | rv_agent.py, learn_node.py | Menos BACK prematuro |
+| 2 | Tabs com alta prioridade | scorers.py | Melhor exploração de abas |
+| 3 | 35 componentes priorizados | scorers.py | Cobertura de AndroidX/Material |
+
+### 18.4 GradualDecayScorer (Substitui UntestedScorer)
+
+**Problema Identificado**: O sistema binário do UntestedScorer causava "cliff effect" - elementos perdiam 79% do score após a primeira visita (260 → 55), levando a abandono prematuro de elementos parcialmente testados.
+
+**Arquivo Modificado**: `scorers.py`
+
+**Antes (UntestedScorer - REMOVIDO)**:
+```python
+class UntestedScorer(Scorer):
+    UNTESTED_SCORE = 200.0
+
+    def score(self, action, context):
+        if is_untested:
+            return 200.0  # Binário: 200 ou 0
+        return 0.0
+```
+
+**Depois (GradualDecayScorer)**:
+```python
+class GradualDecayScorer(Scorer):
+    BASE_SCORE = 200.0
+    DECAY_RATE = 0.7  # 70% retention per visit
+    MIN_VISITS_FOR_ZERO = 5
+
+    def score(self, action, context):
+        visit_count = context.ui_coverage.get_element_test_count(element_id)
+        if visit_count >= MIN_VISITS_FOR_ZERO:
+            return 0.0
+        return BASE_SCORE * (DECAY_RATE ** visit_count)
+```
+
+**Tabela de Decay (DECAY_RATE=0.7)**:
+
+| Visitas | Score | % do Original | Comportamento |
+|---------|-------|---------------|---------------|
+| 0 | 200.0 | 100% | Nunca testado - máxima prioridade |
+| 1 | 140.0 | 70% | Testado 1x - ainda alta prioridade |
+| 2 | 98.0 | 49% | Testado 2x - prioridade moderada |
+| 3 | 68.6 | 34% | Testado 3x - prioridade menor |
+| 4 | 48.0 | 24% | Testado 4x - baixa prioridade |
+| 5+ | 0.0 | 0% | Bem testado - sem bonus |
+
+**Benefícios**:
+1. Transição suave de prioridade em vez de queda abrupta
+2. Elementos são revisitados mais vezes antes de serem "abandonados"
+3. Melhor cobertura em elementos que requerem múltiplas interações
+4. DECAY_RATE configurável para ajuste fino
+
+### 18.5 Remoção de Código Legado
+
+**Aliases removidos** (seguindo regras de implementação):
+- `UntestedScorer = GradualDecayScorer` - REMOVIDO
+- `DropdownScorer = ComponentPriorityScorer` - REMOVIDO
+
+**Arquivos atualizados**:
+- `scorers.py` - Classe GradualDecayScorer, aliases removidos
+- `__init__.py` - Exporta GradualDecayScorer
+- `rvagent_strategy.py` - Usa GradualDecayScorer diretamente
+
+### 18.6 Experimento de Validação
+
+**Status**: Em execução (mini_calibration_fixes)
+- APKs: 5
+- Seeds: 2 (42, 123)
+- Timeout: 300s
+- Total: 10 runs
+
+**Nota**: Este experimento usa código ANTES das correções desta sessão. As novas correções (Seções 18.1-18.5) serão validadas no próximo experimento.
+
+### 18.7 Resumo de Todas as Correções da Sessão
+
+| # | Correção | Arquivo | Impacto |
+|---|----------|---------|---------|
+| 1 | Stuck Detection Dinâmico | rv_agent.py, learn_node.py | Menos BACK prematuro |
+| 2 | Tabs com alta prioridade | scorers.py | Melhor exploração de abas |
+| 3 | 35 componentes priorizados | scorers.py | Cobertura de AndroidX/Material |
+| 4 | **GradualDecayScorer** | scorers.py | Transição suave de prioridade |
+| 5 | Remoção de código legado | scorers.py, __init__.py | Código limpo |
+
+---
+
+*Relatório gerado em 2026-01-18 13:31 | Análise profunda: 2026-01-18 15:45 | Análise código: 2026-01-18 16:30 | Correções aplicadas: 2026-01-18 14:30 | Análise completa de componentes: 2026-01-18 17:00 | Correções adicionais: 2026-01-18 18:00 | GradualDecayScorer: 2026-01-18 19:00*

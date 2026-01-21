@@ -111,6 +111,17 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     action_type = action.get("action_type", "UNKNOWN")
     logger.debug(f"Executing {action_type} from {source}")
 
+    # Pre-marking for LLM actions: Record action in graph BEFORE execution
+    # This ensures the action is marked as executed even if the app crashes
+    screen_hash = state.get("current_screen_hash", "")
+    if source == "llm" and screen_hash and agent.dynamic_graph:
+        x = action.get("x")
+        y = action.get("y")
+        if x is not None and y is not None:
+            action_sig = ((x, y), action_type)
+            agent.dynamic_graph.record_action(screen_hash, action_sig)
+            logger.info(f"[LLM_PREMARK] Recorded {action_sig} on {screen_hash[:8]}")
+
     result = agent.tool_executor.execute_action(action)
 
     # Record transition and interaction if action succeeded

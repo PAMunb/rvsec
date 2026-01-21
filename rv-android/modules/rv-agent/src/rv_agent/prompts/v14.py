@@ -38,16 +38,17 @@ SPECIAL ELEMENTS:
 Call the appropriate tool after your analysis."""
 
 
-def build_user_message(state_info: dict, navigation_hint: str = "") -> str:
+def build_user_message(state_info: dict, navigation_hint: str = "", screen_line: str = "") -> str:
     """
     Build user message with context for LLM.
 
     Args:
         state_info: Dict with keys:
-            - ui_elements: List with single formatted string from _format_ui_elements
+            - ui_elements: List with single formatted string
             - last_action: Optional last action taken
             - iteration: Current iteration number
         navigation_hint: Optional navigation guidance from WTG analysis
+        screen_line: Screen info (unused in v14, kept for interface consistency)
     """
     ui_elements = state_info.get('ui_elements', [])
     last_action = state_info.get('last_action')

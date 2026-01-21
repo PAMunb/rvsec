@@ -427,3 +427,55 @@ class DynamicStateGraph:
                 for t in self.transitions
             ]
         }
+
+    def get_screen_line(self, screen_hash: str) -> str:
+        """
+        Get screen info line for prompt context.
+
+        Format: "SCREEN: MainActivity | 40% coverage (4/10 actions) | visit #3 | 7 total screens"
+
+        Args:
+            screen_hash: Hash of current screen
+
+        Returns:
+            Formatted screen info string
+        """
+        total_screens = len(self.states)
+
+        if screen_hash not in self.states:
+            return f"SCREEN: unknown | 0% coverage (0/0 actions) | visit #1 | {total_screens} total screens"
+
+        node = self.states[screen_hash]
+        coverage_pct = int(node.get_coverage() * 100)
+        tested = len(node.executed_actions)
+        total = node.total_actions
+
+        # Extract short activity name (last part after dot)
+        activity = node.activity
+        if activity and '.' in activity:
+            activity = activity.split('.')[-1]
+
+        return (
+            f"SCREEN: {activity} | {coverage_pct}% coverage ({tested}/{total} actions) | "
+            f"visit #{node.visit_count} | {total_screens} total screens"
+        )
+
+    def get_action_execution_count(
+        self,
+        screen_hash: str,
+        action_signature: Tuple[Tuple[int, int], str]
+    ) -> int:
+        """
+        Get execution count for a specific action on a screen.
+
+        Args:
+            screen_hash: Hash of screen
+            action_signature: ((x, y), action_type) tuple
+
+        Returns:
+            Number of times action was executed (0 if never)
+        """
+        if screen_hash not in self.states:
+            return 0
+
+        return self.states[screen_hash].get_action_execution_count(action_signature)
