@@ -1,0 +1,434 @@
+# CLAUDE.md - rv-agent
+
+## Purpose
+
+RV-Agent is the core LLM-driven testing module for Android application exploration. It implements an autonomous agent that uses vision-language models (Qwen3-VL) to understand Android UI screenshots and interact with applications intelligently, combining LLM-based semantic understanding with algorithmic exploration strategies.
+
+### Key Capabilities
+
+- **Vision-Based UI Understanding**: Uses Qwen3-VL multimodal model to analyze screenshots and identify interactive elements
+- **Hybrid Exploration**: Combines LLM intelligence (70%) with algorithmic strategies (30%) for optimal coverage
+- **Three Execution Modes**: `pure_algorithm`, `llm_only`, and `multimode`
+- **MOP-Aware Prioritization**: Prioritizes actions that reach monitored operations from static analysis
+- **WTG-Guided Navigation**: Uses Window Transition Graph from GATOR for intelligent navigation
+- **Stateless LLM Context**: Fresh context each iteration (~2500 tokens) prevents context overflow
+- **Coordinate Normalization**: Handles Qwen3-VL [0, 1000) coordinate space conversion to device pixels
+
+## Architecture
+
+### LangGraph Workflow
+
+The agent uses LangGraph for workflow orchestration with externalized node functions:
+
+```
+              start
+                |
+            parse_ui
+                |
+         decision_router
+        /       |        \
+   algorithm   llm       end
+        |       |
+        |  capture_screenshot
+        |       |
+        |  llm_generate
+        |       |
+        +-> validate_action
+                |
+            execute
+                |
+             learn
+                |
+               END
+```
+
+### Key Design Decisions
+
+1. **Component-Based Architecture**: All components injected via constructor (dependency injection)
+2. **Stateless LLM Context**: Each iteration builds fresh messages from summaries
+3. **Hybrid Tool Call Parsing**: Native tool_calls + fallback XML/JSON parsing for SGLang
+4. **Coordinate-Based Action Tracking**: Actions tracked by (x, y) coordinates, not volatile IDs
+5. **Pre-Marking Actions**: Actions marked as executed BEFORE execution to prevent crash loops
+6. **Continuous Exploration**: Never "exhausted" - explores until timeout using least-executed actions
+
+### Key Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| RVAgent | Main orchestrator using LangGraph workflow | `agent/rv_agent.py` |
+| AgentFactory | Centralized dependency injection and creation | `agent/agent_factory.py` |
+| DeviceInterface | Android emulator interaction via UIAutomator2 | `agent/device_interface.py` |
+| DynamicStateGraph | Graph-based state tracking with structural hashing | `agent/dynamic_state_graph.py` |
+| LLMClient | Vision LLM communication with SGLang backend | `llm/llm_client.py` |
+| RVAgentStrategy | Coverage-optimized DFS with successor tracking | `strategies/rvagent_strategy/rvagent_strategy.py` |
+| RoutingManager | Decision routing between LLM and algorithm | `routing/routing_manager.py` |
+| ToolExecutor | Action execution on Android device | `execution/tool_executor.py` |
+| MemoryCoordinator | Multi-component memory management | `memory/memory_coordinator.py` |
+| TransitionManager | WTG + DynamicGraph integration | `services/transition_manager.py` |
+| NavigationGuidance | Unified navigation hints for LLM/algorithm | `services/navigation_guidance.py` |
+| ActionNormalizer | Coordinate conversion and action format unification | `domain/action.py` |
+| ScreenProcessor | UI parsing and element formatting | `services/screen_analyzer.py` |
+| ImageHandler | Screenshot capture and optimization | `services/vision_service.py` |
+
+## Directory Structure
+
+```
+src/rv_agent/
+├── __init__.py              # Package exports
+├── constants.py             # Validated constants (LLM params, thresholds)
+│
+├── agent/                   # Core agent components
+│   ├── rv_agent.py          # Main RVAgent class with LangGraph workflow
+│   ├── agent_factory.py     # Factory for agent creation with DI
+│   ├── device_interface.py  # Android device interaction
+│   ├── dynamic_state_graph.py # State tracking with structural hashing
+│   └── nodes/               # LangGraph workflow nodes
+│       ├── __init__.py
+│       ├── parse_node.py        # UI capture and parsing
+│       ├── decision_node.py     # LLM/algorithm routing
+│       ├── algorithm_node.py    # Algorithmic action generation
+│       ├── capture_node.py      # Screenshot capture for LLM
+│       ├── llm_node.py          # LLM action generation
+│       ├── validation_node.py   # Action validation
+│       ├── execute_node.py      # Device action execution
+│       └── learn_node.py        # Memory updates and stuck detection
+│
+├── config/                  # Configuration
+│   └── agent_config.py      # RVAgentConfig with SGLang settings
+│
+├── domain/                  # Domain models
+│   ├── action.py            # ActionNormalizer, coordinate conversion
+│   ├── state.py             # AgentState TypedDict for LangGraph
+│   ├── screen_node.py       # ScreenNode for graph tracking
+│   └── exceptions.py        # Custom exceptions
+│
+├── strategies/              # Exploration strategies
+│   ├── base_strategy.py     # ExplorationStrategy interface
+│   ├── strategy_registry.py # Strategy factory and registry
+│   ├── dfs_strategy.py      # Basic DFS strategy
+│   ├── bfs_strategy.py      # Basic BFS strategy
+│   ├── greedy_strategy.py   # Greedy strategy
+│   └── rvagent_strategy/    # Main RVAgent strategy
+│       ├── rvagent_strategy.py   # Coverage-optimized DFS
+│       ├── successor_tracker.py  # Successor state tracking
+│       ├── plateau_detector.py   # Stagnation detection
+│       ├── input_value_generator.py # Test value generation
+│       ├── coverage_metrics.py   # Coverage tracking
+│       └── ranking/              # Action ranking system
+│           ├── action_ranker.py  # Composite scorer
+│           ├── scorers.py        # Individual scorers (MOP, WTG, etc.)
+│           └── context.py        # RankingContext dataclass
+│
+├── llm/                     # LLM interaction
+│   ├── llm_client.py        # LLMClient with tool binding
+│   └── tools/               # LLM tools
+│       ├── sglang_tools.py      # Android action tools
+│       └── tool_call_parser.py  # Hybrid native/XML parsing
+│
+├── memory/                  # Memory systems
+│   ├── memory_coordinator.py # Coordinates all memory updates
+│   ├── agent_memory.py      # Summary generation
+│   ├── short_term.py        # Recent iterations
+│   ├── long_term.py         # State patterns
+│   ├── ui_coverage.py       # UI element coverage
+│   └── element_id.py        # Element identification
+│
+├── routing/                 # Decision routing
+│   ├── routing_manager.py   # LLM/algorithm routing
+│   ├── fallback_manager.py  # Fallback strategy management
+│   └── stuck_recovery.py    # Stuck state recovery
+│
+├── services/                # Support services
+│   ├── screen_analyzer.py   # ScreenProcessor
+│   ├── vision_service.py    # ImageHandler
+│   ├── transition_manager.py # WTG integration
+│   ├── navigation_guidance.py # Navigation hints
+│   ├── coordinate_utils.py  # Coordinate utilities
+│   ├── coordinate_extractor.py # Coordinate extraction
+│   ├── action_mapper.py     # Action mapping
+│   └── screenshot_optimizer.py # Screenshot optimization
+│
+├── prompts/                 # LLM prompts
+│   ├── v12.py               # Base prompt with navigation hints
+│   ├── v13.py               # Dialog handling (default)
+│   ├── v14.py               # Structured reasoning
+│   ├── v15.py               # Enhanced guidance
+│   └── v16.py               # Latest iteration
+│
+├── ui/                      # UI processing
+│   └── rvagent_visitor.py   # Custom visitor for screen parsing
+│
+├── cli/                     # Command-line interface
+│   └── main.py              # CLI commands (run, test)
+│
+└── execution/               # Action execution
+    └── tool_executor.py     # ToolExecutor
+```
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `agent/rv_agent.py` | Main RVAgent class - LangGraph workflow, execution loop |
+| `agent/agent_factory.py` | Factory pattern for agent creation with dependency injection |
+| `agent/device_interface.py` | DeviceInterface - UIAutomator2 wrapper for emulator control |
+| `agent/dynamic_state_graph.py` | DynamicStateGraph - structural hashing, coordinate-based tracking |
+| `config/agent_config.py` | RVAgentConfig - Pydantic model with all configuration options |
+| `strategies/rvagent_strategy/rvagent_strategy.py` | Main exploration strategy with successor tracking, MOP prioritization |
+| `llm/llm_client.py` | LLMClient - multimodal LLM interaction with tool binding |
+| `routing/routing_manager.py` | RoutingManager - decides between LLM and algorithm paths |
+| `memory/memory_coordinator.py` | MemoryCoordinator - coordinates all memory system updates |
+| `services/transition_manager.py` | TransitionManager - integrates static WTG with dynamic graph |
+| `domain/action.py` | ActionNormalizer - coordinate conversion from [0,1000) to device pixels |
+| `domain/state.py` | AgentState TypedDict - complete state for LangGraph workflow |
+| `prompts/v13.py` | Default prompt with dialog handling instructions |
+
+## Dependencies
+
+### Internal (RV-Android Modules)
+
+| Module | Purpose |
+|--------|---------|
+| rv-android-core | Foundation: domain models, event system, logging, validation |
+| rv-screen-parser | UI parsing with visitor patterns for screen analysis |
+| rv-uiautomator | UIAutomator2 adapter for device interaction |
+| rv-static-analysis | GATOR/GESDA/REACH integration for WTG and MOP data |
+
+### External
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| langchain | ^0.3 | LLM framework |
+| langchain-openai | ^0.3 | OpenAI-compatible API (SGLang) |
+| langgraph | ^0.3 | Workflow orchestration |
+| pydantic | ^2.9 | Configuration validation |
+| pillow | ^10.0 | Image processing for screenshots |
+| httpx | ^0.28 | HTTP client for LLM API |
+| click | ^8.1 | CLI framework |
+| faker | ^29.0 | Test data generation |
+| scipy | ^1.14 | Statistical functions (Gumbel-max) |
+
+## Testing
+
+### Test Structure
+
+```
+tests/
+├── unit/                    # Isolated unit tests (no external deps)
+│   ├── test_rv_agent.py
+│   ├── test_rvagent_strategy.py
+│   ├── test_llm_client.py
+│   ├── test_device_interface.py
+│   ├── test_memory_coordinator_rigorous.py
+│   ├── test_*_hypothesis.py  # Property-based tests
+│   └── ...
+├── integration/             # Component integration tests
+│   ├── test_component_integration.py
+│   ├── test_routing_manager_integration.py
+│   └── ...
+├── smoke/                   # Quick sanity checks
+│   ├── test_imports.py
+│   ├── test_sglang_connectivity.py
+│   ├── test_tool_binding.py
+│   └── test_config_sglang.py
+├── online/                  # Tests requiring device/LLM server
+│   ├── test_llm_client.py
+│   ├── test_device_interface.py
+│   ├── test_agent_e2e.py
+│   └── ...
+├── performance/             # Performance and latency tests
+│   ├── test_llm_latency.py
+│   └── test_multimode_proportion.py
+├── regression/              # Regression tests
+│   └── test_baseline_comparison.py
+├── system/                  # Full system tests
+│   └── __init__.py
+├── fixtures/                # Test data
+│   ├── screenshots/         # Sample screenshots
+│   │   ├── cryptoapp/
+│   │   ├── hashpass/
+│   │   └── ludo/
+│   ├── static_analysis/     # Static analysis fixtures
+│   └── ui_dumps/            # UIAutomator XML dumps
+└── conftest.py              # Shared fixtures
+```
+
+### Running Tests
+
+```bash
+cd modules/rv-agent
+
+# Unit tests only (fast, no external dependencies)
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+
+# Smoke tests (quick sanity checks)
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/smoke/ -v
+
+# Integration tests
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/integration/ -v
+
+# Online tests (requires device and LLM server)
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/online/ -v
+
+# All tests with coverage
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v --cov=src/rv_agent
+
+# Property-based tests (Hypothesis)
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_*_hypothesis.py -v
+
+# Specific test file
+PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_rvagent_strategy.py -v
+```
+
+## Common Tasks
+
+### Running the Agent
+
+```bash
+# Run with multimode (default: 70% LLM / 30% algorithm)
+poetry run rv-agent run --package com.example.app --device emulator-5554
+
+# Run with pure algorithm (no LLM)
+RVAGENT_MODE=pure_algorithm poetry run rv-agent run --package com.example.app
+
+# Run with LLM only
+RVAGENT_MODE=llm_only poetry run rv-agent run --package com.example.app
+
+# Run with specific timeout
+poetry run rv-agent run --package com.example.app --timeout 600
+
+# Run with debug logging
+poetry run rv-agent run --package com.example.app --debug
+```
+
+### Programmatic Usage
+
+```python
+from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.agent.agent_factory import AgentFactory
+
+# Create configuration
+config = RVAgentConfig(
+    package_name="com.example.app",
+    device_id="emulator-5554",
+    agent_mode="multimode",
+    llm_probability=0.7,
+    timeout=300,
+    strategy="rvagent"
+)
+
+# Create agent with factory
+agent = AgentFactory.create_agent(config)
+
+# Run exploration
+results = agent.run()
+print(f"Explored {results['unique_states']} states in {results['iterations']} iterations")
+```
+
+### Integration with rv-platform
+
+```bash
+# Run via rv-experiment
+poetry run rv-experiment run --tools rv-agent:multimode --apks-dir ./apks_examples
+
+# Run via rv-platform directly
+poetry run rv-platform run --tools rv-agent --apks-dir ./apks_examples
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RVAGENT_MODE` | Override agent mode (pure_algorithm, llm_only, multimode) | multimode |
+| `RVAGENT_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | INFO |
+| `RVAGENT_VERBOSE_COUNTERS` | Enable detailed counter logging | false |
+
+### RVAgentConfig Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `package_name` | str | required | Target application package name |
+| `device_id` | str | emulator-5554 | Android device/emulator ID |
+| `agent_mode` | str | multimode | Execution mode |
+| `llm_probability` | float | 0.7 | LLM probability in multimode (0.0-1.0) |
+| `timeout` | int | 300 | Execution timeout in seconds |
+| `strategy` | str | rvagent | Exploration strategy (rvagent, dfs, bfs, greedy) |
+| `llm_model` | str | Qwen/Qwen3-VL-4B-Instruct | LLM model identifier |
+| `llm_base_url` | str | http://192.168.0.36:30000/v1 | SGLang server URL |
+| `llm_temperature` | float | 0.01 | LLM temperature (0.01 optimal for tool calling) |
+| `prompt_version` | str | v13 | Prompt version (v12, v13, v14, v15, v16) |
+| `stochastic_probability` | float | 0.3 | Gumbel-max stochastic selection probability |
+| `stochastic_temperature` | float | 1.0 | Gumbel-max temperature (higher = more random) |
+
+### LLM Configuration (SGLang)
+
+The agent uses SGLang server with Qwen3-VL model. Key parameters validated from extensive benchmarking:
+
+```python
+# Optimal parameters for tool calling (from rvsec-vision-llm benchmark)
+llm_temperature = 0.01  # Low for consistent tool calls
+llm_top_p = 0.6         # Controlled sampling
+llm_top_k = 50          # Controlled diversity
+llm_max_tokens = 2048   # Sufficient for responses
+```
+
+## Important Implementation Notes
+
+### Qwen3-VL Coordinate System
+
+Qwen3-VL returns coordinates in a normalized [0, 1000) range:
+
+```python
+# Conversion to device pixels (in ActionNormalizer)
+pixel_x = int((x / 1000) * device_width)
+pixel_y = int((y / 1000) * device_height)
+```
+
+Reference: https://github.com/QwenLM/Qwen3-VL/issues/1486
+
+### Hybrid Tool Call Parsing
+
+SGLang does not have official tool calling support for Qwen3-VL. The behavior is non-deterministic (~50% native tool_calls, ~50% XML in content).
+
+Solution in `tool_call_parser.py`:
+1. Try native `response.tool_calls` first
+2. If empty, parse from `response.content` (XML/JSON formats)
+3. Supports: XML (Hermes), JSON array, JSON object, markdown, pythonic
+
+### Action Ranking Scorers
+
+The `RVAgentStrategy` uses a composite scoring system for action selection:
+
+| Scorer | Score Range | Purpose |
+|--------|-------------|---------|
+| GradualDecayScorer | 200 * 0.7^visits | Prioritize less-tested elements |
+| MopScorer | +100 (DM), +50 (M) | Prioritize MOP-reaching actions |
+| WtgScorer | +100 | Prioritize WTG-guided transitions |
+| ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
+| ExecutionCountScorer | 10/(1+count) | Lower count = higher score |
+| FailedActionScorer | -9999 | Blacklist failed actions |
+
+### Memory Systems
+
+| System | Purpose | Retention |
+|--------|---------|-----------|
+| ShortTermMemory | Recent iterations | Last 10 iterations |
+| LongTermMemory | State visit patterns | Up to 1000 states |
+| UICoverageTracker | Element interaction tracking | Per-element counts |
+| AgentMemory | Summary generation | Rolling window |
+| DynamicStateGraph | State/transition graph | All discovered states |
+
+### Stuck Detection (2-Level)
+
+1. **Level 1** (in RVAgent): Screen unchanged for N iterations (dynamic threshold based on element count)
+2. **Level 2** (in StuckRecovery): Backtrack BFS to find unsaturated ancestors, then RESTART
+
+### Static Analysis Integration
+
+When `static_data` is provided:
+- WTG guides navigation toward unvisited screens
+- MOP data prioritizes actions reaching monitored operations
+- TransitionManager maps static Window IDs to runtime activities
+- NavigationGuidance provides hints to both LLM and algorithm

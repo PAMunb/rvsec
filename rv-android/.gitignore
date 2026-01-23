@@ -193,3 +193,8 @@ cython_debug/
 /exp02_jca_instrument_errors.json
 /exp02_jca_results.json
 /exp02_jca_summary.csv
+
+# Claude Code (contains API keys and local state)
+.claude/.mcp.json
+.claude/memory.json
+.claude/settings.local.json

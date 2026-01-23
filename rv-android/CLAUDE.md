@@ -33,10 +33,11 @@ The system consists of the following modules:
 
 **LLM Testing:**
 10. **rv-agent**: Main LLM-driven testing tool using LangGraph for workflow orchestration
+11. **rv-llm**: LLM client abstraction and integration layer
 
 **Experiment Orchestration:**
-11. **rv-experiment**: Experiment orchestration and coordination system
-12. **rv-evaluator**: Result evaluation and report generation
+12. **rv-experiment**: Experiment orchestration and coordination system
+13. **rv-agent-validation**: Validation framework for rv-agent testing and benchmarking
 
 ## Development Commands
 
@@ -312,9 +313,19 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 
 ### Code Structure and Comments
 - Use English for all code and comments
-- Include comments at architectural decision points
-- Comments should reflect current state
-- Avoid promotional language and bias terms in comments
+- Include detailed comments at critical architectural points
+- Comments should reflect current state only (not migration history or "what was done")
+- Avoid promotional language and bias terms (no "modern", "sophisticated", "elegant", etc.)
+- Target audience: developers and researchers
+- Follow the comment template in: `EventBus`, `ExecutionManager`, `TaskExecutor`
+
+### Constants
+- Use constants instead of magic values whenever possible
+- Main constant files:
+  - `modules/rv-android-core/src/rv_android_core/constants.py`
+  - `modules/rv-experiment/src/rv_experiment/constants.py`
+  - `modules/rv-llm/src/rv_llm/llm/constants.py`
+- Each module may have its own constants file
 
 ### Error Handling
 - Use ErrorHandler decorators for consistent error management
@@ -337,11 +348,12 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 ## Important Implementation Notes
 
 ### Code Evolution Guidelines
-- When evolving the system, all changes must be fully implemented
-- Do not use strategies that maintain legacy code (e.g., adapters for backwards compatibility)
-- Legacy code must be removed or overwritten, not wrapped
-- Move old files to the `backup` directory before replacement
-- Update all references to use new implementations
+- **Complete implementation**: All changes must be fully implemented, not partial
+- **No legacy wrappers**: Do not use adapters, shims, or compatibility layers for old code
+- **Remove, don't wrap**: Legacy code must be removed or overwritten, never wrapped
+- **Backup first**: Move old files to `backup/` directory before replacement
+- **Update references**: All imports and references must point to new implementations
+- **Simplicity**: Prefer simple, elegant solutions over complex ones
 
 ### Module Interactions
 - rv-experiment coordinates but does not duplicate rv-platform functionality
@@ -454,3 +466,127 @@ Integração do TransitionManager para guiar exploração usando Window Transiti
 - `modules/rv-agent/src/rv_agent/routing/` - Routing entre LLM e algoritmo
 - `modules/rv-agent/src/rv_agent/llm/llm_client.py` - Cliente LLM com navigation_hint
 - `modules/rv-agent/src/rv_agent/prompts/v12.py` - Prompt com suporte a navigation guidance
+
+---
+
+## Skills and Agents
+
+**Full documentation**: See `.claude/AGENTS.md` for complete reference.
+
+### Quick Reference
+
+**Skills** (invoke via `/skill-name`):
+- `/rv-analyze-*` - Code analysis (complexity, dependencies, dead-code, module, file)
+- `/rv-refactor-*` - Refactoring (simplify, extract, cleanup, constants)
+- `/rv-test-*` - Testing (run, add)
+- `/rv-qa-*` - Quality (lint, lint-fix)
+- `/rv-verify` - Run all checks (tests + lint + type)
+- `/rv-impact-analyzer` - Change impact analysis
+- `/rv-debug-regression` - Regression bug investigation
+- `/rv-doc-*` - Documentation (generate-claude-md, docs-sync)
+
+**Agents** (auto-delegated by Claude):
+- `rv-refactor` - Code restructuring workflow
+- `rv-feature` - Feature implementation workflow
+- `rv-tdd` - Test-driven development workflow
+- `rv-cleanup` - Dead code removal workflow
+- `rv-code-reviewer` - Code review (final gate)
+
+### Directory Structure
+
+```
+.claude/
+├── AGENTS.md                # Full documentation (authoritative)
+├── project-info.md          # Quick reference (paths, env vars)
+├── agents/                  # Orchestrator agents + supporting files
+│   ├── rv-*.md              # Agent definitions
+│   └── rv-*/                # Templates, checklists, examples
+└── skills/                  # Invocable skills
+    └── rv-*/SKILL.md        # Skill definitions
+```
+
+---
+
+## Development Workflows
+
+See `.claude/AGENTS.md` for complete workflow documentation.
+
+### 1. TDD Workflow
+
+```
+1. /rv-test-add path/to/file.py function_name   # Write failing test
+2. Implement minimal code to pass
+3. /rv-verify module-name                        # Run all checks
+4. (rv-code-reviewer runs automatically)         # Review code
+```
+
+### 2. Refactoring Workflow
+
+```
+1. /rv-impact-analyzer target                    # Assess risk
+2. /rv-analyze-complexity module                 # Find hotspots
+3. (rv-refactor agent handles the rest)          # Multi-phase workflow
+```
+
+### 3. Debugging Regression
+
+```
+1. /rv-debug-regression test_name                # Investigate via git
+2. /rv-test-add for regression test              # Prevent recurrence
+3. /rv-test-run to verify fix
+```
+
+### 3. Module Analysis (Deep Dive)
+
+```
+1. /rv-analyze-module module-name               # Analyze + persist to memory
+2. /rv-analyze-complexity module-name           # Find complexity hotspots
+3. /rv-analyze-dependencies                     # Check dependency health
+4. Check memory for persisted analysis          # Future reference
+```
+
+### 4. Refactoring Workflow
+
+```
+1. /rv-analyze-complexity path/to/file.py       # Identify issues
+2. /rv-refactor-simplify path/to/file.py        # Simplify
+   OR /rv-refactor-extract path/to/file.py      # Extract components
+3. /rv-test-run module-name                      # Verify no breakage
+4. /rv-qa-lint-fix module-name                   # Clean up formatting
+5. (Claude uses rv-code-reviewer)                # Final review
+```
+
+### 5. Code Quality Check
+
+```
+1. /rv-qa-lint module-name                       # Find issues
+2. /rv-qa-lint-fix module-name                   # Auto-fix what's possible
+3. /rv-analyze-dead-code module-name             # Find unused code
+4. /rv-refactor-cleanup module-name              # Remove dead code
+```
+
+### MCP Tools Usage in Workflows
+
+| MCP Tool | When to Use |
+|----------|-------------|
+| **context7** | Fetch docs for LangGraph, pytest, pydantic, etc. |
+| **sequential-thinking** | Complex analysis requiring step-by-step reasoning |
+| **memory** | Persist module analysis, track findings over time |
+
+---
+
+## Claude Code Configuration
+
+### MCP Servers (configurados via `claude mcp add --scope user`)
+- **context7**: Docs atualizadas de bibliotecas (`npx -y @upstash/context7-mcp`)
+- **sequential-thinking**: Raciocínio estruturado (`npx -y @modelcontextprotocol/server-sequential-thinking`)
+- **memory**: Memória persistente entre sessões (`npx -y @modelcontextprotocol/server-memory`)
+
+### Incompatibilidades Conhecidas
+- **gemini MCP** (`github:aliargun/mcp-server-gemini`): Schema usa oneOf/allOf/anyOf - incompatível com API Anthropic
+- **pyright-lsp plugin**: Causa erro de LSP na inicialização - não usar
+
+### Arquivos Locais (gitignored)
+- `.claude/.mcp.json` - Contém API keys
+- `.claude/memory.json` - Estado local do MCP memory
+- `.claude/settings.local.json` - Configuração local
