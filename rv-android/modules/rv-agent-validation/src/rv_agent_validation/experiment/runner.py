@@ -625,8 +625,6 @@ class ExperimentRunner:
             "states_discovered": states_discovered,
             "transitions_count": transitions_count,
             "total_actions": result.get("total_actions", 0),
-            "valid_actions": result.get("valid_actions", 0),
-            "invalid_actions": result.get("invalid_actions", 0),
             "actions_per_minute": 0.0,
             "ui_coverage_percentage": ui_coverage_pct,
             "ui_total_elements": ui_coverage_stats.get("total_unique_elements", 0),
@@ -635,6 +633,13 @@ class ExperimentRunner:
             "ui_interactions_by_type": ui_coverage_stats.get("interactions_by_type", {}),
             "start_time": datetime.fromtimestamp(start_time).isoformat(),
             "end_time": datetime.fromtimestamp(end_time).isoformat(),
+            # Routing metrics (LLM vs Algorithm distribution)
+            "llm_executed": result.get("llm_executed", 0),
+            "algorithm_chosen": result.get("algorithm_chosen", 0),
+            "llm_percentage": result.get("llm_percentage", 0.0),
+            "algorithm_percentage": result.get("algorithm_percentage", 0.0),
+            "llm_validation_failed": result.get("llm_validation_failed", 0),
+            "forced_back": result.get("forced_back", 0),
         }
 
         total = metrics["total_actions"]

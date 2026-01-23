@@ -364,8 +364,8 @@ class TestRecoveryMechanisms:
         print(f"\n  Completed with {result.get('iterations', 0)} iterations")
         assert result.get("status") in ["completed", "error"]
 
-    def test_loop_detection(self, device, cryptoapp, device_id, check_emulator):
-        """Loop detection prevents infinite loops."""
+    def test_stuck_detection(self, device, cryptoapp, device_id, check_emulator):
+        """Stuck detection prevents infinite loops."""
         config = RVAgentConfig(
             package_name=cryptoapp.package_name,
             device_id=DEVICE_ID,
@@ -379,11 +379,6 @@ class TestRecoveryMechanisms:
         time.sleep(2)
 
         result = agent.run()
-
-        # Check if loop detection was triggered
-        routing = agent.routing_manager
-        if hasattr(routing, 'loop_detector'):
-            print(f"\n  Loop detector active")
 
         # Should complete without hanging
         assert result.get("status") == "completed"

@@ -197,10 +197,11 @@ class ScreenProcessor:
         if not screen_description or not screen_description.items:
             return "No interactive elements found."
 
-        # Filter to interactive elements only
+        # Filter to interactive elements - those with actions created by visitor
+        # Exclude system actions (BACK, RESTART) - LLM has dedicated tools for these
         interactive_items = [
             item for item in screen_description.items
-            if item.view.get('clickable', False)
+            if item.actions and not item.view.get('class', '').startswith('SystemAction_')
         ]
 
         if not interactive_items:
@@ -298,10 +299,14 @@ class ScreenProcessor:
 
         total_score = base_score + mop_bonus
 
-        # Build description
+        # Build description - include content_description if text is empty
+        content_desc = item.view.get('content_description', '')
         parts = [elem_type]
         if text:
             parts.append(f"'{text}'")
+        elif content_desc:
+            # Use content description when text is empty (e.g., "Open navigation drawer" for menu)
+            parts.append(f"'{content_desc}'")
         description = " ".join(parts) + mop_marker
 
         return {

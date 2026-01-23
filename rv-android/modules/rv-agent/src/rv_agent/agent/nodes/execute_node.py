@@ -29,9 +29,8 @@ def _record_ui_interaction(
     Record UI interaction for coverage tracking.
 
     Unified recording point for both algorithm and LLM actions.
-
-    For algorithm actions: Uses ItemAction to get precise element_id and component_type.
-    For LLM actions: Uses proximity matching to find nearest registered element.
+    Both paths use proximity matching with normalized [0, 1000) coordinates
+    to match screen_analyzer's registration.
 
     Args:
         agent: RVAgent instance with ui_coverage tracker
@@ -44,18 +43,48 @@ def _record_ui_interaction(
     element_id = None
     component_type = None
 
-    # For algorithm actions, use ItemAction directly
+    # Get device dimensions for normalization
+    device_width = agent.screen_processor.device_dimensions[0] if agent.screen_processor else 1080
+    device_height = agent.screen_processor.device_dimensions[1] if agent.screen_processor else 1920
+
+    # For algorithm actions, normalize coords and use proximity matching
     if source == "algorithm" and item_action:
-        element_id = item_action.widget_id or make_element_id_from_tuple(item_action.coordinates)
         if item_action.target_view:
             comp_class = item_action.target_view.get('class', '')
             component_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
-        logger.debug(f"Recording algorithm interaction: {element_id} ({component_type})")
 
-    # For LLM actions, use proximity matching
+        # Get device coordinates and normalize to [0, 1000)
+        coords = item_action.coordinates
+        if coords:
+            device_x, device_y = coords
+            norm_x = int((device_x / device_width) * 1000)
+            norm_y = int((device_y / device_height) * 1000)
+
+            # Use proximity matching with normalized coords
+            match = agent.ui_coverage.find_nearest_element(norm_x, norm_y, screen_hash)
+            if match:
+                element_id, matched_type, distance = match
+                if not component_type:
+                    component_type = matched_type
+                logger.debug(f"Recording algorithm interaction: {element_id} ({component_type}, dist={distance:.1f}px)")
+            else:
+                # No match - create element_id from normalized coords
+                from rv_agent.memory.element_id import make_element_id
+                element_id = make_element_id(norm_x, norm_y)
+                logger.debug(f"Recording algorithm interaction (no match): {element_id}")
+
+    # For LLM actions, use proximity matching with NORMALIZED coords
     elif source == "llm":
-        x = action.get('x')
-        y = action.get('y')
+        # Use original [0,1000) coords to match screen_analyzer registration
+        # screen_analyzer.format_ui_elements() registers elements in normalized space
+        original_coords = action.get('original_coords')
+        if original_coords:
+            x, y = original_coords  # [0, 1000) normalized space
+        else:
+            # Fallback to device coords (shouldn't happen normally)
+            x = action.get('x')
+            y = action.get('y')
+
         if x is not None and y is not None:
             # Try to find nearest registered element
             match = agent.ui_coverage.find_nearest_element(x, y, screen_hash)
@@ -109,7 +138,14 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     source = action.get("source", "unknown")
     action_type = action.get("action_type", "UNKNOWN")
-    logger.debug(f"Executing {action_type} from {source}")
+
+    # [LLM_TRACE] Log action being executed
+    logger.warning(f"[LLM_TRACE] === EXECUTING ACTION ===\n"
+                  f"[LLM_TRACE] source: {source}\n"
+                  f"[LLM_TRACE] action_type: {action_type}\n"
+                  f"[LLM_TRACE] coords: ({action.get('x')}, {action.get('y')})\n"
+                  f"[LLM_TRACE] text: {action.get('text', '')}\n"
+                  f"[LLM_TRACE] === END EXECUTING ACTION ===")
 
     # Pre-marking for LLM actions: Record action in graph BEFORE execution
     # This ensures the action is marked as executed even if the app crashes

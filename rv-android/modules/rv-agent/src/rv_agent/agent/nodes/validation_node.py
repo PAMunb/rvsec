@@ -69,6 +69,20 @@ def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         decision_maker=decision_maker
     )
 
+    # [LLM_TRACE] Log validation result
+    final_action = validation_result["current_action"]
+    loop_detected = validation_result["loop_detected"]
+    if loop_detected:
+        logger.warning(f"[LLM_TRACE] === VALIDATION REJECTED ===\n"
+                      f"[LLM_TRACE] Original action: {action.get('action_type') if action else 'None'}\n"
+                      f"[LLM_TRACE] Replaced with: {final_action.get('action_type') if final_action else 'None'}\n"
+                      f"[LLM_TRACE] Reason: loop_detected={loop_detected}\n"
+                      f"[LLM_TRACE] === END VALIDATION ===")
+    else:
+        logger.warning(f"[LLM_TRACE] === VALIDATION PASSED ===\n"
+                      f"[LLM_TRACE] Action: {final_action.get('action_type') if final_action else 'None'}\n"
+                      f"[LLM_TRACE] === END VALIDATION ===")
+
     return {
         "current_action": validation_result["current_action"],
         "loop_detected": validation_result["loop_detected"],

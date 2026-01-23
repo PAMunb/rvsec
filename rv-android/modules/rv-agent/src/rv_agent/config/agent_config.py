@@ -226,26 +226,6 @@ class RVAgentConfig(BaseValidatedModel):
         description="Automatically fallback to algorithm on LLM error"
     )
 
-    # === LOOP DETECTION CONFIGURATION ===
-    max_consecutive_type_text: int = Field(
-        default=2,
-        ge=1,
-        le=5,
-        description="Max consecutive SET_TEXT actions before loop detection"
-    )
-    max_consecutive_click: int = Field(
-        default=3,
-        ge=1,
-        le=10,
-        description="Max consecutive CLICK actions before loop detection"
-    )
-    max_consecutive_scroll: int = Field(
-        default=5,
-        ge=2,
-        le=20,
-        description="Max consecutive SCROLL actions before loop detection"
-    )
-
     # === STATIC ANALYSIS ===
     static_analysis_path: Optional[str] = Field(
         default=None,
@@ -316,25 +296,6 @@ class RVAgentConfig(BaseValidatedModel):
         if env_val:
             return env_val.lower() in ("1", "true", "yes")
         return self.verbose_counters
-
-    def get_loop_threshold(self, action_type: str) -> int:
-        """
-        Get loop detection threshold for action type.
-
-        Args:
-            action_type: Action type (SET_TEXT, CLICK, SCROLL, etc.)
-
-        Returns:
-            Maximum consecutive repetitions before loop detection
-        """
-        thresholds = {
-            "SET_TEXT": self.max_consecutive_type_text,
-            "CLICK": self.max_consecutive_click,
-            "SCROLL": self.max_consecutive_scroll,
-            "SWIPE": self.max_consecutive_scroll,
-            "BACK": 2,
-        }
-        return thresholds.get(action_type, 3)
 
     def is_platform_mode(self) -> bool:
         """Check if running in platform integration mode."""

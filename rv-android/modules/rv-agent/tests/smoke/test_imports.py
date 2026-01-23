@@ -85,10 +85,10 @@ class TestImports:
     def test_import_routing(self):
         """Routing modules import without error."""
         from rv_agent.routing import routing_manager
-        from rv_agent.routing import loop_detector
+        from rv_agent.routing import fallback_manager
 
         assert routing_manager is not None
-        assert loop_detector is not None
+        assert fallback_manager is not None
 
     def test_import_services(self):
         """Services modules import without error."""

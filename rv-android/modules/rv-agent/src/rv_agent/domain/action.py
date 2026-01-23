@@ -85,6 +85,18 @@ class ActionNormalizer:
         x_raw = tool_args.get("x", 0)
         y_raw = tool_args.get("y", 0)
 
+        # Ensure coordinates are numeric (LLM may return strings)
+        if isinstance(x_raw, str):
+            try:
+                x_raw = float(x_raw)
+            except (ValueError, TypeError):
+                x_raw = 0
+        if isinstance(y_raw, str):
+            try:
+                y_raw = float(y_raw)
+            except (ValueError, TypeError):
+                y_raw = 0
+
         # Convert from [0, 1000) normalized to device pixels
         x_dev, y_dev = denormalize_qwen_coords(
             x_raw, y_raw,

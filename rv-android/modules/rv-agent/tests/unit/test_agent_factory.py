@@ -51,7 +51,6 @@ class TestAgentFactoryCreateAgent:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -70,7 +69,6 @@ class TestAgentFactoryCreateAgent:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -96,7 +94,6 @@ class TestAgentFactoryCreateAgent:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -115,7 +112,6 @@ class TestAgentFactoryCreateAgent:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -148,7 +144,6 @@ class TestAgentFactoryCreateAgent:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -167,7 +162,6 @@ class TestAgentFactoryCreateAgent:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -197,7 +191,6 @@ class TestAgentFactoryCreateAgent:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -216,7 +209,6 @@ class TestAgentFactoryCreateAgent:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -250,7 +242,6 @@ class TestAgentFactoryLLMModes:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -271,7 +262,6 @@ class TestAgentFactoryLLMModes:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -298,7 +288,6 @@ class TestAgentFactoryLLMModes:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -319,7 +308,6 @@ class TestAgentFactoryLLMModes:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -346,7 +334,6 @@ class TestAgentFactoryLLMModes:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -367,7 +354,6 @@ class TestAgentFactoryLLMModes:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -479,7 +465,6 @@ class TestAgentFactoryComponentCreation:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -498,7 +483,6 @@ class TestAgentFactoryComponentCreation:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -527,7 +511,6 @@ class TestAgentFactoryComponentCreation:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -546,7 +529,6 @@ class TestAgentFactoryComponentCreation:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -577,7 +559,6 @@ class TestAgentFactoryComponentCreation:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -596,7 +577,6 @@ class TestAgentFactoryComponentCreation:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,
@@ -605,12 +585,10 @@ class TestAgentFactoryComponentCreation:
         mock_device_interface,
         base_config
     ):
-        """Creates RoutingManager with loop detector and fallback manager."""
+        """Creates RoutingManager with fallback manager."""
         mock_strategy_instance = MagicMock()
         mock_strategy_registry.return_value.get_strategy.return_value = mock_strategy_instance
         mock_rv_agent.return_value = MagicMock(spec=RVAgent)
-        mock_detector = MagicMock()
-        mock_loop_detector.return_value = mock_detector
         mock_fb = MagicMock()
         mock_fallback.return_value = mock_fb
 
@@ -618,7 +596,6 @@ class TestAgentFactoryComponentCreation:
 
         call_kwargs = mock_routing.call_args[1]
         assert call_kwargs['config'] == base_config
-        assert call_kwargs['loop_detector'] == mock_detector
         assert call_kwargs['fallback_manager'] == mock_fb
         assert call_kwargs['exploration_strategy'] == mock_strategy_instance
 
@@ -628,7 +605,6 @@ class TestAgentFactoryComponentCreation:
     @patch('rv_agent.agent.agent_factory.StrategyRegistry')
     @patch('rv_agent.agent.agent_factory.ImageHandler')
     @patch('rv_agent.agent.agent_factory.ScreenProcessor')
-    @patch('rv_agent.agent.agent_factory.LoopDetector')
     @patch('rv_agent.agent.agent_factory.FallbackManager')
     @patch('rv_agent.agent.agent_factory.RoutingManager')
     @patch('rv_agent.agent.agent_factory.ToolExecutor')
@@ -647,7 +623,6 @@ class TestAgentFactoryComponentCreation:
         mock_tool_executor,
         mock_routing,
         mock_fallback,
-        mock_loop_detector,
         mock_screen_processor,
         mock_image_handler,
         mock_strategy_registry,

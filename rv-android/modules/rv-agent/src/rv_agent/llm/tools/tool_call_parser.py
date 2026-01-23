@@ -215,6 +215,12 @@ def denormalize_qwen_coords(
     Returns:
         Tuple of (pixel_x, pixel_y)
     """
+    # Handle list/tuple inputs (LLM may return [x] or [x, y] format)
+    if isinstance(x, (list, tuple)):
+        x = x[0] if x else 0
+    if isinstance(y, (list, tuple)):
+        y = y[0] if y else 0
+
     # Ensure x and y are numeric (may come as strings from LLM)
     x = int(x) if isinstance(x, str) else x
     y = int(y) if isinstance(y, str) else y

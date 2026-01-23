@@ -379,15 +379,59 @@ class TransitionManager:
             # Find matching action in screen description
             action = self._find_action_by_widget_id(widget_id, screen_desc)
             if action:
+                # Build descriptive action text from target_view properties
+                action_text = self._get_action_description(action)
                 suggested.append({
                     **target,
                     "action_id": action.id,
-                    "action_text": action.text,
+                    "action_text": action_text,
                     "action_type": action.action_type,
                     "coordinates": action.get_execution_coordinates()
                 })
 
         return suggested
+
+    def _get_action_description(self, action: ItemAction) -> str:
+        """
+        Build descriptive text for an action from its target_view properties.
+
+        Prioritizes: content-desc > text > resource-id > class name
+
+        Args:
+            action: ItemAction to describe.
+
+        Returns:
+            Human-readable description of the action target.
+        """
+        target = action.target_view
+        if not target:
+            return action.text  # Fallback to original text
+
+        # Try content-desc first (accessibility label)
+        content_desc = target.get('content-desc', '')
+        if content_desc:
+            return content_desc
+
+        # Try view text
+        text = target.get('text', '')
+        if text:
+            return text
+
+        # Try resource-id (extract meaningful name)
+        resource_id = target.get('resource-id', '')
+        if resource_id:
+            # Extract name from "com.example:id/button_name" -> "button_name"
+            parts = resource_id.split('/')
+            if len(parts) > 1:
+                return parts[-1].replace('_', ' ')
+
+        # Fall back to class name
+        class_name = target.get('class', '')
+        if class_name:
+            # Extract simple name from "android.widget.Button" -> "Button"
+            return class_name.split('.')[-1]
+
+        return action.text  # Final fallback
 
     def _find_action_by_widget_id(
         self,

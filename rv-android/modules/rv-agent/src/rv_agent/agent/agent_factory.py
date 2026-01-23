@@ -25,7 +25,6 @@ from rv_agent.services.vision_service import ImageHandler
 from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.llm.llm_client import LLMClient
 from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.routing.loop_detector import LoopDetector
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
@@ -175,10 +174,6 @@ class AgentFactory:
             llm_client = AgentFactory._create_llm_client(config)
             logger.info("Created LLMClient")
 
-        # Create loop detector
-        loop_detector = LoopDetector(config=config)
-        logger.info("Created LoopDetector")
-
         # Create fallback manager
         fallback_manager = FallbackManager(strategy_registry=strategy_registry)
         logger.info("Created FallbackManager")
@@ -186,7 +181,6 @@ class AgentFactory:
         # Create routing manager
         routing_manager = RoutingManager(
             config=config,
-            loop_detector=loop_detector,
             fallback_manager=fallback_manager,
             exploration_strategy=exploration_strategy
         )

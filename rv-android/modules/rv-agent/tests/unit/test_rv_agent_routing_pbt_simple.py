@@ -191,39 +191,5 @@ class TestRoutingManager:
                    abs(calculated_total_percentage - 100.0) <= 2.0  # Allow for rounding errors
 
 
-@pytest.mark.hypothesis
-class TestLoopDetection:
-    """Property-based tests for the loop detection mechanism."""
-
-    @given(
-        actions=action_sequence_strategy,
-        loop_threshold=st.integers(min_value=2, max_value=5)
-    )
-    @settings(deadline=2000, max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    def test_loop_detection_properties(self, actions, loop_threshold):
-        """Test properties of loop detection with various action sequences."""
-        # Create a mock LoopDetector
-        loop_detector = MagicMock()
-
-        # Mock the detect_loop method
-        def mock_detect_loop(action, action_history):
-            # Simple mock: if the same action appears loop_threshold times consecutively, detect loop
-            if len(action_history) >= loop_threshold:
-                recent_actions = action_history[-loop_threshold:]
-                if all(a["action_type"] == action["action_type"] for a in recent_actions):
-                    return True
-            return False
-
-        loop_detector.detect_loop = mock_detect_loop
-
-        # Test loop detection with the action sequence
-        for i, action in enumerate(actions):
-            history = actions[:i]
-            is_loop = loop_detector.detect_loop(action, history)
-
-            # Verify that the result is a boolean
-            assert isinstance(is_loop, bool)
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

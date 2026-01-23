@@ -99,8 +99,16 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         if hasattr(response, "content") and response.content:
             llm_reasoning = response.content[:500]
 
-    if not llm_action:
-        logger.warning("LLM_GENERATE: No action extracted from response")
+    # [LLM_TRACE] Log final action selection
+    if llm_action:
+        logger.warning(f"[LLM_TRACE] === LLM ACTION SELECTED ===\n"
+                      f"[LLM_TRACE] action_type: {llm_action.get('action_type')}\n"
+                      f"[LLM_TRACE] coords: ({llm_action.get('x')}, {llm_action.get('y')})\n"
+                      f"[LLM_TRACE] original_coords: {llm_action.get('original_coords')}\n"
+                      f"[LLM_TRACE] text: {llm_action.get('text', '')}\n"
+                      f"[LLM_TRACE] === END LLM ACTION ===")
+    else:
+        logger.warning("[LLM_TRACE] === NO LLM ACTION - will fallback to algorithm or BACK ===")
 
     # Record LLM action metrics for validation
     if agent.metrics_collector and llm_action:

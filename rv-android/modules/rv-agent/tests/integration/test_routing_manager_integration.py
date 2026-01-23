@@ -1,8 +1,7 @@
 """
 Integration tests for RoutingManager with real fixtures.
 
-Tests routing decisions, mode transitions, action validation,
-and loop detection integration.
+Tests routing decisions, mode transitions, and action validation.
 """
 
 import pytest
@@ -16,7 +15,6 @@ from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
 from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.routing.loop_detector import LoopDetector
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.strategies.strategy_registry import StrategyRegistry
 from rv_agent.strategies.dfs_strategy import DFSStrategy
@@ -83,18 +81,6 @@ def dfs_strategy(graph):
 
 
 @pytest.fixture
-def loop_detector_pure(config_pure_algorithm):
-    """Loop detector for pure_algorithm mode."""
-    return LoopDetector(config=config_pure_algorithm)
-
-
-@pytest.fixture
-def loop_detector_multimode(config_multimode):
-    """Loop detector for multimode."""
-    return LoopDetector(config=config_multimode)
-
-
-@pytest.fixture
 def strategy_registry():
     """Strategy registry with default strategies."""
     return StrategyRegistry()
@@ -107,22 +93,20 @@ def fallback_manager(strategy_registry):
 
 
 @pytest.fixture
-def routing_manager_pure(config_pure_algorithm, loop_detector_pure, fallback_manager, dfs_strategy):
+def routing_manager_pure(config_pure_algorithm, fallback_manager, dfs_strategy):
     """RoutingManager in pure_algorithm mode."""
     return RoutingManager(
         config=config_pure_algorithm,
-        loop_detector=loop_detector_pure,
         fallback_manager=fallback_manager,
         exploration_strategy=dfs_strategy
     )
 
 
 @pytest.fixture
-def routing_manager_multimode(config_multimode, loop_detector_multimode, fallback_manager, dfs_strategy):
+def routing_manager_multimode(config_multimode, fallback_manager, dfs_strategy):
     """RoutingManager in multimode."""
     return RoutingManager(
         config=config_multimode,
-        loop_detector=loop_detector_multimode,
         fallback_manager=fallback_manager,
         exploration_strategy=dfs_strategy
     )
@@ -155,10 +139,8 @@ class TestModeSelection:
 
     def test_llm_only_returns_llm(self, config_llm_only, fallback_manager, dfs_strategy):
         """LLM-only mode always routes to llm."""
-        loop_detector = LoopDetector(config=config_llm_only)
         routing_manager = RoutingManager(
             config=config_llm_only,
-            loop_detector=loop_detector,
             fallback_manager=fallback_manager,
             exploration_strategy=dfs_strategy
         )
@@ -281,81 +263,9 @@ class TestActionValidation:
 
         assert result["validation_path"] == "execute"
 
-    def test_pure_algorithm_skips_loop_detection(self, routing_manager_pure):
-        """Pure algorithm mode skips loop detection."""
-        # Create history that would trigger loop in multimode
-        repeated_action = {"action_type": "CLICK", "x": 352, "y": 273}
-        recent_actions = [repeated_action] * 10
-
-        result = routing_manager_pure.validate_action(repeated_action, recent_actions)
-
-        # In pure_algorithm, loop detection is skipped
-        assert result["validation_path"] == "execute"
-        assert result["loop_detected"] is False
-
 
 # =============================================================================
-# Loop Detection Integration Tests
-# =============================================================================
-
-class TestLoopDetectionIntegration:
-    """Test loop detection integration with routing."""
-
-    def test_detects_consecutive_loop(self, routing_manager_multimode):
-        """Detect consecutive action loop."""
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
-        recent_actions = [
-            {"action_type": "CLICK", "x": 100, "y": 200},
-            {"action_type": "CLICK", "x": 100, "y": 200},
-            {"action_type": "CLICK", "x": 100, "y": 200},
-            {"action_type": "CLICK", "x": 100, "y": 200},
-            {"action_type": "CLICK", "x": 100, "y": 200},
-        ]
-
-        result = routing_manager_multimode.validate_action(action, recent_actions)
-
-        # Should detect loop and execute BACK instead
-        assert result["loop_detected"] is True
-        assert result["validation_path"] == "execute"
-        assert result["current_action"]["action_type"] == "BACK"
-
-    def test_no_loop_with_varied_actions(self, routing_manager_multimode):
-        """No loop detected with varied actions."""
-        recent_actions = [
-            {"action_type": "CLICK", "x": 100, "y": 200},
-            {"action_type": "CLICK", "x": 300, "y": 400},
-            {"action_type": "SCROLL", "direction": "down"},
-            {"action_type": "CLICK", "x": 500, "y": 600},
-        ]
-        current = {"action_type": "BACK"}
-
-        result = routing_manager_multimode.validate_action(current, recent_actions)
-
-        assert result["loop_detected"] is False
-        assert result["validation_path"] == "execute"
-
-    def test_spatial_loop_triggers_back(self, routing_manager_multimode):
-        """Spatial loop triggers BACK action."""
-        # 5 clicks clustered in 50px radius
-        recent_actions = [
-            {"action_type": "CLICK", "x": 350, "y": 270},
-            {"action_type": "CLICK", "x": 355, "y": 275},
-            {"action_type": "CLICK", "x": 360, "y": 280},
-            {"action_type": "CLICK", "x": 352, "y": 272},
-            {"action_type": "CLICK", "x": 358, "y": 278},
-        ]
-        current = {"action_type": "CLICK", "x": 356, "y": 276}
-
-        result = routing_manager_multimode.validate_action(current, recent_actions)
-
-        # Should detect spatial loop and execute BACK
-        if result["loop_detected"]:
-            assert result["validation_path"] == "execute"
-            assert result["current_action"]["action_type"] == "BACK"
-
-
-# =============================================================================
-# Validation Counter Tests (Recovery mode was removed)
+# Validation Counter Tests
 # =============================================================================
 
 class TestValidationCounting:
@@ -390,36 +300,6 @@ class TestValidationCounting:
 
 
 # =============================================================================
-# Validation Failure Counting Tests
-# =============================================================================
-
-class TestValidationFailureCounting:
-    """Test validation failure counting."""
-
-    def test_validation_failed_increments(self, routing_manager_multimode):
-        """Validation failed counter increments."""
-        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
-
-        # Trigger validation failure
-        routing_manager_multimode.validate_action(None, [])
-
-        counters = routing_manager_multimode.get_decision_counters()
-        assert counters["llm_validation_failed"] == initial + 1
-
-    def test_loop_detection_increments_validation_failed(self, routing_manager_multimode):
-        """Loop detection increments validation failed counter."""
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
-        recent_actions = [action] * 10
-
-        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
-
-        routing_manager_multimode.validate_action(action, recent_actions)
-
-        counters = routing_manager_multimode.get_decision_counters()
-        assert counters["llm_validation_failed"] >= initial
-
-
-# =============================================================================
 # Fixture Integration Tests
 # =============================================================================
 
@@ -446,32 +326,6 @@ class TestFixtureIntegration:
             result = routing_manager_multimode.validate_action(action, [])
 
             assert result["validation_path"] == "execute"
-
-    def test_repeated_fixture_action_loop_detection(self, routing_manager_multimode):
-        """Detect loop when same fixture action repeated."""
-        _, screen_desc = load_fixture("cryptoapp", "001")
-
-        actions = screen_desc.get_all_actions()
-        if not actions:
-            pytest.skip("No actions in fixture")
-
-        first_action = actions[0]
-        coords = first_action.get_execution_coordinates()
-
-        if coords:
-            action = {
-                "action_type": "CLICK",
-                "x": coords[0],
-                "y": coords[1]
-            }
-
-            # Build history of repeated actions
-            recent_actions = [action.copy() for _ in range(10)]
-
-            result = routing_manager_multimode.validate_action(action, recent_actions)
-
-            # Should detect as loop
-            assert result["loop_detected"] is True
 
 
 # =============================================================================
@@ -577,13 +431,13 @@ class TestDecisionMakerSource:
         counters = routing_manager_multimode.get_decision_counters()
         assert counters["llm_executed"] == initial + 1
 
-    def test_algorithm_decision_maker_not_count_executed(self, routing_manager_multimode):
-        """Algorithm decision maker doesn't increment llm_executed."""
+    def test_algorithm_decision_maker_counts_chosen(self, routing_manager_multimode):
+        """Algorithm decision maker increments algorithm_chosen counter."""
         action = {"action_type": "CLICK", "x": 100, "y": 200}
 
-        initial = routing_manager_multimode.get_decision_counters()["llm_executed"]
+        initial = routing_manager_multimode.get_decision_counters()["algorithm_chosen"]
 
         routing_manager_multimode.validate_action(action, [], decision_maker="algorithm")
 
         counters = routing_manager_multimode.get_decision_counters()
-        assert counters["llm_executed"] == initial
+        assert counters["algorithm_chosen"] == initial + 1

@@ -23,16 +23,6 @@ def mock_config():
 
 
 @pytest.fixture
-def mock_loop_detector():
-    """Fixture for LoopDetector mock."""
-    detector = MagicMock()
-    detector.detect_loop.return_value = (False, 0, 3)
-    detector.detect_action_sequence_repetition.return_value = (False, [], 0)
-    detector.detect_spatial_loop.return_value = False
-    return detector
-
-
-@pytest.fixture
 def mock_fallback_manager():
     """Fixture for FallbackManager mock."""
     return MagicMock()
@@ -45,11 +35,10 @@ def mock_exploration_strategy():
 
 
 @pytest.fixture
-def routing_manager(mock_config, mock_loop_detector, mock_fallback_manager, mock_exploration_strategy):
+def routing_manager(mock_config, mock_fallback_manager, mock_exploration_strategy):
     """Fixture for RoutingManager instance."""
     return RoutingManager(
         config=mock_config,
-        loop_detector=mock_loop_detector,
         fallback_manager=mock_fallback_manager,
         exploration_strategy=mock_exploration_strategy
     )
@@ -58,10 +47,9 @@ def routing_manager(mock_config, mock_loop_detector, mock_fallback_manager, mock
 class TestRoutingManager:
     """Test suite for the RoutingManager."""
 
-    def test_initialization(self, routing_manager, mock_config, mock_loop_detector, mock_fallback_manager):
+    def test_initialization(self, routing_manager, mock_config, mock_fallback_manager):
         """Test that the manager initializes correctly."""
         assert routing_manager.config == mock_config
-        assert routing_manager.loop_detector == mock_loop_detector
         assert routing_manager.fallback_manager == mock_fallback_manager
         assert routing_manager.llm_executed == 0
         assert routing_manager.algorithm_chosen == 0
@@ -114,39 +102,9 @@ class TestRoutingManager:
 
     # --- Tests for validate_action ---
 
-    def test_validate_action_pure_algorithm_mode_skips_checks(self, routing_manager, mock_config, mock_loop_detector):
-        """Test that pure_algorithm mode bypasses loop detection."""
-        mock_config.get_agent_mode.return_value = "pure_algorithm"
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
-        result = routing_manager.validate_action(action, recent_actions=[])
-        assert result["validation_path"] == "execute"
-        assert not result["loop_detected"]
-        assert result["current_action"] == action
-        mock_loop_detector.detect_loop.assert_not_called()
-
-    def test_validate_action_pure_algorithm_no_action(self, routing_manager, mock_config):
-        """Test pure_algorithm mode with no action returns None current_action."""
-        mock_config.get_agent_mode.return_value = "pure_algorithm"
-        result = routing_manager.validate_action(None, recent_actions=[])
-        assert result["validation_path"] == "execute"
-        assert not result["loop_detected"]
-        assert result["current_action"] is None
-
     def test_validate_action_no_action_returns_back(self, routing_manager, mock_config):
         """Test that a None action returns BACK action."""
-        mock_config.get_agent_mode.return_value = "multimode"
         result = routing_manager.validate_action(None, recent_actions=[])
-        assert result["validation_path"] == "execute"
-        assert result["loop_detected"]
-        assert result["current_action"]["action_type"] == "BACK"
-        assert routing_manager.llm_validation_failed == 1
-
-    def test_validate_action_loop_detected_returns_back(self, routing_manager, mock_config, mock_loop_detector):
-        """Test that a detected loop returns BACK action."""
-        mock_config.get_agent_mode.return_value = "multimode"
-        mock_loop_detector.detect_loop.return_value = (True, 3, 3)
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
-        result = routing_manager.validate_action(action, recent_actions=[action, action])
         assert result["validation_path"] == "execute"
         assert result["loop_detected"]
         assert result["current_action"]["action_type"] == "BACK"
@@ -154,7 +112,6 @@ class TestRoutingManager:
 
     def test_validate_action_valid_llm_action_passes(self, routing_manager, mock_config):
         """Test that a valid LLM action passes validation."""
-        mock_config.get_agent_mode.return_value = "multimode"
         action = {"action_type": "CLICK", "x": 100, "y": 200}
         result = routing_manager.validate_action(action, recent_actions=[], decision_maker="llm")
         assert result["validation_path"] == "execute"
@@ -164,19 +121,17 @@ class TestRoutingManager:
         assert routing_manager.llm_validation_failed == 0
 
     def test_validate_action_valid_algorithm_action_passes(self, routing_manager, mock_config):
-        """Test that a valid algorithm action passes without incrementing llm counters."""
-        mock_config.get_agent_mode.return_value = "multimode"
+        """Test that a valid algorithm action passes and increments algorithm_chosen."""
         action = {"action_type": "CLICK", "x": 100, "y": 200}
         result = routing_manager.validate_action(action, recent_actions=[], decision_maker="algorithm")
         assert result["validation_path"] == "execute"
         assert not result["loop_detected"]
         assert result["current_action"] == action
-        assert routing_manager.llm_executed == 0  # Should not be incremented
-        assert routing_manager.llm_validation_failed == 0
+        assert routing_manager.llm_executed == 0
+        assert routing_manager.algorithm_chosen == 1
 
     def test_validate_action_invalid_action_dict_returns_back(self, routing_manager, mock_config):
         """Test that an invalid action dict returns BACK."""
-        mock_config.get_agent_mode.return_value = "multimode"
         action = {"action_type": None}
         result = routing_manager.validate_action(action, recent_actions=[])
         assert result["validation_path"] == "execute"
@@ -186,30 +141,7 @@ class TestRoutingManager:
 
     def test_validate_action_empty_dict_returns_back(self, routing_manager, mock_config):
         """Test that an empty action dict returns BACK."""
-        mock_config.get_agent_mode.return_value = "multimode"
         action = {}
-        result = routing_manager.validate_action(action, recent_actions=[])
-        assert result["validation_path"] == "execute"
-        assert result["loop_detected"]
-        assert result["current_action"]["action_type"] == "BACK"
-        assert routing_manager.llm_validation_failed == 1
-
-    def test_validate_action_sequence_repetition_returns_back(self, routing_manager, mock_config, mock_loop_detector):
-        """Test that a detected action sequence repetition returns BACK."""
-        mock_config.get_agent_mode.return_value = "multimode"
-        mock_loop_detector.detect_action_sequence_repetition.return_value = (True, ["a", "b"], 2)
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
-        result = routing_manager.validate_action(action, recent_actions=[])
-        assert result["validation_path"] == "execute"
-        assert result["loop_detected"]
-        assert result["current_action"]["action_type"] == "BACK"
-        assert routing_manager.llm_validation_failed == 1
-
-    def test_validate_action_spatial_loop_returns_back(self, routing_manager, mock_config, mock_loop_detector):
-        """Test that a detected spatial loop returns BACK."""
-        mock_config.get_agent_mode.return_value = "multimode"
-        mock_loop_detector.detect_spatial_loop.return_value = True
-        action = {"action_type": "CLICK", "x": 100, "y": 200}
         result = routing_manager.validate_action(action, recent_actions=[])
         assert result["validation_path"] == "execute"
         assert result["loop_detected"]

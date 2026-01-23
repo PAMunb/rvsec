@@ -11,7 +11,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.routing.loop_detector import LoopDetector
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.routing.routing_manager import RoutingManager
 
@@ -34,17 +33,6 @@ def multimode_config():
 
 
 @pytest.fixture
-def mock_loop_detector():
-    """Create mock loop detector."""
-    detector = MagicMock()
-    detector.is_in_loop.return_value = False
-    detector.should_force_back.return_value = False
-    detector.check_action.return_value = True
-    detector.is_loop_detected.return_value = False
-    return detector
-
-
-@pytest.fixture
 def mock_fallback_manager():
     """Create mock fallback manager."""
     manager = MagicMock()
@@ -57,11 +45,10 @@ def mock_fallback_manager():
 
 
 @pytest.fixture
-def routing_manager(multimode_config, mock_loop_detector, mock_fallback_manager):
+def routing_manager(multimode_config, mock_fallback_manager):
     """Create routing manager with mocked dependencies."""
     return RoutingManager(
         config=multimode_config,
-        loop_detector=mock_loop_detector,
         fallback_manager=mock_fallback_manager,
         exploration_strategy=None
     )
@@ -125,7 +112,7 @@ class TestPureAlgorithmMode:
     """Tests for pure algorithm mode."""
 
     def test_pure_algorithm_always_returns_algorithm(
-        self, mock_loop_detector, mock_fallback_manager
+        self, mock_fallback_manager
     ):
         """Test that pure_algorithm mode always routes to algorithm."""
         config = RVAgentConfig(
@@ -135,7 +122,6 @@ class TestPureAlgorithmMode:
 
         manager = RoutingManager(
             config=config,
-            loop_detector=mock_loop_detector,
             fallback_manager=mock_fallback_manager,
             exploration_strategy=None
         )
@@ -149,7 +135,7 @@ class TestLLMOnlyMode:
     """Tests for LLM-only mode."""
 
     def test_llm_only_always_returns_llm(
-        self, mock_loop_detector, mock_fallback_manager
+        self, mock_fallback_manager
     ):
         """Test that llm_only mode always routes to LLM."""
         config = RVAgentConfig(
@@ -159,7 +145,6 @@ class TestLLMOnlyMode:
 
         manager = RoutingManager(
             config=config,
-            loop_detector=mock_loop_detector,
             fallback_manager=mock_fallback_manager,
             exploration_strategy=None
         )
@@ -208,7 +193,7 @@ class TestStatisticalProperties:
         """Test that counters start at zero."""
         assert routing_manager.llm_executed == 0
         assert routing_manager.algorithm_chosen == 0
-        assert routing_manager.llm_fallback == 0
+        assert routing_manager.llm_validation_failed == 0
 
     def test_config_mode_getter(self, multimode_config):
         """Test that config has mode getter."""

@@ -38,7 +38,6 @@ from rv_agent.services.vision_service import ImageHandler
 from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.llm.llm_client import LLMClient
 from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.routing.loop_detector import LoopDetector
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.routing.stuck_recovery import StuckRecovery
 from rv_agent.execution.tool_executor import ToolExecutor
@@ -373,7 +372,9 @@ class RVAgent:
                 break
             except Exception as e:
                 consecutive_errors += 1
+                import traceback
                 logger.error(f"DEBUG_TRACE: Exception in iteration {iteration}: {type(e).__name__}: {e}")
+                logger.error(f"[TYPECHECK] Full traceback:\n{traceback.format_exc()}")
                 logger.error(f"❌ Iteration error (attempt {consecutive_errors}/{max_consecutive_errors}): {e}")
 
                 if consecutive_errors >= max_consecutive_errors:

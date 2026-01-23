@@ -2,7 +2,7 @@
 Decision routing management for multi-mode agent operation.
 
 Routes exploration decisions between LLM-guided and algorithmic modes
-based on configuration and validates actions against loop detection.
+based on configuration.
 """
 
 import logging
@@ -10,7 +10,6 @@ import random
 from typing import Dict, Any, Optional
 
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.routing.loop_detector import LoopDetector
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.strategies.base_strategy import ExplorationStrategy
 
@@ -37,28 +36,24 @@ class RoutingManager:
        Solution: Always return "execute" path. If validation fails, substitute
        a BACK action instead of the invalid action. No cycles, no fallback loops.
 
-    3. LOOP DETECTION (for LLM mode only)
-       The LLM can get stuck repeating the same action or clicking in the same area.
-       We detect three types of loops:
-       - Consecutive repetition: same action N times in a row
-       - Sequence repetition: A-B-A-B-A-B pattern
-       - Spatial clustering: clicks concentrated in small area
+    3. STUCK DETECTION (delegated to learn_node)
+       Stuck detection is handled by learn_node based on screen_hash changes.
+       This provides evidence-based detection (screen actually unchanged) rather
+       than heuristic-based loop detection (action patterns).
 
-       WHY NOT FOR ALGORITHM: The algorithmic strategy has its own loop prevention
-       (action marking, successor tracking, plateau detection). Adding loop detection
-       would interfere with its systematic exploration.
+       The algorithmic strategy also has its own loop prevention (action marking,
+       successor tracking, plateau detection).
 
     Counters track execution for 70/30 validation:
     - llm_executed: LLM actions that passed validation
     - algorithm_chosen: Algorithm path chosen by decision_router
     - forced_back_count: BACK actions from stuck detection
-    - llm_validation_failed: LLM actions that failed validation
+    - llm_validation_failed: LLM actions that failed validation (null actions only)
     """
 
     def __init__(
         self,
         config: RVAgentConfig,
-        loop_detector: LoopDetector,
         fallback_manager: FallbackManager,
         exploration_strategy: Optional[ExplorationStrategy] = None
     ):
@@ -67,12 +62,10 @@ class RoutingManager:
 
         Args:
             config: Agent configuration
-            loop_detector: Loop detection component
             fallback_manager: Fallback management component
             exploration_strategy: Strategy for pure_algorithm/multimode
         """
         self.config = config
-        self.loop_detector = loop_detector
         self.fallback_manager = fallback_manager
         self.exploration_strategy = exploration_strategy
 
@@ -135,136 +128,33 @@ class RoutingManager:
         decision_maker: str = "llm"
     ) -> Dict[str, Any]:
         """
-        Validate action and return execute path.
+        Validate action before execution.
 
-        Always returns validation_path="execute". If action is invalid
-        or a loop is detected, returns a BACK action instead of the
-        original action. No fallback cycle.
-
-        In pure_algorithm mode, loop detection is skipped because the
-        strategy has its own loop prevention (backtracking, successor
-        tracking, plateau detection).
+        Stuck detection is handled by learn_node based on screen_hash changes.
+        This method only checks for null actions.
 
         Args:
-            action: Action to validate (from LLM or Algorithm)
-            recent_actions: Recent action history for loop detection
-            decision_maker: Source of action ("llm", "algorithm", "stuck_recovery")
+            action: Action to validate
+            recent_actions: Recent action history (unused, kept for interface compatibility)
+            decision_maker: Source of the action ("llm" or "algorithm")
 
         Returns:
-            Dictionary with:
-            - validation_path: Always "execute"
-            - loop_detected: Whether loop was detected
-            - current_action: Original action or BACK if invalid
+            Dict with validation_path, loop_detected, and current_action
         """
-        mode = self.config.get_agent_mode()
-
-        # In pure_algorithm mode, skip loop detection
-        # The algorithmic strategy has its own loop prevention (backtracking, successor tracking)
-        if mode == "pure_algorithm":
-            if not action or not action.get("action_type"):
-                self.logger.warning(f"No action from {decision_maker} in pure_algorithm mode")
-                return {
-                    "validation_path": "execute",
-                    "loop_detected": False,
-                    "current_action": None
-                }
-            return {
-                "validation_path": "execute",
-                "loop_detected": False,
-                "current_action": action
-            }
-
-        # TODO: Revisar estratégia do loop detector para os diferentes modos
-        # Problema: Loop detector muito agressivo para ações LLM
-        # - pure_algorithm: Não usa (tem próprio controle via backtracking)
-        # - llm_only: Desabilitado temporariamente para experimentos de validação
-        # - multimode: Usa loop detector, mas pode ter mesmo problema quando LLM é escolhida
-        #
-        # Opções a considerar:
-        # 1. Aumentar thresholds (SPATIAL_LOOP_RADIUS=100, SPATIAL_LOOP_WINDOW=5)
-        # 2. Usar stuck detection (learn_node) ao invés de loop detector para LLM
-        # 3. Detectar stuck real vs ação intencional (ex: screen hash mudou?)
-        #
-        # Por enquanto: desabilitar para llm_only, manter para multimode
-        if mode == "llm_only":
-            if not action or not action.get("action_type"):
-                self.llm_validation_failed += 1
-                self.logger.warning(f"No action from LLM in llm_only mode -> executing BACK")
-                return {
-                    "validation_path": "execute",
-                    "loop_detected": True,
-                    "current_action": self._create_back_action("no_valid_action")
-                }
-            self.llm_executed += 1
-            return {
-                "validation_path": "execute",
-                "loop_detected": False,
-                "current_action": action
-            }
-
         # Check for valid action
         if not action or not action.get("action_type"):
             if decision_maker == "llm":
                 self.llm_validation_failed += 1
-            self.logger.warning(
-                f"No valid action from {decision_maker} -> executing BACK"
-            )
+            self.logger.warning(f"No valid action from {decision_maker} -> executing BACK")
             return {
                 "validation_path": "execute",
                 "loop_detected": True,
                 "current_action": self._create_back_action("no_valid_action")
             }
 
-        # Loop detection: consecutive similar actions
-        is_loop, consecutive_count, threshold = self.loop_detector.detect_loop(
-            recent_actions, action
-        )
-        if is_loop:
-            if decision_maker == "llm":
-                self.llm_validation_failed += 1
-            action_type = action.get("action_type", "UNKNOWN")
-            self.logger.warning(
-                f"Loop detected from {decision_maker}: {action_type} repeated "
-                f"{consecutive_count}x (threshold={threshold}) -> executing BACK"
-            )
-            return {
-                "validation_path": "execute",
-                "loop_detected": True,
-                "current_action": self._create_back_action("loop_detected")
-            }
-
-        # Action sequence repetition detection
-        is_seq_repetition, pattern, repetitions = self.loop_detector.detect_action_sequence_repetition(
-            recent_actions
-        )
-        if is_seq_repetition:
-            if decision_maker == "llm":
-                self.llm_validation_failed += 1
-            self.logger.warning(
-                f"Sequence repetition from {decision_maker}: {pattern} x{repetitions} "
-                f"-> executing BACK"
-            )
-            return {
-                "validation_path": "execute",
-                "loop_detected": True,
-                "current_action": self._create_back_action("sequence_repetition")
-            }
-
-        # Spatial loop detection (clicks clustered in same area)
-        is_spatial_loop = self.loop_detector.detect_spatial_loop(recent_actions)
-        if is_spatial_loop:
-            if decision_maker == "llm":
-                self.llm_validation_failed += 1
-            self.logger.warning(
-                f"Spatial loop from {decision_maker}: clicks clustered -> executing BACK"
-            )
-            return {
-                "validation_path": "execute",
-                "loop_detected": True,
-                "current_action": self._create_back_action("spatial_loop")
-            }
-
-        # Valid action
+        # Track execution metrics
+        # Note: algorithm_chosen is already incremented in route_decision()
+        # We only track llm_executed here (after successful validation)
         if decision_maker == "llm":
             self.llm_executed += 1
 

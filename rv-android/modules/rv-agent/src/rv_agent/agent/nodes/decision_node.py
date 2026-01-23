@@ -57,7 +57,11 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     iteration = state.get("iteration", 0)
     decision_path = agent.routing_manager.route_decision(iteration)
 
-    logger.info(f"DEBUG_TRACE: decision_router_node EXIT, decision_path={decision_path}")
+    # [LLM_TRACE] Log routing decision
+    logger.warning(f"[LLM_TRACE] === ROUTING DECISION (iter={iteration}) ===\n"
+                  f"[LLM_TRACE] decision_path: {decision_path}\n"
+                  f"[LLM_TRACE] === END ROUTING ===")
+
     return {
         "decision_path": decision_path,
         "decision_maker": decision_path

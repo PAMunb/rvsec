@@ -225,21 +225,18 @@ class TestRoutingManagerIntegration:
     def test_routing_manager_requires_correct_dependencies(self):
         """RoutingManager requires correct dependencies during initialization."""
         mock_config = MagicMock()
-        mock_loop_detector = MagicMock()
         mock_fallback_manager = MagicMock()
         mock_exploration_strategy = MagicMock()
 
         # Create routing manager with correct dependencies
         routing_manager = RoutingManager(
             config=mock_config,
-            loop_detector=mock_loop_detector,
             fallback_manager=mock_fallback_manager,
             exploration_strategy=mock_exploration_strategy
         )
 
         # Verify initialization
         assert routing_manager.config == mock_config
-        assert routing_manager.loop_detector == mock_loop_detector
         assert routing_manager.fallback_manager == mock_fallback_manager
         assert routing_manager.exploration_strategy == mock_exploration_strategy
 

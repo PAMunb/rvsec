@@ -182,6 +182,10 @@ LLM_PARAM_CONFIGS: Dict[str, Dict[str, Any]] = {
     "default": {"temperature": 0.01, "top_p": 0.6, "top_k": 50},
     "deterministic": {"temperature": 0.001, "top_p": 0.5, "top_k": 30},
     "explorative": {"temperature": 0.1, "top_p": 0.9, "top_k": 70},
+    # Phase 2 temperature variations
+    "temp_low": {"temperature": 0.001, "top_p": 0.6, "top_k": 50},
+    "temp_mid": {"temperature": 0.3, "top_p": 0.6, "top_k": 50},
+    "temp_high": {"temperature": 0.7, "top_p": 0.6, "top_k": 50},
 }
 
 
@@ -286,24 +290,30 @@ class ExperimentConfig:
                                 ))
 
                     elif self.agent_mode == "multimode":
-                        # Multimode: prompts × llm_probabilities × static × apps × seeds
+                        # Multimode: prompts × params × llm_probabilities × static × apps × seeds
                         strategy = self.strategies[0] if self.strategies else "rvagent"
                         for prompt_version in self.prompt_versions:
-                            for llm_prob in self.llm_probability_variants:
-                                prob_name = f"llm{int(llm_prob * 100)}"
-                                run_id = f"{pkg_short}_{prompt_version}_{prob_name}_{static_suffix}_rep{rep}"
+                            for param_config_name in self.llm_param_configs:
+                                params = LLM_PARAM_CONFIGS.get(param_config_name, LLM_PARAM_CONFIGS["default"])
+                                for llm_prob in self.llm_probability_variants:
+                                    prob_name = f"llm{int(llm_prob * 100)}"
+                                    run_id = f"{pkg_short}_{prompt_version}_{param_config_name}_{prob_name}_{static_suffix}_rep{rep}"
 
-                                runs.append(RunConfig(
-                                    apk_path=apk_path,
-                                    package_name=package_name,
-                                    strategy=strategy,
-                                    repetition=rep,
-                                    seed=seed,
-                                    run_id=run_id,
-                                    enable_static_analysis=static_enabled,
-                                    prompt_version=prompt_version,
-                                    llm_probability=llm_prob,
-                                ))
+                                    runs.append(RunConfig(
+                                        apk_path=apk_path,
+                                        package_name=package_name,
+                                        strategy=strategy,
+                                        repetition=rep,
+                                        seed=seed,
+                                        run_id=run_id,
+                                        enable_static_analysis=static_enabled,
+                                        prompt_version=prompt_version,
+                                        llm_temperature=params["temperature"],
+                                        llm_top_p=params["top_p"],
+                                        llm_top_k=params["top_k"],
+                                        param_config_name=param_config_name,
+                                        llm_probability=llm_prob,
+                                    ))
 
                     else:
                         # Phase 1 (pure_algorithm): strategies × static × apps × seeds
@@ -336,10 +346,11 @@ class ExperimentConfig:
             return n_prompts * n_params * n_static * n_apps * n_seeds
 
         elif self.agent_mode == "multimode":
-            # Multimode: prompts × llm_probabilities × static × apps × seeds
+            # Multimode: prompts × params × llm_probabilities × static × apps × seeds
             n_prompts = len(self.prompt_versions)
+            n_params = len(self.llm_param_configs)
             n_probs = len(self.llm_probability_variants)
-            return n_prompts * n_probs * n_static * n_apps * n_seeds
+            return n_prompts * n_params * n_probs * n_static * n_apps * n_seeds
 
         else:
             # Phase 1 (pure_algorithm): strategies × static × apps × seeds
