@@ -1,6 +1,10 @@
 ---
 name: rv-refactor-simplify
-description: Simplify over-engineered or complex code. Use when reducing complexity, removing unnecessary abstractions, or applying KISS principle.
+description: >-
+  Simplify over-engineered or complex code. Use when reducing complexity,
+  removing unnecessary abstractions, or applying KISS principle.
+  Do NOT use for: extracting components (use /rv-refactor-extract),
+  full module refactoring (use /rv-refactor).
 argument-hint: [file-path]
 context: fork
 agent: general-purpose
@@ -18,9 +22,15 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 
 ## Steps
 
-1. **Read and understand** the file at $ARGUMENTS
+1. **Analyze complexity** first:
+   ```
+   Invoke /rv-analyze-complexity $ARGUMENTS
+   ```
+   This identifies the most complex areas that need simplification.
 
-2. **Identify simplification opportunities**:
+2. **Read and understand** the file at $ARGUMENTS
+
+3. **Identify simplification opportunities**:
    - Unused parameters or variables
    - Over-abstracted code (unnecessary interfaces/base classes)
    - Duplicated code blocks
@@ -28,17 +38,17 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
    - Unnecessary defensive code
    - Premature abstractions
 
-3. **Plan simplifications**:
+4. **Plan simplifications**:
    - List specific changes
    - Ensure no functionality loss
    - Verify dependencies won't break
 
-4. **Create backup** if major changes:
+5. **Create backup** if major changes:
    ```bash
    cp path/to/file.py backup/file.py.bak
    ```
 
-5. **Apply changes**:
+6. **Apply changes**:
    - Remove unused code
    - Inline trivial abstractions
    - Consolidate duplicated logic

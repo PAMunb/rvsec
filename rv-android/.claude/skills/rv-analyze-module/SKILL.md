@@ -1,6 +1,9 @@
 ---
 name: rv-analyze-module
-description: Analyze module architecture and dependencies. Use when understanding a module's structure, mapping dependencies, or onboarding to a new module.
+description: >-
+  Analyze module architecture and dependencies. Use when understanding a module's structure,
+  mapping dependencies, or onboarding to a new module.
+  Do NOT use for: single file analysis (use /rv-analyze-file), making changes (use /rv-refactor).
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
@@ -8,6 +11,13 @@ allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Analyze Module: $ARGUMENTS
+
+## Supporting Files
+
+Reference these files from this skill directory:
+- **Templates**: `templates/report.md`
+
+---
 
 ## MCP Integration (with fallback)
 

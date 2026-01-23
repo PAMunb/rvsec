@@ -1,6 +1,9 @@
 ---
 name: rv-analyze-complexity
-description: Analyze code complexity and identify over-engineered code. Use when evaluating code quality, finding refactoring targets, or assessing technical debt.
+description: >-
+  Analyze code complexity and identify over-engineered code. Use when evaluating code quality,
+  finding refactoring targets, or assessing technical debt.
+  Do NOT use for: making changes (use /rv-refactor-simplify), full module analysis (use /rv-analyze-module).
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
@@ -8,6 +11,13 @@ allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Analyze Code Complexity: $ARGUMENTS
+
+## Supporting Files
+
+Reference these files from this skill directory:
+- **Templates**: `templates/report.md`
+
+---
 
 ## MCP Integration (with fallback)
 

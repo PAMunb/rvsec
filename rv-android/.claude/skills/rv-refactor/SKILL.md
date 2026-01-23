@@ -66,23 +66,27 @@ DONE
 
 **Goal**: Understand what needs refactoring and why.
 
-1. **Run impact analysis first**:
+Run the following analysis skills in sequence:
+
+1. **Impact Analysis** (risk assessment):
    ```
-   Invoke /rv-impact-analyzer [target]
+   Invoke /rv-impact-analyzer $ARGUMENTS
    ```
-   This reveals dependencies and risk level before any changes.
+   Reveals dependencies, affected code paths, and risk level.
 
-2. **Analyze complexity**:
-   - Files > 500 lines
-   - Functions > 50 lines
-   - Nesting > 4 levels
+2. **Complexity Analysis** (identify hotspots):
+   ```
+   Invoke /rv-analyze-complexity $ARGUMENTS
+   ```
+   Finds files > 500 lines, functions > 50 lines, nesting > 4 levels.
 
-3. **Analyze dependencies**:
-   - Circular dependencies
-   - Tight coupling
-   - Layer violations
+3. **Dependency Analysis** (structural issues):
+   ```
+   Invoke /rv-analyze-dependencies $ARGUMENTS
+   ```
+   Detects circular dependencies, tight coupling, layer violations.
 
-4. **Identify refactoring targets** with priorities (informed by impact analysis)
+4. **Synthesize findings** from all three analyses into refactoring targets with priorities.
 
 **Output Format**:
 ```markdown

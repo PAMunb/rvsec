@@ -1,6 +1,9 @@
 ---
 name: rv-analyze-dead-code
-description: Find unused imports, functions, and dead code. Use when cleaning up codebase, reducing technical debt, or before major refactoring.
+description: >-
+  Find unused imports, functions, and dead code. Use when cleaning up codebase,
+  reducing technical debt, or before major refactoring.
+  Do NOT use for: removing code (use /rv-cleanup), quick auto-fix (use /rv-refactor-cleanup).
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
@@ -8,6 +11,13 @@ allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Find Dead Code: $ARGUMENTS
+
+## Supporting Files
+
+Reference these files from this skill directory:
+- **Templates**: `templates/report.md`
+
+---
 
 ## MCP Integration (with fallback)
 

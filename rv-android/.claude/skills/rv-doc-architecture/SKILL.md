@@ -25,6 +25,24 @@ Creates standardized architecture documentation at `modules/$ARGUMENTS/docs/arch
 4. **Current state only**: Do not reference migration, legacy, or what was changed
 5. **Target audience**: Developers and researchers
 
+## Diagram Guidelines
+
+**Use Mermaid diagrams** with the `neutral` theme for all architecture visualizations.
+
+```
+%%{init: {'theme': 'neutral'}}%%
+```
+
+**Mermaid Reserved Words** - Do NOT use as node IDs:
+- `graph`, `subgraph`, `end`, `style`, `class`, `default`
+- Use alternatives: `StateGraph`, `GraphManager`, `EndNode`, etc.
+
+**Diagram Types to Use**:
+- `flowchart TB/LR` - Component architecture, data flow
+- `sequenceDiagram` - Execution flow between components
+- `classDiagram` - Interface hierarchies
+- `stateDiagram-v2` - State machines
+
 ## Workflow
 
 ```
@@ -44,15 +62,22 @@ VERIFY ────────────────────────�
 
 ### 1. Analyze Module
 
+First, invoke the module analysis skill for comprehensive understanding:
+
+```
+Invoke /rv-analyze-module $ARGUMENTS
+```
+
+This provides:
+- Module structure and components
+- Key classes and their purposes
+- Internal and external dependencies
+- Design patterns used
+
+Additionally, verify module exists:
+
 ```bash
-# Check module exists
 ls modules/$ARGUMENTS/src/
-
-# Get structure
-find modules/$ARGUMENTS/src -type f -name "*.py" | head -30
-
-# Find key classes
-grep -r "^class " modules/$ARGUMENTS/src --include="*.py" | head -20
 ```
 
 ### 2. Create Docs Directory
@@ -67,7 +92,7 @@ Write to `modules/$ARGUMENTS/docs/architecture.md` using template below.
 
 ## Template: architecture.md
 
-```markdown
+````markdown
 # [Module Name] Architecture
 
 ## Overview
@@ -76,19 +101,30 @@ Write to `modules/$ARGUMENTS/docs/architecture.md` using template below.
 
 ## Design Principles
 
-- [Principle 1]: [Brief explanation]
-- [Principle 2]: [Brief explanation]
+- **[Principle 1]**: [Brief explanation]
+- **[Principle 2]**: [Brief explanation]
 
 ## Component Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      [Module Name]                          │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Component1  │  │  Component2  │  │  Component3  │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Module["[Module Name]"]
+        direction TB
+        subgraph Layer1["Top Layer"]
+            direction LR
+            Comp1["Component1"]
+            Comp2["Component2"]
+        end
+        subgraph Layer2["Middle Layer"]
+            direction LR
+            Comp3["Component3"]
+            Comp4["Component4"]
+        end
+    end
+
+    Comp1 --> Comp3
+    Comp2 --> Comp4
 ```
 
 ## Core Components
@@ -111,8 +147,27 @@ Write to `modules/$ARGUMENTS/docs/architecture.md` using template below.
 
 ## Data Flow
 
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    Input["Input"] --> Process1["Component1"]
+    Process1 --> Process2["Component2"]
+    Process2 --> Output["Output"]
 ```
-[Input] → [Component1] → [Component2] → [Output]
+
+## Execution Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant A as Component A
+    participant B as Component B
+    participant C as Component C
+
+    A->>B: request()
+    B->>C: process()
+    C-->>B: result
+    B-->>A: response
 ```
 
 ## Key Interfaces
@@ -128,6 +183,21 @@ class IComponentName(Protocol):
         ...
 ```
 
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+classDiagram
+    class InterfaceName {
+        <<interface>>
+        +method_name(param)*
+    }
+
+    class Implementation1 {
+        +method_name(param)
+    }
+
+    InterfaceName <|-- Implementation1
+```
+
 ## Extension Points
 
 - **[Extension Point]**: How to extend this module
@@ -136,11 +206,17 @@ class IComponentName(Protocol):
 ## Dependencies
 
 ### Internal (rv-android modules)
-- `rv-android-core`: [What for]
-- `rv-[module]`: [What for]
+
+| Module | Purpose |
+|--------|---------|
+| rv-android-core | [What for] |
+| rv-[module] | [What for] |
 
 ### External
-- `package-name`: [What for]
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| package-name | ^X.Y | [What for] |
 
 ## Testing Strategy
 
@@ -153,7 +229,7 @@ class IComponentName(Protocol):
 
 - [CLAUDE.md](../CLAUDE.md) - Quick reference for Claude
 - [ADR-001](./adr/ADR-001.md) - Relevant architectural decision
-```
+````
 
 ## Output
 
@@ -169,13 +245,16 @@ Report what was generated:
 ### Content
 - Overview: ✅
 - Design Principles: ✅
-- Component Architecture: ✅
+- Component Architecture (Mermaid): ✅
 - Core Components: ✅
-- Data Flow: ✅
+- Data Flow (Mermaid): ✅
+- Execution Flow (Mermaid): ✅
+- Key Interfaces: ✅
 - Dependencies: ✅
 
 ### Next Steps
-- Review and refine diagrams
+- Review diagrams in VS Code with Mermaid extension
+- Test rendering on GitHub
 - Add specific implementation details
 - Link to related ADRs
 ```
@@ -183,6 +262,7 @@ Report what was generated:
 ## Rules
 
 1. **Follow documentation guidelines** - English, no bias, current state only
-2. **Use ASCII diagrams** - Compatible with markdown rendering
-3. **Keep concise** - Focus on architecture, not implementation details
-4. **Link to related docs** - Reference CLAUDE.md and ADRs
+2. **Use Mermaid diagrams** - With `%%{init: {'theme': 'neutral'}}%%`
+3. **Avoid reserved words** - Don't use `graph`, `end`, `class`, `style` as node IDs
+4. **Keep concise** - Focus on architecture, not implementation details
+5. **Link to related docs** - Reference CLAUDE.md and ADRs

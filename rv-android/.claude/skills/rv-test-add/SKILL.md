@@ -24,6 +24,49 @@ This skill follows **Test-Driven Development** principles from superpowers:
 - **context7**: Fetch pytest docs if needed (`/pytest-dev/pytest`)
 - **sequential-thinking**: Plan test cases systematically
 
+## Test Type Decision Tree
+
+Use this to determine the appropriate test category:
+
+```
+START: Write test for [target]
+  │
+  ├─ Is it a mathematical/structural property?
+  │    YES → tests/property/ (Hypothesis PBT)
+  │    NO → continue
+  │
+  ├─ Does it compare complex output against saved baseline?
+  │    YES → tests/snapshot/
+  │    NO → continue
+  │
+  ├─ Does it require device/LLM server?
+  │    YES → tests/online/
+  │    NO → continue
+  │
+  ├─ Does it measure performance/latency?
+  │    YES → tests/performance/
+  │    NO → continue
+  │
+  ├─ Is it reproducing a fixed bug?
+  │    YES → tests/regression/
+  │    NO → continue
+  │
+  ├─ Does it test multiple components together?
+  │    YES → tests/integration/
+  │    NO → continue
+  │
+  ├─ Is it a complete end-to-end workflow?
+  │    YES → tests/system/
+  │    NO → continue
+  │
+  ├─ Is it a quick sanity check?
+  │    YES → tests/smoke/
+  │    NO → continue
+  │
+  └─ Default (isolated function/class test)
+       → tests/unit/
+```
+
 ## Steps
 
 1. **Parse arguments**:
@@ -31,10 +74,17 @@ This skill follows **Test-Driven Development** principles from superpowers:
    - Optional: specific function or class name
 
 2. **Analyze the code**:
-   - Understand function/class purpose
-   - Identify input parameters and types
-   - Identify return values
-   - Find edge cases and error conditions
+   ```
+   Invoke /rv-analyze-file [file-path]
+   ```
+   The skill will identify:
+   - Function/class purpose and structure
+   - Input parameters and types
+   - Return values
+   - Dependencies and imports
+
+   Additionally, manually identify:
+   - Edge cases and error conditions
 
 3. **Plan test cases** using sequential-thinking:
    - Happy path scenarios
@@ -42,10 +92,15 @@ This skill follows **Test-Driven Development** principles from superpowers:
    - Error cases (invalid input, exceptions)
    - Integration points (mocked dependencies)
 
-4. **Determine test location**:
-   - Unit tests: `tests/unit/`
-   - Integration tests: `tests/integration/`
-   - Mirror source structure
+4. **Determine test location** (use decision tree above):
+   - Unit tests: `tests/unit/` - isolated, mocked
+   - Integration tests: `tests/integration/` - multiple components
+   - Property tests: `tests/property/` - Hypothesis PBT
+   - Regression tests: `tests/regression/` - bug prevention
+   - Snapshot tests: `tests/snapshot/` - baseline comparison
+   - Smoke tests: `tests/smoke/` - quick sanity
+   - Online tests: `tests/online/` - requires device/LLM
+   - Performance tests: `tests/performance/` - latency/throughput
 
 5. **Create test file**:
    - Follow naming: `test_<source_file>.py`
@@ -57,11 +112,13 @@ This skill follows **Test-Driven Development** principles from superpowers:
    - Descriptive test names
    - Mock external dependencies
 
-7. **Run tests** to verify:
-   ```bash
-   cd modules/$MODULE
-   PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_$FILE.py -v
+7. **Verify test fails** (RED phase):
    ```
+   Invoke /rv-test-run $MODULE tests/[category]/test_$FILE.py
+   ```
+
+   Confirm test fails with expected error. If test passes immediately,
+   it's not testing the right thing - revise the test.
 
 ## Test Template
 

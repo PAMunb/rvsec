@@ -24,7 +24,14 @@ You are a **TDD specialist** who ensures strict Test-Driven Development discipli
 ## Supporting Files
 
 Reference these files from this skill directory:
-- **Templates**: `templates/test-plan.md`, `templates/unit/test_component.py`, `templates/integration/test_component_integration.py`, `templates/smoke/test_smoke.py`, `templates/conftest/conftest.py`
+- **Templates**:
+  - `templates/unit/test_component.py` - Standard unit tests
+  - `templates/integration/test_component_integration.py` - Component interaction tests
+  - `templates/smoke/test_smoke.py` - Quick sanity checks
+  - `templates/property/test_component_pbt.py` - Property-based tests (Hypothesis)
+  - `templates/regression/test_component_regression.py` - Bug prevention tests
+  - `templates/snapshot/test_component_snapshot.py` - Baseline comparison tests
+  - `templates/conftest/conftest.py` - Shared fixtures
 - **Checklists**: `checklists/tdd-rules.md`
 - **Examples**: `examples/test-plan-example.md`
 
@@ -75,6 +82,12 @@ DONE
    - What are the edge cases?
 
 2. **Analyze existing code**:
+
+   Determine the target file from $ARGUMENTS.
+   ```
+   Invoke /rv-analyze-file $TARGET_FILE
+   ```
+   The skill will identify:
    - Where does implementation go?
    - What patterns exist?
    - What dependencies are needed?
@@ -98,6 +111,53 @@ DONE
 1. [Error condition 1]
 2. [Error condition 2]
 ```
+
+---
+
+## Phase 1.5: Add Dependencies (if needed)
+
+**Goal**: Ensure test dependencies are available before writing tests.
+
+### Common Test Dependencies
+
+| Dependency | Purpose | Command |
+|------------|---------|---------|
+| hypothesis | Property-based testing | `poetry add --group dev hypothesis` |
+| pytest-snapshot | Snapshot testing | `poetry add --group dev pytest-snapshot` |
+| syrupy | Alternative snapshot testing | `poetry add --group dev syrupy` |
+| pytest-cov | Coverage reporting | `poetry add --group dev pytest-cov` |
+| pytest-xdist | Parallel test execution | `poetry add --group dev pytest-xdist` |
+
+### Process
+
+1. **Identify needed dependencies** based on test type:
+   - Property tests → `hypothesis`
+   - Snapshot tests → `pytest-snapshot` or `syrupy`
+   - Performance tests → `pytest-benchmark`
+
+2. **Add dependencies**:
+
+   Extract $MODULE_NAME from $ARGUMENTS (the module containing the target).
+   ```bash
+   cd modules/$MODULE_NAME
+   poetry add --group dev [package-name]
+   ```
+
+3. **Verify dependency health**:
+   ```
+   Invoke /rv-analyze-dependencies $MODULE_NAME
+   ```
+   This checks for:
+   - Circular dependencies
+   - Version conflicts
+   - Security vulnerabilities in new packages
+
+4. **Lock dependencies**:
+   ```bash
+   poetry lock
+   ```
+
+**Note**: Only add dependencies that are actually needed. Avoid bloating the dependency tree.
 
 ---
 
@@ -171,7 +231,12 @@ Options:
 - [ ] Tests clearly describe expected behavior
 - [ ] Assertions are specific and meaningful
 
-### Commands
+### Run Tests
+```
+Invoke /rv-test-run [module] [test-file]
+```
+
+Or manually:
 ```bash
 cd modules/$MODULE
 PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_$FILE.py -v
@@ -208,7 +273,10 @@ NOT with:
 ### Process
 1. Identify improvement opportunity
 2. Make ONE small change
-3. Run tests immediately
+3. Run tests immediately:
+   ```
+   Invoke /rv-test-run [module] [test-file]
+   ```
 4. If fail → REVERT immediately
 5. If pass → Continue
 

@@ -64,29 +64,41 @@ DONE
 **Goal**: Identify ALL cleanup opportunities.
 
 ### Dead Code Detection
-```bash
-# Unused imports
-poetry run python -m pyflakes src/ 2>&1 | grep "imported but unused"
 
-# Unused variables
-poetry run python -m pyflakes src/ 2>&1 | grep "assigned to but never used"
+```
+Invoke /rv-analyze-dead-code $ARGUMENTS
 ```
 
-Also check for:
+The skill will identify:
+- Unused imports
+- Unused variables
+- Unused functions
 - Commented-out code blocks
 - Debug print statements
 - TODO/FIXME without action
 - Deprecated functions
 
 ### Dependency Analysis
+
+```
+Invoke /rv-analyze-dependencies $ARGUMENTS
+```
+
+The skill will identify:
 - Circular dependencies
 - Unused dependencies in pyproject.toml
 - Over-coupling between modules
 
 ### Complexity Issues
+
+```
+Invoke /rv-analyze-complexity $ARGUMENTS
+```
+
+The skill will identify:
 - Duplicated code
 - Over-engineered abstractions
-- Dead feature flags
+- Files exceeding complexity thresholds
 
 **Output Format**:
 ```markdown

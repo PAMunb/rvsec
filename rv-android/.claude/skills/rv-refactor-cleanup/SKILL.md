@@ -15,10 +15,10 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 ## Steps
 
 1. **Run dead code analysis** first:
-   ```bash
-   cd modules/$MODULE
-   poetry run python -m pyflakes src/
    ```
+   Invoke /rv-analyze-dead-code $MODULE
+   ```
+   This will identify unused imports, functions, and dead code systematically.
 
 2. **Identify cleanup targets**:
    - Unused imports

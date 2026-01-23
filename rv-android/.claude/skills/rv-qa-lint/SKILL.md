@@ -1,6 +1,8 @@
 ---
 name: rv-qa-lint
-description: Run linter on module or file. Use for code quality checks, pre-commit validation, or CI preparation.
+description: >-
+  Run linter on module or file. Use for code quality checks, pre-commit validation, or CI preparation.
+  Do NOT use for: auto-fixing issues (use /rv-qa-lint-fix), full verification (use /rv-verify).
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
@@ -32,7 +34,21 @@ allowed-tools: Read, Bash
    poetry run isort src/ --check-only
    ```
 
-3. **Categorize issues** by severity
+3. **Run security analysis**:
+   ```bash
+   # Bandit (security vulnerabilities)
+   poetry run bandit -r src/ --severity-level medium -f txt
+
+   # For detailed JSON report
+   poetry run bandit -r src/ -f json -o bandit_report.json
+   ```
+
+   **Severity Levels**:
+   - HIGH: Must fix before commit (e.g., hardcoded passwords, SQL injection)
+   - MEDIUM: Review and justify (e.g., use of assert, exec)
+   - LOW: Track for future (e.g., binding to all interfaces)
+
+4. **Categorize issues** by severity
 
 4. **Generate report**
 
@@ -72,6 +88,7 @@ line_length = 120
 | mypy | Y | ✅/❌ |
 | black | Z | ✅/❌ |
 | isort | W | ✅/❌ |
+| bandit | V | ✅/❌ |
 
 ### Issues by Severity
 
@@ -89,6 +106,11 @@ line_length = 120
 | File | Line | Code | Message |
 |------|------|------|---------|
 | file.py | 30 | C0301 | trailing whitespace |
+
+#### Security Issues (bandit)
+| File | Line | Severity | Issue |
+|------|------|----------|-------|
+| file.py | 42 | HIGH | B105: hardcoded_password_string |
 
 ### Auto-Fix Available
 Use `/rv-qa-lint-fix $ARGUMENTS` to automatically fix:

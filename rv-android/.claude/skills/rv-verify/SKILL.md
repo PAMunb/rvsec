@@ -1,6 +1,9 @@
 ---
 name: rv-verify
-description: Run all verification checks (tests, lint, type). Use before commits, after refactoring, or to validate code changes.
+description: >-
+  Run all verification checks (tests, lint, type, security). Use before commits, after refactoring,
+  or to validate code changes.
+  Do NOT use for: only running tests (use /rv-test-run), only linting (use /rv-qa-lint).
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
@@ -26,13 +29,16 @@ STEP 1: UNIT TESTS ────────────────────�
 STEP 2: INTEGRATION TESTS ───────────────────────────────────────►
     │  Component interaction verification
     ▼
-STEP 3: FORMAT CHECK ────────────────────────────────────────────►
+STEP 3: DEPENDENCY SECURITY ─────────────────────────────────────►
+    │  Check for known vulnerabilities (safety)
+    ▼
+STEP 4: FORMAT CHECK ────────────────────────────────────────────►
     │  black --check, isort --check
     ▼
-STEP 4: LINT ────────────────────────────────────────────────────►
+STEP 5: LINT ────────────────────────────────────────────────────►
     │  flake8
     ▼
-STEP 5: TYPE CHECK (if configured) ──────────────────────────────►
+STEP 6: TYPE CHECK (if configured) ──────────────────────────────►
     │  mypy
     ▼
 REPORT ──────────────────────────────────────────────────────────►
@@ -74,7 +80,23 @@ fi
 
 **Expected**: All tests pass (exit code 0)
 
-### 4. Check Formatting
+### 4. Check Dependency Security
+
+```bash
+# Check for known vulnerabilities in dependencies
+poetry run safety check
+
+# For JSON output (CI integration)
+poetry run safety check --json
+```
+
+**Expected**: No known vulnerabilities (exit code 0)
+
+**If vulnerabilities found**:
+- CRITICAL/HIGH: Stop and report. Do not proceed until resolved or explicitly accepted.
+- MEDIUM/LOW: Document and continue, but flag for review.
+
+### 5. Check Formatting
 
 ```bash
 # Black
@@ -86,7 +108,7 @@ poetry run isort --check src/
 
 **Expected**: No formatting issues (exit code 0)
 
-### 5. Run Linter
+### 6. Run Linter
 
 ```bash
 poetry run flake8 src/
@@ -94,7 +116,7 @@ poetry run flake8 src/
 
 **Expected**: No lint errors (exit code 0)
 
-### 6. Run Type Checker (if configured)
+### 7. Run Type Checker (if configured)
 
 ```bash
 # Check if mypy is configured
@@ -117,6 +139,7 @@ fi
 |-------|--------|---------|
 | Unit Tests | PASS/FAIL | X passed, Y failed |
 | Integration Tests | PASS/FAIL/SKIP | X passed, Y failed |
+| Dependency Security | PASS/FAIL | X vulnerabilities |
 | Format (black) | PASS/FAIL | X files checked |
 | Format (isort) | PASS/FAIL | X files checked |
 | Lint (flake8) | PASS/FAIL | X issues found |

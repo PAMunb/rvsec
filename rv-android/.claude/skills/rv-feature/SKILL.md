@@ -74,6 +74,25 @@ DONE
    - What are the acceptance criteria?
 
 2. **Analyze codebase context**:
+
+   Determine the target module from $ARGUMENTS (the feature description).
+
+   Understand the module structure:
+   ```
+   Invoke /rv-analyze-module $TARGET_MODULE
+   ```
+
+   Map dependencies:
+   ```
+   Invoke /rv-analyze-dependencies $TARGET_MODULE
+   ```
+
+   Analyze existing patterns in similar files:
+   ```
+   Invoke /rv-analyze-file $SIMILAR_FILE
+   ```
+
+   These skills answer:
    - Where should feature live?
    - What patterns to follow?
    - What dependencies exist?
@@ -154,6 +173,56 @@ Options:
 - "Request different approach"
 
 **User CHOOSES direction. DO NOT proceed without selection.**
+
+---
+
+## Phase 2.5: Add Dependencies (if needed)
+
+**Goal**: Ensure all required dependencies are available before implementation.
+
+### Process
+
+1. **Identify needed dependencies** based on selected approach:
+   - External libraries (e.g., `httpx`, `pydantic`)
+   - Internal module dependencies
+
+2. **Add external dependencies**:
+   ```bash
+   cd modules/$MODULE
+
+   # Production dependency
+   poetry add [package-name]
+
+   # Development-only dependency
+   poetry add --group dev [package-name]
+   ```
+
+3. **Verify dependency health**:
+   ```
+   Invoke /rv-analyze-dependencies $TARGET_MODULE
+   ```
+   This checks for:
+   - Circular dependencies (internal modules)
+   - Version conflicts
+   - Security vulnerabilities in new packages
+
+4. **Lock dependencies**:
+   ```bash
+   poetry lock
+   ```
+
+### Common Dependencies by Feature Type
+
+| Feature Type | Common Dependencies |
+|--------------|---------------------|
+| HTTP Client | `httpx`, `aiohttp` |
+| Data Validation | `pydantic` |
+| CLI | `typer`, `click` |
+| Async | `anyio`, `trio` |
+| Caching | `cachetools`, `diskcache` |
+| Serialization | `orjson`, `msgpack` |
+
+**Note**: Always prefer existing dependencies over adding new ones. Check what the project already uses.
 
 ---
 

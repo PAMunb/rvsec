@@ -1,6 +1,10 @@
 ---
 name: rv-doc-generate-claude-md
-description: Generate CLAUDE.md documentation for a module. Use when documenting module architecture, creating onboarding docs, or updating module documentation.
+description: >-
+  Generate CLAUDE.md documentation for a module. Use when documenting module architecture,
+  creating onboarding docs, or updating module documentation.
+  Do NOT use for: README.md (use /rv-doc-readme), architecture.md (use /rv-doc-architecture),
+  ADRs (use /rv-doc-adr).
 argument-hint: [module-name]
 context: fork
 agent: general-purpose

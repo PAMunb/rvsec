@@ -1,6 +1,10 @@
 ---
 name: rv-refactor-extract
-description: Extract function, class, or module from complex code. Use when splitting large files, isolating concerns, or improving modularity.
+description: >-
+  Extract function, class, or module from complex code. Use when splitting large files,
+  isolating concerns, or improving modularity.
+  Do NOT use for: simplification without extraction (use /rv-refactor-simplify),
+  full module refactoring (use /rv-refactor).
 argument-hint: [file-path] [target-name]
 context: fork
 agent: general-purpose
@@ -15,27 +19,33 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
    - File path containing code
    - Target to extract (function, class, or code block)
 
-2. **Analyze extraction target**:
+2. **Analyze file structure**:
+   ```
+   Invoke /rv-analyze-file $FILE_PATH
+   ```
+   This helps understand dependencies and what can be safely extracted.
+
+3. **Analyze extraction target**:
    - What does it do?
    - What are its dependencies?
    - What depends on it?
 
-3. **Plan extraction**:
+4. **Plan extraction**:
    - New file location
    - Interface changes
    - Import updates needed
 
-4. **Create backup**:
+5. **Create backup**:
    ```bash
    cp path/to/file.py backup/file_before_extract.py
    ```
 
-5. **Perform extraction**:
+6. **Perform extraction**:
    - Create new file with extracted code
    - Update imports in original file
    - Update all files that used the extracted code
 
-6. **Verify**:
+7. **Verify**:
    ```bash
    cd modules/$MODULE
    PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v

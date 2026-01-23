@@ -88,7 +88,7 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-qa-*, verify  │  │ rv-doc-*, sync   │  │ rv-debug-*       │  │
-│  │ (3 skills)       │  │ (4 skills)       │  │ (1 skill)        │  │
+│  │ (3 skills)       │  │ (5 skills)       │  │ (1 skill)        │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
                                   │
@@ -270,6 +270,8 @@ DISCOVERY → DESIGN → [CHECKPOINT #1: Choose Approach] → PLANNING → [CHEC
 
 **Key Feature**: User CHOOSES approach (not just approves) at first checkpoint.
 
+**Dependency Management**: Phase 2.5 handles adding dependencies with `/rv-analyze-dependencies` verification.
+
 **Supporting Files**: `.claude/skills/rv-feature/`
 - Templates: `discovery-report.md`, `design-options.md`, `implementation-plan.md`
 - Checklists: `acceptance-checklist.md`
@@ -299,8 +301,17 @@ ANALYSIS → TEST PLANNING → [CHECKPOINT #1] → RED (failing tests) → GREEN
 - Refactor only when GREEN
 
 **Supporting Files**: `.claude/skills/rv-tdd/`
-- Templates: `test-plan.md`, `unit/test_component.py`, `integration/`, `smoke/`, `conftest/`
+- Templates:
+  - `unit/test_component.py` - Standard unit tests
+  - `integration/test_component_integration.py` - Component tests
+  - `smoke/test_smoke.py` - Quick sanity checks
+  - `property/test_component_pbt.py` - Property-based tests (Hypothesis)
+  - `regression/test_component_regression.py` - Bug prevention tests
+  - `snapshot/test_component_snapshot.py` - Baseline comparison tests
+  - `conftest/conftest.py` - Shared fixtures
 - Checklists: `tdd-rules.md`
+
+**Dependency Management**: Phase 1.5 handles adding test dependencies (e.g., `hypothesis`, `pytest-snapshot`) with `/rv-analyze-dependencies` verification.
 
 ---
 
@@ -378,7 +389,19 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 | `rv-test-add` | `/rv-test-add [path] [function]` | Add single test file for existing code |
 | `rv-test-run` | `/rv-test-run [module]` | Run tests |
 
-**Note**: `/rv-test-add` is for quick test additions. Use `/rv-tdd` orchestrator for full RED-GREEN-REFACTOR workflow when implementing features.
+**Note**: `/rv-test-add` includes a decision tree for test type selection. Use `/rv-tdd` orchestrator for full RED-GREEN-REFACTOR workflow.
+
+**Test Categories**:
+| Category | Path | Purpose | Marker |
+|----------|------|---------|--------|
+| unit | tests/unit/ | Isolated tests | - |
+| integration | tests/integration/ | Component tests | - |
+| smoke | tests/smoke/ | Sanity checks | smoke |
+| online | tests/online/ | Device/LLM required | online |
+| performance | tests/performance/ | Latency tests | performance |
+| regression | tests/regression/ | Bug prevention | regression |
+| property | tests/property/ | Hypothesis PBT | hypothesis |
+| snapshot | tests/snapshot/ | Baseline comparison | snapshot |
 
 **Test Commands**:
 ```bash
@@ -399,8 +422,17 @@ poetry run pytest tests/unit/test_file.py::TestClass::test_name -v
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
-| `rv-qa-lint` | `/rv-qa-lint [module]` | Run linters |
-| `rv-qa-lint-fix` | `/rv-qa-lint-fix [module]` | Auto-fix lint issues |
+| `rv-qa-lint` | `/rv-qa-lint [module]` | Run linters + security analysis |
+| `rv-qa-lint-fix` | `/rv-qa-lint-fix [module]` | Auto-fix lint issues + verify |
+
+**Checks Performed by rv-qa-lint**:
+| Tool | Purpose |
+|------|---------|
+| flake8 | Style + errors |
+| mypy | Type checking |
+| black | Formatting |
+| isort | Import ordering |
+| bandit | Security vulnerabilities |
 
 **Lint Commands**:
 ```bash
@@ -410,6 +442,9 @@ poetry run black src/ && poetry run isort src/
 # Check
 poetry run flake8 src/
 poetry run mypy src/
+
+# Security
+poetry run bandit -r src/ --severity-level medium
 ```
 
 ---
@@ -418,8 +453,9 @@ poetry run mypy src/
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
+| `rv-doc-readme` | `/rv-doc-readme [module]` | Generate README.md for GitHub/GitLab |
 | `rv-doc-generate-claude-md` | `/rv-doc-generate-claude-md [module]` | Generate CLAUDE.md (with auto-analysis) |
-| `rv-doc-architecture` | `/rv-doc-architecture [module]` | Generate architecture.md for module |
+| `rv-doc-architecture` | `/rv-doc-architecture [module]` | Generate architecture.md (Mermaid diagrams) |
 | `rv-doc-adr` | `/rv-doc-adr [decision-title]` | Create Architecture Decision Record |
 | `rv-docs-sync` | `/rv-docs-sync [module or 'all']` | Sync docs with code changes |
 
@@ -430,8 +466,9 @@ poetry run mypy src/
 - Current state only: Do not reference migration, legacy, or what was changed
 
 **Documentation Locations**:
-- `modules/<module>/CLAUDE.md` - Quick reference for Claude
-- `modules/<module>/docs/architecture.md` - Detailed architecture documentation
+- `modules/<module>/README.md` - User-facing documentation (GitHub/GitLab)
+- `modules/<module>/CLAUDE.md` - Quick reference for Claude Code
+- `modules/<module>/docs/architecture.md` - Detailed architecture (Mermaid diagrams)
 - `modules/<module>/docs/adr/ADR-XXX-*.md` - Architecture Decision Records
 
 ---
@@ -440,7 +477,15 @@ poetry run mypy src/
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
-| `rv-verify` | `/rv-verify [module]` | Run all checks (tests, lint, type) |
+| `rv-verify` | `/rv-verify [module]` | Run all checks (tests, lint, type, security) |
+
+**Checks Performed by rv-verify**:
+1. Unit tests
+2. Integration tests (if exist)
+3. Dependency security (`safety check`)
+4. Formatting (black, isort)
+5. Linting (flake8)
+6. Type checking (mypy)
 
 ---
 
@@ -450,6 +495,70 @@ poetry run mypy src/
 |-------|---------|---------|
 | `rv-impact-analyzer` | `/rv-impact-analyzer [file or module]` | Analyze change impact before refactoring |
 | `rv-debug-regression` | `/rv-debug-regression [test-name]` | Investigate regression bugs via git history |
+
+---
+
+## Dependency Management
+
+When adding new dependencies to a module, follow this workflow:
+
+### Process
+
+```
+1. Identify needed dependency
+       │
+       ▼
+2. poetry add [--group dev] [package]
+       │
+       ▼
+3. Invoke /rv-analyze-dependencies [module]
+       │  Checks for:
+       │  - Circular dependencies
+       │  - Version conflicts
+       │  - Security vulnerabilities
+       │
+       ▼
+4. poetry lock
+       │
+       ▼
+5. Continue implementation
+```
+
+### Commands
+
+```bash
+cd modules/$MODULE
+
+# Production dependency
+poetry add [package-name]
+
+# Development-only dependency (tests, linting)
+poetry add --group dev [package-name]
+
+# Lock dependencies
+poetry lock
+
+# Verify
+poetry run safety check
+```
+
+### Common Dependencies by Purpose
+
+| Purpose | Package | Group |
+|---------|---------|-------|
+| Property testing | `hypothesis` | dev |
+| Snapshot testing | `pytest-snapshot` or `syrupy` | dev |
+| Coverage | `pytest-cov` | dev |
+| Parallel tests | `pytest-xdist` | dev |
+| HTTP client | `httpx` | prod |
+| Data validation | `pydantic` | prod |
+| Security scan | `bandit`, `safety` | dev |
+
+### Integration with Skills
+
+- `/rv-feature` - Phase 2.5 handles dependency addition
+- `/rv-tdd` - Phase 1.5 handles test dependency addition
+- `/rv-analyze-dependencies` - Verifies dependency health
 
 ---
 
@@ -787,6 +896,13 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     ├── rv-tdd/
     │   ├── SKILL.md
     │   ├── templates/
+    │   │   ├── unit/test_component.py
+    │   │   ├── integration/test_component_integration.py
+    │   │   ├── smoke/test_smoke.py
+    │   │   ├── property/test_component_pbt.py      # Hypothesis PBT
+    │   │   ├── regression/test_component_regression.py
+    │   │   ├── snapshot/test_component_snapshot.py
+    │   │   └── conftest/conftest.py
     │   └── checklists/
     ├── rv-cleanup/
     │   ├── SKILL.md
@@ -817,13 +933,18 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     │   └── templates/
     │
     │   # QA & Verification Skills
-    ├── rv-qa-lint/SKILL.md
+    ├── rv-qa-lint/
+    │   ├── SKILL.md
+    │   └── templates/lint-report.md
     ├── rv-qa-lint-fix/SKILL.md
     ├── rv-verify/
     │   ├── SKILL.md
     │   └── templates/
     │
     │   # Documentation Skills
+    ├── rv-doc-readme/
+    │   ├── SKILL.md
+    │   └── templates/readme.md
     ├── rv-doc-generate-claude-md/SKILL.md
     ├── rv-doc-architecture/SKILL.md
     ├── rv-doc-adr/SKILL.md
@@ -872,6 +993,7 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 - `/rv-verify [module]`
 
 **Documentation**:
+- `/rv-doc-readme [module]`
 - `/rv-doc-generate-claude-md [module]`
 - `/rv-doc-architecture [module]`
 - `/rv-doc-adr [decision-title]`

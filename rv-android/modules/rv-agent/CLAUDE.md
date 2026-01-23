@@ -61,14 +61,15 @@ The agent uses LangGraph for workflow orchestration with externalized node funct
 | DynamicStateGraph | Graph-based state tracking with structural hashing | `agent/dynamic_state_graph.py` |
 | LLMClient | Vision LLM communication with SGLang backend | `llm/llm_client.py` |
 | RVAgentStrategy | Coverage-optimized DFS with successor tracking | `strategies/rvagent_strategy/rvagent_strategy.py` |
-| RoutingManager | Decision routing between LLM and algorithm | `routing/routing_manager.py` |
+| RoutingManager | Decision routing between LLM and algorithm (stuck detection delegated to learn_node) | `routing/routing_manager.py` |
 | ToolExecutor | Action execution on Android device | `execution/tool_executor.py` |
 | MemoryCoordinator | Multi-component memory management | `memory/memory_coordinator.py` |
 | TransitionManager | WTG + DynamicGraph integration | `services/transition_manager.py` |
 | NavigationGuidance | Unified navigation hints for LLM/algorithm | `services/navigation_guidance.py` |
 | ActionNormalizer | Coordinate conversion and action format unification | `domain/action.py` |
-| ScreenProcessor | UI parsing and element formatting | `services/screen_analyzer.py` |
+| ScreenProcessor | UI parsing and element formatting with priority scores | `services/screen_analyzer.py` |
 | ImageHandler | Screenshot capture and optimization | `services/vision_service.py` |
+| RVAgentVisitor | Custom visitor with MOP enrichment and global widget search | `ui/rvagent_visitor.py` |
 
 ## Directory Structure
 
@@ -134,9 +135,9 @@ src/rv_agent/
 │   └── element_id.py        # Element identification
 │
 ├── routing/                 # Decision routing
-│   ├── routing_manager.py   # LLM/algorithm routing
+│   ├── routing_manager.py   # LLM/algorithm routing (stuck detection via learn_node)
 │   ├── fallback_manager.py  # Fallback strategy management
-│   └── stuck_recovery.py    # Stuck state recovery
+│   └── stuck_recovery.py    # Stuck state recovery (backtrack BFS)
 │
 ├── services/                # Support services
 │   ├── screen_analyzer.py   # ScreenProcessor
@@ -152,8 +153,8 @@ src/rv_agent/
 │   ├── v12.py               # Base prompt with navigation hints
 │   ├── v13.py               # Dialog handling (default)
 │   ├── v14.py               # Structured reasoning
-│   ├── v15.py               # Enhanced guidance
-│   └── v16.py               # Latest iteration
+│   ├── v15.py               # Priority scores and graph metadata inline
+│   └── v16.py               # Navigation-first exploration with variety enforcement
 │
 ├── ui/                      # UI processing
 │   └── rvagent_visitor.py   # Custom visitor for screen parsing
@@ -403,12 +404,14 @@ The `RVAgentStrategy` uses a composite scoring system for action selection:
 
 | Scorer | Score Range | Purpose |
 |--------|-------------|---------|
-| GradualDecayScorer | 200 * 0.7^visits | Prioritize less-tested elements |
+| GradualDecayScorer | 200 * 0.7^visits (0 after 5) | Exponential decay prevents cliff effect |
 | MopScorer | +100 (DM), +50 (M) | Prioritize MOP-reaching actions |
-| WtgScorer | +100 | Prioritize WTG-guided transitions |
+| WtgScorer | +100 | Prioritize WTG-guided transitions to unvisited screens |
 | ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
 | ExecutionCountScorer | 10/(1+count) | Lower count = higher score |
 | FailedActionScorer | -9999 | Blacklist failed actions |
+
+GradualDecayScorer uses exponential decay (70% retention per visit) instead of binary scoring, preventing premature abandonment of partially-tested elements.
 
 ### Memory Systems
 
@@ -420,10 +423,17 @@ The `RVAgentStrategy` uses a composite scoring system for action selection:
 | AgentMemory | Summary generation | Rolling window |
 | DynamicStateGraph | State/transition graph | All discovered states |
 
-### Stuck Detection (2-Level)
+### Stuck Detection
 
-1. **Level 1** (in RVAgent): Screen unchanged for N iterations (dynamic threshold based on element count)
-2. **Level 2** (in StuckRecovery): Backtrack BFS to find unsaturated ancestors, then RESTART
+Stuck detection is handled by `learn_node` based on screen hash changes (evidence-based):
+- Screen unchanged for N iterations triggers recovery
+- Dynamic threshold based on element count
+- `StuckRecovery` uses backtrack BFS to find unsaturated ancestors
+
+The algorithmic strategy (`RVAgentStrategy`) has additional loop prevention:
+- Action pre-marking (executed BEFORE execution)
+- Successor tracking
+- Plateau detection
 
 ### Static Analysis Integration
 

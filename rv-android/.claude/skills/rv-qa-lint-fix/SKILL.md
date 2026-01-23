@@ -1,6 +1,8 @@
 ---
 name: rv-qa-lint-fix
-description: Auto-fix linting issues. Use after running rv-qa-lint to automatically fix formatting and import issues.
+description: >-
+  Auto-fix linting issues. Use after running rv-qa-lint to automatically fix formatting and import issues.
+  Do NOT use for: analysis only (use /rv-qa-lint), manual fixes requiring review.
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
@@ -36,7 +38,13 @@ allowed-tools: Read, Bash
    poetry run pytest tests/unit/ -v
    ```
 
-5. **Report changes**
+5. **Run full verification**:
+   ```
+   Invoke /rv-verify $MODULE
+   ```
+   This ensures all checks pass after auto-fixes (tests, lint, types, formatting).
+
+6. **Report changes**
 
 ## Fix Order
 

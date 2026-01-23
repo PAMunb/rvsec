@@ -1,6 +1,9 @@
 ---
 name: rv-analyze-file
-description: Analyze single Python file structure and dependencies. Use when understanding a specific file, preparing to modify it, or reviewing code.
+description: >-
+  Analyze single Python file structure and dependencies. Use when understanding a specific file,
+  preparing to modify it, or reviewing code.
+  Do NOT use for: multiple files (use /rv-analyze-module), making changes (use /rv-refactor-*).
 argument-hint: [file-path]
 context: fork
 agent: general-purpose
@@ -8,6 +11,13 @@ allowed-tools: Read, Grep, Glob
 ---
 
 # Analyze File: $ARGUMENTS
+
+## Supporting Files
+
+Reference these files from this skill directory:
+- **Templates**: `templates/report.md`
+
+---
 
 ## Steps
 

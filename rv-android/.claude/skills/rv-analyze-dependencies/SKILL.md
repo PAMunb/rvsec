@@ -1,6 +1,9 @@
 ---
 name: rv-analyze-dependencies
-description: Map module dependencies and identify issues. Use when understanding module relationships, finding circular dependencies, or planning refactoring.
+description: >-
+  Map module dependencies and identify issues. Use when understanding module relationships,
+  finding circular dependencies, or planning refactoring.
+  Do NOT use for: fixing dependencies (use /rv-refactor), full module analysis (use /rv-analyze-module).
 argument-hint: [module-name or empty for all]
 context: fork
 agent: general-purpose
@@ -8,6 +11,13 @@ allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Analyze Dependencies: $ARGUMENTS
+
+## Supporting Files
+
+Reference these files from this skill directory:
+- **Templates**: `templates/report.md`
+
+---
 
 ## MCP Integration (with fallback)
 

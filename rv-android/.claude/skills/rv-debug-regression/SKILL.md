@@ -1,6 +1,9 @@
 ---
 name: rv-debug-regression
-description: Investigate regression bugs using git history. Use when tests fail after changes or when tracking down when something broke.
+description: >-
+  Investigate regression bugs using git history. Use when tests fail after changes
+  or when tracking down when something broke.
+  Do NOT use for: new test failures (use /rv-tdd), flaky tests, or non-regression bugs.
 argument-hint: [test-name or error-message]
 context: fork
 agent: general-purpose
@@ -107,6 +110,19 @@ Based on analysis, propose:
    - Modify the change to preserve old behavior?
    - Update the test if behavior change was intentional?
 3. **Regression test**: Template for test that prevents recurrence
+
+### Step 5: Apply and Verify Fix
+
+After implementing the chosen fix:
+
+```
+Invoke /rv-test-run [module] [test-path]
+```
+
+**Verify**:
+- The originally failing test now passes
+- No other tests were broken by the fix
+- Run full test suite if fix touched shared code
 
 ---
 

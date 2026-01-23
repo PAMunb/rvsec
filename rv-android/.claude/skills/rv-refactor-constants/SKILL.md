@@ -1,6 +1,9 @@
 ---
 name: rv-refactor-constants
-description: Extract magic values to named constants. Use when improving code readability, centralizing configuration, or preparing for configuration changes.
+description: >-
+  Extract magic values to named constants. Use when improving code readability,
+  centralizing configuration, or preparing for configuration changes.
+  Do NOT use for: complex refactoring (use /rv-refactor), configuration files.
 argument-hint: [file-path]
 context: fork
 agent: general-purpose

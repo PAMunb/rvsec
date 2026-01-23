@@ -1,6 +1,8 @@
 ---
 name: rv-impact-analyzer
-description: Analyze change impact before refactoring. Use to assess risk and identify affected code paths.
+description: >-
+  Analyze change impact before refactoring. Use to assess risk and identify affected code paths.
+  Do NOT use for: making changes (use /rv-refactor), dependency analysis only (use /rv-analyze-dependencies).
 argument-hint: [file-path or module-name]
 context: fork
 agent: general-purpose

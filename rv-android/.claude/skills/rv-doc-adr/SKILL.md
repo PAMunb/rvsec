@@ -4,6 +4,7 @@ description: >-
   Create Architecture Decision Record (ADR) for significant decisions.
   Use when making refactoring decisions, choosing technologies, or changing architecture.
   Do NOT use for: minor code changes, bug fixes, or documentation updates.
+  Use /rv-doc-architecture for module docs, /rv-doc-generate-claude-md for CLAUDE.md.
 argument-hint: [decision-title]
 context: fork
 agent: general-purpose
