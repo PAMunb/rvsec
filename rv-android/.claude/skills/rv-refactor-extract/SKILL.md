@@ -8,7 +8,7 @@ description: >-
 argument-hint: [file-path] [target-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 ---
 
 # Extract Component: $ARGUMENTS
@@ -19,9 +19,9 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
    - File path containing code
    - Target to extract (function, class, or code block)
 
-2. **Analyze file structure**:
+2. **Analyze file structure** - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-file $FILE_PATH
+   Skill tool: skill="rv-analyze-file", args="$FILE_PATH"
    ```
    This helps understand dependencies and what can be safely extracted.
 

@@ -7,7 +7,7 @@ description: >-
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Bash
+allowed-tools: Read, Grep, Glob, Bash, Skill
 ---
 
 # Analyze Module: $ARGUMENTS
@@ -43,39 +43,78 @@ MCP is unavailable if:
 
 ## Steps
 
-1. **Parse module name** from $ARGUMENTS (e.g., "rv-agent", "rv-platform")
+### Step 1: Check Memory for Cached Analysis
 
-2. **Gather metadata**:
-   ```bash
-   # Read pyproject.toml
-   cat modules/$MODULE/pyproject.toml
+Before doing expensive analysis, check if we have recent data:
 
-   # Count source files
-   find modules/$MODULE/src -name "*.py" | wc -l
+```
+Use mcp__memory__search_nodes with query: "rv-$ARGUMENTS-analysis"
+```
 
-   # Count test files
-   find modules/$MODULE/tests -name "*.py" | wc -l
+If found and recent (< 7 days):
+- Use cached data as baseline
+- Only re-analyze if specifically requested
+
+If not found or stale:
+- Proceed with full analysis below
+
+### Step 2: Parse Module and Gather Metadata
+
+Parse module name from $ARGUMENTS (e.g., "rv-agent", "rv-platform")
+
+```bash
+# Read pyproject.toml
+cat modules/$ARGUMENTS/pyproject.toml
+
+# Count source files
+find modules/$ARGUMENTS/src -name "*.py" | wc -l
+
+# Count test files
+find modules/$ARGUMENTS/tests -name "*.py" | wc -l
+```
+
+### Step 3: Invoke Specialized Analysis Skills
+
+**IMPORTANT**: You MUST use the Skill tool to invoke each analysis skill below. Do NOT skip this step.
+
+1. **Dependency Analysis** - Use Skill tool:
    ```
+   Skill tool: skill="rv-analyze-dependencies", args="$ARGUMENTS"
+   ```
+   Provides: internal/external deps, circular dependencies, coupling issues
 
-3. **Map directory structure**:
-   - Identify architectural patterns (domain/, services/, etc.)
-   - List key components and their purposes
+2. **Complexity Analysis** - Use Skill tool:
+   ```
+   Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
+   ```
+   Provides: large files, complex functions, nesting issues
 
-4. **Analyze dependencies**:
-   - Internal: other rv-* modules
-   - External: third-party packages
-   - Check for circular dependencies
+3. **Dead Code Analysis** (optional) - Use Skill tool:
+   ```
+   Skill tool: skill="rv-analyze-dead-code", args="$ARGUMENTS"
+   ```
+   Provides: unused imports, functions, variables
 
-5. **Assess test coverage**:
-   - Count test files per category (unit, integration, etc.)
-   - Identify untested components
+### Step 4: Map Directory Structure
 
-6. **Use sequential-thinking** for architectural assessment:
-   - Is the module well-structured?
-   - Are responsibilities clearly separated?
-   - What improvements are needed?
+- Identify architectural patterns (domain/, services/, etc.)
+- List key components and their purposes
+- Correlate with findings from specialized analyses
 
-7. **Persist to memory**:
+### Step 5: Assess Test Coverage
+
+- Count test files per category (unit, integration, etc.)
+- Identify untested components
+- Cross-reference with complexity hotspots
+
+### Step 6: Synthesize Findings
+
+Use **sequential-thinking** to combine all analysis results:
+- What are the main architectural patterns?
+- What issues were found by specialized skills?
+- What are the priority recommendations?
+
+### Step 7: Persist to Memory
    ```
    Entity: rv-[module-name]-analysis
    Type: module-analysis

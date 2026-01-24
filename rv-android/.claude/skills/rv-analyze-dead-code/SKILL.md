@@ -21,8 +21,25 @@ Reference these files from this skill directory:
 
 ## MCP Integration (with fallback)
 
+### Step 0: Check Memory for Cached Analysis
+
+Before expensive analysis, check for recent cached data:
+
+```
+Use mcp__memory__search_nodes with query: "dead-code-$ARGUMENTS"
+```
+
+**If found and recent** (< 7 days based on entity name date):
+- Return cached findings
+- Note: "Using cached analysis from [date]"
+
+**If not found or stale**:
+- Proceed with full analysis below
+
 ### Primary Path (MCP available)
-- **memory**: Persist dead code findings for cleanup tracking
+- **memory**: Persist dead code findings:
+  - Entity name: `dead-code-$ARGUMENTS-[YYYY-MM-DD]`
+  - Type: `dead-code-analysis`
 
 ### Fallback Path (MCP unavailable)
 If MCP tools fail:

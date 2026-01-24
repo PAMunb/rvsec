@@ -7,7 +7,7 @@ description: >-
 argument-hint: [module-name or 'all']
 context: fork
 agent: general-purpose
-allowed-tools: Read, Write, Grep, Glob, Bash, Task
+allowed-tools: Read, Write, Grep, Glob, Bash, Task, Skill
 ---
 
 # Sync Documentation: $ARGUMENTS
@@ -97,10 +97,10 @@ For each module, categorize changes:
 
 ### 4. Determine Required Updates
 
-**For ARCHITECTURE changes:**
+**For ARCHITECTURE changes** - Use the **Skill tool**:
 ```
-Invoke /rv-doc-generate-claude-md [module]
-Invoke /rv-doc-architecture [module]  # If architecture.md exists
+Skill tool: skill="rv-doc-generate-claude-md", args="[module]"
+Skill tool: skill="rv-doc-architecture", args="[module]"  # If architecture.md exists
 ```
 
 **For STRUCTURAL changes:**
@@ -200,7 +200,7 @@ This skill is called by orchestrators in the Audit phase:
 - `rv-feature` → After feature implementation
 - `rv-cleanup` → After dead code removal
 
-Called as: "Invoke /rv-docs-sync [module] to update documentation"
+Called as: `Skill tool: skill="rv-docs-sync", args="[module]"`
 
 ---
 

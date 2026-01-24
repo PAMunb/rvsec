@@ -6,7 +6,7 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Bash
+allowed-tools: Read, Bash, Skill
 ---
 
 # Auto-Fix Lint Issues: $ARGUMENTS
@@ -38,9 +38,9 @@ allowed-tools: Read, Bash
    poetry run pytest tests/unit/ -v
    ```
 
-5. **Run full verification**:
+5. **Run full verification** - Use the **Skill tool**:
    ```
-   Invoke /rv-verify $MODULE
+   Skill tool: skill="rv-verify", args="$MODULE"
    ```
    This ensures all checks pass after auto-fixes (tests, lint, types, formatting).
 

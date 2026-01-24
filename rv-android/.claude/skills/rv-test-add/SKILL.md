@@ -7,7 +7,7 @@ description: >-
 argument-hint: [file-path] [function-or-class-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, Skill
 ---
 
 # Add Tests: $ARGUMENTS
@@ -73,9 +73,9 @@ START: Write test for [target]
    - File path containing code to test
    - Optional: specific function or class name
 
-2. **Analyze the code**:
+2. **Analyze the code** - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-file [file-path]
+   Skill tool: skill="rv-analyze-file", args="[file-path]"
    ```
    The skill will identify:
    - Function/class purpose and structure
@@ -112,9 +112,9 @@ START: Write test for [target]
    - Descriptive test names
    - Mock external dependencies
 
-7. **Verify test fails** (RED phase):
+7. **Verify test fails** (RED phase) - Use the **Skill tool**:
    ```
-   Invoke /rv-test-run $MODULE tests/[category]/test_$FILE.py
+   Skill tool: skill="rv-test-run", args="$MODULE tests/[category]/test_$FILE.py"
    ```
 
    Confirm test fails with expected error. If test passes immediately,

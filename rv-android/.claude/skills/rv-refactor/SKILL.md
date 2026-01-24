@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
 ---
 
 # Refactoring Orchestrator: $ARGUMENTS
@@ -68,21 +68,21 @@ DONE
 
 Run the following analysis skills in sequence:
 
-1. **Impact Analysis** (risk assessment):
+1. **Impact Analysis** (risk assessment) - Use the **Skill tool**:
    ```
-   Invoke /rv-impact-analyzer $ARGUMENTS
+   Skill tool: skill="rv-impact-analyzer", args="$ARGUMENTS"
    ```
    Reveals dependencies, affected code paths, and risk level.
 
-2. **Complexity Analysis** (identify hotspots):
+2. **Complexity Analysis** (identify hotspots) - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-complexity $ARGUMENTS
+   Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
    ```
    Finds files > 500 lines, functions > 50 lines, nesting > 4 levels.
 
-3. **Dependency Analysis** (structural issues):
+3. **Dependency Analysis** (structural issues) - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-dependencies $ARGUMENTS
+   Skill tool: skill="rv-analyze-dependencies", args="$ARGUMENTS"
    ```
    Detects circular dependencies, tight coupling, layer violations.
 
@@ -189,9 +189,9 @@ Execute → Test → Pass? ─Yes─► Next Step
 
 ## Phase 4: Verification
 
-Run unified verification:
+Run unified verification - Use the **Skill tool**:
 ```
-Invoke /rv-verify [module-name]
+Skill tool: skill="rv-verify", args="[module-name]"
 ```
 
 This runs all checks in sequence:
@@ -236,9 +236,9 @@ Options:
 
 ## Phase 6: Audit Trail
 
-1. **Sync documentation**:
+1. **Sync documentation** - Use the **Skill tool**:
    ```
-   Invoke /rv-docs-sync [module-name]
+   Skill tool: skill="rv-docs-sync", args="[module-name]"
    ```
    This updates CLAUDE.md if architecture changed significantly.
 

@@ -130,7 +130,7 @@ Official Claude Code frontmatter fields. Reference: https://code.claude.com/docs
 | `argument-hint` | No | string | Hint for expected arguments. E.g., `[module-name]`, `[file-path]` |
 | `context` | No | `fork` | Execution context. `fork` = isolated subagent context |
 | `agent` | No | string | Subagent type when `context: fork`. Values: `Explore`, `Plan`, `general-purpose`, custom |
-| `allowed-tools` | No | string | Comma-separated tools. E.g., `Read, Grep, Glob, Bash` |
+| `allowed-tools` | No | string | Comma-separated tools. E.g., `Read, Grep, Glob, Bash`. **Include `Skill` if invoking other skills** |
 | `model` | No | string | Model to use. E.g., `claude-opus-4-1` |
 | `disable-model-invocation` | No | boolean | If `true`, Claude won't auto-trigger. Manual `/name` only |
 | `user-invocable` | No | boolean | If `false`, hidden from `/` menu. Only Claude can invoke |
@@ -146,9 +146,11 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
 ---
 ```
+
+**Note**: `Skill` is included because this orchestrator invokes other skills like `/rv-analyze-complexity`.
 
 ### Agents Frontmatter (.md in .claude/agents/)
 
@@ -187,6 +189,39 @@ From official docs: **"Generic descriptions fail. Use WHEN + WHEN NOT pattern."*
 | **WHEN** | "Use when restructuring modules, reducing complexity..." |
 | **WHEN NOT** | "Do NOT use for: simple bug fixes, adding features..." |
 | **ALTERNATIVES** | "Use /rv-feature for new functionality, /rv-tdd for test-driven fixes" |
+
+### Skill Invocation Pattern
+
+When a skill needs to invoke another skill, use the explicit **Skill tool** syntax:
+
+```markdown
+Use the **Skill tool** to invoke [skill-name]:
+```
+Skill tool: skill="rv-analyze-module", args="$ARGUMENTS"
+```
+```
+
+**Important Notes**:
+- Skills that invoke other skills MUST have `Skill` in their `allowed-tools`
+- The syntax `Invoke /rv-skill-name` is ambiguous - always use explicit Skill tool syntax
+- Wait for results before proceeding to the next step
+
+**Example from rv-analyze-module**:
+```markdown
+### Step 3: Invoke Specialized Analysis Skills
+
+**IMPORTANT**: You MUST use the Skill tool to invoke each analysis skill below.
+
+1. **Dependency Analysis** - Use the **Skill tool**:
+   ```
+   Skill tool: skill="rv-analyze-dependencies", args="$ARGUMENTS"
+   ```
+
+2. **Complexity Analysis** - Use the **Skill tool**:
+   ```
+   Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
+   ```
+```
 
 ---
 
@@ -592,27 +627,38 @@ Thought 3: Root cause analysis...
 
 ### memory
 
-**Purpose**: Persistent knowledge graph across sessions.
+**Purpose**: Persistent knowledge graph across sessions for caching and audit trails.
 
 **When to Use**:
-- Storing analysis findings for future reference
+- Caching analysis results to avoid redundant work
 - Tracking operation history (audits)
 - Building knowledge about codebase
 
 **Tools**:
-- `mcp__memory__create_entities` - Store findings
-- `mcp__memory__search_nodes` - Search knowledge
+- `mcp__memory__search_nodes` - **Check FIRST** before expensive analysis
+- `mcp__memory__create_entities` - Store findings after analysis
 - `mcp__memory__read_graph` - Read all entities
 
+**Cache Pattern** (used by analysis skills):
+```
+1. Search memory for cached data: "complexity-rv-agent"
+2. If found and recent (< 7 days) → return cached
+3. If not found or stale → do analysis
+4. Save results to memory with date in entity name
+```
+
 **Entity Types Used**:
-| Entity | Type | When Created |
-|--------|------|--------------|
-| `refactor-[date]-[target]` | refactoring-operation | After rv-refactor |
-| `feature-[date]-[name]` | feature-implementation | After rv-feature |
-| `tdd-[date]-[feature]` | tdd-implementation | After rv-tdd |
-| `cleanup-[date]-[module]` | cleanup-operation | After rv-cleanup |
-| `review-[date]-[module]` | code-review | After rv-code-reviewer |
-| `rv-[module]-analysis` | module-analysis | After rv-analyze-module |
+| Entity Pattern | Type | When Created | Cache TTL |
+|----------------|------|--------------|-----------|
+| `complexity-[module]-[date]` | complexity-analysis | After rv-analyze-complexity | 7 days |
+| `dependencies-[module]-[date]` | dependency-analysis | After rv-analyze-dependencies | 7 days |
+| `dead-code-[module]-[date]` | dead-code-analysis | After rv-analyze-dead-code | 7 days |
+| `rv-[module]-analysis` | module-analysis | After rv-analyze-module | 7 days |
+| `refactor-[date]-[target]` | refactoring-operation | After rv-refactor | permanent |
+| `feature-[date]-[name]` | feature-implementation | After rv-feature | permanent |
+| `tdd-[date]-[feature]` | tdd-implementation | After rv-tdd | permanent |
+| `cleanup-[date]-[module]` | cleanup-operation | After rv-cleanup | permanent |
+| `review-[date]-[module]` | code-review | After rv-code-reviewer | permanent |
 
 **Fallback**: If unavailable, output audit summary directly to user.
 

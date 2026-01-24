@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Write, Bash
+allowed-tools: Read, Grep, Glob, Write, Bash, Skill
 ---
 
 # Generate Architecture Documentation: $ARGUMENTS
@@ -62,11 +62,13 @@ VERIFY ────────────────────────�
 
 ### 1. Analyze Module
 
-First, invoke the module analysis skill for comprehensive understanding:
+First, use the **Skill tool** to invoke the module analysis skill:
 
 ```
-Invoke /rv-analyze-module $ARGUMENTS
+Skill tool: skill="rv-analyze-module", args="$ARGUMENTS"
 ```
+
+**IMPORTANT**: You MUST call the Skill tool before proceeding. Wait for results.
 
 This provides:
 - Module structure and components

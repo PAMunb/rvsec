@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
 ---
 
 # Cleanup Orchestrator: $ARGUMENTS
@@ -65,8 +65,9 @@ DONE
 
 ### Dead Code Detection
 
+Use the **Skill tool** to invoke dead code analysis:
 ```
-Invoke /rv-analyze-dead-code $ARGUMENTS
+Skill tool: skill="rv-analyze-dead-code", args="$ARGUMENTS"
 ```
 
 The skill will identify:
@@ -80,8 +81,9 @@ The skill will identify:
 
 ### Dependency Analysis
 
+Use the **Skill tool** to invoke dependency analysis:
 ```
-Invoke /rv-analyze-dependencies $ARGUMENTS
+Skill tool: skill="rv-analyze-dependencies", args="$ARGUMENTS"
 ```
 
 The skill will identify:
@@ -91,8 +93,9 @@ The skill will identify:
 
 ### Complexity Issues
 
+Use the **Skill tool** to invoke complexity analysis:
 ```
-Invoke /rv-analyze-complexity $ARGUMENTS
+Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
 ```
 
 The skill will identify:
@@ -282,9 +285,9 @@ Options:
 
 ## Phase 5: Audit Trail
 
-1. **Sync documentation**:
+1. **Sync documentation** - Use the **Skill tool**:
    ```
-   Invoke /rv-docs-sync [module-name]
+   Skill tool: skill="rv-docs-sync", args="[module-name]"
    ```
    This updates CLAUDE.md if significant code was removed.
 

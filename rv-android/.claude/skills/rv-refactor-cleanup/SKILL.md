@@ -7,16 +7,16 @@ description: >-
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 ---
 
 # Cleanup Module: $ARGUMENTS
 
 ## Steps
 
-1. **Run dead code analysis** first:
+1. **Run dead code analysis** first - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-dead-code $MODULE
+   Skill tool: skill="rv-analyze-dead-code", args="$MODULE"
    ```
    This will identify unused imports, functions, and dead code systematically.
 

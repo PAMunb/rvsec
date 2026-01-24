@@ -8,7 +8,7 @@ description: >-
 argument-hint: [feature-name or description]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
 ---
 
 # Feature Implementation Orchestrator: $ARGUMENTS
@@ -77,19 +77,19 @@ DONE
 
    Determine the target module from $ARGUMENTS (the feature description).
 
-   Understand the module structure:
+   Understand the module structure - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-module $TARGET_MODULE
-   ```
-
-   Map dependencies:
-   ```
-   Invoke /rv-analyze-dependencies $TARGET_MODULE
+   Skill tool: skill="rv-analyze-module", args="$TARGET_MODULE"
    ```
 
-   Analyze existing patterns in similar files:
+   Map dependencies - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-file $SIMILAR_FILE
+   Skill tool: skill="rv-analyze-dependencies", args="$TARGET_MODULE"
+   ```
+
+   Analyze existing patterns in similar files - Use the **Skill tool**:
+   ```
+   Skill tool: skill="rv-analyze-file", args="$SIMILAR_FILE"
    ```
 
    These skills answer:
@@ -197,9 +197,9 @@ Options:
    poetry add --group dev [package-name]
    ```
 
-3. **Verify dependency health**:
+3. **Verify dependency health** - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-dependencies $TARGET_MODULE
+   Skill tool: skill="rv-analyze-dependencies", args="$TARGET_MODULE"
    ```
    This checks for:
    - Circular dependencies (internal modules)
@@ -299,9 +299,9 @@ If stuck after 5 attempts:
 ```
 
 ### Verification
-After implementation is complete:
+After implementation is complete, use the **Skill tool**:
 ```
-Invoke /rv-verify [module-name]
+Skill tool: skill="rv-verify", args="[module-name]"
 ```
 
 This runs tests, lint, and type checks in one unified step.
@@ -344,9 +344,9 @@ Options:
 
 ## Phase 6: Audit Trail
 
-1. **Sync documentation**:
+1. **Sync documentation** - Use the **Skill tool**:
    ```
-   Invoke /rv-docs-sync [module-name]
+   Skill tool: skill="rv-docs-sync", args="[module-name]"
    ```
    This updates CLAUDE.md if new components were added.
 

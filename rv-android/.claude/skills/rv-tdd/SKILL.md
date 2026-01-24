@@ -8,7 +8,7 @@ description: >-
 argument-hint: [feature-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
 ---
 
 # TDD Orchestrator: $ARGUMENTS
@@ -83,9 +83,9 @@ DONE
 
 2. **Analyze existing code**:
 
-   Determine the target file from $ARGUMENTS.
+   Determine the target file from $ARGUMENTS. Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-file $TARGET_FILE
+   Skill tool: skill="rv-analyze-file", args="$TARGET_FILE"
    ```
    The skill will identify:
    - Where does implementation go?
@@ -143,9 +143,9 @@ DONE
    poetry add --group dev [package-name]
    ```
 
-3. **Verify dependency health**:
+3. **Verify dependency health** - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-dependencies $MODULE_NAME
+   Skill tool: skill="rv-analyze-dependencies", args="$MODULE_NAME"
    ```
    This checks for:
    - Circular dependencies
@@ -232,8 +232,9 @@ Options:
 - [ ] Assertions are specific and meaningful
 
 ### Run Tests
+Use the **Skill tool**:
 ```
-Invoke /rv-test-run [module] [test-file]
+Skill tool: skill="rv-test-run", args="[module] [test-file]"
 ```
 
 Or manually:
@@ -273,9 +274,9 @@ NOT with:
 ### Process
 1. Identify improvement opportunity
 2. Make ONE small change
-3. Run tests immediately:
+3. Run tests immediately - Use the **Skill tool**:
    ```
-   Invoke /rv-test-run [module] [test-file]
+   Skill tool: skill="rv-test-run", args="[module] [test-file]"
    ```
 4. If fail → REVERT immediately
 5. If pass → Continue
@@ -298,9 +299,9 @@ NOT with:
 
 ## Phase 5.5: Full Verification
 
-Before code review, run full verification:
+Before code review, run full verification - Use the **Skill tool**:
 ```
-Invoke /rv-verify [module-name]
+Skill tool: skill="rv-verify", args="[module-name]"
 ```
 
 This ensures all tests pass and code quality checks are satisfied.

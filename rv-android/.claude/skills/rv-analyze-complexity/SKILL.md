@@ -21,11 +21,26 @@ Reference these files from this skill directory:
 
 ## MCP Integration (with fallback)
 
-Use **sequential-thinking** for structured analysis:
+### Step 0: Check Memory for Cached Analysis
+
+Before expensive analysis, check for recent cached data:
+
+```
+Use mcp__memory__search_nodes with query: "complexity-$ARGUMENTS"
+```
+
+**If found and recent** (< 7 days based on entity name date):
+- Return cached findings
+- Note: "Using cached analysis from [date]"
+
+**If not found or stale**:
+- Proceed with full analysis below
 
 ### Primary Path (MCP available)
 1. Call `mcp__sequential-thinking__sequentialthinking` to reason through complexity metrics step-by-step
-2. After analysis, use `mcp__memory__create_entities` to persist findings for future reference
+2. After analysis, use `mcp__memory__create_entities` to persist findings:
+   - Entity name: `complexity-$ARGUMENTS-[YYYY-MM-DD]`
+   - Type: `complexity-analysis`
 
 ### Fallback Path (MCP unavailable)
 If MCP tools fail or timeout:

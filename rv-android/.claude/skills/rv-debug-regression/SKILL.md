@@ -7,7 +7,7 @@ description: >-
 argument-hint: [test-name or error-message]
 context: fork
 agent: general-purpose
-allowed-tools: Bash, Read, Grep, Glob
+allowed-tools: Bash, Read, Grep, Glob, Skill
 ---
 
 # Debug Regression: $ARGUMENTS
@@ -113,10 +113,10 @@ Based on analysis, propose:
 
 ### Step 5: Apply and Verify Fix
 
-After implementing the chosen fix:
+After implementing the chosen fix, use the **Skill tool**:
 
 ```
-Invoke /rv-test-run [module] [test-path]
+Skill tool: skill="rv-test-run", args="[module] [test-path]"
 ```
 
 **Verify**:

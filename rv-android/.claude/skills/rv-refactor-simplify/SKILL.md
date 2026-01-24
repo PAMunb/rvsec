@@ -8,7 +8,7 @@ description: >-
 argument-hint: [file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 ---
 
 # Simplify Code: $ARGUMENTS
@@ -22,9 +22,9 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 
 ## Steps
 
-1. **Analyze complexity** first:
+1. **Analyze complexity** first - Use the **Skill tool**:
    ```
-   Invoke /rv-analyze-complexity $ARGUMENTS
+   Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
    ```
    This identifies the most complex areas that need simplification.
 

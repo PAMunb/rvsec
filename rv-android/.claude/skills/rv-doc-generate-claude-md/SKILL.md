@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Write, Bash, Task
+allowed-tools: Read, Grep, Glob, Write, Bash, Task, Skill
 ---
 
 # Generate CLAUDE.md: $ARGUMENTS
@@ -32,7 +32,7 @@ allowed-tools: Read, Grep, Glob, Write, Bash, Task
 
 ```
 STEP 1: AUTO-ANALYSIS ───────────────────────────────────────────►
-    │  Invoke /rv-analyze-module for deep understanding
+    │  Use Skill tool: skill="rv-analyze-module" for deep understanding
     ▼
 STEP 2: CHECK EXISTING ──────────────────────────────────────────►
     │  Preserve custom sections if CLAUDE.md exists
