@@ -32,7 +32,10 @@ Reference these files from this skill directory:
   - `templates/regression/test_component_regression.py` - Bug prevention tests
   - `templates/snapshot/test_component_snapshot.py` - Baseline comparison tests
   - `templates/conftest/conftest.py` - Shared fixtures
-- **Checklists**: `checklists/tdd-rules.md`
+- **Checklists**:
+  - `checklists/tdd-rules.md` - TDD discipline rules
+  - `checklists/test-case-design.md` - Test case design guidelines
+  - `checklists/agile-principles.md` - XP/Agile practices validation
 - **Examples**: `examples/test-plan-example.md`
 
 ---
@@ -165,11 +168,36 @@ DONE
 
 **Goal**: Design ALL tests BEFORE writing any implementation.
 
-Test categories:
-1. **Happy path** - Normal operation
-2. **Edge cases** - Boundary conditions
-3. **Error cases** - Invalid inputs, failures
-4. **Integration** - Component interactions
+**Reference**: `checklists/test-case-design.md` for detailed guidelines.
+
+### Test Case Design Process
+
+1. **Partition Testing** (identify equivalence classes):
+   - Valid input partitions
+   - Invalid input partitions
+   - Boundary values (min, max, min-1, max+1)
+
+2. **Guideline-Based Testing** (common defect patterns):
+   - Empty/null inputs
+   - Single element collections
+   - Zero, negative, very large numbers
+   - Special characters in strings
+   - Force all error messages
+
+3. **State-Based Testing** (if object has state):
+   - All valid state transitions
+   - Invalid transitions (should fail)
+
+### Test Categories
+
+| Category | Purpose | Priority |
+|----------|---------|----------|
+| Happy path | Normal operation | HIGH |
+| Boundary | Edge of valid ranges | HIGH |
+| Error cases | Invalid inputs, failures | HIGH |
+| Edge cases | Unusual but valid inputs | MEDIUM |
+| State transitions | State changes (if applicable) | MEDIUM |
+| Integration | Component interactions | MEDIUM |
 
 **Output Format**:
 ```markdown
@@ -177,17 +205,29 @@ Test categories:
 
 ### Test File: tests/unit/test_[name].py
 
+### Input Partitions
+| Partition | Example Values | Expected |
+|-----------|----------------|----------|
+| Valid (middle) | [values] | [result] |
+| Boundary (min) | [values] | [result] |
+| Boundary (max) | [values] | [result] |
+| Invalid | [values] | [error] |
+
 ### Happy Path Tests
 | Test Name | Input | Expected Output |
 |-----------|-------|-----------------|
 
-### Edge Case Tests
-| Test Name | Edge Case | Expected |
-|-----------|-----------|----------|
+### Boundary/Edge Case Tests
+| Test Name | Boundary | Expected |
+|-----------|----------|----------|
 
 ### Error Case Tests
 | Test Name | Error Condition | Expected |
 |-----------|-----------------|----------|
+
+### State Transitions (if applicable)
+| From State | Action | To State |
+|------------|--------|----------|
 
 ### Mocking Strategy
 - Mock: [what to mock]

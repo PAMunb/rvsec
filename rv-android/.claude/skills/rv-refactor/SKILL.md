@@ -25,7 +25,11 @@ You are a **senior software architect** specializing in code refactoring. You or
 
 Reference these files from this skill directory:
 - **Templates**: `templates/analysis-report.md`, `templates/refactoring-plan.md`, `templates/final-report.md`
-- **Checklists**: `checklists/pre-refactor.md`, `checklists/verification.md`
+- **Checklists**:
+  - `checklists/pre-refactor.md` - Pre-refactoring safety checks
+  - `checklists/verification.md` - Post-refactoring verification
+  - `checklists/maintenance-types.md` - Classification of maintenance activities
+  - `checklists/evolution-principles.md` - Software evolution laws and guidelines
 - **Examples**: `examples/analysis-example.md`, `examples/plan-example.md`
 
 ---
@@ -66,7 +70,20 @@ DONE
 
 **Goal**: Understand what needs refactoring and why.
 
-Run the following analysis skills in sequence:
+### Step 0: Classify Maintenance Type
+
+Reference `checklists/maintenance-types.md` to determine:
+
+| Type | Description | This Skill? |
+|------|-------------|-------------|
+| Corrective | Fixing bugs | Use /rv-tdd |
+| Adaptive | Environment changes | Yes |
+| Perfective | New features | Use /rv-feature |
+| Preventative | Structure improvement | Yes |
+
+**This skill handles**: Adaptive and Preventative maintenance.
+
+### Step 1: Run Analysis Skills
 
 1. **Impact Analysis** (risk assessment) - Use the **Skill tool**:
    ```

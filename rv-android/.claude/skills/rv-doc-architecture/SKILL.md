@@ -15,6 +15,14 @@ allowed-tools: Read, Grep, Glob, Write, Bash, Skill
 
 Creates standardized architecture documentation at `modules/$ARGUMENTS/docs/architecture.md`.
 
+## Supporting Files
+
+Reference these checklists from this skill directory:
+- `checklists/architectural-views.md` - 4+1 view model (Logical, Process, Development, Physical)
+- `checklists/design-decisions.md` - 9 key architectural questions to answer
+- `checklists/nfr-architecture-mapping.md` - How NFRs influence architecture
+- `checklists/pattern-documentation.md` - Format for documenting patterns
+
 ## Documentation Guidelines
 
 **CRITICAL**: Follow these guidelines for all documentation:
@@ -94,6 +102,8 @@ Write to `modules/$ARGUMENTS/docs/architecture.md` using template below.
 
 ## Template: architecture.md
 
+Reference `checklists/architectural-views.md` for view definitions.
+
 ````markdown
 # [Module Name] Architecture
 
@@ -101,12 +111,49 @@ Write to `modules/$ARGUMENTS/docs/architecture.md` using template below.
 
 [One paragraph describing the module's purpose and role in rv-android]
 
-## Design Principles
+## Key Architectural Decisions
 
-- **[Principle 1]**: [Brief explanation]
-- **[Principle 2]**: [Brief explanation]
+Reference: `checklists/design-decisions.md`
 
-## Component Architecture
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Application Type | [CLI/Library/Service] | [Why] |
+| Structuring | [Layered/Modular/etc.] | [Why] |
+| Primary Pattern | [Pattern name] | [Why] |
+| Control Strategy | [Event/Call-based] | [Why] |
+
+## Architectural Patterns
+
+Reference: `checklists/pattern-documentation.md`
+
+### Pattern: [Primary Pattern Name]
+
+**Description**: [How this pattern structures the module]
+
+**When Used**: [Why this pattern was chosen]
+
+**Advantages**:
+- [Benefit in this context]
+
+**Disadvantages**:
+- [Trade-off accepted]
+
+---
+
+## Logical View
+
+Reference: `checklists/architectural-views.md`
+
+Shows key domain entities and their relationships.
+
+### Domain Entities
+
+| Entity | Responsibility |
+|--------|----------------|
+| [Entity1] | [What it represents] |
+| [Entity2] | [What it represents] |
+
+### Component Architecture
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
@@ -129,6 +176,61 @@ flowchart TB
     Comp2 --> Comp4
 ```
 
+---
+
+## Development View
+
+Shows code organization for developers.
+
+### Module Structure
+
+```
+module/
+├── src/
+│   └── package/
+│       ├── layer1/
+│       └── layer2/
+├── tests/
+└── pyproject.toml
+```
+
+### Package Dependencies
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Layer1["Presentation"]
+        P1[Package1]
+    end
+    subgraph Layer2["Application"]
+        P2[Package2]
+    end
+    P1 --> P2
+```
+
+---
+
+## Process View
+
+Shows run-time behavior (include if concurrency is relevant).
+
+### Execution Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant A as Component A
+    participant B as Component B
+    participant C as Component C
+
+    A->>B: request()
+    B->>C: process()
+    C-->>B: result
+    B-->>A: response
+```
+
+---
+
 ## Core Components
 
 ### [Component Name]
@@ -147,30 +249,21 @@ flowchart TB
 ### [Next Component]
 ...
 
-## Data Flow
+---
 
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-flowchart LR
-    Input["Input"] --> Process1["Component1"]
-    Process1 --> Process2["Component2"]
-    Process2 --> Output["Output"]
-```
+## NFR Support
 
-## Execution Flow
+Reference: `checklists/nfr-architecture-mapping.md`
 
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-sequenceDiagram
-    participant A as Component A
-    participant B as Component B
-    participant C as Component C
+How the architecture supports non-functional requirements.
 
-    A->>B: request()
-    B->>C: process()
-    C-->>B: result
-    B-->>A: response
-```
+| NFR | Priority | Architectural Support |
+|-----|----------|----------------------|
+| Performance | P1 | [How architecture enables] |
+| Maintainability | P0 | [How architecture enables] |
+| Extensibility | P1 | [How architecture enables] |
+
+---
 
 ## Key Interfaces
 
@@ -199,6 +292,23 @@ classDiagram
 
     InterfaceName <|-- Implementation1
 ```
+
+---
+
+## Scenarios
+
+Key use cases that validate the architecture.
+
+### Scenario 1: [Name]
+
+**Description**: [What happens]
+
+**Flow**:
+1. [Step involving logical entities]
+2. [Step involving components]
+3. [Result]
+
+---
 
 ## Extension Points
 
@@ -244,20 +354,25 @@ Report what was generated:
 - **Path**: modules/[module]/docs/architecture.md
 - **Sections**: X
 
+### Architectural Views
+- Logical View: ✅ (entities, component diagram)
+- Development View: ✅ (module structure, packages)
+- Process View: ✅/⏭️ (if concurrency relevant)
+- Scenarios: ✅ (at least one)
+
 ### Content
 - Overview: ✅
-- Design Principles: ✅
-- Component Architecture (Mermaid): ✅
+- Key Architectural Decisions: ✅
+- Architectural Patterns: ✅
 - Core Components: ✅
-- Data Flow (Mermaid): ✅
-- Execution Flow (Mermaid): ✅
+- NFR Support: ✅
 - Key Interfaces: ✅
 - Dependencies: ✅
 
 ### Next Steps
 - Review diagrams in VS Code with Mermaid extension
 - Test rendering on GitHub
-- Add specific implementation details
+- Create ADRs for significant decisions
 - Link to related ADRs
 ```
 
@@ -266,5 +381,8 @@ Report what was generated:
 1. **Follow documentation guidelines** - English, no bias, current state only
 2. **Use Mermaid diagrams** - With `%%{init: {'theme': 'neutral'}}%%`
 3. **Avoid reserved words** - Don't use `graph`, `end`, `class`, `style` as node IDs
-4. **Keep concise** - Focus on architecture, not implementation details
-5. **Link to related docs** - Reference CLAUDE.md and ADRs
+4. **Document decisions** - Not just structure, but why
+5. **Include multiple views** - At minimum: Logical, Development, one Scenario
+6. **Map NFRs to architecture** - Explain how architecture supports quality attributes
+7. **Document patterns** - Name patterns used and their trade-offs
+8. **Link to related docs** - Reference CLAUDE.md and ADRs

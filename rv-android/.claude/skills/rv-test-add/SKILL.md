@@ -86,11 +86,27 @@ START: Write test for [target]
    Additionally, manually identify:
    - Edge cases and error conditions
 
-3. **Plan test cases** using sequential-thinking:
+3. **Plan test cases** using test case design guidelines:
+
+   **Partition Testing** (identify equivalence classes):
+   - What are the valid input ranges? → Test middle values
+   - What are the boundaries? → Test min, max, min-1, max+1
+   - What inputs are invalid? → Test for proper error handling
+
+   **Guideline-Based Testing** (common defect patterns):
+   | Input Type | Test With |
+   |------------|-----------|
+   | Collections | Empty, single item, many items |
+   | Strings | Empty, whitespace, special chars |
+   | Numbers | Zero, negative, very large |
+   | Objects | None/null |
+
+   **Categories to cover**:
    - Happy path scenarios
-   - Edge cases (empty, null, boundary values)
+   - Boundary values (edges of valid ranges)
+   - Edge cases (empty, null, single element)
    - Error cases (invalid input, exceptions)
-   - Integration points (mocked dependencies)
+   - State transitions (if stateful object)
 
 4. **Determine test location** (use decision tree above):
    - Unit tests: `tests/unit/` - isolated, mocked

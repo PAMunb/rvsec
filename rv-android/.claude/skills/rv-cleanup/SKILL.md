@@ -25,8 +25,22 @@ You are a **codebase cleanup specialist** who safely removes technical debt. You
 
 Reference these files from this skill directory:
 - **Templates**: `templates/analysis-report.md`, `templates/cleanup-plan.md`
-- **Checklists**: `checklists/safety-checklist.md`
+- **Checklists**:
+  - `checklists/safety-checklist.md` - Safety checks before removal
+  - `../rv-refactor/checklists/evolution-principles.md` - Evolution laws (Lehman's laws)
 - **Scripts**: `scripts/backup.sh`
+
+## Context: Software Evolution
+
+Before cleanup, understand the system's evolution phase:
+
+| Phase | Cleanup Approach |
+|-------|------------------|
+| **Evolution** | Aggressive cleanup OK - system actively changing |
+| **Servicing** | Conservative - only safe, verified removals |
+| **Phaseout** | Minimal - don't invest effort |
+
+Reference `evolution-principles.md` for phase identification.
 
 ---
 

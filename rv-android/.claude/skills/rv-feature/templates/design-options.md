@@ -23,6 +23,19 @@
 └─────────────┘     └─────────────┘
 ```
 
+### Classes Identified
+
+| Class | Responsibility | Key Methods |
+|-------|----------------|-------------|
+| [ClassName] | [Single responsibility] | method1(), method2() |
+| [ClassName] | [Single responsibility] | method1(), method2() |
+
+### Design Patterns Applied
+
+| Pattern | Where | Problem Solved |
+|---------|-------|----------------|
+| [Pattern] | [Class/Component] | [What problem it solves] |
+
 ### Pros
 
 - [Advantage 1]

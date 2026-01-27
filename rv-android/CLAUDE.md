@@ -98,21 +98,42 @@ poetry run rv-platform run --tools monkey --apks-dir ./apks_examples
 ```
 
 ### RV-Agent Commands
+
+RV-Agent can run in two modes:
+1. **Standalone CLI** (`rv-agent`): User manages emulator and APK installation
+2. **Via rv-experiment** (`rvagent` tool): Platform manages emulator and APK installation
+
+#### Standalone Mode (requires manual setup)
 ```bash
-# Run rv-agent with multimode (default: 70% LLM / 30% algorithm)
-poetry run rv-agent --package-name com.example.app --device emulator-5554
+# Prerequisites:
+# 1. Start emulator
+./scripts/run_emulator.sh
+# 2. Wait for device
+adb wait-for-device
+# 3. Install APK
+adb install apks_examples/cryptoapp.apk
 
-# Run with pure algorithm (no LLM)
-poetry run rv-agent --package-name com.example.app --agent-mode pure_algorithm
+# Run with pure algorithm (no LLM needed - quick testing)
+cd modules/rv-agent
+poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
 
-# Run with LLM only
-poetry run rv-agent --package-name com.example.app --agent-mode llm_only
+# Run with multimode (requires SGLang server)
+poetry run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300
 
-# Run with specific timeout
-poetry run rv-agent --package-name com.example.app --timeout 600
+# Test device connection
+poetry run rv-agent test
+```
 
-# Run via rv-experiment
-poetry run rv-experiment run --tools rv-agent:multimode --apks-dir ./apks_examples
+#### Via rv-experiment (recommended - handles emulator and APK)
+```bash
+# Run with rvagent tool (note: no hyphen in tool name)
+poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
+
+# Run multimode
+poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
+
+# Multiple tools
+poetry run rv-experiment run --tools monkey,rvagent:multimode --apks-dir ./apks_examples
 ```
 
 ### Code Quality and Linting
@@ -144,9 +165,11 @@ poetry run bandit -r modules/
    - Task generation and execution coordination
    - Result processing and metrics collection
 
-3. **rv-agent CLI** (`modules/rv-agent/src/rv_agent/__main__.py`):
+3. **rv-agent CLI** (`modules/rv-agent/src/rv_agent/cli/main.py`):
    - Standalone LLM-driven testing tool
    - Supports multiple execution modes (pure_algorithm, llm_only, multimode)
+   - Requires: emulator running + APK installed (use `rv-agent install <apk>`)
+   - Can also run via rv-experiment as `rvagent` tool (platform manages emulator/APK)
    - Can run independently or through rv-platform
 
 ### Core Execution Flow
@@ -227,6 +250,66 @@ poetry run bandit -r modules/
 - Tool configurations support unified configuration through Pydantic models
 - Experiment configurations in JSON format with validation
 - Module-specific configuration classes with composition patterns
+
+## Directory Structure and Cleanup
+
+### Output Directory Structure
+```
+rv-android/
+├── apks_examples/              # Source APKs (input, not cleaned)
+├── out/                        # Temporary artifacts (cleaned by clear.sh)
+│   ├── monitors/               # Generated monitors from rv-monitor-generator
+│   ├── instrumented_apks/      # APKs with monitors woven by rv-instrumentation
+│   └── static_analysis/        # GATOR, GESDA, REACH output files
+├── results/                    # Persistent experiment results
+│   └── <experiment_id>/        # Per-experiment directory
+│       └── <apk_name>/         # Per-APK results
+│           ├── coverage.csv    # Per-method coverage data
+│           ├── errors.csv      # Monitored operations violations
+│           ├── summary.csv     # Aggregate metrics per task
+│           ├── results.json    # Complete experiment data (JSON)
+│           ├── performance.csv # Task execution timing
+│           └── tasks.json      # Task state persistence
+├── tmp/, rvm_tmp/, lib_tmp/    # Various temporary files
+├── sootOutput/                 # Soot compiler output
+└── clear.sh                    # Cleanup script
+```
+
+### Cleanup Script (clear.sh)
+Located at project root: `./clear.sh`
+
+```bash
+# Clean temporary artifacts only (keeps results/)
+./clear.sh
+
+# Clean everything including experiment results
+./clear.sh --clean-results
+
+# Show help
+./clear.sh --help
+```
+
+**What gets cleaned:**
+- `out/` - Default output directory with monitors/, instrumented_apks/, static_analysis/
+- `tmp/`, `rvm_tmp/`, `lib_tmp/` - Temporary files
+- `sootOutput/` - Soot compiler output
+- `output/`, `mop_out/` - Legacy directories
+- `__pycache__/` - Python cache
+- `*.dex`, `ajcore*.txt` - Compilation artifacts
+
+**What is preserved (unless --clean-results):**
+- `results/` - Persistent experiment results
+- `apks_examples/` - Source APKs
+
+### Pre-Experiment Cleanup
+Before running experiments, clean previous artifacts:
+```bash
+# Recommended: clean artifacts but keep results
+./clear.sh
+
+# Full clean for fresh start
+./clear.sh --clean-results
+```
 
 ## Key Architectural Patterns
 
