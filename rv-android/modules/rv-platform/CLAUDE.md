@@ -225,7 +225,8 @@ The platform generates the following output files in the results directory:
 
 - **Parallel Execution**: EmulatorComponent supports dynamic port allocation for parallel task execution
 - **Timeout Handling**: Tool timeouts are considered successful completion (expected behavior)
-- **Static Analysis**: Static analysis loading is non-critical - execution continues without it
+- **Static Analysis**: Static analysis loading is non-critical - execution continues without it. Uses `app.code_package` (detected implementation package) instead of `app.package_name` (manifest) for correct class filtering
+- **APK Installation**: EmulatorComponent raises `EmulatorError` if APK installation fails (checked via `CommandResult.is_failure()`). TaskExecutor catches this and marks the task as FAILED
 - **Result Processing**: Can be skipped during execution and run standalone later
 - **Task Continuation**: TaskStorage supports experiment continuation via config checksum validation
 

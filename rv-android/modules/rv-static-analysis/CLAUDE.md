@@ -111,13 +111,17 @@ cmd = config.get_tool_command('gesda', apk_path, output_file)
 | GesdaParser | JSON (.gesda) | Windows, Widgets | GUI element extraction |
 | ReachParser | CSV (.reach) | Classes, Methods | Method reachability |
 
+All three parsers use **SignatureNormalizer** (from `rv_android_core.util.android.signature_normalizer`) to normalize inner class notation. Static analysis tools (Soot) use `$` for inner classes (`Outer$Inner`), but GESDA/GATOR output may use `.` (`Outer.Inner`). The normalizer ensures consistent matching by converting `.` notation to `$` using Java convention heuristics (uppercase after separator = inner class).
+
+**Important**: Parsers receive `code_package` (not `package_name`) from the `App` model for class filtering. This ensures correct behavior for APKs where the manifest package differs from the implementation package.
+
 **StaticAnalysisParser** - Facade that coordinates all parsers:
 
 ```python
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 
 parser = StaticAnalysisParser()
-static_data = parser.parse(reach_file, gator_file, gesda_file, package_name)
+static_data = parser.parse(reach_file, gator_file, gesda_file, code_package)
 # Returns StaticAnalysisData(classes, windows, wtg)
 ```
 

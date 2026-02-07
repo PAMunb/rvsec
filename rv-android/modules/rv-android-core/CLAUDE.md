@@ -73,8 +73,11 @@ src/rv_android_core/
     ├── utils.py
     ├── android/
     │   ├── __init__.py
-    │   ├── emulator_manager.py   # Android emulator control
-    │   ├── logcat_manager.py     # Logcat capture management
+    │   ├── android.py              # ADB operations (install, uninstall, boot)
+    │   ├── emulator_manager.py     # Android emulator control
+    │   ├── logcat_manager.py       # Logcat capture management
+    │   ├── package_detector.py     # Code package detection (manifest vs implementation)
+    │   ├── signature_normalizer.py # Inner class notation normalization (Outer.Inner -> Outer$Inner)
     │   └── repository_initializer.py
     ├── error/
     │   ├── __init__.py
@@ -111,6 +114,17 @@ src/rv_android_core/
 | `domain/widget.py` | Widget and WidgetEvent models | ~365 |
 | `util/performance/performance_monitor.py` | PerformanceMonitor with metrics | ~345 |
 | `commands/command.py` | Command execution with validation | ~335 |
+| `util/android/package_detector.py` | Detects code package vs manifest package (~27.5% APKs differ) | ~650 |
+| `util/android/signature_normalizer.py` | Normalizes inner class notation in Soot signatures | ~350 |
+| `util/android/android.py` | ADB operations (install, uninstall, permissions, boot) | ~250 |
+
+## Important: `package_name` vs `code_package`
+
+The `App` model exposes two package properties:
+- **`package_name`**: From AndroidManifest.xml. Use for device operations (install, launch, force-stop, monkey `-p` flag)
+- **`code_package`**: Detected via `PackageDetector` from APK components. Use for static analysis parsing and class filtering
+
+In ~27.5% of APKs, these differ (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`). The `code_package` property is lazy-computed and logs a warning on mismatch.
 
 ## Dependencies
 
