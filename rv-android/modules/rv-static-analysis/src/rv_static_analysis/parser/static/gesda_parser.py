@@ -13,6 +13,7 @@ from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.widget import WidgetEventType, WidgetEvent, WidgetType, Widget
 from rv_android_core.domain.window import WindowType, Window
 from rv_android_core.domain.window import Windows
+from rv_android_core.util.android.signature_normalizer import SignatureNormalizer
 from rv_static_analysis.parser.static.base_parser import BaseStaticAnalysisParser
 
 
@@ -21,6 +22,7 @@ class GesdaParser(BaseStaticAnalysisParser):
     def __init__(self):
         """Initialize the Gesda parser."""
         super().__init__("gesda")
+        self._normalizer = SignatureNormalizer()
 
     def parse_file(self, file_path: str, package: Optional[str], classes: Optional[Classes],
                    windows: Optional[Windows]) -> Windows:
@@ -61,7 +63,7 @@ class GesdaParser(BaseStaticAnalysisParser):
             classes: Collection of application classes
             windows: Collection of application windows
         """
-        class_name: str = window_dict["name"]
+        class_name: str = self._normalizer.normalize_class_name(window_dict["name"])
         self.logger.debug(f"Processing window={class_name}")
 
         if package and package not in class_name:

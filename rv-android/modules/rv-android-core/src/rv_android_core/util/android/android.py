@@ -211,15 +211,22 @@ class Android:
         result = root_cmd.invoke()
         readlink_cmd = Command('readlink', ['-f', app.path])
         readlink_result = readlink_cmd.invoke()
+        apk_path = readlink_result.stdout.strip().decode('ascii')
         install_cmd = Command('adb', [
             '-s',
             device_name,
             'install',
             '-r',
             '-g',
-            readlink_result.stdout.strip().decode('ascii')
+            apk_path
         ])
-        install_cmd.invoke()
+        result = install_cmd.invoke()
+        if result.is_failure():
+            error_msg = result.get_combined_output() or "unknown error"
+            raise RuntimeError(
+                f"APK installation failed for {app.name} on {device_name} "
+                f"(exit code {result.code}): {error_msg}"
+            )
 
     @classmethod
     def uninstall_apk(cls, app: App, device_name: str = "emulator-5554"):

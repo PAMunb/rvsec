@@ -128,7 +128,7 @@ class StaticAnalysisComponent:
                 static_data = static_analysis_parser.read_static_analysis_files(
                     self.task.results_dir,
                     self.task.config.apk_name,
-                    self.task.app.package_name if self.task.app else None
+                    self.task.app.code_package if self.task.app else None
                 )
 
                 # Store static data in task

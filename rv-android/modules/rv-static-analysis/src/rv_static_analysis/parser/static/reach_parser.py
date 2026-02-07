@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from rv_android_core.domain.classes import Classes, Method, Clazz
 from rv_android_core.domain.window import Windows
+from rv_android_core.util.android.signature_normalizer import SignatureNormalizer
 from rv_static_analysis.parser.static.base_parser import BaseStaticAnalysisParser
 
 
@@ -18,6 +19,7 @@ class ReachParser(BaseStaticAnalysisParser):
     def __init__(self):
         """Initialize the Reach parser wrapper."""
         super().__init__("reach")
+        self._normalizer = SignatureNormalizer()
 
     def parse_file(self, file_path: str, package: Optional[str], classes: Optional[Classes],
                    windows: Optional[Windows]) -> Classes:
@@ -69,7 +71,7 @@ class ReachParser(BaseStaticAnalysisParser):
         Returns:
             Classes: The class object that was added
         """
-        name = row[0]
+        name = self._normalizer.normalize_class_name(row[0])
         is_activity = eval(row[1].capitalize())
         is_main_activity = eval(row[2].capitalize())
         return classes.add_clazz(name, is_activity, is_main_activity)
@@ -89,7 +91,7 @@ class ReachParser(BaseStaticAnalysisParser):
             class_name=class_name,
             name=row[3],
             params=self._parse_params_list(row[4]),
-            signature=row[8],
+            signature=self._normalizer.normalize_signature(row[8]),
             reachable=eval(row[5].capitalize()),
             reaches_mop=eval(row[6].capitalize()),
             directly_reaches_mop=eval(row[7].capitalize())

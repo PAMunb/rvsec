@@ -15,6 +15,7 @@ from rv_android_core.domain.widget import WidgetEventType, WidgetEvent, WidgetTy
 from rv_android_core.domain.window import Window
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransition, WindowTransitionGraph
+from rv_android_core.util.android.signature_normalizer import SignatureNormalizer
 from rv_static_analysis.parser.static.base_parser import BaseStaticAnalysisParser
 
 
@@ -22,6 +23,7 @@ class GatorParser(BaseStaticAnalysisParser):
 
     def __init__(self):
         super().__init__("gator")
+        self._normalizer = SignatureNormalizer()
 
     def parse_file(self, file_path: str, package: Optional[str], classes: Optional[Classes],
                    windows: Optional[Windows]) -> WindowTransitionGraph:
@@ -63,7 +65,7 @@ class GatorParser(BaseStaticAnalysisParser):
             return
 
         for window in gator_data["windows"]:
-            class_name = window["name"]
+            class_name = self._normalizer.normalize_class_name(window["name"])
             self.logger.debug(f"Processing window: {class_name}")
 
             if package in class_name and class_name not in classes.classes:

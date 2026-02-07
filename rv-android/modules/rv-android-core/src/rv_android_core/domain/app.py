@@ -5,6 +5,7 @@ This module provides structured data models for Android application information
 extracted through static analysis using Androguard.
 """
 
+import logging
 import os
 from typing import List, Optional
 from pydantic import Field, field_validator, computed_field
@@ -13,6 +14,9 @@ from androguard.core.bytecodes.apk import APK
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 from rv_android_core.util.error.exceptions import ConfigurationError
+from rv_android_core.util.android.package_detector import PackageDetector, PackageDetectionResult
+
+logger = logging.getLogger(__name__)
 
 
 @validated_model(['app_path'])
@@ -53,6 +57,7 @@ class App(BaseValidatedModel):
 
     # Computed fields based on APK analysis
     _apk_instance: Optional[APK] = None
+    _code_package_result: Optional[PackageDetectionResult] = None
 
     def model_post_init(self, __context) -> None:
         """
@@ -100,10 +105,39 @@ class App(BaseValidatedModel):
     @computed_field
     @property
     def package_name(self) -> str:
-        """Android package name extracted from APK manifest."""
+        """Android package name extracted from APK manifest.
+        Use for device operations (install, launch, force-stop)."""
         if self._apk_instance is None:
             self._load_and_validate_apk()
         return self._apk_instance.get_package()
+
+    @computed_field
+    @property
+    def code_package(self) -> str:
+        """Implementation package detected via component analysis.
+        Use for static analysis parsing and class filtering.
+        For device operations (install, launch): use package_name."""
+        if self._code_package_result is None:
+            self._detect_code_package()
+        return self._code_package_result.code_package
+
+    def _detect_code_package(self) -> None:
+        """Run PackageDetector on the loaded APK instance."""
+        if self._apk_instance is None:
+            self._load_and_validate_apk()
+        detector = PackageDetector()
+        self._code_package_result = detector.detect_package(self._apk_instance)
+
+        # Log only when there is a mismatch (the interesting case)
+        if self._code_package_result.code_package != self._code_package_result.manifest_package:
+            logger.info(
+                "Package mismatch detected: manifest='%s', code='%s' "
+                "(method=%s, confidence=%s)",
+                self._code_package_result.manifest_package,
+                self._code_package_result.code_package,
+                self._code_package_result.detection_method,
+                self._code_package_result.confidence,
+            )
 
     @computed_field
     @property

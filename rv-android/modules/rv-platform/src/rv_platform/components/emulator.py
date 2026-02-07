@@ -176,7 +176,8 @@ class EmulatorComponent:
                     device_serial = self.task.config.tool_config.additional_params.get('device_serial', device_serial)
                 
                 self.logger.info(LOG_START.format(phase=f"installing app {app.name} on {device_serial}"))
-                self.emulator_manager.install_app(app, device_serial=device_serial)
+                if not self.emulator_manager.install_app(app, device_serial=device_serial):
+                    raise EmulatorError(f"Failed to install app {app.name} on {device_serial}")
                 self.logger.info(LOG_COMPLETE.format(phase=f"installing app {app.name}"))
 
                 # Publish event

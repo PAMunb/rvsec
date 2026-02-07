@@ -471,11 +471,11 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                 self.gesda_file,
                 self.gator_file,
                 self.reach_file,
-                self.app.package_name
+                self.app.code_package
             )
 
             self.logger.info("Static analysis data parsed successfully", extra={
-                'package_name': self.app.package_name,
+                'package_name': self.app.code_package,
                 'data_available': static_data is not None
             })
 
