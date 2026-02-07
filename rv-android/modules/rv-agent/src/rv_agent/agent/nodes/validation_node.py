@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent.domain.state import AgentState
+from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +35,8 @@ def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with current_action and loop_detected
     """
+    iteration = state.get("iteration", 0)
     decision_maker = state.get("decision_maker", "unknown")
-    logger.info(f"VALIDATE_ACTION: Validating action from {decision_maker}")
 
     # Get action from appropriate source
     if decision_maker == "llm":
@@ -44,12 +45,6 @@ def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         action = state.get("current_action")
 
     recent_actions = state.get("recent_action_window", [])
-
-    logger.debug(
-        f"VALIDATION: decision_maker={decision_maker}, "
-        f"recent_actions_count={len(recent_actions)}, "
-        f"action_to_validate={action.get('action_type') if action else None}"
-    )
 
     # Check screen boundary for LLM actions (prevent clicking outside app area)
     if decision_maker == "llm" and action:
@@ -69,23 +64,23 @@ def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         decision_maker=decision_maker
     )
 
-    # [LLM_TRACE] Log validation result
     final_action = validation_result["current_action"]
     loop_detected = validation_result["loop_detected"]
-    if loop_detected:
-        logger.warning(f"[LLM_TRACE] === VALIDATION REJECTED ===\n"
-                      f"[LLM_TRACE] Original action: {action.get('action_type') if action else 'None'}\n"
-                      f"[LLM_TRACE] Replaced with: {final_action.get('action_type') if final_action else 'None'}\n"
-                      f"[LLM_TRACE] Reason: loop_detected={loop_detected}\n"
-                      f"[LLM_TRACE] === END VALIDATION ===")
-    else:
-        logger.warning(f"[LLM_TRACE] === VALIDATION PASSED ===\n"
-                      f"[LLM_TRACE] Action: {final_action.get('action_type') if final_action else 'None'}\n"
-                      f"[LLM_TRACE] === END VALIDATION ===")
+    action_type = final_action.get('action_type') if final_action else 'None'
+    coords = (final_action.get('x', 0), final_action.get('y', 0)) if final_action else (0, 0)
+    reason = "loop_detected" if loop_detected else None
+
+    track.validate(
+        iter=iteration,
+        passed=not loop_detected,
+        action=action_type,
+        coords=coords,
+        reason=reason
+    )
 
     return {
-        "current_action": validation_result["current_action"],
-        "loop_detected": validation_result["loop_detected"],
+        "current_action": final_action,
+        "loop_detected": loop_detected,
         "decision_maker": decision_maker
     }
 

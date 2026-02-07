@@ -29,6 +29,62 @@ Reference these files from this skill directory:
   - `checklists/threat-types.md` - Threat classification and examples
   - `checklists/survivability.md` - Resistance, recognition, recovery
 
+## Guiding Principles
+
+When performing this task, consider the following fundamental software engineering principles:
+
+### Security
+1. **Base security on explicit policy**: Security decisions must derive from a clear and documented policy
+   - Application example: Always verify if a security policy exists before making recommendations
+
+2. **Defense in depth**: Implement multiple layers of protection so that the failure of one does not compromise the system
+   - Application example: Propose preventive, detective, and corrective controls for each identified risk
+
+3. **Fail securely**: In case of failures, the system should assume a secure state by default
+   - Application example: Evaluate how the system behaves during failures and if it assumes a secure state
+
+4. **Least privilege**: Each component should have only the minimum permissions necessary
+   - Application example: Review permissions and accesses to ensure they are the minimum required
+
+5. **Minimize attack surface**: Reduce the number of entry points and potential vulnerabilities
+   - Application example: Identify and minimize exposed endpoints, resources, and unnecessary functionalities
+
+6. **Secure defaults**: Secure configurations and practices should be the default, not optional
+   - Application example: Verify if default configurations are secure and if encryption/authentication are enabled by default
+
+7. **Validate all inputs**: Never trust data from external sources
+   - Application example: Identify points where external data enters the system and verify adequate validations
+
+8. **Compartmentalization**: Isolate components so that failure of one does not affect others
+   - Application example: Evaluate separation between different parts of the system and trust boundaries
+
+9. **Log security events**: Maintain audit trail for security events
+   - Application example: Verify if critical security events are being logged appropriately
+
+10. **Design for recovery**: Plan for security incidents and ensure recovery capability
+    - Application example: Evaluate incident response plans and system recovery capabilities
+
+### Threat Modeling (STRIDE)
+Use the STRIDE model to systematically identify threats:
+- **Spoofing**: Impersonating something or someone else.
+- **Tampering**: Modifying data or code.
+- **Repudiation**: Claiming an action wasn't performed.
+- **Information Disclosure**: Exposing information to unauthorized individuals.
+- **Denial of Service**: Making a system or resource unavailable.
+- **Elevation of Privilege**: Gaining capabilities without proper authorization.
+
+Always justify your actions and decisions based on these principles.
+
+## Requirement for Principle-Based Justification
+
+During the execution of this task, you must explain how your analyses, proposals, and actions align with the Guiding Principles above. Whenever making a significant decision, include a justification such as:
+
+- "I am proposing this approach because it respects the [Principle Name] principle, which will result in [expected benefit]..."
+- "This analysis considers the [Principle Name] principle by [explaining how it was applied]..."
+- "I adjusted my recommendation based on the [Principle Name] principle because [technical justification]..."
+
+This ensures that decisions are transparent and based on solid software engineering fundamentals.
+
 ---
 
 ## Workflow

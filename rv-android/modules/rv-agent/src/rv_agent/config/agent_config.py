@@ -42,16 +42,12 @@ class RVAgentConfig(BaseValidatedModel):
         le=1.0,
         description="LLM probability for multimode (0.7 = 70% LLM, 30% algorithm)"
     )
-    platform_integration: str = Field(
-        default="standalone",
-        description="Platform integration: 'standalone' or 'platform'"
-    )
     timeout: int = Field(
         default=RVAgentConstants.DEFAULT_TIMEOUT,
         ge=60,
         description="Test execution timeout in seconds"
     )
-    results_dir: str = Field(
+    results_dir: str = Field( # TODO O que teremos de output?
         default="./results",
         description="Directory for test results and artifacts"
     )
@@ -69,7 +65,7 @@ class RVAgentConfig(BaseValidatedModel):
         default="http://192.168.0.36:30000/v1",
         description="SGLang server URL (OpenAI-compatible API)"
     )
-    prompt_version: str = Field(
+    prompt_version: str = Field( 
         default="v13",
         description="Prompt version (v13: dialog handling, v14: structured reasoning)"
     )
@@ -106,10 +102,10 @@ class RVAgentConfig(BaseValidatedModel):
         description="Timeout for single LLM call in seconds"
     )
 
-    # === OPTIONAL INTEGRATION ===
-    server_url: Optional[str] = Field(
+    # === OUTPUT CONFIGURATION ===
+    metrics_output_dir: Optional[str] = Field(
         default=None,
-        description="RV-Platform server URL for integration mode"
+        description="Directory for saving agent metrics JSON. If None, metrics are not saved to file."
     )
 
     # === TOOL CONFIGURATION ===
@@ -125,11 +121,11 @@ class RVAgentConfig(BaseValidatedModel):
     )
 
     # === LOGGING CONFIGURATION ===
-    log_level: str = Field(
+    log_level: str = Field( # TODO qual a diferenca para debug_mode? esta duplicado?
         default="INFO",
         description="Log level: DEBUG, INFO, WARNING, ERROR"
     )
-    verbose_counters: bool = Field(
+    verbose_counters: bool = Field( # TODO nao entendi ... para que serve?
         default=False,
         description="Enable detailed counter tracking logs ([COUNTER] messages)"
     )
@@ -141,7 +137,7 @@ class RVAgentConfig(BaseValidatedModel):
         le=100,
         description="Pixel tolerance for coordinate validation (50px validated)"
     )
-    enable_coordinate_enhancement: bool = Field(
+    enable_coordinate_enhancement: bool = Field( # TODO esta sendo usado? ate onde entendo SEMPRE deve incluir as coordenadas no prompt
         default=True,
         description="Enable coordinate enhancement in prompts"
     )
@@ -184,6 +180,10 @@ class RVAgentConfig(BaseValidatedModel):
     strategy: str = Field(
         default="rvagent",
         description="Exploration strategy: 'rvagent', 'dfs', 'bfs', 'greedy'"
+    )
+    seed: Optional[int] = Field(
+        default=None,
+        description="Random seed for reproducible exploration. If None, non-deterministic."
     )
     plateau_window: int = Field(
         default=10,
@@ -230,6 +230,109 @@ class RVAgentConfig(BaseValidatedModel):
     static_analysis_path: Optional[str] = Field(
         default=None,
         description="Path to static analysis data (GATOR output) for MOP guidance"
+    )
+
+    # === SCORER WEIGHTS (Calibration Parameters) ===
+    # MopScorer - prioritizes actions reaching monitored operations
+    mop_direct_score: float = Field(
+        default=300.0,
+        ge=0.0,
+        le=1000.0,
+        description="Score for actions directly reaching MOP methods"
+    )
+    mop_transitive_score: float = Field(
+        default=150.0,
+        ge=0.0,
+        le=500.0,
+        description="Score for actions transitively reaching MOP methods"
+    )
+
+    # WtgScorer - prioritizes WTG-guided navigation
+    wtg_guided_score: float = Field(
+        default=250.0,
+        ge=0.0,
+        le=500.0,
+        description="Score for WTG-guided actions leading to unvisited screens"
+    )
+
+    # SaturationScorer - bonus for unsaturated states
+    unsaturated_bonus: float = Field(
+        default=80.0,
+        ge=0.0,
+        le=200.0,
+        description="Bonus score for actions in unsaturated states"
+    )
+
+    # VisitationPenaltyScorer - penalizes over-visited states
+    visitation_penalty_factor: float = Field(
+        default=-10.0,
+        le=0.0,
+        ge=-50.0,
+        description="Penalty factor for over-visited states (negative value)"
+    )
+
+    # StrengthScorer - historical success rate
+    strength_weight: float = Field(
+        default=50.0,
+        ge=0.0,
+        le=200.0,
+        description="Weight for action strength (success rate) scoring"
+    )
+
+    # GradualDecayScorer - exponential decay by visits
+    gradual_decay_base: float = Field(
+        default=200.0,
+        ge=50.0,
+        le=500.0,
+        description="Base score for GradualDecayScorer"
+    )
+    gradual_decay_rate: float = Field(
+        default=0.7,
+        ge=0.3,
+        le=0.95,
+        description="Decay rate per visit (0.7 = 70% retention)"
+    )
+    gradual_decay_min_visits: int = Field(
+        default=5,
+        ge=2,
+        le=15,
+        description="Visits after which score becomes zero"
+    )
+
+    # ComponentPriorityScorer - widget type priorities
+    component_high_priority: float = Field(
+        default=50.0,
+        ge=20.0,
+        le=100.0,
+        description="Score for high-priority components (buttons, inputs)"
+    )
+    component_medium_priority: float = Field(
+        default=40.0,
+        ge=10.0,
+        le=80.0,
+        description="Score for medium-priority components (toggles, sliders)"
+    )
+
+    # === SUCCESSOR TRACKER PARAMETERS ===
+    max_re_enables: int = Field(
+        default=6,
+        ge=1,
+        le=20,
+        description="Maximum times an action can be re-enabled for successor exploration"
+    )
+    ui_coverage_threshold: float = Field(
+        default=0.9,
+        ge=0.5,
+        le=1.0,
+        description="UI coverage threshold (executed_actions/total_actions per screen) for successor re-enablement"
+    )
+
+    # === EXPLORATION PARAMETERS ===
+    scroll_probability: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=0.5,
+        description="Probability of scroll action for dynamic content discovery"
     )
 
     def get_langchain_config(self) -> Dict[str, Any]:
@@ -297,14 +400,6 @@ class RVAgentConfig(BaseValidatedModel):
             return env_val.lower() in ("1", "true", "yes")
         return self.verbose_counters
 
-    def is_platform_mode(self) -> bool:
-        """Check if running in platform integration mode."""
-        return self.platform_integration == "platform" and self.server_url is not None
-
-    def is_standalone_mode(self) -> bool:
-        """Check if running in standalone mode."""
-        return self.platform_integration == "standalone"
-
     def validate(self) -> tuple[bool, Optional[str]]:
         """
         Validate configuration consistency.
@@ -312,9 +407,6 @@ class RVAgentConfig(BaseValidatedModel):
         Returns:
             Tuple of (is_valid, error_message)
         """
-        if self.platform_integration == "platform" and not self.server_url:
-            return False, "server_url is required for platform mode"
-
         if not self.enable_coordinate_enhancement:
             return False, "Coordinate enhancement is mandatory for RVAgent success"
 

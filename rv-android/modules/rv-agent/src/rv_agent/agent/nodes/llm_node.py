@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent.domain.state import AgentState
+from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with llm_action and token metrics
     """
-    logger.info("LLM_GENERATE: Calling LLM")
+    iteration = state.get("iteration", 0)
 
     if not agent.llm_client:
         logger.error("LLM client not available")
@@ -43,15 +44,12 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         if screen_desc:
             context = agent.navigation_guidance.get_context(screen_desc)
             navigation_hint = agent.navigation_guidance.format_for_llm(context)
-            if navigation_hint:
-                logger.info(f"LLM_GENERATE: Adding navigation guidance ({len(context.unvisited_screens)} unvisited)")
 
     # Get screen info for v15 prompt
     screen_line = ""
     screen_hash = state.get("current_screen_hash", "")
     if agent.dynamic_graph and screen_hash:
         screen_line = agent.dynamic_graph.get_screen_line(screen_hash)
-        logger.debug(f"LLM_GENERATE: {screen_line}")
 
     result = agent.llm_client.generate_action(
         screen_description=state.get("screen_description"),
@@ -85,51 +83,22 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             # Normalize to unified format using ActionNormalizer
             if agent.action_normalizer:
                 llm_action = agent.action_normalizer.from_llm(raw_action)
-                if llm_action:
-                    logger.info(
-                        f"LLM_GENERATE: Normalized action: {llm_action['action_type']} "
-                        f"at ({llm_action['x']}, {llm_action['y']})"
-                    )
             else:
-                # Fallback if no normalizer (should not happen in production)
-                logger.warning("LLM_GENERATE: No ActionNormalizer available")
                 llm_action = raw_action
 
         # Extract reasoning from content if available
         if hasattr(response, "content") and response.content:
             llm_reasoning = response.content[:500]
 
-    # [LLM_TRACE] Log final action selection
-    if llm_action:
-        logger.warning(f"[LLM_TRACE] === LLM ACTION SELECTED ===\n"
-                      f"[LLM_TRACE] action_type: {llm_action.get('action_type')}\n"
-                      f"[LLM_TRACE] coords: ({llm_action.get('x')}, {llm_action.get('y')})\n"
-                      f"[LLM_TRACE] original_coords: {llm_action.get('original_coords')}\n"
-                      f"[LLM_TRACE] text: {llm_action.get('text', '')}\n"
-                      f"[LLM_TRACE] === END LLM ACTION ===")
-    else:
-        logger.warning("[LLM_TRACE] === NO LLM ACTION - will fallback to algorithm or BACK ===")
-
-    # Record LLM action metrics for validation
-    if agent.metrics_collector and llm_action:
-        try:
-            ui_xml = state.get("ui_xml", "")
-            agent.metrics_collector.record_llm_action(
-                iteration=state.get("iteration", 0),
-                raw_coords=llm_action.get("original_coords", (0, 0)),
-                device_coords=(llm_action.get("x", 0), llm_action.get("y", 0)),
-                tool_name=llm_action.get("action_type", "UNKNOWN"),
-                tool_args={"text": llm_action.get("text", "")},
-                latency_ms=result.get("time_ms", 0),
-                tokens_input=result.get("tokens_input", 0),
-                tokens_output=result.get("tokens_output", 0),
-                parser_strategy=result.get("parse_strategy", "native"),
-                activity=state.get("current_activity", "unknown"),
-                screen_hash=state.get("current_screen_hash", "unknown"),
-                ui_dump=ui_xml,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to record metrics: {e}")
+    # Track LLM call metrics
+    track.llm(
+        iter=iteration,
+        tokens_in=result.get("tokens_input", 0),
+        tokens_out=result.get("tokens_output", 0),
+        time_ms=result.get("time_ms", 0),
+        tool_calls=1 if has_tool_calls else 0,
+        success=llm_action is not None
+    )
 
     return {
         "llm_action": llm_action,

@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent.domain.state import AgentState
+from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with memories, summaries, and continuation flags
     """
-    logger.info("LEARN: Updating memories")
+    iteration = state.get("iteration", 0)
 
     # Update memories
     memory_result = agent.memory_coordinator.update_memories(
@@ -116,6 +117,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Record BACK transitions for Backtrack BFS
     _record_back_transition(agent, state)
 
+    # Record action success for strength-based scoring
+    _record_action_success(agent, state)
+
     # Two-level stuck state detection
     current_hash = state.get("current_screen_hash")
     force_back = False
@@ -144,21 +148,10 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     is_form_action = action_type in ("SET_TEXT", "TEXT_CHANGE") or is_checkable
     if current_hash == agent.last_screen_hash and not is_form_action:
         agent.stuck_screen_count += 1
-        logger.debug(f"Screen unchanged: {agent.stuck_screen_count}/{dynamic_threshold} (elements={len(state.get('available_actions', []))})")
-
         if agent.stuck_screen_count >= dynamic_threshold:
-            logger.warning(
-                f"Level 1 stuck: screen unchanged "
-                f"{stuck_count_before}->{agent.stuck_screen_count} iterations (threshold={dynamic_threshold}) -> Forcing BACK"
-            )
             force_back = True
             agent.stuck_screen_count = 0
     else:
-        if stuck_count_before > 0:
-            logger.debug(
-                f"Screen changed, resetting stuck counter "
-                f"(was {stuck_count_before}, hash: {agent.last_screen_hash[:12] if agent.last_screen_hash else 'None'}... -> {current_hash[:12]}...)"
-            )
         agent.stuck_screen_count = 0
 
     agent.last_screen_hash = current_hash
@@ -179,12 +172,26 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                         f"{unsaturated_target[:8]}... -> Forcing BACK"
                     )
                     force_back = True
+                    # Track backtrack decision
+                    track.backtrack(
+                        iter=iteration,
+                        from_state=current_hash,
+                        to_state=unsaturated_target,
+                        reason="bfs_unsaturated"
+                    )
                 else:
                     logger.warning(
                         f"Level 2 stuck: No unsaturated ancestor found -> Forcing RESTART"
                     )
                     force_restart = True
                     stuck_recovery.record_restart()
+                    # Track backtrack failure
+                    track.backtrack(
+                        iter=iteration,
+                        from_state=current_hash,
+                        to_state="restart",
+                        reason="no_unsaturated"
+                    )
             else:
                 logger.warning(
                     f"Level 2 stuck: No successor_tracker available -> Forcing RESTART"
@@ -196,6 +203,33 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     continuation = agent.memory_coordinator.check_continuation(
         start_time=state.get("start_time"),
         timeout=state.get("timeout")
+    )
+
+    # Track state changes
+    previous_activity = state.get("previous_activity")
+    current_activity = state.get("current_activity")
+    activity_changed = previous_activity != current_activity and previous_activity is not None
+
+    track.state(
+        iter=iteration,
+        changed=activity_changed,
+        activity_from=previous_activity,
+        activity_to=current_activity,
+        hash=current_hash
+    )
+
+    # Track learning/stuck detection
+    stuck_reason = None
+    if force_restart:
+        stuck_reason = "level2_restart"
+    elif force_back:
+        stuck_reason = "level1_back"
+
+    track.learn(
+        iter=iteration,
+        stuck=force_back or force_restart,
+        memory_updated=True,
+        stuck_reason=stuck_reason
     )
 
     result = {
@@ -218,26 +252,6 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # NOTE: UI coverage interaction is recorded in execute_node.py
     # using device-space coordinates (not normalized [0,1000))
-
-    # INSTRUMENTATION: Record exploration metrics for validation
-    # This block can be removed for production
-    if agent.metrics_collector:
-        try:
-            current_action = state.get("current_action", {})
-            action_type = current_action.get("action_type", "UNKNOWN") if current_action else "NONE"
-            action_source = current_action.get("source", "unknown") if current_action else "none"
-
-            agent.metrics_collector.record_exploration(
-                iteration=state.get("iteration", 0),
-                activity=state.get("current_activity", "unknown"),
-                screen_hash=state.get("current_screen_hash", "unknown"),
-                action_type=action_type,
-                action_source=action_source,
-            )
-            logger.debug("INSTRUMENTATION: Recorded exploration metrics")
-        except Exception as e:
-            logger.warning(f"INSTRUMENTATION: Failed to record exploration metrics: {e}")
-    # END INSTRUMENTATION
 
     return result
 
@@ -281,3 +295,84 @@ def _record_back_transition(agent: "RVAgent", state: AgentState) -> None:
 
     except Exception as e:
         logger.warning(f"Failed to record BACK transition: {e}")
+
+
+def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
+    """
+    Record action success/failure for strength-based scoring.
+
+    Success Definition: An action is considered successful if it caused
+    a state transition (screen hash changed after execution).
+
+    TODO: This heuristic has limitations:
+    - Actions that change internal state without changing UI are marked as failures
+    - Actions that open transient dialogs may give false positives
+    Future improvements could use additional signals (activity change, new elements).
+
+    Args:
+        agent: RVAgent instance with strategy and graph
+        state: Current agent state with previous/current hashes and action info
+    """
+    try:
+        previous_hash = state.get("previous_screen_hash")
+        current_hash = state.get("current_screen_hash")
+        current_action = state.get("current_action")
+        iteration = state.get("iteration", 0)
+
+        if not previous_hash or not current_hash or not current_action:
+            return
+
+        # Get action coordinates
+        x = current_action.get("x")
+        y = current_action.get("y")
+        action_type = current_action.get("action_type", "CLICK")
+
+        if x is None or y is None:
+            return
+
+        # Convert to optimized space (same as scorers)
+        converter = getattr(agent.strategy, 'converter', None)
+        if converter:
+            opt_x, opt_y = converter.device_to_optimized(x, y)
+        else:
+            opt_x = int(x * 704 / 1080)
+            opt_y = int(y * 1248 / 1920)
+
+        action_signature = ((opt_x, opt_y), action_type)
+
+        # Get the node where the action was executed (previous state)
+        graph = getattr(agent.strategy, 'graph', None)
+        if not graph:
+            return
+
+        node = graph.states.get(previous_hash)
+        if not node:
+            return
+
+        # Success = state changed
+        success = previous_hash != current_hash
+
+        # Record success in node
+        node.record_action_success(action_signature, success)
+
+        # Track strength
+        executions = node.get_action_execution_count(action_signature)
+        successes = node.action_success_counts.get(action_signature, 0)
+        strength_val = node.get_action_strength(action_signature)
+
+        track.strength(
+            iter=iteration,
+            action=action_type,
+            coords=(x, y),
+            strength_val=strength_val,
+            executions=executions,
+            successes=successes
+        )
+
+        logger.debug(
+            f"Action success recorded: {action_signature} "
+            f"success={success} strength={strength_val:.2f}"
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to record action success: {e}")

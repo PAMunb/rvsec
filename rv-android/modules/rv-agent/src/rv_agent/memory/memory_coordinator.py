@@ -411,22 +411,17 @@ class MemoryCoordinator:
         screen_hash: str,
         screen_desc: ScreenDescription
     ):
-        """Update UICoverageTracker with element interactions."""
-        for item in screen_desc.items:
-            # Create element_id from resource_id or class
-            resource_id = item.view.get("resource_id", "")
-            element_class = item.view.get("class", "unknown")
-            element_id = resource_id if resource_id else f"class:{element_class}"
+        """
+        Update UICoverageTracker with screen element visibility.
 
-            # Record element view
-            self.ui_coverage.record_interaction(
-                element_id=element_id,
-                action_type="view",
-                screen_hash=screen_hash,
-                success=True
-            )
-
-        self.logger.debug(f"Updated UI coverage: {len(screen_desc.items)} elements")
+        NOTE: Element visibility is already tracked by register_screen_elements()
+        in parse_node.py. Real action interactions (CLICK, SET_TEXT, etc.) are
+        recorded in execute_node.py. We no longer record "view" as an interaction
+        because it pollutes action_distribution metrics (~91% were "view").
+        """
+        # Element registration is done in parse_node.py via register_screen_elements()
+        # Real action tracking is done in execute_node.py via record_interaction()
+        self.logger.debug(f"Screen has {len(screen_desc.items)} elements (visibility tracked via parse_node)")
 
     def _update_long_term(
         self,

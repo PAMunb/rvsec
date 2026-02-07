@@ -198,15 +198,6 @@ class BFSStrategy(ExplorationStrategy):
         logger.info(f"  Untested: {len(untested_actions)}")
         logger.info(f"  Queue size: {len(self.state_queue)}")
 
-        # Try to generate SWIPE action for scrollable containers (30% probability)
-        # This reveals hidden content in lists, feeds, and scrollable views
-        scroll_action = self._try_generate_scroll_action(
-            screen_desc, node, self.scrolled_positions, probability=0.3
-        )
-        if scroll_action:
-            logger.info(f"BFS SCROLL: Generating scroll action to reveal content")
-            return scroll_action
-
         # BREADTH: Select untested action if available (highest priority)
         if untested_actions:
             selected_action = self._select_priority_action(untested_actions)
@@ -223,11 +214,19 @@ class BFSStrategy(ExplorationStrategy):
 
             return selected_action
 
-        # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
-        # Algorithm continues until timeout, never stops when "exhausted"
-        # Prioritizes actions with fewer executions for balanced coverage
-        # Filters out permanently failed actions to avoid repeated crashes
+        # CONTINUOUS: All actions tested
+        # Before re-testing, try scroll to reveal hidden content (15% probability)
         if filtered_actions:
+            scroll_action = self._try_generate_scroll_action(
+                screen_desc, node, self.scrolled_positions, probability=0.15
+            )
+            if scroll_action:
+                logger.info(f"BFS SCROLL: All visible actions tested, scrolling to reveal more content")
+                return scroll_action
+
+            # No scroll - select LEAST-EXECUTED action
+            # Algorithm continues until timeout, never stops when "exhausted"
+            # Filters out permanently failed actions to avoid repeated crashes
             selected_action = self._select_least_executed_action(node, filtered_actions)
 
             # If all actions have failed, fall through to BACK

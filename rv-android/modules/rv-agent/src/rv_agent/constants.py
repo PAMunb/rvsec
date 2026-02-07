@@ -47,8 +47,7 @@ class RVAgentConstants:
     UNTESTED_PRIORITY = 100    # Highest priority for untested elements
     WELL_TESTED_THRESHOLD = 3  # Element considered well-tested after 3 interactions
 
-    # === DEBUG LOGGING ===
-    DEBUG_PREFIX = "[RVAGENT_DEBUG]"  # Prefix for debug logs (removable)
+    # === LOGGING ===
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # === VALIDATION THRESHOLDS (Phase 0 based) ===

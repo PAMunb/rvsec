@@ -171,7 +171,6 @@ class ScreenProcessor:
             "is_external": is_external,
             "external_navigation_count": external_navigation_count,
             "restart_occurred": restart_occurred,
-            # INSTRUMENTATION: Raw XML for hit classification
             "ui_xml": ui_state.get('xml', '')
         }
 

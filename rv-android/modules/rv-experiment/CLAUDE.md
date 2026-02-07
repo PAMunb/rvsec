@@ -339,3 +339,20 @@ rv-experiment supports three specification sets for runtime verification:
 - ConfigurationFactory provides clean creation methods
 - Eliminates complex coordination patterns
 - Supports both CLI and programmatic usage
+
+
+## Development Notes
+
+This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+
+**Key points:**
+- Run `poetry install` from the project root to install all modules
+- Source code changes are reflected immediately (no reinstall needed)
+- Only reinstall if `pyproject.toml` dependencies change
+
+```bash
+# From project root
+poetry install          # Install/update all modules
+poetry install --sync   # Also remove unused packages
+```
+

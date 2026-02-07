@@ -6,7 +6,10 @@ Provides dynamic discovery and instantiation of exploration strategies
 """
 
 import logging
+import random
 from typing import Dict, Type, Optional, Any
+
+from typing import TYPE_CHECKING
 
 from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.strategies.dfs_strategy import DFSStrategy
@@ -16,6 +19,9 @@ from rv_agent.strategies.rvagent_strategy import RVAgentStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.services.transition_manager import TransitionManager
 from rv_android_core.domain.static import StaticAnalysisData
+
+if TYPE_CHECKING:
+    from rv_agent.config.agent_config import RVAgentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -86,16 +92,12 @@ class StrategyRegistry:
         self,
         name: str,
         graph: DynamicStateGraph,
+        config: Optional["RVAgentConfig"] = None,
         static_data: Optional[StaticAnalysisData] = None,
-        coordinate_converter: Optional[Any] = None,
         ui_coverage: Optional[Any] = None,
         transition_manager: Optional[TransitionManager] = None,
-        plateau_window: int = 10,
-        max_input_variations: int = 3,
-        target_package: Optional[str] = None,
-        device_dimensions: tuple[int, int] = (1080, 1920),
-        stochastic_probability: float = 0.3,
-        stochastic_temperature: float = 1.0
+        coordinate_converter: Optional[Any] = None,
+        device_dimensions: Optional[tuple[int, int]] = None
     ) -> ExplorationStrategy:
         """
         Create and return configured strategy instance.
@@ -103,22 +105,18 @@ class StrategyRegistry:
         Args:
             name: Strategy identifier (e.g., "rvagent", "dfs", "bfs")
             graph: Dynamic state graph for history tracking
+            config: RVAgentConfig with all calibration parameters (required for rvagent)
             static_data: Optional static analysis data for MOP guidance
-            coordinate_converter: Optional coordinate converter for space transformations
             ui_coverage: Optional UICoverageTracker (required for rvagent)
             transition_manager: Optional TransitionManager for WTG integration (rvagent only)
-            plateau_window: Plateau detection window size (rvagent only)
-            max_input_variations: Max test values per input field (rvagent only)
-            target_package: Target app package name for filtering external elements
-            device_dimensions: Device screen size (width, height) in pixels
-            stochastic_probability: Probability of using Gumbel-max selection (rvagent only)
-            stochastic_temperature: Temperature for Gumbel-max (rvagent only)
+            coordinate_converter: Optional coordinate converter for space transformations
+            device_dimensions: Device screen size from runtime (overrides config if provided)
 
         Returns:
             Configured ExplorationStrategy instance
 
         Raises:
-            ValueError: If strategy name not registered
+            ValueError: If strategy name not registered or required params missing
         """
         strategy_name = name.lower()
 
@@ -130,28 +128,32 @@ class StrategyRegistry:
 
         strategy_class = self._strategies[strategy_name]
 
+        # Initialize random seed for reproducibility (affects all strategies using random)
+        if config is not None and config.seed is not None:
+            random.seed(config.seed)
+            logger.info(f"Random seed initialized: {config.seed}")
+
         logger.info(f"Creating strategy instance: {strategy_name} ({strategy_class.__name__})")
 
-        # RVAgentStrategy requires additional parameters
+        # RVAgentStrategy requires config and ui_coverage
         if strategy_name == "rvagent":
+            if config is None:
+                raise ValueError("RVAgentStrategy requires config parameter")
             if ui_coverage is None:
                 raise ValueError("RVAgentStrategy requires ui_coverage parameter")
 
             return strategy_class(
                 graph=graph,
                 ui_coverage=ui_coverage,
-                coordinate_converter=coordinate_converter,
+                config=config,
                 static_data=static_data,
                 transition_manager=transition_manager,
-                plateau_window=plateau_window,
-                max_input_variations=max_input_variations,
-                target_package=target_package,
-                device_dimensions=device_dimensions,
-                stochastic_probability=stochastic_probability,
-                stochastic_temperature=stochastic_temperature
+                coordinate_converter=coordinate_converter,
+                device_dimensions=device_dimensions
             )
 
         # Standard strategies (DFS, BFS, etc.)
+        target_package = config.package_name if config else None
         return strategy_class(
             graph=graph,
             static_data=static_data,

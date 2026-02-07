@@ -101,7 +101,7 @@ class LongTermMemory:
         self.total_activities = 0
         self.total_actions = 0
 
-        self.logger.info("[RVAGENT_DEBUG] LongTermMemory initialized")
+        self.logger.info(" LongTermMemory initialized")
 
     def record_state(self, state_hash: str, activity: str,
                     interactive_elements_count: int = 0) -> None:
@@ -127,18 +127,18 @@ class LongTermMemory:
                     self.total_activities += 1
                 self.activities[activity].append(state_hash)
 
-                self.logger.debug(f"[RVAGENT_DEBUG] New state recorded: {activity} ({state_hash[:8]})")
+                self.logger.debug(f" New state recorded: {activity} ({state_hash[:8]})")
 
             # Update visit information
             state = self.states[state_hash]
             state.visit_count += 1
             state.last_visit = time.time()
 
-            self.logger.debug(f"[RVAGENT_DEBUG] State visit updated: {activity} (visit #{state.visit_count})")
+            self.logger.debug(f" State visit updated: {activity} (visit #{state.visit_count})")
 
         except Exception as e:
             # CLIENTE error handling - log e continue
-            self.logger.error(f"[RVAGENT_DEBUG] Failed to record state {state_hash}: {e}")
+            self.logger.error(f" Failed to record state {state_hash}: {e}")
 
     def record_action(self, action_id: int, action_text: str, action_type: str,
                      success: bool, from_state: str, to_state: Optional[str] = None) -> None:
@@ -179,14 +179,14 @@ class LongTermMemory:
                     'success': success
                 })
 
-                self.logger.debug(f"[RVAGENT_DEBUG] Action recorded: {action_text} "
+                self.logger.debug(f" Action recorded: {action_text} "
                                 f"({from_state[:8]} → {to_state[:8]}) - Success: {success}")
             else:
-                self.logger.debug(f"[RVAGENT_DEBUG] Action recorded: {action_text} "
+                self.logger.debug(f" Action recorded: {action_text} "
                                 f"(no transition) - Success: {success}")
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Failed to record action: {e}")
+            self.logger.error(f" Failed to record action: {e}")
 
     def get_state_guidance(self, current_state_hash: str) -> Dict[str, Any]:
         """
@@ -234,7 +234,7 @@ class LongTermMemory:
                 }
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] State guidance failed: {e}")
+            self.logger.error(f" State guidance failed: {e}")
             return {"error": str(e)}
 
     def get_unexplored_transitions(self, current_state_hash: str) -> List[str]:
@@ -259,7 +259,7 @@ class LongTermMemory:
             return underexplored_actions[:3]  # Top 3 suggestions
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Unexplored transitions query failed: {e}")
+            self.logger.error(f" Unexplored transitions query failed: {e}")
             return []
 
     def get_statistics(self) -> Dict[str, Any]:
@@ -283,7 +283,7 @@ class LongTermMemory:
             }
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Statistics calculation failed: {e}")
+            self.logger.error(f" Statistics calculation failed: {e}")
             return {"error": str(e)}
 
     def _get_most_visited_states(self, limit: int = 5) -> List[Dict[str, Any]]:
@@ -303,12 +303,12 @@ class LongTermMemory:
             } for state in sorted_states[:limit]]
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Most visited states query failed: {e}")
+            self.logger.error(f" Most visited states query failed: {e}")
             return []
 
     def clear_memory(self) -> None:
         """Clear all memory data (for testing or reset)."""
-        self.logger.info("[RVAGENT_DEBUG] Clearing long term memory...")
+        self.logger.info(" Clearing long term memory...")
 
         self.states.clear()
         self.actions.clear()
@@ -319,4 +319,4 @@ class LongTermMemory:
         self.total_activities = 0
         self.total_actions = 0
 
-        self.logger.info("[RVAGENT_DEBUG] Long term memory cleared")
+        self.logger.info(" Long term memory cleared")

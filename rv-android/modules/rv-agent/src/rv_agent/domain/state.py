@@ -72,7 +72,6 @@ class AgentState(TypedDict):
     current_activity: str                   # Activity name for context
     screen_description: ScreenDescription   # Parsed UI with [M]/[DM] markers
     ui_elements_text: str                   # Formatted UI elements for LLM prompt
-    # INSTRUMENTATION: Raw XML for hit classification (can be removed for production)
     ui_xml: str                             # Raw UIAutomator XML hierarchy
 
     # Exploration state

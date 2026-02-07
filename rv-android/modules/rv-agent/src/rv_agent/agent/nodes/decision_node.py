@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent.domain.state import AgentState
+from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
 
@@ -32,37 +33,21 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with decision_path and decision_maker
     """
-    logger.info("DEBUG_TRACE: decision_router_node ENTER")
-    logger.info("DECISION_ROUTER: Routing decision")
+    iteration = state.get("iteration", 0)
+    mode = agent.routing_manager.mode
 
     # Check for forced RESTART_APP action (Level 2 stuck - Backtrack BFS failed)
-    force_restart = state.get("force_restart_app", False)
-    if force_restart:
-        logger.warning("force_restart_app=True -> Routing to algorithm for RESTART_APP")
-        return {
-            "decision_path": "algorithm",
-            "decision_maker": "stuck_recovery"
-        }
+    if state.get("force_restart_app", False):
+        track.route(iter=iteration, mode=mode, path="algorithm(restart)")
+        return {"decision_path": "algorithm", "decision_maker": "stuck_recovery"}
 
     # Check for forced BACK action (Level 1 stuck - screen unchanged)
-    force_back = state.get("force_back_action", False)
-    if force_back:
-        logger.warning("force_back_action=True -> Routing to algorithm for BACK")
+    if state.get("force_back_action", False):
         agent.routing_manager.forced_back_count += 1
-        return {
-            "decision_path": "algorithm",
-            "decision_maker": "stuck_recovery"
-        }
+        track.route(iter=iteration, mode=mode, path="algorithm(back)")
+        return {"decision_path": "algorithm", "decision_maker": "stuck_recovery"}
 
-    iteration = state.get("iteration", 0)
     decision_path = agent.routing_manager.route_decision(iteration)
+    track.route(iter=iteration, mode=mode, path=decision_path)
 
-    # [LLM_TRACE] Log routing decision
-    logger.warning(f"[LLM_TRACE] === ROUTING DECISION (iter={iteration}) ===\n"
-                  f"[LLM_TRACE] decision_path: {decision_path}\n"
-                  f"[LLM_TRACE] === END ROUTING ===")
-
-    return {
-        "decision_path": decision_path,
-        "decision_maker": decision_path
-    }
+    return {"decision_path": decision_path, "decision_maker": decision_path}

@@ -19,6 +19,34 @@ Reference these files from this skill directory:
 - **Checklists**:
   - `checklists/reusability-assessment.md` - Evaluate extraction candidates and design for reuse
 
+## Guiding Principles
+
+When deciding what to extract and how, you must be guided by fundamental software design principles that improve modularity and quality.
+
+1.  **High Cohesion**: A cohesive module performs a single, well-defined task. The code you extract should have a clear and singular purpose.
+    *   **Justification**: "I am extracting these functions into a new `ImageProcessor` class because they all relate to image manipulation. This increases **cohesion** by grouping related responsibilities, following the Single Responsibility Principle."
+
+2.  **Low Coupling**: The extracted component should have minimal dependencies on the code it's leaving behind, and vice-versa. Its interface should be small and well-defined.
+    *   **Justification**: "The proposed interface for this new service has only two methods and doesn't depend on the internal state of the calling class. This promotes **low coupling** and reduces the risk of ripple effects from future changes."
+
+3.  **Abstraction & Information Hiding**: The new component should hide its internal implementation details. Users of the component should only interact with it through its public API, without needing to know *how* it works.
+    *   **Justification**: "By creating the `ReportGenerator` class, I am applying **abstraction**. The calling code will only need to know about the `generate()` method, hiding the complexity of PDF creation and data formatting."
+
+4.  **Separation of Concerns (SoC)**: Ensure that different concepts are in different parts of the code. Extraction is a key tool for separating concerns like UI, data access, and business logic.
+    *   **Justification**: "This extraction separates the data validation logic from the user interface rendering, improving **Separation of Concerns**. This makes both components easier to understand and maintain independently."
+
+5.  **Reusability**: Extract code that is, or could be, used in multiple places. Don't repeat yourself (DRY).
+    *   **Justification**: "This code is duplicated in three different places. By extracting it into a single utility function, I am improving **reusability** and making future maintenance easier."
+
+## Requirement for Principle-Based Justification
+
+When you propose an extraction, you **must** justify it using the principles above. Explain *why* the extraction improves the design quality.
+
+- "This extraction is justified because it improves **cohesion** and **separation of concerns** by..."
+- "I designed the interface for the new class to ensure **low coupling** by..."
+
+This ensures that refactoring is deliberate and directly contributes to a better software architecture.
+
 ---
 
 ## Workflow

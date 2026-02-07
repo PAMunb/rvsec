@@ -45,15 +45,34 @@ The system consists of the following modules:
 ```bash
 # Set environment variables
 export RV_PYDANTIC=true  # Enable validation during development
-export RVSEC_HOME="/path/to/rvsec"  # Required for monitor generation
+export RVSEC_HOME="/path/to/rvsec"  # Required for monitor generation and static analysis
 export ANDROID_HOME="/path/to/android-sdk"
 
-# Install all modules in dependency order
+# Install all modules (Poetry workspace with editable mode)
 cd modules
 ./install.sh
 
+# Or directly from root
+poetry install
+
 # Verify installation
 poetry run python -c "import rv_android_core, rv_agent; print('Setup complete')"
+```
+
+### Poetry Workspace Architecture
+
+The project uses **Poetry workspaces** with all modules defined in the root `pyproject.toml` with `develop = true`. This means:
+
+1. **Single `poetry install`** at root installs ALL modules in editable mode
+2. **Source changes are immediate** - no reinstall needed after editing code
+3. **Shared virtual environment** - all modules use the root `.venv`
+
+```bash
+# Root pyproject.toml structure:
+[tool.poetry.dependencies]
+rv-android-core = {path = "modules/rv-android-core", develop = true}
+rv-agent = {path = "modules/rv-agent", develop = true}
+# ... all other modules
 ```
 
 ### Common Development Tasks
@@ -64,8 +83,12 @@ poetry run pytest
 # Test specific module
 poetry run pytest modules/rv-android-core/tests/ -v
 
-# Install single module after changes
-cd modules && ./install.sh rv-android-core --verbose
+# Reinstall all modules (only needed if pyproject.toml changes)
+cd modules && ./install.sh
+# Or: poetry install --sync  (removes unused packages)
+
+# Verify modules are editable
+./modules/install.sh --verify
 
 # Run with coverage
 poetry run pytest --cov=modules --cov-report=html
@@ -125,11 +148,23 @@ poetry run rv-agent test
 ```
 
 #### Via rv-experiment (recommended - handles emulator and APK)
+
+**IMPORTANT**: Set RVSEC_HOME for static analysis (WTG, REACH, GESDA):
+```bash
+export RVSEC_HOME=/path/to/rvsec  # Required for full functionality
+```
+
+Without RVSEC_HOME, rv-experiment will run but skip static analysis and instrumentation.
+
 ```bash
 # Run with rvagent tool (note: no hyphen in tool name)
-poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
+# Headless mode (default)
+poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60 --no-window
 
-# Run multimode
+# With emulator window visible
+poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60 --window
+
+# Run multimode (requires SGLang server)
 poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
 
 # Multiple tools
@@ -310,6 +345,36 @@ Before running experiments, clean previous artifacts:
 # Full clean for fresh start
 ./clear.sh --clean-results
 ```
+
+### Reusing Pre-Processed Artifacts (--skip-* flags)
+
+When running experiments with `--skip-monitors`, `--skip-instrument`, or `--skip-static` flags, **the `--apks-dir` must point to the instrumented APKs directory** from a previous pre-processing run, not the original APKs directory.
+
+**Why**: The `--skip-*` flags assume pre-processing was already done. If you point to original (non-instrumented) APKs, the experiment will run but coverage will be 0% because the APKs don't have runtime verification monitors.
+
+```bash
+# WRONG: Skipping pre-processing but pointing to original APKs
+# Coverage will be 0% because APKs are not instrumented
+rv-experiment run \
+  --tools rvagent:pure_algorithm \
+  --apks-dir ./apks_examples \
+  --skip-monitors --skip-instrument --skip-static
+
+# CORRECT: Point to instrumented APKs from a previous run
+# First, run full pre-processing (or find existing instrumented APKs)
+rv-experiment run --tools monkey --specification-set jca
+
+# Then reuse instrumented APKs (found in results/<experiment_id>/instrumented_apks/)
+rv-experiment run \
+  --tools rvagent:pure_algorithm \
+  --apks-dir ./results/cli_experiment_20260127_150952_ce3eec6c/instrumented_apks \
+  --skip-monitors --skip-instrument --skip-static
+```
+
+**Pre-processed artifact locations** (from a completed experiment):
+- `results/<experiment_id>/instrumented_apks/` - Instrumented APKs with monitors
+- `results/<experiment_id>/static_analysis/` - Static analysis output (GATOR, GESDA, REACH)
+- `out/monitors/` - Generated monitors (may be cleaned by clear.sh)
 
 ## Key Architectural Patterns
 

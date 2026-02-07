@@ -16,6 +16,7 @@ from rv_tools import ToolRegistry
 from rv_experiment.constants import (
     EXTERNAL_TOOL_RVANDROID,
     EXTERNAL_TOOL_RVDROID,
+    EXTERNAL_TOOL_RVAGENT,
     TOOL_REGISTRATION_SUCCESS,
     TOOL_REGISTRATION_FAILED,
     TOOL_REGISTRATION_IMPORT_ERROR
@@ -91,10 +92,13 @@ class ExperimentToolRegistry:
         
         # Register RVAndroid tool
         self._register_rvandroid_tool()
-        
+
         # Register RVDroid tool
         self._register_rvdroid_tool()
-        
+
+        # Register RVAgent tool
+        self._register_rvagent_tool()
+
         # Mark as registered
         self._external_tools_registered = True
         
@@ -134,6 +138,21 @@ class ExperimentToolRegistry:
             import traceback
             traceback.print_exc()
 
+    def _register_rvagent_tool(self) -> None:
+        """Register RVAgent tool with comprehensive error handling."""
+        try:
+            from rvagent_tool.tools.rvagent.tool import RVAgentTool
+            self.registry.register_tool_class(RVAgentTool)
+            self.logger.info(TOOL_REGISTRATION_SUCCESS.format(EXTERNAL_TOOL_RVAGENT))
+        except ImportError as e:
+            self.logger.warning(TOOL_REGISTRATION_IMPORT_ERROR.format(
+                EXTERNAL_TOOL_RVAGENT.title(), e
+            ))
+        except Exception as e:
+            self.logger.error(TOOL_REGISTRATION_FAILED.format(EXTERNAL_TOOL_RVAGENT, e))
+            import traceback
+            traceback.print_exc()
+
     def _log_registration_summary(self) -> None:
         """Log comprehensive registration summary."""
         try:
@@ -143,7 +162,7 @@ class ExperimentToolRegistry:
             self.logger.info(f"Available tools: {', '.join(sorted(tool_names))}")
             
             # Log variant information for external tools
-            for tool_name in [EXTERNAL_TOOL_RVANDROID, EXTERNAL_TOOL_RVDROID]:
+            for tool_name in [EXTERNAL_TOOL_RVANDROID, EXTERNAL_TOOL_RVDROID, EXTERNAL_TOOL_RVAGENT]:
                 if self.registry.has_tool(tool_name):
                     variants = self.registry.get_tool_variants(tool_name)
                     self.logger.info(f"{tool_name} variants: {', '.join(variants)}")

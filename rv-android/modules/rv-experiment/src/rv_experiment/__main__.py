@@ -340,6 +340,8 @@ def cli(ctx: CLIContext, debug: bool):
               type=click.Choice(['JSON', 'CSV']),
               default='JSON',
               help='Format for performance metrics export (default: JSON)')
+@click.option('--no-window/--window', default=True,
+              help='Run emulator in headless mode (default: headless)')
 @pass_context
 @ErrorHandler.handle_errors(
     component="CLIContext",
@@ -347,10 +349,10 @@ def cli(ctx: CLIContext, debug: bool):
 )
 def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repetitions: int,
         apks_dir: str, specification_set: str, custom_specs_dir: Optional[str],
-        custom_aspects_dir: Optional[str], generate_monitors: bool, instrument_apks: bool, 
+        custom_aspects_dir: Optional[str], generate_monitors: bool, instrument_apks: bool,
         static_analysis: bool, output_dir: Optional[str], disable_performance_monitor: bool,
         performance_monitor_level: str, performance_monitor_max_samples: int,
-        performance_export_enabled: bool, performance_export_format: str):
+        performance_export_enabled: bool, performance_export_format: str, no_window: bool):
     """
     Execute experiment with modern tool specification parsing and configuration support.
     
@@ -412,11 +414,11 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
                 # CLI mode - create experiment configuration from command line arguments
                 experiment_config = _create_experiment_config_from_cli(
                     ctx, tools, timeout, repetitions, apks_dir,
-                    specification_set, custom_specs_dir, custom_aspects_dir, 
+                    specification_set, custom_specs_dir, custom_aspects_dir,
                     generate_monitors, instrument_apks, static_analysis, output_dir,
                     disable_performance_monitor, performance_monitor_level,
                     performance_monitor_max_samples, performance_export_enabled,
-                    performance_export_format
+                    performance_export_format, no_window
                 )
             
             # Validate configuration before execution
@@ -730,14 +732,66 @@ def validate(ctx: CLIContext, config_file: str):
         sys.exit(1)
 
 
-def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int, 
+def _split_tool_specifications(tools_string: str) -> list[str]:
+    """
+    Split tool specification string into individual tool specs.
+
+    Handles the case where parameters use comma as separator:
+    Format: tool1[:variant][@param1=val1,param2=val2],tool2[:variant][@params]
+
+    The split happens at commas that are followed by a tool name pattern
+    (word followed by either : or @ or end of string).
+
+    Args:
+        tools_string: Comma-separated tool specifications
+
+    Returns:
+        List of individual tool specification strings
+    """
+    import re
+
+    # Strategy: find all tool specs by matching the pattern
+    # tool_name[:variant][@params] where params can contain commas
+    # A new tool starts with a word that's NOT preceded by = (which would make it a param value)
+
+    specs = []
+    current_spec = []
+    parts = tools_string.split(',')
+
+    for part in parts:
+        stripped = part.strip()
+        if not stripped:
+            continue
+
+        # Check if this part looks like the start of a new tool spec
+        # A tool spec starts with: word (optionally followed by :variant or @params)
+        # A parameter continuation has = at the start or looks like key=value without tool prefix
+        is_new_tool = bool(re.match(r'^[a-zA-Z_][a-zA-Z0-9_-]*(?::|@|$)', stripped))
+
+        if is_new_tool and current_spec:
+            # Save previous spec and start new one
+            specs.append(','.join(current_spec))
+            current_spec = [stripped]
+        else:
+            # Continue current spec (this is a parameter continuation)
+            current_spec.append(stripped)
+
+    # Don't forget the last spec
+    if current_spec:
+        specs.append(','.join(current_spec))
+
+    return specs
+
+
+def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int,
                                      repetitions: int, apks_dir: str,
                                      specification_set: str, custom_specs_dir: Optional[str],
-                                     custom_aspects_dir: Optional[str], generate_monitors: bool, 
-                                     instrument_apks: bool, static_analysis: bool, 
+                                     custom_aspects_dir: Optional[str], generate_monitors: bool,
+                                     instrument_apks: bool, static_analysis: bool,
                                      output_dir: Optional[str], disable_performance_monitor: bool,
                                      performance_monitor_level: str, performance_monitor_max_samples: int,
-                                     performance_export_enabled: bool, performance_export_format: str) -> ExperimentConfig:
+                                     performance_export_enabled: bool, performance_export_format: str,
+                                     no_window: bool) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
     
@@ -771,9 +825,12 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
     """
     try:
         # Parse tool specifications using DSL
-        tool_specs = [spec.strip() for spec in tools.split(',')]
+        # Note: Can't simply split by comma because parameters use comma as separator
+        # Format: tool1[:variant][@param1=val1,param2=val2],tool2[:variant][@params]
+        # We need to split by comma only when NOT inside the @...  parameter section
+        tool_specs = _split_tool_specifications(tools)
         tool_configs = []
-        
+
         for tool_spec in tool_specs:
             parsed_tool = ctx.parse_tool_specification(tool_spec)
             tool_config = ToolConfig(
@@ -793,15 +850,17 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
             output_dir = f"./{RESULTS_DIR}/{experiment_id}"
         
         # Create ExperimentConfig instance
+        # Note: output_dir is for preprocessing artifacts, results_dir is for experiment results
+        # When output_dir is specified via CLI, use it for both to keep all outputs together
         experiment_config = ExperimentConfig(
             name=experiment_id,
             description="Experiment created via CLI interface",
             output_dir=output_dir,
-            experiment_id=experiment_id,
+            results_dir=output_dir,
             tool_configs=tool_configs,
             repetitions=repetitions,
             timeouts=[timeout],
-            no_window=True,  # Default for CLI usage
+            no_window=no_window,
             generate_monitors=generate_monitors,
             instrument_apks=instrument_apks,
             run_static_analysis=static_analysis,

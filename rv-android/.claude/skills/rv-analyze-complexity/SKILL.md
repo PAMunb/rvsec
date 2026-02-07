@@ -19,6 +19,29 @@ Reference these files from this skill directory:
 
 ---
 
+## Guiding Principles
+
+Your complexity analysis must be guided by fundamental software measurement principles. The goal is not just to collect numbers, but to gain insight into the quality of the software design and identify areas for improvement.
+
+1.  **Use Goal-Oriented Measurement (GQM)**: Start with a clear goal. Don't just measure for the sake of measuring. Define what you want to understand, what metrics will provide that information, and how you will interpret the results.
+    *   **Justification**: "My goal is to 'identify modules that are difficult to test'. Therefore, I will focus on the **Cyclomatic Complexity** metric, as it directly measures testability."
+
+2.  **Analyze Key Complexity Indicators**: Focus on metrics that are proven indicators of internal quality attributes like maintainability and reliability.
+    *   **Cyclomatic Complexity**: Measures the amount of decision logic in a function. A high value (typically > 10) indicates complex branching that is difficult to test and understand.
+    *   **Coupling**: Measures the degree of interdependence between modules. High coupling is a primary driver of system-level complexity and makes the code harder to change without causing ripple effects.
+    *   **Cohesion**: Measures how focused a module's responsibilities are. Low cohesion (a module doing many unrelated things) is a sign of poor design and high complexity.
+    *   **Size (Lines of Code)**: While not a perfect metric for complexity on its own, very large modules or functions are often a symptom of other design problems, such as low cohesion.
+
+3.  **Interpret Metrics in Context**: Raw numbers are not enough. A high complexity score isn't automatically "bad." You must interpret the metrics in the context of the code's purpose. A complex algorithm might have an inherently high cyclomatic complexity, but the goal is to ensure it is not *unnecessarily* complex.
+    *   **Justification**: "Although the cyclomatic complexity of this function is 15, this is acceptable because it implements a complex state machine. The complexity is therefore essential, not accidental."
+
+## Requirement for Principle-Based Justification
+
+When you present your findings, you **must** justify your analysis using the principles above.
+
+- "This function is a high-priority refactoring target because its **High Cyclomatic Complexity (25)** and **Low Cohesion** indicate it is likely difficult to maintain and test."
+- "My analysis follows the **GQM** principle. The goal is to find unstable components, so I am focusing on **Coupling** metrics to identify modules with excessive external dependencies."
+
 ## MCP Integration (with fallback)
 
 ### Step 0: Check Memory for Cached Analysis

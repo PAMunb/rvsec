@@ -72,23 +72,8 @@ class AbstractScreenVisitor(ABC):
         self.device_info = {} # TODO deprecated
 
         # Initialize window info if static info is available
-        # [WTG_DEBUG] Log initialization state
-        has_static = static_info is not None
-        has_windows = has_static and hasattr(static_info, 'windows') and static_info.windows is not None
-        cond_result = bool(static_info and static_info.windows)
-        self.logger.warning(f"[WTG_DEBUG] AbstractScreenVisitor.__init__: activity='{activity}', has_static={has_static}, has_windows={has_windows}, cond_result={cond_result}")
-
         if static_info and static_info.windows:
             self.window = static_info.windows.get_window(activity)
-            # [WTG_DEBUG] Log window lookup result
-            if self.window:
-                self.logger.warning(f"[WTG_DEBUG] Window found: id={self.window.id}, name={self.window.name}")
-            else:
-                # Log available windows for debugging (windows is a Set, need list() for slicing)
-                available = []
-                if hasattr(static_info.windows, 'windows'):
-                    available = [w.name for w in list(static_info.windows.windows)[:5]]
-                self.logger.warning(f"[WTG_DEBUG] Window NOT found for activity '{activity}'. Available windows (first 5): {available}")
 
         self.counter = Counter()
         self.items: List[ScreenItem] = []
@@ -145,41 +130,25 @@ class AbstractScreenVisitor(ABC):
         """
         resource_id = node_data.get("resource_id", "")
 
-        # [WTG_DEBUG] Log input state
-        self.logger.warning(f"[WTG_DEBUG] find_matching_widget: resource_id='{resource_id}', window={self.window.name if self.window else 'None'}")
-
         if not resource_id or not self.window:
-            self.logger.warning(f"[WTG_DEBUG] find_matching_widget: SKIP - no resource_id or window")
             return None
 
         # Try by resource ID
         parts = resource_id.split("/")
         widget_name = parts[-1] if len(parts) > 1 else parts[0]
 
-        self.logger.warning(f"[WTG_DEBUG] find_matching_widget: extracted widget_name='{widget_name}' from resource_id")
-
-        # [WTG_DEBUG] Log available widgets in window
-        if self.window.widgets:
-            available_names = [w.name for w in self.window.widgets.values()]
-            self.logger.warning(f"[WTG_DEBUG] find_matching_widget: window has {len(available_names)} widgets: {available_names[:5]}...")
-
         widget = self.window.get_widget_by_name(widget_name)
         if widget:
             self.window_info["matched_widgets"] += 1
-            self.logger.warning(f"[WTG_DEBUG] find_matching_widget: FOUND widget by name! id={widget.id}, name={widget.name}")
             return widget
 
         # Try by text content
         text = node_data.get("text", "")
         if text:
-            self.logger.debug(f"Looking for widget by text: {text}")
             for wid, widget in self.window.widgets.items():
                 if widget.text == text:
                     self.window_info["matched_widgets"] += 1
-                    self.logger.warning(f"[WTG_DEBUG] find_matching_widget: FOUND widget by text! id={widget.id}")
                     return widget
-
-        self.logger.warning(f"[WTG_DEBUG] find_matching_widget: NOT FOUND for '{widget_name}'")
         return None
 
     def is_parent_clickable(self, node: Node) -> bool:
@@ -526,17 +495,9 @@ class AbstractScreenVisitor(ABC):
             action: The action to update
             node: The node associated with the action
         """
-        # [WTG_DEBUG] Log action being processed
-        resource_id = node.data.get("resource_id", "")
-        self.logger.warning(f"[WTG_DEBUG] _update_action_mop_related_info: action_id={action.id}, resource_id='{resource_id}'")
-
         widget = self.find_matching_widget(node.data)
         if not widget:
-            self.logger.warning(f"[WTG_DEBUG] _update_action_mop_related_info: NO widget found for action {action.id}")
             return
-
-        # [WTG_DEBUG] Log widget found
-        self.logger.warning(f"[WTG_DEBUG] _update_action_mop_related_info: widget FOUND! id={widget.id}, name={widget.name}, events={len(widget.events)}")
 
         # Find matching event type
         for event in widget.events:
@@ -547,20 +508,11 @@ class AbstractScreenVisitor(ABC):
                 action.widget_id = widget.id
                 action.callback_signature = event.signature
 
-                # [WTG_DEBUG] Log widget_id being set
-                self.logger.warning(f"[WTG_DEBUG] _update_action_mop_related_info: SET action.widget_id={widget.id} for action {action.id}")
-
-                if action.reaches_mop or action.directly_reaches_mop:
-                    self.logger.debug(
-                        f"Action {action.id} MOP info updated: reaches_mop={action.reaches_mop}, directly_reaches_mop={action.directly_reaches_mop}")
-                    if action.directly_reaches_mop:
-                        action.text += " [DM]"
-                    elif action.reaches_mop:
-                        action.text += " [M]"
+                if action.directly_reaches_mop:
+                    action.text += " [DM]"
+                elif action.reaches_mop:
+                    action.text += " [M]"
                 return
-
-        # [WTG_DEBUG] No matching event type
-        self.logger.warning(f"[WTG_DEBUG] _update_action_mop_related_info: widget found but NO matching event type for action.event={action.event}")
 
     @abstractmethod
     def visit_node(self, node: Node) -> None:

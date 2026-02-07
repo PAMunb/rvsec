@@ -11,9 +11,12 @@ Also tracks BACK transitions for Backtrack BFS algorithm.
 
 import logging
 from collections import deque
-from typing import Dict, Tuple, Set, Optional, List
+from typing import Dict, Tuple, Set, Optional, List, TYPE_CHECKING
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+
+if TYPE_CHECKING:
+    from rv_agent.config.agent_config import RVAgentConfig
 
 
 logger = logging.getLogger(__name__)
@@ -39,33 +42,38 @@ class SuccessorTracker:
 
     Re-enablement Limits:
         To prevent infinite re-enablement cycles, each action can only be
-        re-enabled a limited number of times (MAX_RE_ENABLES), and only when
-        successor coverage is below the threshold (COVERAGE_THRESHOLD).
+        re-enabled a limited number of times (max_re_enables), and only when
+        successor coverage is below the threshold (coverage_threshold).
     """
 
-    # Maximum times an action can be re-enabled
-    # CALIBRATION NOTE (2026-01-17): Changed from 2 to 3
-    # Analysis of 72 runs showed apps with many incomplete successors
-    # (dnshero: 16, simplenotes: 45) hit the limit quickly, causing
-    # low coverage (14-15%). Increasing to 3 allows more revisits.
-    MAX_RE_ENABLES = 3
+    # Default values (used when config not provided)
+    DEFAULT_MAX_RE_ENABLES = 6
+    # UI coverage threshold: ratio of executed_actions / total_actions per screen
+    # This is internal UI exploration coverage, not method coverage from instrumentation
+    DEFAULT_UI_COVERAGE_THRESHOLD = 0.9
 
-    # Only re-enable if successor coverage is below this threshold
-    # CALIBRATION NOTE (2026-01-16): Changed from 0.7 to 0.9
-    # With 0.7, states with 70-99% coverage didn't trigger re-enablement,
-    # causing 64%+ action repetition and 30+ untested elements per app.
-    # Higher threshold ensures we revisit successor states that still have
-    # untested elements (even with high coverage), improving exploration.
-    COVERAGE_THRESHOLD = 0.9
-
-    def __init__(self, graph: DynamicStateGraph):
+    def __init__(
+        self,
+        graph: DynamicStateGraph,
+        config: Optional["RVAgentConfig"] = None
+    ):
         """
         Initialize successor tracker.
 
         Args:
             graph: DynamicStateGraph to query state coverage
+            config: Optional RVAgentConfig with calibration parameters
         """
         self.graph = graph
+
+        # Configurable parameters
+        if config:
+            self.max_re_enables = config.max_re_enables
+            # UI coverage threshold (executed_actions / total_actions per screen)
+            self.ui_coverage_threshold = config.ui_coverage_threshold
+        else:
+            self.max_re_enables = self.DEFAULT_MAX_RE_ENABLES
+            self.ui_coverage_threshold = self.DEFAULT_UI_COVERAGE_THRESHOLD
 
         # Maps: (from_hash, action_signature) → successor_hash
         self.successors: Dict[Tuple[str, Tuple], str] = {}
@@ -81,7 +89,10 @@ class SuccessorTracker:
         # Used for Backtrack BFS to find unsaturated ancestors
         self.back_successors: Dict[str, Set[str]] = {}
 
-        logger.info("SuccessorTracker initialized")
+        logger.info(
+            f"SuccessorTracker initialized: max_re_enables={self.max_re_enables}, "
+            f"coverage_threshold={self.ui_coverage_threshold}"
+        )
 
     def record_successor(
         self,
@@ -145,7 +156,7 @@ class SuccessorTracker:
         """
         Check if any actions from state_hash lead to incompletely explored states.
 
-        Only considers successors with coverage below COVERAGE_THRESHOLD as incomplete.
+        Only considers successors with coverage below coverage_threshold as incomplete.
 
         Args:
             state_hash: State to check
@@ -165,7 +176,7 @@ class SuccessorTracker:
                 successor_hash = self.successors[key]
                 coverage = self.get_successor_coverage(successor_hash)
 
-                if coverage < self.COVERAGE_THRESHOLD:
+                if coverage < self.ui_coverage_threshold:
                     logger.debug(
                         f"Found incomplete successor: {successor_hash[:8]} "
                         f"(coverage: {coverage:.1%})"
@@ -178,7 +189,7 @@ class SuccessorTracker:
         """
         Get action signatures that lead to incomplete successor states.
 
-        Only considers successors with coverage below COVERAGE_THRESHOLD as incomplete.
+        Only considers successors with coverage below coverage_threshold as incomplete.
 
         Args:
             state_hash: State to check
@@ -199,7 +210,7 @@ class SuccessorTracker:
                 successor_hash = self.successors[key]
                 coverage = self.get_successor_coverage(successor_hash)
 
-                if coverage < self.COVERAGE_THRESHOLD:
+                if coverage < self.ui_coverage_threshold:
                     incomplete.add(action_sig)
 
         return incomplete
@@ -214,8 +225,8 @@ class SuccessorTracker:
         - Allows the action to be re-selected for further exploration
 
         Re-enablement is limited to prevent infinite cycles:
-        - Each action can only be re-enabled MAX_RE_ENABLES times
-        - Only re-enables if coverage is below COVERAGE_THRESHOLD
+        - Each action can only be re-enabled max_re_enables times
+        - Only re-enables if UI coverage is below ui_coverage_threshold
 
         Args:
             state_hash: State to update
@@ -237,18 +248,18 @@ class SuccessorTracker:
                 continue
 
             successor_hash = self.successors[key]
-            coverage = self.get_successor_coverage(successor_hash)
+            ui_coverage = self.get_successor_coverage(successor_hash)
 
-            # Check re-enable limits and coverage threshold
+            # Check re-enable limits and UI coverage threshold
             current_count = self.re_enable_counts.get(key, 0)
 
-            if current_count < self.MAX_RE_ENABLES and coverage < self.COVERAGE_THRESHOLD:
+            if current_count < self.max_re_enables and ui_coverage < self.ui_coverage_threshold:
                 node.executed_actions.discard(action_sig)
                 self.re_enable_counts[key] = current_count + 1
                 re_enabled += 1
                 logger.info(
-                    f"Re-enabled action {action_sig} (count={current_count + 1}/{self.MAX_RE_ENABLES}) "
-                    f"- successor {successor_hash[:8]} coverage: {coverage:.1%}"
+                    f"Re-enabled action {action_sig} (count={current_count + 1}/{self.max_re_enables}) "
+                    f"- successor {successor_hash[:8]} ui_coverage: {ui_coverage:.1%}"
                 )
 
         if re_enabled > 0:
@@ -265,10 +276,10 @@ class SuccessorTracker:
         """
         total_tracked = len(self.successors)
 
-        # Count successors below COVERAGE_THRESHOLD (same as re-enablement)
+        # Count successors below ui_coverage_threshold (same as re-enablement)
         incomplete_count = 0
         for (from_hash, action_sig), to_hash in self.successors.items():
-            if self.get_successor_coverage(to_hash) < self.COVERAGE_THRESHOLD:
+            if self.get_successor_coverage(to_hash) < self.ui_coverage_threshold:
                 incomplete_count += 1
 
         # Sum total re-enablements
@@ -281,7 +292,7 @@ class SuccessorTracker:
             "successor_re_enables": total_re_enables,
             "actions_at_max_re_enables": sum(
                 1 for count in self.re_enable_counts.values()
-                if count >= self.MAX_RE_ENABLES
+                if count >= self.max_re_enables
             ),
             "back_transitions_tracked": sum(len(s) for s in self.back_successors.values()),
         }
@@ -369,10 +380,21 @@ class SuccessorTracker:
         if node.total_actions == 0:
             return True  # No actions = saturated
 
-        # State is saturated if all actions have been executed at least twice
-        for action_sig in node.get_all_action_signatures():
-            count = node.get_action_execution_count(action_sig)
-            if count < 2:
-                return False
+        # Use ScreenNode's saturation rate method
+        return node.get_saturation_rate(threshold=2) >= 1.0
 
-        return True
+    def has_unsaturated_actions(self, state_hash: str) -> bool:
+        """
+        Check if a state has any unsaturated actions.
+
+        Args:
+            state_hash: State to check
+
+        Returns:
+            True if state has actions executed less than twice
+        """
+        node = self.graph.states.get(state_hash)
+        if not node:
+            return False
+
+        return node.get_saturation_rate(threshold=2) < 1.0

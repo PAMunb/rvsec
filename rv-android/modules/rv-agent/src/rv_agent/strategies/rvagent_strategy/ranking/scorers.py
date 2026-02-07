@@ -3,17 +3,34 @@ Action scorers for priority-based selection.
 
 Each Scorer evaluates one aspect of action priority. Scores are summed
 by the ActionRanker to determine final action ranking.
+
+Scorer Architecture (8 scorers total):
+  Prioritization:
+    - MopScorer: MOP-reaching actions
+    - WtgScorer: WTG-guided navigation
+    - SaturationScorer: Bonus for unsaturated states
+    - ComponentPriorityScorer: Button/form/navigation priority
+    - StrengthScorer: Success rate based priority
+
+  Penalties:
+    - FailedActionScorer: Blacklists crash-causing actions
+    - SystemElementFilter: Filters system UI elements
+    - VisitationPenaltyScorer: Penalizes over-visited states
+
+All scorer weights are configurable via RVAgentConfig for calibration.
 """
 
 import logging
+import math
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rv_agent.memory.element_id import make_element_id_from_action
 
 if TYPE_CHECKING:
     from rv_screen_parser.parser.screen.visitor.model import ItemAction
     from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
+    from rv_agent.config.agent_config import RVAgentConfig
 
 
 logger = logging.getLogger(__name__)
@@ -41,18 +58,33 @@ class MopScorer(Scorer):
     """
     Scores actions based on MOP (Monitored Operation) reachability.
 
-    Actions that reach MOPs get a priority bonus, but not so high as to
-    dominate other factors like untested elements or WTG guidance.
+    Actions that reach MOPs get high priority to focus testing effort
+    on monitored operations from static analysis.
     """
 
-    DIRECT_MOP_SCORE = 100.0
-    TRANSITIVE_MOP_SCORE = 50.0
+    # Default values (used when config not provided)
+    DEFAULT_DIRECT_SCORE = 300.0
+    DEFAULT_TRANSITIVE_SCORE = 150.0
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize MopScorer.
+
+        Args:
+            config: Optional config with calibration parameters
+        """
+        if config:
+            self.direct_score = config.mop_direct_score
+            self.transitive_score = config.mop_transitive_score
+        else:
+            self.direct_score = self.DEFAULT_DIRECT_SCORE
+            self.transitive_score = self.DEFAULT_TRANSITIVE_SCORE
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if action.directly_reaches_mop:
-            return self.DIRECT_MOP_SCORE
+            return self.direct_score
         elif action.reaches_mop:
-            return self.TRANSITIVE_MOP_SCORE
+            return self.transitive_score
         return 0.0
 
 
@@ -60,20 +92,30 @@ class WtgScorer(Scorer):
     """
     Scores actions based on WTG (Window Transition Graph) guidance.
 
-    Actions that lead to unvisited screens get bonus priority.
+    Actions that lead to unvisited screens get high priority for
+    navigation and state coverage.
     """
 
-    WTG_GUIDED_SCORE = 100.0
+    DEFAULT_GUIDED_SCORE = 250.0
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize WtgScorer.
+
+        Args:
+            config: Optional config with calibration parameters
+        """
+        if config:
+            self.guided_score = config.wtg_guided_score
+        else:
+            self.guided_score = self.DEFAULT_GUIDED_SCORE
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if not context.transition_manager:
-            logger.warning("[WTG_DEBUG] WtgScorer: no transition_manager")
             return 0.0
 
-        # Check if WTG is actually available
         has_wtg = hasattr(context.transition_manager, 'wtg') and context.transition_manager.wtg is not None
         if not has_wtg:
-            logger.warning("[WTG_DEBUG] WtgScorer: no WTG available")
             return 0.0
 
         guidance = context.transition_manager.get_navigation_guidance(
@@ -81,28 +123,12 @@ class WtgScorer(Scorer):
             screen_desc=context.screen_desc
         )
 
-        has_guidance = guidance.get("has_static_guidance", False)
-        suggested = guidance.get("suggested_actions", [])
-        unvisited = guidance.get("unvisited_targets", [])
-
-        # [WTG_DEBUG] Log guidance details
-        logger.info(f"[WTG_DEBUG] WtgScorer: activity={context.screen_desc.activity}, has_guidance={has_guidance}, unvisited_targets={len(unvisited)}, suggested_actions={len(suggested)}")
-
-        if not has_guidance:
+        if not guidance.get("has_static_guidance", False):
             return 0.0
 
-        suggested_ids = [s.get("action_id") for s in suggested]
-
-        # [WTG_DEBUG] Log action being scored
-        target_class = action.target_view.get('class', 'unknown') if action.target_view else 'unknown'
-        action_widget_id = getattr(action, 'widget_id', None)
-        logger.info(f"[WTG_DEBUG] WtgScorer: scoring action_id={action.id}, widget_id={action_widget_id}, suggested_ids={suggested_ids[:5]}")
-
-        for suggestion in suggested:
+        for suggestion in guidance.get("suggested_actions", []):
             if suggestion.get("action_id") == action.id:
-                target_class = action.target_view.get('class', 'unknown') if action.target_view else 'unknown'
-                logger.info(f"[WTG_DEBUG] WtgScorer: +100 MATCH! action_id={action.id} matched suggestion")
-                return self.WTG_GUIDED_SCORE
+                return self.guided_score
 
         return 0.0
 
@@ -111,43 +137,46 @@ class GradualDecayScorer(Scorer):
     """
     Scores actions with gradual decay based on visit count.
 
-    Instead of binary scoring (200 for untested, 0 for tested), this scorer
-    uses exponential decay to provide smoother priority transitions:
-
-    - Visit 0: 200.0 (untested - highest priority)
-    - Visit 1: 140.0 (70% retained)
-    - Visit 2: 98.0 (49% retained)
-    - Visit 3: 68.6 (34% retained)
-    - Visit 4: 48.0 (24% retained)
-    - Visit 5+: 0.0 (well tested - lowest priority)
+    Uses exponential decay to provide smoother priority transitions:
+    - Visit 0: base_score (untested - highest priority)
+    - Visit N: base_score * (decay_rate ^ N)
+    - Visit >= min_visits: 0 (well tested - lowest priority)
 
     This prevents the "cliff effect" where elements drop from high to zero
     priority after a single interaction, causing premature abandonment.
     """
 
-    BASE_SCORE = 200.0
-    DECAY_RATE = 0.7  # 70% retention per visit
-    MIN_VISITS_FOR_ZERO = 5  # After 5 visits, score = 0
+    DEFAULT_BASE_SCORE = 200.0
+    DEFAULT_DECAY_RATE = 0.7
+    DEFAULT_MIN_VISITS = 5
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize GradualDecayScorer.
+
+        Args:
+            config: Optional config with calibration parameters
+        """
+        if config:
+            self.base_score = config.gradual_decay_base
+            self.decay_rate = config.gradual_decay_rate
+            self.min_visits = config.gradual_decay_min_visits
+        else:
+            self.base_score = self.DEFAULT_BASE_SCORE
+            self.decay_rate = self.DEFAULT_DECAY_RATE
+            self.min_visits = self.DEFAULT_MIN_VISITS
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        # Use standardized element ID
         element_id = action.widget_id or make_element_id_from_action(action)
         if not element_id:
             return 0.0
 
         visit_count = context.ui_coverage.get_element_test_count(element_id)
-        target_class = action.target_view.get('class', 'unknown') if action.target_view else 'unknown'
 
-        # Calculate decayed score
-        if visit_count >= self.MIN_VISITS_FOR_ZERO:
-            score = 0.0
-        else:
-            score = self.BASE_SCORE * (self.DECAY_RATE ** visit_count)
+        if visit_count >= self.min_visits:
+            return 0.0
 
-        # [DEBUG_ACTION_SELECTION] Log gradual decay scoring
-        logger.info(f"[DEBUG_DECAY] GradualDecayScorer: {target_class} id={element_id} visits={visit_count} score={score:.1f}")
-
-        return score
+        return self.base_score * (self.decay_rate ** visit_count)
 
 
 
@@ -191,91 +220,85 @@ class ComponentPriorityScorer(Scorer):
     """
     Scores actions based on component type priority.
 
-    Auto-calibrated from UI dump analysis of 14 apps / 255 screens.
-    Run scripts/calibrate_scores.py to regenerate scores.
+    Priorities are configurable via RVAgentConfig for calibration.
     """
 
-    # All interactive components have same base priority
-    # GradualDecayScorer handles systematic visitation with exponential decay
-    HIGH_PRIORITY = {
-        # Buttons - primary actions
-        "Button": 50.0,
-        "ImageButton": 50.0,
-        "MaterialButton": 50.0,
-        "FloatingActionButton": 50.0,
-        "ExtendedFloatingActionButton": 50.0,
+    DEFAULT_HIGH_PRIORITY = 50.0
+    DEFAULT_MEDIUM_PRIORITY = 40.0
+
+    # Component types categorized by priority level
+    HIGH_PRIORITY_TYPES = frozenset({
+        # Buttons
+        "Button", "ImageButton", "MaterialButton", "FloatingActionButton",
+        "ExtendedFloatingActionButton",
         # Form inputs
-        "EditText": 50.0,
-        "AutoCompleteTextView": 50.0,
-        "MultiAutoCompleteTextView": 50.0,
-        "TextInputEditText": 50.0,
+        "EditText", "AutoCompleteTextView", "MultiAutoCompleteTextView", "TextInputEditText",
         # Dropdowns
-        "Spinner": 50.0,
-        "AppCompatSpinner": 50.0,
-        # Navigation drawer
-        "DrawerLayout": 50.0,
-        # Tabs - reveal new content/screens
-        "Tab": 50.0,
-        "TabLayout": 50.0,
-        "TabView": 50.0,
-        "ActionBar$Tab": 50.0,
-        "TabItem": 50.0,
-        # Bottom/Side navigation
-        "BottomNavigationItemView": 50.0,
-        "NavigationBarItemView": 50.0,
-        "NavigationBarView": 50.0,
-        "NavigationRailView": 50.0,
+        "Spinner", "AppCompatSpinner",
+        # Navigation
+        "DrawerLayout", "Tab", "TabLayout", "TabView", "ActionBar$Tab", "TabItem",
+        "BottomNavigationItemView", "NavigationBarItemView", "NavigationBarView",
+        "NavigationRailView",
         # Menus
-        "ActionMenuItemView": 50.0,
-        "MenuItemView": 50.0,
-        "OverflowMenuButton": 50.0,
-        # Chips
-        "Chip": 50.0,
+        "ActionMenuItemView", "MenuItemView", "OverflowMenuButton",
+        # Other
+        "Chip", "LinearLayout",
+    })
+
+    MEDIUM_PRIORITY_TYPES = frozenset({
+        # Toggles
+        "CheckBox", "MaterialCheckBox", "AppCompatCheckBox",
+        "Switch", "SwitchCompat", "SwitchMaterial",
+        "ToggleButton", "AppCompatToggleButton",
+        # Radio buttons
+        "RadioButton", "MaterialRadioButton", "AppCompatRadioButton",
+        # Sliders
+        "SeekBar", "AppCompatSeekBar", "Slider", "RangeSlider", "RatingBar",
+        # Content navigation
+        "ViewPager", "RecyclerView", "CheckedTextView", "AppCompatCheckedTextView",
+    })
+
+    # System actions have fixed priority
+    SYSTEM_ACTION_SCORES = {
+        "SystemAction_BACK": 30.0,
+        "SystemAction_RESTART": 20.0,
     }
 
-    # Medium priority: state changes, sliders, content navigation
-    MEDIUM_PRIORITY = {
-        # Toggles
-        "CheckBox": 40.0,
-        "MaterialCheckBox": 40.0,
-        "AppCompatCheckBox": 40.0,
-        "Switch": 40.0,
-        "SwitchCompat": 40.0,
-        "SwitchMaterial": 40.0,
-        "ToggleButton": 40.0,
-        "AppCompatToggleButton": 40.0,
-        # Radio buttons
-        "RadioButton": 40.0,
-        "MaterialRadioButton": 40.0,
-        "AppCompatRadioButton": 40.0,
-        # Sliders
-        "SeekBar": 40.0,
-        "AppCompatSeekBar": 40.0,
-        "Slider": 40.0,
-        "RangeSlider": 40.0,
-        "RatingBar": 40.0,
-        # Content navigation
-        "ViewPager": 40.0,
-        "RecyclerView": 40.0,
-        "CheckedTextView": 40.0,
-        "AppCompatCheckedTextView": 40.0,
-    }
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize ComponentPriorityScorer.
+
+        Args:
+            config: Optional config with calibration parameters
+        """
+        if config:
+            self.high_priority = config.component_high_priority
+            self.medium_priority = config.component_medium_priority
+        else:
+            self.high_priority = self.DEFAULT_HIGH_PRIORITY
+            self.medium_priority = self.DEFAULT_MEDIUM_PRIORITY
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         target_class = action.target_view.get('class', '') if action.target_view else ''
         simple_class = target_class.split('.')[-1] if target_class else ''
 
-        # Check high priority first
-        for key, score in self.HIGH_PRIORITY.items():
-            if simple_class == key or key in target_class:
-                logger.debug(f"[DEBUG_ACTION_SELECTION] ComponentPriorityScorer: +{score} for {target_class} (HIGH)")
-                return score
+        # Check system actions first
+        if simple_class in self.SYSTEM_ACTION_SCORES:
+            return self.SYSTEM_ACTION_SCORES[simple_class]
 
-        # Then medium priority
-        for key, score in self.MEDIUM_PRIORITY.items():
-            if simple_class == key or key in target_class:
-                logger.debug(f"[DEBUG_ACTION_SELECTION] ComponentPriorityScorer: +{score} for {target_class} (MED)")
-                return score
+        # Check high priority types
+        if simple_class in self.HIGH_PRIORITY_TYPES:
+            return self.high_priority
+        for type_name in self.HIGH_PRIORITY_TYPES:
+            if type_name in target_class:
+                return self.high_priority
+
+        # Check medium priority types
+        if simple_class in self.MEDIUM_PRIORITY_TYPES:
+            return self.medium_priority
+        for type_name in self.MEDIUM_PRIORITY_TYPES:
+            if type_name in target_class:
+                return self.medium_priority
 
         return 0.0
 
@@ -304,6 +327,151 @@ class FailedActionScorer(Scorer):
             return self.FAILED_PENALTY
 
         return 0.0
+
+    def _convert_signature(self, signature):
+        """Convert action signature to optimized space."""
+        (device_x, device_y), action_type = signature
+
+        if self.converter:
+            optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
+        else:
+            optimized_x = int(device_x * 704 / 1080)
+            optimized_y = int(device_y * 1248 / 1920)
+
+        return ((optimized_x, optimized_y), action_type)
+
+
+class SystemElementFilter(Scorer):
+    """
+    Penalizes actions on system UI elements.
+
+    Elements from system packages (systemui, android) should be avoided
+    as they are not part of the target application.
+    """
+
+    SYSTEM_PENALTY = -5000.0
+    SYSTEM_PACKAGES = frozenset({"com.android.systemui", "android"})
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        if not action.target_view:
+            return 0.0
+
+        package = action.target_view.get("package", "")
+        if package in self.SYSTEM_PACKAGES:
+            return self.SYSTEM_PENALTY
+
+        return 0.0
+
+
+class SaturationScorer(Scorer):
+    """
+    Bonus for actions in unsaturated states.
+
+    Gives higher priority to actions when the current state still has
+    many unexplored actions (low saturation rate).
+
+    Score = unsaturated_bonus * (1 - saturation_rate)
+    """
+
+    DEFAULT_UNSATURATED_BONUS = 80.0
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize SaturationScorer.
+
+        Args:
+            config: Optional config with calibration parameters
+        """
+        if config:
+            self.unsaturated_bonus = config.unsaturated_bonus
+        else:
+            self.unsaturated_bonus = self.DEFAULT_UNSATURATED_BONUS
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        node = context.graph.states.get(context.current_state_hash)
+        if not node:
+            return 0.0
+
+        saturation = node.get_saturation_rate(threshold=2)
+        if saturation >= 1.0:
+            return 0.0
+
+        return self.unsaturated_bonus * (1.0 - saturation)
+
+
+class VisitationPenaltyScorer(Scorer):
+    """
+    Penalizes actions in frequently visited states.
+
+    Uses logarithmic decay to avoid re-exploring over-visited states
+    while still allowing some revisitation.
+
+    Score = penalty_factor * log(1 + visit_count)
+    """
+
+    DEFAULT_PENALTY_FACTOR = -10.0
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize VisitationPenaltyScorer.
+
+        Args:
+            config: Optional config with calibration parameters
+        """
+        if config:
+            self.penalty_factor = config.visitation_penalty_factor
+        else:
+            self.penalty_factor = self.DEFAULT_PENALTY_FACTOR
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        node = context.graph.states.get(context.current_state_hash)
+        if not node:
+            return 0.0
+
+        visits = node.visit_count
+        return self.penalty_factor * math.log(1 + visits)
+
+
+class StrengthScorer(Scorer):
+    """
+    Scores actions based on historical success rate.
+
+    Actions that have led to state transitions (successes) are prioritized
+    over actions that didn't cause any change.
+
+    Score = weight * strength
+    - strength = successes / executions (0.5 for untested)
+    """
+
+    DEFAULT_WEIGHT = 50.0
+
+    def __init__(
+        self,
+        coordinate_converter=None,
+        config: Optional["RVAgentConfig"] = None
+    ):
+        """
+        Initialize StrengthScorer.
+
+        Args:
+            coordinate_converter: Converter for coordinate spaces
+            config: Optional config with calibration parameters
+        """
+        self.converter = coordinate_converter
+        if config:
+            self.weight = config.strength_weight
+        else:
+            self.weight = self.DEFAULT_WEIGHT
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        node = context.graph.states.get(context.current_state_hash)
+        if not node:
+            return self.weight * 0.5  # Neutral for unknown states
+
+        action_signature = self._convert_signature(action.coords_for_matching)
+        strength = node.get_action_strength(action_signature)
+
+        return self.weight * strength
 
     def _convert_signature(self, signature):
         """Convert action signature to optimized space."""

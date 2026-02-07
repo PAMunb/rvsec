@@ -57,6 +57,7 @@ class PlatformConfig(BaseValidatedModel):
     results_dir: str = Field(default="results", description="Output directory for results")
     task_storage_file: str = Field(default="tasks.json", description="Task persistence file")
     log_level: str = Field(default="INFO", description="Logging level")
+    skip_result_processing: bool = Field(default=False, description="Skip result processing after execution")
 
     @field_validator('apks_dir')
     @classmethod

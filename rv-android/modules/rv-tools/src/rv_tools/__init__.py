@@ -74,8 +74,6 @@ def _register_builtin_tools():
         pass
 
 
-
-
 # Auto-register when module is imported
 _register_builtin_tools()
 

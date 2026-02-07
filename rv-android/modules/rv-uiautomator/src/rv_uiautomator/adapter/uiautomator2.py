@@ -19,7 +19,10 @@ from ..constants import (
     DEFAULT_CONNECTION_TIMEOUT,
     ACTION_EXECUTION_DELAY,
     SCREENSHOT_QUALITY,
-    DEFAULT_SCREENSHOT_PATH
+    DEFAULT_SCREENSHOT_PATH,
+    DEFAULT_SWIPE_DURATION,
+    WAIT_FOR_IDLE_TIMEOUT,
+    WAIT_FOR_SELECTOR_TIMEOUT,
 )
 
 
@@ -71,10 +74,13 @@ class UIAutomator2Adapter(UIAdapter):
     def connect(self, device_id: str) -> bool:
         """
         Establish connection to Android device via UIAutomator2.
-        
+
+        Configures UIAutomator2 settings for optimal performance,
+        especially in headless mode where UI idle detection can be slow.
+
         Args:
             device_id: Device identifier to connect to
-            
+
         Returns:
             True if connection successful, False otherwise
         """
@@ -82,22 +88,50 @@ class UIAutomator2Adapter(UIAdapter):
             with self.performance_monitor.measure_time("device_connection"):
                 self.device_id = device_id
                 self.device = u2.connect(device_id)
-                
+
                 # Test connection with basic info call
                 info = self.device.info
                 if info:
                     self.connected = True
+
+                    # Configure UIAutomator2 settings for performance optimization
+                    # These settings reduce UI idle waiting time (critical for headless mode)
+                    self._configure_uiautomator_settings()
+
                     self.logger.info(f"Connected to device {device_id}: {info.get('productName', 'Unknown')}")
                     return True
                 else:
                     self.connected = False
                     self.logger.error(f"Failed to get device info for {device_id}")
                     return False
-                    
+
         except Exception as e:
             self.connected = False
             self.logger.error(f"Connection failed for device {device_id}: {e}")
             return False
+
+    def _configure_uiautomator_settings(self) -> None:
+        """
+        Configure UIAutomator2 settings for optimal performance.
+
+        Reduces wait timeouts to prevent long delays in headless mode
+        where UI rendering is slower (SwiftShader software rendering).
+        """
+        if not self.device:
+            return
+
+        try:
+            # Configure wait timeouts
+            # wait_timeout: Max time to wait for UI to become idle
+            # wait_for_selector_timeout: Max time to wait for element selector
+            self.device.settings['wait_timeout'] = WAIT_FOR_IDLE_TIMEOUT
+
+            self.logger.debug(
+                f"UIAutomator2 settings configured: "
+                f"wait_timeout={WAIT_FOR_IDLE_TIMEOUT}s"
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to configure UIAutomator2 settings: {e}")
     
     @ErrorHandler.handle_errors(
         component="UIAutomator2Adapter", 
@@ -247,31 +281,38 @@ class UIAutomator2Adapter(UIAdapter):
         component="UIAutomator2Adapter",
         phase="swipe_action"
     )
-    def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> bool:
+    def swipe(
+        self,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        duration: float = DEFAULT_SWIPE_DURATION
+    ) -> bool:
         """
         Perform swipe gesture between two points.
-        
+
         Args:
             x1: Start X coordinate
             y1: Start Y coordinate
             x2: End X coordinate
             y2: End Y coordinate
-            duration: Swipe duration in seconds
-            
+            duration: Swipe duration in seconds (default: 0.25s for performance)
+
         Returns:
             True if swipe executed successfully
         """
         if not self.connected or not self.device:
             self.logger.warning("Device not connected, cannot perform swipe")
             return False
-            
+
         try:
             with self.performance_monitor.measure_time("swipe_action"):
                 self.device.swipe(x1, y1, x2, y2, duration)
                 time.sleep(ACTION_EXECUTION_DELAY)
-                self.logger.debug(f"Swiped from ({x1}, {y1}) to ({x2}, {y2})")
+                self.logger.debug(f"Swiped from ({x1}, {y1}) to ({x2}, {y2}) in {duration}s")
                 return True
-                
+
         except Exception as e:
             self.logger.error(f"Swipe failed from ({x1}, {y1}) to ({x2}, {y2}): {e}")
             return False

@@ -50,6 +50,40 @@ The agent uses LangGraph for workflow orchestration with externalized node funct
 4. **Coordinate-Based Action Tracking**: Actions tracked by (x, y) coordinates, not volatile IDs
 5. **Pre-Marking Actions**: Actions marked as executed BEFORE execution to prevent crash loops
 6. **Continuous Exploration**: Never "exhausted" - explores until timeout using least-executed actions
+7. **Unified Tracking System**: All decision logging uses `[RVTRACK:<CATEGORY>]` prefix for grep filtering
+
+### Tracking System
+
+All agent decision logs use a unified prefix `[RVTRACK:<CATEGORY>]` for easy filtering and analysis.
+The tracking module is at `tracking.py`.
+
+**Categories:**
+| Category | Description | Key Fields |
+|----------|-------------|------------|
+| PARSE | UI parsing results | iter, activity, elements, hash |
+| ROUTE | Decision routing | iter, mode, path |
+| RANK | Action ranking | iter, top (top-5 actions with scores) |
+| SELECT | Action selection | iter, mode, action, coords, score, priority |
+| VALIDATE | Action validation | iter, status, action, coords, reason |
+| EXEC | Action execution | iter, action, coords, source |
+| STATE | State changes | iter, changed, activity_from, activity_to, hash |
+| LEARN | Learning updates | iter, stuck, memory_updated, stuck_reason |
+| LLM | LLM call metrics | iter, tokens_in, tokens_out, time_ms, tool_calls, success |
+| NAV | Navigation guidance | iter, wtg_available, unvisited_targets, suggested_action_id |
+
+**Usage:**
+```bash
+# Filter tracking logs
+grep "RVTRACK" agent.log
+
+# Filter specific category
+grep "RVTRACK:SELECT" agent.log
+
+# Remove tracking logs for production
+grep -v "RVTRACK" agent.log > clean.log
+```
+
+**NOTE**: The project uses Poetry workspace with editable mode. Source changes are reflected immediately without reinstalling. Only run `poetry install` from root if `pyproject.toml` dependencies change.
 
 ### Key Components
 
@@ -283,23 +317,50 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_rvagent_
 
 ## Common Tasks
 
-### Running the Agent
+### Two Execution Modes
+
+rv-agent can run in two modes:
+
+1. **Standalone CLI** (`rv-agent`): User manages emulator and APK installation
+2. **Via rv-experiment** (`rvagent` tool): Platform manages emulator and APK installation
+
+### Prerequisites (Standalone Mode)
 
 ```bash
-# Run with multimode (default: 70% LLM / 30% algorithm)
-poetry run rv-agent run --package com.example.app --device emulator-5554
+# 1. Start emulator (from project root)
+./scripts/run_emulator.sh
 
-# Run with pure algorithm (no LLM)
-RVAGENT_MODE=pure_algorithm poetry run rv-agent run --package com.example.app
+# 2. Wait for device to be ready
+adb wait-for-device
 
-# Run with LLM only
-RVAGENT_MODE=llm_only poetry run rv-agent run --package com.example.app
+# 3. Install APK
+adb install apks_examples/cryptoapp.apk
+# Or use the convenience command:
+poetry run rv-agent install apks_examples/cryptoapp.apk
 
-# Run with specific timeout
-poetry run rv-agent run --package com.example.app --timeout 600
+# 4. For LLM modes (multimode, llm_only): start SGLang server
+# (see LLM Configuration section below)
+```
 
-# Run with debug logging
-poetry run rv-agent run --package com.example.app --debug
+### Running the Agent (Standalone CLI)
+
+```bash
+cd modules/rv-agent
+
+# Pure algorithm mode (no LLM needed - good for quick testing)
+poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
+
+# Multimode (default: 70% LLM / 30% algorithm) - requires SGLang server
+poetry run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300
+
+# LLM only mode - requires SGLang server
+poetry run rv-agent run --package br.unb.cic.cryptoapp --mode llm_only --timeout 300
+
+# With debug logging
+poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60 --debug
+
+# Test device connection
+poetry run rv-agent test
 ```
 
 ### Programmatic Usage
@@ -310,7 +371,7 @@ from rv_agent.agent.agent_factory import AgentFactory
 
 # Create configuration
 config = RVAgentConfig(
-    package_name="com.example.app",
+    package_name="br.unb.cic.cryptoapp",
     device_id="emulator-5554",
     agent_mode="multimode",
     llm_probability=0.7,
@@ -326,15 +387,26 @@ results = agent.run()
 print(f"Explored {results['unique_states']} states in {results['iterations']} iterations")
 ```
 
-### Integration with rv-platform
+### Integration with rv-experiment (Recommended)
+
+When running via rv-experiment, the platform handles:
+- Emulator startup/shutdown
+- APK installation
+- Static analysis data loading
+- Results collection
 
 ```bash
-# Run via rv-experiment
-poetry run rv-experiment run --tools rv-agent:multimode --apks-dir ./apks_examples
+# Run via rv-experiment (handles emulator and APK installation)
+poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
 
-# Run via rv-platform directly
-poetry run rv-platform run --tools rv-agent --apks-dir ./apks_examples
+# Run multimode with longer timeout
+poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
+
+# Multiple tools in one experiment
+poetry run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --apks-dir ./apks_examples
 ```
+
+**Note**: The tool name is `rvagent` (no hyphen) when used via rv-experiment.
 
 ## Configuration
 
@@ -442,3 +514,18 @@ When `static_data` is provided:
 - MOP data prioritizes actions reaching monitored operations
 - TransitionManager maps static Window IDs to runtime activities
 - NavigationGuidance provides hints to both LLM and algorithm
+
+## Development Notes
+
+This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+
+**Key points:**
+- Run `poetry install` from the project root to install all modules
+- Source code changes are reflected immediately (no reinstall needed)
+- Only reinstall if `pyproject.toml` dependencies change
+
+```bash
+# From project root
+poetry install          # Install/update all modules
+poetry install --sync   # Also remove unused packages
+```

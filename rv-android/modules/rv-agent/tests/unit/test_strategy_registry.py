@@ -14,6 +14,7 @@ from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.config.agent_config import RVAgentConfig
 
 
 class TestStrategyRegistryInit:
@@ -92,6 +93,10 @@ class TestStrategyInstantiation:
     def graph(self):
         return DynamicStateGraph()
 
+    @pytest.fixture
+    def config(self):
+        return RVAgentConfig(package_name="com.test.app")
+
     def test_get_dfs_strategy(self, registry, graph):
         """Get DFS strategy instance."""
         strategy = registry.get_strategy("dfs", graph=graph)
@@ -118,26 +123,36 @@ class TestStrategyInstantiation:
         assert "Unknown strategy" in str(exc_info.value)
         assert "Available strategies" in str(exc_info.value)
 
-    def test_get_rvagent_without_ui_coverage_raises(self, registry, graph):
+    def test_get_rvagent_without_config_raises(self, registry, graph):
+        """RVAgent without config raises ValueError."""
+        ui_coverage = UICoverageTracker()
+
+        with pytest.raises(ValueError) as exc_info:
+            registry.get_strategy("rvagent", graph=graph, ui_coverage=ui_coverage)
+
+        assert "requires config" in str(exc_info.value)
+
+    def test_get_rvagent_without_ui_coverage_raises(self, registry, graph, config):
         """RVAgent without ui_coverage raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            registry.get_strategy("rvagent", graph=graph)
+            registry.get_strategy("rvagent", graph=graph, config=config)
 
         assert "requires ui_coverage" in str(exc_info.value)
 
-    def test_get_rvagent_with_ui_coverage(self, registry, graph):
-        """RVAgent with ui_coverage succeeds."""
+    def test_get_rvagent_with_required_params(self, registry, graph, config):
+        """RVAgent with required parameters succeeds."""
         ui_coverage = UICoverageTracker()
 
         strategy = registry.get_strategy(
             "rvagent",
             graph=graph,
+            config=config,
             ui_coverage=ui_coverage
         )
 
         assert strategy is not None
 
-    def test_get_rvagent_with_all_params(self, registry, graph):
+    def test_get_rvagent_with_all_params(self, registry, graph, config):
         """RVAgent with all optional parameters."""
         ui_coverage = UICoverageTracker()
         coordinate_converter = MagicMock()
@@ -146,11 +161,11 @@ class TestStrategyInstantiation:
         strategy = registry.get_strategy(
             "rvagent",
             graph=graph,
+            config=config,
             ui_coverage=ui_coverage,
             coordinate_converter=coordinate_converter,
             static_data=static_data,
-            plateau_window=15,
-            max_input_variations=5
+            device_dimensions=(1080, 2400)
         )
 
         assert strategy is not None

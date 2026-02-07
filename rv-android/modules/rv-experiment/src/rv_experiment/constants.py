@@ -63,6 +63,7 @@ DEFAULT_SPEC_SET = SPEC_SET_JCA
 # External tool names for registration
 EXTERNAL_TOOL_RVANDROID = "rvandroid"
 EXTERNAL_TOOL_RVDROID = "rvdroid"
+EXTERNAL_TOOL_RVAGENT = "rvagent"
 
 # Tool registration messages
 TOOL_REGISTRATION_SUCCESS = "Successfully registered {} tool in tools registry"

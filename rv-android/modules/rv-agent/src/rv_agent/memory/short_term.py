@@ -104,7 +104,7 @@ class ShortTermMemory:
         self.iterations: List[Iteration] = []
         self.max_iterations = max_iterations
 
-        self.logger.info(f"[RVAGENT_DEBUG] ShortTermMemory initialized (max: {max_iterations})")
+        self.logger.info(f" ShortTermMemory initialized (max: {max_iterations})")
 
     def record_iteration(self, state: Dict[str, Any], actions: List[Dict],
                         llm_reasoning: str = "") -> None:
@@ -124,7 +124,7 @@ class ShortTermMemory:
 
             # Activity changed - clear memory
             if activity != self.current_activity:
-                self.logger.info(f"[RVAGENT_DEBUG] Activity changed: {self.current_activity} → {activity}")
+                self.logger.info(f" Activity changed: {self.current_activity} → {activity}")
                 self.clear()
                 self.current_activity = activity
 
@@ -142,14 +142,14 @@ class ShortTermMemory:
             if len(self.iterations) > self.max_iterations:
                 removed = self.iterations[self.max_iterations:]
                 self.iterations = self.iterations[:self.max_iterations]
-                self.logger.debug(f"[RVAGENT_DEBUG] Removed {len(removed)} old iterations")
+                self.logger.debug(f" Removed {len(removed)} old iterations")
 
-            self.logger.debug(f"[RVAGENT_DEBUG] Iteration recorded: {len(actions)} actions, "
+            self.logger.debug(f" Iteration recorded: {len(actions)} actions, "
                             f"total iterations: {len(self.iterations)}")
 
         except Exception as e:
             # CLIENTE error handling - log e continue
-            self.logger.error(f"[RVAGENT_DEBUG] Failed to record iteration: {e}")
+            self.logger.error(f" Failed to record iteration: {e}")
 
     def record_execution_results(self, results: List[Dict[str, Any]]) -> None:
         """
@@ -160,7 +160,7 @@ class ShortTermMemory:
         """
         try:
             if not self.iterations:
-                self.logger.warning("[RVAGENT_DEBUG] No iterations to record results for")
+                self.logger.warning(" No iterations to record results for")
                 return
 
             latest_iteration = self.iterations[0]
@@ -168,11 +168,11 @@ class ShortTermMemory:
                 latest_iteration.add_execution_result(result)
 
             success_rate = latest_iteration.get_success_rate()
-            self.logger.debug(f"[RVAGENT_DEBUG] Execution results recorded: "
+            self.logger.debug(f" Execution results recorded: "
                             f"{len(results)} results, {success_rate:.1%} success rate")
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Failed to record execution results: {e}")
+            self.logger.error(f" Failed to record execution results: {e}")
 
     def get_recent_actions_summary(self, count: int = 3) -> str:
         """
@@ -203,7 +203,7 @@ class ShortTermMemory:
             return "\n".join(formatted_iterations)
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Recent actions summary failed: {e}")
+            self.logger.error(f" Recent actions summary failed: {e}")
             return f"Error retrieving recent actions: {e}"
 
     def get_current_screen_context(self) -> Dict[str, Any]:
@@ -251,7 +251,7 @@ class ShortTermMemory:
             }
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Screen context calculation failed: {e}")
+            self.logger.error(f" Screen context calculation failed: {e}")
             return {"error": str(e), "screen_status": "unknown"}
 
     def format_for_template(self, count: int = 3) -> str:
@@ -288,7 +288,7 @@ class ShortTermMemory:
             return "\n".join(context_parts)
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Template formatting failed: {e}")
+            self.logger.error(f" Template formatting failed: {e}")
             return f"Error formatting memory: {e}"
 
     def clear(self) -> None:
@@ -296,7 +296,7 @@ class ShortTermMemory:
         cleared_count = len(self.iterations)
         self.iterations.clear()
 
-        self.logger.debug(f"[RVAGENT_DEBUG] Short term memory cleared ({cleared_count} iterations)")
+        self.logger.debug(f" Short term memory cleared ({cleared_count} iterations)")
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get short term memory statistics."""
@@ -334,5 +334,5 @@ class ShortTermMemory:
             }
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Statistics calculation failed: {e}")
+            self.logger.error(f" Statistics calculation failed: {e}")
             return {"error": str(e)}

@@ -19,7 +19,11 @@ class TestAgentConfig:
         assert lc_config["base_url"] == default_config.llm_base_url
         assert lc_config["model"] == default_config.llm_model
         assert "api_key" in lc_config
-        assert "model_kwargs" in lc_config
+        assert "temperature" in lc_config
+        # top_k is passed via extra_body for SGLang
+        if default_config.llm_top_k > 0:
+            assert "extra_body" in lc_config
+            assert lc_config["extra_body"]["top_k"] == default_config.llm_top_k
 
     @patch('os.getenv')
     def test_get_agent_mode_from_env(self, mock_getenv, default_config):

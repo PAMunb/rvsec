@@ -97,7 +97,7 @@ class UICoverageTracker:
         # Discovery tracking
         self.discovery_timeline: List[Dict[str, Any]] = []
 
-        self.logger.info("[RVAGENT_DEBUG] UICoverageTracker initialized")
+        self.logger.info(" UICoverageTracker initialized")
 
     def record_interaction(self, element_id: str, action_type: str = "click",
                          screen_hash: Optional[str] = None, success: bool = True,
@@ -148,11 +148,11 @@ class UICoverageTracker:
             # Logging with debug prefix
             status = "NEW" if was_new_element else f"#{self.tested_elements[element_id]}"
             result = "SUCCESS" if success else "FAILED"
-            self.logger.debug(f"[RVAGENT_DEBUG] UI interaction: {status} {element_id} "
+            self.logger.debug(f" UI interaction: {status} {element_id} "
                             f"({action_type}) - {result}")
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Failed to record interaction: {e}")
+            self.logger.error(f" Failed to record interaction: {e}")
 
     def is_element_untested(self, element_id: str, screen_hash: Optional[str] = None) -> bool:
         """
@@ -278,7 +278,7 @@ class UICoverageTracker:
             )
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Coverage stats calculation failed: {e}")
+            self.logger.error(f" Coverage stats calculation failed: {e}")
             return UIElementStats()
 
     def get_exploration_suggestions(self, screen_hash: str, limit: int = 3) -> List[Dict[str, Any]]:
@@ -335,7 +335,7 @@ class UICoverageTracker:
             ]
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Exploration suggestions failed: {e}")
+            self.logger.error(f" Exploration suggestions failed: {e}")
             return [{"suggestion": "error", "reason": str(e)}]
 
     def get_overall_statistics(self) -> Dict[str, Any]:
@@ -370,12 +370,12 @@ class UICoverageTracker:
             }
 
         except Exception as e:
-            self.logger.error(f"[RVAGENT_DEBUG] Overall statistics failed: {e}")
+            self.logger.error(f" Overall statistics failed: {e}")
             return {"error": str(e)}
 
     def reset_coverage(self) -> None:
         """Reset all coverage data (for testing or new session)."""
-        self.logger.info("[RVAGENT_DEBUG] Resetting UI coverage data...")
+        self.logger.info(" Resetting UI coverage data...")
 
         cleared_elements = len(self.tested_elements)
         cleared_screens = len(self.screen_elements)
@@ -388,7 +388,7 @@ class UICoverageTracker:
         self.last_interactions.clear()
         self.discovery_timeline.clear()
 
-        self.logger.info(f"[RVAGENT_DEBUG] UI coverage reset complete: "
+        self.logger.info(f" UI coverage reset complete: "
                         f"{cleared_elements} elements, {cleared_screens} screens")
 
     def register_screen_elements(self, screen_hash: str, screen_desc: Any) -> None:

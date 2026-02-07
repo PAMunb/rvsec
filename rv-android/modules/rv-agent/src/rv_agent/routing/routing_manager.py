@@ -69,6 +69,11 @@ class RoutingManager:
         self.fallback_manager = fallback_manager
         self.exploration_strategy = exploration_strategy
 
+        # Initialize random seed for reproducibility (multimode routing)
+        if config.seed is not None:
+            random.seed(config.seed)
+            logging.getLogger(__name__).info(f"RoutingManager: Random seed initialized: {config.seed}")
+
         # Counters for metrics
         self.llm_executed = 0           # LLM actions executed successfully
         self.algorithm_chosen = 0       # Algorithm path chosen
@@ -76,6 +81,11 @@ class RoutingManager:
         self.llm_validation_failed = 0  # LLM actions that failed validation
 
         self.logger = logging.getLogger(__name__)
+
+    @property
+    def mode(self) -> str:
+        """Get current agent mode from config."""
+        return self.config.get_agent_mode()
 
     def route_decision(self, iteration: int) -> str:
         """

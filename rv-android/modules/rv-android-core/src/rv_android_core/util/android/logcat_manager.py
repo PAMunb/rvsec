@@ -173,7 +173,9 @@ class LogcatManager(BaseValidatedModel):
                 cmd_args = ["-s", self.device_serial, "logcat", "-v", self.logcat_format]
                 if validated_tags:
                     cmd_args.extend(["-s"])  # Tag filter option
-                    cmd_args.extend(validated_tags)
+                    # Each tag needs priority level suffix (V=Verbose) for proper filtering
+                    # Without :V, logcat filter doesn't work correctly
+                    cmd_args.extend([f"{tag}:V" for tag in validated_tags])
 
                 # Start logcat capture
                 logcat_cmd = Command("adb", cmd_args)

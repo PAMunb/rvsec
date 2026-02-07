@@ -1,257 +1,137 @@
 #!/bin/bash
 
 # Module Installer for RV-Android
-# Manages installation and validation of monitored operations modules
-# Complete rewrite with modern bash practices and comprehensive error handling
+# Uses Poetry workspace (root pyproject.toml with develop=true dependencies)
+# All modules are installed in editable mode via single `poetry install` at root
 
-set -euo pipefail  # Strict error handling
+set -euo pipefail
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-# Static module list in dependency order - no dynamic discovery
-declare -ra MODULES=(
-    "rv-android-core"           # Foundation - core utilities and domain models
-    "rv-monitor-generator"      # Monitor generation from MOP specifications
-    "rv-instrumentation"        # APK instrumentation with monitors
-    "rv-static-analysis"        # Static analysis tools (GATOR, GESDA, REACH)
-    "rv-coverage"               # Coverage analysis tools
-    "rv-screen-parser"          # Screen parsing utilities
-    "rv-llm"                    # Language Model integration infrastructure
-    "rv-tools"                  # Tool registry and plugin system
-    "rv-platform"               # Central execution platform for Android experiments
-    "rv-agent"                  # LLM-driven autonomous testing agent
-    "rv-agent-validation"       # Validation framework for rv-agent experiments
-    "rvandroid-tool"            # RVAndroid tool implementation with LLM integration
-    "rv-experiment"             # Experiment orchestration and coordination
-#    "rvandroid"                 # Main framework module
-)
-
-# Colors for output (with fallbacks for non-color terminals)
+# Colors for output
 declare -r RED='\033[0;31m'
 declare -r GREEN='\033[0;32m'
 declare -r YELLOW='\033[0;33m'
 declare -r BLUE='\033[0;34m'
-declare -r PURPLE='\033[0;35m'
 declare -r CYAN='\033[0;36m'
-declare -r NC='\033[0m' # No Color
+declare -r NC='\033[0m'
+
+# Root directory (parent of modules)
+declare -r ROOT_DIR=".."
 
 # Global configuration
-declare -g DRY_RUN=false
 declare -g VERBOSE=false
-declare -g SELECTED_MODULES=()
+declare -g SYNC_MODE=false
 
 # ============================================================================
-# LOGGING AND OUTPUT
+# LOGGING
 # ============================================================================
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $*"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $*"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $*"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $*" >&2
-}
-
-log_debug() {
-    if [[ "$VERBOSE" == "true" ]]; then
-        echo -e "${PURPLE}[DEBUG]${NC} $*"
-    fi
-}
-
-log_step() {
-    echo -e "${CYAN}[STEP]${NC} $*"
-}
+log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+log_step() { echo -e "${CYAN}[STEP]${NC} $*"; }
 
 print_header() {
     echo
     echo -e "${CYAN}============================================================================${NC}"
-    echo -e "${CYAN} RV-Android Module Installer${NC}"
-    echo -e "${CYAN} Modern installation of monitored operations modules${NC}"
+    echo -e "${CYAN} RV-Android Module Installer (Poetry Workspace)${NC}"
     echo -e "${CYAN}============================================================================${NC}"
     echo
 }
 
-print_separator() {
-    echo -e "${CYAN}----------------------------------------------------------------------------${NC}"
-}
-
-# ============================================================================
-# ERROR HANDLING
-# ============================================================================
-
 error_exit() {
-    local exit_code=${2:-1}
     log_error "$1"
-    log_error "Installation failed. Check the error above for details."
-    exit "$exit_code"
+    exit "${2:-1}"
 }
+
+# ============================================================================
+# VALIDATION
+# ============================================================================
 
 validate_environment() {
-    log_step "Validating installation environment"
-    
+    log_step "Validating environment"
+
     # Check if we're in the modules directory
     if [[ ! -f "install.sh" ]] || [[ ! -d "rv-android-core" ]]; then
-        error_exit "Must run from the modules directory containing install.sh"
+        error_exit "Must run from the modules directory"
     fi
-    
+
+    # Check root pyproject.toml exists
+    if [[ ! -f "$ROOT_DIR/pyproject.toml" ]]; then
+        error_exit "Root pyproject.toml not found at $ROOT_DIR/pyproject.toml"
+    fi
+
     # Check Poetry availability
     if ! command -v poetry &> /dev/null; then
-        error_exit "Poetry is required but not found. Please install Poetry first."
+        error_exit "Poetry is required but not found"
     fi
-    
-    # Check Poetry version (basic check)
-    local poetry_version
-    poetry_version=$(poetry --version 2>/dev/null | cut -d' ' -f3 || echo "unknown")
-    log_debug "Found Poetry version: $poetry_version"
-    
-    log_success "Environment validation passed"
-}
 
-validate_module() {
-    local module="$1"
-    log_debug "Validating module: $module"
-    
-    # Check if module directory exists
-    if [[ ! -d "$module" ]]; then
-        log_error "Module directory not found: $module"
-        return 1
-    fi
-    
-    # Check if pyproject.toml exists
-    if [[ ! -f "$module/pyproject.toml" ]]; then
-        log_error "pyproject.toml not found in: $module"
-        return 1
-    fi
-    
-    log_debug "Module validation passed: $module"
-    return 0
+    log_success "Environment validated"
 }
 
 # ============================================================================
-# INSTALLATION LOGIC
+# INSTALLATION
 # ============================================================================
 
-install_module() {
-    local module="$1"
-    
-    log_step "Installing module: $module"
-    
-    # Validate module before installation
-    if ! validate_module "$module"; then
-        return 1
+install_workspace() {
+    log_step "Installing all modules via Poetry workspace"
+
+    cd "$ROOT_DIR"
+
+    local poetry_cmd="poetry install"
+    if [[ "$SYNC_MODE" == "true" ]]; then
+        poetry_cmd="poetry install --sync"
     fi
-    
-    # Change to module directory
-    if ! cd "$module"; then
-        log_error "Failed to enter directory: $module"
-        return 1
-    fi
-    
-    # Dry run mode
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY RUN] Would install: $module"
-        cd ..
-        return 0
-    fi
-    
-    # Execute poetry install with error handling
-    log_debug "Executing: poetry install"
-    
+
+    log_info "Running: $poetry_cmd"
+
     if [[ "$VERBOSE" == "true" ]]; then
-        if poetry install; then
-            log_success "Successfully installed: $module"
+        if $poetry_cmd; then
+            log_success "All modules installed in editable mode"
         else
-            log_error "Failed to install: $module"
-            cd ..
-            return 1
+            error_exit "Poetry install failed"
         fi
     else
-        if poetry install >/dev/null 2>&1; then
-            log_success "Successfully installed: $module"
+        if $poetry_cmd 2>&1 | grep -E "(Installing|Updating|Removing|Already installed)" || true; then
+            log_success "All modules installed in editable mode"
         else
-            log_error "Failed to install: $module"
-            log_error "Run with --verbose for detailed error output"
-            cd ..
-            return 1
+            error_exit "Poetry install failed. Run with --verbose for details."
         fi
     fi
-    
-    # Return to parent directory
-    cd ..
-    return 0
+
+    cd - > /dev/null
 }
 
 verify_installation() {
-    local module="$1"
-    
-    log_debug "Verifying installation: $module"
-    
-    if [[ "$DRY_RUN" == "true" ]]; then
-        return 0
-    fi
-    
-    # Change to module directory
-    if ! cd "$module"; then
-        log_error "Failed to enter directory for verification: $module"
-        return 1
-    fi
-    
-    # Check if poetry environment exists and is valid
-    if poetry env info --path >/dev/null 2>&1; then
-        log_debug "Poetry environment verified: $module"
-        cd ..
-        return 0
-    else
-        log_warning "Poetry environment verification failed: $module"
-        cd ..
-        return 1
-    fi
-}
+    log_step "Verifying installation"
 
-install_all_modules() {
-    local modules_to_install=("$@")
-    local failed_modules=()
-    local installed_count=0
-    
-    log_info "Installing ${#modules_to_install[@]} modules in dependency order"
-    print_separator
-    
-    for module in "${modules_to_install[@]}"; do
-        echo
-        if install_module "$module"; then
-            if verify_installation "$module"; then
-                ((installed_count++))
-            else
-                failed_modules+=("$module (verification failed)")
-            fi
+    cd "$ROOT_DIR"
+
+    # Check that key modules are importable
+    local modules=("rv_android_core" "rv_agent" "rv_experiment" "rv_platform")
+    local failed=0
+
+    for module in "${modules[@]}"; do
+        if poetry run python -c "import $module" 2>/dev/null; then
+            log_info "  ✓ $module"
         else
-            failed_modules+=("$module (installation failed)")
+            log_warning "  ✗ $module (import failed)"
+            ((failed++))
         fi
     done
-    
-    # Report results
-    print_separator
-    log_info "Installation Summary:"
-    log_success "Successfully installed: $installed_count modules"
-    
-    if [[ ${#failed_modules[@]} -gt 0 ]]; then
-        log_error "Failed modules: ${#failed_modules[@]}"
-        for failed in "${failed_modules[@]}"; do
-            log_error "  - $failed"
-        done
+
+    cd - > /dev/null
+
+    if [[ $failed -gt 0 ]]; then
+        log_warning "$failed modules failed to import"
         return 1
     fi
-    
+
+    log_success "All key modules verified"
     return 0
 }
 
@@ -263,48 +143,48 @@ print_usage() {
     cat << 'EOF'
 Usage: ./install.sh [OPTIONS] [MODULES...]
 
-Modern installer for RV-Android monitored operations modules.
-Supports experiments with JCA cryptography specifications and generic runtime specifications.
+Poetry workspace installer for RV-Android.
+Installs all modules in editable mode via root pyproject.toml.
 
 OPTIONS:
-    --dry-run           Validate without installing
-    --verbose           Enable detailed logging output
-    --help, -h          Show this help message
+    --verbose       Show detailed output
+    --sync          Use poetry install --sync (remove unused packages)
+    --verify        Only verify installation, don't install
+    --help, -h      Show this help message
 
 MODULES:
-    If no modules specified, installs all modules in dependency order.
-    Available modules:
-        rv-android-core           Core utilities and domain models
-        rv-monitor-generator      Monitor generation from MOP specifications
-        rv-instrumentation        APK instrumentation with monitors
-        rv-static-analysis        Static analysis tools (GATOR, GESDA, REACH)
-        rv-coverage              Coverage analysis tools
-        rv-screen-parser         Screen parsing utilities
-        rv-llm                   Language Model integration infrastructure
-        rv-tools                 Tool registry and plugin system
-        rv-platform              Central execution platform for Android experiments
-        rvandroid-tool           RVAndroid tool implementation with LLM integration
-        rv-experiment            Experiment orchestration and coordination
-        rvandroid               Main framework module
+    Module arguments are accepted for backwards compatibility but ignored.
+    All modules are always installed together via the workspace.
 
 EXAMPLES:
-    ./install.sh                                    # Install all modules
-    ./install.sh rv-android-core rv-static-analysis # Install specific modules
-    ./install.sh --dry-run                          # Validate without installing
-    ./install.sh --verbose rv-instrumentation       # Verbose installation
+    ./install.sh                    # Install all modules
+    ./install.sh --verbose          # Install with detailed output
+    ./install.sh --sync             # Install and remove unused packages
+    ./install.sh --verify           # Only verify current installation
+
+NOTE:
+    This script uses Poetry workspaces. All modules are defined in the root
+    pyproject.toml with 'develop = true', ensuring editable installation.
+    Changes to source files are immediately reflected without reinstalling.
 
 EOF
 }
 
 parse_arguments() {
+    local verify_only=false
+
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
             --verbose)
                 VERBOSE=true
+                shift
+                ;;
+            --sync)
+                SYNC_MODE=true
+                shift
+                ;;
+            --verify)
+                verify_only=true
                 shift
                 ;;
             --help|-h)
@@ -315,69 +195,42 @@ parse_arguments() {
                 error_exit "Unknown option: $1"
                 ;;
             *)
-                # Check if it's a valid module
-                local valid_module=false
-                for module in "${MODULES[@]}"; do
-                    if [[ "$1" == "$module" ]]; then
-                        valid_module=true
-                        break
-                    fi
-                done
-                
-                if [[ "$valid_module" == "true" ]]; then
-                    SELECTED_MODULES+=("$1")
-                else
-                    error_exit "Invalid module: $1"
-                fi
+                # Accept module names for backwards compatibility but ignore
+                log_info "Module '$1' specified (ignored - workspace installs all modules)"
                 shift
                 ;;
         esac
     done
-    
-    # If no modules selected, use all modules
-    if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
-        SELECTED_MODULES=("${MODULES[@]}")
+
+    if [[ "$verify_only" == "true" ]]; then
+        validate_environment
+        verify_installation
+        exit $?
     fi
 }
 
 # ============================================================================
-# MAIN EXECUTION
+# MAIN
 # ============================================================================
 
 main() {
     print_header
-    
-    # Parse command line arguments
+
     parse_arguments "$@"
-    
-    # Show configuration
-    log_info "Configuration:"
-    log_info "  Dry run: $DRY_RUN"
-    log_info "  Verbose: $VERBOSE"
-    log_info "  Modules: ${SELECTED_MODULES[*]}"
-    
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_warning "DRY RUN MODE - No actual installation will be performed"
-    fi
-    
+
+    log_info "Mode: Poetry workspace (editable install)"
+    log_info "Verbose: $VERBOSE"
+    log_info "Sync: $SYNC_MODE"
     echo
-    
-    # Validate environment
+
     validate_environment
-    
-    # Install modules
-    if install_all_modules "${SELECTED_MODULES[@]}"; then
-        echo
-        log_success "All modules installed successfully!"
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log_info "Re-run without --dry-run to perform actual installation"
-        fi
-        exit 0
-    else
-        echo
-        error_exit "Some modules failed to install"
-    fi
+    install_workspace
+    verify_installation
+
+    echo
+    log_success "Installation complete!"
+    log_info "All modules are installed in editable mode."
+    log_info "Source changes are reflected immediately - no reinstall needed."
 }
 
-# Execute main function with all arguments
 main "$@"

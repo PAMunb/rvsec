@@ -104,7 +104,7 @@ class ToolExecutor:
                 result = self._execute_home()
             elif action_type == "PRESS_ENTER":
                 result = self._execute_press_enter()
-            elif action_type == "RESTART_APP":
+            elif action_type in ("RESTART_APP", "RESTART"):
                 result = self._execute_restart(action)
             else:
                 self.logger.warning(f"Unknown action type: {action_type}")

@@ -63,7 +63,13 @@ rv-agent-validation/
 │   ├── preprocessing/        # APK preparation
 │   │   └── instrumentation.py # InstrumentationWrapper
 │   │
-│   ├── calibration/          # Scorer calibration
+│   ├── calibration/          # Parameter calibration (Optuna)
+│   │   ├── __init__.py       # Module exports
+│   │   ├── parameter_space.py # 24 tunable parameters with ranges
+│   │   ├── objective.py      # ObjectiveFunction (coverage + errors)
+│   │   ├── optimizer.py      # CalibrationOptimizer (Optuna TPESampler)
+│   │   ├── runner.py         # CalibrationRunner (rv-experiment subprocess)
+│   │   ├── cli.py            # CLI commands (calibrate, show-params)
 │   │   └── metrics_collector.py # CalibrationMetricsCollector
 │   │
 │   └── __main__.py           # CLI entry point
@@ -72,7 +78,10 @@ rv-agent-validation/
 │   ├── apks/                 # Original APK files
 │   ├── apks_instrumented/    # Instrumented APKs
 │   ├── static_data/          # Static analysis files (.wtg, .gesda, .reach)
-│   └── configs/              # Experiment configuration files
+│   ├── configs/              # Experiment configuration files
+│   ├── calibration_dataset/  # Pre-instrumented APKs for calibration (15 APKs)
+│   ├── calibration_set.txt   # 10 APKs for calibration trials
+│   └── holdout_set.txt       # 5 APKs for hold-out validation
 │
 ├── results/                  # Experiment output
 │   └── <experiment_id>/
@@ -130,6 +139,44 @@ python -m rv_agent_validation.analysis.strategy_comparison \
     --experiment-dir results/experiment_20260115/ \
     --output analysis.json
 ```
+
+### Parameter Calibration (Optuna)
+
+The calibration module uses Bayesian optimization (Optuna with TPESampler) to tune RVAgentStrategy parameters for optimal coverage and MOP error detection.
+
+```bash
+# Run macro phase calibration (8 high-impact parameters)
+poetry run python -m rv_agent_validation calibrate \
+    --apks-dir data/calibration_dataset \
+    --phase macro \
+    --n-trials 50 \
+    --timeout 300 \
+    --seed 42 \
+    --output ./calibration_macro
+
+# Run micro phase calibration (16 fine-tuning parameters)
+poetry run python -m rv_agent_validation calibrate \
+    --apks-dir data/calibration_dataset \
+    --phase micro \
+    --best-macro ./calibration_macro/optimal_params.json \
+    --n-trials 30 \
+    --output ./calibration_micro
+
+# Show calibrated parameters
+poetry run python -m rv_agent_validation show-params \
+    --params-file ./calibration_macro/optimal_params.json
+
+# Show default parameter values
+poetry run python -m rv_agent_validation show-defaults
+```
+
+**Calibration Workflow:**
+1. **Dataset Preparation**: Use pre-instrumented APKs in `data/calibration_dataset/`
+2. **Macro Phase**: Tune 8 high-impact parameters (scorer weights, exploration)
+3. **Micro Phase**: Fine-tune 16 additional parameters using best macro params
+4. **Validation**: Test on hold-out set (`data/holdout_set.txt`)
+
+**Objective Function**: 50% method coverage + 50% normalized MOP errors (higher is better).
 
 ## Configuration Format
 
@@ -266,6 +313,51 @@ comparison = analyzer.compare_modes("llm_only", "pure_algorithm")
 report = analyzer.generate_report(Path("report.json"))
 ```
 
+### Calibration API
+
+```python
+from rv_agent_validation.calibration import (
+    CalibrationOptimizer,
+    CalibrationRunner,
+    ObjectiveFunction,
+    get_default_params,
+    params_to_tool_spec,
+    CalibrationPhase,
+)
+
+# Create objective function (50% coverage, 50% errors)
+objective_fn = ObjectiveFunction(
+    coverage_weight=0.50,
+    errors_weight=0.50,
+    baseline_max_errors=10.0  # Optional: from baseline experiment
+)
+
+# Create runner for executing trials via rv-experiment
+runner = CalibrationRunner(
+    dataset_dir="./data/calibration_dataset",
+    objective_fn=objective_fn,
+    output_base_dir="./calibration_output",
+    timeout=300,
+    agent_mode="pure_algorithm"
+)
+
+# Create optimizer
+optimizer = CalibrationOptimizer(
+    phase=CalibrationPhase.MACRO,
+    objective_fn=objective_fn,
+    trial_runner=runner.run_trial,
+    seed=42
+)
+
+# Run optimization
+best_params = optimizer.optimize(n_trials=50)
+optimizer.save_results("./calibration_output")
+
+# Convert to tool specification DSL
+tool_spec = params_to_tool_spec(best_params)
+# Output: "mop_direct_score=350.0,wtg_guided_score=280.0,..."
+```
+
 ## Key Classes
 
 ### ExperimentConfig
@@ -305,6 +397,43 @@ Enables experiment resume capability:
 - Persists to JSON file
 - Filters pending runs on resume
 
+### CalibrationOptimizer
+
+Optuna-based Bayesian optimization for RVAgentStrategy parameters:
+- **TPESampler**: Tree-structured Parzen Estimator for efficient exploration
+- **Reproducible**: Fixed seed (42) for deterministic results
+- **Two-phase**: Macro (8 params) + Micro (16 params) calibration
+
+### Calibration Parameters
+
+**Macro Parameters (Phase 1 - 8 params):**
+
+| Parameter | Default | Range | Purpose |
+|-----------|---------|-------|---------|
+| `mop_direct_score` | 300.0 | 200-500 | MOP method prioritization |
+| `wtg_guided_score` | 250.0 | 100-400 | WTG navigation guidance |
+| `unsaturated_bonus` | 80.0 | 40-120 | State diversity bonus |
+| `max_re_enables` | 6 | 3-15 | Successor exploration depth |
+| `ui_coverage_threshold` | 0.9 | 0.7-1.0 | Re-enable trigger threshold |
+| `stochastic_probability` | 0.3 | 0.1-0.7 | Exploration randomness |
+| `strength_weight` | 50.0 | 25-100 | Historical action success |
+| `visitation_penalty_factor` | -10.0 | -20 to -5 | Over-visited penalty |
+
+**Micro Parameters (Phase 2 - 16 params):**
+
+| Parameter | Default | Range |
+|-----------|---------|-------|
+| `mop_transitive_score` | 150.0 | 75-250 |
+| `stochastic_temperature` | 1.0 | 0.1-5.0 |
+| `scroll_probability` | 0.15 | 0.05-0.3 |
+| `plateau_window` | 10 | 5-20 |
+| `max_input_variations` | 3 | 1-6 |
+| `gradual_decay_rate` | 0.7 | 0.5-0.9 |
+| `component_high_priority` | 50.0 | 30-80 |
+| `component_medium_priority` | 40.0 | 20-60 |
+| `llm_probability` | 0.7 | 0.0-1.0 |
+| `llm_temperature` | 0.01 | 0.001-0.3 |
+
 ## Testing
 
 ```bash
@@ -328,6 +457,8 @@ poetry run pytest --cov=src tests/
 - **rv-monitor-generator**: Monitor generation for instrumentation
 - **rv-instrumentation**: APK instrumentation
 - **scipy**: Statistical tests (Kruskal-Wallis, Wilcoxon)
+- **optuna**: Bayesian optimization for parameter calibration
+- **pandas**: Data processing for calibration metrics
 - **langchain-openai**: LLM interaction for multimodal validation
 
 ## Validation Methodology
@@ -385,3 +516,20 @@ Each run produces a JSON file with:
 | `docs/20260119_phase1_results.md` | Phase 1 results and analysis |
 | `docs/20260121_phase2_results.md` | Phase 2 results |
 | `docs/20260118_calibration_report.md` | Calibration run results |
+
+
+## Development Notes
+
+This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+
+**Key points:**
+- Run `poetry install` from the project root to install all modules
+- Source code changes are reflected immediately (no reinstall needed)
+- Only reinstall if `pyproject.toml` dependencies change
+
+```bash
+# From project root
+poetry install          # Install/update all modules
+poetry install --sync   # Also remove unused packages
+```
+

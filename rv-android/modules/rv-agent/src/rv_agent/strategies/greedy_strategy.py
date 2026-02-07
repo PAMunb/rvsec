@@ -149,15 +149,6 @@ class GreedyStrategy(ExplorationStrategy):
 
             return text_action
 
-        # Try to generate SWIPE action for scrollable containers (30% probability)
-        # This reveals hidden content in lists, feeds, and scrollable views
-        scroll_action = self._try_generate_scroll_action(
-            screen_desc, node, self.scrolled_positions, probability=0.3
-        )
-        if scroll_action:
-            logger.info(f"Greedy SCROLL: Generating scroll action to reveal content")
-            return scroll_action
-
         # Select action based on availability
         import random
 
@@ -187,7 +178,16 @@ class GreedyStrategy(ExplorationStrategy):
                 logger.info(f"  Execution count: 0 (first time)")
 
         elif filtered_actions:
-            # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
+            # CONTINUOUS: All actions tested
+            # Before re-testing, try scroll to reveal hidden content (15% probability)
+            scroll_action = self._try_generate_scroll_action(
+                screen_desc, node, self.scrolled_positions, probability=0.15
+            )
+            if scroll_action:
+                logger.info(f"Greedy SCROLL: All visible actions tested, scrolling to reveal more content")
+                return scroll_action
+
+            # No scroll - select LEAST-EXECUTED action
             # Algorithm continues until timeout, never stops when "exhausted"
             # Filters out permanently failed actions to avoid repeated crashes
             selected_action = self._select_least_executed_action(node, filtered_actions)

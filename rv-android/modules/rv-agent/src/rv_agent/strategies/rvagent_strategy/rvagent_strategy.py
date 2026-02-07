@@ -30,14 +30,18 @@ from rv_agent.strategies.rvagent_strategy.ranking import (
     RankingContext,
     MopScorer,
     WtgScorer,
-    GradualDecayScorer,
-    ExecutionCountScorer,
-    FailedActionScorer,
+    SaturationScorer,
     ComponentPriorityScorer,
+    StrengthScorer,
+    FailedActionScorer,
+    SystemElementFilter,
+    VisitationPenaltyScorer,
 )
+from rv_agent import tracking as track
+
 if TYPE_CHECKING:
     from rv_agent.services.transition_manager import TransitionManager
-
+    from rv_agent.config.agent_config import RVAgentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +101,9 @@ class RVAgentStrategy(ExplorationStrategy):
     BACK_ACTION_ID = 999
 
     # Scroll action probability
-    SCROLL_PROBABILITY = 0.3
+    # Scroll probability reduced from 0.3 to 0.15 and moved to AFTER untested actions
+    # Scroll only triggers when all visible actions are tested, to reveal hidden content
+    SCROLL_PROBABILITY = 0.15
 
     # System action detection thresholds (percentage of screen height)
     NAVBAR_Y_PERCENT = 0.94   # Actions below 94% of screen height are navbar
@@ -118,15 +124,11 @@ class RVAgentStrategy(ExplorationStrategy):
         self,
         graph: DynamicStateGraph,
         ui_coverage: UICoverageTracker,
-        coordinate_converter=None,
+        config: "RVAgentConfig",
         static_data: Optional[StaticAnalysisData] = None,
         transition_manager: Optional["TransitionManager"] = None,
-        plateau_window: int = 10,
-        max_input_variations: int = 3,
-        target_package: Optional[str] = None,
-        device_dimensions: Tuple[int, int] = (1080, 1920),
-        stochastic_probability: float = 0.3,
-        stochastic_temperature: float = 1.0
+        coordinate_converter=None,
+        device_dimensions: Optional[Tuple[int, int]] = None
     ):
         """
         Initialize RVAgent exploration strategy.
@@ -134,42 +136,50 @@ class RVAgentStrategy(ExplorationStrategy):
         Args:
             graph: DynamicStateGraph for state/action tracking
             ui_coverage: UICoverageTracker for UI element coverage
-            coordinate_converter: CoordinateConverter for device/optimized space
+            config: RVAgentConfig with all calibration parameters
             static_data: Optional static analysis data (WTG, REACH)
             transition_manager: Optional TransitionManager for WTG-guided navigation
-            plateau_window: Iterations without progress to detect plateau
-            max_input_variations: Maximum test values per input field
-            target_package: Target app package name for filtering external elements
-            device_dimensions: Device screen size (width, height) in pixels
-            stochastic_probability: Probability of using Gumbel-max selection (0-1)
-            stochastic_temperature: Temperature for Gumbel-max (higher = more random)
+            coordinate_converter: CoordinateConverter for device/optimized space
+            device_dimensions: Device screen size (width, height) - overrides config if provided
         """
         self.graph = graph
         self.ui_coverage = ui_coverage
+        self.config = config
         self.converter = coordinate_converter
         self.static_data = static_data
         self.transition_manager = transition_manager
-        self.target_package = target_package
-        self.device_dimensions = device_dimensions
 
-        # Gumbel-max stochastic selection parameters
-        self.stochastic_probability = stochastic_probability
-        self.stochastic_temperature = stochastic_temperature
+        # Initialize random seed for reproducibility
+        if config.seed is not None:
+            random.seed(config.seed)
+            logger.info(f"Random seed initialized: {config.seed}")
 
-        # Helper components
-        self.successor_tracker = SuccessorTracker(graph)
-        self.plateau_detector = PlateauDetector(window_size=plateau_window)
-        self.value_generator = InputValueGenerator(max_variations=max_input_variations)
+        # Use runtime device_dimensions if provided, otherwise from config
+        self.device_dimensions = device_dimensions or config.device_dimensions
+        self.target_package = config.package_name
+
+        # Gumbel-max stochastic selection parameters from config
+        self.stochastic_probability = config.stochastic_probability
+        self.stochastic_temperature = config.stochastic_temperature
+
+        # Helper components with config parameters
+        self.successor_tracker = SuccessorTracker(graph, config=config)
+        self.plateau_detector = PlateauDetector(window_size=config.plateau_window)
+        self.value_generator = InputValueGenerator(max_variations=config.max_input_variations)
         self.coverage_metrics = CoverageMetrics(graph, ui_coverage)
 
-        # Action ranking system (scores calibrated from UI dump analysis)
+        # Action ranking system with configurable scorer weights
         self.action_ranker = ActionRanker(scorers=[
-            MopScorer(),
-            WtgScorer(),
-            GradualDecayScorer(),
-            ComponentPriorityScorer(),
-            ExecutionCountScorer(coordinate_converter=coordinate_converter),
+            # Prioritization scorers
+            MopScorer(config=config),
+            WtgScorer(config=config),
+            SaturationScorer(config=config),
+            ComponentPriorityScorer(config=config),
+            StrengthScorer(coordinate_converter=coordinate_converter, config=config),
+            # Penalty scorers
             FailedActionScorer(coordinate_converter=coordinate_converter),
+            SystemElementFilter(),
+            VisitationPenaltyScorer(config=config),
         ])
 
         # DFS state
@@ -183,14 +193,16 @@ class RVAgentStrategy(ExplorationStrategy):
         # Scroll tracking to avoid infinite scrolling loops
         self.scrolled_positions: Set[Tuple[str, str, str]] = set()
 
+        # Iteration counter for tracking
+        self._current_iteration = 0
+
         logger.info(
-            f"RVAgentStrategy initialized: plateau_window={plateau_window}, "
-            f"max_variations={max_input_variations}, "
+            f"RVAgentStrategy initialized: plateau_window={config.plateau_window}, "
+            f"max_variations={config.max_input_variations}, "
             f"transition_manager={'enabled' if transition_manager else 'disabled'}, "
-            f"stochastic_prob={stochastic_probability}, temp={stochastic_temperature}"
+            f"stochastic_prob={config.stochastic_probability}, temp={config.stochastic_temperature}"
         )
-        if target_package:
-            logger.info(f"RVAgentStrategy: Filtering actions to package '{target_package}'")
+        logger.info(f"RVAgentStrategy: Filtering actions to package '{config.package_name}'")
 
     def select_next_action(
         self,
@@ -216,7 +228,7 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             Selected ItemAction, or None if state exhausted or plateau reached
         """
-        logger.debug(f"RVAgent: Processing state {current_hash[:8]}, depth={self.current_depth}")
+        self._current_iteration += 1
 
         # 1. Plateau detection is informational only
         # WHY: We don't stop on plateau because:
@@ -265,25 +277,26 @@ class RVAgentStrategy(ExplorationStrategy):
         untested_actions = self._get_untested_actions(node, screen_desc)
         all_filtered_actions = self._get_all_filtered_actions(screen_desc)
 
+        # Track saturation metrics
+        saturation_rate = node.get_saturation_rate(threshold=2)
+        track.saturation(
+            iter=self._current_iteration,
+            state_hash=current_hash,
+            rate=saturation_rate,
+            threshold=0.9  # Coverage threshold for re-enablement
+        )
+
         logger.info(
             f"RVAgent State Analysis - {current_hash[:8]}:\n"
             f"  Total actions: {len(screen_desc.items)}\n"
             f"  Filtered actions: {len(all_filtered_actions)}\n"
             f"  Executed: {len(node.executed_actions)}\n"
-            f"  Untested: {len(untested_actions)}"
+            f"  Untested: {len(untested_actions)}\n"
+            f"  Saturation: {saturation_rate:.1%}"
         )
-
-        # Try to generate SWIPE action for scrollable containers (30% probability)
-        # This reveals hidden content in lists, feeds, and scrollable views
-        scroll_action = self._try_generate_scroll_action(
-            screen_desc, node, self.scrolled_positions, probability=0.3
-        )
-        if scroll_action:
-            self.current_depth += 1
-            logger.info(f"RVAgent SCROLL: Generating scroll action to reveal content")
-            return scroll_action
 
         # 5. Select action based on availability
+        # Priority: untested actions first, then scroll to reveal more, then least-executed
         if untested_actions:
             # UNTESTED: Select priority action from untested
             selected_action = self._select_priority_action(untested_actions, screen_desc)
@@ -294,7 +307,18 @@ class RVAgentStrategy(ExplorationStrategy):
                 selected_action = untested_actions[0]
                 logger.info(f"RVAgent DEEPEN: Fallback to first untested action")
         elif all_filtered_actions:
-            # CONTINUOUS: All actions tested - select LEAST-EXECUTED action
+            # CONTINUOUS: All visible actions tested
+            # Before re-testing actions, try scroll to reveal hidden content (15% prob)
+            # This may expose new untested elements in lists/scrollable views
+            scroll_action = self._try_generate_scroll_action(
+                screen_desc, node, self.scrolled_positions, probability=0.15
+            )
+            if scroll_action:
+                self.current_depth += 1
+                logger.info(f"RVAgent SCROLL: All visible actions tested, scrolling to reveal more content")
+                return scroll_action
+
+            # No scroll needed/possible - select LEAST-EXECUTED action
             # Algorithm continues until timeout, never stops when "exhausted"
             # Filters out permanently failed actions to avoid repeated crashes
             selected_action = self._select_least_executed_action(node, all_filtered_actions)
@@ -329,7 +353,7 @@ class RVAgentStrategy(ExplorationStrategy):
                 comp_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
                 self.ui_coverage.record_interaction(
                     element_id=element_id,
-                    action_type=original_action.event.value,
+                    action_type=original_action.event.name,  # Use .name (string) not .value (int)
                     screen_hash=current_hash,
                     success=True,
                     component_type=comp_type
@@ -361,7 +385,7 @@ class RVAgentStrategy(ExplorationStrategy):
             self.coverage_metrics.record_mop_execution(selected_action.callback_signature)
 
         logger.info(
-            f"Selected action: {selected_action.event.value} "
+            f"Selected action: {selected_action.event.name} "
             f"(priority={'[DM]' if selected_action.directly_reaches_mop else '[M]' if selected_action.reaches_mop else 'UI'})"
         )
 
@@ -506,17 +530,8 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         filtered = []
 
-        # [DEBUG_ACTION_SELECTION] Log all items before filtering
-        logger.info(f"[DEBUG_ACTION_SELECTION] === Item Filtering Debug ===")
-        logger.info(f"[DEBUG_ACTION_SELECTION] Total screen items: {len(screen_desc.items)}")
-
         for item in screen_desc.items:
-            item_class = item.view.get('class', 'unknown')
             item_package = item.view.get('package', '')
-            item_actions_count = len(item.actions)
-
-            # [DEBUG_ACTION_SELECTION] Log each item
-            logger.debug(f"[DEBUG_ACTION_SELECTION]   Item: {item_class} pkg={item_package} actions={item_actions_count}")
 
             # Filter by package - only include items from target app
             # BUT allow system dialog packages (they render UI as part of app flow)
@@ -524,24 +539,14 @@ class RVAgentStrategy(ExplorationStrategy):
                 if item_package != self.target_package:
                     # Allow system dialog packages (permission dialogs, alerts, etc.)
                     if item_package not in self.SYSTEM_DIALOG_PACKAGES:
-                        logger.debug(f"[DEBUG_ACTION_SELECTION]     FILTERED: external package {item_package}")
                         continue
 
             for action in item.actions:
                 # Skip system actions
                 if self._is_system_action(action):
-                    logger.debug(f"[DEBUG_ACTION_SELECTION]     FILTERED: system action")
                     continue
 
                 filtered.append(action)
-                logger.debug(f"[DEBUG_ACTION_SELECTION]     INCLUDED: {action.event.value} at {action.coordinates}")
-
-        # [DEBUG_ACTION_SELECTION] Summary by widget type
-        type_counts = {}
-        for action in filtered:
-            target_class = action.target_view.get('class', 'unknown') if action.target_view else 'no_target'
-            type_counts[target_class] = type_counts.get(target_class, 0) + 1
-        logger.info(f"[DEBUG_ACTION_SELECTION] Actions by widget type: {type_counts}")
 
         return filtered
 
@@ -605,17 +610,18 @@ class RVAgentStrategy(ExplorationStrategy):
         and stochastic (select_stochastic with Gumbel-max) selection. Stochastic
         selection adds controlled randomness while preserving priority order.
 
-        Delegates scoring to registered Scorers:
-        - GradualDecayScorer: 200 * (0.7 ^ visits), decays with each interaction
-        - MopScorer: +100 (DM), +50 (M)
-        - WtgScorer: +100 (WTG-guided)
+        Delegates scoring to registered Scorers (8 total):
+        Prioritization:
+        - MopScorer: +300 (direct), +150 (transitive MOP)
+        - WtgScorer: +250 (WTG-guided navigation)
+        - SaturationScorer: +80 * (1 - saturation_rate)
         - ComponentPriorityScorer: +50 (buttons), +40 (toggles)
-        - ExecutionCountScorer: 10/(1+count)
-        - FailedActionScorer: -9999 (blacklisted)
+        - StrengthScorer: +50 * success_rate
 
-        Gumbel-max stochastic selection adds controlled randomness while
-        preserving priority order. With balanced scores, exploration is
-        more diverse while still favoring less-tested and MOP-reaching elements.
+        Penalties:
+        - FailedActionScorer: -9999 (crash-causing actions)
+        - SystemElementFilter: -5000 (system UI elements)
+        - VisitationPenaltyScorer: -10 * log(1 + visits)
 
         Args:
             actions: Candidate actions
@@ -629,33 +635,31 @@ class RVAgentStrategy(ExplorationStrategy):
 
         context = self._build_ranking_context(screen_desc)
 
-        # [DEBUG_ACTION_SELECTION] Log all candidate actions with scores
-        logger.info(f"[DEBUG_ACTION_SELECTION] === Action Selection Debug ===")
-        logger.info(f"[DEBUG_ACTION_SELECTION] Candidate actions: {len(actions)}")
+        # Score all actions for tracking (with full details for calibration)
         scored_actions = []
+        scored_actions_full = []
         for action in actions:
-            # Get individual scorer contributions
-            scorer_scores = {}
-            for scorer in self.action_ranker.scorers:
-                scorer_name = scorer.__class__.__name__
-                scorer_scores[scorer_name] = scorer.score(action, context)
+            total_score = self.action_ranker.score_action(action, context)
+            coords = action.coordinates if action.coordinates else (0, 0)
+            priority = "DM" if action.directly_reaches_mop else ("M" if action.reaches_mop else "")
+            action_type = action.event.name if action.event else "UNKNOWN"
 
-            total_score = sum(scorer_scores.values())
-            coords = action.coordinates if action.coordinates else "no_coords"
-            event_type = action.event.value if action.event else "unknown"
-            target_class = action.target_view.get('class', 'unknown') if action.target_view else "no_target"
-            scored_actions.append((total_score, action, coords, event_type, target_class, scorer_scores))
+            # Extract component type from target_view
+            comp_class = action.target_view.get('class', '') if action.target_view else ''
+            comp_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
 
-        # Sort by score descending and log
-        scored_actions.sort(key=lambda x: x[0], reverse=True)
-        for i, (score, action, coords, event_type, target_class, scorer_scores) in enumerate(scored_actions[:10]):
-            dm_flag = "[DM]" if action.directly_reaches_mop else ""
-            m_flag = "[M]" if action.reaches_mop else ""
-            # Format scorer breakdown
-            breakdown = " ".join([f"{k[:3]}={v:.0f}" for k, v in scorer_scores.items() if v != 0])
-            logger.info(f"[DEBUG_ACTION_SELECTION]   {i+1}. score={score:.1f} [{breakdown}] {dm_flag}{m_flag} {event_type} at {coords} ({target_class})")
-        if len(scored_actions) > 10:
-            logger.info(f"[DEBUG_ACTION_SELECTION]   ... and {len(scored_actions) - 10} more actions")
+            scored_actions.append((coords, total_score, priority))
+            scored_actions_full.append((coords, total_score, priority, comp_type, action_type))
+
+        # Sort by score descending
+        scored_actions.sort(key=lambda x: x[1], reverse=True)
+        scored_actions_full.sort(key=lambda x: x[1], reverse=True)
+
+        # Track top 5 ranked actions (INFO level)
+        track.rank(iter=self._current_iteration, actions=scored_actions[:5])
+
+        # Track ALL actions with component type (DEBUG level - for calibration)
+        track.rank_full(iter=self._current_iteration, actions=scored_actions_full)
 
         # Use stochastic selection based on configured probability
         use_stochastic = random.random() < self.stochastic_probability
@@ -669,10 +673,19 @@ class RVAgentStrategy(ExplorationStrategy):
             selection_mode = "deterministic"
 
         if selected:
-            priority_label = "[DM]" if selected.directly_reaches_mop else (
-                "[M]" if selected.reaches_mop else "UI"
+            priority = "DM" if selected.directly_reaches_mop else ("M" if selected.reaches_mop else "UI")
+            coords = selected.coordinates if selected.coordinates else (0, 0)
+            score = self.action_ranker.score_action(selected, context)
+            action_type = selected.event.name if selected.event else "UNKNOWN"
+
+            track.select(
+                iter=self._current_iteration,
+                mode=selection_mode,
+                action=action_type,
+                coords=coords,
+                score=score,
+                priority=priority
             )
-            logger.info(f"[DEBUG_ACTION_SELECTION] SELECTED ({selection_mode}): {selected.event.value} at {selected.coordinates} priority={priority_label}")
 
         return selected
 
@@ -812,12 +825,21 @@ class RVAgentStrategy(ExplorationStrategy):
 
         Uses percentage-based thresholds to work across different screen resolutions.
 
+        NOTE: BACK and RESTART are virtual system actions that should be ALLOWED
+        for navigation purposes. They have coordinates=None but are valid actions.
+
         Args:
             action: Action to check
 
         Returns:
             True if system action (should skip)
         """
+        # Allow BACK and RESTART actions - they are valid navigation actions
+        target_view = action.target_view or {}
+        view_class = target_view.get('class', '')
+        if view_class in ('SystemAction_BACK', 'SystemAction_RESTART'):
+            return False  # Don't skip these - they are valid!
+
         coords = action.coordinates
         if not coords:
             return True
@@ -849,6 +871,7 @@ class RVAgentStrategy(ExplorationStrategy):
         self.current_depth = 0
         self.previous_hash = None
         self.scrolled_positions.clear()
+        self._current_iteration = 0
 
         # Reset tracking components (simple and direct)
         self.successor_tracker.successors.clear()

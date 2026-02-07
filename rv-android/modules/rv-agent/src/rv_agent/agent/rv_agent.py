@@ -50,12 +50,6 @@ from rv_agent.services.navigation_guidance import NavigationGuidance
 from rv_agent.domain.action import ActionNormalizer
 from rv_android_core.domain.static import StaticAnalysisData
 
-# INSTRUMENTATION: Optional metrics collector for validation experiments
-# This import and usage can be removed for production
-try:
-    from validation.multimodal.collector import MultimodalMetricsCollector
-except ImportError:
-    MultimodalMetricsCollector = None  # Not available outside validation context
 from rv_agent.agent.nodes import (
     parse_ui_node,
     decision_router_node,
@@ -116,8 +110,6 @@ class RVAgent:
         action_normalizer: Optional[ActionNormalizer] = None,
         static_data: Optional[StaticAnalysisData] = None,
         ui_coverage: Optional["UICoverageTracker"] = None,
-        # INSTRUMENTATION: Optional metrics collector for validation
-        metrics_collector: Optional[Any] = None
     ):
         """
         Initialize RVAgent with injected dependencies.
@@ -136,7 +128,6 @@ class RVAgent:
             navigation_guidance: Optional navigation guidance for WTG integration
             action_normalizer: Action format normalizer for unified format
             static_data: Optional static analysis data
-            metrics_collector: INSTRUMENTATION - Optional collector for validation metrics
         """
         self.config = config
         self.device = device
@@ -152,12 +143,6 @@ class RVAgent:
         self.action_normalizer = action_normalizer
         self.static_data = static_data
         self.ui_coverage = ui_coverage
-
-        # INSTRUMENTATION: Store metrics collector for validation
-        # Can be removed for production
-        self.metrics_collector = metrics_collector
-        if metrics_collector:
-            logger.info("INSTRUMENTATION: Metrics collector attached for validation")
 
         # Validate LLM client for modes that need it
         mode = config.get_agent_mode()
@@ -289,7 +274,6 @@ class RVAgent:
             Metrics dictionary with exploration results
         """
         logger.info("Starting RVAgent execution")
-        logger.info(f"DEBUG_TRACE: run() called, timeout={self.config.timeout}")
 
         start_time = time.time()
         iteration = 0
@@ -299,7 +283,6 @@ class RVAgent:
             logger.info(f"Launching application: {self.config.package_name}")
             self.device.launch_app(self.config.package_name)
             time.sleep(2)
-            logger.info("DEBUG_TRACE: App launched successfully")
         except Exception as e:
             logger.error(f"Failed to launch app: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
@@ -331,19 +314,16 @@ class RVAgent:
             "has_tool_calls": False,
             "llm_reasoning": "",
             "validation_path": "",
-            # INSTRUMENTATION: Raw XML for hit classification
             "ui_xml": ""
         }
 
         # External execution loop
-        logger.info(f"DEBUG_TRACE: Starting loop, timeout={self.config.timeout}")
         consecutive_errors = 0
         max_consecutive_errors = 10
 
         while True:
             try:
                 elapsed = time.time() - start_time
-                logger.info(f"DEBUG_TRACE: Loop check, elapsed={elapsed:.1f}, timeout={self.config.timeout}")
 
                 if elapsed >= self.config.timeout:
                     logger.info(f"🏁 Timeout reached ({elapsed:.1f}s)")
@@ -355,16 +335,13 @@ class RVAgent:
 
                 # Invoke graph for one iteration
                 # Set recursion_limit to prevent infinite loops in validation routing
-                logger.info(f"DEBUG_TRACE: Before graph.invoke(), iteration={iteration}")
                 result = self.graph.invoke(state, {"recursion_limit": 100})
-                logger.info(f"DEBUG_TRACE: After graph.invoke(), result keys={list(result.keys()) if result else 'None'}")
 
                 # Update state with results
                 state.update(result)
 
                 iteration += 1
                 consecutive_errors = 0  # Reset on success
-                logger.info(f"DEBUG_TRACE: Iteration incremented to {iteration}")
                 time.sleep(0.5)
 
             except KeyboardInterrupt:
@@ -372,10 +349,7 @@ class RVAgent:
                 break
             except Exception as e:
                 consecutive_errors += 1
-                import traceback
-                logger.error(f"DEBUG_TRACE: Exception in iteration {iteration}: {type(e).__name__}: {e}")
-                logger.error(f"[TYPECHECK] Full traceback:\n{traceback.format_exc()}")
-                logger.error(f"❌ Iteration error (attempt {consecutive_errors}/{max_consecutive_errors}): {e}")
+                logger.error(f"Iteration {iteration} error ({consecutive_errors}/{max_consecutive_errors}): {e}")
 
                 if consecutive_errors >= max_consecutive_errors:
                     logger.error(f"❌ Too many consecutive errors ({max_consecutive_errors}), but continuing until timeout")
@@ -386,23 +360,13 @@ class RVAgent:
         # Compute final metrics
         execution_time = time.time() - start_time
 
-        # INSTRUMENTATION: Finalize metrics collection
-        # This block can be removed for production
-        if self.metrics_collector:
-            try:
-                self.metrics_collector.finalize()
-                logger.info("INSTRUMENTATION: Metrics collection finalized")
-            except Exception as e:
-                logger.warning(f"INSTRUMENTATION: Failed to finalize metrics: {e}")
-        # END INSTRUMENTATION
-
-        # Get decision counters (detailed breakdown)
+        # Get decision counters
         counters = self.routing_manager.get_decision_counters()
 
         # Collect memory statistics
         memory_stats = self.get_memory_stats()
 
-        # Collect UI coverage metrics (core functionality)
+        # Collect UI coverage metrics
         ui_coverage_metrics = {}
         if hasattr(self, 'ui_coverage'):
             try:
@@ -410,7 +374,7 @@ class RVAgent:
             except Exception as e:
                 logger.warning(f"Failed to get UI coverage metrics: {e}")
 
-        return {
+        results = {
             "status": "completed",
             "iterations": iteration,
             "execution_time_s": execution_time,
@@ -419,20 +383,26 @@ class RVAgent:
             "llm_tokens_input": state["llm_tokens_input"],
             "llm_tokens_output": state["llm_tokens_output"],
             "llm_time_ms": state["llm_time_ms"],
-
-            # Decision counters
             "total_actions": counters["total_actions"],
-
-            # Primary counters (validate 70/30 proportion)
             "llm_executed": counters["llm_executed"],
             "algorithm_chosen": counters["algorithm_chosen"],
             "llm_percentage": counters["llm_percentage"],
             "algorithm_percentage": counters["algorithm_percentage"],
-
-            # Event counters
             "llm_validation_failed": counters["llm_validation_failed"],
             "forced_back": counters["forced_back"],
-
             "memory_stats": memory_stats,
             "ui_coverage": ui_coverage_metrics
         }
+
+        # Save metrics to file if output directory is configured
+        if self.config.metrics_output_dir:
+            from rv_agent.metrics import MetricsExporter
+            MetricsExporter.export(
+                results=results,
+                output_dir=self.config.metrics_output_dir,
+                package_name=self.config.package_name,
+                agent_mode=self.config.agent_mode,
+                timeout=self.config.timeout
+            )
+
+        return results

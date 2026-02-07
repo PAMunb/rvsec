@@ -24,6 +24,48 @@ This skill follows **Test-Driven Development** principles from superpowers:
 - **context7**: Fetch pytest docs if needed (`/pytest-dev/pytest`)
 - **sequential-thinking**: Plan test cases systematically
 
+## Guiding Principles
+
+When designing and writing tests, you must adhere to the following fundamental software engineering principles.
+
+### Core Objectives of Testing
+A test is a process of executing a program with the intent of finding an error. A good test case is one that has a high probability of finding an as-yet-undiscovered error. A successful test is one that uncovers an as-yet-undiscovered error.
+
+### Test Design Principles
+
+Your test suite should be designed, not just randomly written. Justify your test case choices based on these design principles.
+
+1.  **Traceability to Requirements**: All test cases should be traceable to customer requirements. This ensures the system is validated against what it is supposed to do.
+
+2.  **Black-Box Testing (Behavioral)**: Focus on the functional requirements of the software. You treat the component as a "black box" and test its behavior from the outside.
+    *   **Equivalence Partitioning**: Divide the input domain into classes of data from which test cases are derived. This avoids redundant testing. For a given input range, create partitions for invalid values below, valid values within, and invalid values above the range.
+    *   **Boundary Value Analysis (BVA)**: A technique that complements equivalence partitioning. Design test cases that focus on the "edges" of the input domain (e.g., min, max, just inside/outside boundaries), as this is where many errors occur.
+
+3.  **White-Box Testing (Structural)**: Focus on the internal logic of the software.
+    *   **Basis Path Testing**: A core white-box technique. Your goal is to ensure that all statements and conditions within a function have been executed at least once. This involves analyzing the code's control flow graph.
+
+4.  **Test Independence**: Each test should be independent of others. Avoid creating tests that rely on the state or output of other tests to function.
+
+5.  **Verifiability**: The expected outcome of a test must be clearly defined and verifiable. Assertions should be specific and unambiguous.
+
+### Quality Attributes for Testing
+- **Reliability**: Does the code perform its intended function correctly under normal conditions?
+- **Robustness**: How does the code handle invalid inputs, unexpected conditions, and errors?
+- **Testability**: Is the code designed in a way that facilitates testing (e.g., through modularity, low coupling, and dependency injection)?
+
+Always justify your test design decisions based on these principles.
+
+## Requirement for Principle-Based Justification
+
+During the execution of this task, you must explain how your test designs and decisions align with the Guiding Principles above. When creating test cases, include a justification such as:
+
+- "I am creating test cases based on the **Equivalence Partitioning** principle by defining these valid and invalid input classes..."
+- "To adhere to **Boundary Value Analysis**, I am testing the following edge cases: ..."
+- "This set of tests is designed to satisfy **Basis Path Testing** by ensuring all branches in the function are executed."
+- "This test case validates the requirement [Requirement ID], ensuring **Traceability to Requirements**."
+
+This ensures that test design is transparent and grounded in solid software engineering fundamentals.
+
 ## Test Type Decision Tree
 
 Use this to determine the appropriate test category:

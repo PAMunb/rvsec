@@ -28,6 +28,35 @@ Reference these files from this skill directory:
   - `checklists/risk-indicators.md` - Monitoring indicators by risk type
   - `checklists/mitigation-strategies.md` - Avoidance, minimization, contingency
 
+## Guiding Principles
+
+Your analysis must be guided by the following systematic risk management principles.
+
+1.  **Adopt a Proactive Strategy**: The goal is to be proactive, not reactive. A proactive strategy involves identifying potential risks, assessing their likelihood and impact, and establishing a plan to manage them *before* they become problems. A reactive strategy ("fire-fighting") is a sign of poor planning.
+    *   **Justification**: "My analysis follows a **proactive strategy** by identifying potential dependency issues now, rather than waiting for the build to fail."
+
+2.  **Systematically Identify Risks**: Risks should be identified in a systematic manner. Use categories (e.g., Project Risks, Product Risks, Business Risks) and checklists of common risk types (e.g., technology, people, requirements) to ensure a comprehensive assessment.
+    *   **Justification**: "I am using the **Systematic Risk Identification** principle by reviewing each category, which helped me uncover a 'People' risk related to team knowledge that might have been missed otherwise."
+
+3.  **Prioritize Based on Projection**: You cannot manage every risk. Focus on the vital few. For each risk, project (estimate) its **likelihood** (probability) and **impact** (consequences). Use these two dimensions to prioritize, focusing on high-likelihood, high-impact risks first.
+    *   **Justification**: "Based on the **Risk Projection** principle, I have rated this risk as 'High Impact' and 'Medium Likelihood'. Therefore, it requires a full mitigation and contingency plan."
+
+4.  **Develop a Mitigation, Monitoring, and Management (RMMM) Plan**: For every significant risk, a concrete plan is required.
+    *   **Mitigation**: How can the risk be avoided or its probability/impact reduced?
+    *   **Monitoring**: What indicators will you watch to know if the risk is becoming more or less likely? What are the trigger points for activating the contingency plan?
+    *   **Management**: What is the contingency plan to execute if the risk materializes?
+    *   **Justification**: "I am developing an **RMMM Plan** for this risk. The mitigation involves [action], the monitoring will track [metric], and the management plan is to [action]."
+
+5.  **Treat Risk Management as a Continuous Process**: The risk register is a living document. It must be revisited regularly throughout the project to track existing risks, identify new ones, and retire those that are no longer relevant.
+
+## Requirement for Principle-Based Justification
+
+When you identify, analyze, or plan for a risk, you **must** justify your decisions using the principles above.
+
+- "This risk is a high priority because the **Risk Projection** analysis shows..."
+- "My plan for this risk follows the **RMMM** principle by defining clear mitigation and monitoring steps..."
+- "I am taking a **proactive strategy** to address this potential issue by..."
+
 ---
 
 ## Risk Definition

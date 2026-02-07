@@ -16,6 +16,8 @@ __pycache__/
 
 # C extensions
 *.so
+# Exception: FastBot native libraries (required for tool execution)
+!modules/rv-tools/src/rv_tools/builtin/fastbot/libs/**/*.so
 
 # Distribution / packaging
 .Python

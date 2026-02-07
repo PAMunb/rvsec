@@ -173,60 +173,15 @@ class LLMClient:
 
             self.logger.debug(f"Built {len(messages)} messages")
 
-            # [LLM_TRACE] Log user prompt (dynamic part only)
-            if len(messages) > 1:
-                user_msg = messages[1]
-                if hasattr(user_msg, 'content'):
-                    content = user_msg.content
-                    user_text = ""
-                    if isinstance(content, list):
-                        # Multimodal message - extract text parts
-                        for p in content:
-                            if isinstance(p, dict) and p.get('type') == 'text':
-                                user_text = p.get('text', '')
-                                break
-                    elif isinstance(content, str):
-                        user_text = content
-                    else:
-                        user_text = str(content)
-                    # Truncate if too long
-                    if len(user_text) > 3000:
-                        user_text = user_text[:3000] + "\n... [truncated]"
-                    self.logger.warning(f"[LLM_TRACE] === USER PROMPT (iter={iteration}, len={len(user_text)}) ===")
-                    self.logger.warning(f"[LLM_TRACE] {user_text}")
-                    self.logger.warning(f"[LLM_TRACE] === END USER PROMPT ===")
-
             # Invoke LLM
             response = self.llm_with_tools.invoke(messages)
             latency_ms = (time.perf_counter() - start_time) * 1000
-
-            # [LLM_TRACE] Log raw response
-            raw_content = response.content if hasattr(response, 'content') else str(response)
-            native_tools = response.tool_calls if hasattr(response, 'tool_calls') else []
-            self.logger.warning(f"[LLM_TRACE] === RAW RESPONSE (latency={latency_ms:.0f}ms, content_len={len(raw_content) if raw_content else 0}) ===")
-            if raw_content:
-                # Log content in chunks to avoid line breaks issues
-                for line in str(raw_content).split('\n'):
-                    self.logger.warning(f"[LLM_TRACE] {line}")
-            self.logger.warning(f"[LLM_TRACE] Native tool_calls: {native_tools}")
-            self.logger.warning(f"[LLM_TRACE] === END RAW RESPONSE ===")
 
             # Extract token usage
             tokens_input, tokens_output = self._extract_token_usage(response)
 
             # Extract tool calls with fallback parsing
             tool_calls, parser_strategy = self._extract_tool_calls(response)
-
-            # [LLM_TRACE] Log parsed tool calls
-            self.logger.warning(f"[LLM_TRACE] === PARSED TOOL CALLS (strategy={parser_strategy}) ===")
-            if tool_calls:
-                for i, tc in enumerate(tool_calls):
-                    tc_name = tc.get('name', 'unknown')
-                    tc_args = tc.get('args', {})
-                    self.logger.warning(f"[LLM_TRACE] Tool[{i}]: {tc_name} args={tc_args}")
-            else:
-                self.logger.warning(f"[LLM_TRACE] NO TOOL CALLS PARSED!")
-            self.logger.warning(f"[LLM_TRACE] === END PARSED TOOL CALLS ===")
 
             # Inject tool calls into response if found via parser
             if tool_calls and not response.tool_calls:

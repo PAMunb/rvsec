@@ -228,3 +228,20 @@ The platform generates the following output files in the results directory:
 - **Static Analysis**: Static analysis loading is non-critical - execution continues without it
 - **Result Processing**: Can be skipped during execution and run standalone later
 - **Task Continuation**: TaskStorage supports experiment continuation via config checksum validation
+
+
+## Development Notes
+
+This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+
+**Key points:**
+- Run `poetry install` from the project root to install all modules
+- Source code changes are reflected immediately (no reinstall needed)
+- Only reinstall if `pyproject.toml` dependencies change
+
+```bash
+# From project root
+poetry install          # Install/update all modules
+poetry install --sync   # Also remove unused packages
+```
+

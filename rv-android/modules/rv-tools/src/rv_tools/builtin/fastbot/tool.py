@@ -407,7 +407,7 @@ class FastBotTool(AbstractTool):
             self.logger.info(f"Pushing {jar_key} JAR from {local_path} to {device_path}")
             
             push_cmd = Command('adb', [
-                '-s', self.config.get("device_serial", "emulator-5554"),
+                '-s', self.config.get("device_serial") or "emulator-5554",
                 'push', '-a', '-p', local_path, device_path
             ], timeout=60)  # 60 seconds timeout for push
             
@@ -451,12 +451,12 @@ class FastBotTool(AbstractTool):
             self.logger.info("Continuing without native libraries (may affect performance)")
             return
 
-        # Architecture mappings
+        # Architecture mappings - fastbot expects libs in /data/local/tmp/<arch>/
         arch_mappings = {
-            'arm64-v8a': '/data/local/tmp/lib64/',
-            'armeabi-v7a': '/data/local/tmp/lib/',
-            'x86': '/data/local/tmp/lib/',
-            'x86_64': '/data/local/tmp/lib64/'
+            'arm64-v8a': '/data/local/tmp/arm64-v8a/',
+            'armeabi-v7a': '/data/local/tmp/armeabi-v7a/',
+            'x86': '/data/local/tmp/x86/',
+            'x86_64': '/data/local/tmp/x86_64/'
         }
 
         for arch, device_path in arch_mappings.items():
@@ -471,7 +471,7 @@ class FastBotTool(AbstractTool):
             self.logger.info(f"Pushing FastBot native library for {arch} to {device_lib_path}")
             
             push_cmd = Command('adb', [
-                '-s', self.config.get("device_serial", "emulator-5554"),
+                '-s', self.config.get("device_serial") or "emulator-5554",
                 'push', '-a', '-p', local_lib_path, device_lib_path
             ], timeout=60)  # 60 seconds timeout for push
             
@@ -508,7 +508,7 @@ class FastBotTool(AbstractTool):
             Configured Command object for FastBot execution
         """
         cmd_args = [
-            "-s", self.config.get("device_serial", "emulator-5554"),
+            "-s", self.config.get("device_serial") or "emulator-5554",
             "shell",
             "CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar",
             "exec", "app_process", "/system/bin",

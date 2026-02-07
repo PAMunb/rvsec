@@ -7,12 +7,7 @@ to simplify agent instantiation and testing.
 
 import logging
 import importlib
-from typing import Optional, Any, TYPE_CHECKING
-
-# INSTRUMENTATION: Type hint for metrics collector
-# This import can be removed for production
-if TYPE_CHECKING:
-    from validation.multimodal.collector import MultimodalMetricsCollector
+from typing import Optional
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.rv_agent import RVAgent
@@ -74,8 +69,6 @@ class AgentFactory:
         config: RVAgentConfig,
         static_data: Optional[StaticAnalysisData] = None,
         device: Optional[DeviceInterface] = None,
-        # INSTRUMENTATION: Optional metrics collector for validation experiments
-        metrics_collector: Optional["MultimodalMetricsCollector"] = None
     ) -> RVAgent:
         """
         Create fully configured RVAgent instance.
@@ -134,16 +127,11 @@ class AgentFactory:
         exploration_strategy = strategy_registry.get_strategy(
             name=config.strategy,
             graph=dynamic_graph,
+            config=config,
             static_data=static_data,
-            coordinate_converter=None,  # Will use coordinate_utils directly
-            ui_coverage=ui_coverage,  # Required for RVAgentStrategy
-            transition_manager=transition_manager,  # WTG integration
-            plateau_window=config.plateau_window,  # RVAgent config
-            max_input_variations=config.max_input_variations,  # RVAgent config
-            target_package=config.package_name,  # Filter actions by target package
-            device_dimensions=device_size,  # For system action detection
-            stochastic_probability=config.stochastic_probability,  # Gumbel-max probability
-            stochastic_temperature=config.stochastic_temperature  # Gumbel-max temperature
+            ui_coverage=ui_coverage,
+            transition_manager=transition_manager,
+            device_dimensions=device_size  # Runtime device size
         )
         logger.info(f"Created ExplorationStrategy: {config.strategy}")
 
@@ -222,7 +210,6 @@ class AgentFactory:
         logger.info("Created MemoryCoordinator")
 
         # Create RVAgent
-        # INSTRUMENTATION: Pass metrics_collector for validation experiments
         agent = RVAgent(
             config=config,
             device=device,
@@ -238,7 +225,6 @@ class AgentFactory:
             action_normalizer=action_normalizer,
             static_data=static_data,
             ui_coverage=ui_coverage,
-            metrics_collector=metrics_collector  # INSTRUMENTATION: Can be removed for production
         )
 
         logger.info("AgentFactory: RVAgent created successfully")

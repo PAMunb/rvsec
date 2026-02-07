@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 from rv_agent.domain.state import AgentState
 from rv_agent.memory.element_id import make_element_id_from_action, make_element_id_from_tuple
+from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +129,8 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with action_executed and success status
     """
-    logger.info("EXECUTE: Executing action")
-
     action = state.get("current_action")
+    iteration = state.get("iteration", 0)
 
     if not action:
         logger.warning("No action to execute")
@@ -138,25 +138,18 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     source = action.get("source", "unknown")
     action_type = action.get("action_type", "UNKNOWN")
+    coords = (action.get('x'), action.get('y'))
 
-    # [LLM_TRACE] Log action being executed
-    logger.warning(f"[LLM_TRACE] === EXECUTING ACTION ===\n"
-                  f"[LLM_TRACE] source: {source}\n"
-                  f"[LLM_TRACE] action_type: {action_type}\n"
-                  f"[LLM_TRACE] coords: ({action.get('x')}, {action.get('y')})\n"
-                  f"[LLM_TRACE] text: {action.get('text', '')}\n"
-                  f"[LLM_TRACE] === END EXECUTING ACTION ===")
+    track.execution(iter=iteration, action=action_type, coords=coords, source=source)
 
     # Pre-marking for LLM actions: Record action in graph BEFORE execution
     # This ensures the action is marked as executed even if the app crashes
     screen_hash = state.get("current_screen_hash", "")
     if source == "llm" and screen_hash and agent.dynamic_graph:
-        x = action.get("x")
-        y = action.get("y")
+        x, y = coords
         if x is not None and y is not None:
             action_sig = ((x, y), action_type)
             agent.dynamic_graph.record_action(screen_hash, action_sig)
-            logger.info(f"[LLM_PREMARK] Recorded {action_sig} on {screen_hash[:8]}")
 
     result = agent.tool_executor.execute_action(action)
 
