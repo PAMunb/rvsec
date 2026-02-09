@@ -655,63 +655,113 @@ Integração do TransitionManager para guiar exploração usando Window Transiti
 
 ---
 
+## SDD Artifacts (Spec-Driven Development)
+
+The system is documented via Spec-Driven Development. Specs document current behavior; changes follow the OpenSpec workflow.
+
+### Key Artifacts
+
+| Artifact | Path | Description |
+|----------|------|-------------|
+| **PRD** | `docs/PRD.md` | Product Requirements Document (37 FRs, 8 NFRs) |
+| **Plan** | `docs/20260209_plano_spec_driven.md` | SDD adoption plan |
+| **Config** | `openspec/config.yaml` | OpenSpec rules and conventions |
+
+### Domain Specifications (7)
+
+| Domain | Path | Modules | FRs |
+|--------|------|---------|-----|
+| Core | `openspec/specs/core/spec.md` | rv-android-core | FR33-FR37 |
+| Platform | `openspec/specs/platform/spec.md` | rv-platform | FR07-FR11, FR14 |
+| Experiment | `openspec/specs/experiment/spec.md` | rv-experiment | FR15-FR17 |
+| Agent | `openspec/specs/agent/spec.md` | rv-agent, rv-llm | FR21-FR32 |
+| Instrumentation | `openspec/specs/instrumentation/spec.md` | rv-monitor-generator, rv-instrumentation | FR01-FR03 |
+| Analysis | `openspec/specs/analysis/spec.md` | rv-static-analysis, rv-coverage, rv-screen-parser | FR04-FR06, FR12-FR13 |
+| Tools | `openspec/specs/tools/spec.md` | rv-tools, rv-uiautomator | FR18-FR20 |
+
+### Templates
+
+| Template | Path |
+|----------|------|
+| Spec | `docs/templates/spec-template.md` |
+| Design | `docs/templates/design-template.md` |
+| ADR | `docs/templates/adr-template.md` |
+
+### Making Changes
+
+All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for track selection (Full SDD, Fast-Forward SDD, or Quick Path). Specs are updated via delta specs in changes, then synced to main specs via `/opsx:sync`.
+
+---
+
 ## Development Workflows
 
-See `.claude/AGENTS.md` for complete workflow documentation.
+**Full reference**: See `docs/WORKFLOW.md` for detailed workflow documentation with examples.
+**Skill reference**: See `.claude/AGENTS.md` for complete skill and agent documentation.
 
-### 1. TDD Workflow
+### Workflow Track Selection
 
-```
-1. /rv-test-add path/to/file.py function_name   # Write failing test
-2. Implement minimal code to pass
-3. /rv-verify module-name                        # Run all checks
-4. (rv-code-reviewer runs automatically)         # Review code
-```
+Match workflow formality to change scope. Three tracks:
 
-### 2. Refactoring Workflow
-
-```
-1. /rv-impact-analyzer target                    # Assess risk
-2. /rv-analyze-complexity module                 # Find hotspots
-3. (rv-refactor agent handles the rest)          # Multi-phase workflow
+```mermaid
+flowchart TD
+    START([New Task]) --> ASSESS{Change Scope}
+    ASSESS -->|"Multi-module\nArchitectural\nNew capability"| FULL[Full SDD]
+    ASSESS -->|"Single module\nClear requirements"| FAST[Fast-Forward SDD]
+    ASSESS -->|"Bug fix\nSmall refactor\nTest addition"| QUICK[Quick Path]
 ```
 
-### 3. Debugging Regression
+| Track | When | Phases |
+|-------|------|--------|
+| **Full SDD** | Multi-module, architectural, new features | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
+| **Fast-Forward SDD** | Single module, clear requirements | Explore -> Fast-Forward -> Implement -> Close |
+| **Quick Path** | Bug fixes, refactoring, test additions | Analyze -> Fix -> Verify |
 
-```
-1. /rv-debug-regression test_name                # Investigate via git
-2. /rv-test-add for regression test              # Prevent recurrence
-3. /rv-test-run to verify fix
-```
+### Full SDD (6 phases)
 
-### 3. Module Analysis (Deep Dive)
+| Phase | OpenSpec | RV Skills |
+|-------|----------|-----------|
+| 1. Explore | `/opsx:explore` | `/rv-analyze-module`, `/rv-impact-analyzer` |
+| 2. Propose | `/opsx:new` + `/opsx:continue` (x2) | -- |
+| 3. Design | `/opsx:continue` (x2) | `/rv-doc-adr` (if architectural) |
+| 4. Implement | `/opsx:apply` | `/rv-tdd`, `/rv-refactor`, `/rv-feature` |
+| 5. Verify | `/opsx:verify` | `/rv-verify` |
+| 6. Archive | `/opsx:sync` + `/opsx:archive` | `/rv-docs-sync` |
 
-```
-1. /rv-analyze-module module-name               # Analyze + persist to memory
-2. /rv-analyze-complexity module-name           # Find complexity hotspots
-3. /rv-analyze-dependencies                     # Check dependency health
-4. Check memory for persisted analysis          # Future reference
-```
+### Fast-Forward SDD (4 phases)
 
-### 4. Refactoring Workflow
+| Phase | Skills |
+|-------|--------|
+| 1. Explore | `/opsx:explore` or `/rv-analyze-module` |
+| 2. Fast-Forward | `/opsx:ff` (generates all artifacts at once) |
+| 3. Implement | `/opsx:apply` + orchestrators |
+| 4. Close | `/rv-verify` + `/opsx:verify` + `/opsx:archive` |
 
-```
-1. /rv-analyze-complexity path/to/file.py       # Identify issues
-2. /rv-refactor-simplify path/to/file.py        # Simplify
-   OR /rv-refactor-extract path/to/file.py      # Extract components
-3. /rv-test-run module-name                      # Verify no breakage
-4. /rv-qa-lint-fix module-name                   # Clean up formatting
-5. (Claude uses rv-code-reviewer)                # Final review
-```
+### Quick Path (3 phases)
 
-### 5. Code Quality Check
+| Phase | Skills |
+|-------|--------|
+| 1. Analyze | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression` |
+| 2. Fix | `/rv-tdd`, `/rv-refactor`, `/rv-cleanup`, or direct edit |
+| 3. Verify | `/rv-verify` or `/rv-test-run` |
 
-```
-1. /rv-qa-lint module-name                       # Find issues
-2. /rv-qa-lint-fix module-name                   # Auto-fix what's possible
-3. /rv-analyze-dead-code module-name             # Find unused code
-4. /rv-refactor-cleanup module-name              # Remove dead code
-```
+### Quick Reference: Common Scenarios
+
+| Scenario | Track | Skill Sequence |
+|----------|-------|----------------|
+| New feature in rv-agent | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Add config option to module | FF SDD | `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
+| Refactor module internals | Quick | `rv-analyze-module` -> `rv-refactor` -> `rv-verify` |
+| Fix a bug | Quick | `rv-debug-regression` -> `rv-tdd` -> `rv-verify` |
+| Add tests to existing code | Quick | `rv-test-add` -> `rv-test-run` |
+| Remove dead code | Quick | `rv-analyze-dead-code` -> `rv-cleanup` -> `rv-verify` |
+
+### Skill Architecture (3 layers)
+
+1. **Process Layer** (OpenSpec): `opsx:new`, `opsx:ff`, `opsx:continue`, `opsx:apply`, `opsx:verify`, `opsx:sync`, `opsx:archive`
+2. **Execution Layer** (rv-*): 4 orchestrators (`rv-feature`, `rv-refactor`, `rv-tdd`, `rv-cleanup`) + 26 component skills
+3. **Quality Gate**: `rv-code-reviewer` agent (auto-chained by orchestrators)
+
+**Key principle**: Unidirectional flow — Process Layer invokes Execution Layer, never the reverse.
 
 ### MCP Tools Usage in Workflows
 

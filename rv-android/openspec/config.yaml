@@ -1,0 +1,62 @@
+schema: spec-driven
+
+context: |
+  Project: RV-Android
+  Type: Modular framework for Android app testing with runtime verification
+  Language: Python 3.11+
+  Stack: Poetry workspace, Pydantic v2, LangGraph, SGLang/Qwen3-VL, JavaMOP/RV-Monitor
+  Architecture: 14 Poetry modules with develop=true (shared venv)
+  Academic context: PhD thesis on detecting cryptographic API misuses via RV
+
+  CRITICAL RULE — Existing system (brownfield):
+  Specs document the CURRENT behavior of the system.
+  Future changes use the OpenSpec workflow (proposal -> specs -> design -> tasks).
+  Do not create aspirational specs — only what is implemented.
+
+  Spec Domains:
+  - core: rv-android-core (domain models, events, errors, logging, utilities)
+  - platform: rv-platform (task execution engine, components, storage, results)
+  - experiment: rv-experiment (orchestration, CLI, 3-phase workflow)
+  - agent: rv-agent + rv-llm (LLM exploration, LangGraph, strategies, memory)
+  - instrumentation: rv-monitor-generator + rv-instrumentation (RV pipeline)
+  - analysis: rv-static-analysis + rv-coverage + rv-screen-parser
+  - tools: rv-tools + rv-uiautomator (tool infrastructure, device interaction)
+
+  Reference project: agente-documentador uses SDD/OpenSpec as a model
+  (path: /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/agente-documentador)
+
+  Templates: docs/templates/spec-template.md, docs/templates/design-template.md, docs/templates/adr-template.md
+  PRD: docs/PRD.md
+  Plan: docs/20260209_plano_spec_driven.md
+
+rules:
+  proposal:
+    - English language throughout
+    - Reference FRs/NFRs from PRD
+    - List affected specs and impacted modules
+    - Include impact section with dependencies
+  specs:
+    - Follow template structure from docs/templates/spec-template.md
+    - English language throughout
+    - RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - WHEN/THEN/AND format for scenarios
+    - Include Data Contracts (Input/Output/Side-Effects/Error)
+    - Include testable Invariants (INV-XX-NN)
+    - Reference specific Python modules and files
+    - Include inline data models with field descriptions
+    - Detailed narrative Purpose section (write for developers AND LLMs)
+  design:
+    - Follow template structure from docs/templates/design-template.md
+    - English language throughout
+    - Reference existing module files
+    - Include Pydantic schemas when applicable
+    - Include Mapping table: Spec -> Implementation -> Test
+  adr:
+    - Follow template structure from docs/templates/adr-template.md
+    - English language throughout
+    - Include alternatives considered with specific trade-offs
+  tasks:
+    - English language throughout
+    - Completable in one Claude Code session
+    - Include test tasks
+    - Order: models -> utils -> core -> integration
