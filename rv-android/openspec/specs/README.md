@@ -64,6 +64,15 @@ Full workflow details: [docs/WORKFLOW.md](../../docs/WORKFLOW.md)
 | **Design** | [docs/templates/design-template.md](../../docs/templates/design-template.md) | Design documents for changes |
 | **ADR** | [docs/templates/adr-template.md](../../docs/templates/adr-template.md) | Architectural Decision Records |
 
+## OpenSpec Skills and Commands
+
+The OpenSpec workflow tools are committed as part of the project (not installed separately):
+
+- **Skills** (`.claude/skills/openspec-*/`): 10 skill definitions for SDD workflow phases
+- **Commands** (`.claude/commands/opsx/`): 10 shorthand commands (`/opsx:new`, `/opsx:ff`, etc.)
+
+These are committed alongside the `rv-*` skills for consistency — all Claude Code workflow tools live in `.claude/` and are version-controlled with the project.
+
 ## Related Documents
 
 - **PRD**: [docs/PRD.md](../../docs/PRD.md) — 37 FRs, 8 NFRs, system overview
