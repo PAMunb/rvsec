@@ -5,7 +5,7 @@
 
 	<groupId>br.unb.cic</groupId>
 	<artifactId>rvsec-parent</artifactId>
-	<version>0.7.0-SNAPSHOT</version>
+	<version>0.8.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<organization>
@@ -46,22 +46,22 @@
 
 		<junit.version>4.13.2</junit.version>
 
-		<maven-clean-plugin.version>3.3.1</maven-clean-plugin.version>
-		<maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
-		<maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
-		<maven-jar-plugin.version>3.3.0</maven-jar-plugin.version>
-		<maven-source-plugin.version>3.3.0</maven-source-plugin.version>
-		<maven-assembly-plugin.version>3.6.0</maven-assembly-plugin.version>
-		<maven-release-plugin.version>3.0.1</maven-release-plugin.version>
-		<maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
-		<maven-failsafe-plugin.version>3.1.2</maven-failsafe-plugin.version>
+		<maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
+		<maven-resources-plugin.version>3.4.0</maven-resources-plugin.version>
+		<maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+		<maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
+		<maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+		<maven-assembly-plugin.version>3.8.0</maven-assembly-plugin.version>
+		<maven-release-plugin.version>3.3.1</maven-release-plugin.version>
+		<maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+		<maven-failsafe-plugin.version>3.5.4</maven-failsafe-plugin.version>
 
-		<jacoco-maven-plugin.version>0.8.10</jacoco-maven-plugin.version>
-		<spotbugs-maven-plugin.version>4.7.0.0</spotbugs-maven-plugin.version>
+		<jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
+		<spotbugs-maven-plugin.version>4.9.8.2</spotbugs-maven-plugin.version>
 		<fb-contrib.version>7.4.3.sb</fb-contrib.version>
 		<findsecbugs-plugin.version>1.12.0</findsecbugs-plugin.version>
 		<dependency-check-maven.version>7.1.1</dependency-check-maven.version>
-		<maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
+		<maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
 		<com.puppycrawl.tools.checkstyle.version>10.3</com.puppycrawl.tools.checkstyle.version>
 	</properties>
 
