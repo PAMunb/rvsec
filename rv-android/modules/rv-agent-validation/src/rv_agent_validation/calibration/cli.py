@@ -84,6 +84,12 @@ def calibration():
     default=False,
     help='Resume interrupted calibration from last checkpoint'
 )
+@click.option(
+    '--n-jobs',
+    type=int,
+    default=1,
+    help='Number of parallel trials (each uses 1 emulator)'
+)
 def calibrate(
     apks_dir: str,
     phase: str,
@@ -94,7 +100,8 @@ def calibrate(
     best_macro: Optional[str],
     baseline_dir: Optional[str],
     agent_mode: str,
-    resume: bool
+    resume: bool,
+    n_jobs: int
 ):
     """
     Run calibration optimization.
@@ -158,8 +165,9 @@ def calibrate(
 
     # Create objective function
     objective_fn = ObjectiveFunction(
-        coverage_weight=0.50,
-        errors_weight=0.50
+        coverage_weight=0.40,
+        errors_weight=0.40,
+        ui_coverage_weight=0.20
     )
 
     # Set baseline max errors if available
@@ -186,7 +194,8 @@ def calibrate(
         study_name=f"rvagent_{phase}",
         storage_path=storage_path,
         resume=resume,
-        fixed_params=fixed_params
+        fixed_params=fixed_params,
+        n_jobs=n_jobs
     )
 
     # Show progress info

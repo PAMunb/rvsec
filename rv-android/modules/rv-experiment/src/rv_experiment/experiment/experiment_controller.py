@@ -128,12 +128,15 @@ class ExperimentController:
                 self._run_pre_processing()
 
                 # Phase 2: Execution (rv-platform handles everything including result processing)
-                self.logger.info("Starting execution phase")
-                execution_success = self._run_execution()
-                
-                if not execution_success:
-                    self.logger.warning("Execution phase completed with issues")
-                    success = False
+                if self.config.run_execution:
+                    self.logger.info("Starting execution phase")
+                    execution_success = self._run_execution()
+
+                    if not execution_success:
+                        self.logger.warning("Execution phase completed with issues")
+                        success = False
+                else:
+                    self.logger.info("Execution phase skipped (--skip-execution)")
 
                 # Phase 3: Post-processing (basic diagnostics only)
                 self.logger.info("Starting post-processing phase")

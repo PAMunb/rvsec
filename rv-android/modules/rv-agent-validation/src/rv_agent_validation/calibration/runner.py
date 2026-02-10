@@ -36,7 +36,8 @@ class CalibrationRunner:
         output_base_dir: str = "./calibration",
         timeout: int = 300,
         agent_mode: str = "pure_algorithm",
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        apks_filter: Optional[str] = None
     ):
         """
         Initialize calibration runner.
@@ -49,6 +50,7 @@ class CalibrationRunner:
             timeout: Timeout per APK in seconds
             agent_mode: Agent mode (pure_algorithm, llm_only, multimode)
             seed: Random seed for rv-agent reproducibility (passed to all trials)
+            apks_filter: Path to text file listing APK filenames to process
         """
         self.dataset_dir = Path(dataset_dir)
         self.objective_fn = objective_fn
@@ -56,6 +58,7 @@ class CalibrationRunner:
         self.timeout = timeout
         self.agent_mode = agent_mode
         self.seed = seed
+        self.apks_filter = apks_filter
 
         # Validate dataset directory
         if not self.dataset_dir.exists():
@@ -74,13 +77,15 @@ class CalibrationRunner:
             f"apks={self.apk_count}, timeout={timeout}s, mode={agent_mode}"
         )
 
-    def run_trial(self, trial_id: int, params: Dict[str, Any]) -> float:
+    def run_trial(self, trial_id: int, params: Dict[str, Any],
+                  device_port: Optional[int] = None) -> float:
         """
         Run a single calibration trial.
 
         Args:
             trial_id: Trial identifier
             params: Parameter values from Optuna
+            device_port: Emulator port for parallel execution
 
         Returns:
             Objective score (0-100)
@@ -98,7 +103,7 @@ class CalibrationRunner:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Build command
-        cmd = self._build_command(tool_spec, str(output_dir))
+        cmd = self._build_command(tool_spec, str(output_dir), trial_id, device_port)
 
         logger.info(f"Trial {trial_id}: Running rv-experiment")
         logger.debug(f"Command: {' '.join(cmd)}")
@@ -117,8 +122,8 @@ class CalibrationRunner:
                 self._save_error_log(output_dir, result)
                 return 0.0
 
-            # Find actual results directory (rv-experiment creates subdirectories)
-            results_dir = self._find_results_dir(output_dir)
+            # Find actual results directory
+            results_dir = self._find_results_dir(output_dir, trial_id)
             if not results_dir:
                 logger.warning(f"Trial {trial_id}: Could not find results directory")
                 return 0.0
@@ -136,9 +141,11 @@ class CalibrationRunner:
             logger.error(f"Trial {trial_id}: Exception - {e}")
             return 0.0
 
-    def _build_command(self, tool_spec: str, output_dir: str) -> List[str]:
+    def _build_command(self, tool_spec: str, output_dir: str,
+                       trial_id: int = 0,
+                       device_port: Optional[int] = None) -> List[str]:
         """Build rv-experiment command."""
-        return [
+        cmd = [
             "poetry", "run", "rv-experiment", "run",
             "--tools", tool_spec,
             "--apks-dir", str(self.dataset_dir),
@@ -148,8 +155,14 @@ class CalibrationRunner:
             "--timeout", str(self.timeout),
             "--output-dir", output_dir,
             "--no-window",
-            "--repetitions", "1"
+            "--repetitions", "1",
+            "--name", f"trial_{trial_id}",
         ]
+        if device_port is not None:
+            cmd.extend(["--device-port", str(device_port)])
+        if self.apks_filter:
+            cmd.extend(["--apks-filter", str(self.apks_filter)])
+        return cmd
 
     def _estimate_total_timeout(self) -> int:
         """Estimate total timeout for all APKs."""
@@ -168,37 +181,40 @@ class CalibrationRunner:
             f.write("\n\n=== STDERR ===\n")
             f.write(result.stderr or "(empty)")
 
-    def _find_results_dir(self, output_dir: Path) -> Optional[Path]:
+    def _find_results_dir(self, output_dir: Path, trial_id: int = 0) -> Optional[Path]:
         """
         Find the actual results directory created by rv-experiment.
 
-        rv-experiment directory structure (by design):
-        - output_dir: Pre-processing artifacts (monitors, instrumented_apks, static_analysis)
-        - output_dir/../results/: Experiment results (summary.csv, coverage files)
+        With --name trial_{id}, the results directory is deterministic:
+        output_dir/trial_{id}/ contains summary.csv.
 
-        The results_dir is a SIBLING of output_dir, not a child. This is because
-        rv-experiment derives results_dir from the parent of output_dir:
-        ```python
-        if os.path.isabs(output_dir):
-            results_dir = os.path.join(os.path.dirname(output_dir), "results")
-        ```
+        Falls back to mtime-based search for compatibility.
 
         Args:
             output_dir: The base output directory passed to rv-experiment
+            trial_id: Trial identifier used in --name
 
         Returns:
             Path to the directory containing summary.csv, or None if not found
         """
-        # First check if summary.csv is directly in output_dir (unlikely but check)
+        # Direct match: --name creates a deterministic directory
+        named_dir = output_dir / f"trial_{trial_id}"
+        if (named_dir / "summary.csv").exists():
+            return named_dir
+
+        # Check output_dir itself
         if (output_dir / "summary.csv").exists():
             return output_dir
 
-        # Primary location: sibling results/ directory (rv-experiment default)
-        # output_dir = /tmp/calibration/trial_0
-        # results = /tmp/calibration/results/cli_experiment_TIMESTAMP/
+        # Sibling results/ directory (rv-experiment default layout)
         sibling_results = output_dir.parent / "results"
         if sibling_results.exists():
-            # Find the most recent experiment directory
+            # Try deterministic name first
+            named_sibling = sibling_results / f"trial_{trial_id}"
+            if (named_sibling / "summary.csv").exists():
+                return named_sibling
+
+            # Fallback: most recent experiment directory
             exp_dirs = sorted(
                 [d for d in sibling_results.iterdir() if d.is_dir()],
                 key=lambda d: d.stat().st_mtime,
@@ -206,26 +222,13 @@ class CalibrationRunner:
             )
             for exp_dir in exp_dirs:
                 if (exp_dir / "summary.csv").exists():
-                    logger.debug(f"Found results in sibling directory: {exp_dir}")
                     return exp_dir
 
-        # Fallback: check inside output_dir/results (older behavior)
-        child_results = output_dir / "results"
-        if child_results.exists():
-            exp_dirs = sorted(
-                [d for d in child_results.iterdir() if d.is_dir()],
-                key=lambda d: d.stat().st_mtime,
-                reverse=True
-            )
-            for exp_dir in exp_dirs:
-                if (exp_dir / "summary.csv").exists():
-                    return exp_dir
-
-        # Last resort: recursive search in output_dir
+        # Last resort: recursive search
         for summary_file in output_dir.rglob("summary.csv"):
             return summary_file.parent
 
-        logger.warning(f"No summary.csv found in {output_dir} or sibling results/")
+        logger.warning(f"No summary.csv found in {output_dir}")
         return None
 
 
@@ -251,8 +254,9 @@ def create_runner_from_config(
         Configured CalibrationRunner
     """
     objective_fn = ObjectiveFunction(
-        coverage_weight=0.50,
-        errors_weight=0.50,
+        coverage_weight=0.40,
+        errors_weight=0.40,
+        ui_coverage_weight=0.20,
         baseline_max_errors=baseline_max_errors
     )
 

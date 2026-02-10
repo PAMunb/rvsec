@@ -38,12 +38,12 @@ class TestAndroid:
     def test_create_emulator_context_manager(self, mock_command_class, mock_logging):
         mock_emulator_proc = MagicMock()
         mock_command_class.return_value.invoke_as_deamon.return_value = mock_emulator_proc
-        
+
         with patch.object(Android, 'start_emulator', return_value=mock_emulator_proc) as mock_start_emulator, \
              patch.object(Android, 'kill_emulator') as mock_kill_emulator:
-            with Android.create_emulator("test_avd"):
-                mock_start_emulator.assert_called_once_with("test_avd", False)
-            mock_kill_emulator.assert_called_once_with("test_avd")
+            with Android.create_emulator("test_avd", device_port=5556):
+                mock_start_emulator.assert_called_once_with("test_avd", False, 5556)
+            mock_kill_emulator.assert_called_once_with("test_avd", "emulator-5556")
 
     def test_create_emulator_context_manager_with_exception(self, mock_command_class, mock_logging):
         mock_emulator_proc = MagicMock()
@@ -52,9 +52,9 @@ class TestAndroid:
         with patch.object(Android, 'start_emulator', return_value=mock_emulator_proc) as mock_start_emulator, \
              patch.object(Android, 'kill_emulator') as mock_kill_emulator:
             with pytest.raises(ValueError):
-                with Android.create_emulator("test_avd"):
+                with Android.create_emulator("test_avd", device_port=5556):
                     raise ValueError("Test exception")
-            mock_kill_emulator.assert_called_once_with("test_avd")
+            mock_kill_emulator.assert_called_once_with("test_avd", "emulator-5556")
             mock_logging.error.assert_called_with("Error while using emulator: Test exception")
 
     def test_start_emulator(self, mock_command_class, mock_logging):
@@ -80,28 +80,18 @@ class TestAndroid:
 
     def test_kill_emulator(self, mock_command_class, mock_logging, mock_time_sleep):
         mock_kill_emu_cmd_instance = MagicMock()
-        mock_kill_server_cmd_instance = MagicMock()
-        mock_kill_locks_cmd_instance = MagicMock()
+        mock_command_class.side_effect = [mock_kill_emu_cmd_instance]
 
-        mock_command_class.side_effect = [
-            mock_kill_emu_cmd_instance,
-            mock_kill_server_cmd_instance,
-            mock_kill_locks_cmd_instance
-        ]
-
-        Android.kill_emulator("test_avd", "emulator-5554")
+        # Use non-default serial to prove device_name is propagated correctly
+        Android.kill_emulator("test_avd", "emulator-5556")
 
         mock_command_class.assert_has_calls([
-            call('adb', ['-s', 'emulator-5554', 'emu', 'kill']),
-            call('adb', ['-s', 'emulator-5554', 'kill-server']),
-            call('rm', ['~/.android/avd/test_avd.avd/*.lock'])
+            call('adb', ['-s', 'emulator-5556', 'emu', 'kill']),
         ])
         mock_kill_emu_cmd_instance.invoke.assert_called_once()
-        mock_kill_server_cmd_instance.invoke.assert_called_once()
-        mock_kill_locks_cmd_instance.invoke.assert_called_once()
         mock_time_sleep.assert_called_once_with(10)
-        mock_logging.info.assert_any_call("Killing emulator emulator-5554...")
-        mock_logging.info.assert_called_with("Emulator emulator-5554 has been killed")
+        mock_logging.info.assert_any_call("Killing emulator emulator-5556...")
+        mock_logging.info.assert_called_with("Emulator emulator-5556 has been killed")
 
     def test_wait_for_boot(self, mock_command_class, mock_logging, mock_time_sleep, mock_to_readable_time):
         # Mock the invoke results for bootanim, boot_completed, root, remount

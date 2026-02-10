@@ -104,20 +104,24 @@ class ExperimentConfig(BaseValidatedModel):
     repetitions: int = Field(default=1, gt=0, description="Number of repetitions")
     timeouts: List[int] = Field(default_factory=lambda: [60], description="List of timeout values in seconds")
     no_window: bool = Field(default=True, description="Run without GUI window")
+    device_port: Optional[int] = Field(default=None, description="Emulator port for parallel execution")
 
     # Processing phases
     generate_monitors: bool = Field(default=True, description="Generate monitors")
     instrument_apks: bool = Field(default=True, description="Instrument APKs")
     run_static_analysis: bool = Field(default=True, description="Run static analysis")
+    run_execution: bool = Field(default=True, description="Execute tasks after preprocessing")
 
     # Monitored operations specification set
     specification_set: str = Field(default=DEFAULT_SPEC_SET, description="Specification set type")
     custom_specs_dir: Optional[str] = Field(default=None, description="Custom specification directory")
     custom_aspects_dir: Optional[str] = Field(default=None, description="Custom AspectJ aspects directory")
 
-    # APK sources - Updated structure
+    # APK sources
     apks_dir: str = Field(default=f"./{DEFAULT_APKS_DIR}/",
                           description="Source APK directory path (contains APKs to be instrumented)")
+    apks_filter: Optional[str] = Field(default=None,
+        description="Path to text file listing APK filenames to process (one per line)")
 
     # Results configuration
     results_dir: Optional[str] = Field(default=None, description="Results directory path")
@@ -334,24 +338,31 @@ class ExperimentConfig(BaseValidatedModel):
     def get_apk_list(self) -> List[str]:
         """
         Get list of APK files to process based on configuration.
-        
+
+        If apks_filter is set, only APKs whose filename appears in the
+        filter file are included.
+
         Returns:
             List of APK file paths
-            
+
         Raises:
             ConfigurationError: If no APK files are found
         """
         apks = []
 
-        # APK directory - all APK files
         if self.apks_dir:
             apks_dir_path = Path(self.apks_dir)
             if apks_dir_path.exists():
                 apks.extend([str(p) for p in apks_dir_path.glob("*.apk")])
 
+        if self.apks_filter:
+            allowed = set(Path(self.apks_filter).read_text().strip().splitlines())
+            apks = [a for a in apks if Path(a).name in allowed]
+
         if not apks:
             raise ConfigurationError(
                 f"No APK files found in directory: {self.apks_dir}"
+                + (f" (filter: {self.apks_filter})" if self.apks_filter else "")
             )
 
         return apks

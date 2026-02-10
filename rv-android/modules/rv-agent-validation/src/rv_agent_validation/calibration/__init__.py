@@ -16,6 +16,7 @@ from .parameter_space import (
     suggest_params,
     params_to_tool_spec,
 )
+from .emulator_pool import EmulatorPool
 from .objective import ObjectiveFunction
 from .optimizer import CalibrationOptimizer
 from .runner import CalibrationRunner, create_runner_from_config
@@ -34,6 +35,8 @@ __all__ = [
     "params_to_tool_spec",
     # Objective
     "ObjectiveFunction",
+    # Emulator pool
+    "EmulatorPool",
     # Optimizer
     "CalibrationOptimizer",
     # Runner

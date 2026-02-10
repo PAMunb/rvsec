@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 import time
-from typing import Optional
+from typing import List, Optional
 
 from rv_android_core import constants
 from rv_android_core.commands.command import Command
@@ -106,7 +106,8 @@ class RVInstrumentation:
 
     @ErrorHandler.handle_errors(component="RVInstrumentation", phase="batch_instrumentation")
     def instrument_apks(self, apks_dir: str, results_dir: str,
-                        force_instrumentation: bool = False) -> InstrumentationResults:
+                        force_instrumentation: bool = False,
+                        apk_paths: Optional[List[str]] = None) -> InstrumentationResults:
         """
         Execute batch instrumentation of multiple APKs with comprehensive error tracking.
         
@@ -176,7 +177,11 @@ class RVInstrumentation:
 
         # Discover and validate APKs for instrumentation
         try:
-            apks = utils.get_apks(apks_dir)
+            if apk_paths is not None:
+                apks = [App(p) for p in apk_paths]
+                self._logger.info(f"Using {len(apks)} APKs from provided list")
+            else:
+                apks = utils.get_apks(apks_dir)
         except Exception as e:
             self._logger.error("Failed to retrieve APKs from directory", extra={
                 'apks_dir': apks_dir,

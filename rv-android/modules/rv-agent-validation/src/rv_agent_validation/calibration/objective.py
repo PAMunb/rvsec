@@ -1,12 +1,13 @@
 """
 Objective function for RVAgent calibration.
 
-Computes a composite score from method coverage and MOP errors.
+Computes a composite score from method coverage, MOP errors, and UI coverage.
 """
 
+import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 
@@ -17,14 +18,18 @@ class ObjectiveFunction:
     """
     Objective function for calibration optimization.
 
-    Computes a balanced score: 50% method coverage + 50% normalized errors.
+    Computes a weighted score: 40% method coverage + 40% normalized MOP errors
+    + 20% UI element coverage (from rvagent_metrics.json).
+
     Higher error count is BETTER - indicates more monitored operations triggered.
+    Higher UI coverage is BETTER - indicates more UI elements interacted with.
     """
 
     def __init__(
         self,
-        coverage_weight: float = 0.50,
-        errors_weight: float = 0.50,
+        coverage_weight: float = 0.40,
+        errors_weight: float = 0.40,
+        ui_coverage_weight: float = 0.20,
         baseline_max_errors: Optional[float] = None
     ):
         """
@@ -33,21 +38,28 @@ class ObjectiveFunction:
         Args:
             coverage_weight: Weight for method coverage (0-1)
             errors_weight: Weight for MOP errors (0-1)
+            ui_coverage_weight: Weight for UI element coverage (0-1)
             baseline_max_errors: Max errors from baseline for normalization.
                                  If None, uses fallback normalization.
         """
         self.coverage_weight = coverage_weight
         self.errors_weight = errors_weight
+        self.ui_coverage_weight = ui_coverage_weight
         self.baseline_max_errors = baseline_max_errors
 
-        if abs(coverage_weight + errors_weight - 1.0) > 0.001:
+        total = coverage_weight + errors_weight + ui_coverage_weight
+        if abs(total - 1.0) > 0.001:
             logger.warning(
-                f"Weights don't sum to 1.0: {coverage_weight} + {errors_weight}"
+                f"Weights don't sum to 1.0: {coverage_weight} + {errors_weight} "
+                f"+ {ui_coverage_weight} = {total}"
             )
 
     def compute(self, results_dir: str) -> float:
         """
         Compute objective score from experiment results.
+
+        Reads method coverage and MOP errors from summary.csv (rv-platform),
+        and UI element coverage from *.rvagent_metrics.json (rv-agent).
 
         Args:
             results_dir: Path to experiment results directory
@@ -72,25 +84,79 @@ class ObjectiveFunction:
             logger.warning(f"summary.csv is empty in {results_dir}")
             return 0.0
 
-        # Average across all APKs
+        # Method coverage and MOP errors from summary.csv
         avg_method_cov = summary['cov_method'].mean()  # 0-100%
         avg_errors = summary['errors'].mean()  # Raw count
-
-        # Normalize errors to 0-100 scale
         normalized_errors = self._normalize_errors(avg_errors)
+
+        # UI element coverage from rvagent_metrics.json files
+        avg_ui_cov = self._compute_avg_ui_coverage(results_path)
 
         # Composite score
         score = (
             self.coverage_weight * avg_method_cov +
-            self.errors_weight * normalized_errors
+            self.errors_weight * normalized_errors +
+            self.ui_coverage_weight * avg_ui_cov
         )
 
         logger.info(
             f"Objective score: {score:.2f} "
-            f"(cov={avg_method_cov:.1f}%, errors={avg_errors:.1f} -> {normalized_errors:.1f})"
+            f"(cov={avg_method_cov:.1f}%, errors={avg_errors:.1f} -> "
+            f"{normalized_errors:.1f}, ui_cov={avg_ui_cov:.1f}%)"
         )
 
         return score
+
+    def _compute_avg_ui_coverage(self, results_path: Path) -> float:
+        """
+        Compute average UI element coverage from rvagent_metrics.json files.
+
+        rv-agent exports a JSON file per APK run containing ui_coverage.element_coverage
+        (0-100 scale). This method finds all such files and averages the values.
+
+        Args:
+            results_path: Base path to search for metrics files
+
+        Returns:
+            Average UI element coverage (0-100), or 0.0 if no files found
+        """
+        metrics_files = self._find_rvagent_metrics(results_path)
+
+        if not metrics_files:
+            logger.debug(f"No rvagent_metrics.json files found in {results_path}")
+            return 0.0
+
+        coverages = []
+        for metrics_file in metrics_files:
+            try:
+                with open(metrics_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                element_cov = data.get("ui_coverage", {}).get("element_coverage", 0.0)
+                coverages.append(float(element_cov))
+            except (json.JSONDecodeError, ValueError, OSError) as e:
+                logger.debug(f"Failed to read {metrics_file}: {e}")
+                continue
+
+        if not coverages:
+            return 0.0
+
+        avg = sum(coverages) / len(coverages)
+        logger.debug(
+            f"UI coverage from {len(coverages)} files: avg={avg:.1f}%"
+        )
+        return avg
+
+    def _find_rvagent_metrics(self, results_path: Path) -> List[Path]:
+        """
+        Find all rvagent_metrics.json files in the results directory.
+
+        Args:
+            results_path: Base path to search
+
+        Returns:
+            List of paths to rvagent_metrics.json files
+        """
+        return list(results_path.rglob("*.rvagent_metrics.json"))
 
     def _find_summary_csv(self, results_path: Path) -> Optional[Path]:
         """

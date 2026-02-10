@@ -97,7 +97,9 @@ class Platform:
 
             # Generate tasks
             self._generate_tasks()
-            # TODO tratar continuacao de experimento
+
+            # Resume: skip tasks already completed in a previous run
+            self._skip_completed_tasks()
 
             # Execute tasks
             results = self._execute_tasks()
@@ -155,12 +157,18 @@ class Platform:
                             )
                             
                             
+                            # Set device_id from additional_params for parallel execution
+                            device_id = tool_config.parameters.get(
+                                'device_serial', 'emulator-5554'
+                            )
+
                             task_config = TaskConfiguration(
                                 apk_name=apk_name,
                                 repetition=repetition,
                                 timeout=timeout,
                                 tool_config=task_tool_config,
-                                no_window=self.config.no_window
+                                no_window=self.config.no_window,
+                                device_id=device_id
                             )
 
                             # Create task
@@ -175,10 +183,36 @@ class Platform:
 
         self.logger.info(f"Generated {task_count} tasks")
 
+    def _skip_completed_tasks(self) -> None:
+        """Skip tasks that were already completed in a previous run (resume support)."""
+        completed_tasks = self.task_storage.get_completed_tasks()
+        if not completed_tasks:
+            return
+
+        def task_identity(task):
+            tc = task.config
+            return (tc.apk_name, tc.tool_config.tool_name, tc.tool_config.variant,
+                    tc.repetition, tc.timeout)
+
+        completed_ids = {task_identity(t) for t in completed_tasks}
+
+        original_count = len(self.tasks)
+        self.tasks = [t for t in self.tasks if task_identity(t) not in completed_ids]
+        skipped = original_count - len(self.tasks)
+
+        if skipped > 0:
+            self.logger.info(
+                f"Resume: skipped {skipped} already-completed tasks "
+                f"({len(self.tasks)} remaining)"
+            )
+
     def _discover_apks(self) -> List[Path]:
         """
         Discover APK files in the configured directory.
-        
+
+        If apks_filter_file is set, only APKs whose filename appears in the
+        filter file are included.
+
         Returns:
             List of APK file paths
         """
@@ -187,6 +221,13 @@ class Platform:
 
         if not apk_files:
             raise ValueError(f"No APK files found in directory: {self.config.apks_dir}")
+
+        if self.config.apks_filter_file:
+            allowed = set(Path(self.config.apks_filter_file).read_text().strip().splitlines())
+            apk_files = [f for f in apk_files if f.name in allowed]
+            if not apk_files:
+                raise ValueError(f"No APKs match filter: {self.config.apks_filter_file}")
+            self.logger.info(f"Filtered to {len(apk_files)} APKs from filter file")
 
         return sorted(apk_files)
 

@@ -52,12 +52,14 @@ class PlatformConfig(BaseValidatedModel):
     timeouts: List[int] = Field(default_factory=lambda: [60], description="Timeout values in seconds")
     
     # Optional parameters with defaults
-    max_parallel_tasks: int = Field(default=1, description="Maximum parallel tasks (future feature)")
+    max_parallel_tasks: int = Field(default=1, description="Maximum number of parallel tasks")
     no_window: bool = Field(default=False, description="Run in headless mode")
     results_dir: str = Field(default="results", description="Output directory for results")
     task_storage_file: str = Field(default="tasks.json", description="Task persistence file")
     log_level: str = Field(default="INFO", description="Logging level")
     skip_result_processing: bool = Field(default=False, description="Skip result processing after execution")
+    apks_filter_file: Optional[str] = Field(default=None,
+        description="Path to text file listing APK filenames to process (one per line)")
 
     @field_validator('apks_dir')
     @classmethod

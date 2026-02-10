@@ -20,6 +20,7 @@ from .parameter_space import (
     get_default_params,
     params_to_tool_spec,
 )
+from .emulator_pool import EmulatorPool
 from .objective import ObjectiveFunction
 
 logger = logging.getLogger(__name__)
@@ -40,12 +41,13 @@ class CalibrationOptimizer:
         self,
         phase: CalibrationPhase,
         objective_fn: ObjectiveFunction,
-        trial_runner: Callable[[int, Dict[str, Any]], float],
+        trial_runner: Callable,
         seed: int = 42,
         study_name: str = "rvagent_calibration",
         storage_path: Optional[str] = None,
         resume: bool = False,
-        fixed_params: Optional[Dict[str, Any]] = None
+        fixed_params: Optional[Dict[str, Any]] = None,
+        n_jobs: int = 1
     ):
         """
         Initialize optimizer.
@@ -54,7 +56,7 @@ class CalibrationOptimizer:
             phase: Calibration phase (macro, micro, or full)
             objective_fn: Objective function for scoring results
             trial_runner: Function that runs a trial and returns score.
-                          Signature: (trial_id, params) -> score
+                          Signature: (trial_id, params, device_port=None) -> score
             seed: Random seed for reproducibility
             study_name: Name for the Optuna study
             storage_path: Path to SQLite database for persistence.
@@ -63,6 +65,7 @@ class CalibrationOptimizer:
                     If False, create new study (deletes existing if any).
             fixed_params: Optional dict of fixed parameters (e.g., macro params
                           for micro phase). These are not optimized.
+            n_jobs: Number of parallel trials (each uses 1 emulator)
         """
         self.phase = phase
         self.objective_fn = objective_fn
@@ -72,6 +75,12 @@ class CalibrationOptimizer:
         self.storage_path = storage_path
         self.resume = resume
         self.fixed_params = fixed_params or {}
+        self.n_jobs = n_jobs
+
+        # Create emulator pool for parallel execution
+        self.emulator_pool: Optional[EmulatorPool] = None
+        if n_jobs > 1:
+            self.emulator_pool = EmulatorPool(n_emulators=n_jobs)
 
         # Create sampler with fixed seed for reproducibility
         self.sampler = TPESampler(seed=seed)
@@ -184,6 +193,9 @@ class CalibrationOptimizer:
         """
         Optuna objective function wrapper.
 
+        Acquires an emulator port from the pool when running in parallel,
+        and releases it after the trial completes (or fails).
+
         Args:
             trial: Optuna trial object
 
@@ -194,20 +206,22 @@ class CalibrationOptimizer:
         params = suggest_params(trial, self.phase)
 
         # Combine with fixed params (e.g., macro params for micro phase)
-        # Fixed params take precedence and are not suggested by Optuna
         combined_params = {**params, **self.fixed_params}
 
-        # Log trial start
         trial_id = trial.number
         logger.info(f"Trial {trial_id}: suggested={params}")
         if self.fixed_params:
             logger.info(f"Trial {trial_id}: fixed={self.fixed_params}")
 
-        try:
-            # Run trial and get score using combined params
-            score = self.trial_runner(trial_id, combined_params)
+        # Acquire emulator port from pool (blocks until available)
+        device_port = None
+        if self.emulator_pool:
+            device_port = self.emulator_pool.acquire()
+            logger.info(f"Trial {trial_id}: acquired port {device_port}")
 
-            # Update best if improved (store combined params)
+        try:
+            score = self.trial_runner(trial_id, combined_params, device_port=device_port)
+
             if score > self.best_score:
                 self.best_score = score
                 self.best_params = combined_params.copy()
@@ -217,7 +231,12 @@ class CalibrationOptimizer:
 
         except Exception as e:
             logger.error(f"Trial {trial_id} failed: {e}")
-            return 0.0  # Return 0 for failed trials
+            return 0.0
+
+        finally:
+            if self.emulator_pool and device_port is not None:
+                self.emulator_pool.release(device_port)
+                logger.debug(f"Trial {trial_id}: released port {device_port}")
 
     def optimize(self, n_trials: int, timeout: Optional[int] = None) -> Dict[str, Any]:
         """
@@ -251,6 +270,7 @@ class CalibrationOptimizer:
             self._objective,
             n_trials=remaining,
             timeout=timeout,
+            n_jobs=self.n_jobs,
             show_progress_bar=True
         )
 

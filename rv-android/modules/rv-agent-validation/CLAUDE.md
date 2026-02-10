@@ -75,13 +75,18 @@ rv-agent-validation/
 │   └── __main__.py           # CLI entry point
 │
 ├── data/
-│   ├── apks/                 # Original APK files
-│   ├── apks_instrumented/    # Instrumented APKs
-│   ├── static_data/          # Static analysis files (.wtg, .gesda, .reach)
-│   ├── configs/              # Experiment configuration files
-│   ├── calibration_dataset/  # Pre-instrumented APKs for calibration (15 APKs)
-│   ├── calibration_set.txt   # 10 APKs for calibration trials
-│   └── holdout_set.txt       # 5 APKs for hold-out validation
+│   ├── calibration_dataset_v2/  # 105 APKs instrumented + SA flat (420 files)
+│   │   ├── name.apk            #   Instrumented APK with JCA monitors
+│   │   ├── name.apk.gesda      #   GESDA — named {apk_filename}.gesda
+│   │   ├── name.apk.wtg        #   GATOR WTG — named {apk_filename}.wtg
+│   │   └── name.apk.reach      #   REACH — named {apk_filename}.reach
+│   ├── calibration_set_v2.txt   # 75 APKs for calibration (Phases C/D)
+│   ├── holdout_set_v2.txt       # 30 APKs for hold-out validation (Phase E)
+│   ├── all_valid_apks.txt       # 105 APKs (all valid)
+│   ├── dataset_split.csv        # Metadata + set assignment
+│   ├── calibration_dataset/     # Legacy: 15 APKs (v1)
+│   ├── calibration_set.txt      # Legacy: 10 APKs (v1)
+│   └── holdout_set.txt          # Legacy: 5 APKs (v1)
 │
 ├── results/                  # Experiment output
 │   └── <experiment_id>/

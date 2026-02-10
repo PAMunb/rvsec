@@ -165,7 +165,8 @@ class PreProcessor:
                 instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
                 success = instrumenter.instrument_apks(
                     apks_dir=self.config.apks_dir,
-                    results_dir=instrumented_dir
+                    results_dir=instrumented_dir,
+                    apk_paths=apk_list
                 )
 
                 if not success:
@@ -304,11 +305,14 @@ class PreProcessor:
         """Get APKs for static analysis (prefer instrumented over original)."""
         target_apks = []
 
-        # Try instrumented APKs first
+        # Get expected APK filenames from filtered config
+        expected_names = {os.path.basename(p) for p in self.config.get_apk_list()}
+
+        # Try instrumented APKs first, filtered by expected set
         instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         if os.path.exists(instrumented_dir):
             for file in os.listdir(instrumented_dir):
-                if file.endswith(EXTENSION_APK):
+                if file.endswith(EXTENSION_APK) and file in expected_names:
                     target_apks.append(os.path.join(instrumented_dir, file))
 
         # Fallback to original APKs if no instrumented found

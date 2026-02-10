@@ -198,19 +198,24 @@ class ExecutionController:
 
         # Convert experiment tools to platform tool configurations
         platform_tools = []
-        
-        # FIXED: Support multiple tool configs with same name
-        # Instead of using tool instances, directly convert tool_configs to platform configs
+
         if tool_configs:
             for original_config in tool_configs:
+                params = dict(original_config.parameters)
+
+                # Inject device_port into tool parameters for parallel execution
+                if self.config.device_port is not None:
+                    params['device_port'] = self.config.device_port
+                    params['device_serial'] = f"emulator-{self.config.device_port}"
+                    params['device_id'] = f"emulator-{self.config.device_port}"
+
                 tool_config = ToolConfig(
                     name=original_config.name,
                     variants=original_config.variants,
-                    parameters=original_config.parameters
+                    parameters=params
                 )
                 platform_tools.append(tool_config)
         else:
-            # Fallback: Use tool instances if no original configs available
             for tool in tools:
                 tool_config = ToolConfig(
                     name=tool.name,
@@ -227,7 +232,8 @@ class ExecutionController:
             timeouts=timeouts,
             results_dir=platform_results_dir,
             no_window=no_window,
-            log_level="INFO"
+            log_level="INFO",
+            apks_filter_file=self.config.apks_filter
         )
 
         self.logger.info(f"Created platform configuration: {len(platform_tools)} tools, "
