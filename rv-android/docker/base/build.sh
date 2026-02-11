@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.7.0
+VERSION=0.8.0
 IMAGE=phtcosta/rvsec_base
 
 docker build --no-cache -t $IMAGE:$VERSION $(dirname $0)
@@ -14,4 +14,4 @@ echo "Image created successfully!!!"
 
 # send to docker hub
 #docker login -u phtcosta
-#docker push phtcosta/rvsec_base:0.7.0
+#docker push phtcosta/rvsec_base:0.8.0

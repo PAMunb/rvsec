@@ -1,27 +1,36 @@
-#FROM ubuntu:22.04
-FROM phtcosta/rvandroid:0.0.1
+FROM phtcosta/rvsec_android:0.8.0
 
-#WORKDIR /opt
+
+WORKDIR /opt
+RUN git clone https://github.com/honeynet/droidbot.git && \
+    cd droidbot && \
+    sed -i 's/androguard>=3.4.0a1/androguard==3.4.0a1/g' setup.py && \
+    pip install -e .
+
+ENV PYTHONPATH=/opt/droidbot:$PYTHONPATH
+
+
+# RUN cd /opt/droidbot && pip install -e . && pip install telnetlib3
 
 #apt-get install -y python2 && \
 #curl  https://bootstrap.pypa.io/pip/2.7/get-pip.py | python2 && \
 #pip2 install virtualenv
 #python2 -m virtualenv venv2
 
-ENV SAPIENZ_HOME=/opt/sapienz/
-WORKDIR /opt
-RUN apt-get update && \
-    apt install -qq -y --no-install-recommends python2 libfreetype6-dev libxml2-dev libxslt1-dev python-dev python-tk libmotif-dev && \
-    curl  https://bootstrap.pypa.io/pip/2.7/get-pip.py | python2 && \
-    git clone https://github.com/droidxp/sapienz.git && \
-    cd sapienz && \
-    pip2 install -r requirements.txt && \
-    mkdir /opt/rvsec/rv-android/tools/sapienz
-COPY sapienz/copyreg.py /usr/local/lib/python2.7/dist-packages/deap/copyreg.py
-COPY sapienz/settings.py /opt/sapienz/settings.py
-COPY sapienz/__init__.py /opt/rvsec/rv-android/tools/sapienz
-COPY sapienz/tool.py /opt/rvsec/rv-android/tools/sapienz
-WORKDIR /opt/sapienz
+# ENV SAPIENZ_HOME=/opt/sapienz/
+# WORKDIR /opt
+# RUN apt-get update && \
+#     apt install -qq -y --no-install-recommends python2 libfreetype6-dev libxml2-dev libxslt1-dev python-dev python-tk libmotif-dev && \
+#     curl  https://bootstrap.pypa.io/pip/2.7/get-pip.py | python2 && \
+#     git clone https://github.com/droidxp/sapienz.git && \
+#     cd sapienz && \
+#     pip2 install -r requirements.txt && \
+#     mkdir /opt/rvsec/rv-android/tools/sapienz
+# COPY sapienz/copyreg.py /usr/local/lib/python2.7/dist-packages/deap/copyreg.py
+# COPY sapienz/settings.py /opt/sapienz/settings.py
+# COPY sapienz/__init__.py /opt/rvsec/rv-android/tools/sapienz
+# COPY sapienz/tool.py /opt/rvsec/rv-android/tools/sapienz
+# WORKDIR /opt/sapienz
 
 #settings,py
 #DEBUG = False
@@ -70,23 +79,23 @@ WORKDIR /opt/sapienz
 #CMD ["python", "main.py"]
 
 
-ENV RV_REPETITIONS=1
-ENV RV_TIMEOUTS=180
-ENV RV_TOOLS=sapienz
-ENV RV_HUMANOID_URL=humanoid:50405
-ENV RV_SKIP_MONITORS=false
-ENV RV_SKIP_INSTRUMENT=false
-ENV RV_SKIP_STATIC_ANALYSIS=false
-ENV RV_SKIP_EXPERIMENT=false
-ENV RV_NO_WINDOW=true
-ENV RV_JCA_SPEC=true
+# ENV RV_REPETITIONS=1
+# ENV RV_TIMEOUTS=180
+# ENV RV_TOOLS=sapienz
+# ENV RV_HUMANOID_URL=humanoid:50405
+# ENV RV_SKIP_MONITORS=false
+# ENV RV_SKIP_INSTRUMENT=false
+# ENV RV_SKIP_STATIC_ANALYSIS=false
+# ENV RV_SKIP_EXPERIMENT=false
+# ENV RV_NO_WINDOW=true
+# ENV RV_JCA_SPEC=true
 
-#TODO receber o dir das specs tbm?
+# #TODO receber o dir das specs tbm?
 
-VOLUME /opt/rvsec/rv-android/apks
-VOLUME /opt/rvsec/rv-android/out
-VOLUME /opt/rvsec/rv-android/results
+# VOLUME /opt/rvsec/rv-android/apks
+# VOLUME /opt/rvsec/rv-android/out
+# VOLUME /opt/rvsec/rv-android/results
 
-WORKDIR /opt/rvsec/rv-android
+# WORKDIR /opt/rvsec/rv-android
 
-CMD ["python", "main.py"]
+# CMD ["python", "main.py"]

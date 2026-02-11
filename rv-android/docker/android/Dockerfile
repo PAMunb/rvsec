@@ -1,4 +1,4 @@
-FROM phtcosta/rvsec_base:0.7.0
+FROM phtcosta/rvsec_base:0.8.0
 
 
 # Arguments that can be overriden at build-time.
@@ -41,12 +41,12 @@ WORKDIR /opt
 
 # Create fake keymap file
 RUN mkdir -v -p $ANDROID_SDK_ROOT/tools/keymaps && \
-    touch $ANDROID_SDK_ROOT/tools/keymaps/en-us
+	touch $ANDROID_SDK_ROOT/tools/keymaps/en-us
 
 
 # Initializing the required directories.
 RUN mkdir $HOME/.android/ &&  \
-    touch $HOME/.android/repositories.cfg && \
+	touch $HOME/.android/repositories.cfg && \
 	mkdir /data
 
 
@@ -56,14 +56,14 @@ RUN apt update && apt -qq -y --no-install-recommends install bzip2 libdrm-dev \
 	libxcursor1 libpulse-dev libxshmfence-dev \
 	xauth xvfb x11vnc fluxbox wmctrl libdbus-glib-1-2 socat \
 	virt-manager && \
-    wget -v https://dl.google.com/android/repository/commandlinetools-linux-${CMD_LINE_VERSION}.zip && \
-    mkdir $ANDROID_SDK_ROOT/cmdline-tools/ && \
+	wget -v https://dl.google.com/android/repository/commandlinetools-linux-${CMD_LINE_VERSION}.zip && \
+	mkdir $ANDROID_SDK_ROOT/cmdline-tools/ && \
 	unzip *tools*linux*.zip -d $ANDROID_HOME/cmdline-tools && \
 	mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/tools && \
 	rm *tools*linux*.zip && \
-    yes Y | sdkmanager --licenses && \
-    sdkmanager --install ${ANDROID_SDK_PACKAGES} && \
-    echo "no" | avdmanager --verbose create avd --force --name "$EMULATOR_NAME" --abi "$ABI" --package "$PACKAGE_PATH" --device "$DEVICE_ID"
+	yes Y | sdkmanager --licenses && \
+	sdkmanager --install ${ANDROID_SDK_PACKAGES} && \
+	echo "no" | avdmanager --verbose create avd --force --name "$EMULATOR_NAME" --abi "$ABI" --package "$PACKAGE_PATH" --device "$DEVICE_ID"
 
 
 #COPY license_accepter.sh /opt/android/license_accepter.sh

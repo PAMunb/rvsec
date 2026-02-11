@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.7.0
+VERSION=0.8.0
 IMAGE=phtcosta/rvsec_android
 
 docker build --no-cache -t $IMAGE:$VERSION $(dirname $0)
@@ -14,4 +14,4 @@ echo "Imagem criada com sucesso!!!"
 
 # mandar imagem pro docker hub
 #docker login
-#docker push phtcosta/rvsec_android:0.7.0
+#docker push phtcosta/rvsec_android:0.8.0
