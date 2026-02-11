@@ -1099,28 +1099,6 @@ pipenv = ["pipenv"]
 poetry = ["poetry"]
 
 [[package]]
-name = "droidbot"
-version = "1.0.2b4"
-description = "A lightweight UI-guided test input generator for Android."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = []
-develop = true
-
-[package.dependencies]
-androguard = "3.4.0a1"
-networkx = "*"
-Pillow = "*"
-requests = "*"
-setuptools = "*"
-telnetlib3 = "*"
-
-[package.source]
-type = "directory"
-url = "droidbot"
-
-[[package]]
 name = "executing"
 version = "2.2.1"
 description = "Get the currently executing AST node of a frame, and other information"
@@ -5814,18 +5792,6 @@ mpmath = ">=1.1.0,<1.4"
 dev = ["hypothesis (>=6.70.0)", "pytest (>=7.1.0)"]
 
 [[package]]
-name = "telnetlib3"
-version = "2.0.8"
-description = "Python 3 asyncio Telnet server and client Protocol library"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "telnetlib3-2.0.8-py2.py3-none-any.whl", hash = "sha256:9c5b762d359581af61b7872c5abd1aa82d8fd49044d12b4eb5a7c88660901dbd"},
-    {file = "telnetlib3-2.0.8.tar.gz", hash = "sha256:08a2a7a3a6790f89617442b7d491da8b531d87706fffd6a33eeff57ac440b752"},
-]
-
-[[package]]
 name = "tenacity"
 version = "9.1.2"
 description = "Retry code until it succeeds"
@@ -6697,4 +6663,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "3706cb173ef3a5007b6d37c0052848a5091bbf93cb93d93eb95de50f968841f2"
+content-hash = "52e82cc1f2a159137eddfb967e2d8a37a66e0bc2eb466bdd9b449666b5a6f9c7"
