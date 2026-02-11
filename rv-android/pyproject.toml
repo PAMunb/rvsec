@@ -30,7 +30,7 @@ rvdroid-tool = {path = "modules/rvdroid-tool", develop = true}
 rvagent-tool = {path = "modules/rvagent-tool", develop = true}
 rv-experiment = {path = "modules/rv-experiment", develop = true}
 androguard = "3.4.0a1"
-droidbot = {path = "droidbot", develop = true}
+# droidbot = {path = "droidbot", develop = true}
 networkx = "^3.5"
 python-dotenv = "^1.1.1"
 seaborn = "^0.13.2"
