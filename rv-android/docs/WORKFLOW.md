@@ -10,13 +10,62 @@ Authoritative reference for the Spec-Driven Development (SDD) workflow used in R
 
 ---
 
-## 1. Workflow Track Selection
+## 1. Phase 0: Ideation
+
+Before choosing a workflow track or writing any code, take time to understand what you want to build. This phase is about refining a vague idea ("I need Docker support") into a concrete, well-scoped task ("wire the existing resume architecture and create Docker entry point scripts"). Many costly mistakes — wrong track selection, incomplete scope assessment, missed module dependencies — happen because this step was skipped.
+
+Phase 0 is informal and has no artifacts. It is a conversation between the researcher and the tools, aimed at answering three questions: **What exactly do I want to change?**, **Why does this change matter?**, and **What parts of the system are affected?**. Once these questions have clear answers, you move to Track Selection (Section 2).
+
+### When to Use Phase 0
+
+Phase 0 is recommended whenever the task is not immediately obvious. If the researcher says "fix the typo in line 42", there is nothing to ideate — go directly to Quick Path. But if the task involves any ambiguity, multiple possible approaches, or unclear scope, spending 10-15 minutes in Phase 0 prevents hours of wasted work in the wrong direction.
+
+Examples that benefit from Phase 0:
+- "I want to add resume support" — What does resume mean? At which level (task, experiment, container)? What already exists?
+- "The coverage numbers are wrong" — Wrong how? Too high? Too low? For which spec set? Is this a bug or a measurement methodology issue?
+- "We need to parallelize experiments" — Within a single machine? Across Docker containers? How many? What are the resource constraints?
+
+### How to Ideate
+
+Use the tools that match the depth of exploration needed. These are not sequential — pick whichever makes sense:
+
+| Tool | When to Use | What It Does |
+|------|-------------|--------------|
+| `/opsx:explore` | You want to investigate the codebase while thinking through the approach | Opens explore mode — reads files, searches code, documents findings. Best for understanding what exists before deciding what to change. |
+| `brainstorming` | You have a vague idea and need to refine requirements, discuss trade-offs, or consider multiple approaches | Structured ideation that explores user intent, requirements, and design alternatives before any implementation commitment. |
+| `sequential-thinking` (MCP) | The problem is complex and requires step-by-step reasoning with potential backtracking | Chain-of-thought reasoning that can branch, revise, and converge on a solution. Best for problems where the full scope is not clear initially. |
+| `/rv-planning` | You already understand the problem and want a concrete implementation plan | Creates a detailed plan document with task breakdown, risk assessment, and dependencies. Bridges ideation and execution. |
+| `/rv-analyze-module` | You need to understand a specific module's architecture before proposing changes | Deep analysis of module structure, dependencies, and patterns. Persists findings to memory for future reference. |
+
+### Phase 0 Output
+
+Phase 0 has no formal output. Its purpose is to give the researcher enough understanding to:
+1. **Describe the change in one sentence** — if you cannot summarize what you want to do, you are not ready to start
+2. **Choose the right track** — Full SDD, Fast-Forward SDD, or Quick Path (see Section 2)
+3. **Identify affected modules** — which modules will be modified, which will be read-only dependencies
+
+If Phase 0 produces a technical analysis document (like `docs/20260212_plano_docker.md` for the resume-docker change), that document serves as reference material for the subsequent SDD phases — it is not an OpenSpec artifact, but it provides the context that makes the OpenSpec artifacts accurate and deep.
+
+### Skipping Phase 0
+
+Skip Phase 0 when:
+- The task is trivial (typo fix, single-line change, adding a test)
+- The task is already well-defined by someone else (e.g., a bug report with reproduction steps)
+- You have done this exact type of change before and understand all implications
+
+---
+
+## 2. Workflow Track Selection
 
 Not every change requires the full SDD ceremony. Three tracks match change scope to workflow formality.
 
 ```mermaid
 flowchart TD
-    START([New Task]) --> ASSESS{Change Scope}
+    START([New Task]) --> P0{Need Ideation?}
+    P0 -->|"Vague idea\nUnclear scope"| IDEATE["Phase 0: Ideation\n(brainstorming, explore,\nsequential-thinking)"]
+    P0 -->|"Clear task"| ASSESS
+
+    IDEATE --> ASSESS{Change Scope}
     ASSESS -->|"Multi-module\nArchitectural\nNew capability"| FULL[Full SDD]
     ASSESS -->|"Single module\nClear requirements"| FAST[Fast-Forward SDD]
     ASSESS -->|"Bug fix\nSmall refactor\nTest addition"| QUICK[Quick Path]
@@ -47,7 +96,43 @@ When in doubt, start with Quick Path. You can escalate to a higher track if the 
 
 ---
 
-## 2. Full SDD Workflow
+## 3. Development Principles
+
+These four principles apply to all workflow tracks and all artifact types. They are binding — not suggestions or aspirational goals. Every code change, every spec, every design document, and every comment must conform to these principles. They are also documented in `CLAUDE.md` under "Development Principles" with implementation-level details.
+
+### P1: Simplicity
+
+The system must be as simple and elegant as possible. Follow established best practices. Do not add unnecessary complexity, premature abstractions, or speculative features. The right amount of complexity is the minimum needed for the current task. Three similar lines of code are better than a premature abstraction. A direct function call is better than an event-driven indirection when only one subscriber exists.
+
+This principle applies to code, to specs (do not over-specify), to design documents (do not over-architect), and to the workflow itself (use Quick Path when Full SDD is not needed).
+
+### P2: Human-Readable Documentation
+
+The target audience for all artifacts is **humans** — developers and researchers who need to understand, maintain, and extend the system. Specs, design docs, proposals, and code comments must be deep, narrative, and explanatory. The reader must have all information needed to implement or review a change without ambiguity or external context.
+
+Requirements and invariant descriptions must be self-contained. Scenarios must be precise with concrete values (WHEN/THEN/AND format). When a behavior has a non-obvious reason (performance, historical constraint from the ICST study, compatibility with an external tool), explain that reason inline. A developer reading any single artifact in isolation must be able to understand it fully.
+
+This principle is the reason why delta specs in Full SDD use multi-paragraph narrative descriptions rather than telegraphic bullet points — the cognitive cost of misinterpretation during implementation far exceeds the cost of writing a longer explanation.
+
+### P3: No Backward Compatibility
+
+RV-Android evolves through **complete replacements**, never through backward-compatible adaptations. When code is dead, abandoned, or superseded, it is deleted entirely. No adapters, wrappers, shims, deprecation annotations, compatibility re-exports, commented-out blocks, or `# removed` comments are created.
+
+When implementing changes during Phase 4 (Implement):
+- Dead code identified in REMOVED sections of delta specs must be **deleted**, not deprecated or commented out
+- Old files must be backed up to `backup/` before replacement (safety net, not compatibility mechanism)
+- All imports and references must be updated — grep the codebase to confirm zero dangling references
+- After the commit, the codebase must be in a consistent state with no vestiges of the old approach
+
+### P4: Current-State Comments
+
+Comments and naming must reflect the **current state of the system only**. They must not describe migration history, previous implementations, what was removed, or how things used to work. No promotional or bias language: avoid "modern", "sophisticated", "elegant", "state-of-the-art", "cutting-edge", "advanced". The target audience evaluates systems on technical merit, not marketing claims.
+
+This applies to code comments, docstrings, spec descriptions, design documents, and commit messages. If historical context is needed, reference the thesis, ICST paper, or a design document — do not embed history in code.
+
+---
+
+## 4. Full SDD Workflow
 
 For changes that cross module boundaries or introduce new capabilities. Each phase produces artifacts reviewed before advancing.
 
@@ -163,7 +248,7 @@ flowchart LR
 
 ---
 
-## 3. Fast-Forward SDD Workflow
+## 5. Fast-Forward SDD Workflow
 
 For single-module changes with clear requirements. `/opsx:ff` generates all planning artifacts at once, skipping the step-by-step proposal/design/tasks phases.
 
@@ -216,7 +301,7 @@ flowchart LR
 
 ---
 
-## 4. Quick Path
+## 6. Quick Path
 
 For targeted fixes that do not need OpenSpec formality. No planning artifacts created.
 
@@ -259,7 +344,7 @@ flowchart LR
 
 ---
 
-## 5. Skill Architecture
+## 7. Skill Architecture
 
 The skill system has three layers with unidirectional flow. The Process Layer (OpenSpec) invokes the Execution Layer (rv-*), never the reverse.
 
@@ -298,7 +383,9 @@ flowchart TD
     Orchestrators -->|"chains to"| CR
 ```
 
-### Design Principles
+### Skill Design Principles
+
+These are architectural principles for the skill system itself. For the development principles that govern all code and documentation (simplicity, human-readable docs, no backward compatibility, current-state comments), see **Section 3: Development Principles**.
 
 1. **Unidirectional flow**: Process Layer (OpenSpec) invokes Execution Layer (rv-*). Never the reverse. This keeps rv-* skills reusable independently of OpenSpec.
 
@@ -402,7 +489,7 @@ flowchart TD
 
 ---
 
-## 6. Quick Reference: Common Scenarios
+## 8. Quick Reference: Common Scenarios
 
 | Scenario | Track | Skill Sequence |
 |----------|-------|----------------|
@@ -419,7 +506,7 @@ flowchart TD
 
 ---
 
-## 7. Workflow Examples
+## 9. Workflow Examples
 
 ### Example 1: Full SDD — Adding scroll detection to rv-agent
 
@@ -494,7 +581,7 @@ Single module, clear requirements: add `max_scroll_attempts` to RVAgentConfig.
 
 ---
 
-## 8. Assessment of External Feedback
+## 10. Assessment of External Feedback
 
 Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow design.
 
@@ -512,7 +599,84 @@ Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow des
 
 ---
 
-## 9. Related Documents
+## 11. OpenSpec CLI Reference
+
+The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal commands are also available directly for inspection, validation, and debugging.
+
+### Change Lifecycle Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `openspec new change "<name>"` | Create change directory with schema scaffold | `openspec new change "resume-docker"` |
+| `openspec status --change "<name>"` | Show artifact completion status (done/ready/blocked) | `openspec status --change "resume-docker"` |
+| `openspec instructions <artifact> --change "<name>"` | Get template + context for creating an artifact | `openspec instructions specs --change "resume-docker"` |
+| `openspec instructions apply --change "<name>"` | Get task implementation instructions | `openspec instructions apply --change "resume-docker"` |
+| `openspec validate --change "<name>"` | Validate change artifacts for structural issues | `openspec validate --change "resume-docker"` |
+| `openspec archive "<name>"` | Archive change + sync delta specs to main specs | `openspec archive "resume-docker"` |
+| `openspec archive "<name>" --skip-specs` | Archive without syncing specs (infra/doc changes) | `openspec archive "update-ci" --skip-specs` |
+
+### Browsing Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `openspec list` | List active changes | `openspec list` |
+| `openspec list --specs` | List all specs | `openspec list --specs` |
+| `openspec show "<name>"` | Show details of a change or spec | `openspec show "resume-docker"` |
+| `openspec show "<name>" --json` | JSON output for programmatic use | `openspec show "resume-docker" --json` |
+
+### Schema Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `openspec schemas` | List available workflow schemas | `openspec schemas` |
+| `openspec schema which "<name>"` | Show where a schema resolves from | `openspec schema which "spec-driven"` |
+| `openspec templates --schema "<name>"` | Show template paths for a schema | `openspec templates` |
+
+### Setup and Maintenance
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `openspec init` | Initialize OpenSpec in a project | `openspec init --tools claude` |
+| `openspec update` | Update skill files after CLI upgrade | `openspec update` |
+| `openspec validate --all` | Validate all changes and specs | `openspec validate --all --json` |
+
+### Artifact Completion Detection
+
+OpenSpec detects artifact completion by **file existence** — no explicit "mark complete" command is needed:
+
+| Artifact | Detected by |
+|----------|-------------|
+| `proposal` | `proposal.md` exists in change directory |
+| `specs` | `specs/` directory exists with at least one `.md` file |
+| `design` | `design.md` exists in change directory |
+| `tasks` | `tasks.md` exists in change directory |
+
+### JSON Output
+
+All browsing and status commands support `--json` for programmatic use:
+
+```bash
+openspec status --change "resume-docker" --json
+openspec list --json
+openspec show "resume-docker" --json
+openspec validate --all --json
+```
+
+### Mapping: Skills to CLI Commands
+
+| Skill | CLI Commands Used |
+|-------|-------------------|
+| `/opsx:new` | `openspec new change` → `openspec status` → `openspec instructions` |
+| `/opsx:continue` | `openspec status` → `openspec instructions` → write file |
+| `/opsx:ff` | `openspec new change` → repeated `openspec instructions` → write all files |
+| `/opsx:apply` | `openspec instructions apply` → implement tasks |
+| `/opsx:verify` | `openspec validate` + codebase inspection |
+| `/opsx:sync` | Read delta specs → merge into `openspec/specs/` |
+| `/opsx:archive` | `openspec archive` (syncs + moves to `archive/`) |
+
+---
+
+## 12. Related Documents
 
 | Document | Purpose |
 |----------|---------|

@@ -457,14 +457,61 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 - **UI dump fixtures**: `modules/rv-agent/tests/fixtures/ui_dumps/`
   - UIAutomator XML dumps corresponding to screenshots
 
+## Development Principles
+
+These four principles govern all development in RV-Android — code, comments, documentation, and specs. They apply regardless of which workflow track (Full SDD, Fast-Forward SDD, Quick Path) is being used. They are non-negotiable.
+
+### Principle 1: Simplicity
+
+The system must be as simple and elegant as possible. Every change should follow established best practices and avoid introducing unnecessary complexity. Three similar lines of code are better than a premature abstraction. A direct function call is better than an event-driven indirection when only one subscriber exists. A flat `if/elif` chain is better than a strategy pattern when there are only two branches.
+
+Concretely:
+- Do not add features, refactor code, or make "improvements" beyond what was explicitly requested
+- Do not add error handling, fallbacks, or validation for scenarios that cannot happen — trust internal code and framework guarantees, only validate at system boundaries (user input, external APIs)
+- Do not create helpers, utilities, or abstractions for one-time operations
+- Do not design for hypothetical future requirements — the right amount of complexity is the minimum needed for the current task
+- Do not use feature flags or backward-compatibility shims when you can just change the code
+- Prefer composition over inheritance, flat structures over deep nesting, explicit logic over implicit convention
+
+### Principle 2: Human-Readable Documentation
+
+The target audience for all documentation is **humans** — developers and researchers who need to understand, maintain, and extend the system. All text (specs, proposals, design docs, comments, docstrings, CLAUDE.md sections) must be deep, narrative, and explanatory. The reader must have all the information needed to implement or review a change without ambiguity.
+
+Concretely:
+- Specs and design docs must use multi-paragraph narrative explanations, not telegraphic bullet points — explain the *why* behind each decision, the alternatives considered, and the rationale for the chosen approach
+- Each requirement or invariant description should be self-contained: a developer reading it in isolation must understand what it means, why it exists, and how it connects to the rest of the system
+- Scenarios must be precise and unambiguous — use WHEN/THEN/AND format with concrete values, not vague descriptions like "the system should handle errors gracefully"
+- When a behavior has a non-obvious reason (performance, compatibility with external tool, historical constraint from the ICST study), explain that reason inline — do not assume the reader knows the context
+
+### Principle 3: No Backward Compatibility
+
+RV-Android evolves through **complete replacements**, never through backward-compatible adaptations. When code is identified as dead, abandoned, or superseded by a new approach, it is deleted entirely from the source files. No adapters, wrappers, shims, deprecation annotations, compatibility re-exports, commented-out blocks, or `# removed` comments are created. The system at any point in time contains only live, working code — never archaeological layers of previous attempts.
+
+Concretely:
+- **Complete implementation**: All changes must be fully implemented, not partial. Do not leave TODO stubs or half-finished abstractions.
+- **No legacy wrappers**: Do not use adapters, shims, or compatibility layers for old code. If the interface changes, update all callers in the same commit.
+- **Remove, don't wrap**: Legacy code must be removed or overwritten, never wrapped. Do not rename unused variables with `_` prefix, do not re-export types for backward compatibility, do not add `# removed` comments for deleted code.
+- **Backup first**: Move old files to `backup/` directory before replacement, preserving the original for thesis records and enabling recovery. The `backup/` directory is gitignored and serves as a safety net, not as a compatibility mechanism.
+- **Update references**: All imports and references must point to new implementations. Grep the entire codebase to confirm zero dangling references before committing.
+- **One commit, one state**: After a change is committed, the codebase must be in a consistent, working state with no vestiges of the old approach.
+
+### Principle 4: Current-State Comments
+
+Comments and naming must reflect the **current state of the system only**. They must not describe migration history, previous implementations, what was removed, or how things used to work. A developer reading the code should understand what the code does *now*, not what journey it took to get here.
+
+Concretely:
+- Do not write comments like "migrated from X", "replaces the old Y", "previously this was Z", "legacy approach was...", "in phase 1 we used..."
+- Do not use promotional or bias language in comments or names: avoid "modern", "sophisticated", "elegant", "state-of-the-art", "cutting-edge", "next-generation", "advanced", "intelligent". The target audience is developers and researchers who evaluate systems on technical merit, not marketing claims.
+- Variable and function names must describe what they do, not what they replaced: `process_tasks()` not `process_tasks_v2()`, `config` not `new_config`
+- If historical context is needed for understanding (e.g., why a particular constant has a specific value), reference the thesis, ICST paper, or a design document — do not embed the history in the code comment itself
+
+---
+
 ## Development Guidelines
 
-### Code Structure and Comments
+### Code Structure
 - Use English for all code and comments
-- Include detailed comments at critical architectural points
-- Comments should reflect current state only (not migration history or "what was done")
-- Avoid promotional language and bias terms (no "modern", "sophisticated", "elegant", etc.)
-- Target audience: developers and researchers
+- Include detailed comments at critical architectural points — explain *why*, not just *what*
 - Follow the comment template in: `EventBus`, `ExecutionManager`, `TaskExecutor`
 
 ### Constants
@@ -494,14 +541,6 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 - Monitor memory usage in long-running operations
 
 ## Important Implementation Notes
-
-### Code Evolution Guidelines
-- **Complete implementation**: All changes must be fully implemented, not partial
-- **No legacy wrappers**: Do not use adapters, shims, or compatibility layers for old code
-- **Remove, don't wrap**: Legacy code must be removed or overwritten, never wrapped
-- **Backup first**: Move old files to `backup/` directory before replacement
-- **Update references**: All imports and references must point to new implementations
-- **Simplicity**: Prefer simple, elegant solutions over complex ones
 
 ### Module Interactions
 - rv-experiment coordinates but does not duplicate rv-platform functionality

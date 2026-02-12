@@ -13,6 +13,12 @@ context: |
   Future changes use the OpenSpec workflow (proposal -> specs -> design -> tasks).
   Do not create aspirational specs — only what is implemented.
 
+  DEVELOPMENT PRINCIPLES (see docs/WORKFLOW.md Section 3 and CLAUDE.md "Development Principles"):
+  P1 Simplicity — minimal complexity, no premature abstractions
+  P2 Human-readable — deep narrative docs, self-contained for implementers
+  P3 No backward compatibility — delete dead code, no adapters/shims, backup to backup/
+  P4 Current-state comments — no migration history, no promotional language
+
   Spec Domains:
   - core: rv-android-core (domain models, events, errors, logging, utilities)
   - platform: rv-platform (task execution engine, components, storage, results)
@@ -44,7 +50,9 @@ rules:
     - Include testable Invariants (INV-XX-NN)
     - Reference specific Python modules and files
     - Include inline data models with field descriptions
-    - Detailed narrative Purpose section (write for developers AND LLMs)
+    - Detailed narrative Purpose section (multi-paragraph, self-contained — P2 principle)
+    - REMOVED sections must specify complete deletion, no backward-compatibility shims (P3 principle)
+    - No promotional language or bias terms in descriptions (P4 principle)
   design:
     - Follow template structure from docs/templates/design-template.md
     - English language throughout
