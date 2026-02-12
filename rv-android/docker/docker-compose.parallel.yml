@@ -1,0 +1,73 @@
+# Parallel experiment execution with multiple RV-Android containers.
+# Each container runs independently with its own emulator and experiment name.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.parallel.yml up
+#
+# Override defaults via environment variables:
+#   BASE_DIR=/path/to/data RV_TOOLS=droidbot docker compose -f ... up
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: ${RV_TOOLS:-monkey}
+    RV_TIMEOUTS: ${RV_TIMEOUTS:-300}
+    RV_REPETITIONS: ${RV_REPETITIONS:-1}
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_HUMANOID_URL: humanoid:50405
+  volumes: &rvandroid-volumes
+    - /var/run/docker.sock:/var/run/docker.sock
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "${CPUS:-4}"
+        memory: "${MEMORY:-8g}"
+  depends_on:
+    humanoid:
+      condition: service_healthy
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: humanoid
+    ports:
+      - 50405:50405
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:50405"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rv01:
+    <<: *rvandroid-base
+    container_name: rv01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: rv01
+      RV_DEVICE_PORT: "5554"
+      RV_DELAY: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BASE_DIR:-./data}/apks:/opt/rvsec/rv-android/apks
+      - ${BASE_DIR:-./data}/out:/opt/rvsec/rv-android/out
+      - ${BASE_DIR:-./data}/results/rv01:/opt/rvsec/rv-android/results
+
+  rv02:
+    <<: *rvandroid-base
+    container_name: rv02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: rv02
+      RV_DEVICE_PORT: "5556"
+      RV_DELAY: "10"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BASE_DIR:-./data}/apks:/opt/rvsec/rv-android/apks
+      - ${BASE_DIR:-./data}/out:/opt/rvsec/rv-android/out
+      - ${BASE_DIR:-./data}/results/rv02:/opt/rvsec/rv-android/results

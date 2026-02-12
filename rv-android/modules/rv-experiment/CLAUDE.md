@@ -41,8 +41,9 @@ modules/rv-experiment/
 │   └── tools/
 │       └── experiment_tools.py         # External tool registration (rvandroid, rvdroid)
 └── tests/
-    └── experiment/
-        └── test_experiment_controller.py
+    ├── experiment/
+    │   └── test_experiment_controller.py
+    └── test_resume_cli.py              # Resume CLI tests (U11-U14)
 ```
 
 ## CLI Commands
@@ -317,6 +318,41 @@ rv-experiment supports three specification sets for runtime verification:
 
 3. **Custom**: User-defined specification sets
    - Requires `--custom-specs-dir` pointing to directory with `.mop` files
+
+## Experiment Resume
+
+rv-experiment supports resuming interrupted or expanding completed experiments. Resume is triggered automatically via `--name` (when `results/<name>/tasks.json` exists) or explicitly via `--resume-dir`.
+
+### Resume Behavior
+
+When resume mode is active:
+1. Pre-processing is auto-skipped (monitors, instrumentation, static analysis)
+2. `ExperimentConfig.resume_mode` is set to `True`
+3. rv-platform loads completed tasks from `tasks.json` and skips them
+4. Only new/pending tasks are executed
+5. Results are consolidated across all sessions (including MOP violation reconstruction from logcat for resumed tasks)
+
+### Resume Forms
+
+**Expand Experiment** (add repetitions):
+```bash
+# First run: 1 repetition
+rv-experiment run --tools ape --apks-dir ./apks_examples --name my_exp --repetitions 1
+
+# Resume with more repetitions: skips rep 1, executes rep 2
+rv-experiment run --tools ape --apks-dir ./apks_examples --name my_exp --repetitions 2
+```
+
+**Crash Recovery** (re-run same command):
+```bash
+# Re-run after interruption: skips completed tasks, executes remaining
+rv-experiment run --tools ape --apks-dir ./apks_examples --name my_exp --repetitions 3
+```
+
+**Resume from specific directory**:
+```bash
+rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir ./results/my_exp
+```
 
 ## Key Design Decisions
 

@@ -57,22 +57,10 @@ class ExperimentController:
         self.config = config
         self.experiment_id = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Setup results directory structure for experiment data storage
-        # Base directory contains multiple experiment results (./results/ by default)
-        results_base_dir = config.results_dir or f"./{rv_cte.RESULTS_DIR}"
-        
-        # Determine experiment-specific folder name
-        if config.name and config.name.strip():
-            # Use explicit experiment name for organized results
-            experiment_folder = config.name.strip()
-        else:
-            # Generate timestamp-based name for automatic experiments
-            experiment_folder = f"experiment_{self.experiment_id}"
-            self.config.name = self.experiment_id
-        
-        # Create full results directory path for this experiment
-        # Contains all pre-processing, execution, and post-processing outputs
-        self.results_dir = os.path.join(results_base_dir, experiment_folder)
+        # config.results_dir already contains the full experiment path
+        # (e.g., "results/smoke_exp" or "results/cli_experiment_20260212_...")
+        # set by __main__.py before calling execute_with_config()
+        self.results_dir = config.results_dir or f"./{rv_cte.RESULTS_DIR}"
         os.makedirs(self.results_dir, exist_ok=True)
 
         # Initialize logging and error handling

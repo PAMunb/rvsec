@@ -522,6 +522,9 @@ class ExperimentConfig(BaseValidatedModel):
     instrument_apks: bool
     run_static_analysis: bool
 
+    # Resume
+    resume_mode: bool  # Auto-set when --name detects existing tasks.json
+
     # JIT configuration methods
     def get_monitored_operations_config(self) -> RVGeneratorConfig:
         """Create monitor generator configuration on demand."""
@@ -571,7 +574,22 @@ Key use cases that validate the architecture.
 9. ExperimentController publishes EXPERIMENT_COMPLETED event
 10. CLI returns exit code to user
 
-### Scenario 2: Generate Configuration Template
+### Scenario 2: Resume Interrupted Experiment
+
+**Description**: User resumes an experiment that was interrupted during execution.
+
+**Flow**:
+1. User invokes CLI with `--name` matching existing `results/<name>/tasks.json`
+2. CLI detects existing results and sets `resume_mode=True`, auto-skips pre-processing
+3. ExperimentController initializes with `resume_mode=True`
+4. PreProcessor skips all phases (monitors, instrumentation, static analysis)
+5. ExecutionController creates PlatformConfig and delegates to rv-platform
+6. rv-platform loads completed tasks from `tasks.json`, skips them, executes remaining
+7. ResultProcessorComponent consolidates results from all sessions, reconstructing MOP violation data from logcat for resumed tasks
+8. PostProcessor generates completion diagnostics
+9. CLI reports total tasks including skipped count
+
+### Scenario 3: Generate Configuration Template
 
 **Description**: User generates a configuration template for a research experiment.
 

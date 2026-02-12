@@ -186,6 +186,8 @@ def cmd_run(args) -> int:
         print("📊 EXECUTION SUMMARY")
         print("="*60)
         print(f"Total tasks: {results['total_tasks']}")
+        if results.get('skipped_tasks', 0) > 0:
+            print(f"Skipped (from previous runs): {results['skipped_tasks']}")
         print(f"Successful: {results['successful_tasks']}")
         print(f"Failed: {results['failed_tasks']}")
         print(f"Success rate: {results['success_rate']:.2%}")

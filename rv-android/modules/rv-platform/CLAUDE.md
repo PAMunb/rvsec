@@ -130,6 +130,7 @@ tests/
     execution/
         __init__.py
         test_executor.py
+        test_resume.py          # Resume and result consolidation tests (U1-U10, U15-U17)
     manual_tests/
         debug_executor.py
 ```
@@ -220,6 +221,39 @@ The platform generates the following output files in the results directory:
 | `results.json` | Hierarchical JSON with complete experiment data |
 | `performance.csv` | Task execution timing and performance metrics |
 | `tasks.json` | Task state persistence for experiment continuation |
+
+## Experiment Resume
+
+The platform supports resuming interrupted or expanding completed experiments through `TaskStorage`-backed persistence. When `tasks.json` exists from a previous run, the platform loads completed tasks, skips them, and executes only new/pending tasks. Results are consolidated across all sessions.
+
+### Resume Forms
+
+**Expand Experiment**: Run with more repetitions than the first run. The platform detects completed tasks by matching `(apk_name, repetition, timeout, tool_name)` identity and skips them. Only new tasks are executed.
+
+**Crash Recovery**: Re-run the same command after an interruption. Completed tasks (persisted atomically to `tasks.json` after each task) are skipped. The interrupted task is re-executed from scratch.
+
+### Resume Flow in Platform.run()
+
+1. `_generate_tasks()` creates all tasks for the current configuration
+2. `ExperimentMetadata` is created with a `config_checksum` from `PlatformConfig`
+3. `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by identity, and removes them from the execution list. The `_skipped_count` is stored for summary reporting
+4. If the config checksum differs from the previous run, a warning is logged but resume proceeds
+5. Only remaining tasks are executed
+6. `_process_results()` uses `task_storage.get_completed_tasks()` to include ALL completed tasks (from previous sessions + current) in result files
+
+### MOP Violation Reconstruction from Logcat
+
+Tasks loaded from `tasks.json` have `repository=None` (the in-memory `LogcatRepository` is not serialized). `ResultProcessorComponent` handles this by re-reading the persisted logcat file via `parse_logcat_file()` to reconstruct MOP violation data:
+
+- `_write_task_error_data()`: Reconstructs violations for `errors.csv` rows
+- `_extract_task_data()`: Reconstructs violation details for `results.json`
+- `_write_task_coverage_data()`: Uses `coverage_metrics` from `tasks.json` (per-method coverage cannot be reconstructed from logcat because `register_method_call()` requires static analysis class data)
+
+### Key Fields
+
+- `Platform._skipped_count`: Number of tasks skipped from previous runs (used in summary)
+- `TaskResult.logcat_file`: Path to persisted logcat file (serialized in `tasks.json`, used for reconstruction)
+- `TaskResult.coverage_metrics`: Summary coverage metrics (serialized in `tasks.json`, used as fallback)
 
 ## Important Notes
 

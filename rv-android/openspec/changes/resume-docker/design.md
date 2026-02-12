@@ -21,6 +21,68 @@ Docker containerization requires functional resume because containers are routin
 - `modules/rv-experiment/src/rv_experiment/config.py` (941 lines) — Dead code (`get_artifact_validation_config()` crashes on undefined fields, `load_from_status()` never called)
 - `modules/rv-platform/src/rv_platform/storage/task_storage.py` (741 lines) — `ExperimentMetadata`, `check_continuation_compatibility()` exist but unused
 
+## Resume Usage Forms
+
+The resume mechanism supports two distinct usage patterns. Both patterns rely on the same underlying machinery — `TaskStorage` with `tasks.json` persistence and `_skip_completed_tasks()` with identity matching — but they differ in user intent and when they occur.
+
+### Form 1: Expand Experiment
+
+The researcher runs an experiment with a given configuration, analyzes the results, and decides more data is needed. Instead of starting from scratch, they re-run the same command with expanded parameters (e.g., more repetitions, additional tools, or extra timeout values). The system detects the existing `tasks.json` in the results directory, skips all tasks that were already completed in the previous run, and executes only the newly generated tasks.
+
+**Example**: A researcher runs 2 repetitions of monkey testing, then decides 5 repetitions are needed for statistical significance:
+
+```
+# First run: 2 repetitions
+rv-platform run --tools monkey --apks-dir ./apks --repetitions 2 --timeout 60 --results-dir ./results/exp01
+
+# Second run: 5 repetitions (tasks for rep 1 and 2 are skipped)
+rv-platform run --tools monkey --apks-dir ./apks --repetitions 5 --timeout 60 --results-dir ./results/exp01
+```
+
+The second run generates 5 tasks, finds 2 already completed in `tasks.json`, skips them, and executes only the 3 remaining tasks (reps 3, 4, 5). The config checksum will differ (because `repetitions` changed from 2 to 5), so a warning is logged, but execution proceeds normally — task identity matching is independent of the checksum.
+
+This form is also how researchers add new tools to an existing experiment:
+
+```
+# First run: monkey only
+rv-experiment run --tools monkey --name exp01 --timeout 300
+
+# Second run: add droidbot (monkey tasks skipped)
+rv-experiment run --tools monkey,droidbot --name exp01 --timeout 300
+```
+
+### Form 2: Crash Recovery
+
+The researcher starts an experiment that is interrupted mid-execution — by Ctrl+C, container restart, system crash, OOM kill, or any other failure. They re-run the exact same command, and the system picks up where it left off by skipping the tasks that completed before the interruption.
+
+**Example**: A 10-repetition experiment is interrupted after 3 tasks complete:
+
+```
+# First run: interrupted after 3/10 tasks complete
+rv-platform run --tools monkey --apks-dir ./apks --repetitions 10 --timeout 300 --results-dir ./results/exp01
+# ... Ctrl+C after task 3 ...
+
+# Second run: resumes from task 4 (same config, checksum matches)
+rv-platform run --tools monkey --apks-dir ./apks --repetitions 10 --timeout 300 --results-dir ./results/exp01
+```
+
+The second run generates the same 10 tasks, finds 3 already completed in `tasks.json`, skips them, and executes the remaining 7. The config checksum matches because the configuration is identical, so no warning is logged.
+
+This is the primary Docker use case: containers are killed and restarted routinely (by orchestrators, resource limits, or watchdog processes), and each restart must continue from where the previous instance stopped. The rvsec-02/ICST study validated this pattern with 7 parallel containers over thousands of restarts.
+
+### Key Difference Between Forms
+
+| Aspect | Form 1 (Expand) | Form 2 (Crash Recovery) |
+|--------|-----------------|------------------------|
+| Config changes between runs | Yes (more reps, new tools, different timeouts) | No (identical command) |
+| Config checksum | Mismatch (warning logged) | Match (no warning) |
+| New tasks generated | Yes (the expansion adds tasks) | No (same tasks regenerated) |
+| User intent | Add more data to existing experiment | Continue interrupted experiment |
+| Task identity overlap | Partial (old tasks skip, new tasks execute) | Complete (all old tasks attempt to skip) |
+| Docker relevance | Less common (config changes require image rebuild or env var update) | Primary use case (container restart with same env vars) |
+
+Both forms produce the same result: a consolidated experiment where CSV/JSON output files contain data from all completed tasks, regardless of which run completed them.
+
 ## Architecture
 
 ### Resume Flow
@@ -98,7 +160,10 @@ CLI detects results/batch_01/tasks.json exists → auto-resume
 | FR16: CLI DSL (MODIFIED) | `__main__.py` — 2 resume scenarios added to existing CLI | existing CLI tests + `test_cli_resume_overrides` |
 | INV-PLT-12: Config Checksum | `task_storage.py:check_continuation_compatibility()` — already implemented, now called by `_skip_completed_tasks()` | `test_checksum_match`, `test_checksum_mismatch_warns` |
 | INV-EXP-13: Resume Auto-Skip | `__main__.py` — all skip flags auto-set to `True` on resume detection | `test_resume_auto_skip_flags` |
-| Dead Code REMOVED | `config.py` — delete `get_artifact_validation_config()` and `load_from_status()` entirely (backup original to `backup/`). No adapters, no wrappers, no compatibility layers. | verify no import errors, no callers broken, grep confirms zero references |
+| Dead Code REMOVED | `config.py` — delete `get_artifact_validation_config()`, `load_from_status()`, and `experiment_dir` field entirely (backup original to `backup/`). No adapters, no wrappers, no compatibility layers. | verify no import errors, no callers broken, grep confirms zero references |
+| FR10-ext: Result Consolidation on Resume | `platform.py:_process_results()` — use `TaskStorage.get_completed_tasks()` instead of filtered `self.tasks`; `_generate_summary()` includes `skipped_tasks` count; `__main__.py` displays skipped tasks in CLI summary | `test_process_results_uses_all_completed_tasks`, `test_generate_summary_includes_skipped_count`, `test_generate_summary_total_includes_skipped` |
+| FR10-ext: Logcat Re-Reading for MOP Violations | `result_processor.py:_reconstruct_repository_from_logcat()` — re-read logcat file via `parse_logcat_file()` when `task.repository` is `None`; update `_write_task_error_data()`, `_extract_task_data()` to use reconstructed repository | `test_result_processor_reconstructs_violations_from_logcat`, `test_result_processor_handles_missing_logcat`, `test_result_processor_json_includes_violation_details` |
+| INV-EXP-14: Results Directory Structure | `experiment_controller.py` — use `config.results_dir` directly, remove nesting logic | `test_cli_name_detects_existing_results` (existing, validates flat path), `test_experiment_controller_flat_directory` |
 
 ## Decisions
 
@@ -166,6 +231,75 @@ CLI detects results/batch_01/tasks.json exists → auto-resume
 **Decision**: Docker entry point env vars follow the naming convention established in `rv_android_core.constants` (prefix `RV_` for experiment params, `RVAGENT_` for rv-agent params, no prefix for system paths like `RVSEC_HOME`, `ANDROID_HOME`, `TOOLS_DIR`).
 
 **Rationale**: The constants module already defines canonical names for all RV-Android environment variables. Using the same names in Docker avoids confusion and ensures the entry point documentation matches the codebase. The only new env vars introduced by this change are `RV_EXPERIMENT_NAME` and `RV_RESUME_DIR`, which follow the `RV_` prefix pattern.
+
+### D8: TaskStorage as Source of Truth for Result Processing on Resume
+
+**Decision**: When processing results after a resume, use `TaskStorage.get_completed_tasks()` as the data source for `ResultProcessorComponent` instead of `Platform.tasks` (the filtered execution queue).
+
+**Alternatives considered**:
+- *Maintain a separate `all_tasks` list alongside `self.tasks`*: Keep `self.tasks` for execution queue and `self.all_tasks` for result processing. This duplicates state and creates a synchronization risk — if `self.all_tasks` falls out of sync with `TaskStorage`, results would be inconsistent with the persisted state.
+- *Don't filter `self.tasks` in-place; filter a copy for execution*: Instead of `self.tasks = [t for t in self.tasks if ...]`, create `tasks_to_execute = [t for t in self.tasks if ...]` and iterate over that. This preserves the original list but means `self.tasks` would contain tasks that were never executed in this session — their `repository` data would be None (since it is only populated during task execution), and `ResultProcessorComponent` would need to handle this gracefully. The same fallback path exists with `TaskStorage`-loaded tasks.
+- *Re-load tasks from TaskStorage at result processing time*: This is the chosen approach. `TaskStorage` is the authoritative source of truth — it contains all tasks from all sessions, with their final state. It is already populated by `update_task()` during execution and `load()` at startup. Using it directly avoids any state duplication.
+
+**Rationale**: `TaskStorage` already maintains the complete experiment state. Using it as the result processing data source eliminates the dual-purpose problem with `self.tasks` and ensures CSV/JSON output files always reflect the full experiment, regardless of how many sessions contributed to it. However, tasks loaded from `tasks.json` lack `task.repository` (runtime-only, not serialized). For summary-level data (`summary.csv`), the existing fallback using `task.result.coverage_metrics` works correctly. For MOP violation data (`errors.csv` and `results.json` violation details), `ResultProcessorComponent` MUST reconstruct the data by re-reading the persisted logcat file via `parse_logcat_file()` — see D9. For coverage per-method progressive data (`coverage.csv`), the fallback is a single summary row from `task.result.coverage_metrics`, because method call reconstruction requires static analysis class data which is unavailable for loaded tasks.
+
+### D9: Logcat Re-Reading for MOP Violation Reconstruction
+
+**Decision**: When `task.repository` is `None` (loaded from `tasks.json`), `ResultProcessorComponent` re-reads the persisted logcat file via `parse_logcat_file()` from rv-coverage to reconstruct a `LogcatRepository` with MOP violation data.
+
+**Alternatives considered**:
+- *Serialize the full repository to tasks.json*: Would make all data available on resume, but `LogcatRepository` contains large data structures (all class/method coverage data, error objects with timestamps) that would significantly increase `tasks.json` size. The file is already written atomically on every task state change, so bloating it impacts write performance. Also requires implementing full serialization/deserialization for `LogcatRepository`, `ClassCoverageData`, `MethodCoverageData`, and `RvErrorLog` objects.
+- *Accept the data loss (original approach)*: The initial design said "this trade-off is acceptable" for missing `errors.csv` data. This was wrong — `errors.csv` contains monitored operations violations (formal property violations detected by runtime verification monitors), which are a primary experiment output. Missing violations in a resumed experiment means the researcher has an incomplete picture of the application's compliance with specifications.
+- *Load static analysis data from disk for full reconstruction*: Would enable both error AND per-method coverage reconstruction. The `.reach`, `.gesda`, `.wtg` files may still exist from the original run. However, this adds complexity (file discovery, parsing, error handling) and couples `ResultProcessorComponent` to static analysis file formats. Deferred as a follow-up improvement.
+
+**Rationale**: Logcat files are already persisted in the results directory (one per task execution). The `parse_logcat_file()` function already exists in rv-coverage and handles all parsing. `LogcatRepository.register_rv_error()` stores MOP violations unconditionally (no static analysis data needed), so violation reconstruction from `RVSEC` logcat entries works regardless of whether static analysis files are present. The approach is minimal (one new method in `ResultProcessorComponent`), uses existing infrastructure, and solves the critical gap (empty `errors.csv` on resume). The limitation — per-method coverage cannot be reconstructed without static analysis data — is acceptable because `summary.csv` already contains the aggregate coverage metrics.
+
+### D10: Docker Network for Sibling Containers
+
+**Decision**: ARES and QTesting Docker sibling containers use `--network container:$(hostname)` to share the parent container's network namespace, detected via the presence of `/.dockerenv`.
+
+**Alternatives considered**:
+- *`--network host`*: Simpler but shares the entire host network, which is unnecessary and less isolated. Also does not work on macOS Docker Desktop.
+- *Docker user-defined bridge network*: Requires creating a network in advance and configuring service discovery. Adds complexity for no benefit — the sibling container only needs to reach the emulator inside the parent, which is already at `localhost:5554` in the parent's network namespace.
+- *Pass emulator IP explicitly via environment variable*: The rvandroid container would need to discover its own IP and pass it. This is fragile because container IPs can change, and ARES/QTesting are hardcoded to connect to `localhost` or `emulator-5554`.
+
+**Rationale**: The `--network container:CONTAINER_ID` flag makes the sibling container share the exact network namespace of the parent container. From the sibling's perspective, `localhost` is the same as the parent's `localhost` — the emulator at port 5554 is directly reachable without any configuration changes. The detection mechanism (`os.path.exists('/.dockerenv')`) is the standard way to check if code is running inside a Docker container. When running outside Docker (standalone mode), no network flag is added, and ARES/QTesting connect to the emulator via the default Docker bridge or `adb connect`. `socket.gethostname()` returns the container ID when running inside Docker, which is the value needed for `--network container:`.
+
+### Docker Sibling Container Architecture
+
+```
+┌─── Docker Host ──────────────────────────────────────────────────┐
+│                                                                   │
+│  docker.sock (/var/run/docker.sock)                              │
+│       │                                                           │
+│  ┌────┼── rvandroid container ──────────────────────────────┐    │
+│  │    │                                                      │    │
+│  │    │  Emulator (localhost:5554)                           │    │
+│  │    │  rv-experiment → AresTool._build_ares_command()      │    │
+│  │    │    → detects /.dockerenv → adds --network flag       │    │
+│  │    │    → docker run --network container:$(hostname) ...  │    │
+│  │    │                                                      │    │
+│  │    │  docker.sock mounted from host ──────────┐          │    │
+│  └────┼──────────────────────────────────────────│──────────┘    │
+│       │                                          │                │
+│       │                                          ▼                │
+│  ┌────┴── ares/qtesting container (sibling) ─────────────────┐   │
+│  │  --network container:<rvandroid-container-id>             │   │
+│  │  Shares rvandroid's network namespace                     │   │
+│  │  Sees emulator at localhost:5554                          │   │
+│  │  No network configuration needed in ARES/QTesting code    │   │
+│  └───────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**Key points:**
+- The `docker.sock` mount (`/var/run/docker.sock:/var/run/docker.sock`) in `docker-compose.yml` allows the rvandroid container to spawn sibling containers via the host's Docker daemon
+- `--network container:$(hostname)` makes the sibling share the parent's network stack — `localhost` in the sibling IS `localhost` in the parent
+- The Docker CLI binary must be available inside the rvandroid container (installed in the tools Docker image layer)
+- When running outside Docker, `/.dockerenv` does not exist, so no `--network` flag is added — ARES/QTesting use their default network behavior (host Docker bridge)
+- ARES and QTesting are **NOT** declared as services in `docker-compose.yml` — they are spawned on-demand at runtime by each rvandroid container via `docker run`. Only Humanoid is a shared service in the compose file because it is a REST server that all rvandroid containers connect to over the network.
+- In parallel execution (e.g., 7 containers in `docker-compose.parallel.yml`), each rvandroid container (rv01..rv07) can independently spawn its own ARES/QTesting sibling. This means up to 7 ARES containers may run simultaneously, each sharing the network namespace of its specific parent. There is no conflict because each sibling is isolated to its parent's emulator via `--network container:<parent-container-id>`.
+- The ARES and QTesting Docker images must be **pre-built** on the host before running experiments that use these tools. The `docker/build_all.sh` script builds them as steps 5/6 and 6/6.
 
 ## Code Evolution Principle
 
@@ -278,6 +412,92 @@ docker run -e RV_EXPERIMENT_NAME=batch_01 -v ./results:/opt/.../results ...
       → Container completes or is killed → next restart picks up where it left off
 ```
 
+## Bug: Result Consolidation on Resume
+
+### Discovery
+
+During manual smoke testing of the resume mechanism (Form 1: Expand Experiment), the following sequence was executed:
+
+1. Run rv-platform with `--repetitions 1` → 1 task generated, 1 executed, results written to `results/smoke_test/`
+2. Run rv-platform with `--repetitions 2` against the same results directory → 2 tasks generated, 1 skipped (rep 1 already completed), 1 executed (rep 2)
+
+The resume mechanism itself worked correctly: `_skip_completed_tasks()` identified the completed rep-1 task and removed it from the execution queue. The `tasks.json` file was also correct — it contained both tasks (rep 1 from run 1 and rep 2 from run 2) with `COMPLETED` state and correct timestamps.
+
+However, the output files (`summary.csv`, `results.json`, `coverage.csv`, `errors.csv`, `performance.csv`) only contained data from rep 2 (the current session). Data from rep 1 was lost from the consolidated output, even though rep 1's raw data (logcat files, trace files) was still present in the results directory.
+
+### Root Cause Analysis
+
+The root cause is that `Platform.tasks` serves a dual purpose that becomes contradictory during resume:
+
+1. **Execution queue** — After `_skip_completed_tasks()` filters `self.tasks`, it contains only the tasks to be executed in the current session. This is correct for `_execute_tasks()`.
+2. **Complete experiment state** — `_process_results()` and `_generate_summary()` also use `self.tasks` as the source of truth for the entire experiment. After resume filtering, this list is incomplete.
+
+The specific code paths affected are:
+
+- **`_process_results()` at `platform.py:466`**: Creates `ResultProcessorComponent(self.tasks, self.config.results_dir)`. After `_skip_completed_tasks()`, `self.tasks` only contains the tasks executed in the current session. `ResultProcessorComponent` writes CSVs with `open(path, 'w')` (overwrite mode), so all output files are rewritten with data from only the current session's tasks.
+
+- **`_generate_summary()` at `platform.py:408`**: Receives `results` from `_execute_tasks()`, which only returns results for tasks executed in the current session. The summary reports `total_tasks: 1` when the experiment actually has 2 tasks (1 skipped + 1 executed).
+
+- **`__main__.py:188`**: CLI prints `results['total_tasks']` from `_generate_summary()`, so the user sees "Total tasks: 1" instead of the correct count.
+
+The `tasks.json` file is unaffected because `TaskStorage` maintains its own internal dictionary (`self.tasks`), which is populated both from loaded data (previous runs) and from `update_task()` calls (current session). This means `tasks.json` correctly contains the full experiment state, but the CSV/JSON output files do not reflect it.
+
+### Why This Was Not Caught in Design
+
+The original design explicitly listed "Changes to result processing or CSV/JSON output format" under Non-Goals. The assumption was that `_skip_completed_tasks()` only needed to filter the execution queue, and that result processing would naturally include all tasks. This assumption was wrong because the same `self.tasks` list is used for both purposes, and resume filtering modifies it in-place.
+
+The design also did not account for `ResultProcessorComponent`'s data source model. `ResultProcessorComponent` was designed to process a list of task objects passed to it during construction — it does not have access to `TaskStorage` or any other source of historical task data. This means it can only process what it receives, and after resume filtering, it receives an incomplete list.
+
+### Fix Approach
+
+The fix involves 5 changes, all in rv-platform:
+
+**1. Track skipped count in `_skip_completed_tasks()`** (`platform.py`): Store the number of skipped tasks in `self._skipped_count` (initialized to 0 in `__init__`). This count is needed by `_generate_summary()` to report the correct total.
+
+**2. Use TaskStorage as source of truth for `_process_results()`** (`platform.py`): Instead of passing `self.tasks` (filtered execution queue), pass `self.task_storage.get_completed_tasks()` to `ResultProcessorComponent`. This retrieves all completed tasks from `TaskStorage`, which includes both previously completed tasks (loaded from `tasks.json`) and newly completed tasks (added via `update_task()` during the current session).
+
+The `ResultProcessorComponent` already handles tasks without `task.repository` data (runtime-only, not serialized). Its `_write_task_coverage_data()` method has a fallback path: `if hasattr(task, 'repository') and task.repository:` for detailed per-method data, and an `else:` branch that uses `task.result.coverage_metrics` (which IS serialized in `tasks.json`). This means tasks loaded from `tasks.json` will use the summary-level coverage metrics, which is sufficient for `summary.csv` and `results.json`. The detailed `coverage.csv` will only contain per-method entries for tasks from the current session (because `repository` data is runtime-only), but this is acceptable — the summary-level data captures the aggregate metrics that matter for research analysis.
+
+**3. Include skipped count in `_generate_summary()`** (`platform.py`): Add `skipped_tasks` to the summary dict. Change log message to include total experiment scope: "Execution summary: X/Y tasks successful (Z skipped from previous runs)".
+
+**4. Wire skipped count through `run()`** (`platform.py`): Pass `self._skipped_count` to `_generate_summary()` so it can calculate the correct totals.
+
+**5. Update CLI summary display** (`__main__.py`): Show skipped tasks when `skipped_tasks > 0`: "Skipped (from previous runs): N". Adjust total display to show both executed and skipped counts.
+
+**6. Re-read logcat files for MOP violation reconstruction** (`result_processor.py`): Add a method `_reconstruct_repository_from_logcat(task)` that checks if `task.result.logcat_file` exists on disk and calls `parse_logcat_file(logcat_file)` from rv-coverage to reconstruct a `LogcatRepository`. Update `_write_task_error_data()`, `_write_task_coverage_data()`, and `_extract_task_data()` to use this method when `task.repository` is `None`. The reconstructed repository provides MOP violation data (from `RVSEC` logcat entries) but NOT per-method coverage data (because `register_method_call()` requires static analysis class data). For coverage, the existing fallback (single summary row from `task.result.coverage_metrics`) is retained.
+
+## Bug: ExperimentController Double-Nesting
+
+### Discovery
+
+During smoke test 8.2.1 (rv-experiment Form 1), the second run (resume with `--name smoke_exp --repetitions 2`) triggered full pre-processing (monitor generation, APK instrumentation, static analysis) instead of auto-skipping. Investigation revealed that resume detection in `__main__.py` checked `results/smoke_exp/tasks.json`, but the actual file was at `results/smoke_exp/smoke_exp/tasks.json` — a double-nested directory.
+
+### Root Cause Analysis
+
+The double nesting originates from two independent path constructions that both include the experiment name:
+
+1. `__main__.py` (line 876): Sets `output_dir = str(Path(f"./{RESULTS_DIR}/{name}"))` → `"results/smoke_exp"`
+2. `ExperimentConfig.__init__`: Sets `self.results_dir = output_dir` → `"results/smoke_exp"`
+3. `ExperimentController.__init__` (line 62): `results_base_dir = config.results_dir` → `"results/smoke_exp"`
+4. `ExperimentController.__init__` (line 67): `experiment_folder = config.name` → `"smoke_exp"`
+5. `ExperimentController.__init__` (line 75): `self.results_dir = os.path.join(results_base_dir, experiment_folder)` → `"results/smoke_exp/smoke_exp"`
+
+Step 5 is the bug: `ExperimentController` appends `config.name` to `config.results_dir`, but `config.results_dir` already contains the experiment name (set by `__main__.py` in step 1).
+
+### Fix
+
+Change `ExperimentController.__init__()` to use `config.results_dir` directly:
+
+```python
+# config.results_dir already contains the full experiment path
+# (e.g., "results/smoke_exp" or "results/cli_experiment_20260212_...")
+# set by __main__.py before calling execute_with_config()
+self.results_dir = config.results_dir or f"./{rv_cte.RESULTS_DIR}"
+os.makedirs(self.results_dir, exist_ok=True)
+```
+
+Also remove the dead `experiment_dir` field from `ExperimentConfig` — it was set via `get_experiment_dir(self.results_dir, self.name)` but never read by any code in the codebase. The `get_experiment_dir` import is removed from config.py.
+
 ## Error Handling
 
 | Error | Source | Strategy | Recovery |
@@ -288,19 +508,134 @@ docker run -e RV_EXPERIMENT_NAME=batch_01 -v ./results:/opt/.../results ...
 | Docker entry point invalid env vars | `docker-entrypoint.sh` | CLI validates downstream (Click param types, Pydantic validators) | User fixes env vars, restarts container |
 | `tasks.json` corrupted on resume | `TaskStorage.load()` | Graceful failure — start fresh if JSON parsing fails | Experiment runs as first run (no tasks skipped) |
 | Startup delay timeout | `RV_DELAY` in entrypoint | `sleep` finishes, experiment proceeds normally | No action needed |
+| Logcat file missing on resume | `ResultProcessorComponent._reconstruct_repository_from_logcat()` | Warning log, skip MOP violation reconstruction for that task | `errors.csv` omits that task; `summary.csv` still works from `task.result.coverage_metrics` |
 
 ## Testing Strategy
 
-| Layer | What to test | How | Count |
-|-------|-------------|-----|----------|
-| Unit | Resume detection logic in CLI (`--resume-dir`, `--name` with existing dir) | Mock filesystem (`tasks.json` existence check) | ~4 tests |
-| Unit | Auto-skip flag behavior (INV-EXP-13) | Assert all 3 skip flags are `True` when resume detected | ~2 tests |
-| Unit | `ExperimentMetadata` creation in `Platform.run()` | Mock `TaskStorage`, verify `set_experiment_metadata()` called with correct checksum | ~3 tests |
-| Unit | `_skip_completed_tasks()` with checksum validation | Mock `TaskStorage` with completed tasks, verify filtering and warning log | ~3 tests |
-| Unit | `_skip_completed_tasks()` does not skip ERROR tasks | Mock `TaskStorage` with ERROR tasks, verify they remain in task list | ~1 test |
-| Integration | Full resume flow (CLI → Platform) | Temp directory with pre-populated `tasks.json`, run CLI twice | ~2 tests |
-| Smoke | Docker entry point env var translation | Shell script testing with `echo` instead of `exec` | ~2 tests |
-| Manual | End-to-end resume (run, kill, resume) | Real experiment with emulator: run with `--name`, Ctrl+C after ~2 tasks, re-run same command | 1 test |
+Testing follows a layered approach: unit tests first (covering resume logic, result consolidation, MOP violation reconstruction, and summary counts), then manual smoke tests on a real emulator (covering both resume forms end-to-end). The order matters — unit tests must pass before manual testing, because smoke tests rely on the correctness of the underlying logic.
+
+### Unit Tests (rv-platform)
+
+These tests run without an emulator and verify the resume and result consolidation logic in isolation.
+
+| # | Test | What It Verifies | How |
+|---|------|-----------------|-----|
+| U1 | `test_skip_completed_tasks_filters_by_identity` | `_skip_completed_tasks()` removes tasks whose (apk, tool, variant, rep, timeout) matches a completed task from TaskStorage | Mock TaskStorage with 2 completed tasks, generate 5 tasks, verify 3 remain after filtering |
+| U2 | `test_skip_completed_tasks_stores_skipped_count` | `_skip_completed_tasks()` stores the number of skipped tasks in `self._skipped_count` | Mock TaskStorage with 3 completed tasks, verify `_skipped_count == 3` after filtering |
+| U3 | `test_skip_completed_tasks_does_not_skip_error_tasks` | Tasks with `ERROR` state are NOT skipped — they re-execute on resume | Mock TaskStorage with ERROR tasks, verify they remain in the task list |
+| U4 | `test_skip_completed_tasks_checksum_mismatch_warns` | Config checksum mismatch logs a warning but does not block | Mock TaskStorage with different checksum, verify warning logged and tasks still filtered |
+| U5 | `test_skip_completed_tasks_checksum_match_no_warning` | Config checksum match does not log a warning | Mock TaskStorage with same checksum, verify no warning logged |
+| U6 | `test_metadata_created_after_task_generation` | `Platform.run()` creates `ExperimentMetadata` with correct checksum | Mock dependencies, verify `set_experiment_metadata()` called after `_generate_tasks()` |
+| U7 | `test_process_results_uses_all_completed_tasks` | `_process_results()` passes all completed tasks from TaskStorage (not just session tasks) to `ResultProcessorComponent` | Mock TaskStorage with 3 completed tasks, verify ResultProcessorComponent receives all 3 |
+| U8 | `test_generate_summary_includes_skipped_count` | `_generate_summary()` includes `skipped_tasks` in the summary dict | Call with results and skipped_count > 0, verify `summary['skipped_tasks']` is correct |
+| U9 | `test_generate_summary_total_includes_skipped` | Summary `total_tasks` reflects only executed tasks (M), and `skipped_tasks` is reported separately | Call with 1 result and skipped_count=2, verify `total_tasks == 1` and `skipped_tasks == 2` |
+| U10 | `test_no_resume_skipped_count_zero` | When no tasks are skipped, `_skipped_count` is 0 and summary has `skipped_tasks: 0` | Run without any completed tasks in TaskStorage |
+| U15 | `test_result_processor_reconstructs_violations_from_logcat` | `ResultProcessorComponent` reconstructs MOP violations from logcat file when `task.repository` is `None` | Create a mock task with `repository=None` and a real logcat file containing `RVSEC` entries; verify `errors.csv` has violation rows |
+| U16 | `test_result_processor_handles_missing_logcat` | Graceful handling when logcat file does not exist | Create a mock task with `repository=None` and `logcat_file` pointing to non-existent path; verify warning logged and `errors.csv` is empty for that task |
+| U17 | `test_result_processor_json_includes_violation_details_from_logcat` | `results.json` contains MOP violation details reconstructed from logcat | Create mock task with `repository=None` and logcat with `RVSEC` entries; verify `results.json` `monitored_operations_errors` has correct `total`, `messages`, and `details` |
+
+### Unit Tests (rv-experiment)
+
+These tests verify the CLI resume detection and auto-skip logic.
+
+| # | Test | What It Verifies | How |
+|---|------|-----------------|-----|
+| U11 | `test_cli_resume_dir_sets_skip_flags` | `--resume-dir` auto-sets all 3 skip flags to True | Mock CLI invocation with `--resume-dir`, assert `generate_monitors=False`, etc. |
+| U12 | `test_cli_name_detects_existing_results` | `--name` with existing `tasks.json` triggers resume mode | Create temp dir with `tasks.json`, mock CLI with `--name`, verify `resume_mode=True` |
+| U13 | `test_cli_name_first_run_no_resume` | `--name` without existing results runs as fresh experiment | Mock CLI with `--name` pointing to non-existent dir, verify `resume_mode=False` |
+| U14 | `test_cli_resume_dir_overrides_name` | `--resume-dir` takes precedence over `--name` | Mock CLI with both flags, verify results dir is from `--resume-dir` |
+
+### Smoke Tests (Manual, with Emulator)
+
+These tests validate the end-to-end resume behavior on a real emulator with real APK execution. They require a running Android emulator and are executed manually during the verification phase. Each smoke test validates one of the two resume forms.
+
+**Emulator Cleanup (required before each smoke test)**:
+After killing a running experiment, the emulator may leave behind lock files and temporary disk images that prevent a clean restart. Always run these cleanup steps before re-running a test:
+
+```bash
+# 1. Kill any running emulator
+adb -s emulator-5554 emu kill 2>/dev/null
+
+# 2. Remove AVD multiinstance lock
+rm -f ~/.android/avd/RVSec.avd/multiinstance.lock
+
+# 3. Remove temporary qcow2 disk images
+rm -f /tmp/android-*/emulator-*.qcow2
+
+# 4. Clean previous test results
+rm -rf results/smoke_test/
+```
+
+Without this cleanup, the emulator may fail to boot or tools may fail with unexpected exit codes (observed with `monkey` exit codes 8, 22, 47 — the `monkey` tool is particularly sensitive to emulator state after a hard kill).
+
+**Tool recommendation**: Use `ape` instead of `monkey` for crash recovery smoke tests. The `monkey` tool fails with non-zero exit codes when the emulator has been killed and restarted, while `ape` handles this scenario correctly.
+
+**Smoke Test 1: Form 1 (Expand Experiment)** — Validates that running rv-platform with expanded parameters (more repetitions) correctly skips already-completed tasks and consolidates results from all sessions into the output files.
+
+Steps:
+1. Clean any previous test data: `rm -rf results/smoke_test/`
+2. Run rv-platform with 1 repetition: `poetry run rv-platform run --tools monkey --apks-dir ./apks_examples --repetitions 1 --timeout 60 --results-dir ./results/smoke_test --no-window`
+3. Verify: `tasks.json` has 1 completed task, `summary.csv` has 1 row, logcat file exists for rep 1
+4. Run rv-platform with 2 repetitions (same results dir): `poetry run rv-platform run --tools monkey --apks-dir ./apks_examples --repetitions 2 --timeout 60 --results-dir ./results/smoke_test --no-window`
+5. Verify:
+   - CLI output shows "Resume: skipped 1 already-completed tasks (1 remaining)"
+   - CLI output shows "Skipped (from previous runs): 1"
+   - `tasks.json` has 2 completed tasks (both with correct timestamps)
+   - `summary.csv` has 2 rows (rep 1 AND rep 2)
+   - `results.json` has data for both reps
+   - Logcat files exist for both rep 1 and rep 2
+6. Clean up: `rm -rf results/smoke_test/`
+
+**Smoke Test 2: Form 2 (Crash Recovery)** — Validates that an interrupted experiment can be resumed with the same command and completes correctly.
+
+Steps:
+1. Clean any previous test data: `rm -rf results/smoke_test/`
+2. Run rv-platform with 3 repetitions in background: `poetry run rv-platform run --tools monkey --apks-dir ./apks_examples --repetitions 3 --timeout 60 --results-dir ./results/smoke_test --no-window &`
+3. Wait ~90 seconds (enough for at least 1 task to complete — each task takes ~110s with emulator boot, so adjust timing as needed)
+4. Kill the process: `kill %1` (or equivalent)
+5. Verify intermediate state: `tasks.json` has at least 1 completed task, possibly 1 running/created task
+6. Re-run the same command: `poetry run rv-platform run --tools monkey --apks-dir ./apks_examples --repetitions 3 --timeout 60 --results-dir ./results/smoke_test --no-window`
+7. Verify:
+   - CLI output shows "Resume: skipped N already-completed tasks (M remaining)" where N >= 1
+   - Config checksum matches (no mismatch warning, since same command)
+   - All 3 tasks are completed after the second run finishes
+   - `tasks.json` has 3 completed tasks
+   - `summary.csv` has 3 rows
+   - Logcat files exist for all 3 reps
+8. Clean up: `rm -rf results/smoke_test/`
+
+**Smoke Test 3: rv-experiment Form 1 (Expand Experiment)** — Validates resume through rv-experiment CLI with `--name` flag, including pre-processing auto-skip.
+
+Steps:
+1. Run rv-experiment with full pipeline: `poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60 --name smoke_exp --no-window --repetitions 1`
+2. Verify: experiment completes, pre-processing runs (monitors generated, APKs instrumented), 1 task executed
+3. Run rv-experiment again with more repetitions (same name): `poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60 --name smoke_exp --no-window --repetitions 2`
+4. Verify:
+   - Log shows "Resuming experiment 'smoke_exp' — auto-skipping pre-processing"
+   - Pre-processing is skipped (no monitor generation, no instrumentation, no static analysis)
+   - Rep 1 is skipped, rep 2 is executed
+   - Results consolidated in `results/smoke_exp/`
+   - `summary.csv` has 2 rows (rep 1 AND rep 2)
+   - `errors.csv` has MOP violation rows for any task that detected violations (reconstructed from logcat for rep 1)
+   - `results.json` has violation details for all tasks with logcat files
+   - Logcat files exist for both reps
+5. Clean up: `rm -rf results/smoke_exp/`
+
+**Smoke Test 4: rv-experiment Form 2 (Crash Recovery)** — Validates that an interrupted rv-experiment can be resumed with the same command.
+
+Steps:
+1. Run rv-experiment with `--name` and 3 reps in background: `poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60 --name smoke_exp2 --no-window --repetitions 3 &`
+2. Wait for at least 1 task to complete (monitor timing: pre-processing takes several minutes on first run, then ~110s per task)
+3. Kill the process: `kill %1`
+4. Verify intermediate state: `results/smoke_exp2/tasks.json` has at least 1 completed task
+5. Re-run the same command: `poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60 --name smoke_exp2 --no-window --repetitions 3`
+6. Verify:
+   - Log shows "Resuming experiment 'smoke_exp2' — auto-skipping pre-processing"
+   - Pre-processing is skipped on second run
+   - Completed tasks from first run are skipped
+   - All 3 tasks are completed after the second run finishes
+   - Results consolidated in `results/smoke_exp2/`
+7. Clean up: `rm -rf results/smoke_exp2/`
 
 ## Risks / Trade-offs
 
@@ -320,13 +655,16 @@ docker run -e RV_EXPERIMENT_NAME=batch_01 -v ./results:/opt/.../results ...
 - Make `--name` flag resume-aware (detect existing `tasks.json`) (researcher-friendly)
 - Create Docker entry point with complete env var translation (aligned with `constants.py`)
 - Create Docker files: production, dev, single and parallel compose
-- Remove dead code in `config.py` (`get_artifact_validation_config()`, `load_from_status()`)
+- Remove dead code in `config.py` (`get_artifact_validation_config()`, `load_from_status()`, `experiment_dir` field)
 - Document all environment variables with their source, default, and Docker vs standalone behavior
+- Fix result consolidation on resume: ensure CSV/JSON output files include all completed tasks from all sessions, not just the current session (discovered during smoke testing — see "Bug: Result Consolidation on Resume" section)
+- Fix MOP violation reconstruction on resume: `ResultProcessorComponent` re-reads logcat files to reconstruct monitored operations violation data (`errors.csv`, `results.json` violation details) for tasks loaded from `tasks.json` (discovered during smoke testing — see D9 decision)
+- Fix ExperimentController double-nesting: use `config.results_dir` directly instead of appending `config.name` (discovered during smoke testing — see "Bug: ExperimentController Double-Nesting" section)
+- Document the two resume usage forms (Expand Experiment and Crash Recovery) in specs and module CLAUDE.md
+- Enable ARES and QTesting Docker sibling containers: add `docker.sock` mount to compose files, add `--network container:$(hostname)` flag when running inside Docker, integrate ARES/QTesting image builds into `build_all.sh`
 
 **Non-Goals:**
 - Parallel task execution within a single Platform instance (`max_parallel_tasks` stays at 1 — parallelism is achieved via Docker containers)
-- ARES and QTesting Docker sibling containers (deferred to follow-up change — these tools require separate server processes)
 - Watchdog/auto-restart mechanism (Docker Compose `restart: on-failure` handles this natively)
 - Changes to `TaskStorage` internals (already correct, just unused)
-- Changes to result processing or CSV/JSON output format
 - Updating PRD FR03 with Legunsen/Owolabi spec set references (follow-up documentation change)

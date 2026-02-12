@@ -350,6 +350,8 @@ def cli(ctx: CLIContext, debug: bool):
               help='Text file with APK filenames to process (one per line)')
 @click.option('--name', type=str, default=None,
               help='Experiment name (used for results directory naming)')
+@click.option('--resume-dir', type=click.Path(exists=True), default=None,
+              help='Resume experiment from existing results directory')
 @pass_context
 @ErrorHandler.handle_errors(
     component="CLIContext",
@@ -362,7 +364,7 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
         performance_monitor_level: str, performance_monitor_max_samples: int,
         performance_export_enabled: bool, performance_export_format: str, no_window: bool,
         run_execution: bool, device_port: Optional[int], apks_filter: Optional[str],
-        name: Optional[str]):
+        name: Optional[str], resume_dir: Optional[str]):
     """
     Execute experiment with modern tool specification parsing and configuration support.
     
@@ -429,7 +431,7 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
                     disable_performance_monitor, performance_monitor_level,
                     performance_monitor_max_samples, performance_export_enabled,
                     performance_export_format, no_window,
-                    run_execution, device_port, apks_filter, name
+                    run_execution, device_port, apks_filter, name, resume_dir
                 )
             
             # Validate configuration before execution
@@ -805,7 +807,8 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
                                      no_window: bool, run_execution: bool = True,
                                      device_port: Optional[int] = None,
                                      apks_filter: Optional[str] = None,
-                                     name: Optional[str] = None) -> ExperimentConfig:
+                                     name: Optional[str] = None,
+                                     resume_dir: Optional[str] = None) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
     
@@ -853,13 +856,42 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
                 parameters=parsed_tool["parameters"]
             )
             tool_configs.append(tool_config)
-        
-        # APK directory is used directly - no patterns needed
-        
-        # Generate experiment identifier
-        experiment_id = name or f"cli_experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
-        # Determine output directory
+        # Resume detection: --resume-dir takes precedence over --name
+        resume_mode = False
+
+        if resume_dir:
+            # Explicit resume: use the provided directory as experiment dir
+            experiment_id = Path(resume_dir).name
+            output_dir = str(resume_dir)
+            resume_mode = True
+            generate_monitors = False
+            instrument_apks = False
+            static_analysis = False
+            ctx.logger.info(f"Resuming experiment from {resume_dir}")
+
+        elif name:
+            experiment_id = name
+            results_path = Path(f"./{RESULTS_DIR}/{name}")
+            tasks_json = results_path / "tasks.json"
+
+            if tasks_json.exists():
+                # Implicit resume: existing results with tasks.json
+                resume_mode = True
+                generate_monitors = False
+                instrument_apks = False
+                static_analysis = False
+                ctx.logger.info(
+                    f"Resuming experiment '{name}' — auto-skipping pre-processing"
+                )
+
+            if not output_dir:
+                output_dir = str(results_path)
+
+        else:
+            experiment_id = f"cli_experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+
+        # Determine output directory (if not already set by resume logic)
         if not output_dir:
             output_dir = f"./{RESULTS_DIR}/{experiment_id}"
 
@@ -883,15 +915,16 @@ def _create_experiment_config_from_cli(ctx: CLIContext, tools: str, timeout: int
             apks_dir=apks_dir,
             device_port=device_port,
             apks_filter=apks_filter,
+            resume_mode=resume_mode,
             metadata={
                 "created_via": "cli",
                 "tool_specifications": tools,
             }
         )
-        
+
         ctx.logger.info(f"Created experiment configuration: {experiment_id}")
         return experiment_config
-        
+
     except Exception as e:
         raise ConfigurationError(f"Failed to create experiment configuration from CLI arguments: {e}")
 

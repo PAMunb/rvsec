@@ -11,7 +11,7 @@ ENV ANDROID_SDK_VERSION=8512546
 ENV PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/build-tools/34.0.0:$PATH
 
 RUN apt-get update && \
-    apt-get install -qq -y --no-install-recommends openjdk-17-jre curl unzip wget zip && \
+    apt-get install -qq -y --no-install-recommends default-jre-headless curl unzip wget zip && \
     mkdir -p ${ANDROID_HOME}/cmdline-tools
 
 

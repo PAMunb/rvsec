@@ -358,6 +358,35 @@ results = platform.run()  # Includes task execution, logcat processing, CSV/JSON
 experiment_config.process_experiment_diagnostics(results)
 ```
 
+### Experiment Resume
+
+rv-platform supports resuming experiments through `TaskStorage` persistence. When `tasks.json` exists from a previous run, completed tasks are loaded and skipped.
+
+```python
+from rv_platform.platform import Platform
+from rv_platform.config.platform_config import PlatformConfig, ToolConfig
+
+# Same config as original run, but with more repetitions
+config = PlatformConfig(
+    apks_dir="./apks_examples",
+    tools=[ToolConfig(name="ape")],
+    repetitions=3,  # Was 1 in first run
+    results_dir="./results/my_experiment",
+)
+
+# Platform auto-detects completed tasks from tasks.json
+platform = Platform(config)
+results = platform.run()
+# results['skipped_tasks'] = 1 (rep 1 skipped)
+# results['total_tasks'] = 2 (reps 2+3 executed)
+```
+
+**Resume behavior**:
+- Completed tasks matched by `(apk_name, repetition, timeout, tool_name)` identity
+- Config checksum validated — warning logged if configuration changed
+- MOP violations reconstructed from persisted logcat files for resumed tasks
+- Results consolidated across all sessions into unified CSV/JSON output
+
 ### Architectural Separation
 
 - **rv-experiment**: Orchestrates experiment lifecycle, instruments APKs, generates static analysis

@@ -1,56 +1,42 @@
-version: '3.7'
+# Single RV-Android container execution.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up
+
 services:
-   humanoid:
-     image: phtcosta/humanoid:1.0
-     container_name: humanoid
-     ports:
-     - 50405:50405
-     healthcheck:
-       test: [ "CMD", "curl", "-f", "http://127.0.0.1:50405" ]
-       interval: 5s
-       timeout: 3s
-       retries: 5
-   rv01:
-     image: phtcosta/rvandroid:0.0.1
-     container_name: rv01
-     environment:
-       - RV_REPETITIONS=1
-       - RV_TIMEOUTS=180
-       - RV_TOOLS=monkey humanoid
-       - RV_HUMANOID_URL=humanoid:50405
-       - ENV_NO_WINDOW=true
-     volumes:
-       - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/apks/tmp:/opt/rvsec/rv-android/apks
-       - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/instrumented:/opt/rvsec/rv-android/out
-       - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/results:/opt/rvsec/rv-android/results
-     devices:
-       - /dev/kvm:/dev/kvm
-     depends_on:
-       - humanoid
-#   rv_example:
-#     image: phtcosta/rvandroid:0.0.1
-#     container_name: rv_example
-#     environment:
-#       - RV_REPETITIONS=1
-#       - RV_TIMEOUTS="60"
-#       - RV_TOOLS="ape ares droidbot droidbot_bfs_greedy droidbot_bfs_naive droidbot_dfs_greedy droidmate fastbot humanoid monkey qtesting"
-#       - RV_HUMANOID_URL=humanoid:50405
-#       - RV_SKIP_MONITORS="false"
-#       - RV_SKIP_INSTRUMENT="false"
-#       - RV_SKIP_STATIC_ANALYSIS="false"
-#       - ENV_SKIP_EXPERIMENT="false"
-#       - ENV_NO_WINDOW="true"
-#     volumes:
-#       - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/apks/tmp:/opt/rvsec/rv-android/apks
-#       - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/instrumented:/opt/rvsec/rv-android/out
-#       - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/results:/opt/rvsec/rv-android/results
-#     devices:
-#       - /dev/kvm:/dev/kvm
-#     deploy:
-# TODO quando coloquei os limites demorou mais pra iniciar o emulador ... acho q coloquei pouco?
-#       resources:
-#         limits:
-#           cpus: '2'
-#           memory: 8g  # Limita a memória a 512 megabytes
-#     depends_on:
-#       - humanoid
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: humanoid
+    ports:
+      - 50405:50405
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:50405"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rvandroid:
+    image: phtcosta/rvandroid:0.8.0
+    container_name: rvandroid
+    environment:
+      - RV_TOOLS=${RV_TOOLS:-monkey}
+      - RV_TIMEOUTS=${RV_TIMEOUTS:-300}
+      - RV_REPETITIONS=${RV_REPETITIONS:-1}
+      - RV_NO_WINDOW=true
+      - RV_JCA_SPEC=true
+      - RV_HUMANOID_URL=humanoid:50405
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BASE_DIR:-./data}/apks:/opt/rvsec/rv-android/apks
+      - ${BASE_DIR:-./data}/out:/opt/rvsec/rv-android/out
+      - ${BASE_DIR:-./data}/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "${CPUS:-4}"
+          memory: "${MEMORY:-8g}"
+    depends_on:
+      humanoid:
+        condition: service_healthy

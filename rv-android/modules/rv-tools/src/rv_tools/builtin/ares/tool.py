@@ -6,6 +6,7 @@ enabling systematic UI exploration through Docker containerization.
 """
 
 import os
+import socket
 from typing import Dict, Any
 
 from rv_android_core.domain.app import App
@@ -286,6 +287,10 @@ class AresTool(AbstractTool):
         # Add volume mapping if specified
         if self.config['volume_mapping']:
             cmd_args.extend(["-v", self.config['volume_mapping']])
+
+        # Share network with parent container when running inside Docker (INV-TOOL-15)
+        if os.path.exists('/.dockerenv'):
+            cmd_args.extend(["--network", f"container:{socket.gethostname()}"])
 
         # Add Docker image
         cmd_args.append(self.config['docker_image'])

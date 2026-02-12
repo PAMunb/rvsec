@@ -22,6 +22,7 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.domain.task import TaskState
+from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 
 
 class ResultProcessorComponent:
@@ -135,6 +136,45 @@ class ResultProcessorComponent:
         
         self.logger.info(f"Filtered {len(completed_tasks)} completed tasks out of {len(self.tasks)} total tasks")
         return completed_tasks
+
+    def _reconstruct_repository_from_logcat(self, task: Any) -> Optional[Any]:
+        """
+        Reconstruct a LogcatRepository from the persisted logcat file.
+
+        When a task is loaded from tasks.json on resume, task.repository is None
+        because LogcatRepository is runtime-only (never serialized). This method
+        re-reads the logcat file to reconstruct MOP violation data from RVSEC
+        log entries. Coverage per-method data cannot be reconstructed because
+        register_method_call() requires static analysis class data.
+
+        Args:
+            task: Task whose repository needs reconstruction
+
+        Returns:
+            LogcatRepository with MOP violation data, or None if logcat
+            file is unavailable
+        """
+        logcat_file = getattr(task.result, 'logcat_file', None)
+        if not logcat_file or not os.path.isfile(logcat_file):
+            self.logger.warning(
+                f"No logcat file available for task {task.id} — "
+                "MOP violation details cannot be reconstructed"
+            )
+            return None
+
+        try:
+            repository = parse_logcat_file(logcat_file)
+            error_count = len(repository.errors)
+            self.logger.info(
+                f"Reconstructed {error_count} MOP violations from logcat "
+                f"for task {task.id}"
+            )
+            return repository
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to parse logcat file for task {task.id}: {e}"
+            )
+            return None
 
     @ErrorHandler.handle_errors(component="ResultProcessorComponent", phase="coverage_csv_generation")
     def _generate_coverage_csv(self, completed_tasks: List[Any]) -> None:
@@ -285,7 +325,7 @@ class ResultProcessorComponent:
     def _write_task_error_data(self, writer: csv.writer, task: Any) -> None:
         """
         Write error data for a single task to CSV.
-        
+
         Args:
             writer: CSV writer instance
             task: Task to process for error data
@@ -297,12 +337,18 @@ class ResultProcessorComponent:
             repetition = config.repetition
             timeout = config.timeout
             tool_name = config.tool_config.get_full_tool_name()
-            
-            # Get repository data if available
+
+            # Get repository: use in-memory if available, reconstruct from
+            # logcat for tasks loaded from tasks.json on resume
+            repository = None
             if hasattr(task, 'repository') and task.repository:
                 repository = task.repository
+            else:
+                repository = self._reconstruct_repository_from_logcat(task)
+
+            if repository:
                 errors = repository.get_errors()
-                
+
                 # Process each monitored operations violation
                 for i, error in enumerate(errors, 1):
                     # Extract fields from error data
@@ -311,15 +357,15 @@ class ResultProcessorComponent:
                     spec = error.get('spec', '')
                     error_type = error.get('error_type', '')
                     message = error.get('message', '')
-                    
+
                     # Use existing unique_msg if available, otherwise construct it
                     unique_msg = error.get('unique_msg', f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}")
-                    
+
                     # Use timing data if available
                     time_value = error.get('time_since_task_start', i)
                     if time_value is None or time_value == 0:
                         time_value = i
-                    
+
                     writer.writerow([
                         apk_name,
                         repetition,
@@ -518,7 +564,7 @@ class ResultProcessorComponent:
                 task_data["monitored_operations_errors"]["details"] = errors
                 
             else:
-                # Fallback to task result metrics
+                # Fallback to task result metrics for summary data
                 metrics = getattr(task.result, 'coverage_metrics', {})
                 task_data["summary"] = {
                     "called_activities": metrics.get('called_activities', 0),
@@ -529,7 +575,29 @@ class ResultProcessorComponent:
                     "methods_mop_reachable_coverage": metrics.get('mop_coverage', 0),
                     "monitored_operations_errors_count": metrics.get('total_errors', 0)
                 }
-            
+
+                # Reconstruct MOP violation details from logcat
+                reconstructed = self._reconstruct_repository_from_logcat(task)
+                if reconstructed:
+                    errors = reconstructed.get_errors()
+                    task_data["monitored_operations_errors"]["total"] = len(errors)
+
+                    messages = []
+                    for error in errors:
+                        if 'unique_msg' in error and error['unique_msg']:
+                            messages.append(error['unique_msg'])
+                        else:
+                            class_full_name = error.get('class_full_name', '')
+                            method = error.get('method', '')
+                            spec = error.get('spec', '')
+                            error_type = error.get('error_type', '')
+                            message = error.get('message', '')
+                            complete_msg = f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"
+                            messages.append(complete_msg)
+
+                    task_data["monitored_operations_errors"]["messages"] = messages
+                    task_data["monitored_operations_errors"]["details"] = errors
+
             return task_data
 
         except Exception as e:

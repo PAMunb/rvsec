@@ -45,6 +45,69 @@ The rvsec-02/ICST study proved this pattern in a Docker environment: 7 container
 - **AND** no resume log messages MUST be emitted (this is effectively a fresh run reusing the same directory)
 - **AND** all generated tasks MUST be executed normally
 
+### Requirement: Result Consolidation on Resume (FR10-ext)
+
+When the platform resumes an experiment (either Form 1: Expand Experiment or Form 2: Crash Recovery), the result processing phase MUST produce output files (summary.csv, results.json, coverage.csv, errors.csv, performance.csv) that reflect the **entire experiment state** — all completed tasks from all sessions — not just the tasks executed in the current session. Note: `errors.csv` contains **monitored operations violations** (formal property violations detected by runtime verification monitors), not application crashes or general errors. This is necessary because the output files are the researcher's primary data artifact: they are imported into analysis notebooks, used for statistical comparisons, and included in publications. If a resumed experiment's output files only contain the current session's data, the researcher loses visibility into previously completed work and must manually reconstruct the full picture from raw data files.
+
+The mechanism for achieving this is straightforward: `_process_results()` MUST use `TaskStorage.get_completed_tasks()` as its data source instead of the filtered `Platform.tasks` list. `TaskStorage` is the authoritative source of truth for the experiment state — it contains all tasks from all sessions (loaded from `tasks.json` at startup, updated via `update_task()` during execution). The `ResultProcessorComponent` receives this complete task list and generates output files with all completed tasks included.
+
+Tasks loaded from `tasks.json` (from previous sessions) do not have `task.repository` data — the `LogcatRepository` that `CoverageTracker` populates in-memory during task execution is runtime-only and never serialized. Without special handling, `errors.csv` would be empty (no monitored operations violation records) and `results.json` would lack MOP violation details for previously completed tasks. This is unacceptable because the output files are the researcher's primary data artifact for analysis and publication. Note: `errors.csv` contains **monitored operations violations** (formal property violations detected by runtime verification monitors via `RVSEC` logcat entries), not application crashes or general errors.
+
+To solve this, `ResultProcessorComponent` MUST reconstruct MOP violation data by re-reading the persisted logcat file. Every task that runs through `CoverageComponent` produces a `.logcat` file stored in the results directory (at the path recorded in `task.result.logcat_file`). This file contains all `RVSEC` (monitored operations violations) and `RVSEC-COV` (method coverage) entries captured during execution. When `task.repository` is `None` (loaded from `tasks.json`), `ResultProcessorComponent` MUST call `parse_logcat_file(logcat_file)` from rv-coverage to parse the logcat and obtain a `LogcatRepository` with the violation data. The `LogcatRepository.register_rv_error()` method stores violations unconditionally (no static analysis data needed), so MOP violation reconstruction works regardless of whether static analysis files are present.
+
+For coverage data, the situation differs: `LogcatRepository.register_method_call()` only registers calls to methods that exist in `self.classes` (populated from static analysis data). Without static analysis data, method calls are silently ignored, meaning progressive per-method coverage data (`coverage.csv` rows with individual method signatures and timestamps) cannot be reconstructed from logcat alone. For loaded tasks, `coverage.csv` MUST include a single summary row using `task.result.coverage_metrics` (which IS serialized in `tasks.json` and contains the final aggregate percentages). This is acceptable because `summary.csv` already contains the same aggregate metrics that researchers use for statistical analysis, and the per-method progressive data is primarily useful for temporal visualization, not for quantitative comparisons.
+
+The key distinction: `summary.csv` and `results.json` summary data use `task.result.coverage_metrics` (serialized, complete for all tasks). `errors.csv` (MOP violations) and `results.json` violation details use logcat re-reading (reconstructed from `RVSEC` entries, complete for all tasks with logcat files). `coverage.csv` per-method progressive data is only available for current-session tasks (runtime-only `repository` required).
+
+The execution summary (returned by `Platform.run()` and displayed by the CLI) MUST also reflect the complete experiment scope. It MUST include the count of skipped tasks (from previous runs) alongside the count of executed tasks, so the researcher sees the full picture: "Total tasks: 5 (2 executed, 3 skipped from previous runs)".
+
+#### Scenario: Result Processing After Resume Includes All Sessions
+
+- **WHEN** `Platform.run()` resumes an experiment by skipping N previously completed tasks and executing M new tasks
+- **THEN** `_process_results()` MUST pass all N+M completed tasks to `ResultProcessorComponent`
+- **AND** `summary.csv` MUST contain N+M rows (one per completed task, from all sessions)
+- **AND** `results.json` MUST contain summary data for all N+M completed tasks
+- **AND** `results.json` MUST contain MOP violation details (violation messages, spec names, class/method) for all N+M tasks that have logcat files, reconstructed via `parse_logcat_file()` when `task.repository` is `None`
+- **AND** `errors.csv` MUST contain MOP violation rows for all N+M tasks that have logcat files with `RVSEC` entries (monitored operations violations), reconstructed via `parse_logcat_file()` when `task.repository` is `None`
+- **AND** `coverage.csv` MUST contain per-method entries for the M tasks from the current session (which have `task.repository`), and a single summary row for each of the N tasks from previous sessions (using `task.result.coverage_metrics`)
+- **AND** `performance.csv` MUST contain entries for at least the M tasks from the current session
+
+#### Scenario: Logcat Re-Reading for MOP Violation Reconstruction
+
+- **WHEN** `ResultProcessorComponent` processes a completed task whose `task.repository` is `None` (loaded from `tasks.json`)
+- **AND** `task.result.logcat_file` points to an existing file on disk
+- **THEN** `ResultProcessorComponent` MUST call `parse_logcat_file(logcat_file)` from rv-coverage to reconstruct a `LogcatRepository`
+- **AND** MUST use `repository.get_errors()` to obtain the list of monitored operations violations (formal property violations from `RVSEC` logcat entries — not application crashes)
+- **AND** MUST write each violation to `errors.csv` with the same fields (apk, rep, timeout, tool, time, spec, class, method, message, unique_msg) as for tasks with in-memory repositories
+- **AND** MUST include violation details (total count, messages, details) in `results.json` for the task
+- **AND** the reconstructed repository MUST NOT be used for `coverage.csv` per-method data (because `register_method_call()` requires static analysis class data which is unavailable)
+
+#### Scenario: Logcat File Missing on Resume
+
+- **WHEN** `ResultProcessorComponent` processes a completed task whose `task.repository` is `None`
+- **AND** `task.result.logcat_file` does not exist on disk, or is `None`
+- **THEN** `ResultProcessorComponent` MUST log a warning: "No logcat file available for task {task.id} — MOP violation details cannot be reconstructed"
+- **AND** `errors.csv` MUST NOT have entries for that task (no data source to reconstruct from)
+- **AND** `results.json` MUST still include summary data from `task.result.coverage_metrics` but with empty violation details
+- **AND** `coverage.csv` MUST include a summary row from `task.result.coverage_metrics` (if available)
+
+#### Scenario: Execution Summary Includes Skipped Count
+
+- **WHEN** `_skip_completed_tasks()` skips N tasks from a previous run
+- **AND** `_execute_tasks()` completes M tasks in the current session
+- **THEN** `_generate_summary()` MUST return a dict with `skipped_tasks: N` in addition to the existing `total_tasks`, `successful_tasks`, and `failed_tasks` fields
+- **AND** the `total_tasks` field MUST represent the number of tasks executed in this session (M), to maintain backward compatibility with callers that use this field for success rate calculation
+- **AND** the platform MUST log "Execution summary: X/M tasks successful (N skipped from previous runs)"
+- **AND** the CLI (`__main__.py`) MUST display the skipped count when N > 0
+
+#### Scenario: First Run (No Resume) Has Zero Skipped
+
+- **WHEN** `Platform.run()` executes for the first time (no existing `tasks.json`, or `tasks.json` has no completed tasks)
+- **THEN** `_skipped_count` MUST be 0
+- **AND** the summary MUST have `skipped_tasks: 0`
+- **AND** `_process_results()` MUST behave identically to the non-resume case (passing `self.tasks` or `TaskStorage.get_completed_tasks()` yields the same result since there are no previous-session tasks)
+- **AND** no "skipped from previous runs" messages MUST appear in CLI output
+
 ## MODIFIED Requirements
 
 ### Requirement: Persistent Task Storage (FR10, NFR08)

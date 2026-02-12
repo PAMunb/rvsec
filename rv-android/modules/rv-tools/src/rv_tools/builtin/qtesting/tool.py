@@ -6,6 +6,7 @@ enabling intelligent testing through reinforcement learning algorithms.
 """
 
 import os
+import socket
 from typing import Dict, Any, List
 
 from rv_android_core.domain.app import App
@@ -412,6 +413,10 @@ class QTestingTool(AbstractTool):
         # Add device serial if specified
         if self.config["device_serial"]:
             cmd_args.extend(["-e", f"DEVICE_SERIAL={self.config['device_serial']}"])
+
+        # Share network with parent container when running inside Docker (INV-TOOL-15)
+        if os.path.exists('/.dockerenv'):
+            cmd_args.extend(["--network", f"container:{socket.gethostname()}"])
 
         # Add Docker image
         cmd_args.append(self.config['docker_image'])

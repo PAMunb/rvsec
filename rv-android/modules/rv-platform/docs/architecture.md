@@ -434,6 +434,43 @@ class ITaskStorage(ABC):
         pass
 ```
 
+## Experiment Resume
+
+The platform supports resuming interrupted or expanding completed experiments through `TaskStorage`-backed persistence.
+
+### Resume Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant P as Platform
+    participant TS as TaskStorage
+    participant TE as TaskExecutor
+    participant RP as ResultProcessor
+
+    P->>P: _generate_tasks()
+    P->>TS: set_experiment_metadata(checksum)
+    P->>TS: load completed tasks
+    P->>P: _skip_completed_tasks()
+    Note over P: Match by (apk, rep, timeout, tool)
+    P->>P: Store _skipped_count
+
+    loop For each remaining task
+        P->>TE: execute(task)
+        TE-->>P: result
+        P->>TS: save(task)
+    end
+
+    P->>TS: get_completed_tasks() [ALL sessions]
+    P->>RP: execute(all_completed_tasks)
+    Note over RP: Reconstructs MOP violations<br/>from logcat for resumed tasks
+    RP-->>P: CSV/JSON files
+```
+
+### MOP Violation Reconstruction
+
+Tasks loaded from `tasks.json` have `repository=None` (the in-memory `LogcatRepository` is not serialized). `ResultProcessorComponent` handles this by re-reading the persisted logcat file via `parse_logcat_file()` to reconstruct MOP violation data for `errors.csv` and `results.json`. Per-method coverage data cannot be reconstructed (requires static analysis class data) — the summary from `coverage_metrics` is used instead.
+
 ## Extension Points
 
 - **Custom Components**: Implement ITaskComponent interface to add new execution phases

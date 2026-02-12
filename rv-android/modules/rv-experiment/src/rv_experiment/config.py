@@ -45,7 +45,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_experiment.constants import (
     RESULTS_DIR, INSTRUMENTED_DIR, DEFAULT_APKS_DIR,
-    DEFAULT_SPEC_SET, get_experiment_dir, MONITORS_DIR, INSTRUMENTED_APKS_DIR
+    DEFAULT_SPEC_SET, MONITORS_DIR, INSTRUMENTED_APKS_DIR
 )
 from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError as InstrumentationConfigError
 from rv_llm.config.llm_config import LLMConfig
@@ -93,7 +93,6 @@ class ExperimentConfig(BaseValidatedModel):
     name: str = ""
     description: str = ""
     output_dir: str = ""
-    experiment_dir: str = ""
 
     rvsec_root: Optional[str] = Field(default=None, description="Override for RVSEC_HOME environment variable")
 
@@ -150,8 +149,6 @@ class ExperimentConfig(BaseValidatedModel):
                 self.results_dir = os.path.join(os.path.dirname(self.output_dir), RESULTS_DIR)
             else:
                 self.results_dir = RESULTS_DIR
-
-        self.experiment_dir = get_experiment_dir(self.results_dir, self.name)
 
         if not self.created_at:
             self.created_at = date_now.isoformat()
@@ -843,98 +840,3 @@ class ExperimentConfig(BaseValidatedModel):
             "Set rvsec_root field in configuration or RVSEC_HOME environment variable"
         )
 
-    @classmethod
-    @ErrorHandler.handle_errors(component="ExperimentConfig", phase="load_from_status")
-    def load_from_status(cls, status_file: str) -> 'ExperimentConfig':
-        """
-        Load experiment configuration from status file for continuation.
-        
-        ### Continuation Strategy:
-        - Loads experiment metadata and configuration from status file
-        - Validates configuration integrity through checksum verification
-        - Enables experiment resumption with original configuration
-        - Provides experiment recovery capabilities
-        
-        ### Role in the System:
-        - Enables experiment continuation after interruption or failure
-        - Maintains configuration consistency for resumed experiments
-        - Supports experiment recovery and debugging workflows
-        - Facilitates long-running experiment management
-        
-        Args:
-            status_file: Path to experiment status file
-            
-        Returns:
-            ExperimentConfig instance loaded from status
-            
-        Raises:
-            ConfigurationError: If status file is invalid or corrupted
-        """
-        if not os.path.exists(status_file):
-            raise ConfigurationError(f"Status file not found: {status_file}")
-
-        try:
-            with open(status_file, 'r') as f:
-                status_data = json.load(f)
-
-            # Extract experiment metadata
-            if "experiment" not in status_data:
-                raise ConfigurationError("Status file does not contain experiment metadata")
-
-            experiment_data = status_data["experiment"]
-
-            # Load the original configuration (would need to be stored separately or reconstructed)
-            # For now, create a basic config that can be enhanced
-            config = cls(
-                name=experiment_data.get("experiment_id", "resumed_experiment"),
-                resume_mode=True,
-                status_file=status_file
-            )
-
-            # Set metadata for continuation tracking
-            config.metadata.update({
-                "resumed_from": status_file,
-                "original_start_time": experiment_data.get("start_time"),
-                "continuation_time": datetime.now().isoformat(),
-                "config_checksum": experiment_data.get("config_checksum")
-            })
-
-            return config
-
-        except json.JSONDecodeError as e:
-            raise ConfigurationError(f"Invalid JSON in status file: {e}")
-        except Exception as e:
-            raise ConfigurationError(f"Error loading status file: {e}")
-
-    def enable_continuation_mode(self, status_file: str) -> None:
-        """
-        Enable experiment continuation mode with status file.
-        
-        Args:
-            status_file: Path to experiment status file
-        """
-        self.resume_mode = True
-        self.status_file = status_file
-
-        # Update metadata
-        self.metadata.update({
-            "continuation_enabled": True,
-            "status_file": status_file,
-            "continuation_time": datetime.now().isoformat()
-        })
-
-    def get_artifact_validation_config(self) -> Dict[str, bool]:
-        """
-        Get artifact validation configuration for phase execution.
-        
-        Returns:
-            Dictionary with artifact validation settings
-        """
-        return {
-            "validate_monitors": self.artifact_reuse_enabled and not self.phase_control.get("skip_monitors", False),
-            "validate_instrumentation": self.artifact_reuse_enabled and not self.phase_control.get(
-                "skip_instrumentation", False),
-            "validate_static_analysis": self.artifact_reuse_enabled and not self.phase_control.get(
-                "skip_static_analysis", False),
-            "strict_validation": not self.resume_mode  # Relaxed validation in resume mode
-        }

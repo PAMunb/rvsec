@@ -19,6 +19,8 @@ The resume fix is an integration task, not a new implementation. The strategy is
 - **Wire `ExperimentMetadata` initialization** in `Platform.run()`. After task generation (so the full config is available for checksumming), `Platform` creates an `ExperimentMetadata` instance and stores it via `TaskStorage.set_experiment_metadata()`. This is currently defined but never created.
 - **Wire `check_continuation_compatibility()`** in `_skip_completed_tasks()`. When previously completed tasks are found (indicating a resume), the platform calls `check_continuation_compatibility()` to compare the current config checksum against the stored one. A mismatch produces a warning but does not block execution — the researcher may have intentionally changed timeouts or added tools.
 - **Remove dead code**: `get_artifact_validation_config()` (crashes on undefined fields `artifact_reuse_enabled` and `phase_control`) and `load_from_status()` (dead method never called from any entry point). These are remnants of an abandoned resume implementation attempt.
+- **Fix ExperimentController directory nesting**: `ExperimentController.__init__()` appended `config.name` to `config.results_dir` even though `results_dir` already contained the experiment name (set by `__main__.py`). This created double-nested directories (`results/my_exp/my_exp/`), causing resume detection to fail because `__main__.py` checked `results/<name>/tasks.json` but the file was at `results/<name>/<name>/tasks.json`. The fix changes `ExperimentController` to use `config.results_dir` directly. The dead `experiment_dir` field on `ExperimentConfig` (set but never read by any code) is also removed.
+- **Fix ResultProcessorComponent data loss on resume**: `ResultProcessorComponent` generates `errors.csv` (monitored operations violations detected by runtime verification monitors), `coverage.csv`, and `results.json` violation details from `task.repository` — an in-memory `LogcatRepository` populated by `CoverageTracker` during task execution. For tasks loaded from `tasks.json` on resume, `task.repository` is `None` because the runtime repository data was never serialized. This causes `errors.csv` to be empty (no MOP violation records) and `results.json` to lack violation details for previously completed tasks. The fix adds logcat file re-reading: when `task.repository` is unavailable, `ResultProcessorComponent` re-parses the persisted `.logcat` file using `parse_logcat_file()` from rv-coverage to reconstruct MOP violation data from `RVSEC` log entries. Summary-level metrics in `summary.csv` are unaffected because they use `task.result.coverage_metrics`, which IS serialized in `tasks.json`.
 
 ### Docker Containerization (infrastructure)
 
@@ -44,22 +46,25 @@ _None_ — Resume and Docker are extensions of existing experiment and platform 
 ## Impact
 
 ### Affected Modules
-- **rv-experiment**: `__main__.py` (CLI flags, resume detection logic), `config.py` (dead code removal — 2 methods)
-- **rv-platform**: `platform.py` (ExperimentMetadata initialization in `run()`, checksum validation in `_skip_completed_tasks()`)
+- **rv-experiment**: `__main__.py` (CLI flags, resume detection logic), `config.py` (dead code removal — 2 methods, `experiment_dir` field removal), `experiment_controller.py` (directory nesting fix — use `config.results_dir` directly)
+- **rv-platform**: `platform.py` (ExperimentMetadata initialization in `run()`, checksum validation in `_skip_completed_tasks()`, result consolidation with `TaskStorage.get_completed_tasks()`), `components/result_processor.py` (logcat re-reading for MOP violation data reconstruction on resume — uses `parse_logcat_file()` from rv-coverage)
+- **rv-tools**: `builtin/ares/tool.py` and `builtin/qtesting/tool.py` — Docker network flag (`--network container:$(hostname)`) for sibling containers when running inside Docker
 
 ### Affected Infrastructure
 - `docker/rvandroid/Dockerfile` — Production image: add ENTRYPOINT, ENV, VOLUME, CMD
 - `docker/rvandroid/docker-entrypoint.sh` — New entry point script (env vars to CLI translation)
 - `docker/rvandroid_dev/Dockerfile` — New dev image (COPY-based, no git clone)
-- `docker/docker-compose.yml` — Single execution with Humanoid service
-- `docker/docker-compose.parallel.yml` — Parallel execution template with YAML anchors
+- `docker/docker-compose.yml` — Single execution with Humanoid service + docker.sock mount for ARES/QTesting sibling containers
+- `docker/docker-compose.parallel.yml` — Parallel execution template with YAML anchors + docker.sock mount
 - `docker/tools/Dockerfile` — Remove ~80 lines of commented legacy code
-- `docker/build_all.sh` — Add tools build step, ensure correct build order
+- `docker/build_all.sh` — Build all 6 images: base, android, tools, rvandroid, ares, qtesting
 
 ### Dependencies
 - Resume fix must be completed before Docker entry point can use `--name` for auto-resume (the entry point generates `--name $RV_EXPERIMENT_NAME`, which triggers the resume detection logic in the CLI)
 - Docker entry point depends on `--resume-dir` flag existing in CLI (for explicit resume via `RV_RESUME_DIR` env var)
-- No external API changes — all changes are internal to rv-experiment and rv-platform
+- ARES and QTesting Docker images must be pre-built on the host before experiments that use these tools — they are spawned at runtime via `docker run`, not declared in docker-compose
+- docker.sock mount is required for Docker-based tools (ARES, QTesting) — without it, only non-Docker tools (Monkey, DroidBot, APE, etc.) function
+- No external API changes — all changes are internal to rv-experiment, rv-platform, and rv-tools
 - No changes to `TaskStorage` internals — the existing atomic persistence, threading, and transaction support are already correct
 
 ### Related FRs/NFRs (from PRD)

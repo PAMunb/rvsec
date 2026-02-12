@@ -44,7 +44,8 @@ poetry run rv-experiment run [OPTIONS]
 | `--apks-dir, -a` | `./apks_examples/` | Directory containing APK files |
 | `--specification-set` | `jca` | Specification set: `jca`, `generic`, `custom` |
 | `--output-dir` | auto-generated | Output directory for results |
-| `--name` | auto-generated | Experiment name (controls results directory naming) |
+| `--name` | auto-generated | Experiment name. When `results/<name>/tasks.json` exists, auto-enables resume |
+| `--resume-dir` | — | Resume from a specific results directory (overrides `--name`) |
 
 **Pre-processing flags:**
 
@@ -165,6 +166,40 @@ Skippable with `--skip-execution` (runs only pre-processing).
 
 - Generates instrumentation error reports
 - Creates completion diagnostics
+
+## Experiment Resume
+
+rv-experiment supports resuming interrupted or expanding completed experiments.
+
+### Resume via `--name`
+
+When `--name` is provided and `results/<name>/tasks.json` exists, resume mode is activated automatically. Pre-processing (monitors, instrumentation, static analysis) is auto-skipped.
+
+```bash
+# First run: 1 repetition
+poetry run rv-experiment run --tools ape --name my_exp --repetitions 1
+
+# Resume with 2 repetitions: skips rep 1, executes rep 2
+poetry run rv-experiment run --tools ape --name my_exp --repetitions 2
+
+# Crash recovery: re-run same command, completed tasks are skipped
+poetry run rv-experiment run --tools ape --name my_exp --repetitions 3
+```
+
+### Resume via `--resume-dir`
+
+For resuming from a specific directory (overrides `--name`):
+
+```bash
+poetry run rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir ./results/my_exp
+```
+
+### Resume Behavior
+
+- Pre-processing is auto-skipped (no redundant instrumentation or analysis)
+- Completed tasks (persisted in `tasks.json`) are skipped
+- MOP violation data is reconstructed from persisted logcat files for resumed tasks
+- Results are consolidated across all sessions into unified CSV/JSON output files
 
 ## Parallel Execution
 

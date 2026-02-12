@@ -6,7 +6,9 @@ This module provides the primary interface for executing Android experiments
 through the rv-platform system.
 """
 
+import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -24,7 +26,7 @@ from rv_platform.components.static_analysis import StaticAnalysisComponent
 from rv_platform.components.tool_execution import ToolExecutionComponent
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.execution.executor import TaskExecutor
-from rv_platform.storage.task_storage import TaskStorage
+from rv_platform.storage.task_storage import ExperimentMetadata, TaskStorage
 from rv_tools import ToolFactory
 
 
@@ -79,6 +81,7 @@ class Platform:
 
         # Tasks list for in-memory operations
         self.tasks: List[Task] = []
+        self._skipped_count: int = 0
 
         # Tool factory
         self.tool_factory = ToolFactory()
@@ -98,6 +101,14 @@ class Platform:
             # Generate tasks
             self._generate_tasks()
 
+            # Store experiment metadata for continuation support
+            config_dict = self.config.model_dump(mode="json")
+            metadata = ExperimentMetadata.create_from_config(
+                experiment_id=str(self.config.results_dir),
+                config_dict=config_dict
+            )
+            self.task_storage.set_experiment_metadata(metadata)
+
             # Resume: skip tasks already completed in a previous run
             self._skip_completed_tasks()
 
@@ -109,7 +120,7 @@ class Platform:
                 self._process_results()
 
             # Generate summary
-            summary = self._generate_summary(results)
+            summary = self._generate_summary(results, self._skipped_count)
 
             self.logger.info("Platform execution completed successfully")
             return summary
@@ -189,6 +200,11 @@ class Platform:
         if not completed_tasks:
             return
 
+        # Validate configuration consistency via checksum
+        config_dict = self.config.model_dump(mode="json")
+        if not self.task_storage.check_continuation_compatibility(config_dict):
+            self.logger.warning("Config changed since last run — resuming anyway")
+
         def task_identity(task):
             tc = task.config
             return (tc.apk_name, tc.tool_config.tool_name, tc.tool_config.variant,
@@ -199,6 +215,7 @@ class Platform:
         original_count = len(self.tasks)
         self.tasks = [t for t in self.tasks if task_identity(t) not in completed_ids]
         skipped = original_count - len(self.tasks)
+        self._skipped_count = skipped
 
         if skipped > 0:
             self.logger.info(
@@ -390,13 +407,15 @@ class Platform:
             variant = getattr(tool_config, 'variant', 'unknown')
             raise ValueError(f"Failed to load tool '{tool_name}:{variant}': {e}")
 
-    def _generate_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _generate_summary(self, results: List[Dict[str, Any]],
+                          skipped_count: int = 0) -> Dict[str, Any]:
         """
         Generate execution summary.
-        
+
         Args:
-            results: List of task results
-            
+            results: List of task results from this session
+            skipped_count: Number of tasks skipped from previous runs (resume)
+
         Returns:
             Summary dictionary
         """
@@ -410,13 +429,17 @@ class Platform:
             "total_tasks": total_tasks,
             "successful_tasks": successful_tasks,
             "failed_tasks": failed_tasks,
+            "skipped_tasks": skipped_count,
             "success_rate": successful_tasks / total_tasks if total_tasks > 0 else 0,
             "total_execution_time": total_time,
             "average_execution_time": total_time / total_tasks if total_tasks > 0 else 0,
             "results": results
         }
 
-        self.logger.info(f"Execution summary: {successful_tasks}/{total_tasks} tasks successful")
+        self.logger.info(
+            f"Execution summary: {successful_tasks}/{total_tasks} tasks successful"
+            f" ({skipped_count} skipped from previous runs)"
+        )
         return summary
 
     def get_tasks(self) -> List:
@@ -447,8 +470,12 @@ class Platform:
         """
         self.logger.info("Processing experiment results")
 
-        # Create result processor component
-        processor = ResultProcessorComponent(self.tasks, self.config.results_dir)
+        # Use TaskStorage as source of truth: includes completed tasks from all
+        # sessions (previous runs loaded from tasks.json + current session).
+        # Using self.tasks would only include tasks executed in this session,
+        # missing tasks that were skipped during resume.
+        all_completed = list(self.task_storage.get_completed_tasks())
+        processor = ResultProcessorComponent(all_completed, self.config.results_dir)
 
         # Initialize and execute result processing
         processor.initialize({})
