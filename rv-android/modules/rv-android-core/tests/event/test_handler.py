@@ -50,7 +50,7 @@ class TestEventHandler:
         handler = EventHandler(callback, filter_fn)
 
         mock_event = MagicMock(spec=Event)
-        mock_event.type = EventType.EXPERIMENT_STARTED
+        mock_event.type = EventType.TASK_STARTED
 
         # Act
         result = handler.handle(mock_event)
@@ -68,7 +68,7 @@ class TestEventHandler:
         handler = EventHandler(callback, filter_fn)
 
         mock_event = MagicMock(spec=Event)
-        mock_event.type = EventType.EXPERIMENT_STARTED
+        mock_event.type = EventType.TASK_STARTED
 
         # Act
         result = handler.handle(mock_event)
@@ -85,7 +85,7 @@ class TestEventHandler:
         handler = EventHandler(callback)
 
         mock_event = MagicMock(spec=Event)
-        mock_event.type = EventType.EXPERIMENT_STARTED
+        mock_event.type = EventType.TASK_STARTED
 
         # Act
         result = handler.handle(mock_event)
@@ -101,7 +101,7 @@ class TestEventHandler:
         handler = EventHandler(callback)
 
         mock_event = MagicMock(spec=Event)
-        mock_event.type = EventType.EXPERIMENT_STARTED
+        mock_event.type = EventType.TASK_STARTED
 
         # Act & Assert
         with pytest.raises(Exception, match="Test exception"):
@@ -116,7 +116,7 @@ class TestEventHandler:
         handler = EventHandler(callback)
 
         mock_event1 = MagicMock(spec=Event)
-        mock_event1.type = EventType.EXPERIMENT_STARTED
+        mock_event1.type = EventType.TASK_STARTED
 
         mock_event2 = MagicMock(spec=Event)
         mock_event2.type = EventType.EXPERIMENT_COMPLETED
@@ -147,11 +147,11 @@ class TestEventHandler:
 
         # Create events with different sources
         matching_event = MagicMock(spec=Event)
-        matching_event.type = EventType.EXPERIMENT_STARTED
+        matching_event.type = EventType.TASK_STARTED
         matching_event.source = 'test_source'
 
         non_matching_event = MagicMock(spec=Event)
-        non_matching_event.type = EventType.EXPERIMENT_STARTED
+        non_matching_event.type = EventType.TASK_STARTED
         non_matching_event.source = 'other_source'
 
         # Act
@@ -180,9 +180,9 @@ class TestEventHandler:
         )
 
         experiment_event = ExperimentEvent(
-            type=EventType.EXPERIMENT_STARTED,
+            type=EventType.EXPERIMENT_COMPLETED,
             experiment_id="test-exp-1",
-            message="Experiment started"
+            message="Experiment completed"
         )
 
 
@@ -205,7 +205,7 @@ class TestEventHandler:
         handler = EventHandler(callback, filter_fn)
 
         mock_event = MagicMock(spec=Event)
-        mock_event.type = EventType.EXPERIMENT_STARTED
+        mock_event.type = EventType.TASK_STARTED
 
         # Act & Assert
         with pytest.raises(Exception, match="Filter exception"):

@@ -9,7 +9,7 @@ rv-android-core is the foundational infrastructure module for the RV-Android fra
 ### Key Patterns and Design Decisions
 
 - **Singleton Pattern**: Core services (EventBus, ErrorHandler, LoggingManager) use thread-safe singletons for global access
-- **Event-Driven Communication**: Publish-subscribe EventBus enables decoupled component communication with typed events and channels
+- **Event-Driven Communication**: Synchronous publish-subscribe EventBus enables decoupled component communication with typed events and channels
 - **Pydantic Validation**: All domain models inherit from `BaseValidatedModel` for comprehensive validation and serialization
 - **Decorator-Based Error Handling**: `@ErrorHandler.handle_errors()` provides Spring-like automatic error management
 - **Template Method Pattern**: `AbstractTool` defines execution workflow for all testing tools
@@ -52,11 +52,9 @@ src/rv_android_core/
 │   └── wtg.py                    # Window Transition Graph models
 ├── event/
 │   ├── __init__.py
-│   ├── bus.py                    # EventBus implementation
-│   ├── decorators.py             # Event publishing decorators
-│   ├── handler.py                # Event handler with priority support
-│   ├── models.py                 # Event type definitions
-│   └── utils.py                  # Event filtering utilities
+│   ├── bus.py                    # Synchronous EventBus implementation
+│   ├── handler.py                # Event handler with callback and optional filter
+│   └── models.py                 # Event types, channels, and event classes
 ├── tools/
 │   ├── __init__.py
 │   ├── abstract_tool.py          # Base class for testing tools
@@ -98,9 +96,9 @@ src/rv_android_core/
 | File | Purpose | Lines |
 |------|---------|-------|
 | `domain/task.py` | Task, TaskConfiguration, TaskResult models | ~920 |
-| `event/models.py` | Event types, channels, and event classes | ~725 |
+| `event/models.py` | Event types (17), channels, and event classes | ~330 |
 | `util/error/error_handler.py` | ErrorHandler with 30+ type-specific handlers | ~990 |
-| `event/bus.py` | EventBus with async processing and channels | ~530 |
+| `event/bus.py` | Synchronous EventBus with channels | ~250 |
 | `util/error/exceptions.py` | Complete exception hierarchy | ~450 |
 | `util/logging/manager.py` | LoggingManager with context support | ~415 |
 | `tools/abstract_tool.py` | AbstractTool base class | ~410 |

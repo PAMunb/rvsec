@@ -73,7 +73,7 @@ class TestEventBusHelperMethods:
 
         # Act
         result = self.event_bus.publish_experiment_event(
-            EventType.EXPERIMENT_STARTED,
+            EventType.EXPERIMENT_COMPLETED,
             experiment_id,
             message,
             affected_tasks,
@@ -87,7 +87,7 @@ class TestEventBusHelperMethods:
         # Get the event that was published
         event = self.event_bus.publish.call_args[0][0]
         assert isinstance(event, ExperimentEvent)
-        assert event.type == EventType.EXPERIMENT_STARTED
+        assert event.type == EventType.EXPERIMENT_COMPLETED
         assert event.experiment_id == experiment_id
         assert event.message == message
         assert event.affected_tasks == affected_tasks

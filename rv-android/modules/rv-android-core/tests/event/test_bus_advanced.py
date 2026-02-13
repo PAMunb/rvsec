@@ -2,18 +2,15 @@
 """
 Advanced unit tests for the EventBus class.
 
-These tests verify more complex scenarios including handler exceptions,
-event filtering, and event history filtering. They ensure the EventBus
-provides robust event handling even in edge cases.
+These tests verify more complex scenarios including handler exceptions
+and event filtering. They ensure the EventBus provides robust event
+handling even in edge cases.
 """
 
-from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import (
-    Event, TaskEvent, ExperimentEvent, EventType
-)
+from rv_android_core.event.models import Event, EventType
 
 
 class TestEventBusAdvanced:
@@ -35,9 +32,9 @@ class TestEventBusAdvanced:
         """Test behavior when a handler raises an exception."""
         # Arrange
         callback = MagicMock(side_effect=Exception("Test exception"))
-        self.event_bus.subscribe(EventType.EXPERIMENT_STARTED, callback)
+        self.event_bus.subscribe(EventType.TASK_STARTED, callback)
 
-        event = Event(type=EventType.EXPERIMENT_STARTED, source="test")
+        event = Event(type=EventType.TASK_STARTED, source="test")
 
         # Act
         count = self.event_bus.publish(event)
@@ -52,10 +49,10 @@ class TestEventBusAdvanced:
         callback1 = MagicMock(side_effect=Exception("Test exception"))
         callback2 = MagicMock()
 
-        self.event_bus.subscribe(EventType.EXPERIMENT_STARTED, callback1)
-        self.event_bus.subscribe(EventType.EXPERIMENT_STARTED, callback2)
+        self.event_bus.subscribe(EventType.TASK_STARTED, callback1)
+        self.event_bus.subscribe(EventType.TASK_STARTED, callback2)
 
-        event = Event(type=EventType.EXPERIMENT_STARTED, source="test")
+        event = Event(type=EventType.TASK_STARTED, source="test")
 
         # Act
         count = self.event_bus.publish(event)
@@ -75,11 +72,11 @@ class TestEventBusAdvanced:
         def filter_fn(event):
             return event.source == "test_source"
 
-        self.event_bus.subscribe(EventType.EXPERIMENT_STARTED, callback, filter_fn)
+        self.event_bus.subscribe(EventType.TASK_STARTED, callback, filter_fn)
 
         # Create events with different sources
-        event1 = Event(type=EventType.EXPERIMENT_STARTED, source="test_source")
-        event2 = Event(type=EventType.EXPERIMENT_STARTED, source="other_source")
+        event1 = Event(type=EventType.TASK_STARTED, source="test_source")
+        event2 = Event(type=EventType.TASK_STARTED, source="other_source")
 
         # Act
         count1 = self.event_bus.publish(event1)
@@ -89,84 +86,3 @@ class TestEventBusAdvanced:
         assert count1 == 1
         assert count2 == 0
         callback.assert_called_once_with(event1)
-
-    def test_get_history_all(self):
-        """Test retrieving the full event history."""
-        # Arrange
-        # Create and publish different events
-        event1 = Event(type=EventType.EXPERIMENT_STARTED, source="test1")
-        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="1", source="test2")
-        event3 = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp1", source="test3")
-
-        self.event_bus.publish(event1)
-        self.event_bus.publish(event2)
-        self.event_bus.publish(event3)
-
-        # Act
-        history = self.event_bus.get_history()
-
-        # Assert
-        assert len(history) == 3
-        assert history[0] == event3  # Most recent first
-        assert history[1] == event2
-        assert history[2] == event1
-
-    def test_get_history_by_event_type(self):
-        """Test filtering history by event type."""
-        # Arrange
-        event1 = Event(type=EventType.EXPERIMENT_STARTED, source="test1")
-        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="1", source="test2")
-        event3 = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp1", source="test3")
-        event4 = TaskEvent(type=EventType.TASK_COMPLETED, task_id="1", source="test4")
-
-        self.event_bus.publish(event1)
-        self.event_bus.publish(event2)
-        self.event_bus.publish(event3)
-        self.event_bus.publish(event4)
-
-        # Act
-        task_events = self.event_bus.get_history(event_type=EventType.TASK_STARTED)
-
-        # Assert
-        assert len(task_events) == 1
-        assert task_events[0] == event2
-
-    def test_get_history_by_source(self):
-        """Test filtering history by source."""
-        # Arrange
-        event1 = Event(type=EventType.EXPERIMENT_STARTED, source="source_a")
-        event2 = Event(type=EventType.TASK_STARTED, source="source_b")
-        event3 = Event(type=EventType.EXPERIMENT_COMPLETED, source="source_a")
-
-        self.event_bus.publish(event1)
-        self.event_bus.publish(event2)
-        self.event_bus.publish(event3)
-
-        # Act
-        source_a_events = self.event_bus.get_history(source="source_a")
-
-        # Assert
-        assert len(source_a_events) == 2
-        assert source_a_events[0] == event3  # Most recent first
-        assert source_a_events[1] == event1
-
-    def test_get_history_by_task_id(self):
-        """Test filtering history by task ID."""
-        # Arrange
-        event1 = TaskEvent(type=EventType.TASK_STARTED, task_id="1", source="test1")
-        event2 = TaskEvent(type=EventType.TASK_STARTED, task_id="2", source="test2")
-        event3 = TaskEvent(type=EventType.TASK_COMPLETED, task_id="1", source="test3")
-        event4 = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp1", source="test4")
-
-        self.event_bus.publish(event1)
-        self.event_bus.publish(event2)
-        self.event_bus.publish(event3)
-        self.event_bus.publish(event4)
-
-        # Act
-        task1_events = self.event_bus.get_history(task_id="1")
-
-        # Assert
-        assert len(task1_events) == 2
-        assert task1_events[0] == event3  # Most recent first
-        assert task1_events[1] == event1

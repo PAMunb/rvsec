@@ -30,19 +30,24 @@ class TestEventType:
     def test_event_type_existence(self):
         """Test that EventType contains all expected event types."""
         expected_types = [
-            "TASK_CREATED", "TASK_CONFIGURED", "TASK_STARTED", "TASK_COMPLETED", "TASK_FAILED",
-            "EXPERIMENT_STARTED", "EXPERIMENT_COMPLETED", "EXPERIMENT_FAILED",
-            "EXPERIMENT_PAUSED", "EXPERIMENT_RESUMED",
-            "COVERAGE_UPDATED", "COVERAGE_TRACKING_STARTED", "COVERAGE_TRACKING_STOPPED",
-            "MOP_ERROR_DETECTED", "STATIC_ANALYSIS_COMPLETED",
-            "EMULATOR_STARTED", "EMULATOR_STOPPED", "APP_INSTALLED",
+            "TASK_STARTED", "TASK_COMPLETED", "TASK_FAILED",
+            "EXPERIMENT_COMPLETED", "EXPERIMENT_FAILED",
+            "WORKFLOW_COMPLETED",
+            "EMULATOR_STARTED", "APP_INSTALLED",
             "TOOL_STARTED", "TOOL_STOPPED",
-            "CONFIG_LOADED", "CONFIG_SAVED",
+            "MONITOR_GENERATED", "INSTRUMENTATION_COMPLETED",
+            "STATIC_ANALYSIS_COMPLETED",
+            "COVERAGE_TRACKING_STARTED", "COVERAGE_TRACKING_STOPPED",
+            "COVERAGE_UPDATED", "MOP_ERROR_DETECTED",
         ]
 
         # Verify all expected types exist
         for event_type in expected_types:
             assert hasattr(EventType, event_type)
+
+        # Verify the total count is exactly 17
+        all_members = [e for e in EventType]
+        assert len(all_members) == 17
 
     def test_event_type_is_enum(self):
         """Test that EventType is properly defined as an Enum."""
@@ -108,10 +113,10 @@ class TestBaseEvent:
         """Test the is_lifecycle_event method."""
         # Test lifecycle events
         lifecycle_events = [
-            EventType.TASK_CREATED, EventType.TASK_STARTED, EventType.TASK_COMPLETED, EventType.TASK_FAILED,
-            EventType.EXPERIMENT_STARTED, EventType.EXPERIMENT_COMPLETED, EventType.EXPERIMENT_FAILED,
-            EventType.WORKFLOW_STARTED, EventType.WORKFLOW_COMPLETED, EventType.WORKFLOW_FAILED,
-            EventType.EMULATOR_STARTED, EventType.EMULATOR_STOPPED, EventType.TOOL_STARTED, EventType.TOOL_STOPPED
+            EventType.TASK_STARTED, EventType.TASK_COMPLETED, EventType.TASK_FAILED,
+            EventType.EXPERIMENT_COMPLETED, EventType.EXPERIMENT_FAILED,
+            EventType.WORKFLOW_COMPLETED,
+            EventType.EMULATOR_STARTED, EventType.TOOL_STARTED, EventType.TOOL_STOPPED,
         ]
 
         for event_type in lifecycle_events:
@@ -119,15 +124,25 @@ class TestBaseEvent:
             assert event.is_lifecycle_event() == True
 
         # Test non-lifecycle events
-        non_lifecycle_event = Event(EventType.COVERAGE_UPDATED)
-        assert non_lifecycle_event.is_lifecycle_event() == False
+        non_lifecycle_events = [
+            EventType.COVERAGE_UPDATED,
+            EventType.MONITOR_GENERATED, EventType.INSTRUMENTATION_COMPLETED,
+            EventType.STATIC_ANALYSIS_COMPLETED, EventType.APP_INSTALLED,
+            EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
+            EventType.MOP_ERROR_DETECTED,
+        ]
+
+        for event_type in non_lifecycle_events:
+            event = Event(event_type)
+            assert event.is_lifecycle_event() == False
 
     def test_is_analysis_event(self):
         """Test the is_analysis_event method."""
         # Test analysis events
         analysis_events = [
-            EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED, EventType.COVERAGE_TRACKING_STOPPED,
-            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED, EventType.ANALYSIS_COMPLETED
+            EventType.COVERAGE_UPDATED, EventType.COVERAGE_TRACKING_STARTED,
+            EventType.COVERAGE_TRACKING_STOPPED,
+            EventType.MOP_ERROR_DETECTED, EventType.STATIC_ANALYSIS_COMPLETED,
         ]
 
         for event_type in analysis_events:
@@ -135,29 +150,15 @@ class TestBaseEvent:
             assert event.is_analysis_event() == True
 
         # Test non-analysis events
-        non_analysis_event = Event(EventType.TASK_STARTED)
-        assert non_analysis_event.is_analysis_event() == False
+        non_analysis_events = [
+            EventType.TASK_STARTED, EventType.TASK_COMPLETED,
+            EventType.EXPERIMENT_COMPLETED, EventType.EMULATOR_STARTED,
+            EventType.TOOL_STARTED,
+        ]
 
-    def test_event_comparison(self):
-        """Test event comparison for priority queue operations."""
-        # Create events with different timestamps
-        timestamp1 = datetime(2023, 1, 1, 12, 0, 0)
-        timestamp2 = datetime(2023, 1, 1, 12, 1, 0)
-
-        event1 = Event(EventType.TASK_STARTED, timestamp=timestamp1)
-        event2 = Event(EventType.TASK_COMPLETED, timestamp=timestamp2)
-
-        # Earlier event should be less than later event
-        assert event1 < event2
-        assert not (event2 < event1)
-
-    def test_event_comparison_with_non_event(self):
-        """Test event comparison with non-Event objects."""
-        event = Event(EventType.TASK_STARTED)
-
-        # Comparison with non-Event should return NotImplemented
-        result = event.__lt__("not an event")
-        assert result is NotImplemented
+        for event_type in non_analysis_events:
+            event = Event(event_type)
+            assert event.is_analysis_event() == False
 
 
 class TestTaskEvent:
@@ -280,11 +281,11 @@ class TestExperimentEvent:
         """Test that ExperimentEvent initializes with correct values."""
         experiment_id = "exp_2023_01_01"
         affected_tasks = ["1", "2", "3"]
-        message = "Experiment started successfully"
+        message = "Experiment completed successfully"
         source = "test_source"
 
         event = ExperimentEvent(
-            type=EventType.EXPERIMENT_STARTED,
+            type=EventType.EXPERIMENT_COMPLETED,
             experiment_id=experiment_id,
             affected_tasks=affected_tasks,
             message=message,
@@ -292,7 +293,7 @@ class TestExperimentEvent:
         )
 
         # Check all attributes are properly set
-        assert event.type == EventType.EXPERIMENT_STARTED
+        assert event.type == EventType.EXPERIMENT_COMPLETED
         assert event.experiment_id == experiment_id
         assert event.affected_tasks == affected_tasks
         assert event.message == message
@@ -301,7 +302,7 @@ class TestExperimentEvent:
 
     def test_experiment_event_default_values(self):
         """Test that ExperimentEvent uses correct default values."""
-        event = ExperimentEvent(type=EventType.EXPERIMENT_STARTED, experiment_id="exp_1")
+        event = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp_1")
 
         assert event.experiment_id == "exp_1"
         assert event.affected_tasks == []
@@ -309,21 +310,21 @@ class TestExperimentEvent:
 
     def test_experiment_event_inheritance(self):
         """Test that ExperimentEvent properly inherits from Event."""
-        event = ExperimentEvent(type=EventType.EXPERIMENT_STARTED, experiment_id="exp_1")
+        event = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp_1")
 
         assert isinstance(event, Event)
 
     def test_experiment_event_string_representation(self):
         """Test the string representation of ExperimentEvent objects."""
         event = ExperimentEvent(
-            type=EventType.EXPERIMENT_STARTED,
+            type=EventType.EXPERIMENT_COMPLETED,
             experiment_id="exp_1",
             message="Test message"
         )
 
         # Check string representation contains experiment-specific information
         string_repr = str(event)
-        assert "EXPERIMENT_STARTED" in string_repr
+        assert "EXPERIMENT_COMPLETED" in string_repr
         assert "exp_1" in string_repr
         assert "Test message" in string_repr
 
@@ -354,7 +355,7 @@ class TestExperimentEvent:
         affected_tasks = ["task1", "task2", "task3"]
 
         event = ExperimentEvent(
-            type=EventType.EXPERIMENT_STARTED,
+            type=EventType.EXPERIMENT_COMPLETED,
             experiment_id="exp_1",
             affected_tasks=affected_tasks
         )
@@ -369,12 +370,9 @@ class TestExperimentEvent:
 
     def test_is_failure_event(self):
         """Test the is_failure_event method."""
-        # Test failure events
-        failure_event1 = ExperimentEvent(type=EventType.EXPERIMENT_FAILED, experiment_id="exp_1")
-        assert failure_event1.is_failure_event() == True
-
-        failure_event2 = ExperimentEvent(type=EventType.WORKFLOW_FAILED, experiment_id="exp_1")
-        assert failure_event2.is_failure_event() == True
+        # Test failure event
+        failure_event = ExperimentEvent(type=EventType.EXPERIMENT_FAILED, experiment_id="exp_1")
+        assert failure_event.is_failure_event() == True
 
         # Test non-failure events
         success_event = ExperimentEvent(type=EventType.EXPERIMENT_COMPLETED, experiment_id="exp_1")
@@ -470,7 +468,7 @@ class TestPhaseExecutionModeEvent:
         source = "WorkflowManager"
 
         event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,
+            type=EventType.WORKFLOW_COMPLETED,
             phase_name=phase_name,
             execution_mode=execution_mode,
             fallback_reason=fallback_reason,
@@ -478,7 +476,7 @@ class TestPhaseExecutionModeEvent:
             source=source
         )
 
-        assert event.type == EventType.WORKFLOW_STARTED
+        assert event.type == EventType.WORKFLOW_COMPLETED
         assert event.phase_name == phase_name
         assert event.execution_mode == execution_mode
         assert event.fallback_reason == fallback_reason
@@ -489,7 +487,7 @@ class TestPhaseExecutionModeEvent:
     def test_phase_execution_mode_event_inheritance(self):
         """Test that PhaseExecutionModeEvent properly inherits from Event."""
         event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,
+            type=EventType.WORKFLOW_COMPLETED,
             phase_name="instrumentation",
             execution_mode="fallback"
         )
@@ -526,7 +524,7 @@ class TestPhaseExecutionModeEvent:
         """Test the is_fallback_execution method."""
         # Test fallback execution
         fallback_event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,
+            type=EventType.WORKFLOW_COMPLETED,
             phase_name="instrumentation",
             execution_mode="fallback"
         )
@@ -534,14 +532,14 @@ class TestPhaseExecutionModeEvent:
 
         # Test non-fallback execution
         full_event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,
+            type=EventType.WORKFLOW_COMPLETED,
             phase_name="instrumentation",
             execution_mode="full"
         )
         assert full_event.is_fallback_execution() == False
 
         skipped_event = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_STARTED,
+            type=EventType.WORKFLOW_COMPLETED,
             phase_name="instrumentation",
             execution_mode="skipped"
         )
@@ -551,7 +549,7 @@ class TestPhaseExecutionModeEvent:
         """Test the string representation of PhaseExecutionModeEvent objects."""
         # Event with fallback reason
         event_with_reason = PhaseExecutionModeEvent(
-            type=EventType.WORKFLOW_FAILED,
+            type=EventType.EXPERIMENT_FAILED,
             phase_name="tool_execution",
             execution_mode="failed",
             fallback_reason="Tool timeout"
@@ -589,7 +587,7 @@ class TestEventIntegration:
         """Test that events created close together have close timestamps."""
         event1 = Event(EventType.TASK_STARTED)
         event2 = TaskEvent(EventType.TASK_STARTED, task_id="1")
-        event3 = ExperimentEvent(EventType.EXPERIMENT_STARTED, experiment_id="exp_1")
+        event3 = ExperimentEvent(EventType.EXPERIMENT_COMPLETED, experiment_id="exp_1")
 
         # All events should have timestamps within a small window
         # Default is 1 second, but can be adjusted based on system performance
@@ -603,7 +601,7 @@ class TestEventIntegration:
         # Create events
         event1 = Event(EventType.TASK_STARTED)
         event2 = TaskEvent(EventType.TASK_STARTED, task_id="1")
-        event3 = ExperimentEvent(EventType.EXPERIMENT_STARTED, experiment_id="exp_1")
+        event3 = ExperimentEvent(EventType.EXPERIMENT_COMPLETED, experiment_id="exp_1")
 
         # Calculate the maximum time difference between any two events
         time_diffs = [
@@ -617,26 +615,3 @@ class TestEventIntegration:
         # All events should be created within a very small window (e.g., 0.1 seconds)
         # This verifies they all use "now" without having to mock datetime.now()
         assert max_diff < 0.1, f"Events should have very close timestamps, but max difference was {max_diff} seconds"
-
-    def test_event_comparison_sorting(self):
-        """Test that events can be sorted by timestamp."""
-        # Create events with specific timestamps
-        timestamps = [
-            datetime(2023, 1, 1, 12, 0, 0),
-            datetime(2023, 1, 1, 12, 1, 0),
-            datetime(2023, 1, 1, 12, 2, 0)
-        ]
-
-        events = [
-            Event(EventType.TASK_STARTED, timestamp=timestamps[2]),
-            Event(EventType.TASK_COMPLETED, timestamp=timestamps[0]),
-            Event(EventType.EXPERIMENT_STARTED, timestamp=timestamps[1])
-        ]
-
-        # Sort events
-        sorted_events = sorted(events)
-
-        # Check that they're sorted by timestamp
-        assert sorted_events[0].timestamp == timestamps[0]
-        assert sorted_events[1].timestamp == timestamps[1]
-        assert sorted_events[2].timestamp == timestamps[2]

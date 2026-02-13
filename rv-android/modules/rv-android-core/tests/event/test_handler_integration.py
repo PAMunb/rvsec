@@ -31,7 +31,7 @@ class TestEventHandlerIntegration:
 
             # Act
             event_bus = EventBus.get_instance()
-            event_type = EventType.EXPERIMENT_STARTED
+            event_type = EventType.TASK_STARTED
             handler_id = event_bus.subscribe(event_type, callback)
 
             # Assert
@@ -174,7 +174,7 @@ class TestEventHandlerIntegration:
         handler = EventHandler(callback)
 
         # Create a generic Event
-        event = Event(type=EventType.EXPERIMENT_STARTED, source="Test")
+        event = Event(type=EventType.TASK_STARTED, source="Test")
 
         # Act
         result = handler.handle(event)

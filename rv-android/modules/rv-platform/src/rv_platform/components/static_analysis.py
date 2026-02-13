@@ -20,7 +20,7 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
 from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import EventType, EventChannel, EventPriority
+from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -144,8 +144,7 @@ class StaticAnalysisComponent:
                             task_id=self.task.id,
                             details={"app_name": self.task.app.name if self.task.app else self.task.config.apk_name},
                             source="StaticAnalysisComponent",
-                            channel=EventChannel.ANALYSIS,
-                            priority=EventPriority.NORMAL
+                            channel=EventChannel.ANALYSIS
                         )
                     return True
                 else:

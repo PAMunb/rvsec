@@ -23,7 +23,7 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import EventType, EventChannel, EventPriority
+from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.domain.task import Task, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_platform.storage.task_storage import TaskStorage

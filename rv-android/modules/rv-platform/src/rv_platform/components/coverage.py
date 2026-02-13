@@ -20,7 +20,7 @@ from rv_android_core.util.logging.constants import (
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import EventType, EventChannel, EventPriority
+from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -211,8 +211,7 @@ class CoverageComponent:
                         task_id=self.task.id,
                         details={"logcat_file": self.task.result.logcat_file},
                         source="CoverageComponent",
-                        channel=EventChannel.LIFECYCLE,
-                        priority=EventPriority.NORMAL
+                        channel=EventChannel.LIFECYCLE
                     )
                 return True
             except Exception as e:
@@ -252,8 +251,7 @@ class CoverageComponent:
                         EventType.COVERAGE_TRACKING_STOPPED,
                         task_id=self.task.id,
                         source="CoverageComponent",
-                        channel=EventChannel.LIFECYCLE,
-                        priority=EventPriority.NORMAL
+                        channel=EventChannel.LIFECYCLE
                     )
                 return True
             except Exception as e:
@@ -324,8 +322,7 @@ class CoverageComponent:
                         task_id=self.task.id,
                         coverage_metrics=self.task.result.coverage_metrics,
                         source="CoverageComponent",
-                        channel=EventChannel.LIFECYCLE,
-                        priority=EventPriority.NORMAL
+                        channel=EventChannel.LIFECYCLE
                     )
 
                 self.logger.info(LOG_COMPLETE.format(phase="processing coverage data"))

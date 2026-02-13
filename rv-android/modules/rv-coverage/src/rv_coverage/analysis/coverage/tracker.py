@@ -12,7 +12,7 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
 from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import Event, EventType, EventChannel, EventPriority
+from rv_android_core.event.models import Event, EventType, EventChannel
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
@@ -343,8 +343,7 @@ class CoverageTracker:
                             "time_since_task_start": time_since_start
                         },
                         source="CoverageTracker",
-                        channel=EventChannel.LIFECYCLE,
-                        priority=EventPriority.HIGH
+                        channel=EventChannel.LIFECYCLE
                     )
                 else:
                     # Fallback to generic event if no task_id
@@ -432,8 +431,7 @@ class CoverageTracker:
                         task_id=self.task_id,
                         coverage_metrics=current_metrics,
                         source="CoverageTracker",
-                        channel=EventChannel.LIFECYCLE,
-                        priority=EventPriority.NORMAL
+                        channel=EventChannel.LIFECYCLE
                     )
                 else:
                     # Fallback to generic event if no task_id
