@@ -11,7 +11,7 @@ from rv_android_core.util.error.exceptions import (
     RVExperimentError, RVParsingError, RVLLMError, RVPromptError,
     RVValidationError, CommandValidationError, LogcatValidationError,
     EventProcessingError, ConfigurationError, RVCommandTimeoutError, JarNotFoundError,
-    CircuitBreakerOpenError, RVLLMConnectionError, RVLLMModelError, RVLLMProviderError,
+    RVLLMConnectionError, RVLLMModelError, RVLLMProviderError,
     RVLLMConfigurationError, RVLLMTemplateError, LLMServiceError, ServerLifecycleError, ToolCreationError
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
@@ -108,7 +108,6 @@ class ErrorHandler:
         # Register new infrastructure exception handlers
         self.register_handler(RVCommandTimeoutError, self._handle_command_timeout_error)
         self.register_handler(JarNotFoundError, self._handle_jar_not_found_error)
-        self.register_handler(CircuitBreakerOpenError, self._handle_circuit_breaker_open_error)
         # Register common system error handlers
         self.register_handler(FileNotFoundError, self._handle_file_not_found_error)
         # Register generic handlers - order matters: specific before generic
@@ -807,35 +806,6 @@ class ErrorHandler:
             self._logger.error(f"Tool: {tool_name}, Component: {component}")
 
         return False  # Let it propagate as tool execution error
-
-    def _handle_circuit_breaker_open_error(self, error: CircuitBreakerOpenError,
-                                           context: Optional[Dict[str, Any]] = None) -> bool:
-        """
-        Handle circuit breaker open state errors in command execution.
-        
-        Circuit breaker open errors indicate that a command has been blocked
-        due to repeated failures, providing protection against cascading failures.
-        
-        Args:
-            error: The CircuitBreakerOpenError
-            context: Optional context information
-            
-        Returns:
-            True to handle gracefully and prevent execution
-        """
-        self._logger.warning(f"Circuit breaker protection activated: {error.message}")
-        if hasattr(error, 'command_signature') and error.command_signature:
-            self._logger.warning(f"Blocked command: {error.command_signature}")
-        if hasattr(error, 'failure_count') and error.failure_count:
-            self._logger.warning(f"Previous failures: {error.failure_count}")
-
-        # Log context if available
-        if context:
-            component = context.get('component', 'unknown')
-            tool_name = context.get('tool_name', 'unknown')
-            self._logger.warning(f"Tool: {tool_name}, Component: {component}")
-
-        return True  # Handle gracefully - circuit breaker is protective behavior
 
     def _handle_generic_exception(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> bool:
         """

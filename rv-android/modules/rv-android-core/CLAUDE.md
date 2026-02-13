@@ -13,7 +13,6 @@ rv-android-core is the foundational infrastructure module for the RV-Android fra
 - **Pydantic Validation**: All domain models inherit from `BaseValidatedModel` for comprehensive validation and serialization
 - **Decorator-Based Error Handling**: `@ErrorHandler.handle_errors()` provides Spring-like automatic error management
 - **Template Method Pattern**: `AbstractTool` defines execution workflow for all testing tools
-- **Circuit Breaker Pattern**: `CommandCircuitBreaker` provides resilience against repeatedly failing commands
 
 ### Key Components
 
@@ -38,7 +37,6 @@ src/rv_android_core/
 │   └── base_analyzer.py          # Base class for analysis tools
 ├── commands/
 │   ├── __init__.py
-│   ├── circuit_breaker.py        # Circuit breaker for command resilience
 │   ├── command.py                # Command execution with validation
 │   ├── command_exception.py
 │   ├── command_not_found_error.py

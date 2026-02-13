@@ -80,12 +80,12 @@ class TestErrorHandlerRefactored:
 
     def test_builtin_handlers_registered(self, error_handler):
         """Test that built-in handlers are automatically registered."""
-        # Should have 27 built-in handlers registered
-        assert len(error_handler._error_callbacks) == 27
+        # Should have 26 built-in handlers registered
+        assert len(error_handler._error_callbacks) == 26
 
         # Check that handler signatures are tracked
         assert hasattr(error_handler, '_registered_handlers')
-        assert len(error_handler._registered_handlers) == 27
+        assert len(error_handler._registered_handlers) == 26
 
     def test_register_handler_success(self, error_handler):
         """Test successful handler registration."""
@@ -454,32 +454,6 @@ class TestErrorHandlerExtended:
     @pytest.fixture
     def handler(self, mock_logging_manager):
         return ErrorHandler.get_instance()
-
-    # @pytest.mark.parametrize("error_cls, expected", [
-    #     (ToolNotFoundError("missing tool"), True),
-    #     (ToolRegistrationError("reg failed"), True),
-    #     (ToolVariantError("bad variant"), True),
-    #     (PluginError("plugin fail"), True),
-    #     (RVToolTimeoutError("timeout"), True),
-    #     (RVToolExecutionError("exec fail"), False),
-    #     (JarNotFoundError("jar fail"), False),
-    #     (RVCommandTimeoutError("cmd timeout"), False),
-    #     (CommandValidationError("bad command"), True),
-    #     (LogcatValidationError("bad logcat"), True),
-    #     (EventProcessingError("event fail", event_type="TEST_EVENT"), True),
-    #     # Add component/tool_name to context for CircuitBreakerOpenError to be handled
-    #     (lambda: CircuitBreakerOpenError("breaker", command_signature="x", failure_count=3), True),
-    # ])
-    # def test_builtin_handlers_extended(self, handler, error_cls, expected):
-    #     if callable(error_cls):
-    #         error = error_cls()
-    #     else:
-    #         error = error_cls
-    #
-    #     # Add required context for CircuitBreakerOpenError handler to succeed
-    #     context = {"component": "test_component", "tool_name": "test_tool"} if isinstance(error, CircuitBreakerOpenError) else None
-    #     result = handler.handle_error(error, context)
-    #     assert result is expected
 
     def test_handle_error_with_dict_context(self, handler):
         context = {"component": "TestComponent", "phase": "demo"}

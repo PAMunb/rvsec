@@ -47,9 +47,8 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **UI Components**: Window, widget, and navigation graph models
 
 #### Tool Infrastructure
-- **AbstractTool**: Base abstraction for all testing tool implementations providing centralized error handling, unified command execution, and automatic circuit breaker protection. Includes variant system integration.
+- **AbstractTool**: Base abstraction for all testing tool implementations providing centralized error handling and unified command execution. Includes variant system integration.
 - **Command**: Command execution infrastructure with timeout handling, failure detection, and comprehensive logging support
-- **CommandCircuitBreaker**: Resilience pattern implementation preventing cascading failures through command-specific failure tracking and automatic recovery testing
 - **JarResolver**: Centralized JAR file resolution utility providing standardized search patterns and comprehensive error handling for JAR-dependent tools
 - **ToolSpec**: Tool specification and metadata management system enabling tool discovery and configuration
 - **Variant System**: Tool variant management with predefined configurations and automatic registry integration
@@ -422,37 +421,6 @@ The circuit breaker operates at the command level, meaning that failure of one s
 Without circuit breaker protection, a testing framework would be vulnerable to several problematic scenarios. Failing commands would continue executing indefinitely, consuming system resources and potentially causing memory exhaustion or CPU overload. Multiple test runs would repeat the same failing operations, wasting time and resources without providing additional diagnostic value.
 
 System failures could cascade as resource exhaustion from one failing command impacts other system components. Debugging would be more difficult because repeated failures would generate excessive log output without clear indication of the underlying problem. The framework would lack graceful degradation capabilities, potentially requiring manual intervention to stop problematic operations.
-
-### Integration with Testing Tools
-
-The circuit breaker pattern integrates seamlessly with the existing tool infrastructure. Testing tools automatically benefit from circuit breaker protection without requiring modifications to their core logic. The pattern operates at the command execution level, providing protection regardless of which tool initiates the command.
-
-When a circuit breaker activates, the testing framework can implement fallback strategies or provide clear failure reporting. This integration ensures that research and development activities can continue even when specific tools encounter issues, maintaining productivity and system reliability.
-
-### Circuit Breaker Usage
-
-```python
-from rv_android_core.commands.circuit_breaker import CommandCircuitBreaker, CircuitBreakerState
-from rv_android_core.util.error.exceptions import CircuitBreakerOpenError
-
-
-# Circuit breaker is automatically integrated in AbstractTool
-# Custom configuration (optional)
-class CustomTool(AbstractTool):
-    def __init__(self):
-        super().__init__(name="custom", description="Custom tool", process_pattern="custom")
-        # Override default circuit breaker settings
-        self.circuit_breaker = CommandCircuitBreaker(failure_threshold=5, retry_count=2)
-
-    def execute_tool_specific_logic(self, task, app):
-        try:
-            # Commands automatically protected by circuit breaker
-            result = self._execute_and_check_command(command)
-        except CircuitBreakerOpenError as e:
-            self.logger.warning(f"Circuit breaker protection activated: {e}")
-            # Handle blocked execution or implement fallback
-            raise
-```
 
 ## Testing
 

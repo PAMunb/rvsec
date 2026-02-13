@@ -18,7 +18,7 @@ from rv_android_core.util.error.exceptions import (
     RVAndroidError, RVTaskError, RVToolError, RVExperimentError,
     RVParsingError, RVLLMError, RVPromptError, RVValidationError,
     CommandValidationError, LogcatValidationError, EventProcessingError,
-    RVCommandTimeoutError, JarNotFoundError, CircuitBreakerOpenError,
+    RVCommandTimeoutError, JarNotFoundError,
     ToolNotFoundError, ToolRegistrationError, ToolVariantError, PluginError,
     RVToolTimeoutError, RVToolExecutionError, ConfigurationError,
     RVToolConfigurationError
@@ -249,20 +249,6 @@ class TestErrorHandlerComprehensive:
 
         # Should NOT be handled (let it propagate as tool execution error)
         assert result is False
-
-    def test_circuit_breaker_open_error_with_details(self, error_handler):
-        """Test CircuitBreakerOpenError with command details."""
-        error = CircuitBreakerOpenError(
-            "Circuit breaker open",
-            command_signature="adb_shell",
-            failure_count=5
-        )
-        context = {"component": "CommandExecutor", "tool_name": "test_tool"}
-
-        result = error_handler.handle_error(error, context)
-
-        # Should be handled gracefully (circuit breaker is protective)
-        assert result is True
 
     def test_error_with_object_context(self, error_handler):
         """Test error handling with object context (has build method)."""
@@ -1050,12 +1036,12 @@ class TestErrorHandlerEdgeCases:
 
     def test_all_builtin_handlers_registered(self, error_handler):
         """Test that all expected builtin handlers are registered."""
-        # Should have 27 built-in handlers registered
-        assert len(error_handler._error_callbacks) == 27
+        # Should have 26 built-in handlers registered
+        assert len(error_handler._error_callbacks) == 26
 
         # Should have registered handlers tracking
         assert hasattr(error_handler, '_registered_handlers')
-        assert len(error_handler._registered_handlers) == 27
+        assert len(error_handler._registered_handlers) == 26
 
 
 class TestSpecificHandlerBehaviors:
