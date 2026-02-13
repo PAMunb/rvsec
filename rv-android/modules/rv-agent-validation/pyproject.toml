@@ -23,7 +23,7 @@ rv-instrumentation = {path = "../rv-instrumentation", develop = true}
 scipy = "^1.14.0"
 
 # Optimization (for calibration)
-optuna = "^3.5.0"
+optuna = "^4.0"
 pandas = "^2.2.0"
 
 # LLM (for multimodal validation)

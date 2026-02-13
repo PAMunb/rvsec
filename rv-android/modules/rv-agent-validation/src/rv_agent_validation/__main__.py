@@ -7,7 +7,6 @@ Command-line interface for rv-agent validation experiments.
 Commands:
     run         Run validation experiment from config file
     preprocess  Instrument APKs and run static analysis
-    calibrate   Run calibration optimization (Optuna)
     show-params Show calibrated parameters
     show-defaults Show default parameter values
 """
@@ -28,7 +27,6 @@ def cli():
 
 # Import and register calibration commands
 from rv_agent_validation.calibration.cli import calibration
-cli.add_command(calibration.get_command(None, 'calibrate'), 'calibrate')
 cli.add_command(calibration.get_command(None, 'show-params'), 'show-params')
 cli.add_command(calibration.get_command(None, 'show-defaults'), 'show-defaults')
 

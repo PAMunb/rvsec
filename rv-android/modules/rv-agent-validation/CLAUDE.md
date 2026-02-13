@@ -66,10 +66,8 @@ rv-agent-validation/
 │   ├── calibration/          # Parameter calibration (Optuna)
 │   │   ├── __init__.py       # Module exports
 │   │   ├── parameter_space.py # 24 tunable parameters with ranges
-│   │   ├── objective.py      # ObjectiveFunction (coverage + errors)
-│   │   ├── optimizer.py      # CalibrationOptimizer (Optuna TPESampler)
-│   │   ├── runner.py         # CalibrationRunner (rv-experiment subprocess)
-│   │   ├── cli.py            # CLI commands (calibrate, show-params)
+│   │   ├── objective.py      # ObjectiveFunction (coverage + errors + UI)
+│   │   ├── cli.py            # CLI commands (show-params, show-defaults)
 │   │   └── metrics_collector.py # CalibrationMetricsCollector
 │   │
 │   └── __main__.py           # CLI entry point
@@ -145,43 +143,46 @@ python -m rv_agent_validation.analysis.strategy_comparison \
     --output analysis.json
 ```
 
-### Parameter Calibration (Optuna)
+### Parameter Calibration (Docker-based)
 
-The calibration module uses Bayesian optimization (Optuna with TPESampler) to tune RVAgentStrategy parameters for optimal coverage and MOP error detection.
+Calibration uses Docker containers for parallel trial execution. Each trial runs all APKs
+in a separate container with Optuna-suggested parameters. Two host-side scripts orchestrate
+the process:
+
+- `scripts/calibration_orchestrator.py` — Optuna ask/tell loop with Docker parallelism (Phases C/D)
+- `scripts/baseline_docker.py` — Fixed-tool batch execution across N containers (Phases B/E)
 
 ```bash
-# Run macro phase calibration (8 high-impact parameters)
-poetry run python -m rv_agent_validation calibrate \
-    --apks-dir data/calibration_dataset \
-    --phase macro \
-    --n-trials 50 \
-    --timeout 300 \
-    --seed 42 \
-    --output ./calibration_macro
+# Run calibration (macro phase, 6 parallel containers, 50 trials)
+poetry run python scripts/calibration_orchestrator.py \
+    --data-dir data/calibration_dataset_v2 \
+    --filter-file data/calibration_set_v2.txt \
+    --output-dir ./results/calibration_macro \
+    --n-containers 6 --n-trials 50 --timeout 300 --phase macro
 
-# Run micro phase calibration (16 fine-tuning parameters)
-poetry run python -m rv_agent_validation calibrate \
-    --apks-dir data/calibration_dataset \
-    --phase micro \
-    --best-macro ./calibration_macro/optimal_params.json \
-    --n-trials 30 \
-    --output ./calibration_micro
+# Run baseline experiment (3 tools, 6 containers, 3 repetitions)
+poetry run python scripts/baseline_docker.py \
+    --tools ape,fastbot,rvagent:pure_algorithm \
+    --data-dir data/calibration_dataset_v2 \
+    --filter-file data/all_valid_apks.txt \
+    --output-dir ./results/baseline_v2 \
+    --n-containers 6 --timeout 300 --repetitions 3
 
 # Show calibrated parameters
 poetry run python -m rv_agent_validation show-params \
-    --params-file ./calibration_macro/optimal_params.json
+    --params-file ./results/calibration_macro/optimal_params.json
 
 # Show default parameter values
 poetry run python -m rv_agent_validation show-defaults
 ```
 
 **Calibration Workflow:**
-1. **Dataset Preparation**: Use pre-instrumented APKs in `data/calibration_dataset/`
-2. **Macro Phase**: Tune 8 high-impact parameters (scorer weights, exploration)
-3. **Micro Phase**: Fine-tune 16 additional parameters using best macro params
-4. **Validation**: Test on hold-out set (`data/holdout_set.txt`)
+1. **Phase B (Baseline)**: `baseline_docker.py` — establish error baselines with standard tools
+2. **Phase C (Macro)**: `calibration_orchestrator.py --phase macro` — tune 8 high-impact parameters
+3. **Phase D (Micro)**: `calibration_orchestrator.py --phase micro` — fine-tune 16 additional parameters
+4. **Phase E (Validation)**: `baseline_docker.py` — validate on hold-out set
 
-**Objective Function**: 50% method coverage + 50% normalized MOP errors (higher is better).
+**Objective Function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage.
 
 ## Configuration Format
 
@@ -322,46 +323,32 @@ report = analyzer.generate_report(Path("report.json"))
 
 ```python
 from rv_agent_validation.calibration import (
-    CalibrationOptimizer,
-    CalibrationRunner,
     ObjectiveFunction,
     get_default_params,
     params_to_tool_spec,
     CalibrationPhase,
+    suggest_params,
 )
 
-# Create objective function (50% coverage, 50% errors)
+# Objective function (40% coverage + 40% errors + 20% UI coverage)
 objective_fn = ObjectiveFunction(
-    coverage_weight=0.50,
-    errors_weight=0.50,
-    baseline_max_errors=10.0  # Optional: from baseline experiment
+    coverage_weight=0.40,
+    errors_weight=0.40,
+    ui_coverage_weight=0.20,
+    baseline_max_errors=10.0  # From baseline experiment
 )
 
-# Create runner for executing trials via rv-experiment
-runner = CalibrationRunner(
-    dataset_dir="./data/calibration_dataset",
-    objective_fn=objective_fn,
-    output_base_dir="./calibration_output",
-    timeout=300,
-    agent_mode="pure_algorithm"
-)
+# Score experiment results
+score = objective_fn.compute("./results/trial_0/trial_0")
 
-# Create optimizer
-optimizer = CalibrationOptimizer(
-    phase=CalibrationPhase.MACRO,
-    objective_fn=objective_fn,
-    trial_runner=runner.run_trial,
-    seed=42
-)
-
-# Run optimization
-best_params = optimizer.optimize(n_trials=50)
-optimizer.save_results("./calibration_output")
-
-# Convert to tool specification DSL
-tool_spec = params_to_tool_spec(best_params)
-# Output: "mop_direct_score=350.0,wtg_guided_score=280.0,..."
+# Convert parameters to tool specification DSL
+params = {"mop_direct_score": 350.0, "max_re_enables": 8}
+tool_spec = params_to_tool_spec(params)
+# Output: "mop_direct_score=350.0000,max_re_enables=8"
 ```
+
+Docker-based calibration is orchestrated by `scripts/calibration_orchestrator.py`
+(not by Python API). See "Parameter Calibration" section above.
 
 ## Key Classes
 
@@ -401,13 +388,6 @@ Enables experiment resume capability:
 - Tracks completed and failed runs
 - Persists to JSON file
 - Filters pending runs on resume
-
-### CalibrationOptimizer
-
-Optuna-based Bayesian optimization for RVAgentStrategy parameters:
-- **TPESampler**: Tree-structured Parzen Estimator for efficient exploration
-- **Reproducible**: Fixed seed (42) for deterministic results
-- **Two-phase**: Macro (8 params) + Micro (16 params) calibration
 
 ### Calibration Parameters
 

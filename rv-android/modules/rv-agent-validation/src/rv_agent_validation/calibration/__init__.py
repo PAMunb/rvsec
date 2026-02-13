@@ -1,8 +1,9 @@
 """
 Calibration module for RVAgent parameter optimization.
 
-Provides Optuna-based Bayesian optimization for tuning scorer weights
-and exploration parameters to maximize coverage and MOP error detection.
+Provides parameter space definitions, objective function, and CLI commands.
+Docker-based orchestration is in scripts/calibration_orchestrator.py and
+scripts/baseline_docker.py (host-side, not part of this package).
 """
 
 from .parameter_space import (
@@ -16,10 +17,7 @@ from .parameter_space import (
     suggest_params,
     params_to_tool_spec,
 )
-from .emulator_pool import EmulatorPool
 from .objective import ObjectiveFunction
-from .optimizer import CalibrationOptimizer
-from .runner import CalibrationRunner, create_runner_from_config
 from .metrics_collector import CalibrationMetricsCollector, RunMetrics
 
 __all__ = [
@@ -35,14 +33,7 @@ __all__ = [
     "params_to_tool_spec",
     # Objective
     "ObjectiveFunction",
-    # Emulator pool
-    "EmulatorPool",
-    # Optimizer
-    "CalibrationOptimizer",
-    # Runner
-    "CalibrationRunner",
-    "create_runner_from_config",
-    # Metrics (existing)
+    # Metrics
     "CalibrationMetricsCollector",
     "RunMetrics",
 ]
