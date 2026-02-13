@@ -34,7 +34,7 @@ The rvsec-02/ICST study proved this pattern in a Docker environment: 7 container
 - **WHEN** `Platform.run()` is called and `TaskStorage` loads an existing `tasks.json` with completed tasks
 - **AND** the current `PlatformConfig` produces a different SHA-256 checksum than the stored `ExperimentMetadata.config_checksum` (e.g., the researcher changed a timeout value or added a new tool)
 - **THEN** `check_continuation_compatibility()` MUST return `False`
-- **AND** the platform MUST log a warning: "Config changed since last run (stored: abcd1234, current: efgh5678) — resuming anyway"
+- **AND** `_skip_completed_tasks()` MUST log a single warning: "Config changed since last run (stored: abcd1234, current: efgh5678) — resuming anyway" with the first 8 hex characters of both checksums
 - **AND** `_skip_completed_tasks()` MUST still skip previously completed tasks based on identity matching, because task identity is independent of the config checksum — a completed `(cryptoapp, monkey, default, 1, 300)` task is the same regardless of whether the researcher also changed the timeout list or added a new tool
 - **AND** execution MUST proceed with the remaining tasks under the new configuration
 
@@ -161,7 +161,7 @@ The storage format is versioned (currently version 3) and includes three section
 - **WHEN** `check_continuation_compatibility(config_dict)` is called
 - **THEN** the system MUST compute SHA-256 of `json.dumps(config_dict, sort_keys=True)`
 - **AND** return `True` only if the computed checksum matches `experiment_metadata.config_checksum`
-- **AND** if checksums do not match, a warning MUST be logged with the first 8 characters of both checksums
+- **AND** if checksums do not match, the mismatch MUST be logged at DEBUG level with the first 8 characters of both checksums (the caller in `_skip_completed_tasks()` is responsible for logging the user-visible WARNING)
 
 #### Scenario: Skip Completed Tasks During Resume
 

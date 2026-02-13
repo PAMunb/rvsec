@@ -37,13 +37,13 @@ RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9
     unzip apache-maven-3.9.12-bin.zip && \
     rm apache-maven-3.9.12-bin.zip
 
-# Install AspectJ and configure memory exactly as in your provided Dockerfile
+# Install AspectJ compiler — version must match aspectj.version in rvsec/pom.xml (1.9.24)
 RUN mkdir $ASPECTJ_HOME && \
-    wget 'https://www.eclipse.org/downloads/download.php?file=/tools/aspectj/aspectj-1.9.6.jar&r=1' -O aspectj-1.9.6.jar && \
-    java -jar aspectj-1.9.6.jar -to $ASPECTJ_HOME && \
+    wget 'https://github.com/eclipse-aspectj/aspectj/releases/download/V1_9_24/aspectj-1.9.24.jar' -O aspectj-1.9.24.jar && \
+    java -jar aspectj-1.9.24.jar -to $ASPECTJ_HOME && \
     sed -i 's/-Xmx64M/-Xmx4096M/g' $ASPECTJ_HOME/bin/ajc && \
     chmod a+x $ASPECTJ_HOME/bin/ajc && \
-    rm aspectj-1.9.6.jar
+    rm aspectj-1.9.24.jar
 
 # Install Poetry as a core build tool
 ENV POETRY_HOME="/opt/poetry"

@@ -25,6 +25,7 @@ ENV EMU_GPU_MODE="swiftshader_indirect"
 ENV EMULATOR_NAME="RVSec"
 ENV ANDROID_HOME=/opt/android
 ENV ANDROID_SDK_ROOT=/opt/android
+ENV ANDROID_SDK_HOME=/opt/android
 ENV PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/35.0.1:$PATH
 ENV LD_LIBRARY_PATH="$ANDROID_SDK_ROOT/emulator/lib64:$ANDROID_SDK_ROOT/emulator/lib64/qt/lib"
 

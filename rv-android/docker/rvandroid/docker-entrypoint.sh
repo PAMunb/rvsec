@@ -44,7 +44,7 @@ elif [ "$RV_NO_WINDOW" = "false" ] || [ "$RV_NO_WINDOW" = "0" ]; then
     CMD="$CMD --window"
 fi
 
-# Specification set: RV_SPEC_SET takes precedence over legacy RV_JCA_SPEC
+# Specification set: RV_SPEC_SET takes precedence over RV_JCA_SPEC
 if [ -n "$RV_SPEC_SET" ]; then
     CMD="$CMD --specification-set $RV_SPEC_SET"
 elif [ -n "$RV_JCA_SPEC" ]; then

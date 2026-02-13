@@ -731,10 +731,10 @@ class TaskStorage(ITaskStorage):
         compatible = new_checksum == self.experiment_metadata.config_checksum
 
         if not compatible:
-            self.logger.warning(
-                f"Configuration mismatch detected. "
-                f"Stored: {self.experiment_metadata.config_checksum[:8]}..., "
-                f"New: {new_checksum[:8]}..."
+            self.logger.debug(
+                f"Configuration checksum mismatch: "
+                f"stored={self.experiment_metadata.config_checksum[:8]}, "
+                f"new={new_checksum[:8]}"
             )
 
         return compatible

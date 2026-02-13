@@ -6,6 +6,7 @@ This module provides the primary interface for executing Android experiments
 through the rv-platform system.
 """
 
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -203,7 +204,11 @@ class Platform:
         # Validate configuration consistency via checksum
         config_dict = self.config.model_dump(mode="json")
         if not self.task_storage.check_continuation_compatibility(config_dict):
-            self.logger.warning("Config changed since last run — resuming anyway")
+            stored = self.task_storage.experiment_metadata.config_checksum[:8] if self.task_storage.experiment_metadata else "unknown"
+            current = hashlib.sha256(json.dumps(config_dict, sort_keys=True).encode()).hexdigest()[:8]
+            self.logger.warning(
+                f"Config changed since last run (stored: {stored}, current: {current}) — resuming anyway"
+            )
 
         def task_identity(task):
             tc = task.config
