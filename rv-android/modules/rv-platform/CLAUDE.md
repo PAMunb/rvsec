@@ -18,12 +18,15 @@ rv-platform is the central execution engine for Android testing experiments in t
 ### Execution Flow
 
 1. **Task Generation**: Platform discovers APKs, generates tasks for each APK/tool/variant/repetition/timeout combination
-2. **Component Registration**: TaskExecutor registers essential components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution)
-3. **Coordinated Execution**:
+2. **ExperimentMetadata Creation**: Creates `ExperimentMetadata` from config, including a SHA-256 `config_checksum`
+3. **Resume Check**: `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by `(apk_name, tool_name, variant, repetition, timeout)` identity, removes matches from the execution list, and stores `_skipped_count`. If the config checksum differs from a previous run, a WARNING is logged with the first 8 hex chars of each checksum
+4. **Component Registration**: TaskExecutor registers essential components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution)
+5. **Coordinated Execution** (for each remaining task):
    - Phase 1: Static analysis data loading (outside emulator)
    - Phase 2: Coverage tracker initialization (outside emulator)
    - Phase 3: Emulator session with tool execution (inside emulator context)
-4. **Result Processing**: ResultProcessorComponent generates coverage.csv, errors.csv, summary.csv, results.json, performance.csv
+6. **Result Processing**: `_process_results()` calls `task_storage.get_completed_tasks()` to collect ALL completed tasks across all sessions (previous + current), then passes them to ResultProcessorComponent for CSV/JSON generation
+7. **Summary Generation**: `_generate_summary()` includes `_skipped_count` in the experiment summary
 
 ### Key Components
 
@@ -220,7 +223,7 @@ The platform generates the following output files in the results directory:
 | `summary.csv` | Aggregate metrics per task (activities, methods, MOP coverage, errors) |
 | `results.json` | Hierarchical JSON with complete experiment data |
 | `performance.csv` | Task execution timing and performance metrics |
-| `tasks.json` | Task state persistence for experiment continuation |
+| `tasks.json` | Task state persistence for experiment continuation (includes ExperimentMetadata with config_checksum and per-task coverage_metrics for resume reconstruction) |
 
 ## Experiment Resume
 
@@ -228,26 +231,26 @@ The platform supports resuming interrupted or expanding completed experiments th
 
 ### Resume Forms
 
-**Expand Experiment**: Run with more repetitions than the first run. The platform detects completed tasks by matching `(apk_name, repetition, timeout, tool_name)` identity and skips them. Only new tasks are executed.
+**Expand Experiment**: Run with more repetitions than the first run. The platform detects completed tasks by matching `(apk_name, tool_name, variant, repetition, timeout)` identity and skips them. Only new tasks are executed.
 
 **Crash Recovery**: Re-run the same command after an interruption. Completed tasks (persisted atomically to `tasks.json` after each task) are skipped. The interrupted task is re-executed from scratch.
 
 ### Resume Flow in Platform.run()
 
 1. `_generate_tasks()` creates all tasks for the current configuration
-2. `ExperimentMetadata` is created with a `config_checksum` from `PlatformConfig`
-3. `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by identity, and removes them from the execution list. The `_skipped_count` is stored for summary reporting
-4. If the config checksum differs from the previous run, a warning is logged but resume proceeds
+2. `ExperimentMetadata` is created with a SHA-256 `config_checksum` from `PlatformConfig`
+3. `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by `(apk_name, tool_name, variant, repetition, timeout)` identity tuple, and removes matches from the execution list. The `_skipped_count` is stored for summary reporting
+4. If the config checksum differs from the previous run, a WARNING is logged in `platform.py` with the first 8 hex chars of each checksum (stored checksum vs current). `TaskStorage` logs at DEBUG level
 5. Only remaining tasks are executed
-6. `_process_results()` uses `task_storage.get_completed_tasks()` to include ALL completed tasks (from previous sessions + current) in result files
+6. `_process_results()` uses `task_storage.get_completed_tasks()` which returns ALL tasks with COMPLETED state from all sessions (previous + current). These are passed to ResultProcessorComponent for unified CSV/JSON generation
 
 ### MOP Violation Reconstruction from Logcat
 
-Tasks loaded from `tasks.json` have `repository=None` (the in-memory `LogcatRepository` is not serialized). `ResultProcessorComponent` handles this by re-reading the persisted logcat file via `parse_logcat_file()` to reconstruct MOP violation data:
+Tasks loaded from `tasks.json` have `repository=None` because the in-memory `LogcatRepository` is not serialized. `ResultProcessorComponent` detects this condition in three methods and calls `parse_logcat_file(task.result.logcat_file)` from rv-coverage to reconstruct a `LogcatRepository`. This function parses persisted logcat files and extracts all `RVSEC` log entries (MOP violations).
 
-- `_write_task_error_data()`: Reconstructs violations for `errors.csv` rows
-- `_extract_task_data()`: Reconstructs violation details for `results.json`
-- `_write_task_coverage_data()`: Uses `coverage_metrics` from `tasks.json` (per-method coverage cannot be reconstructed from logcat because `register_method_call()` requires static analysis class data)
+- **`_write_task_error_data()`**: Checks if `task.repository` is None. If so, reconstructs `LogcatRepository` from the logcat file. Reconstructed violations are written as rows in `errors.csv`
+- **`_extract_task_data()`**: Same reconstruction check. Violation details are included in the hierarchical `results.json` output
+- **`_write_task_coverage_data()`**: Per-method coverage data **cannot** be reconstructed from logcat because `register_method_call()` requires static analysis class data (the list of classes belonging to the application, unavailable for loaded tasks). Instead, this method writes a single summary row using `task.result.coverage_metrics` (which is serialized in `tasks.json`)
 
 ### Key Fields
 

@@ -56,6 +56,8 @@ poetry run rv-experiment run [OPTIONS]
 | `--static-analysis / --skip-static` | enabled | Run static analysis (GATOR, GESDA, REACH) |
 | `--run-execution / --skip-execution` | enabled | Execute tasks after preprocessing |
 
+**Note:** On resume (via `--name` with existing `tasks.json` or `--resume-dir`), all pre-processing flags are forced to disabled regardless of CLI values.
+
 **Parallel execution options:**
 
 | Option | Default | Description |
@@ -169,11 +171,12 @@ Skippable with `--skip-execution` (runs only pre-processing).
 
 ## Experiment Resume
 
-rv-experiment supports resuming interrupted or expanding completed experiments.
+rv-experiment supports resuming interrupted or expanding completed experiments through two mechanisms:
+
+- **`--name`** (implicit): When `results/<name>/tasks.json` exists, resume activates automatically
+- **`--resume-dir`** (explicit): Points to a specific results directory; overrides `--name`
 
 ### Resume via `--name`
-
-When `--name` is provided and `results/<name>/tasks.json` exists, resume mode is activated automatically. Pre-processing (monitors, instrumentation, static analysis) is auto-skipped.
 
 ```bash
 # First run: 1 repetition
@@ -196,10 +199,10 @@ poetry run rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir
 
 ### Resume Behavior
 
-- Pre-processing is auto-skipped (no redundant instrumentation or analysis)
-- Completed tasks (persisted in `tasks.json`) are skipped
-- MOP violation data is reconstructed from persisted logcat files for resumed tasks
-- Results are consolidated across all sessions into unified CSV/JSON output files
+- **Auto-skip pre-processing**: On resume, all pre-processing flags (`generate_monitors`, `instrument_apks`, `run_static_analysis`) are forced to `False` regardless of CLI values, disabling all pre-processing phases
+- **Flat results directory**: ExperimentController uses `config.results_dir` directly as the output location with no subdirectory nesting
+- **Task persistence**: Completed tasks (persisted in `tasks.json`) are skipped; only pending tasks execute
+- **Result consolidation**: MOP violation data is reconstructed from persisted logcat files for resumed tasks, and results are consolidated across all sessions into unified CSV/JSON output files
 
 ## Parallel Execution
 
@@ -245,6 +248,30 @@ poetry run rv-experiment run \
 | `jca` | JCA cryptography API monitoring | `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca/` |
 | `generic` | General programming patterns (Iterator, Collections) | `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/generic/` |
 | `custom` | User-defined specifications (requires `--custom-specs-dir`) | User-provided |
+
+## Docker Execution Mode
+
+rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypoint.sh`, which translates environment variables into CLI arguments. This enables declarative experiment configuration through Docker Compose or `docker run` without modifying the container.
+
+| Environment Variable | CLI Argument | Description |
+|---------------------|--------------|-------------|
+| `RV_TOOLS` | `--tools` | Tool specification (same DSL as CLI) |
+| `RV_TIMEOUTS` | `--timeout` | Execution timeout in seconds |
+| `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
+| `RV_APKS_DIR` | `--apks-dir` | APK directory path |
+| `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode (`true`/`false`) |
+| `RV_SPEC_SET` | `--specification-set` | Specification set name |
+| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
+| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
+| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
+| `RV_DEVICE_PORT` | `--device-port` | Emulator port for parallel execution |
+| `RV_APKS_FILTER` | `--apks-filter` | APK filter file path |
+| `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |
+| `RV_RESUME_DIR` | `--resume-dir` | Explicit resume directory |
+| `RV_DEBUG` | `--debug` | Debug logging |
+| `RV_DELAY` | (startup delay) | Seconds to wait before starting (for staggering parallel containers) |
+
+Pass `bash` or `shell` as the container command for interactive access instead of running the experiment.
 
 ## Environment Variables
 

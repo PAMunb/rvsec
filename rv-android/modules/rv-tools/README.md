@@ -182,19 +182,23 @@ rvandroid_tool = factory.create_tool(rvandroid_config)
 - **Capabilities**: systematic_testing, gui_exploration
 
 ### ARES
-- **Description**: Automated security testing framework
+- **Description**: Docker-based systematic exploration tool (spawns a sibling container)
 - **Parameters**: timeout, analysis_depth
-- **Capabilities**: security_testing, vulnerability_analysis
+- **Capabilities**: systematic_testing, docker_based
 
 ### QTesting
-- **Description**: Q-learning based testing tool
+- **Description**: Docker-based Q-learning tool -- spawns a QTesting container for reinforcement learning-based exploration
 - **Parameters**: episode_count, epsilon, learning_rate
 - **Capabilities**: reinforcement_learning, adaptive_testing
 
 ### Humanoid
-- **Description**: Learning-based Android testing tool
-- **Parameters**: test_count, model_path
-- **Capabilities**: learning_based_testing, human_like_interaction
+- **Description**: DroidBot with Humanoid inference server -- executes DroidBot with `-humanoid <url>` flag connecting to an external inference HTTP server (`phtcosta/humanoid:1.0` on port 50405) for human-like input generation
+- **Parameters**: humanoid_url, count, interval, timeout
+- **Capabilities**: human_like_interaction, inference_guided_testing
+
+### Docker Network Configuration (ARES, QTesting)
+
+ARES and QTesting are Docker-based tools that spawn sibling containers. Inside Docker (`/.dockerenv` exists), the sibling uses `--network container:$(hostname)` to share the parent's network namespace. Outside Docker, `--network host` is used.
 
 ## Tool Development
 

@@ -92,9 +92,9 @@ rv-tools/
 │       ├── droidbot/            # DroidBot (policy-based exploration)
 │       ├── droidmate/           # DroidMate (JAR-based, research)
 │       ├── fastbot/             # FastBot (reinforcement learning)
-│       ├── humanoid/            # Humanoid (computer vision + NLP)
+│       ├── humanoid/            # Humanoid (DroidBot + inference server)
 │       ├── monkey/              # Android Monkey (random events)
-│       └── qtesting/            # QTesting (Q-learning based)
+│       └── qtesting/            # QTesting (Docker-based Q-learning)
 ├── tests/
 │   └── test_basic.py            # Basic registry and factory tests
 ├── pyproject.toml               # Poetry configuration
@@ -149,10 +149,14 @@ class SomeTool(AbstractTool):
 | **DroidBot** | Policy-based UI exploration | dfs_greedy, bfs_greedy, random |
 | **APE** | CEGAR model abstraction | default, sata, bfs, dfs |
 | **FastBot** | Reinforcement learning | conservative, aggressive, balanced |
-| **ARES** | Docker-based systematic exploration | default |
+| **ARES** | Docker-based systematic exploration (spawns a sibling container) | default |
 | **DroidMate** | JAR-based research tool | default |
-| **Humanoid** | CV + NLP based testing | default |
-| **QTesting** | Q-learning exploration | default |
+| **Humanoid** | DroidBot with Humanoid inference server (`-humanoid <url>`) for human-like input generation | default |
+| **QTesting** | Docker-based Q-learning exploration (spawns a QTesting container) | default |
+
+### Docker Network Configuration (INV-TOOL-15)
+
+ARES and QTesting are Docker-based tools that spawn sibling containers. Inside Docker (`/.dockerenv` exists), the sibling uses `--network container:$(hostname)` to share the parent's network namespace. Outside Docker, `--network host` is used.
 
 ## Dependencies
 

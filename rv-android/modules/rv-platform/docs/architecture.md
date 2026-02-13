@@ -284,8 +284,11 @@ sequenceDiagram
     CLI->>Platform: run()
     Platform->>Platform: _generate_tasks()
     Platform->>Platform: _discover_apks()
+    Platform->>Platform: Create ExperimentMetadata (config_checksum)
+    Platform->>Platform: _skip_completed_tasks()
+    Note over Platform: Match by (apk_name, tool_name,<br/>variant, repetition, timeout)<br/>Store _skipped_count
 
-    loop For each Task
+    loop For each remaining Task
         Platform->>TaskExec: execute()
         TaskExec->>TaskExec: _initialize_components()
 
@@ -311,9 +314,11 @@ sequenceDiagram
         TaskExec-->>Platform: success/failure
     end
 
-    Platform->>Result: execute()
+    Platform->>Platform: _process_results()
+    Note over Platform: Uses get_completed_tasks()<br/>for ALL sessions (previous + current)
+    Platform->>Result: execute(all_completed_tasks)
     Result-->>Platform: CSV/JSON files generated
-    Platform-->>CLI: summary
+    Platform-->>CLI: summary (includes _skipped_count)
 ```
 
 ## Key Interfaces
@@ -452,7 +457,7 @@ sequenceDiagram
     P->>TS: set_experiment_metadata(checksum)
     P->>TS: load completed tasks
     P->>P: _skip_completed_tasks()
-    Note over P: Match by (apk, rep, timeout, tool)
+    Note over P: Match by (apk_name, tool_name,<br/>variant, repetition, timeout)
     P->>P: Store _skipped_count
 
     loop For each remaining task
@@ -469,7 +474,13 @@ sequenceDiagram
 
 ### MOP Violation Reconstruction
 
-Tasks loaded from `tasks.json` have `repository=None` (the in-memory `LogcatRepository` is not serialized). `ResultProcessorComponent` handles this by re-reading the persisted logcat file via `parse_logcat_file()` to reconstruct MOP violation data for `errors.csv` and `results.json`. Per-method coverage data cannot be reconstructed (requires static analysis class data) — the summary from `coverage_metrics` is used instead.
+Tasks loaded from `tasks.json` have `repository=None` because the in-memory `LogcatRepository` is not serialized. During `_process_results()`, `ResultProcessorComponent` detects this condition and reconstructs violation data by calling `parse_logcat_file(task.result.logcat_file)` from rv-coverage. This function parses the persisted logcat file and returns a `LogcatRepository` containing all `RVSEC` log entries (MOP violations).
+
+The reconstruction is used in three result-generation methods:
+
+- **`_write_task_error_data()`**: If `task.repository` is None, reconstructs a `LogcatRepository` from the logcat file. The reconstructed violations are written as rows in `errors.csv`.
+- **`_extract_task_data()`**: Same reconstruction logic. Violation details are included in the hierarchical `results.json` output.
+- **`_write_task_coverage_data()`**: Per-method coverage data **cannot** be reconstructed from logcat because `register_method_call()` requires static analysis class data (the list of classes belonging to the application). For tasks loaded from `tasks.json`, this method writes a single summary row using `task.result.coverage_metrics` instead of per-method rows.
 
 ## Extension Points
 
@@ -503,6 +514,7 @@ Tasks loaded from `tasks.json` have `repository=None` (the in-memory `LogcatRepo
 |------|----------|---------|
 | Unit | tests/config/ | PlatformConfig validation tests |
 | Unit | tests/execution/ | TaskExecutor logic tests |
+| Unit | tests/execution/test_resume.py | Resume and result consolidation tests (U1-U10, U15-U17) |
 | Unit | tests/components/ | Individual component tests |
 | Manual | tests/manual_tests/ | Debug scripts for development |
 
@@ -524,7 +536,7 @@ poetry run pytest tests/components/ -v
 | summary.csv | Aggregate metrics per task (activities, methods, MOP coverage, errors) |
 | results.json | Hierarchical JSON with complete experiment data |
 | performance.csv | Task execution timing and performance metrics |
-| tasks.json | Task state persistence for experiment continuation |
+| tasks.json | Task state persistence for experiment continuation (includes ExperimentMetadata with config_checksum and per-task coverage_metrics) |
 
 ## Related Documentation
 

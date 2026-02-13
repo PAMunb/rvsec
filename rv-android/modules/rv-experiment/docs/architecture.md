@@ -140,6 +140,9 @@ classDiagram
         +name: str
         +tool_configs: List~ToolConfig~
         +specification_set: str
+        +results_dir: Optional~str~
+        +resume_mode: bool
+        +status_file: Optional~str~
         +get_monitored_operations_config()
         +get_rv_instrumentation_config()
         +get_static_analysis_config()
@@ -326,6 +329,10 @@ sequenceDiagram
     EC-->>CLI: success/failure
     CLI-->>User: Exit code
 ```
+
+### Resume Execution Path
+
+When an experiment is resumed (via `--name` with existing `tasks.json` or via `--resume-dir`), the execution flow diverges from the standard three-phase workflow. The CLI sets `resume_mode=True` on ExperimentConfig, which causes all pre-processing flags (`generate_monitors`, `instrument_apks`, `run_static_analysis`) to be auto-set to `False` regardless of their CLI values, disabling all pre-processing phases. This ensures that no redundant monitor generation, instrumentation, or static analysis occurs during resume. ExperimentController uses `config.results_dir` directly as the output location (flat directory structure, no subdirectory nesting), and rv-platform loads completed tasks from `tasks.json`, skipping them and executing only the remaining pending tasks. ResultProcessorComponent consolidates results from all sessions, reconstructing MOP violation data from persisted logcat files for resumed tasks.
 
 ### State Transitions
 
@@ -522,8 +529,12 @@ class ExperimentConfig(BaseValidatedModel):
     instrument_apks: bool
     run_static_analysis: bool
 
+    # Directories
+    results_dir: Optional[str]  # Flat results directory (no subdirectory nesting)
+
     # Resume
     resume_mode: bool  # Auto-set when --name detects existing tasks.json
+    status_file: Optional[str]  # Path to tasks.json for continuation
 
     # JIT configuration methods
     def get_monitored_operations_config(self) -> RVGeneratorConfig:
@@ -579,9 +590,9 @@ Key use cases that validate the architecture.
 **Description**: User resumes an experiment that was interrupted during execution.
 
 **Flow**:
-1. User invokes CLI with `--name` matching existing `results/<name>/tasks.json`
-2. CLI detects existing results and sets `resume_mode=True`, auto-skips pre-processing
-3. ExperimentController initializes with `resume_mode=True`
+1. User invokes CLI with `--name` matching existing `results/<name>/tasks.json`, or with `--resume-dir` pointing to a specific results directory
+2. CLI detects existing results and sets `resume_mode=True`; all pre-processing flags are forced to `False` (disabled) regardless of their CLI values
+3. ExperimentController initializes with `resume_mode=True` and uses `config.results_dir` directly as the output location (flat directory, no subdirectory nesting)
 4. PreProcessor skips all phases (monitors, instrumentation, static analysis)
 5. ExecutionController creates PlatformConfig and delegates to rv-platform
 6. rv-platform loads completed tasks from `tasks.json`, skips them, executes remaining
@@ -650,6 +661,35 @@ flowchart LR
     EC --> Post
     Post --> Diagnostics
 ```
+
+---
+
+## Docker Execution Mode
+
+rv-experiment supports execution inside Docker containers through `docker/rvandroid/docker-entrypoint.sh`. The entrypoint script translates environment variables into CLI arguments, enabling fully declarative experiment configuration via Docker Compose or `docker run` without modifying the container image.
+
+The entrypoint builds a `poetry run rv-experiment run` command from the following environment variables:
+
+| Environment Variable | CLI Argument | Description |
+|---------------------|--------------|-------------|
+| `RV_TOOLS` | `--tools` | Tool specification (same DSL as CLI) |
+| `RV_TIMEOUTS` | `--timeout` | Execution timeout in seconds |
+| `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
+| `RV_APKS_DIR` | `--apks-dir` | APK directory path |
+| `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode (`true`/`false`) |
+| `RV_SPEC_SET` | `--specification-set` | Specification set name |
+| `RV_JCA_SPEC` | `--specification-set` | Legacy boolean: `true` maps to `jca`, `false` to `generic` |
+| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
+| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
+| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
+| `RV_DEVICE_PORT` | `--device-port` | Emulator port for parallel execution |
+| `RV_APKS_FILTER` | `--apks-filter` | APK filter file path |
+| `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |
+| `RV_RESUME_DIR` | `--resume-dir` | Explicit resume directory |
+| `RV_DEBUG` | `--debug` | Enable debug logging |
+| `RV_DELAY` | (startup delay) | Seconds to wait before starting (for staggering parallel containers) |
+
+The entrypoint also supports interactive mode: passing `bash` or `shell` as the first argument drops into a shell instead of running the experiment.
 
 ---
 

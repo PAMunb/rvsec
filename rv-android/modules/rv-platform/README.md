@@ -17,6 +17,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 - **Emulator Management**: Fresh emulator instances per task with lifecycle management
 - **CLI Interface**: Standalone command-line interface for independent execution
 - **Variant System**: Tool variant support with automatic resolution and configuration management
+- **Experiment Resume**: Supports resuming interrupted experiments and expanding completed ones via TaskStorage persistence, with config checksum validation and cross-session result consolidation
 
 ## Architecture
 
@@ -289,6 +290,7 @@ poetry run pytest tests/components/
 ### Test Structure
 
 - `tests/execution/`: Task execution and lifecycle management tests
+- `tests/execution/test_resume.py`: Resume and result consolidation tests (U1-U10, U15-U17)
 - `tests/components/`: Individual component functionality tests
 - `tests/config/`: Configuration management and validation tests
 
@@ -382,7 +384,7 @@ results = platform.run()
 ```
 
 **Resume behavior**:
-- Completed tasks matched by `(apk_name, repetition, timeout, tool_name)` identity
+- Completed tasks matched by `(apk_name, tool_name, variant, repetition, timeout)` identity
 - Config checksum validated — warning logged if configuration changed
 - MOP violations reconstructed from persisted logcat files for resumed tasks
 - Results consolidated across all sessions into unified CSV/JSON output

@@ -321,13 +321,22 @@ rv-experiment supports three specification sets for runtime verification:
 
 ## Experiment Resume
 
-rv-experiment supports resuming interrupted or expanding completed experiments. Resume is triggered automatically via `--name` (when `results/<name>/tasks.json` exists) or explicitly via `--resume-dir`.
+rv-experiment supports resuming interrupted or expanding completed experiments through two mechanisms:
+
+- **`--name`** (implicit resume): When `results/<name>/tasks.json` exists, resume mode activates automatically
+- **`--resume-dir`** (explicit resume): Points directly to a results directory containing `tasks.json`; overrides `--name`
+
+### Resume Invariants
+
+**Auto-skip pre-processing**: On resume, all pre-processing flags (`generate_monitors`, `instrument_apks`, `run_static_analysis`) are forced to `False` regardless of CLI values, disabling all pre-processing phases. This prevents redundant monitor generation, instrumentation, and static analysis when resuming an experiment that already completed pre-processing.
+
+**Flat results directory**: ExperimentController uses `config.results_dir` directly as the output location. There is no subdirectory nesting — all results for an experiment live in a single flat directory (e.g., `results/my_exp/`).
 
 ### Resume Behavior
 
 When resume mode is active:
-1. Pre-processing is auto-skipped (monitors, instrumentation, static analysis)
-2. `ExperimentConfig.resume_mode` is set to `True`
+1. `ExperimentConfig.resume_mode` is set to `True`
+2. All pre-processing flags are forced to `False` (auto-skip)
 3. rv-platform loads completed tasks from `tasks.json` and skips them
 4. Only new/pending tasks are executed
 5. Results are consolidated across all sessions (including MOP violation reconstruction from logcat for resumed tasks)
@@ -353,6 +362,32 @@ rv-experiment run --tools ape --apks-dir ./apks_examples --name my_exp --repetit
 ```bash
 rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir ./results/my_exp
 ```
+
+## Docker Execution Mode
+
+rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypoint.sh`, which translates environment variables to CLI arguments. This enables declarative experiment configuration through Docker Compose or `docker run`.
+
+### Key Environment Variables
+
+| Variable | CLI Argument | Description |
+|----------|--------------|-------------|
+| `RV_TOOLS` | `--tools` | Tool specification DSL |
+| `RV_TIMEOUTS` | `--timeout` | Execution timeout (seconds) |
+| `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
+| `RV_APKS_DIR` | `--apks-dir` | APK directory path |
+| `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode |
+| `RV_SPEC_SET` | `--specification-set` | Specification set name |
+| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
+| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
+| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
+| `RV_DEVICE_PORT` | `--device-port` | Emulator port |
+| `RV_APKS_FILTER` | `--apks-filter` | APK filter file |
+| `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |
+| `RV_RESUME_DIR` | `--resume-dir` | Explicit resume directory |
+| `RV_DEBUG` | `--debug` | Debug logging |
+| `RV_DELAY` | (startup delay) | Stagger parallel container launches |
+
+The entrypoint supports interactive mode: pass `bash` or `shell` as the first argument to get a shell instead of running the experiment.
 
 ## Key Design Decisions
 

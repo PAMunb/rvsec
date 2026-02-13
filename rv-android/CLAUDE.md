@@ -118,6 +118,33 @@ poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-
 
 # Run rv-platform directly
 poetry run rv-platform run --tools monkey --apks-dir ./apks_examples
+
+# Resume experiment from existing results directory
+poetry run rv-experiment run --tools monkey --resume-dir ./results/my_experiment
+
+# Named experiment with auto-resume on re-run
+poetry run rv-experiment run --tools monkey --name my_experiment
+```
+
+### Docker Execution
+```bash
+# Run experiment in Docker container
+docker run --rm --device /dev/kvm \
+  -e RV_TOOLS=monkey \
+  -e RV_TIMEOUTS=300 \
+  -e RV_NO_WINDOW=true \
+  -e RV_APKS_DIR=/opt/rvsec/rv-android/apks \
+  -v ./apks_examples:/opt/rvsec/rv-android/apks \
+  -v ./results:/opt/rvsec/rv-android/results \
+  phtcosta/rvandroid_dev:0.8.0
+
+# Resume interrupted experiment (same --name, same volume)
+docker run --rm --device /dev/kvm \
+  -e RV_TOOLS=monkey \
+  -e RV_TIMEOUTS=300 \
+  -e RV_EXPERIMENT_NAME=batch_01 \
+  -v ./results:/opt/rvsec/rv-android/results \
+  phtcosta/rvandroid_dev:0.8.0
 ```
 
 ### RV-Agent Commands

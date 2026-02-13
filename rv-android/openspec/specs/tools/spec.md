@@ -196,6 +196,8 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **INV-TOOL-14**: `UIAutomator2Adapter.connect()` MUST configure UIAutomator2 settings (`wait_timeout`) after successful connection. The `_configure_uiautomator_settings()` method MUST be called before returning `True`.
 
+- **INV-TOOL-15**: When ARES or QTesting tools build their Docker `run` command inside a Docker container (detected by the presence of `/.dockerenv`), the command MUST include `--network container:<hostname>` where `<hostname>` is the current container's ID obtained via `socket.gethostname()`. This flag makes the sibling container (ARES/QTesting) share the parent container's network namespace, allowing it to reach the emulator at `localhost:5554` without any network configuration changes in the ARES/QTesting code or Dockerfiles. When running outside Docker (`/.dockerenv` does not exist), the command MUST use `--network host` so the sibling container shares the host's network namespace and can reach the emulator at `localhost:5554`.
+
 ## Requirements
 
 ### Requirement: Plugin System with Registry and Factory Patterns (FR18, NFR02)
@@ -268,10 +270,18 @@ The 8 built-in tools and their invocation mechanisms are:
 | FastBot | `builtin/fastbot/` | ADB command | `fastbot` |
 | ARES | `builtin/ares/` | Docker-based | `ares` |
 | DroidMate | `builtin/droidmate/` | JAR execution | `droidmate` |
-| Humanoid | `builtin/humanoid/` | Custom binary | `humanoid` |
-| QTesting | `builtin/qtesting/` | Python Q-learning | `qtesting` |
+| Humanoid | `builtin/humanoid/` | DroidBot + Humanoid inference | `humanoid` |
+| QTesting | `builtin/qtesting/` | Docker-based | `qtesting` |
 
 The LLM-driven tool (`rvagent`) lives in a separate module (`rvagent-tool`) and is registered via `ExperimentToolRegistry`, not as a built-in. Its `RVAgentTool` wraps `rv-agent`'s `AgentFactory` and `RVAgent`, mapping platform `Task`/`App` objects to `RVAgentConfig`.
+
+ARES and QTesting are Docker-based tools that execute via `docker run` commands built by `_build_ares_command()` and `_build_qtesting_command()` respectively. Unlike other tools (Monkey, DroidBot, APE) that run via ADB shell commands or local scripts, these tools spawn a separate Docker container for each execution.
+
+In standalone mode (developer workstation), the spawned container uses `--network host` to share the host's network namespace and reach the emulator at `localhost:5554`. In production Docker deployment (rvandroid container), the spawned container MUST share the parent container's network namespace via `--network container:$(hostname)` (INV-TOOL-15) to reach the emulator at `localhost:5554`.
+
+The Docker socket (`/var/run/docker.sock`) MUST be mounted into the rvandroid container for Docker-based tools to function. Without this mount, `docker run` commands fail because there is no Docker daemon available inside the container. The Docker CLI binary is installed in the tools Docker image layer (`docker/tools/Dockerfile`).
+
+ARES and QTesting images (`phtcosta/ares:latest`, `phtcosta/qtesting:latest`) MUST be pre-built on the Docker host before running experiments that use these tools. They are NOT declared as services in `docker-compose.yml` — they are spawned on-demand at runtime by each rvandroid container. Only Humanoid is declared as a shared service in the compose files because it operates as a REST server that multiple rvandroid containers connect to over the network.
 
 #### Scenario: Monkey tool executes with configured parameters
 
@@ -320,6 +330,29 @@ The LLM-driven tool (`rvagent`) lives in a separate module (`rvagent-tool`) and 
 
 - **WHEN** the circuit breaker is in the OPEN state due to consecutive failures
 - **THEN** `_execute_and_check_command()` MUST raise `CircuitBreakerOpenError` without executing the command
+
+#### Scenario: ARES Command Includes Network Flag Inside Docker
+
+- **WHEN** `AresTool._build_ares_command()` is called
+- **AND** the code is running inside a Docker container (`/.dockerenv` exists)
+- **THEN** the generated `docker run` command MUST include `--network container:<hostname>` where `<hostname>` is `socket.gethostname()` (which returns the container ID inside Docker)
+- **AND** the `--network` flag MUST appear before the Docker image name in the argument list
+- **AND** all other command arguments (volumes, environment variables, ARES-specific flags) MUST remain unchanged
+
+#### Scenario: QTesting Command Includes Network Flag Inside Docker
+
+- **WHEN** `QTestingTool._build_qtesting_command()` is called
+- **AND** the code is running inside a Docker container (`/.dockerenv` exists)
+- **THEN** the generated `docker run` command MUST include `--network container:<hostname>` where `<hostname>` is `socket.gethostname()`
+- **AND** the `--network` flag MUST appear before the Docker image name in the argument list
+- **AND** all other command arguments MUST remain unchanged
+
+#### Scenario: Host Network Outside Docker
+
+- **WHEN** `AresTool._build_ares_command()` or `QTestingTool._build_qtesting_command()` is called
+- **AND** the code is NOT running inside a Docker container (`/.dockerenv` does not exist)
+- **THEN** the generated `docker run` command MUST include `--network host` so the sibling container can reach the emulator at `localhost:5554`
+- **AND** no `--network container:` flag MUST be used (container networking is only for Docker-in-Docker)
 
 ### Requirement: Per-Tool Variant System (FR20)
 
