@@ -14,7 +14,7 @@ Authoritative reference for the Spec-Driven Development (SDD) workflow used in R
 
 Before choosing a workflow track or writing any code, take time to understand what you want to build. This phase is about refining a vague idea ("I need Docker support") into a concrete, well-scoped task ("wire the existing resume architecture and create Docker entry point scripts"). Many costly mistakes — wrong track selection, incomplete scope assessment, missed module dependencies — happen because this step was skipped.
 
-Phase 0 is informal and has no artifacts. It is a conversation between the researcher and the tools, aimed at answering three questions: **What exactly do I want to change?**, **Why does this change matter?**, and **What parts of the system are affected?**. Once these questions have clear answers, you move to Track Selection (Section 2).
+Phase 0 is informal and has no artifacts. It is a conversation between the researcher and the tools, aimed at answering three questions: **What exactly do I want to change?**, **Why does this change matter?**, and **What parts of the system are affected?**. Once these questions have clear answers, you move to Track Selection (Section 3).
 
 ### When to Use Phase 0
 
@@ -41,7 +41,7 @@ Use the tools that match the depth of exploration needed. These are not sequenti
 
 Phase 0 has no formal output. Its purpose is to give the researcher enough understanding to:
 1. **Describe the change in one sentence** — if you cannot summarize what you want to do, you are not ready to start
-2. **Choose the right track** — Full SDD, Fast-Forward SDD, or Quick Path (see Section 2)
+2. **Choose the right track** — Full SDD, Fast-Forward SDD, or Quick Path (see Section 3)
 3. **Identify affected modules** — which modules will be modified, which will be read-only dependencies
 
 If Phase 0 produces a technical analysis document (like `docs/20260212_plano_docker.md` for the resume-docker change), that document serves as reference material for the subsequent SDD phases — it is not an OpenSpec artifact, but it provides the context that makes the OpenSpec artifacts accurate and deep.
@@ -55,7 +55,63 @@ Skip Phase 0 when:
 
 ---
 
-## 2. Workflow Track Selection
+## 2. Backlog Management
+
+Work items are tracked as GitHub Issues on `PAMunb/rvsec` and managed through a Kanban board at [GitHub Project #7](https://github.com/orgs/PAMunb/projects/7). Every non-trivial task starts as a GitHub Issue before entering the SDD workflow. This provides traceability from idea to implementation and ensures all work is visible.
+
+### Issue Creation
+
+New issues are created using one of five issue templates. Each template pre-assigns type and track labels and collects structured information (problem statement, affected domains, related FRs/NFRs, priority, acceptance criteria). The problem statement in the issue becomes the direct input for `/opsx:explore` or `/opsx:new` when the SDD workflow begins.
+
+| Template | When to Use | Default Track |
+|----------|-------------|---------------|
+| **Feature** | New capability that does not exist yet | Full SDD |
+| **Enhancement** | Improvement to an existing capability | FF SDD |
+| **Bug** | Something is broken | Quick Path |
+| **Refactoring** | Code improvement without behavior change | FF SDD |
+| **Documentation** | Docs-only change | Quick Path |
+
+Templates are located at `/rvsec/.github/ISSUE_TEMPLATE/` (repo root level).
+
+### Kanban Board
+
+The project board has four columns that map to the SDD workflow phases:
+
+| Column | Meaning | When to Move Here |
+|--------|---------|-------------------|
+| **Backlog** | Issue created, not yet started | Automatically when issue is created |
+| **In Progress** | Any SDD phase is active (explore through implement) | When starting Phase 0 or Phase 1 of any track |
+| **In Review** | Verification or PR review in progress | When entering Verify phase or when a PR is open |
+| **Done** | Change archived and issue closed | When `/opsx:archive` completes or Quick Path verify passes |
+
+**Automation rules** (configured in project workflow settings):
+- New issues from `PAMunb/rvsec` are automatically added to the Backlog column
+- Issues that are closed are automatically moved to Done
+
+### Cross-Referencing Convention
+
+Bidirectional traceability links all artifacts to their originating issue:
+
+| From | To | Mechanism |
+|------|----|-----------|
+| Issue -> OpenSpec change | Change directory name includes issue number: `YYYY-MM-DD-GH<N>-<short-name>` |
+| OpenSpec change -> Issue | `proposal.md` header includes: `GitHub Issue: #N` |
+| Issue -> Commits | Use `refs #N` during work, `closes #N` in the final commit |
+| Issue -> PR | Include `Closes #N` in PR body |
+| Issue -> Specs | Affected specs are listed in the issue body (domains checkboxes) |
+| Kanban card -> Issue | Automatic (GitHub Projects links cards to issues) |
+
+### How Claude Code Manages the Board
+
+During SDD workflow execution, Claude Code updates the Kanban board status using the GitHub MCP server:
+
+1. **Starting work**: Move issue from Backlog to In Progress when beginning any SDD phase
+2. **Entering review**: Move to In Review when running `/opsx:verify` or creating a PR
+3. **Closing**: Move to Done when archiving the change (automatic via issue close)
+
+---
+
+## 3. Workflow Track Selection
 
 Not every change requires the full SDD ceremony. Three tracks match change scope to workflow formality.
 
@@ -96,7 +152,7 @@ When in doubt, start with Quick Path. You can escalate to a higher track if the 
 
 ---
 
-## 3. Development Principles
+## 4. Development Principles
 
 These four principles apply to all workflow tracks and all artifact types. They are binding — not suggestions or aspirational goals. Every code change, every spec, every design document, and every comment must conform to these principles. They are also documented in `CLAUDE.md` under "Development Principles" with implementation-level details.
 
@@ -132,7 +188,7 @@ This applies to code comments, docstrings, spec descriptions, design documents, 
 
 ---
 
-## 4. Full SDD Workflow
+## 5. Full SDD Workflow
 
 For changes that cross module boundaries or introduce new capabilities. Each phase produces artifacts reviewed before advancing.
 
@@ -248,7 +304,7 @@ flowchart LR
 
 ---
 
-## 5. Fast-Forward SDD Workflow
+## 6. Fast-Forward SDD Workflow
 
 For single-module changes with clear requirements. `/opsx:ff` generates all planning artifacts at once, skipping the step-by-step proposal/design/tasks phases.
 
@@ -301,7 +357,7 @@ flowchart LR
 
 ---
 
-## 6. Quick Path
+## 7. Quick Path
 
 For targeted fixes that do not need OpenSpec formality. No planning artifacts created.
 
@@ -344,7 +400,7 @@ flowchart LR
 
 ---
 
-## 7. Skill Architecture
+## 8. Skill Architecture
 
 The skill system has three layers with unidirectional flow. The Process Layer (OpenSpec) invokes the Execution Layer (rv-*), never the reverse.
 
@@ -385,7 +441,7 @@ flowchart TD
 
 ### Skill Design Principles
 
-These are architectural principles for the skill system itself. For the development principles that govern all code and documentation (simplicity, human-readable docs, no backward compatibility, current-state comments), see **Section 3: Development Principles**.
+These are architectural principles for the skill system itself. For the development principles that govern all code and documentation (simplicity, human-readable docs, no backward compatibility, current-state comments), see **Section 4: Development Principles**.
 
 1. **Unidirectional flow**: Process Layer (OpenSpec) invokes Execution Layer (rv-*). Never the reverse. This keeps rv-* skills reusable independently of OpenSpec.
 
@@ -489,7 +545,7 @@ These are architectural principles for the skill system itself. For the developm
 
 ---
 
-## 8. Quick Reference: Common Scenarios
+## 9. Quick Reference: Common Scenarios
 
 | Scenario | Track | Skill Sequence |
 |----------|-------|----------------|
@@ -506,7 +562,7 @@ These are architectural principles for the skill system itself. For the developm
 
 ---
 
-## 9. Workflow Examples
+## 10. Workflow Examples
 
 ### Example 1: Full SDD — Adding scroll detection to rv-agent
 
@@ -581,13 +637,13 @@ Single module, clear requirements: add `max_scroll_attempts` to RVAgentConfig.
 
 ---
 
-## 10. Assessment of External Feedback
+## 11. Assessment of External Feedback
 
 Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow design.
 
 | Source | Suggestion | Decision | Rationale |
 |--------|-----------|----------|-----------|
-| Gemini | Create `/rv-help` skill | Skip | Quick reference table (Section 6) addresses discoverability without adding complexity |
+| Gemini | Create `/rv-help` skill | Skip | Quick reference table (Section 9) addresses discoverability without adding complexity |
 | Gemini | Create `/rv-onboard` skill | Skip | `/opsx:onboard` already exists for SDD; workflow docs serve as rv-* onboarding |
 | Gemini | Improve discoverability | Accept | Addressed via workflow track selection + quick reference table + CLAUDE.md update |
 | Both LLMs | Unidirectional flow is sound | Keep | Preserved as Design Principle #1 |
@@ -599,7 +655,7 @@ Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow des
 
 ---
 
-## 11. OpenSpec CLI Reference
+## 12. OpenSpec CLI Reference
 
 The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal commands are also available directly for inspection, validation, and debugging.
 
@@ -676,7 +732,7 @@ openspec validate --all --json
 
 ---
 
-## 12. Related Documents
+## 13. Related Documents
 
 | Document | Purpose |
 |----------|---------|

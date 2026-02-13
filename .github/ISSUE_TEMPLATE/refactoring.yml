@@ -1,0 +1,70 @@
+name: Refactoring
+description: Propose a code improvement or restructuring
+title: "[Refactoring] "
+labels: ["type:refactoring", "track:ff-sdd"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: >
+        Describe the refactoring. Explain the current code structure and what needs to change.
+        Reference specific modules, files, or patterns.
+      placeholder: "The current implementation in module X uses pattern Y, which should be..."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: domains
+    attributes:
+      label: Affected Domains
+      description: Which specification domains does this refactoring touch?
+      options:
+        - label: Core (rv-android-core)
+        - label: Platform (rv-platform)
+        - label: Experiment (rv-experiment)
+        - label: Agent (rv-agent, rv-llm)
+        - label: Instrumentation (rv-monitor-generator, rv-instrumentation)
+        - label: Analysis (rv-static-analysis, rv-coverage, rv-screen-parser)
+        - label: Tools (rv-tools, rv-uiautomator)
+
+  - type: input
+    id: related-frs
+    attributes:
+      label: Related FRs/NFRs
+      description: Reference requirements from PRD.md if applicable.
+      placeholder: "NFR01, NFR05"
+
+  - type: dropdown
+    id: track
+    attributes:
+      label: SDD Track
+      description: Select the appropriate workflow track (see docs/WORKFLOW.md).
+      options:
+        - Full SDD
+        - Fast-Forward SDD
+        - Quick Path
+      default: 1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - high
+        - medium
+        - low
+      default: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Define when this refactoring is considered complete.
+      placeholder: |
+        - [ ] All tests pass after refactoring
+        - [ ] No behavioral changes

@@ -1,0 +1,87 @@
+name: Bug Report
+description: Report a bug in RV-Android
+title: "[Bug] "
+labels: ["type:bug", "track:quick-path"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior.
+      placeholder: |
+        1. Run `poetry run rv-experiment run --tools ...`
+        2. Wait for execution to reach ...
+        3. Observe error in ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: domains
+    attributes:
+      label: Affected Domains
+      description: Which specification domains does this bug affect?
+      options:
+        - label: Core (rv-android-core)
+        - label: Platform (rv-platform)
+        - label: Experiment (rv-experiment)
+        - label: Agent (rv-agent, rv-llm)
+        - label: Instrumentation (rv-monitor-generator, rv-instrumentation)
+        - label: Analysis (rv-static-analysis, rv-coverage, rv-screen-parser)
+        - label: Tools (rv-tools, rv-uiautomator)
+
+  - type: input
+    id: related-frs
+    attributes:
+      label: Related FRs/NFRs
+      description: Reference requirements from PRD.md if applicable.
+      placeholder: "FR21, NFR03"
+
+  - type: dropdown
+    id: track
+    attributes:
+      label: SDD Track
+      description: Select the appropriate workflow track (see docs/WORKFLOW.md).
+      options:
+        - Full SDD
+        - Fast-Forward SDD
+        - Quick Path
+      default: 2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - high
+        - medium
+        - low
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Define when this bug is considered fixed.
+      placeholder: |
+        - [ ] Bug no longer reproduces with steps above
+        - [ ] Regression test added

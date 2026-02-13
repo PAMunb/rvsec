@@ -757,12 +757,15 @@ The system is documented via Spec-Driven Development. Specs document current beh
 
 All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for track selection (Full SDD, Fast-Forward SDD, or Quick Path). Specs are updated via delta specs in changes, then synced to main specs via `/opsx:sync`.
 
+**Cross-referencing convention**: OpenSpec change directories include the issue number: `YYYY-MM-DD-GH<N>-<short-name>`. The `proposal.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit. PRs include `Closes #N` in the body.
+
 ---
 
 ## Development Workflows
 
 **Full reference**: See `docs/WORKFLOW.md` for detailed workflow documentation with examples.
 **Skill reference**: See `.claude/AGENTS.md` for complete skill and agent documentation.
+**Backlog**: [GitHub Project Kanban](https://github.com/orgs/PAMunb/projects/7) — issues on `PAMunb/rvsec` with 5 issue templates, 18 labels, and 4-column board (Backlog, In Progress, In Review, Done). See `docs/WORKFLOW.md` Section 2 for details.
 
 ### Workflow Track Selection
 
@@ -845,6 +848,7 @@ flowchart TD
 - **context7**: Docs atualizadas de bibliotecas (`npx -y @upstash/context7-mcp`)
 - **sequential-thinking**: Raciocínio estruturado (`npx -y @modelcontextprotocol/server-sequential-thinking`)
 - **memory**: Memória persistente entre sessões (`npx -y @modelcontextprotocol/server-memory`)
+- **github**: GitHub API para issues, PRs, projects (`docker run ghcr.io/github/github-mcp-server`)
 
 ### Incompatibilidades Conhecidas
 - **gemini MCP** (`github:aliargun/mcp-server-gemini`): Schema usa oneOf/allOf/anyOf - incompatível com API Anthropic
