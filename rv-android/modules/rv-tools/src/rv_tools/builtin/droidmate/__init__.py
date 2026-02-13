@@ -1,8 +1,5 @@
 """
-DroidMate testing tool for monitored operations testing.
-
-This module provides the DroidMate tool implementation with comprehensive
-JAR-based execution and systematic test input generation capabilities.
+DroidMate tool — DroidMate-2 JAR-based Android UI exploration.
 """
 
 from .tool import DroidMateTool

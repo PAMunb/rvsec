@@ -1,8 +1,5 @@
 """
-Humanoid testing tool for human-like monitored operations testing.
-
-This module provides the Humanoid tool implementation with comprehensive
-human-like interaction capabilities using computer vision and natural language processing.
+Humanoid tool — DroidBot with humanoid inference server for human-like exploration.
 """
 
 from .tool import HumanoidTool

@@ -48,9 +48,6 @@ from rv_experiment.constants import (
     DEFAULT_SPEC_SET, MONITORS_DIR, INSTRUMENTED_APKS_DIR
 )
 from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError as InstrumentationConfigError
-from rv_llm.config.llm_config import LLMConfig
-from rv_llm.config.prompt_config import PromptConfig
-# Configuration class imports for proper type usage
 from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError as MonitorConfigError
 # Import ToolConfig from rv-platform for unified tool configuration
 from rv_platform.config.platform_config import ToolConfig
@@ -726,7 +723,7 @@ class ExperimentConfig(BaseValidatedModel):
         logger.info(f"Configuration saved to: {file_path}")
 
     def get_module_config(self, module_name: str) -> Union[
-        RVGeneratorConfig, RVInstrumentationConfig, RVStaticAnalysisConfig, LLMConfig, Dict[str, Any]]:
+        RVGeneratorConfig, RVInstrumentationConfig, RVStaticAnalysisConfig, Dict[str, Any]]:
         """
         Get module-specific configuration with type safety and just-in-time creation.
         

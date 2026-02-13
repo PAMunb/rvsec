@@ -169,7 +169,7 @@ class DroidBotTool(AbstractTool):
             "count": config.get("count", 1000),
             "timeout": config.get("timeout", 3600),
             "interval": config.get("interval", 3),
-            "device_serial": config.get("device_serial", None),
+            "device_serial": config.get("device_serial", "emulator-5554"),
             "keep_app": config.get("keep_app", False),
             "keep_env": config.get("keep_env", False),
             "debug_mode": config.get("debug_mode", False),
@@ -254,8 +254,8 @@ class DroidBotTool(AbstractTool):
         Returns:
             Configured Command object for DroidBot execution
         """
-        # Get device serial from config, fallback to default for backward compatibility
-        device_serial = self.config.get("device_serial", "emulator-5554")
+        # Get device serial from config, fallback to default
+        device_serial = self.config.get("device_serial") or "emulator-5554"
         
         cmd_args = [
             "run", "droidbot",

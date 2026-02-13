@@ -287,30 +287,45 @@ class MonkeyTool(AbstractTool):
 
     def _build_monkey_command(self, app: App, timeout_seconds: int) -> Command:
         """
-        Build the Monkey command with validated parameters.
-        
+        Build the Monkey command with validated parameters from self.config.
+
         Constructs ADB shell command for Monkey tool execution with appropriate
         device targeting, verbosity level, security exception handling, and event count configuration.
-        
-        Command format: adb -s <device_id> shell monkey -v -v --ignore-security-exceptions -p <package> <event_count>
-        
+
         Args:
             app: Application under test containing package name and metadata
             timeout_seconds: Command execution timeout in seconds
-            
+
         Returns:
             Configured Command object for Monkey execution
         """
         cmd_args = [
-            "-s", self.config["device_id"],  # Target device specification
+            "-s", self.config["device_id"],
             "shell", "monkey",
-            "-v", "-v",
-            # "--ignore-crashes",
-            # "--ignore-timeouts",
-            "--ignore-security-exceptions",
-            "-p", app.package_name,
-            str(1_000_000_000)  # High event count for comprehensive testing
         ]
+
+        # Verbosity flags (-v repeated N times)
+        for _ in range(self.config.get("verbosity", 2)):
+            cmd_args.append("-v")
+
+        if self.config.get("ignore_crashes"):
+            cmd_args.append("--ignore-crashes")
+
+        if self.config.get("ignore_timeouts"):
+            cmd_args.append("--ignore-timeouts")
+
+        cmd_args.append("--ignore-security-exceptions")
+
+        throttle = self.config.get("throttle", 0)
+        if throttle > 0:
+            cmd_args.extend(["--throttle", str(throttle)])
+
+        seed = self.config.get("seed")
+        if seed is not None:
+            cmd_args.extend(["-s", str(seed)])
+
+        cmd_args.extend(["-p", app.package_name])
+        cmd_args.append(str(1_000_000_000))  # Effectively infinite — timeout controls execution duration
 
         return Command("adb", cmd_args, timeout_seconds)
 

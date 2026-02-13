@@ -647,6 +647,452 @@ Steps:
 | R4: `--resume-dir` with wrong `apks_dir` | 0% coverage | Resume auto-skips pre-processing; existing instrumented APKs are reused. If user points to non-instrumented APKs, coverage will be 0%. Documented in CLAUDE.md. **Follow-up improvement**: store `original_apks_dir` in `ExperimentMetadata` and warn on divergence during resume — not in this change scope (P1). |
 | R5: Parallel containers competing for emulator port | Port conflict errors | Each container uses `RV_DEVICE_PORT` for unique port allocation. Docker Compose template provides per-container port configuration. |
 
+### D11: Monkey Command Builder Configuration Fix
+
+**Decision**: Fix `MonkeyTool._build_monkey_command()` to use the tool's configuration instead of hardcoded values. This is required for Docker compatibility because the headless emulator with software rendering (`swiftshader_indirect`) crashes under rapid event injection.
+
+**Problem discovered during Docker smoke tests**: Monkey crashes after just 2 events with "System appears to have crashed at event 2" inside Docker, while APE succeeds in the same environment. Investigation revealed that `_build_monkey_command()` (lines 304-315) completely ignores the tool's `self.config`:
+
+| Config Field | Expected Behavior | Actual Behavior |
+|-------------|-------------------|-----------------|
+| `self.config["event_count"]` | Used as event count arg | Ignored — hardcoded to `1_000_000_000` |
+| `self.config["throttle"]` | Added as `--throttle N` flag | Ignored — no throttle flag at all |
+| `self.config["ignore_crashes"]` | Added as `--ignore-crashes` flag | Ignored — flag commented out (line 308) |
+| `self.config["ignore_timeouts"]` | Added as `--ignore-timeouts` flag | Ignored — flag commented out (line 309) |
+
+This means the `fast` variant (`ignore_crashes: True, ignore_timeouts: True`) has **never actually worked** — the command builder ignores variant configuration entirely.
+
+**Root cause of Docker crash**: The headless Docker emulator uses `swiftshader_indirect` (software GPU rendering) without hardware acceleration. Monkey injects random events at maximum speed (throttle=0, no `--throttle` flag) into this resource-constrained environment. The emulator becomes unstable and the system crashes. With `--ignore-crashes` disabled (default), monkey detects the crash and aborts immediately. APE survives because it uses time-based execution (`--running-minutes`) and does not monitor for system crashes.
+
+**Fix approach**:
+
+1. Make `_build_monkey_command()` read all relevant configuration fields from `self.config`
+2. Add `--throttle` flag when `self.config["throttle"] > 0`
+3. Add `--ignore-crashes` and `--ignore-timeouts` flags when their respective config values are `True`
+4. Use `self.config["event_count"]` instead of hardcoded `1_000_000_000`
+5. Add a `docker` variant with `throttle: 300, ignore_crashes: True, ignore_timeouts: True` for reliable execution in headless environments
+
+**Why a variant and not auto-detection**: The `/.dockerenv` approach used for ARES/QTesting network (D10) is not appropriate here because the throttle and ignore-crashes settings are functional parameters that affect test quality, not infrastructure configuration. A researcher may want to run monkey at full speed in Docker (accepting possible crashes) or with throttle outside Docker (for specific testing scenarios). Making these explicit via variant configuration is cleaner than implicit environment detection.
+
+### D12: DroidBot `device_serial` None Value Bug
+
+**Decision**: Fix DroidBot `configure()` to default `device_serial` to `"emulator-5554"` instead of `None`, and add defense-in-depth `or` fallback in `_build_droidbot_command()`.
+
+**Problem discovered during Docker smoke test 15.3.c**: DroidBot fails with a Pydantic validation error (`args.3=None`) for ALL variants (not just `dfs_greedy`) because `device_serial` is `None` in the command args. This is a regression introduced during the module refactoring — the original DroidBot code hardcoded `device_id: "emulator-5554"` as a safe default in `__init__()`, but the refactored `configure()` stores `config.get("device_serial", None)` at line 172. When no `device_serial` is provided (the common case for both local and Docker execution without explicit `--device-port`), `None` is stored. Then `_build_droidbot_command()` at line 258 uses `self.config.get("device_serial", "emulator-5554")` — but `dict.get()` finds the key (with value `None`), so the fallback `"emulator-5554"` is never used. The `None` value propagates into `Command` args, and Pydantic's `@field_validator('args')` rejects it.
+
+**Root cause**: The `Command` class was migrated from a plain Python class (no validation) to `BaseValidatedModel` with `@field_validator('args')` that rejects non-string elements. Simultaneously, DroidBot's `configure()` was rewritten with a `None` default instead of the original `"emulator-5554"`. The combination of both changes created this failure path.
+
+**Fix (two layers)**:
+
+1. **Root fix** — `configure()` line 172: change `config.get("device_serial", None)` to `config.get("device_serial", "emulator-5554")`. This matches the original code behavior and how APE handles it today. The default `"emulator-5554"` is the standard Android emulator port.
+
+2. **Defense-in-depth** — `_build_droidbot_command()` line 258: change `self.config.get("device_serial", "emulator-5554")` to `self.config.get("device_serial") or "emulator-5554"`. The `or` operator handles both the missing-key case and the explicit-`None` case. This is the same pattern used in FastBot's `_build_fastbot_command()`.
+
+**All tools checked (original vs current code)**:
+
+| Tool | Original default | Current `configure()` | Command builder | Status |
+|------|-----------------|----------------------|-----------------|--------|
+| **monkey** | `device_id: "emulator-5554"` (hardcoded) | `device_id` from config, default `"emulator-5554"` | Uses `self.config["device_id"]` directly | Safe |
+| **ape** | `device_id: "emulator-5554"` (hardcoded) | `device_serial` default `"emulator-5554"` | Uses `self.config['device_serial']` directly | Safe |
+| **droidbot** | `device_id: "emulator-5554"` (hardcoded) | `device_serial` default `None` | `dict.get()` with fallback (broken) | **BUG — fixed in this task** |
+| **fastbot** | `device_id: "emulator-5554"` (hardcoded) | `device_serial` default `None` | `or "emulator-5554"` | Safe (defense-in-depth) |
+| **humanoid** | `device_id: "emulator-5554"` (hardcoded) | `device_serial` default `None` | Conditional: `if self.config["device_serial"]` | Safe (skips when None) |
+| **qtesting** | `device_id: "emulator-5554"` (hardcoded) | `device_serial` default `None` | Conditional: `if self.config["device_serial"]` | Safe (skips when None) |
+| **droidmate** | `device_id: "emulator-5554"` (hardcoded) | `device_serial` default `None` | Conditional: `if self.config["device_serial"]` | Safe (skips when None) |
+
+Only DroidBot had this specific failure path where `configure()` stores `None` AND the command builder doesn't handle it.
+
+### D13: Dev Docker Image Layer Optimization
+
+**Decision**: Restructure `docker/rvandroid_dev/Dockerfile` to separate dependency installation from source code copying, and remove `--no-cache` from `build.sh`, so that rebuilds after code-only changes reuse the cached dependency layer instead of downloading all Python packages again.
+
+**Problem discovered during development workflow**: Every rebuild of the dev image (`phtcosta/rvandroid_dev:0.8.0`) downloads and installs ~174 Python packages from scratch (~4.5 min), even when only source code changed. This makes the edit-build-test cycle impractical for iterative development. A dev image should rebuild in seconds when only code changes.
+
+**Root cause (two factors)**:
+
+1. **`--no-cache` in build.sh**: Forces Docker to re-execute every layer from scratch, bypassing all layer caching. This flag is appropriate for CI/release builds but counterproductive for development.
+
+2. **Layer ordering in Dockerfile**: `COPY modules/ ./modules/` comes before `RUN poetry install`, so any source code change invalidates the `poetry install` layer. Docker layer caching works top-down — when a layer changes, all subsequent layers are rebuilt.
+
+Current Dockerfile:
+```dockerfile
+COPY pyproject.toml poetry.lock ./
+COPY modules/ ./modules/            # Changes frequently (any code edit)
+RUN poetry install --no-root --sync  # Invalidated by modules/ change above
+```
+
+**Fix**: Reorder layers so that dependency metadata (pyproject.toml files) is copied and installed before source code. This way, `poetry install` is only re-executed when `pyproject.toml` or `poetry.lock` change (rare), not when source code changes (frequent).
+
+Optimized Dockerfile structure:
+```dockerfile
+# Layer 1: Root Poetry files (changes rarely)
+COPY pyproject.toml poetry.lock ./
+
+# Layer 2: Module pyproject.toml files only (changes rarely)
+COPY modules/rv-android-core/pyproject.toml ./modules/rv-android-core/
+COPY modules/rv-platform/pyproject.toml ./modules/rv-platform/
+# ... one line per module
+
+# Layer 3: Install dependencies (cached unless pyproject.toml changes)
+RUN poetry install --no-root --sync --without dev
+
+# Layer 4: Source code (changes frequently, but only invalidates layers below)
+COPY modules/ ./modules/
+```
+
+And in `build.sh`: remove `--no-cache` flag.
+
+**Expected result**: After the first build, code-only changes rebuild in ~10-20 seconds (only layer 4 is re-executed) instead of ~4.5 minutes.
+
+**Trade-off**: If a `pyproject.toml` changes, the build takes the same ~4.5 min as before (layers 2-4 are rebuilt). This is acceptable because dependency changes are infrequent compared to code changes.
+
+**DroidBot path dependency**: The root `pyproject.toml` has `droidbot = {path = "droidbot", develop = true}` for local development — the `droidbot/` directory at the project root is a cloned external repo (setup.py, not pyproject.toml) installed as an editable path dependency. The Dockerfile copies the full `droidbot/` directory (not just a stub) because `poetry run droidbot` uses the Poetry virtualenv, which does NOT inherit pip packages from the base tools image. Poetry installs droidbot from this local path into the venv, including the `console_scripts` entry point (`droidbot=droidbot.__main__:main`). A stub approach (setup.py + empty __init__.py) was tried first but failed: Poetry created the entry point but it pointed to missing code, causing `exit code 1` at runtime.
+
+### D14: Docker Image Module Scope — Active vs Discontinued
+
+**Decision**: The Docker images (both production and dev) include only active modules. Discontinued LLM tools (`rvsmart-tool`, `rvdroid-tool`) and the deprecated LLM abstraction layer (`rv-llm`) are excluded from the Docker image via `sed` removal from `pyproject.toml` before `poetry install`.
+
+**Context**: The RV-Android codebase contains four LLM-based testing tools developed during the PhD research (see PRD Section 6, "LLM Evolution"). Only `rv-agent` reached production; the others were discontinued before completion:
+
+| Module | Status | Approach | Reason for Discontinuation |
+|--------|--------|----------|---------------------------|
+| `rv-agent` | **Active** (production) | Agentic (LangGraph) | Current production tool, 3 execution modes |
+| `rvagent-tool` | **Active** (stable) | Tool wrapper | Integrates rv-agent with rv-platform/rv-experiment |
+| `rvsmart-tool` | Discontinued | Prompt engineering (UIAutomator) | Incomplete development |
+| `rvdroid-tool` | Discontinued | LLM as guidance | Incomplete development |
+| `rv-llm` | Deprecated | LLM client abstraction | Used only by discontinued tools; rv-agent uses langchain-openai directly |
+
+The discontinued modules (`rvsmart-tool`, `rvdroid-tool`) still exist in the codebase as `modules/` directories and are listed in the root `pyproject.toml` as path dependencies. Their cleanup (removal from pyproject.toml, move to `backup/`) is planned (PRD Section 12.2) but out of scope for this change.
+
+**Problem**: The dev Dockerfile runs `poetry install` which tries to install ALL modules listed in `pyproject.toml`, including the discontinued ones. These modules have incomplete configurations (e.g., `rvsmart-tool` references a `README.md` that does not exist in the stub layer) that cause `poetry install` to fail.
+
+**Fix**: The dev Dockerfile removes the 3 discontinued/deprecated modules from `pyproject.toml` via `sed` before running `poetry install`, and regenerates `poetry.lock` to match. The stub layers (Layer 2 and Layer 3) also skip these modules.
+
+```dockerfile
+# Remove discontinued modules — not needed in Docker (see PRD Section 6.1)
+RUN sed -i '/^rv-llm = /d; /^rvsmart-tool = /d; /^rvdroid-tool = /d' pyproject.toml \
+ && poetry lock
+```
+
+**Why not stubs**: Creating stubs for discontinued modules would make the build succeed, but it perpetuates the inclusion of dead code in the Docker image — violating P3 (No Backward Compatibility). The `sed` approach is explicit: discontinued modules are removed, not papered over.
+
+**Code dependency on rv-llm**: `rv-experiment/config.py` had top-level imports from `rv_llm` (`LLMConfig`, `PromptConfig`). `PromptConfig` was never used (dead import). `LLMConfig` was used only in a Union type annotation for `get_module_config()`, where the rv-llm branch returns `{}` (empty dict). Both imports were removed. The `rv-experiment/pyproject.toml` dependency on `rv-llm` and `rvdroid-tool` is removed via `sed` in the Dockerfile (same as root pyproject.toml). The `experiment_tools.py` rvdroid registration already uses `try/except ImportError`, so it logs a warning and continues when the module is absent.
+
+**Docker tool validation scope**: For Docker testing, only built-in tools (monkey, ape, droidbot, fastbot) and rvagent are candidates. The built-in tools are registered by `rv-tools` and execute through ADB, JAR push, or Python processes. `rvagent` requires an external SGLang server, making isolated Docker testing impractical. Discontinued tools (`rvsmart`, `rvdroid`) are never tested in Docker because they are non-functional.
+
+### D15: Humanoid Tool Rewrite — DroidBot with `-humanoid` Flag
+
+**Decision**: Rewrite the Humanoid tool to execute DroidBot with the `-humanoid <url>` flag instead of a nonexistent `run_humanoid.sh` script.
+
+**Problem discovered during Tier 2 Docker tool validation**: The Humanoid tool was completely rewritten incorrectly during modularization. The original tool (in the `phtcosta/rvandroid:0.0.1` production image) ran DroidBot with the `-humanoid <url>` flag — a built-in DroidBot feature that connects to an external HTTP inference server for human-like input generation. The rewritten tool instead tries to execute `bash run_humanoid.sh --apk ... --mode hybrid --visual-threshold 0.8 --nlp-model default ...` — a script with CLI flags that were invented during the rewrite and have no basis in the actual Humanoid project.
+
+**Root cause**: The modularization rewrite did not consult the original tool source code or the Humanoid project documentation. It generated a fictional execution model (standalone script with CV/NLP modes) based on the project name and description, rather than the actual behavior (DroidBot flag).
+
+**What Humanoid actually is**: Humanoid (`github.com/yzygitzh/Humanoid`) is a trained model that predicts human-like touch interactions from UI screenshots. It runs as an HTTP server (`phtcosta/humanoid:1.0` on port 50405). DroidBot connects to it via the `-humanoid addr:port` flag (implemented in `droidbot/droidbot/start.py:86`). The exploration strategy, policy, and device management are all DroidBot — Humanoid only provides the touch coordinate predictions.
+
+**Fix**: Rewrote `modules/rv-tools/src/rv_tools/builtin/humanoid/tool.py` to follow the DroidBot tool pattern:
+- Command: `poetry run droidbot -d <serial> -a <apk> -humanoid <url> -policy dfs_greedy -count 10000000000 -timeout <t> -ignore_ad -is_emulator`
+- URL resolution: config `humanoid_url` > env `RV_HUMANOID_URL` > default `127.0.0.1:50405`
+- Single `default` variant (matching ICST experiment configuration)
+- Deleted `run_humanoid.sh` (2-line Docker run script, not the fictional bash tool)
+- Removed all fabricated config: `AVAILABLE_MODES`, `visual_threshold`, `nlp_model`, `vision_model`, `interaction_delay`, `screenshot_interval`, `max_iterations`, `enable_learning`, `context_window`, `register_humanoid_variants()`
+
+**Files changed**:
+- `modules/rv-tools/src/rv_tools/builtin/humanoid/tool.py` — complete rewrite (498 lines → 179 lines)
+- `modules/rv-tools/src/rv_tools/builtin/humanoid/__init__.py` — simplified docstring
+- `modules/rv-tools/src/rv_tools/builtin/humanoid/run_humanoid.sh` — deleted
+
+### D16: ARES Tool Rewrite — Docker Sibling Container with `docker create` + `docker cp` + `docker start`
+
+**Decision**: Rewrite the ARES tool to use `docker create` + `docker cp` + `docker start` pattern instead of fabricated CLI flags.
+
+**Problem discovered during Tier 3 Docker tool validation**: The ARES tool was completely rewritten incorrectly during modularization — the same class of error as the Humanoid tool (D15). The original tool (in the `phtcosta/rvandroid:0.0.1` production image) ran a local shell script (`run_ares.sh`) that copied the APK to the ARES directory and executed the ARES Python process. The rewritten tool instead tried to `docker run phtcosta/ares:latest --apk /app/target.apk --output /app/results --emulator emulator-5554 --timeout 60` — using a wrong image name (`ares:latest` vs `phtcosta/ares:latest`), wrong volume mounts (`/app/target.apk` vs `/ares/apks/`), and fabricated CLI flags (`--apk`, `--output`, `--emulator`, `--timeout`) that the ARES container does not understand.
+
+**Root cause**: Same as D15 — the modularization rewrite did not consult the original tool source code, the ARES Dockerfile, or the ARES container's entry point. It generated a fictional execution model based on assumptions about how Docker containers accept parameters.
+
+**What ARES actually is**: ARES (`github.com/H2SO4T/ARES`) is a reinforcement learning tool using SAC (Soft Actor-Critic) algorithm with Appium for Android UI exploration. It runs as a Docker container (`phtcosta/ares:latest`, based on `jtpastro/docker-adb`). The container expects:
+- APKs in `/ares/apks/` (Docker VOLUME)
+- Environment variable `EMUNAME` (default: `emulator-5554`)
+- Environment variable `TIMEOUT_IN_MINUTES` (integer, minutes not seconds)
+- Entry point: `run_inside.sh` which runs `venv/bin/python3 rl_interaction/parallel_exec.py` with SAC algo and Appium
+
+**Docker sibling container challenge**: When running inside the rvandroid container, the ARES container is spawned via docker.sock as a sibling container. Docker volumes (`-v`) in sibling containers are resolved by the **host** Docker daemon, not the calling container — so a path like `-v /opt/rvsec/.../cryptoapp.apk:/ares/apks/app.apk` would reference a host path that doesn't exist. The solution is `docker cp`, which works because the Docker CLI reads files locally (inside the calling container) and streams them to the daemon via the API.
+
+**Fix**: Rewrote `modules/rv-tools/src/rv_tools/builtin/ares/tool.py` to use a three-step pattern:
+1. `docker create` — create container with env vars (`EMUNAME`, `TIMEOUT_IN_MINUTES`) and network config
+2. `docker cp` — copy APK from rvandroid container into the created ARES container at `/ares/apks/app.apk`
+3. `docker start -a` — start and attach to capture stdout/stderr as trace file
+4. `finally: docker rm -f` — cleanup container on success or failure
+
+Network handling:
+- Inside Docker (`/.dockerenv` exists): `--network container:$(hostname)` — shares rvandroid's network namespace to reach the emulator at localhost
+- Outside Docker: `--network host` — standalone behavior
+
+Timeout conversion: seconds → minutes via `max(1, int(seconds / 60))`
+
+**Files changed**:
+- `modules/rv-tools/src/rv_tools/builtin/ares/tool.py` — complete rewrite (361 lines → 210 lines)
+- `modules/rv-tools/src/rv_tools/builtin/ares/__init__.py` — simplified docstring
+
+### D17: QTesting Tool Rewrite — Docker Sibling Container with `docker create` + `docker cp` + `docker start`
+
+**Decision**: Rewrite the QTesting tool to use `docker create` + `docker cp` + `docker start` pattern, and remove the stdlib-shadowing `struct.py` from the QTesting Docker image.
+
+**Problem discovered during Tier 3 Docker tool validation**: The QTesting tool was completely rewritten incorrectly during modularization — the same class of error as the Humanoid tool (D15) and the ARES tool (D16). The original tool (in the `phtcosta/rvandroid:0.0.1` production image) ran QTesting natively (not in Docker), generating a dynamic `conf.txt` INI config file and executing `python src/main.py -r conf.txt` locally. The rewritten tool instead tried to `docker run qtesting:latest --apk ... --algorithm qlearning --max-episodes 1000 --learning-rate 0.001 --epsilon 0.1 --discount-factor 0.99` — using a wrong image name (`qtesting:latest` vs `phtcosta/qtesting:latest`), fabricated CLI flags (`--apk`, `--algorithm`, `--max-episodes`, `--learning-rate`, etc.) that the QTesting container does not understand, and invented RL algorithm variants (`qlearning`, `dqn`, `ddqn`, `sarsa`, `actor_critic`) that do not exist.
+
+**Root cause**: Same as D15 and D16 — the modularization rewrite did not consult the original tool source code, the QTesting Dockerfile, or the container's entry point. It generated a fictional execution model based on assumptions about how the Q-learning tool should accept parameters.
+
+**What QTesting actually is**: QTesting (`github.com/nicetester/QTesting`) is a Q-learning based Android UI exploration tool using a Siamese LSTM network for state similarity. It runs as a Docker container (`phtcosta/qtesting:latest`, based on `python:3.10-slim`). The container expects:
+- APK file at `/qtesting/apks/app.apk`
+- INI config file at `/qtesting/apks/conf.txt` with sections `[Path]` (APK_NAME) and `[Setting]` (DEVICE_ID, TIME_LIMIT, TEST_INDEX)
+- Entry point: `python src/main.py -r apks/conf.txt`
+
+**Additional fix — struct.py stdlib shadowing**: The first QTesting Docker test failed with `ImportError: cannot import name 'pack' from 'struct' (/qtesting/src/struct.py)`. The QTesting source directory contained a `struct.py` file — a decompiled Python 2.7 artifact — that shadowed Python's built-in `struct` module, breaking numpy import (numpy depends on `struct.pack`). In the old production image (`phtcosta/rvandroid:0.0.1`), this file contained `from _struct import *` which made it a transparent passthrough. In the rebuilt QTesting Docker image, the file was truncated (only header comments, no imports), completely breaking the import chain. Grep confirmed no QTesting source code imports from this file — it is a stale artifact. Removed from source, QTesting Docker image rebuilt.
+
+**Fix**: Rewrote `modules/rv-tools/src/rv_tools/builtin/qtesting/tool.py` to use a three-step pattern:
+1. `docker create` — create container with network config
+2. `docker cp` (x2) — copy APK to `/qtesting/apks/app.apk` and dynamically generated `conf.txt` to `/qtesting/apks/conf.txt`
+3. `docker start -a` — start and attach to capture stdout/stderr as trace file
+4. `finally: docker rm -f` — cleanup container on success or failure
+
+The `conf.txt` is generated dynamically with INI format:
+```ini
+[Path]
+Benchmark =
+APK_NAME = /qtesting/apks/app.apk
+
+[Setting]
+DEVICE_ID = emulator-5554
+TIME_LIMIT = 60
+TEST_INDEX=1
+```
+
+Network handling: same as ARES (D16) — `--network container:$(hostname)` inside Docker, `--network host` outside.
+
+**Files changed**:
+- `modules/rv-tools/src/rv_tools/builtin/qtesting/tool.py` — complete rewrite (511 lines → 207 lines)
+- `modules/rv-tools/src/rv_tools/builtin/qtesting/__init__.py` — simplified docstring
+- `modules/rv-tools/src/rv_tools/builtin/qtesting/src/struct.py` — deleted (moved to `backup/qtesting_struct.py.bak`)
+- `phtcosta/qtesting:latest` Docker image — rebuilt without `struct.py`
+
+### D18: DroidMate Tool Rewrite — Fix Fabricated CLI Flags
+
+**Decision**: Rewrite the DroidMate tool to use correct DroidMate-2 `--Category-settingName=value` CLI flags.
+
+**Problem discovered during Tier 4 Docker tool validation**: The DroidMate tool was completely rewritten incorrectly during modularization — the same class of error as D15 (Humanoid), D16 (ARES), and D17 (QTesting). The original tool ran `java -jar droidmate-2-X.X.X-all.jar` with correct DroidMate-2 flags (`--Exploration-apkNames`, `--Exploration-apksDir`, `--Output-outputDir`, `--Selectors-timeLimit`, `--Selectors-actionLimit`, `--Core-logLevel`). The rewritten tool used fabricated flags (`-apk`, `-outputDir`, `-explorationTimeoutMs`, `-deviceSerialNumber`, `-explorationStrategy`, `-resetEveryNthExploration`, `-timeLimitForEachAction`, `-uiautomatorDaemonTcpPort`, `-apiLogsEnabled`, `-debug`, `-inlinePortFile`) — none of which exist in DroidMate-2. It also invented 4 variants (`default`, `systematic`, `quick`, `research`) with fabricated configuration parameters.
+
+**Root cause**: Same as D15-D17 — the modularization rewrite did not consult the original tool source code or DroidMate-2's CLI interface. Unlike the Docker-based tools (ARES/QTesting), DroidMate runs as a local `java -jar` process, so the execution model was conceptually correct — only the command-line arguments were fabricated.
+
+**Key difference from D15-D17**: DroidMate is not a Docker sibling container. It is a JAR-based tool that runs locally via `java -jar`. The 46MB fat JAR (`droidmate-2-X.X.X-all.jar`) is bundled in the module directory at `modules/rv-tools/src/rv_tools/builtin/droidmate/`. The `JarResolver` correctly finds it via `os.path.dirname(__file__)`. DroidMate-2 also expects APK filename and directory as separate flags (`--Exploration-apkNames=<filename>` + `--Exploration-apksDir=<dir>`), not a single path argument.
+
+**Fix**: Rewrote `_build_droidmate_command()` with correct DroidMate-2 flags:
+```
+java -jar droidmate-2-X.X.X-all.jar \
+  --Exploration-apkNames=cryptoapp.apk \
+  --Exploration-apksDir=/path/to/apks \
+  --Output-outputDir=/path/to/output \
+  --Selectors-timeLimit=60000 \
+  --Selectors-actionLimit=100000000 \
+  --Core-logLevel=debug
+```
+
+Simplified to 1 variant (`default`) with `action_limit=100000000` (matching ICST experiment). Removed all fabricated config options, `register_droidmate_variants()` function, and verbose promotional docstrings.
+
+**Files changed**:
+- `modules/rv-tools/src/rv_tools/builtin/droidmate/tool.py` — complete rewrite (408 lines → 131 lines)
+- `modules/rv-tools/src/rv_tools/builtin/droidmate/__init__.py` — simplified docstring
+
+### Docker Tool Validation Tests
+
+The ICST paper (Table I, `docs/main-icst.pdf`) defines the official tool set used in RV-Android experiments: 8 tools with 11 configurations (DroidBot has 4 policies, each counted as a separate configuration). These represent the validated experimental baseline from the published study (188 apps, 4 timeouts, 3 repetitions). All 8 tools (11 configurations) plus rvagent:pure_algorithm (12 total) must be validated inside Docker to ensure they execute correctly in the headless emulator environment. This validation is separate from the resume smoke tests (which test the resume mechanism using a single tool as vehicle).
+
+**ICST official tools vs. codebase variants**:
+
+| Tool | ICST Configs | Codebase Variants | Execution Method |
+|------|-------------|-------------------|------------------|
+| MONKEY | 1 (default) | 3 (default, fast, stress) | ADB shell (`adb shell monkey`) |
+| APE | 1 (default/SATA) | 5 (default, sata, bfs, dfs, random) | JAR push + `app_process` |
+| DROIDBOT | 4 (bfs_greedy, dfs_greedy, dfs_naive, bfs_naive) | 6 (default, dfs_greedy, bfs_greedy, dfs_naive, bfs_naive, random) | Python process + ADB |
+| FASTBOT | 1 (default) | 4 (default, conservative, aggressive, balanced) | JAR push + `app_process` |
+| HUMANOID | 1 (default) | 1 (default) | DroidBot + HTTP to Humanoid inference server |
+| DROIDMATE | 1 (default) | 1 (default) | JAR execution (`java -jar droidmate-2-X.X.X-all.jar`) |
+| ARES | 1 (default) | 1 (default) | Sibling Docker container via `docker create` + `docker cp` + `docker start` |
+| QTESTING | 1 (default) | 1 (default) | Sibling Docker container via `docker create` + `docker cp` + `docker start` |
+
+**DroidBot ICST → codebase variant mapping**:
+- "BFS GREEDY" (ICST) → `droidbot:bfs_greedy`
+- "DFS GREEDY" (ICST) → `droidbot:dfs_greedy`
+- "DFS NAIVE" (ICST) → `droidbot:dfs_naive`
+- "BFS NAIVE" (ICST) → `droidbot:bfs_naive`
+
+**Test methodology**: Each tool configuration is tested with 60s timeout against `cryptoapp.apk` inside the Docker container with KVM passthrough. Coverage results are not validated — the goal is execution mechanics, not test effectiveness.
+
+#### Verification Protocol
+
+Every tool test must pass ALL 5 checks below before being marked as PASSED. A test that only shows "1/1 tasks successful" in log output is NOT sufficient — the actual result artifacts must be inspected on the host filesystem.
+
+**Setup**: Mount a host directory as the results volume to inspect artifacts after the container exits:
+```bash
+rm -rf /tmp/docker_test_<tool>  # clean previous test data
+docker run --rm --device /dev/kvm \
+  -e "RV_TOOLS=<tool:variant>" \
+  -e RV_TIMEOUTS=60 \
+  -e RV_NO_WINDOW=true \
+  -e RV_SKIP_MONITORS=true \
+  -e RV_SKIP_INSTRUMENT=true \
+  -e RV_SKIP_STATIC_ANALYSIS=true \
+  -e RV_APKS_DIR=/opt/rvsec/rv-android/apks \
+  -v <host_apks_dir>:/opt/rvsec/rv-android/apks \
+  -v /tmp/docker_test_<tool>:/opt/rvsec/rv-android/results \
+  phtcosta/rvandroid_dev:0.8.0 2>&1 | tee /tmp/docker_test_<tool>.log
+echo "EXIT_CODE=$?"
+```
+
+**6 Verification Checks**:
+
+| # | Check | How to Verify | Failure Meaning |
+|---|-------|--------------|-----------------|
+| 1 | **Exit code = 0** | `echo $?` after `docker run` | Container crashed or tool returned error |
+| 2 | **tasks.json: status = COMPLETED** | Parse JSON, verify `result.state = "COMPLETED"` | Task failed, timed out, or was never executed |
+| 3 | **summary.csv: 1 row, tool matches** | `cat /tmp/docker_test_<tool>/cli_experiment_*/summary.csv` — verify `tool` column matches tested tool:variant | Result processing failed or tool name mismatch |
+| 4 | **Tool execution evidence (log)** | `grep -i "<pattern>" /tmp/docker_test_<tool>.log` — tool-specific pattern confirms the tool actually ran (see table below) | Framework booted but tool never started or was silently skipped |
+| 5 | **Trace file analysis** | Inspect the `.trace` file in `results/<experiment>/cryptoapp.apk/` — must exist, have non-trivial size, and contain tool-specific execution records (see table below) | Tool process was started but produced no output, or the process was a no-op |
+| 6 | **No crash artifacts** | `grep -iE "traceback\|unhandled.*exception" /tmp/docker_test_<tool>.log` — must return no unhandled matches. Expected tracebacks (e.g., tool timeout chain) must be explicitly identified as handled. | Python exception occurred during execution |
+
+**Tool-specific execution evidence patterns** (Check 4 — log grep):
+
+| Tool | Grep Pattern | What It Proves |
+|------|-------------|---------------|
+| monkey | `"adb.*shell monkey"` or `"Events injected"` | Monkey process started and injected events |
+| ape | `"ape.jar"` or `"CEGAR"` | APE JAR was executed, CEGAR model used |
+| droidbot | `"policy"` and `"droidbot"` | DroidBot process started with a policy |
+| fastbot | `"fastbot"` and `"app_process"` | FastBot JAR pushed and executed |
+| rvagent | `"RVAgent"` or `"pure_algorithm"` | Agent workflow started in pure algorithm mode |
+| humanoid | `"humanoid"` and `"HTTP"` | Humanoid connected to inference server |
+| ares | `"docker run"` and `"ares"` | ARES sibling container spawned |
+| qtesting | `"docker run"` and `"qtesting"` | QTesting sibling container spawned |
+| droidmate | `"droidmate"` and `"jar"` | DroidMate JAR executed |
+
+**Tool-specific trace file expectations** (Check 5 — trace analysis):
+
+The trace file (`<apk>__<rep>__<timeout>__<tool:variant>.trace`) records the tool's raw output. Each tool produces different content. The logcat file (`*.logcat`) records Android system logs during execution and contains MOP violations when APKs are instrumented (empty headers only when skip flags are active).
+
+| Tool | Trace File Content | Minimum Indicators |
+|------|-------------------|-------------------|
+| monkey | `adb shell monkey` stdout — event injection log | `:Sending Touch/Trackball/Key` lines, `// Sending event #N` counter |
+| ape | APE exploration log | CEGAR model entries, activity transitions |
+| droidbot | DroidBot exploration log | Policy actions, UI state transitions |
+| fastbot | FastBot RL exploration log | Model-based actions, state observations |
+| rvagent | Agent workflow output | Action decisions, UI parsing results |
+| humanoid | Humanoid exploration log | Vision/NLP decisions, HTTP requests |
+| ares | ARES container stdout | Docker container lifecycle, exploration steps |
+| qtesting | QTesting container stdout | Q-learning episodes, action selections |
+| droidmate | DroidMate JAR stdout | Exploration states, widget interactions |
+
+**Post-test verification commands summary**:
+```bash
+TOOL=<tool_name>
+EXP_DIR=$(ls -d /tmp/docker_test_$TOOL/cli_experiment_*)
+
+# Check 1: exit code (captured during docker run via $?)
+
+# Check 2: task status
+python3 -c "import json; d=json.load(open('$EXP_DIR/tasks.json')); [print(f'state={t[\"result\"][\"state\"]}  tool={t[\"config\"][\"tool_config\"][\"tool_name\"]}:{t[\"config\"][\"tool_config\"].get(\"variant\",\"\")}') for t in d['tasks']]"
+
+# Check 3: summary.csv
+cat $EXP_DIR/summary.csv
+
+# Check 4: tool execution evidence (log)
+grep -i "<tool-pattern>" /tmp/docker_test_$TOOL.log | head -5
+
+# Check 5: trace file analysis
+ls -la $EXP_DIR/cryptoapp.apk/*.trace
+head -10 $EXP_DIR/cryptoapp.apk/*.trace
+tail -10 $EXP_DIR/cryptoapp.apk/*.trace
+wc -l $EXP_DIR/cryptoapp.apk/*.trace
+
+# Check 6: no crashes
+grep -n "Traceback" /tmp/docker_test_$TOOL.log  # identify all tracebacks
+# For each: read context to confirm it is handled (e.g., expected timeout chain)
+```
+
+**Tiered validation approach**: Tools are grouped by their Docker prerequisites. Each tier requires progressively more infrastructure:
+
+| Tier | Tools | Prerequisites | Docker Test Method |
+|------|-------|---------------|-------------------|
+| **1 — Standalone** | monkey, ape, droidbot (4 variants), fastbot, rvagent:pure_algorithm | KVM only | `docker run --device /dev/kvm` |
+| **2 — External service** | humanoid | Humanoid HTTP server running | `docker-compose` with humanoid service |
+| **3 — Sibling container** | ares, qtesting | docker.sock + pre-built images | `docker run -v /var/run/docker.sock` |
+| **4 — External artifact** | droidmate | TOOLS_DIR with DroidMate JAR | `docker run -v tools_dir` |
+
+**RVAgent (beyond ICST scope)**: `rvagent` is not part of the ICST tool set (it was developed after the ICST study), but its `pure_algorithm` mode runs without any external server (no SGLang/LLM needed) and should be validated in Docker as a Tier 1 tool. The `multimode` and `llm_only` modes require an external SGLang server and are not tested in Docker.
+
+**Validation sets**:
+- **Minimum** (Tier 1): monkey, ape, droidbot:dfs_greedy, droidbot:bfs_greedy, droidbot:dfs_naive, droidbot:bfs_naive, fastbot, rvagent:pure_algorithm — 8 tool configurations
+- **Extended** (Tier 2-3): + humanoid, ares, qtesting — 11 tool configurations
+- **Full ICST** (all tiers): + droidmate — all 11 ICST configurations + rvagent:pure_algorithm = 12 total
+
+### Full Pipeline Integration Test (Docker)
+
+The tiered tool validation tests (15.3.a-l) use `--skip-monitors`, `--skip-instrument`, and `--skip-static` flags to isolate tool execution from pre-processing. This is intentional — the goal is to validate each tool's execution mechanics inside Docker. However, the full rv-experiment pipeline includes three pre-processing phases that must also be validated in Docker:
+
+1. **Monitor Generation** (`rv-monitor-generator`): Generates JavaMOP/RV-Monitor monitors from specification files. Requires `RVSEC_HOME` pointing to the RVSEC installation with specification files.
+2. **APK Instrumentation** (`rv-instrumentation`): Weaves monitors into APKs using Soot/AspectJ. Produces instrumented APKs in `out/instrumented_apks/`.
+3. **Static Analysis** (`rv-static-analysis`): Runs GATOR (WTG), GESDA, and REACH on APKs. Produces call graphs and reachability data in `out/static_analysis/`.
+
+After pre-processing, the instrumented APKs are used for tool execution. Coverage results are non-zero because the APKs contain monitors that log `RVSEC-COV` and `RVSEC` entries to logcat.
+
+**Why this test matters**: The skip-flag tests validate tool execution but not the pre-processing pipeline. A Docker image that passes all tiered tool tests could still fail at monitor generation (missing RVSEC_HOME or JDK), instrumentation (Soot classpath issues), or static analysis (missing Android SDK platforms). The full pipeline test validates the complete experiment workflow end-to-end.
+
+**Test configuration**:
+- **Specification set**: `jca` (23 JCA cryptography specifications — the ICST baseline)
+- **APK**: `cryptoapp.apk` (contains known JCA API usage for coverage validation)
+- **Tools**: `monkey` (simplest tool, fastest validation) — more tools can be added later but one is sufficient to validate the pipeline
+- **Timeout**: 60s
+- **No skip flags**: Full pre-processing pipeline runs inside Docker
+
+**Prerequisites**:
+- `RVSEC_HOME` must be mounted as a volume (host path to the RVSEC repository containing specification files)
+- The Docker image must include JDK, Maven, Android SDK platforms, and all build tools needed for monitor compilation
+- The ARES/QTesting images are not needed (using monkey only)
+
+**Docker command**:
+```bash
+rm -rf /tmp/docker_test_full_pipeline
+docker run --rm --device /dev/kvm \
+  -e RV_TOOLS=monkey \
+  -e RV_TIMEOUTS=60 \
+  -e RV_NO_WINDOW=true \
+  -e "RV_SPEC_SET=jca" \
+  -e RV_APKS_DIR=/opt/rvsec/rv-android/apks \
+  -v <host_apks_dir>:/opt/rvsec/rv-android/apks \
+  -v /tmp/docker_test_full_pipeline:/opt/rvsec/rv-android/results \
+  -v <host_rvsec_home>:/opt/rvsec \
+  phtcosta/rvandroid_dev:0.8.0 2>&1 | tee /tmp/docker_test_full_pipeline.log
+echo "EXIT_CODE=$?"
+```
+
+Note: `RVSEC_HOME` inside the container is `/opt/rvsec` (set in the base Docker image). The host RVSEC repository is bind-mounted to this path.
+
+**Verification protocol** (extended 8-check):
+
+The standard 6-check protocol applies, plus 2 additional checks for pre-processing:
+
+| # | Check | How to Verify |
+|---|-------|--------------|
+| 1 | Exit code = 0 | `echo $?` |
+| 2 | tasks.json: COMPLETED | Parse JSON |
+| 3 | summary.csv: 1 row | `cat summary.csv` |
+| 4 | Tool execution (log) | `grep monkey` |
+| 5 | Trace file | `.trace` exists with events |
+| 6 | No crashes | All tracebacks identified as handled |
+| 7 | **Monitor generation completed** | Log contains "Monitor generation completed" or equivalent. `out/monitors/` directory has generated `.aj` files |
+| 8 | **Instrumented APK used** | Log shows instrumentation completed. `out/instrumented_apks/` has instrumented APK. Coverage metrics in `summary.csv` are **non-zero** (instrumented APK logs `RVSEC-COV` entries). Logcat file contains `RVSEC-COV` lines. |
+
+**Expected coverage behavior**: With JCA specifications and `cryptoapp.apk`, the monkey tool with 60s timeout should produce non-zero `methods_jca_reachable_coverage` because CryptoApp exercises JCA APIs (MessageDigest, Cipher, KeyGenerator, etc.). The exact coverage values depend on monkey's random exploration, but `methods_jca_reachable_coverage > 0%` is a mandatory indicator that monitors are active and logging `RVSEC-COV` entries to logcat.
+
+**MOP violation errors**: MOP violations (`total_errors` in `summary.csv`, `errors.csv` entries) may or may not be present depending on whether the monkey's random exploration triggers API misuse patterns detected by the JCA specifications. Unlike coverage logs (`RVSEC-COV`), which are logged on every monitored method call, MOP violations are logged only when a specification detects an actual misuse (e.g., calling `Cipher.doFinal()` without `Cipher.init()`). Their presence in the test results validates the full error detection pipeline but their absence does not indicate a failure — it means the random exploration path did not trigger any specification violations.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -662,9 +1108,15 @@ Steps:
 - Fix ExperimentController double-nesting: use `config.results_dir` directly instead of appending `config.name` (discovered during smoke testing — see "Bug: ExperimentController Double-Nesting" section)
 - Document the two resume usage forms (Expand Experiment and Crash Recovery) in specs and module CLAUDE.md
 - Enable ARES and QTesting Docker sibling containers: add `docker.sock` mount to compose files, add `--network container:$(hostname)` flag when running inside Docker, integrate ARES/QTesting image builds into `build_all.sh`
+- Fix monkey command builder to use configuration (throttle, ignore-crashes, ignore-timeouts, event count) instead of hardcoded values — required for Docker compatibility (see D11)
+- Validate all 8 ICST official tools (11 configurations) + rvagent:pure_algorithm (12 total) inside Docker, tiered by prerequisites: Tier 1 standalone (monkey, ape, droidbot×4, fastbot, rvagent:pure_algorithm = 8), Tier 2 external service (humanoid = 1), Tier 3 sibling container (ares, qtesting = 2), Tier 4 external artifact (droidmate = 1)
+- Optimize dev Docker image layer ordering so that code-only changes rebuild in seconds instead of re-downloading all Python dependencies (see D13)
+- Exclude discontinued modules (rvsmart-tool, rvdroid-tool, rv-llm) from Docker images — only active modules are installed (see D14)
 
 **Non-Goals:**
 - Parallel task execution within a single Platform instance (`max_parallel_tasks` stays at 1 — parallelism is achieved via Docker containers)
 - Watchdog/auto-restart mechanism (Docker Compose `restart: on-failure` handles this natively)
 - Changes to `TaskStorage` internals (already correct, just unused)
 - Updating PRD FR03 with Legunsen/Owolabi spec set references (follow-up documentation change)
+- Full cleanup of discontinued modules from codebase (removal from root pyproject.toml, move to backup/) — planned in PRD Section 12.2, separate change scope
+- End-to-end validation of RVAgent multimode/llm_only inside Docker (requires external SGLang server)

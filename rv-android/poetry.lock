@@ -1099,6 +1099,28 @@ pipenv = ["pipenv"]
 poetry = ["poetry"]
 
 [[package]]
+name = "droidbot"
+version = "1.0.2b4"
+description = "A lightweight UI-guided test input generator for Android."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = []
+develop = true
+
+[package.dependencies]
+androguard = "3.4.0a1"
+networkx = "*"
+Pillow = "*"
+requests = "*"
+setuptools = "*"
+telnetlib3 = "*"
+
+[package.source]
+type = "directory"
+url = "droidbot"
+
+[[package]]
 name = "executing"
 version = "2.2.1"
 description = "Get the currently executing AST node of a frame, and other information"
@@ -5792,6 +5814,25 @@ mpmath = ">=1.1.0,<1.4"
 dev = ["hypothesis (>=6.70.0)", "pytest (>=7.1.0)"]
 
 [[package]]
+name = "telnetlib3"
+version = "2.4.0"
+description = "Python Telnet server and client CLI and Protocol library"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "telnetlib3-2.4.0-py3-none-any.whl", hash = "sha256:f5559fb367c92db1403b5e6a1e99cc0368896601ee91035a97d8cf96fd425cf7"},
+    {file = "telnetlib3-2.4.0.tar.gz", hash = "sha256:b0dfb66529f1f98250906ed90798273384f62e8c67392c40554224aadb2077cf"},
+]
+
+[package.dependencies]
+wcwidth = ">=0.2.13"
+
+[package.extras]
+docs = ["sphinx (>3)", "sphinx-autodoc-typehints", "sphinx-rtd-theme"]
+extras = ["prettytable", "ucs-detect (>=2)"]
+
+[[package]]
 name = "tenacity"
 version = "9.1.2"
 description = "Retry code until it succeeds"
@@ -6663,4 +6704,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "52e82cc1f2a159137eddfb967e2d8a37a66e0bc2eb466bdd9b449666b5a6f9c7"
+content-hash = "3706cb173ef3a5007b6d37c0052848a5091bbf93cb93d93eb95de50f968841f2"

@@ -3,7 +3,7 @@
 VERSION=0.8.0
 IMAGE=phtcosta/rvandroid_dev
 
-docker build --no-cache -t $IMAGE:$VERSION -f $(dirname $0)/Dockerfile $(dirname $0)/../..
+docker build -t $IMAGE:$VERSION -f $(dirname $0)/Dockerfile $(dirname $0)/../..
 
 ID=$(docker images | grep "$IMAGE" | head -n 1 | awk '{print $3}')
 

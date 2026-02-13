@@ -1,8 +1,5 @@
 """
-ARES testing tool for monitored operations testing.
-
-This module provides the ARES tool implementation with comprehensive
-Docker-based execution and systematic UI exploration capabilities.
+ARES tool — Docker sibling container for RL-based systematic UI exploration.
 """
 
 from .tool import AresTool

@@ -1,8 +1,5 @@
 """
-QTesting tool for monitored operations testing.
-
-This module provides the QTesting tool implementation with comprehensive
-reinforcement learning-based exploration and intelligent testing capabilities.
+QTesting tool — Docker sibling container for Q-learning based UI exploration.
 """
 
 from .tool import QTestingTool

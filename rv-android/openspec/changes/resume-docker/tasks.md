@@ -1,3 +1,61 @@
+# Tasks: Resume + Docker
+
+## Execution Order
+
+Tasks are numbered by topic but executed in dependency order. This section tracks the actual execution sequence.
+
+### Completed (in execution order)
+
+1. Tasks 1-5: Resume CLI, Platform wiring, Dead code removal, Docker entry point, Docker files
+2. Task 6: Unit tests for resume (TDD RED phase)
+3. Task 7: Result consolidation bug fix (TDD GREEN phase)
+4. Task 8: Smoke tests (rv-platform + rv-experiment, Forms 1 and 2)
+5. Task 10: MOP violation reconstruction from logcat (TDD RED → GREEN)
+6. Task 9: Documentation update
+7. Tasks 11-13: Docker compose docker.sock, ARES/QTesting network fix, build_all.sh
+8. Task 14: Build all Docker images (base → android → tools → rvandroid → ares → qtesting)
+9. Task 16: Update change documents (D10, delta specs)
+10. Task 17: Fix monkey command builder (D11)
+11. Task 18.1-18.2: Build and verify dev Docker image
+12. Task 15.1-15.4: Docker smoke tests (entry point, tool registry, Docker CLI)
+13. Task 15.3.a: Docker tool test — monkey:fast (PASSED)
+14. Task 19: Fix DroidBot device_serial bug (D12) — verified locally
+15. Task 20.1-20.2: Dev Docker image layer optimization (D13)
+16. Task 20.4: Handle droidbot path dependency in Dockerfile (DONE — Layer 1b in Dockerfile)
+17. Task 20.5: Exclude discontinued modules from Docker image (D14)
+18. Task 18.3: Rebuild dev Docker image (includes D12, D14 fixes)
+19. Task 21: Fix Humanoid tool — rewrite as DroidBot + `-humanoid` flag (D15)
+20. Task 18.4: Rebuild dev Docker image (includes D15 humanoid fix)
+21. Task 15.3.i: Docker tool test — humanoid (PASSED, 6-check verified)
+22. Task 22: Fix ARES tool — rewrite with `docker create` + `docker cp` + `docker start` pattern (D16)
+23. Task 18.5: Rebuild dev Docker image (includes D16 ARES fix)
+24. Task 15.3.j: Docker tool test — ares (PASSED, 6-check verified)
+
+25. Task 15.3.a: Docker tool test — monkey:fast (PASSED, 6-check verified)
+26. Task 15.3.b: Docker tool test — ape (PASSED, 6-check verified)
+27. Task 15.3.c: Docker tool test — droidbot:dfs_greedy (PASSED, 6-check verified)
+28. Task 15.3.d: Docker tool test — droidbot:bfs_greedy (PASSED, 6-check verified)
+29. Task 15.3.e: Docker tool test — droidbot:dfs_naive (PASSED, 6-check verified)
+30. Task 15.3.f: Docker tool test — droidbot:bfs_naive (PASSED, 6-check verified)
+31. Task 15.3.g: Docker tool test — fastbot (PASSED, 6-check verified)
+32. Task 15.3.h: Docker tool test — rvagent:pure_algorithm (PASSED, 6-check verified)
+
+25. Task 23: Fix QTesting tool — rewrite with `docker create` + `docker cp` + `docker start` pattern + remove struct.py (D17)
+26. Task 18.6: Rebuild QTesting Docker image (without struct.py) + rebuild dev Docker image (includes D17 QTesting fix)
+27. Task 15.3.k: Docker tool test — qtesting (PASSED, 6-check verified)
+
+28. Task 24: Fix DroidMate tool — rewrite with correct DroidMate-2 CLI flags (D18)
+29. Task 18.7: Rebuild dev Docker image (includes D18 DroidMate fix)
+30. Task 15.3.l: Docker tool test — droidmate (PASSED, 6-check verified)
+
+31. Task 15.5: Resume in Docker (PASSED, 6-check verified)
+
+### Pending (planned order)
+
+32. Task 15.6: Full pipeline integration test in Docker (no skip flags)
+
+---
+
 ## 1. Resume CLI (rv-experiment)
 
 - [x] 1.1 Add `--resume-dir` Click option to the `run` command in `modules/rv-experiment/src/rv_experiment/__main__.py`. Type: `click.Path(exists=True)`, default `None`. Pass through to `_create_experiment_config_from_cli()`.
@@ -209,21 +267,177 @@ Build order:
 - QTesting Dockerfile downloads Android SDK tools — download URL may be stale
 - Base image build takes ~15-20 min (JDK, Maven, Android SDK)
 
-## 15. Docker Smoke Tests
+## 17. Fix Monkey Command Builder (rv-tools)
 
-Verify that the built Docker images work correctly. These are manual tests run after all images are built (task 14).
+The `_build_monkey_command()` method had hardcoded values instead of reading from `self.config`. This meant variants (`fast`, `stress`) and `configure()` parameters had no effect on the actual command. See design.md D11 for root cause analysis.
 
-- [ ] 15.1 **Entry Point**: Verify entrypoint + CLI works: `docker run --rm phtcosta/rvandroid:0.8.0 bash -c "poetry run rv-experiment --help"`
-- [ ] 15.2 **Tool Registry**: Verify all tools are registered: `docker run --rm phtcosta/rvandroid:0.8.0 bash -c "poetry run rv-experiment list-tools"`
-- [ ] 15.3 **Basic Execution**: Run monkey with short timeout: `docker run --rm --device /dev/kvm -v $(pwd)/apks_examples:/opt/rvsec/rv-android/apks phtcosta/rvandroid:0.8.0 run` (defaults: monkey, 300s, 1 rep)
-- [ ] 15.4 **Docker CLI in Container**: Verify docker.sock works: `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock phtcosta/rvandroid:0.8.0 bash -c "docker ps"`
-- [ ] 15.5 **Resume in Docker**: Run with 2 reps and RV_EXPERIMENT_NAME, kill after rep 1, restart, verify resume detects completed task and skips it.
+- [x] 17.1 Update `_build_monkey_command()` in `modules/rv-tools/src/rv_tools/builtin/monkey/tool.py` to use `self.config` for: `event_count`, `throttle`, `ignore_crashes`, `ignore_timeouts`, `verbosity`, `seed`. Default behavior unchanged (same values as before when using default config). Validated by Docker tool test 15.3.a.
 
 **Acceptance criteria:**
-- All 5 smoke tests pass
-- Entry point correctly translates env vars to CLI args
-- Tool registry shows all registered tools (monkey, ape, droidbot, fastbot, humanoid, ares, qtesting, droidmate, rvagent)
-- Resume works across container restarts (Form 2: Crash Recovery)
+- `_build_monkey_command()` reads all relevant fields from `self.config`
+- Default variant produces the same command as before (backward compatible)
+- `fast` variant now actually adds `--ignore-crashes` and `--ignore-timeouts` flags
+- `throttle > 0` adds `--throttle N` flag
+
+## 18. Build Dev Docker Image
+
+Build the dev image (`phtcosta/rvandroid_dev:0.8.0`) using local source code. This avoids the commit+push+rebuild cycle needed for the production image and enables rapid iteration on tool fixes.
+
+- [x] 18.1 Build dev image: `docker/rvandroid_dev/build.sh`. Build context is the repo root — includes local monkey fix and all other local changes. Built in ~4.5min, 174 packages installed.
+- [x] 18.2 Verify dev image starts correctly: `docker run --rm --device /dev/kvm phtcosta/rvandroid_dev:0.8.0 bash -c "poetry run rv-experiment --help"` — PASSED. CLI shows full help.
+- [x] 18.3 Rebuild dev image after tasks 17, 19, 20. Build succeeded: 117 packages installed (vs 174 before — 57 fewer without discontinued modules). 13 active modules installed. CLI works. Tool registry shows 9 tools (8 ICST + rvagent). Discontinued tools log warnings only.
+
+**Acceptance criteria:**
+- `phtcosta/rvandroid_dev:0.8.0` image built successfully
+- Entry point and CLI work identically to production image
+- Local code changes (monkey fix, droidbot fix, resume, etc.) are reflected in the image
+
+## 15. Docker Smoke Tests
+
+Verify that Docker images work correctly. Tests 15.1-15.4 were validated with the production image (task 14). Tests 15.3.x (per-tool validation) and 15.5 use the dev image (task 18) to enable rapid iteration on fixes.
+
+- [x] 15.1 **Entry Point**: PASSED (prod image). Entry point intercepts `bash` correctly, CLI shows full help with commands (run, config, list-tools, validate). Working directory is `/opt/rvsec/rv-android`.
+- [x] 15.2 **Tool Registry**: PASSED (prod image). All 10 tools registered: ape, monkey, ares, droidbot, droidmate, fastbot, humanoid, qtesting, rvdroid, rvagent.
+- [x] 15.4 **Docker CLI in Container**: PASSED (prod image). `docker` binary available at `/usr/bin/docker`. With docker.sock mount, container can list running containers on the host via `docker ps`.
+
+### 15.3 Docker Tool Validation (dev image)
+
+Validates all 8 ICST official tools (11 configurations) + rvagent:pure_algorithm (12 total) inside Docker. Each tool tested with 60s timeout against `cryptoapp.apk` with KVM. See design.md "Docker Tool Validation Tests" for ICST tool mapping, tiered approach, methodology, and the **Verification Protocol** (6-check protocol with Docker run template and post-test commands).
+
+**Verification Protocol**: Defined in design.md section "Docker Tool Validation Tests → Verification Protocol". Each tool test must pass ALL 6 checks before being marked PASSED:
+1. Exit code = 0
+2. tasks.json: `result.state = COMPLETED`
+3. summary.csv: 1 row, tool:variant matches
+4. Tool execution evidence (log grep — tool-specific pattern, see design.md table)
+5. Trace file analysis (`.trace` exists, non-trivial size, tool-specific execution records — see design.md table)
+6. No crash artifacts (all tracebacks in log must be identified as handled; no unhandled exceptions)
+
+**Result artifacts location**: `/tmp/docker_test_<tool>/` (host volume mount) and `/tmp/docker_test_<tool>.log` (tee'd output).
+
+**Each test result below must document all 6 checks explicitly**.
+
+**Tier 1 — Standalone (`docker run --device /dev/kvm`)**:
+
+- [x] 15.3.a **monkey:fast**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_monkey/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=monkey, variant=fast, apk=cryptoapp.apk
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,monkey:fast,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): `adb -s emulator-5554 shell monkey -v --ignore-crashes --ignore-timeouts --ignore-security-exceptions -s 12345 -p br.unb.cic.cryptoapp 1000000000` — ran full 60s timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__monkey:fast.trace` (103KB) — 236 `:Sending Touch/Trackball` lines, last event counter `// Sending event #1200`. Logcat file has only headers (no MOP violations — APKs not instrumented, skip flags active).
+  - Check 6 (no crashes): 3 tracebacks in log are the expected timeout chain (`subprocess.TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handled by error handler with `"Tool timeout (expected)"`
+- [x] 15.3.b **ape**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_ape/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=ape:default, apk=cryptoapp.apk
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,ape,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): APE JAR pushed to `/data/local/tmp/ape.jar`, executed via `app_process` with `--ape sata` strategy, ran full 60s timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__ape.trace` (290KB, 2558 lines) — 35 SATA steps, state creation/exploration, activity transitions (MainActivity, CryptographyActivity). Also `ape_output/` directory created.
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`
+- [x] 15.3.c **droidbot:dfs_greedy**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_droidbot_dfs_greedy/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=droidbot:dfs_greedy
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,droidbot:dfs_greedy,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): `poetry run droidbot -d emulator-5554 -a .../cryptoapp.apk -policy dfs_greedy -count 10000000000 -timeout 60 -ignore_ad -is_emulator` — DroidBot configured with Policy: dfs_greedy, ran full 60s timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__droidbot:dfs_greedy.trace` (89KB, 1682 lines) — 8 Actions (TouchEvent, IntentEvent, KeyEvent, KillAppEvent), 14 UtgGreedySearchPolicy entries, state transitions, DroidBotAppConn restarts (normal accessibility adapter reconnections)
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`
+- [x] 15.3.d **droidbot:bfs_greedy**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_droidbot_bfs_greedy/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=droidbot:bfs_greedy
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,droidbot:bfs_greedy,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): `poetry run droidbot -d emulator-5554 -a .../cryptoapp.apk -policy bfs_greedy -count 10000000000 -timeout 60 -ignore_ad -is_emulator` — DroidBot configured with Policy: bfs_greedy, ran full 60s timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__droidbot:bfs_greedy.trace` (39KB, 723 lines) — 10 Actions (TouchEvent on Button-MESSAGE DI/ImageView, IntentEvent, KeyEvent, KillAppEvent), UtgGreedySearchPolicy exploration, state transitions
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`
+- [x] 15.3.e **droidbot:dfs_naive**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_droidbot_dfs_naive/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=droidbot:dfs_naive
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,droidbot:dfs_naive,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): `poetry run droidbot -d emulator-5554 -a .../cryptoapp.apk -policy dfs_naive -count 10000000000 -timeout 60 -ignore_ad -is_emulator` — DroidBot configured with Policy: dfs_naive, ran full 60s timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__droidbot:dfs_naive.trace` (14KB, 248 lines) — 11 Actions (TouchEvent on TextView-Crypto App/ImageView/Button-MESSAGE DI, IntentEvent, KeyEvent, KillAppEvent), UtgNaiveSearchPolicy selecting un-clicked views, activity transitions (MainActivity, MessageDigestActivity)
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`
+- [x] 15.3.f **droidbot:bfs_naive**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_droidbot_bfs_naive/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=droidbot:bfs_naive
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,droidbot:bfs_naive,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): `poetry run droidbot -d emulator-5554 -a .../cryptoapp.apk -policy bfs_naive -count 10000000000 -timeout 60 -ignore_ad -is_emulator` — DroidBot configured with Policy: bfs_naive, ran full 60s timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__droidbot:bfs_naive.trace` (54KB, 1019 lines) — 7 Actions (TouchEvent on TextView-Crypto App/ImageView/Button-MESSAGE DI, IntentEvent, KeyEvent, KillAppEvent), UtgNaiveSearchPolicy selecting un-clicked views, state transitions
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`
+- [x] 15.3.g **fastbot**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_fastbot/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=fastbot:default
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,fastbot,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): 3 FastBot JARs pushed (fastbot-thirdpart.jar, framework.jar, monkeyq.jar), `Starting FastBot execution for br.unb.cic.cryptoapp`, completed within timeout
+  - Check 5 (trace file): `cryptoapp.apk__1__60__fastbot.trace` (54KB, 699 lines) — events up to #300+, touch actions with coordinates (ACTION_DOWN/MOVE/UP), model-based exploration, activity filtering (NOT USING 14+ system activities)
+  - Check 6 (no crashes): 0 tracebacks — clean execution, FastBot finished within timeout (no timeout chain)
+- [x] 15.3.h **rvagent:pure_algorithm**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_rvagent/`.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=rvagent:pure_algorithm
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,rvagent:pure_algorithm,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): AgentFactory created RVAgent, DeviceInterface connected to emulator-5554, RVAgentStrategy initialized with pure_algorithm mode, algorithm_node executing CLICK/SET_TEXT/KEY_EVENT actions
+  - Check 5 (metrics file): `br.unb.cic.cryptoapp__1__60__rvagent:pure_algorithm.rvagent_metrics.json` (4KB) — 4 iterations, 3 unique states, 4 total actions (100% algorithm), 26 unique UI elements, 3 screens visited, 11.5% element coverage. Note: rvagent produces `.rvagent_metrics.json` instead of `.trace`
+  - Check 6 (no crashes): 0 tracebacks — clean execution
+
+**Tier 2 — External Service (`docker-compose` with humanoid service)**:
+
+- [x] 15.3.i **humanoid**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_humanoid/`. Prerequisite: D15 humanoid tool rewrite (Task 21).
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=humanoid:default
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,humanoid,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): `Configured Humanoid tool - Policy: dfs_greedy, Humanoid URL: rv-humanoid:50405`, command: `poetry run droidbot -d emulator-5554 -a .../cryptoapp.apk -humanoid rv-humanoid:50405 -policy dfs_greedy -count 10000000000 -timeout 60 -ignore_ad -is_emulator`
+  - Check 5 (trace file): `cryptoapp.apk__1__60__humanoid.trace` (22KB, 403 lines) — DroidBot exploration with UtgGreedySearchPolicy, TouchEvent actions on CipherActivity views (TextView-Crypto App, EditText-Input text, Button-ENCRYPT), state transitions between CipherActivity states
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`
+  - **Test infrastructure**: Docker network `rv-test`, humanoid server (`phtcosta/humanoid:1.0`) as named container `rv-humanoid`, rvandroid container with `--network rv-test` and `RV_HUMANOID_URL=rv-humanoid:50405`
+
+**Tier 3 — Sibling Container (docker.sock mount)**:
+
+- [x] 15.3.j **ares**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_ares/`. Prerequisite: D16 ARES tool rewrite (Task 22).
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=ares:default, execution_time=115s
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,ares,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): Container `ares_ac7de587` created with `phtcosta/ares:latest`, env vars `EMUNAME=emulator-5554 TIMEOUT_IN_MINUTES=1`, APK copied via `docker cp .../cryptoapp.apk ares_ac7de587:/ares/apks/app.apk`, started with `docker start -a`, network `--network container:$(hostname)` (inside Docker)
+  - Check 5 (trace file): `cryptoapp.apk__1__60__ares.trace` (1843 bytes, 20 lines) — ARES RL exploration: `EPISODE RESET`, SAC actions on `buttonMessageDigest`, `spinnerMessageDigest`, `editTextMessageDigest`, activity transitions between `MainActivity` and `MessageDigestActivity`, text input (`put string: string2`), orientation changes
+  - Check 6 (no crashes): 3 tracebacks are expected timeout chain (`subprocess.TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"` and `"Completed tool: ares (timeout)"`
+  - **Test infrastructure**: docker.sock mount (`-v /var/run/docker.sock:/var/run/docker.sock`), pre-built `phtcosta/ares:latest` image, network sharing via `--network container:$(hostname)` inside Docker
+- [x] 15.3.k **qtesting**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_qtesting/`. Prerequisite: D17 QTesting tool rewrite (Task 23) + struct.py removal.
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=qtesting:default, execution_time=112s
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,qtesting,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): Container `qtesting_fa9fff96` created with `phtcosta/qtesting:latest`, APK copied via `docker cp`, conf.txt copied via `docker cp`, started with `docker start -a`, network `--network container:$(hostname)` (inside Docker), full container lifecycle (create → cp → start → timeout → cleanup)
+  - Check 5 (trace file): `cryptoapp.apk__1__60__qtesting.trace` (3195 bytes, 37 lines) — TensorFlow/CUDA initialization, `adb root`, package extraction (`br.unb.cic.cryptoapp`), activity launch (`MainActivity`), Siamese LSTM model loaded (126K params, Sequential + ManDist layers), Q-learning started (`==============start testing=============`)
+  - Check 6 (no crashes): 1 traceback is the expected timeout chain (`RVToolTimeoutError: qtesting execution timed out after 60.0 seconds caused by RVCommandTimeoutError`), handler logs `"Tool timeout (expected)"`. Boot polling warnings (`getprop init.svc.bootanim` exit code 1) are normal emulator startup.
+  - **Test infrastructure**: docker.sock mount (`-v /var/run/docker.sock:/var/run/docker.sock`), pre-built `phtcosta/qtesting:latest` image (rebuilt without struct.py), network sharing via `--network container:$(hostname)` inside Docker
+
+**Tier 4 — External Artifact (TOOLS_DIR volume)**:
+
+- [x] 15.3.l **droidmate**: PASSED (all 6 checks). Artifacts: `/tmp/docker_test_droidmate/`. Prerequisite: D18 DroidMate CLI flags fix (Task 24).
+  - Check 1 (exit code): 0 — log ends with "Experiment completed successfully"
+  - Check 2 (tasks.json): `result.state = "COMPLETED"`, tool=droidmate:default, execution_time=112s
+  - Check 3 (summary.csv): 1 row — `cryptoapp.apk,1,60,droidmate,0.0,0.0,0.0,0`
+  - Check 4 (log evidence): Correct DroidMate-2 command: `java -jar .../droidmate-2-X.X.X-all.jar --Exploration-apkNames=cryptoapp.apk --Exploration-apksDir=/opt/rvsec/rv-android/apks --Output-outputDir=.../droidmate_output --Selectors-timeLimit=60000 --Selectors-actionLimit=100000000 --Core-logLevel=debug`. JAR resolved via JarResolver at module directory.
+  - Check 5 (trace file): `cryptoapp.apk__1__60__droidmate.trace` (15110 bytes) — DroidMate-2 copyright, configuration dump (apksDirPath, outputDir, deviceSerialNumber=null), 9 exploration strategies registered (RandomWidget, actionBasedTerminate, timeBasedTerminate, etc.), APK processing (br.unb.cic.cryptoapp), device setup (emulator-5554), UiAutomator2 daemon installed, exploration loop with LaunchApp + ClickEvent actions, screenshots pulled, "remaining exploration time" decreasing. Also `droidmate_output/` directory created with model, images, report subdirectories.
+  - Check 6 (no crashes): 1 traceback is the expected timeout chain (`RVToolTimeoutError: droidmate execution timed out after 60.0 seconds`), handler logs `"Tool timeout (expected)"`. Boot polling warnings are normal emulator startup.
+  - **Note**: DroidMate JAR (`droidmate-2-X.X.X-all.jar`, 46MB) is bundled in the module directory — no external volume mount needed. No TOOLS_DIR env var required.
+
+**Acceptance criteria:**
+- Minimum (Tier 1): monkey, ape, droidbot (4 ICST variants), fastbot, rvagent:pure_algorithm — 8 configurations execute successfully (all 6 verification checks pass)
+- Extended (Tier 2-3): + humanoid, ares, qtesting — 11 configurations
+- Full ICST (all tiers): + droidmate — all 11 ICST configurations + rvagent:pure_algorithm = 12 total
+
+### 15.5 Resume in Docker (dev image)
+
+- [x] 15.5 **Resume in Docker**: PASSED (all 6 checks). Test used `monkey:fast` (not default `monkey` — default variant lacks `--ignore-crashes` and exits with code 29 on app crash, causing task ERROR state).
+  - **Run 1**: Started container with `RV_TOOLS=monkey:fast`, `RV_REPETITIONS=2`, `RV_EXPERIMENT_NAME=docker_resume_test`. Rep 1 completed successfully (COMPLETED state in tasks.json). Killed container during rep 2 execution with `docker kill`.
+  - **Run 2**: Re-ran same command. Resume mechanism activated:
+    - "Resuming experiment 'docker_resume_test' — auto-skipping pre-processing"
+    - "Loading tasks from results/docker_resume_test/tasks.json"
+    - "Resume: skipped 1 already-completed tasks (1 remaining)"
+    - Rep 2 executed and completed
+    - "Execution summary: 1/1 tasks successful (1 skipped from previous runs)"
+  - Check 1 (exit code): 0 — "Experiment completed successfully"
+  - Check 2 (tasks.json): 2 tasks, both COMPLETED, 100% completion, 0 failed. Rep 1 preserved from run 1 (task ID `be652535`), rep 2 completed in run 2 (new task ID `3793af6c`).
+  - Check 3 (result files): 4 files — `cryptoapp.apk__1__60__monkey:fast.trace` (29KB, from run 1), `cryptoapp.apk__2__60__monkey:fast.trace` (102KB, from run 2), 2 logcat files.
+  - Check 4 (resume evidence): All 4 resume log messages present (see above). Pre-processing auto-skipped. Rep 1 skipped.
+  - Check 5 (tool execution): Monkey:fast ran only for rep 2 (60s timeout, expected timeout chain). No execution of rep 1 tool (skipped).
+  - Check 6 (no crashes): Only expected timeout chain (`TimeoutExpired` → `RVCommandTimeoutError` → `RVToolTimeoutError`), handler logs `"Tool timeout (expected)"`.
+  - **Note**: First attempt with `monkey` default variant failed — monkey exited with code 29 (app crash, no `--ignore-crashes` flag), causing `RVToolExecutionError` and task ERROR state. The resume mechanism correctly does NOT skip ERROR tasks (only COMPLETED), which is the intended behavior. Used `monkey:fast` for successful test.
 
 ## 16. Update Change Documents
 
@@ -235,3 +449,116 @@ Update design.md and tasks.md to reflect the expanded scope (ARES/QTesting Docke
 - [x] 16.4 In `tasks.md`: add tasks 11-16 with subtasks and acceptance criteria.
 - [x] 16.5 In `openspec/changes/resume-docker/specs/tools/spec.md`: create delta spec for the tools domain documenting Docker network behavior for ARES and QTesting tool execution (new invariant INV-TOOL-15 for Docker-aware command building).
 - [x] 16.6 In `openspec/changes/resume-docker/specs/experiment/spec.md`: add Docker Execution Mode requirement (FR16-ext, NFR08) documenting docker-entrypoint.sh, env var translation, docker-compose files, parallel execution, docker.sock mount, and startup delay.
+
+## 19. Fix DroidBot `device_serial` Bug (D12)
+
+Regression introduced during module refactoring. The original DroidBot code used a hardcoded `device_id: "emulator-5554"` default. The refactored `configure()` changed this to `config.get("device_serial", None)`, which stores `None` when no `device_serial` is provided. Combined with the `Command` class gaining Pydantic validation (`@field_validator('args')` rejecting non-string elements), this causes ALL DroidBot variants to fail with `args.3=None` validation error. See design.md D12 for full root cause analysis and comparison with all other tools.
+
+- [x] 19.1 In `modules/rv-tools/src/rv_tools/builtin/droidbot/tool.py`, `configure()` line 172: change `config.get("device_serial", None)` to `config.get("device_serial", "emulator-5554")`. This is the root fix — matching the original code behavior and how APE handles it.
+- [x] 19.2 In `modules/rv-tools/src/rv_tools/builtin/droidbot/tool.py`, `_build_droidbot_command()` line 258: change `self.config.get("device_serial", "emulator-5554")` to `self.config.get("device_serial") or "emulator-5554"`. Defense-in-depth — same pattern as FastBot. This change was already in the working tree.
+- [x] 19.3 Verify DroidBot works locally via `rv-experiment run --tools droidbot:dfs_greedy --apks-dir ./apks_examples --timeout 60 --no-window --skip-monitors --skip-instrument --skip-static`. Result: PASSED. Task completed successfully (110s execution time), emulator managed by platform, DroidBot ran with `dfs_greedy` policy against `cryptoapp.apk`. Note: tested via rv-experiment because rv-platform CLI does not parse `tool:variant` DSL syntax.
+
+**Acceptance criteria:**
+- `configure()` defaults `device_serial` to `"emulator-5554"` (not `None`)
+- `_build_droidbot_command()` uses `or` fallback as defense-in-depth
+- DroidBot executes successfully for all variants (dfs_greedy, bfs_greedy, random, etc.)
+- No regression in other tools (monkey, ape, fastbot)
+
+## 20. Optimize Dev Docker Image Layers (D13)
+
+The dev image (`phtcosta/rvandroid_dev:0.8.0`) re-downloads ~174 Python packages on every rebuild (~4.5 min), even when only source code changed. This is caused by two factors: `build.sh` uses `--no-cache` (invalidates all layers), and the Dockerfile copies source code before running `poetry install` (any code change invalidates the install layer). See design.md D13 for full analysis.
+
+- [x] 20.1 Restructure `docker/rvandroid_dev/Dockerfile`: separate dependency installation from source code copying. Copy each module's `pyproject.toml` individually before `poetry install`, then copy full `modules/` directory after. Also create stub `__init__.py` files so Poetry can resolve editable installs before real source code is copied. 5 layers: root pyproject.toml → module pyproject.toml → stubs → poetry install → source code.
+- [x] 20.2 Remove `--no-cache` from `docker/rvandroid_dev/build.sh`. The `--no-cache` flag forces Docker to re-execute every layer from scratch, which is appropriate for CI/release builds but counterproductive for development.
+- [ ] 20.3 Verify: build image twice — first build installs all packages (~4.5 min), second build after a code-only change should complete in ~10-20 seconds (layer cache hit for `poetry install`).
+- [x] 20.4 Handle droidbot path dependency: COPY `droidbot/setup.py` and create stub `droidbot/droidbot/__init__.py` in Dockerfile so Poetry resolves the path dependency without error. DroidBot is already installed in the base tools image via pip — the local path is for development only.
+- [x] 20.5 Exclude discontinued modules from Docker image (D14): (a) Removed `rv-llm`, `rvsmart-tool`, `rvdroid-tool` COPY lines from Layer 2 and stubs from Layer 3. (b) Added Layer 2b: `sed` to remove these modules from root `pyproject.toml` and `rv-experiment/pyproject.toml`. (c) Added `poetry lock` before `poetry install` in Layer 4 to regenerate lock file after sed. (d) Removed dead imports from `rv-experiment/config.py`: `LLMConfig` (only used in type annotation where branch returns `{}`), `PromptConfig` (never used). (e) `experiment_tools.py` rvdroid registration already uses `try/except ImportError` — no change needed.
+
+**Acceptance criteria:**
+- Code-only changes rebuild in under 30 seconds (layer cache hit)
+- Dependency changes (`pyproject.toml`) still trigger full reinstall (correct behavior)
+- Image produces identical runtime behavior as before optimization
+
+## 21. Fix Humanoid Tool — DroidBot + `-humanoid` Flag (D15)
+
+The Humanoid tool was completely rewritten incorrectly during modularization. The original tool ran DroidBot with the `-humanoid <url>` flag to connect to an external inference HTTP server. The rewritten tool tried to execute a nonexistent `run_humanoid.sh` script with fabricated CLI flags (--mode hybrid, --visual-threshold, --nlp-model, etc.). See design.md D15 for full root cause analysis.
+
+- [x] 21.1 Rewrite `modules/rv-tools/src/rv_tools/builtin/humanoid/tool.py`: DroidBot command with `-humanoid <url>` flag. Follows DroidBot tool pattern. URL resolved from config > `RV_HUMANOID_URL` env > default `127.0.0.1:50405`. Single `default` variant (dfs_greedy policy).
+- [x] 21.2 Delete `modules/rv-tools/src/rv_tools/builtin/humanoid/run_humanoid.sh` (was a 2-line Docker run helper, not the fictional bash tool).
+- [x] 21.3 Update `modules/rv-tools/src/rv_tools/builtin/humanoid/__init__.py` (simplified docstring).
+- [x] 21.4 Verify tool loads and configures correctly via `ToolRegistry`.
+
+**Acceptance criteria:**
+- `_build_humanoid_command()` produces: `poetry run droidbot -d <serial> -a <apk> -humanoid <url> -policy dfs_greedy -count 10000000000 -timeout <t> -ignore_ad -is_emulator`
+- `RV_HUMANOID_URL` env var is read with fallback to `127.0.0.1:50405`
+- `ToolRegistry` registers humanoid with 1 variant (`default`)
+- `run_humanoid.sh` deleted, no references to CV/NLP/vision/learning config
+
+## 22. Fix ARES Tool — Docker Sibling Container Pattern (D16)
+
+The ARES tool was completely rewritten incorrectly during modularization — the same class of error as the Humanoid tool (D15). The original tool ran a local shell script that copied the APK to the ARES directory and executed the ARES Python process. The rewritten tool tried to `docker run` with fabricated CLI flags (`--apk`, `--output`, `--emulator`, `--timeout`), wrong image name (`ares:latest` vs `phtcosta/ares:latest`), and wrong volume mounts (`/app/target.apk` vs `/ares/apks/`). See design.md D16 for full root cause analysis.
+
+- [x] 22.1 Rewrite `modules/rv-tools/src/rv_tools/builtin/ares/tool.py`: Three-step Docker pattern (`docker create` + `docker cp` + `docker start -a`) with cleanup in `finally` block. Env vars `EMUNAME` and `TIMEOUT_IN_MINUTES`. Network: `--network container:$(hostname)` inside Docker, `--network host` outside. Timeout conversion: `max(1, int(seconds / 60))`. Single `default` variant.
+- [x] 22.2 Update `modules/rv-tools/src/rv_tools/builtin/ares/__init__.py` (simplified docstring).
+- [x] 22.3 Verify tool loads and configures correctly via `ToolRegistry`.
+- [x] 22.4 Rebuild dev Docker image (`docker/rvandroid_dev/build.sh`).
+
+**Acceptance criteria:**
+- `execute_tool_specific_logic()` uses `docker create` + `docker cp` + `docker start -a` pattern (not `docker run`)
+- `docker cp` copies APK to `/ares/apks/app.apk` inside the ARES container
+- Network uses `--network container:$(hostname)` when `/.dockerenv` exists
+- Container is cleaned up (`docker rm -f`) in `finally` block
+- `ToolRegistry` registers ares with 1 variant (`default`)
+
+## 15.6 Full Pipeline Integration Test (Docker)
+
+Validate the complete rv-experiment pipeline inside Docker WITHOUT skip flags: monitor generation → APK instrumentation → static analysis → tool execution. This test validates that the Docker image includes all build tools (JDK, Maven, Android SDK platforms) needed for the pre-processing phases. See design.md "Full Pipeline Integration Test" for extended 8-check verification protocol.
+
+- [ ] 15.6.1 Run full pipeline with `monkey` tool, `jca` specification set, `cryptoapp.apk`, 60s timeout. RVSEC_HOME mounted as volume.
+- [ ] 15.6.2 Verify 8-check protocol: standard 6 checks + check 7 (monitor generation completed, `.aj` files exist) + check 8 (instrumented APK used, non-zero coverage in `summary.csv`, `RVSEC-COV` lines in logcat).
+- [ ] 15.6.3 Validate coverage: `methods_jca_reachable_coverage > 0%` in `summary.csv`. This is mandatory — if zero, monitors are not active.
+- [ ] 15.6.4 Check MOP errors: inspect `errors.csv` and `total_errors` in `summary.csv`. MOP violations may or may not be present (depends on monkey's random exploration path). Their presence validates the full error detection pipeline; their absence is acceptable.
+
+**Acceptance criteria:**
+- All 8 verification checks pass
+- Monitor generation produces `.aj` files from JCA specifications
+- APK instrumentation produces instrumented `cryptoapp.apk`
+- `methods_jca_reachable_coverage > 0%` in `summary.csv` (mandatory — monitors logging `RVSEC-COV`)
+- Logcat file contains `RVSEC-COV` entries
+- MOP errors (`total_errors`, `errors.csv`) documented but not required to be > 0
+- No skip flags used — full pipeline runs end-to-end
+
+## 23. Fix QTesting Tool — Docker Sibling Container Pattern + struct.py Fix (D17)
+
+The QTesting tool was completely rewritten incorrectly during modularization — the same class of error as the Humanoid tool (D15) and ARES tool (D16). The original tool ran QTesting natively, generating a dynamic `conf.txt` INI config file. The rewritten tool tried to `docker run` with fabricated CLI flags (`--apk`, `--algorithm qlearning`, `--max-episodes`, `--learning-rate`, etc.), wrong image name, and invented RL algorithm variants (`dqn`, `ddqn`, `sarsa`, `actor_critic`) that do not exist. Additionally, the QTesting Docker image had a `struct.py` file that shadowed Python's stdlib struct module, breaking numpy import. See design.md D17 for full root cause analysis.
+
+- [x] 23.1 Rewrite `modules/rv-tools/src/rv_tools/builtin/qtesting/tool.py`: Three-step Docker pattern (`docker create` + `docker cp` x2 + `docker start -a`) with cleanup in `finally` block. Dynamic `conf.txt` INI generation with `[Path]` and `[Setting]` sections. Network: `--network container:$(hostname)` inside Docker, `--network host` outside. Single `default` variant.
+- [x] 23.2 Update `modules/rv-tools/src/rv_tools/builtin/qtesting/__init__.py` (simplified docstring).
+- [x] 23.3 Remove `modules/rv-tools/src/rv_tools/builtin/qtesting/src/struct.py` (moved to `backup/qtesting_struct.py.bak`). Truncated decompiled Python 2.7 artifact that shadowed stdlib struct module, breaking numpy import in the QTesting Docker image.
+- [x] 23.4 Rebuild QTesting Docker image (`phtcosta/qtesting:latest`) without `struct.py`.
+- [x] 23.5 Rebuild dev Docker image (`docker/rvandroid_dev/build.sh`) with D17 QTesting tool fix.
+- [x] 23.6 Verify tool loads and configures correctly via `ToolRegistry` (1 variant: default).
+
+**Acceptance criteria:**
+- `execute_tool_specific_logic()` uses `docker create` + `docker cp` + `docker start -a` pattern (not `docker run`)
+- `docker cp` copies APK to `/qtesting/apks/app.apk` and `conf.txt` to `/qtesting/apks/conf.txt`
+- `conf.txt` generated dynamically with INI format (`[Path]`, `[Setting]` sections)
+- Network uses `--network container:$(hostname)` when `/.dockerenv` exists
+- Container is cleaned up (`docker rm -f`) in `finally` block
+- `ToolRegistry` registers qtesting with 1 variant (`default`)
+- QTesting Docker image runs without numpy ImportError (struct.py removed)
+
+## 24. Fix DroidMate Tool — Correct DroidMate-2 CLI Flags (D18)
+
+The DroidMate tool was completely rewritten incorrectly during modularization — the same class of error as Humanoid (D15), ARES (D16), and QTesting (D17). The original tool used correct DroidMate-2 `--Category-settingName=value` flags. The rewritten tool used fabricated flags (`-apk`, `-explorationTimeoutMs`, `-explorationStrategy`, `-deviceSerialNumber`, etc.) and invented 4 variants (`systematic`, `quick`, `research`) that do not correspond to real DroidMate-2 options. Unlike the Docker-based tools, DroidMate runs locally as `java -jar` — only the CLI flags were wrong. See design.md D18 for full root cause analysis.
+
+- [x] 24.1 Rewrite `modules/rv-tools/src/rv_tools/builtin/droidmate/tool.py`: Fix `_build_droidmate_command()` with correct DroidMate-2 flags (`--Exploration-apkNames`, `--Exploration-apksDir`, `--Output-outputDir`, `--Selectors-timeLimit`, `--Selectors-actionLimit`, `--Core-logLevel`). Split `app.path` into `basename` + `dirname` for the two Exploration flags. Single `default` variant with `action_limit=100000000`.
+- [x] 24.2 Update `modules/rv-tools/src/rv_tools/builtin/droidmate/__init__.py` (simplified docstring).
+- [x] 24.3 Verify tool loads and configures correctly via `ToolRegistry` (1 variant: default).
+- [x] 24.4 Rebuild dev Docker image (`docker/rvandroid_dev/build.sh`).
+
+**Acceptance criteria:**
+- `_build_droidmate_command()` produces: `java -jar droidmate-2-X.X.X-all.jar --Exploration-apkNames=<filename> --Exploration-apksDir=<dir> --Output-outputDir=<dir> --Selectors-timeLimit=<ms> --Selectors-actionLimit=100000000 --Core-logLevel=debug`
+- JarResolver finds JAR at `modules/rv-tools/src/rv_tools/builtin/droidmate/droidmate-2-X.X.X-all.jar`
+- `ToolRegistry` registers droidmate with 1 variant (`default`)
+- No fabricated flags, no invented variants, no `register_droidmate_variants()` function

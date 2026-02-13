@@ -1,8 +1,17 @@
 """
-DroidMate systematic test input generator implementation.
+DroidMate tool — DroidMate-2 JAR-based Android UI exploration.
 
-This module provides integration with the DroidMate Android testing framework,
-enabling systematic test input generation for research and monitored operations testing.
+DroidMate-2 (https://github.com/uds-se/droidmate) is a platform for automated
+Android app exploration. It runs as a local `java -jar` process using a fat JAR
+(`droidmate-2-X.X.X-all.jar`, ~46MB) that includes all dependencies.
+
+DroidMate-2 uses a `--Category-settingName=value` CLI flag format:
+  --Exploration-apkNames=<filename>    APK filename (not full path)
+  --Exploration-apksDir=<directory>    Directory containing the APK
+  --Output-outputDir=<directory>       Output directory for results
+  --Selectors-timeLimit=<ms>           Time limit in milliseconds
+  --Selectors-actionLimit=<count>      Action count limit
+  --Core-logLevel=<level>              Log level (debug, info, etc.)
 """
 
 import os
@@ -20,389 +29,102 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
 class DroidMateTool(AbstractTool):
-    """
-    DroidMate systematic test input generator for monitored operations testing.
 
-    ### Architectural Decisions:
-    - Inherits directly from AbstractTool for simplified architecture
-    - Implements systematic test input generation for research-oriented testing
-    - Provides comprehensive exploration with configurable parameters
-    - Uses JAR-based execution model for cross-platform compatibility
-    - Supports multiple exploration strategies and configuration options
-    - Integrates with rv-android-core infrastructure for error handling and logging
-
-    ### Role in the System:
-    - Serves as a systematic testing tool for comprehensive Android app exploration
-    - Provides research-oriented test input generation with detailed logging
-    - Enables systematic exploration with configurable strategies and parameters
-    - Supports both JCA cryptography detection and generic monitored operations testing
-    - Facilitates academic research through detailed execution traces and reports
-
-    ### Key Features:
-    - Systematic test input generation and exploration
-    - Comprehensive logging and trace generation
-    - Configurable exploration strategies and parameters
-    - JAR-based execution for cross-platform compatibility
-    - Integration with Android Debug Bridge (ADB) for device communication
-
-    ### Tool Variants:
-    DroidMate supports different exploration modes as variants:
-    - systematic: Full systematic exploration
-    - quick: Quick exploration with reduced parameters
-    - research: Research mode with detailed logging
-    """
-
-    # Simplified tool specification
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="droidmate",
-        description="DroidMate systematic test input generator for comprehensive Android exploration",
+        description="DroidMate-2 JAR-based Android UI exploration tool",
         url="https://github.com/uds-se/droidmate",
         version="1.0.0",
-        process_pattern="droidmate"
+        process_pattern="org.droidmate"
     )
 
-    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
-        """
-        Initialize the DroidMate tool with rv-android-core infrastructure.
-        """
-        super().__init__(
-            name=name or self.TOOL_SPEC.name,
-            description=description or self.TOOL_SPEC.description,
-            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
-        )
+    JAR_NAME = "droidmate-2-X.X.X-all.jar"
 
-        # Initialize rv-android-core infrastructure components
+    def __init__(self):
+        tool_spec = self.get_tool_spec()
+        super().__init__(
+            name=tool_spec.name,
+            description=tool_spec.description,
+            process_pattern=tool_spec.process_pattern
+        )
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_tools.builtin.droidmate",
             {CONTEXT_COMPONENT: "DroidMateTool"}
         )
         self.jar_resolver = JarResolver()
-
-        # Default DroidMate configuration
-        self.config = {
-            "exploration_timeout": 600,      # Exploration timeout in seconds
-            "device_serial": None,           # Device serial number
-            "droidmate_jar_path": None,      # Path to DroidMate jar file
-            "output_dir": None,              # Output directory
-            "exploration_strategy": "systematic", # Exploration strategy
-            "reset_every_nth_exploration": 0, # Reset app every N explorations
-            "time_limit_for_each_action": 3000, # Time limit per action in ms
-            "api_logs_enabled": True,        # Enable API logging
-            "debug_mode": False,             # Enable debug mode
-            "inline_port_file": None,        # Inline port file path
-            "uiautomator_daemon_tcp_port": 59800 # UIAutomator daemon port
-        }
-
-        self.logger.info("Initialized DroidMate tool for systematic exploration")
+        self.config = {}
 
     @classmethod
     def get_tool_spec(cls):
-        """Get tool specification for registration."""
         return cls.TOOL_SPEC
-    
+
     @classmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
-        """Get available DroidMate variants with different exploration strategies."""
         return {
             "default": {
-                "exploration_timeout": 600,
-                "exploration_strategy": "systematic",
-                "reset_every_nth_exploration": 0,
-                "time_limit_for_each_action": 3000,
-                "api_logs_enabled": True,
-                "debug_mode": False
-            },
-            "systematic": {
-                "exploration_timeout": 1200,
-                "exploration_strategy": "systematic",
-                "reset_every_nth_exploration": 5,
-                "time_limit_for_each_action": 5000,
-                "api_logs_enabled": True,
-                "debug_mode": True
-            },
-            "quick": {
-                "exploration_timeout": 300,
-                "exploration_strategy": "quick",
-                "reset_every_nth_exploration": 0,
-                "time_limit_for_each_action": 1500,
-                "api_logs_enabled": False,
-                "debug_mode": False
-            },
-            "research": {
-                "exploration_timeout": 1800,
-                "exploration_strategy": "research",
-                "reset_every_nth_exploration": 10,
-                "time_limit_for_each_action": 6000,
-                "api_logs_enabled": True,
-                "debug_mode": True
+                "action_limit": 100000000,
             }
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """
-        Configure DroidMate-specific parameters.
-
-        Supported configuration options:
-        - exploration_timeout: Exploration timeout in seconds
-        - device_serial: Device serial number
-        - droidmate_jar_path: Path to DroidMate jar file
-        - output_dir: Output directory
-        - exploration_strategy: Exploration strategy
-        - reset_every_nth_exploration: Reset app every N explorations
-        - time_limit_for_each_action: Time limit per action in milliseconds
-        - api_logs_enabled: Enable API logging
-        - debug_mode: Enable debug mode
-        - uiautomator_daemon_tcp_port: UIAutomator daemon port
-
-        Args:
-            config: Configuration dictionary with DroidMate parameters
-        """
         if not config:
             return
+        self.config = {
+            "action_limit": config.get("action_limit", 100000000),
+            "device_serial": config.get("device_serial", "emulator-5554"),
+            "timeout": config.get("timeout", 3600),
+        }
+        self.logger.info(
+            f"Configured DroidMate tool - Action limit: {self.config['action_limit']}"
+        )
 
-        # Update exploration timeout
-        if 'exploration_timeout' in config:
-            try:
-                timeout = int(config['exploration_timeout'])
-                if timeout > 0:
-                    self.config['exploration_timeout'] = timeout
-                    self.logger.debug(f"Set DroidMate exploration timeout to: {timeout}s")
-                else:
-                    self.logger.warning("Exploration timeout must be positive")
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid exploration_timeout value: {config['exploration_timeout']}")
-
-        # Update device serial
-        if 'device_serial' in config:
-            self.config['device_serial'] = config['device_serial']
-            self.logger.debug(f"Set DroidMate device serial to: {config['device_serial']}")
-
-        # Update DroidMate jar path
-        if 'droidmate_jar_path' in config:
-            self.config['droidmate_jar_path'] = config['droidmate_jar_path']
-            self.logger.debug(f"Set DroidMate jar path to: {config['droidmate_jar_path']}")
-
-        # Update output directory
-        if 'output_dir' in config:
-            self.config['output_dir'] = config['output_dir']
-            self.logger.debug(f"Set DroidMate output directory to: {config['output_dir']}")
-
-        # Update exploration strategy
-        if 'exploration_strategy' in config:
-            self.config['exploration_strategy'] = str(config['exploration_strategy'])
-            self.logger.debug(f"Set DroidMate exploration strategy to: {config['exploration_strategy']}")
-
-        # Update numeric parameters
-        numeric_params = ['reset_every_nth_exploration', 'time_limit_for_each_action', 'uiautomator_daemon_tcp_port']
-        for param in numeric_params:
-            if param in config:
-                try:
-                    value = int(config[param])
-                    if value >= 0:
-                        self.config[param] = value
-                        self.logger.debug(f"Set DroidMate {param} to: {value}")
-                    else:
-                        self.logger.warning(f"{param} must be non-negative")
-                except (ValueError, TypeError):
-                    self.logger.warning(f"Invalid {param} value: {config[param]}")
-
-        # Update boolean flags
-        boolean_flags = ['api_logs_enabled', 'debug_mode']
-        for flag in boolean_flags:
-            if flag in config:
-                self.config[flag] = bool(config[flag])
-                self.logger.debug(f"Set DroidMate {flag} to: {self.config[flag]}")
-
-        # Update inline port file
-        if 'inline_port_file' in config:
-            self.config['inline_port_file'] = config['inline_port_file']
-            self.logger.debug(f"Set DroidMate inline port file to: {config['inline_port_file']}")
-
-    @ErrorHandler.handle_errors(
-        component="DroidMateTool",
-        phase="execute_tool_specific_logic"
-    )
+    @ErrorHandler.handle_errors(component="DroidMateTool", phase="execute_tool_specific_logic")
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
-        """
-        Execute DroidMate testing with configured parameters.
+        timeout_in_seconds = getattr(task.config, 'timeout', self.config.get('timeout', 3600))
 
-        ### Execution Workflow:
-        1. Resolve DroidMate jar file location
-        2. Prepare output directory and configuration
-        3. Execute DroidMate with specified parameters
-        4. Capture execution output and traces
-        5. Process results and generate reports
+        self.logger.info(f"Executing DroidMate for {app.package_name}")
+        self.logger.info(f"DroidMate timeout: {timeout_in_seconds}s")
 
-        Args:
-            task: Task configuration containing timeout and other parameters
-            app: Application under test with package name and metadata
-        """
-        self.logger.info(f"Executing DroidMate tool for {app.package_name}")
-        self.logger.debug(f"Strategy: {self.config['exploration_strategy']}, Timeout: {self.config['exploration_timeout']}s")
+        # Resolve JAR path via JarResolver (searches os.path.dirname(__file__) first)
+        jar_path = self._resolve_jar()
 
-        # Get timeout from task configuration
-        timeout_in_seconds = getattr(task.config, 'timeout', self.config['exploration_timeout'])
-        
-        self.logger.info(f"DroidMate execution timeout: {timeout_in_seconds} seconds")
-
-        # Create output directory for DroidMate results
+        # DroidMate output goes to a temp directory alongside the trace file
         output_dir = os.path.join(os.path.dirname(task.result.trace_file), "droidmate_output")
         os.makedirs(output_dir, exist_ok=True)
 
-        # Resolve DroidMate jar file
-        droidmate_jar_path = self._resolve_droidmate_jar_path()
+        # Build and execute DroidMate command
+        cmd = self._build_droidmate_command(app, jar_path, output_dir, timeout_in_seconds)
 
-        # Build DroidMate command
-        droidmate_cmd = self._build_droidmate_command(app, droidmate_jar_path, output_dir, timeout_in_seconds)
-        
-        # Build command string for logging
-        cmd_str = f"{droidmate_cmd.command} {' '.join(droidmate_cmd.args)}"
-        self.logger.debug(f"DroidMate command: {cmd_str}")
+        with open(task.result.trace_file, 'wb') as trace_file:
+            self._execute_and_check_command(cmd, stdout=trace_file, stderr=trace_file)
 
-        # Execute DroidMate testing with centralized error handling
-        try:
-            self.logger.info(f"Starting DroidMate execution for {app.package_name}")
-            
-            # Execute command with output redirection (binary mode for command output)
-            with open(task.result.trace_file, 'wb') as trace_file:
-                # Use centralized command execution with error handling
-                # Redirect both stdout and stderr to trace file to prevent console flooding
-                result = self._execute_and_check_command(droidmate_cmd, stdout=trace_file, stderr=trace_file)
-            
-            # Append success information to trace file (text mode for metadata)
-            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
-            #     success_info = f"\n--- DroidMate Execution Completed ---\n"
-            #     success_info += f"Exploration strategy: {self.config['exploration_strategy']}\n"
-            #     success_info += f"Exploration timeout: {self.config['exploration_timeout']}s\n"
-            #     success_info += f"Output directory: {output_dir}\n"
-            #     success_info += f"Command: {cmd_str}\n"
-            #     trace_file.write(success_info)
-            
-            self.logger.info("DroidMate execution completed successfully")
-            
-        except Exception as e:
-            self.logger.error(f"DroidMate execution failed: {str(e)}")
-            raise
-
-    def _resolve_droidmate_jar_path(self) -> str:
-        """
-        Resolve the path to the DroidMate jar file using centralized JarResolver.
-
-        Returns:
-            Path to DroidMate jar file
-
-        Raises:
-            FileNotFoundError: If DroidMate jar file is not found
-        """
-        # Common search paths for DroidMate jar
+    def _resolve_jar(self) -> str:
+        """Resolve DroidMate JAR path. Searches the module directory first."""
         search_paths = [
-            # Environment variable based path
-            os.path.join(os.environ.get('TOOLS_DIR', ''), 'droidmate'),
-            # Relative to current module
             os.path.dirname(__file__),
-            # Standard installation paths
-            '/opt/rv-android/tools/droidmate',
-            './tools/droidmate',
-            '../tools/droidmate'
+            os.path.join(os.environ.get('TOOLS_DIR', ''), 'droidmate'),
         ]
+        return self.jar_resolver.resolve_jar_path(self.JAR_NAME, search_paths)
 
-        try:
-            # Check configured path first
-            if self.config.get("droidmate_jar_path"):
-                return self.jar_resolver.resolve_jar_path("droidmate*.jar", [os.path.dirname(self.config["droidmate_jar_path"])])
-            
-            # Use JarResolver with search paths and pattern matching for DroidMate jars
-            return self.jar_resolver.resolve_jar_path("droidmate*.jar", search_paths)
-        except FileNotFoundError:
-            raise FileNotFoundError("DroidMate jar file not found. Please ensure DroidMate is properly installed.")
+    def _build_droidmate_command(self, app: App, jar_path: str, output_dir: str,
+                                  timeout_seconds: int) -> Command:
+        """Build DroidMate-2 command with correct --Category-settingName=value flags."""
+        timeout_millis = timeout_seconds * 1000
+        action_limit = self.config.get("action_limit", 100000000)
 
-    def _build_droidmate_command(self, app: App, droidmate_jar_path: str, output_dir: str, timeout_seconds: int) -> Command:
-        """
-        Build the DroidMate command with configured parameters.
+        # DroidMate-2 expects APK filename and directory separately
+        apk_name = os.path.basename(app.path)
+        apk_dir = os.path.dirname(app.path)
 
-        Args:
-            app: Application under test
-            droidmate_jar_path: Path to DroidMate jar file
-            output_dir: Output directory for DroidMate results
-            timeout_seconds: Command execution timeout
-
-        Returns:
-            Configured Command object for DroidMate execution
-        """
-        # Start building command arguments
         cmd_args = [
-            "-jar", droidmate_jar_path,
-            "-apk", app.path,
-            "-outputDir", output_dir,
-            "-explorationTimeoutMs", str(self.config["exploration_timeout"] * 1000)
+            "-jar", jar_path,
+            f"--Exploration-apkNames={apk_name}",
+            f"--Exploration-apksDir={apk_dir}",
+            f"--Output-outputDir={output_dir}",
+            f"--Selectors-timeLimit={timeout_millis}",
+            f"--Selectors-actionLimit={action_limit}",
+            "--Core-logLevel=debug",
         ]
-
-        # Add device serial if specified
-        if self.config["device_serial"]:
-            cmd_args.extend(["-deviceSerialNumber", self.config["device_serial"]])
-
-        # Add exploration strategy
-        cmd_args.extend(["-explorationStrategy", self.config["exploration_strategy"]])
-
-        # Add reset frequency
-        if self.config["reset_every_nth_exploration"] > 0:
-            cmd_args.extend(["-resetEveryNthExploration", str(self.config["reset_every_nth_exploration"])])
-
-        # Add action time limit
-        cmd_args.extend(["-timeLimitForEachAction", str(self.config["time_limit_for_each_action"])])
-
-        # Add UIAutomator daemon port
-        cmd_args.extend(["-uiautomatorDaemonTcpPort", str(self.config["uiautomator_daemon_tcp_port"])])
-
-        # Add API logs flag
-        if self.config["api_logs_enabled"]:
-            cmd_args.append("-apiLogsEnabled")
-
-        # Add debug mode if enabled
-        if self.config["debug_mode"]:
-            cmd_args.append("-debug")
-
-        # Add inline port file if specified
-        if self.config["inline_port_file"]:
-            cmd_args.extend(["-inlinePortFile", self.config["inline_port_file"]])
 
         return Command("java", cmd_args, timeout_seconds)
-
-    def get_tool_info(self) -> dict:
-        """
-        Get comprehensive DroidMate tool information.
-
-        Returns:
-            Dictionary with tool information and current configuration
-        """
-        info = super().get_tool_info()
-        info.update({
-            "tool_spec": self.TOOL_SPEC.to_dict(),
-            "exploration_strategy": self.config["exploration_strategy"],
-            "current_timeout": self.config["exploration_timeout"],
-            "api_logs_enabled": self.config["api_logs_enabled"],
-            "debug_mode": self.config["debug_mode"],
-            "version": self.TOOL_SPEC.version,
-            "url": self.TOOL_SPEC.url
-        })
-        return info
-
-
-# Function to register DroidMate variants
-def register_droidmate_variants(registry):
-    """
-    Register DroidMate variants in the tool registry.
-    
-    Args:
-        registry: ToolRegistry instance
-    """
-    # Register exploration mode variants
-    variants = {
-        "systematic": {"exploration_strategy": "systematic", "exploration_timeout": 900},
-        "quick": {"exploration_strategy": "quick", "exploration_timeout": 300},
-        "research": {"exploration_strategy": "systematic", "exploration_timeout": 1800, "debug_mode": True}
-    }
-    
-    for variant_name, config in variants.items():
-        registry.register_variant("droidmate", variant_name, config)
