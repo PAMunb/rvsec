@@ -127,15 +127,8 @@ class TestTaskExecutor:
         assert task.result.state == TaskState.ERROR
         assert "no app instance" in task.result.error_message.lower()
 
-    @patch('rv_platform.execution.executor.PerformanceMonitor')
-    def test_execute_success_simple(self, mock_perf_monitor, task_with_app, mock_tool):
+    def test_execute_success_simple(self, task_with_app, mock_tool):
         """Test successful execution with simple components"""
-        # Mock performance monitor
-        mock_perf_instance = MagicMock()
-        mock_perf_monitor.get_instance.return_value = mock_perf_instance
-        mock_perf_instance.measure_time.return_value.__enter__ = MagicMock()
-        mock_perf_instance.measure_time.return_value.__exit__ = MagicMock()
-        
         executor = TaskExecutor(task_with_app, mock_tool)
         
         # Add mock components that executor expects
@@ -200,15 +193,8 @@ class TestTaskExecutor:
         assert result is False
         assert task_with_app.result.state == TaskState.ERROR
 
-    @patch('rv_platform.execution.executor.PerformanceMonitor')
-    def test_execute_with_hooks(self, mock_perf_monitor, task_with_app, mock_tool):
+    def test_execute_with_hooks(self, task_with_app, mock_tool):
         """Test execution with pre and post hooks"""
-        # Mock performance monitor
-        mock_perf_instance = MagicMock()
-        mock_perf_monitor.get_instance.return_value = mock_perf_instance
-        mock_perf_instance.measure_time.return_value.__enter__ = MagicMock()
-        mock_perf_instance.measure_time.return_value.__exit__ = MagicMock()
-        
         executor = TaskExecutor(task_with_app, mock_tool)
         
         pre_hook_called = []

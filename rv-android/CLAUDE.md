@@ -560,7 +560,6 @@ Concretely:
 - Support both programmatic and file-based configuration
 
 ### Performance Considerations
-- Use PerformanceMonitor for metrics collection
 - Implement lazy initialization where appropriate
 - Proper resource cleanup and lifecycle management
 - Monitor memory usage in long-running operations

@@ -15,9 +15,6 @@ class TestTaskPhaseDecorator:
                 self.logger = MagicMock()
                 self.logger.with_context.return_value.__enter__ = MagicMock()
                 self.logger.with_context.return_value.__exit__ = MagicMock()
-                self.performance_monitor = MagicMock()
-                self.performance_monitor.measure_time.return_value.__enter__ = MagicMock()
-                self.performance_monitor.measure_time.return_value.__exit__ = MagicMock()
 
             def _get_task_context(self):
                 return {"task_id": "123"}
@@ -36,10 +33,6 @@ class TestTaskPhaseDecorator:
         decorated_obj.my_method(1, 2)
         decorated_obj.logger.debug.assert_called_with("Starting phase: test_phase")
 
-    def test_task_phase_uses_performance_monitor(self, decorated_obj):
-        decorated_obj.my_method(1, 2)
-        decorated_obj.performance_monitor.measure_time.assert_called_once()
-
     @patch.object(ErrorHandler, 'get_instance')
     def test_task_phase_uses_error_handler(self, mock_get_instance, decorated_obj):
         mock_error_handler = MagicMock()
@@ -50,19 +43,18 @@ class TestTaskPhaseDecorator:
         decorated_obj.my_method(1, 2)
         mock_error_handler.error_context.assert_called_once()
 
-    def test_task_phase_without_performance_and_error_handling(self):
+    def test_task_phase_without_error_handling(self):
         class Decorated:
             def __init__(self):
                 self.logger = MagicMock()
                 self.logger.with_context.return_value.__enter__ = MagicMock()
                 self.logger.with_context.return_value.__exit__ = MagicMock()
 
-            @task_phase("test_phase", measure_performance=False, handle_task_errors=False)
+            @task_phase("test_phase", handle_task_errors=False)
             def my_method(self):
                 pass
-        
+
         obj = Decorated()
-        # This test implicitly checks that performance_monitor and error_handler are not required
         obj.my_method()
 
 

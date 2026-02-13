@@ -8,7 +8,7 @@ rv-android-core is the foundational infrastructure module for the RV-Android fra
 
 ### Key Patterns and Design Decisions
 
-- **Singleton Pattern**: Core services (EventBus, ErrorHandler, LoggingManager, PerformanceMonitor) use thread-safe singletons for global access
+- **Singleton Pattern**: Core services (EventBus, ErrorHandler, LoggingManager) use thread-safe singletons for global access
 - **Event-Driven Communication**: Publish-subscribe EventBus enables decoupled component communication with typed events and channels
 - **Pydantic Validation**: All domain models inherit from `BaseValidatedModel` for comprehensive validation and serialization
 - **Decorator-Based Error Handling**: `@ErrorHandler.handle_errors()` provides Spring-like automatic error management
@@ -24,7 +24,6 @@ rv-android-core is the foundational infrastructure module for the RV-Android fra
 | `BaseValidatedModel` | Pydantic base class for all validated domain models |
 | `Command` | System command execution with timeout and process management |
 | `AbstractTool` | Base class defining contract for all testing tools |
-| `PerformanceMonitor` | Metrics collection and timing measurement system |
 
 ## Directory Structure
 
@@ -87,10 +86,6 @@ src/rv_android_core/
     │   ├── context_adapter.py    # Context-aware logging adapter
     │   ├── formatters.py         # JSON and structured formatters
     │   └── manager.py            # LoggingManager singleton
-    ├── performance/
-    │   ├── __init__.py
-    │   ├── configuration.py      # Performance monitor config
-    │   └── performance_monitor.py # Metrics collection
     └── validation/
         ├── __init__.py
         ├── base.py               # BaseValidatedModel
@@ -110,7 +105,6 @@ src/rv_android_core/
 | `util/logging/manager.py` | LoggingManager with context support | ~415 |
 | `tools/abstract_tool.py` | AbstractTool base class | ~410 |
 | `domain/widget.py` | Widget and WidgetEvent models | ~365 |
-| `util/performance/performance_monitor.py` | PerformanceMonitor with metrics | ~345 |
 | `commands/command.py` | Command execution with validation | ~335 |
 | `util/android/package_detector.py` | Detects code package vs manifest package (~27.5% APKs differ) | ~650 |
 | `util/android/signature_normalizer.py` | Normalizes inner class notation in Soot signatures | ~350 |

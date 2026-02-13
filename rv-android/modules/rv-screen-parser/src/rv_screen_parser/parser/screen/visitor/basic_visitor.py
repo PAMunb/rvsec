@@ -35,7 +35,6 @@ class BasicTextVisitor(AbstractScreenVisitor):
     - AbstractScreenVisitor: Inherits monitored operations detection and marker injection
     - UIElementsFragment: Compatible for UI coverage marker addition
     - ActionGenerator: Provides optimized action descriptions for LLM processing
-    - PerformanceMonitor: Supports token reduction measurement via metrics integration
     """
 
     @ErrorHandler.handle_errors(

@@ -22,7 +22,6 @@ from rv_android_core.util.logging.constants import (
     LOG_COMPLETE
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from rv_android_core.event.bus import EventBus
 from rv_android_core.event.models import EventType, EventChannel, EventPriority
 from rv_android_core.domain.task import Task, TaskState
@@ -86,10 +85,6 @@ class TaskExecutor:
         # Component registry for coordinated task execution
         # Components are initialized and executed in specific order for proper lifecycle
         self.components: List[Any] = []
-
-        # Performance monitoring for execution metrics collection
-        # Integrates with test framework for strategy comparison analysis
-        self.performance_monitor = PerformanceMonitor.get_instance()
 
         # Execution hooks for extension points
         # Allow task customization and monitoring integration
@@ -190,28 +185,18 @@ class TaskExecutor:
             self.task.update_state(TaskState.RUNNING)
             self._publish_task_started_event()
 
-            # Measure the total execution time
-            with self.performance_monitor.measure_time("task_execution_total", self.get_task_context()):
-                # Initialize all components
-                context = self.get_task_context()
-                self._initialize_components(context)
+            # Initialize all components
+            context = self.get_task_context()
+            self._initialize_components(context)
 
-                # Execute components in specialized order with proper coordination
-                self._execute_coordinated_components(context)
+            # Execute components in specialized order with proper coordination
+            self._execute_coordinated_components(context)
 
-                # Clean up all components
-                self._cleanup_components(context)
+            # Clean up all components
+            self._cleanup_components(context)
 
             # Mark task as completed
             self.task.update_state(TaskState.COMPLETED)
-
-            # Record metrics about the task
-            self.performance_monitor.record_metric(
-                name="task_duration",
-                value=self.task.result.execution_time_seconds,
-                unit="s",
-                context=self.get_task_context()
-            )
 
             # Publish completed event
             self._publish_task_completed_event()
@@ -236,13 +221,6 @@ class TaskExecutor:
                 error=error_message
             ))
             self.task.update_state(TaskState.ERROR, error_message)
-
-            # Record error metric
-            self.performance_monitor.record_metric(
-                name="task_error",
-                value=1,
-                context={**self.get_task_context(), "error": error_message}
-            )
 
             # Publish failed event
             self._publish_task_failed_event(error_message)
@@ -296,17 +274,15 @@ class TaskExecutor:
 
         # Phase 1: Load static data (outside emulator)
         if static_component:
-            with self.performance_monitor.measure_time(f"component_{static_component.name.lower()}", context):
-                self.logger.info(f"Executing component: {static_component.name}")
-                if not static_component.execute(context):
-                    raise TaskExecutionError(f"Component {static_component.name} execution failed", self.task.id)
+            self.logger.info(f"Executing component: {static_component.name}")
+            if not static_component.execute(context):
+                raise TaskExecutionError(f"Component {static_component.name} execution failed", self.task.id)
 
         # Phase 2: Initialize coverage tracking (outside emulator)
         if coverage_component:
-            with self.performance_monitor.measure_time(f"component_{coverage_component.name.lower()}", context):
-                self.logger.info(f"Executing component: {coverage_component.name}")
-                if not coverage_component.execute(context):
-                    raise TaskExecutionError(f"Component {coverage_component.name} execution failed", self.task.id)
+            self.logger.info(f"Executing component: {coverage_component.name}")
+            if not coverage_component.execute(context):
+                raise TaskExecutionError(f"Component {coverage_component.name} execution failed", self.task.id)
 
         # Phase 3: Start emulator session and execute tool
         if emulator_component and tool_component:
@@ -325,48 +301,46 @@ class TaskExecutor:
             tool_component: Tool execution component
             context: Task execution context
         """
-        with self.performance_monitor.measure_time("environment_setup", context):
-            # Start emulator using context manager
-            with emulator_component.start_emulator("RVSec") as android:
-                # Store android interface and device_id in context for tools
-                context["android"] = android
-                context["device_id"] = self.task.config.device_id
-                
-                # Install app if needed
-                if not self.task.config.skip_installation:
-                    self.logger.info("Installing application")
-                    if not emulator_component.install_app(android, self.task.app):
-                        raise TaskExecutionError("Failed to install application", self.task.id)
+        # Start emulator using context manager
+        with emulator_component.start_emulator("RVSec") as android:
+            # Store android interface and device_id in context for tools
+            context["android"] = android
+            context["device_id"] = self.task.config.device_id
 
-                # Set up logcat and coverage tracking
-                if logcat_component:
-                    self.logger.info("Starting logcat capture")
-                    logcat_component.start_capture()
+            # Install app if needed
+            if not self.task.config.skip_installation:
+                self.logger.info("Installing application")
+                if not emulator_component.install_app(android, self.task.app):
+                    raise TaskExecutionError("Failed to install application", self.task.id)
 
-                if coverage_component:
-                    self.logger.info("Starting coverage tracking")
-                    coverage_component.start_tracking()
+            # Set up logcat and coverage tracking
+            if logcat_component:
+                self.logger.info("Starting logcat capture")
+                logcat_component.start_capture()
 
-                # Mark precise tool execution start for accurate timing measurement
-                self.task.mark_tool_execution_start()
-                self._publish_tool_execution_started_event()
-                
-                # Execute the tool
-                with self.performance_monitor.measure_time(f"component_{tool_component.name.lower()}", context):
-                    self.logger.info(f"Executing component: {tool_component.name}")
-                    if not tool_component.execute(context):
-                        raise TaskExecutionError(f"Component {tool_component.name} execution failed", self.task.id)
+            if coverage_component:
+                self.logger.info("Starting coverage tracking")
+                coverage_component.start_tracking()
 
-                # Stop tracking and process results
-                if coverage_component:
-                    self.logger.info("Stopping coverage tracking")
-                    coverage_component.stop_tracking()
-                    self.logger.info("Processing coverage results")
-                    coverage_component.process_results()
+            # Mark precise tool execution start for accurate timing measurement
+            self.task.mark_tool_execution_start()
+            self._publish_tool_execution_started_event()
 
-                if logcat_component:
-                    self.logger.info("Stopping logcat capture")
-                    logcat_component.stop_capture()
+            # Execute the tool
+            self.logger.info(f"Executing component: {tool_component.name}")
+            if not tool_component.execute(context):
+                raise TaskExecutionError(f"Component {tool_component.name} execution failed", self.task.id)
+
+            # Stop tracking and process results
+            if coverage_component:
+                self.logger.info("Stopping coverage tracking")
+                coverage_component.stop_tracking()
+                self.logger.info("Processing coverage results")
+                coverage_component.process_results()
+
+            if logcat_component:
+                self.logger.info("Stopping logcat capture")
+                logcat_component.stop_capture()
 
     def _cleanup_components(self, context: Dict[str, Any]) -> None:
         """

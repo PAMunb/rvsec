@@ -273,35 +273,7 @@ class DiagnosticTool:
         Returns:
             Dictionary with experiment statistics
         """
-        try:
-            # Import here to avoid circular imports
-            from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
-
-            # Get performance monitor instance
-            monitor = PerformanceMonitor.get_instance()
-
-            # Gather statistics for various metrics
-            stats = {}
-
-            # Task execution times
-            task_times = monitor.get_metrics_stats("task_execution_total")
-            if task_times["count"] > 0:
-                stats["task_execution"] = task_times
-
-            # Tool execution times
-            tool_times = monitor.get_metrics_stats("tool_execution")
-            if tool_times["count"] > 0:
-                stats["tool_execution"] = tool_times
-
-            # Coverage processing times
-            coverage_times = monitor.get_metrics_stats("process_coverage")
-            if coverage_times["count"] > 0:
-                stats["coverage_processing"] = coverage_times
-
-            return stats
-        except Exception as e:
-            self.logger.error(f"Error getting experiment stats: {e}")
-            return {"error": str(e)}
+        return {}
 
     def _identify_issues(self, report: DiagnosticReport) -> List[Dict[str, Any]]:
         """

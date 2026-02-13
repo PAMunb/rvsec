@@ -7,19 +7,18 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
 
-def task_phase(phase_name: str, measure_performance: bool = True, handle_task_errors: bool = True):
+def task_phase(phase_name: str, handle_task_errors: bool = True):
     """
-    Decorator for task execution phases that automatically handles logging, performance
-    monitoring, and error handling.
+    Decorator for task execution phases that automatically handles logging
+    and error handling.
 
     ### Architectural Decision:
     - Centralizes phase management for task execution
     - Reduces code duplication and nested context blocks
-    - Provides consistent error handling and performance tracking
+    - Provides consistent error handling
 
     Args:
         phase_name: Name of the execution phase
-        measure_performance: Whether to measure performance for this phase
         handle_task_errors: Whether to handle errors using the error handler
 
     Returns:
@@ -37,22 +36,11 @@ def task_phase(phase_name: str, measure_performance: bool = True, handle_task_er
             with self.logger.with_context(**context):
                 self.logger.debug(f"Starting phase: {phase_name}")
 
-                # Optional performance monitoring
-                if measure_performance and hasattr(self, 'performance_monitor'):
-                    with self.performance_monitor.measure_time(phase_name, context):
-                        # Optional error handling
-                        if handle_task_errors:
-                            with ErrorHandler.get_instance().error_context(**context):
-                                return func(self, *args, **kwargs)
-                        else:
-                            return func(self, *args, **kwargs)
-                else:
-                    # Just error handling without performance monitoring
-                    if handle_task_errors:
-                        with ErrorHandler.get_instance().error_context(**context):
-                            return func(self, *args, **kwargs)
-                    else:
+                if handle_task_errors:
+                    with ErrorHandler.get_instance().error_context(**context):
                         return func(self, *args, **kwargs)
+                else:
+                    return func(self, *args, **kwargs)
 
         return wrapper
 

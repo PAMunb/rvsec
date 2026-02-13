@@ -51,7 +51,6 @@ rv-uiautomator/
   - Uses `uiautomator2` Python library for device communication
   - Implements all UIAdapter methods with proper error handling
   - Uses ErrorHandler decorator for consistent error management
-  - Performance monitoring via PerformanceMonitor
 
 #### UIAutomatorActionExecutor
 - **Location**: `executor/action_executor.py`
@@ -94,7 +93,7 @@ rv-uiautomator/
 
 ## Dependencies
 
-- **rv-android-core**: Foundation infrastructure (ErrorHandler, LoggingManager, PerformanceMonitor)
+- **rv-android-core**: Foundation infrastructure (ErrorHandler, LoggingManager)
 - **rv-screen-parser**: UI parsing capabilities
 - **uiautomator2**: UIAutomator2 Python bindings
 - **pillow**: Image processing for screenshots
@@ -244,7 +243,7 @@ This provides:
    - Executor handles action translation
    - Managers handle resource lifecycle
 
-4. **Performance Monitoring**: All operations use PerformanceMonitor for timing metrics
+4. **Error Handling**: All operations use ErrorHandler decorators for consistent error management
 
 ## Future Evolution Notes
 

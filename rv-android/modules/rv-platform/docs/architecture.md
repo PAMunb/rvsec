@@ -116,7 +116,7 @@ flowchart TB
 
 **Dependencies**:
 - Internal: All ITaskComponent implementations
-- External: rv-android-core (EventBus, ErrorHandler, PerformanceMonitor)
+- External: rv-android-core (EventBus, ErrorHandler)
 
 ### TaskStorage
 
@@ -496,7 +496,7 @@ The reconstruction is used in three result-generation methods:
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Domain models (Task, App), EventBus, ErrorHandler, LoggingManager, PerformanceMonitor |
+| rv-android-core | Domain models (Task, App), EventBus, ErrorHandler, LoggingManager |
 | rv-tools | ToolFactory, ToolRegistry for tool creation and discovery |
 | rv-coverage | CoverageTracker, logcat_parser for coverage analysis |
 | rv-static-analysis | static_analysis_parser for loading GATOR/GESDA/REACH data |

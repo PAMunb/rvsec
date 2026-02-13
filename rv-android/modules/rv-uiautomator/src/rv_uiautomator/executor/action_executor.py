@@ -11,7 +11,6 @@ from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.performance.performance_monitor import PerformanceMonitor
 from ..adapter.base import UIAdapter
 from ..constants import ACTION_EXECUTION_DELAY, TEXT_INPUT_DELAY
 
@@ -25,7 +24,6 @@ class UIAutomatorActionExecutor:
     - Handles all WidgetEventType actions consistently
     - Supports custom coordinate-based actions from vision strategy
     - Implements action delays for UI stabilization
-    - Uses PerformanceMonitor for execution timing
     
     ### Role in the System:
     - Bridge between LLM-generated actions and device execution
@@ -35,14 +33,13 @@ class UIAutomatorActionExecutor:
     """
     
     def __init__(self):
-        """Initialize action executor with logging and monitoring."""
+        """Initialize action executor with logging."""
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_uiautomator.executor",
             {CONTEXT_COMPONENT: "UIAutomatorActionExecutor"}
         )
-        self.performance_monitor = PerformanceMonitor.get_instance()
-        
+
         self.logger.debug("UIAutomatorActionExecutor initialized")
         
     @ErrorHandler.handle_errors(
@@ -65,36 +62,35 @@ class UIAutomatorActionExecutor:
             return False
             
         try:
-            with self.performance_monitor.measure_time("action_execution"):
-                action_type = action.action_type.lower()
-                self.logger.info(f"Executing action: {action.text} ({action_type})")
-                
-                # Standard UI element actions
-                if action_type == WidgetEventType.CLICK.name.lower():
-                    return self._execute_click(action, ui_adapter)
-                    
-                elif action_type == WidgetEventType.TEXT_CHANGE.name.lower():
-                    return self._execute_text_change(action, ui_adapter)
-                    
-                elif action_type == WidgetEventType.LONG_CLICK.name.lower():
-                    return self._execute_long_click(action, ui_adapter)
-                    
-                elif action_type == WidgetEventType.SCROLL.name.lower():
-                    return self._execute_scroll(action, ui_adapter)
-                    
-                # System actions
-                elif action_type == WidgetEventType.BACK.name.lower():
-                    return ui_adapter.press_back()
-                    
-                # Custom coordinate actions (from vision strategy)
-                elif hasattr(action, 'is_custom') and action.is_custom:
-                    self.logger.info(f"Executing custom coordinate action at {action.coordinates}")
-                    return ui_adapter.click(action.coordinates[0], action.coordinates[1])
-                    
-                else:
-                    self.logger.warning(f"Unsupported action type: {action_type}")
-                    return False
-                    
+            action_type = action.action_type.lower()
+            self.logger.info(f"Executing action: {action.text} ({action_type})")
+
+            # Standard UI element actions
+            if action_type == WidgetEventType.CLICK.name.lower():
+                return self._execute_click(action, ui_adapter)
+
+            elif action_type == WidgetEventType.TEXT_CHANGE.name.lower():
+                return self._execute_text_change(action, ui_adapter)
+
+            elif action_type == WidgetEventType.LONG_CLICK.name.lower():
+                return self._execute_long_click(action, ui_adapter)
+
+            elif action_type == WidgetEventType.SCROLL.name.lower():
+                return self._execute_scroll(action, ui_adapter)
+
+            # System actions
+            elif action_type == WidgetEventType.BACK.name.lower():
+                return ui_adapter.press_back()
+
+            # Custom coordinate actions (from vision strategy)
+            elif hasattr(action, 'is_custom') and action.is_custom:
+                self.logger.info(f"Executing custom coordinate action at {action.coordinates}")
+                return ui_adapter.click(action.coordinates[0], action.coordinates[1])
+
+            else:
+                self.logger.warning(f"Unsupported action type: {action_type}")
+                return False
+
         except Exception as e:
             self.logger.error(f"Action execution failed: {e}")
             return False

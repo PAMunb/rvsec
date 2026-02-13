@@ -40,7 +40,7 @@ rv-platform is the central execution engine for Android testing experiments in t
 | `LogcatComponent` | Logcat capture and filtering during task execution |
 | `ToolExecutionComponent` | Tool invocation and result processing |
 | `ResultProcessorComponent` | Generates CSV/JSON output files from completed tasks |
-| `PerformanceProcessorComponent` | Generates performance metrics CSV |
+| `PerformanceProcessorComponent` | Generates task execution timing CSV |
 | `TaskStorage` | Persistent task storage with atomic operations and transaction support |
 | `PlatformConfig` | Configuration schema with Pydantic validation |
 
@@ -84,7 +84,7 @@ src/rv_platform/
 | `components/result_processor.py` | Result processing - CSV/JSON generation | 607 |
 | `__main__.py` | CLI entry point with run, list-tools, validate-config commands | 473 |
 | `components/coverage.py` | Coverage tracker lifecycle management | 353 |
-| `components/performance_processor.py` | Performance metrics CSV generation | 325 |
+| `components/performance_processor.py` | Task execution timing CSV generation | 157 |
 | `interfaces/task_interfaces.py` | Core interfaces (ITaskComponent, ITaskExecutor, ITaskStorage) | 267 |
 | `components/static_analysis.py` | Static analysis file copying and loading | 231 |
 | `components/emulator.py` | Emulator startup and app installation | 223 |
@@ -96,7 +96,7 @@ src/rv_platform/
 
 ### Internal (rv-android modules)
 
-- **rv-android-core**: Domain models (Task, App), EventBus, ErrorHandler, LoggingManager, PerformanceMonitor
+- **rv-android-core**: Domain models (Task, App), EventBus, ErrorHandler, LoggingManager
 - **rv-tools**: ToolFactory, ToolRegistry for tool creation and discovery
 - **rv-coverage**: CoverageTracker, logcat_parser for coverage analysis
 - **rv-static-analysis**: static_analysis_parser for loading GATOR/GESDA/REACH data
