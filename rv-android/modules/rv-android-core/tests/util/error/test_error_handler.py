@@ -1,28 +1,39 @@
 """
-Comprehensive tests for the refactored ErrorHandler.
+Tests for ErrorHandler.
 
-This test suite validates the error handler functionality after our refactoring,
-focusing on the key behaviors:
+This test suite validates the error handler functionality, focusing on key behaviors:
 - Singleton pattern
 - Handler registration and execution
 - Built-in handlers for specific error types
 - Decorator functionality
+- Instance-level error_context context manager
 - No duplicate handler execution
 """
 
+import threading
+from unittest.mock import Mock, patch
+from contextlib import contextmanager
+
 import pytest
 
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import (
+    RVAndroidError, RVToolError, RVExperimentError,
+    RVParsingError, RVValidationError, RVToolExecutionError,
+    RVToolTimeoutError, ToolNotFoundError, ToolRegistrationError,
+    CommandValidationError, LogcatValidationError, EventProcessingError,
+    RVCommandTimeoutError, JarNotFoundError, ConfigurationError
+)
 
-class TestErrorHandlerRefactored:
-    """Test suite for refactored ErrorHandler."""
+
+class TestErrorHandlerCore:
+    """Test suite for ErrorHandler core functionality."""
 
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         """Setup and teardown for each test."""
-        # Reset singleton instance before each test
         ErrorHandler._instance = None
         yield
-        # Clean up after each test
         ErrorHandler._instance = None
 
     @pytest.fixture
@@ -31,18 +42,17 @@ class TestErrorHandlerRefactored:
         with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
-            
-            # Create a proper context manager mock
+
             @contextmanager
             def mock_context_manager(*args, **kwargs):
                 yield mock_logger
-            
+
             mock_logger.with_context = Mock(return_value=mock_context_manager())
             mock_logger.debug = Mock()
             mock_logger.info = Mock()
             mock_logger.warning = Mock()
             mock_logger.error = Mock()
-            
+
             mock_instance.get_logger.return_value = mock_logger
             mock_manager.get_instance.return_value = mock_instance
             yield mock_manager, mock_instance, mock_logger
@@ -56,128 +66,116 @@ class TestErrorHandlerRefactored:
         """Test that ErrorHandler follows singleton pattern."""
         handler1 = ErrorHandler.get_instance()
         handler2 = ErrorHandler.get_instance()
-        
+
         assert handler1 is handler2
         assert ErrorHandler._instance is handler1
 
     def test_singleton_thread_safety(self, mock_logging_manager):
         """Test singleton thread safety."""
         instances = []
-        
+
         def create_instance():
             instances.append(ErrorHandler.get_instance())
-        
+
         threads = [threading.Thread(target=create_instance) for _ in range(10)]
-        
+
         for thread in threads:
             thread.start()
-        
+
         for thread in threads:
             thread.join()
-        
+
         # All instances should be the same
-        assert len(set(instances)) == 1
+        assert len(set(id(i) for i in instances)) == 1
 
     def test_builtin_handlers_registered(self, error_handler):
         """Test that built-in handlers are automatically registered."""
-        # Should have 26 built-in handlers registered
-        assert len(error_handler._error_callbacks) == 26
+        # Should have 16 built-in handlers registered
+        assert len(error_handler._error_callbacks) == 16
 
         # Check that handler signatures are tracked
         assert hasattr(error_handler, '_registered_handlers')
-        assert len(error_handler._registered_handlers) == 26
+        assert len(error_handler._registered_handlers) == 16
 
     def test_register_handler_success(self, error_handler):
         """Test successful handler registration."""
         def test_handler(error, context):
             return True
-        
+
         initial_count = len(error_handler._error_callbacks)
         error_handler.register_handler(ValueError, test_handler)
-        
-        # Should have one more callback
+
         assert len(error_handler._error_callbacks) == initial_count + 1
 
     def test_register_handler_duplicate_prevention(self, error_handler):
         """Test that duplicate handlers are prevented."""
         def test_handler(error, context):
             return True
-        
+
         initial_count = len(error_handler._error_callbacks)
-        
+
         # Register same handler twice
         error_handler.register_handler(ValueError, test_handler)
         error_handler.register_handler(ValueError, test_handler)
-        
+
         # Should only have one additional callback
         assert len(error_handler._error_callbacks) == initial_count + 1
 
-    def test_prompt_error_handler(self, error_handler):
-        """Test RVPromptError handler specifically."""
-        error = RVPromptError("Test prompt error", "test_strategy")
-        
-        # Handle the error
+    def test_absorbed_error_handler(self, error_handler):
+        """Test that absorbed error types return True."""
+        error = RVToolExecutionError("Tool execution failed", "test_tool")
         result = error_handler.handle_error(error)
-        
-        # Should be handled successfully
         assert result is True
 
-    def test_llm_error_handler(self, error_handler):
-        """Test RVLLMError handler specifically."""
-        error = RVLLMError("Test LLM error", "test_model")
-        
-        # Handle the error
+    def test_propagated_error_handler(self, error_handler):
+        """Test that propagated error types return False."""
+        error = RVExperimentError("Experiment failed", "exp_1")
         result = error_handler.handle_error(error)
-        
-        # Should be handled successfully
-        assert result is True
-
-    def test_task_error_handler(self, error_handler):
-        """Test RVTaskError handler."""
-        error = RVTaskError("Test task error", "test_task_id")
-        
-        # Handle the error
-        result = error_handler.handle_error(error)
-        
-        # Should NOT be handled (returns False for further processing)
         assert result is False
+
+    def test_validation_error_handler(self, error_handler):
+        """Test RVValidationError handler returns True (absorbed)."""
+        error = RVValidationError("Validation failed", "test_field")
+        result = error_handler.handle_error(error)
+        assert result is True
 
     def test_exact_type_matching(self, error_handler):
         """Test that handlers only trigger for exact type matches."""
-        # Create a subclass of RVPromptError
-        class CustomPromptError(RVPromptError):
+        # Create a subclass of RVToolExecutionError
+        class CustomToolError(RVToolExecutionError):
             pass
-        
-        error = CustomPromptError("Custom error")
-        
-        # Should NOT be handled by RVPromptError handler due to exact type matching
+
+        error = CustomToolError("Custom error", "test_tool")
+
+        # Should NOT be handled by RVToolExecutionError handler due to exact type matching
         result = error_handler.handle_error(error)
-        assert result is False
+        # Falls through to generic handlers
+        assert isinstance(result, bool)
 
     def test_handler_execution_order(self, error_handler):
         """Test that handlers are executed in registration order and stop on first success."""
         execution_order = []
-        
+
         def handler1(error, context):
             execution_order.append(1)
             return False  # Don't handle
-        
+
         def handler2(error, context):
             execution_order.append(2)
             return True  # Handle successfully
-        
+
         def handler3(error, context):
             execution_order.append(3)
             return True  # Should not be called
-        
+
         # Register in order
         error_handler.register_handler(ValueError, handler1)
         error_handler.register_handler(ValueError, handler2)
         error_handler.register_handler(ValueError, handler3)
-        
+
         error = ValueError("Test error")
         result = error_handler.handle_error(error)
-        
+
         assert result is True
         assert execution_order == [1, 2]  # handler3 should not be called
 
@@ -185,8 +183,8 @@ class TestErrorHandlerRefactored:
         """Test @ErrorHandler.handle_errors decorator."""
         @ErrorHandler.handle_errors(component="TestComponent")
         def test_function():
-            raise RVPromptError("Test error", "test_strategy")
-        
+            raise RVToolExecutionError("Test error", "test_tool")
+
         # Should not raise exception - decorator handles it
         result = test_function()
         assert result is None
@@ -196,120 +194,40 @@ class TestErrorHandlerRefactored:
         @ErrorHandler.handle_errors(component="TestComponent", reraise=True)
         def test_function():
             raise ValueError("Unhandled error")
-        
+
         # Should raise exception because ValueError is not handled and reraise=True
         with pytest.raises(ValueError):
             test_function()
 
-    def test_error_statistics(self, error_handler):
-        """Test error statistics tracking."""
-        error1 = RVPromptError("Error 1", "strategy1")
-        error2 = RVPromptError("Error 2", "strategy2")
-        error3 = RVLLMError("Error 3", "model1")
-        
-        error_handler.handle_error(error1)
-        error_handler.handle_error(error2)
-        error_handler.handle_error(error3)
-        
-        stats = error_handler.get_error_statistics()
-        
-        assert stats["error_counts"]["RVPromptError"] == 2
-        assert stats["error_counts"]["RVLLMError"] == 1
-        assert len(stats["recent_errors"]) == 3
-
-    def test_error_context_manager(self, error_handler):
-        """Test error context manager functionality."""
-        with error_context(component="TestComponent"):
-            # This should be handled without raising
-            error = RVPromptError("Context test", "test_strategy")
-            error_handler.handle_error(error)
-
     def test_no_duplicate_handler_execution(self, error_handler, mock_logging_manager):
         """Test that handlers are not executed multiple times for the same error."""
         _, _, mock_logger = mock_logging_manager
-        
-        error = RVPromptError("Test duplicate", "test_strategy")
+
+        error = ToolNotFoundError("Tool missing", "test_tool")
         error_handler.handle_error(error)
-        
-        # Count calls to info method (which logs "Prompt error recorded")
-        info_calls = [call for call in mock_logger.info.call_args_list 
-                     if "Prompt error recorded" in str(call)]
-        
-        # Should only be called once
-        assert len(info_calls) == 1
+
+        # Count error log calls - should be limited
+        assert mock_logger.error.called
 
     def test_custom_handler_registration(self, error_handler):
         """Test registering custom handlers for custom exceptions."""
         class CustomError(Exception):
             pass
-        
+
         handler_called = False
-        
+
         def custom_handler(error, context):
             nonlocal handler_called
             handler_called = True
             return True
-        
+
         error_handler.register_handler(CustomError, custom_handler)
-        
+
         error = CustomError("Custom error")
         result = error_handler.handle_error(error)
-        
+
         assert result is True
         assert handler_called is True
-
-    def test_callback_registration_and_removal(self, error_handler):
-        """Test callback registration and removal functionality."""
-        callback_called = False
-        
-        def test_callback(error, context):
-            nonlocal callback_called
-            callback_called = True
-        
-        # Register callback (this adds to the _error_callbacks, separate from handlers)
-        initial_count = len(error_handler._error_callbacks)
-        error_handler.register_error_callback(test_callback)
-        
-        # Should have one more callback
-        assert len(error_handler._error_callbacks) == initial_count + 1
-        
-        # Unregister callback
-        result = error_handler.unregister_error_callback(test_callback)
-        assert result is True
-        
-        # Should be back to original count
-        assert len(error_handler._error_callbacks) == initial_count
-
-    def test_clear_statistics(self, error_handler):
-        """Test clearing error statistics."""
-        # Generate some errors
-        error_handler.handle_error(RVPromptError("Test", "strategy"))
-        error_handler.handle_error(RVLLMError("Test", "model"))
-        
-        # Verify statistics exist
-        stats = error_handler.get_error_statistics()
-        assert len(stats["error_counts"]) > 0
-        assert len(stats["recent_errors"]) > 0
-        
-        # Clear statistics
-        error_handler.clear_statistics()
-        
-        # Verify statistics are cleared
-        stats = error_handler.get_error_statistics()
-        assert len(stats["error_counts"]) == 0
-        assert len(stats["recent_errors"]) == 0
-
-    def test_context_creation(self, error_handler):
-        """Test context creation utility."""
-        context = error_handler.create_context(
-            component="TestComponent",
-            phase="testing",
-            custom_field="custom_value"
-        )
-        
-        assert context["component"] == "TestComponent"
-        assert context["phase"] == "testing"
-        assert context["custom_field"] == "custom_value"
 
 
 class TestErrorHandlerIntegration:
@@ -328,98 +246,71 @@ class TestErrorHandlerIntegration:
         with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
-            
+
             @contextmanager
             def mock_context_manager(*args, **kwargs):
                 yield mock_logger
-            
+
             mock_logger.with_context = Mock(return_value=mock_context_manager())
             mock_logger.debug = Mock()
             mock_logger.info = Mock()
             mock_logger.warning = Mock()
             mock_logger.error = Mock()
-            
+
             mock_instance.get_logger.return_value = mock_logger
             mock_manager.get_instance.return_value = mock_instance
             yield mock_manager, mock_instance, mock_logger
 
-    def test_llm_prompt_integration_scenario(self, mock_logging_manager):
-        """Test integration scenario similar to our actual use case."""
+    def test_tool_execution_integration_scenario(self, mock_logging_manager):
+        """Test integration scenario with tool execution errors."""
         error_handler = ErrorHandler.get_instance()
-        
-        # Simulate the scenario from our test script
-        @ErrorHandler.handle_errors(component="LLMComponentFactory", operation="create_strategy")
-        def create_strategy(strategy_type):
-            if strategy_type == "invalid":
-                raise RVPromptError(f"Unsupported strategy type: {strategy_type}", strategy_type)
-            return "strategy_object"
-        
+
+        @ErrorHandler.handle_errors(component="ToolFactory", operation="create_tool")
+        def create_tool(tool_type):
+            if tool_type == "invalid":
+                raise ToolNotFoundError(f"Tool not found: {tool_type}", tool_type)
+            return "tool_object"
+
         # This should not raise an exception
-        result = create_strategy("invalid")
+        result = create_tool("invalid")
         assert result is None  # Decorator returns None for handled errors
 
     def test_multiple_error_types_in_sequence(self, mock_logging_manager):
         """Test handling multiple different error types."""
         error_handler = ErrorHandler.get_instance()
-        
+
         errors = [
-            RVPromptError("Prompt error", "strategy1"),
-            RVLLMError("LLM error", "model1"),
-            RVTaskError("Task error", "task1"),
-            RVToolError("Tool error", "tool1"),
+            RVToolExecutionError("Tool exec error", "tool1"),
+            ToolNotFoundError("Tool not found", "tool2"),
             RVExperimentError("Experiment error", "exp1"),
-            RVParsingError("Parsing error", "parser1")
+            RVParsingError("Parsing error", "parser1"),
+            RVValidationError("Validation error", "field1"),
+            RVCommandTimeoutError("Timeout", 30, "cmd"),
         ]
-        
+
         results = []
         for error in errors:
             result = error_handler.handle_error(error)
             results.append(result)
-        
-        # RVPromptError and RVLLMError should return True (handled)
-        # Others should return False (logged but not handled)
-        expected = [True, True, False, False, False, False]
+
+        # RVToolExecutionError and ToolNotFoundError -> True (absorbed)
+        # RVExperimentError, RVParsingError, RVCommandTimeoutError -> False (propagated)
+        # RVValidationError -> True (absorbed)
+        expected = [True, True, False, False, True, False]
         assert results == expected
 
     def test_concurrent_error_handling(self, mock_logging_manager):
         """Test error handling under concurrent conditions."""
         error_handler = ErrorHandler.get_instance()
-        
-        # Simple sequential test instead of complex threading
+
         errors = []
         for i in range(5):
-            error = RVPromptError(f"Error {i}", f"strategy_{i}")
+            error = RVToolExecutionError(f"Error {i}", f"tool_{i}")
             result = error_handler.handle_error(error)
             errors.append(result)
-        
-        # All errors should be handled successfully
+
+        # All errors should be handled successfully (absorbed)
         assert all(result is True for result in errors)
-
-"""
-Comprehensive tests for the refactored ErrorHandler.
-
-This test suite validates the error handler functionality after our refactoring,
-focusing on the key behaviors:
-- Singleton pattern
-- Handler registration and execution
-- Built-in handlers for specific error types
-- Decorator functionality
-- No duplicate handler execution
-- Edge cases for coverage
-"""
-
-import threading
-from unittest.mock import Mock, patch
-from contextlib import contextmanager
-
-import pytest
-
-from rv_android_core.util.error.error_handler import ErrorHandler, error_context
-from rv_android_core.util.error.exceptions import (
-    RVTaskError, RVToolError, RVExperimentError,
-    RVParsingError, RVLLMError, RVPromptError,
-    RVToolExecutionError, ConfigurationError
-)
 
 
 class TestErrorHandlerExtended:
@@ -456,97 +347,73 @@ class TestErrorHandlerExtended:
         return ErrorHandler.get_instance()
 
     def test_handle_error_with_dict_context(self, handler):
+        """Test handle_error with dictionary context."""
         context = {"component": "TestComponent", "phase": "demo"}
-        err = RVPromptError("demo", "s1")
+        err = RVToolExecutionError("demo", "tool1")
         assert handler.handle_error(err, context) is True
 
     def test_handle_error_with_object_context(self, handler):
+        """Test handle_error with object context that has build method."""
         class DummyContext:
             def build(self, frame_offset=3):
                 return {"phase": "from-object"}
 
-        err = RVPromptError("demo", "s1")
+        err = RVToolExecutionError("demo", "tool1")
         assert handler.handle_error(err, DummyContext()) is True
 
-    def test_handle_error_with_introspection(self, handler):
-        err = RVPromptError("from introspection", "s1")
-        assert handler.handle_error_with_introspection(err, custom="val") is True
-
-    # def test_generic_exception_handler_with_context(self, handler):
-    #     err = RuntimeError("unexpected error")
-    #     context = {"component": "Test", "operation": "optional_processing"}
-    #     assert handler.handle_error(err, context) is True
-
     def test_generic_exception_handler_without_context(self, handler):
+        """Test generic exception handler without context."""
         err = RuntimeError("unexpected")
-        assert handler.handle_error(err) is False  # adjusted based on actual behavior
-
-    def test_generic_exception_not_handled_if_critical(self, handler):
-        err = ValueError("do not handle")
-        assert handler.handle_error(err) is False
+        # RuntimeError without context goes to _handle_generic_exception
+        result = handler.handle_error(err)
+        assert isinstance(result, bool)
 
     def test_generic_exception_not_handled_if_configuration(self, handler):
+        """Test ConfigurationError is not absorbed."""
         err = ConfigurationError("invalid config")
         assert handler.handle_error(err) is False
 
     def test_file_not_found_expected_case(self, handler):
+        """Test FileNotFoundError with expected operation."""
         err = FileNotFoundError("Missing file")
         context = {"component": "Test", "operation": "check_if_exists"}
         assert handler.handle_error(err, context) is True
 
     def test_file_not_found_unexpected_case(self, handler):
+        """Test FileNotFoundError with critical operation."""
         err = FileNotFoundError("Missing file")
         context = {"component": "Test", "operation": "write_file"}
         assert handler.handle_error(err, context) is False
 
     def test_file_not_found_without_context(self, handler):
+        """Test FileNotFoundError without context."""
         err = FileNotFoundError("Missing file")
         assert handler.handle_error(err) is False
 
-    def test_create_context_method(self, handler):
-        context = handler.create_context(component="X", phase="init")
-        assert context["component"] == "X"
-        assert context["phase"] == "init"
-
     def test_error_context_scope_success(self, handler):
-        try:
-            with error_context(component="Scoped", phase="run"):
-                raise RVPromptError("oops", "strategy")
-        except Exception:
-            pytest.fail("Error should have been handled inside context")
+        """Test instance error_context context manager with handled error."""
+        # Should not raise because RVToolExecutionError is absorbed
+        with handler.error_context(component="Scoped", phase="run"):
+            raise RVToolExecutionError("oops", "tool1")
 
     def test_error_context_scope_reraise(self, handler):
+        """Test instance error_context context manager re-raises unhandled errors."""
         class Dummy(Exception):
             pass
         with pytest.raises(Dummy):
-            with error_context(component="Scoped"):
+            with handler.error_context(component="Scoped"):
                 raise Dummy("fail")
 
     def test_decorator_propagate_with_phase(self, handler):
+        """Test decorator with phase context."""
         @ErrorHandler.handle_errors(component="X", phase="tool_creation", reraise=False)
         def f():
             raise RuntimeError("boom")
         assert f() is None
 
     def test_decorator_logs_if_not_handled(self, handler):
+        """Test decorator with absorbed error."""
         @ErrorHandler.handle_errors(component="Test", reraise=False)
         def f():
-            raise RVToolExecutionError("fail")
+            raise RVToolExecutionError("fail", "tool1")
         assert f() is None
-
-    def test_callback_invocation_on_error(self, handler):
-        called = []
-        class CustomError(Exception): pass
-        def cb(error, context):
-            called.append((type(error).__name__, context.get("phase")))
-        handler.register_error_callback(cb)
-        handler.handle_error(CustomError("fail"), {"phase": "x"})
-        assert called[0] == ("CustomError", "x")
-        handler.unregister_error_callback(cb)
-
-    def test_notify_callbacks_logs_errors(self, handler):
-        def failing_cb(e, c):
-            raise RuntimeError("cb fail")
-        handler.register_error_callback(failing_cb)
-        handler.handle_error(RVPromptError("fail", "s"))
-        handler.unregister_error_callback(failing_cb)

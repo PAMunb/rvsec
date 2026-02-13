@@ -97,9 +97,9 @@ src/rv_android_core/
 |------|---------|-------|
 | `domain/task.py` | Task, TaskConfiguration, TaskResult models | ~920 |
 | `event/models.py` | Event types (17), channels, and event classes | ~330 |
-| `util/error/error_handler.py` | ErrorHandler with 30+ type-specific handlers | ~990 |
+| `util/error/error_handler.py` | ErrorHandler with 16 builtin handlers (absorbed/propagated) | ~370 |
 | `event/bus.py` | Synchronous EventBus with channels | ~250 |
-| `util/error/exceptions.py` | Complete exception hierarchy | ~450 |
+| `util/error/exceptions.py` | Exception hierarchy (23 types) | ~195 |
 | `util/logging/manager.py` | LoggingManager with context support | ~415 |
 | `tools/abstract_tool.py` | AbstractTool base class | ~410 |
 | `domain/widget.py` | Widget and WidgetEvent models | ~365 |

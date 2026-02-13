@@ -34,7 +34,7 @@ from typing import Dict, Any, Union
 
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.error.exceptions import ToolNotFoundError, ConfigurationError, ToolCreationError
+from rv_android_core.util.error.exceptions import ToolNotFoundError, ConfigurationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_tools.registry.registry import ToolRegistry
@@ -110,7 +110,6 @@ class ToolFactory:
             
         Raises:
             ConfigurationError: If tool or variant not found
-            ToolCreationError: If tool creation fails
         """
         tool_name = tool_config.tool_name
         variant_name = tool_config.variant
