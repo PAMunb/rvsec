@@ -2,9 +2,8 @@
 """
 Task executor for RV-Platform.
 
-This module provides a comprehensive task executor for running platform tasks
-with enhanced component-based architecture, improved error handling,
-and support for event-driven communication.
+Manages individual task execution through a component-based architecture
+with proper lifecycle management and event-driven communication.
 """
 
 from typing import Optional, Dict, Any, List, Callable
@@ -26,6 +25,11 @@ from rv_android_core.event.bus import EventBus
 from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.domain.task import Task, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_platform.components.static_analysis import StaticAnalysisComponent
+from rv_platform.components.emulator import EmulatorComponent
+from rv_platform.components.logcat import LogcatComponent
+from rv_platform.components.coverage import CoverageComponent
+from rv_platform.components.tool_execution import ToolExecutionComponent
 from rv_platform.storage.task_storage import TaskStorage
 
 
@@ -261,15 +265,15 @@ class TaskExecutor:
         tool_component = None
 
         for component in self.components:
-            if "StaticAnalysis" in component.name:
+            if isinstance(component, StaticAnalysisComponent):
                 static_component = component
-            elif "Coverage" in component.name:
+            elif isinstance(component, CoverageComponent):
                 coverage_component = component
-            elif "Emulator" in component.name:
+            elif isinstance(component, EmulatorComponent):
                 emulator_component = component
-            elif "Logcat" in component.name:
+            elif isinstance(component, LogcatComponent):
                 logcat_component = component
-            elif "ToolExecution" in component.name:
+            elif isinstance(component, ToolExecutionComponent):
                 tool_component = component
 
         # Phase 1: Load static data (outside emulator)

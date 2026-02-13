@@ -9,6 +9,8 @@ from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState
 from rv_platform.execution.executor import TaskExecutor
+from rv_platform.components.emulator import EmulatorComponent
+from rv_platform.components.tool_execution import ToolExecutionComponent
 
 
 class TestTaskExecutor:
@@ -130,12 +132,12 @@ class TestTaskExecutor:
     def test_execute_success_simple(self, task_with_app, mock_tool):
         """Test successful execution with simple components"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
-        # Add mock components that executor expects
-        mock_emulator = MagicMock()
+
+        # Add mock components with spec for isinstance() checks
+        mock_emulator = MagicMock(spec=EmulatorComponent)
         mock_emulator.name = "EmulatorComponent"
         mock_emulator.execute.return_value = True
-        
+
         # Mock the context manager for start_emulator
         mock_android = MagicMock()
         mock_context_manager = MagicMock()
@@ -143,32 +145,20 @@ class TestTaskExecutor:
         mock_context_manager.__exit__ = MagicMock(return_value=False)
         mock_emulator.start_emulator.return_value = mock_context_manager
         mock_emulator.install_app.return_value = True
-        
+
         executor.register_component(mock_emulator)
-        
-        mock_tool_execution = MagicMock()
-        mock_tool_execution.name = "ToolExecutionComponent"  
+
+        mock_tool_execution = MagicMock(spec=ToolExecutionComponent)
+        mock_tool_execution.name = "ToolExecutionComponent"
         mock_tool_execution.execute.return_value = True
         executor.register_component(mock_tool_execution)
-        
-        # Debug: check registered components
-        print(f"Registered components: {len(executor.components)}")
-        for comp in executor.components:
-            print(f"  - {comp.name}")
-        
+
         result = executor.execute()
-        
-        print(f"Execution result: {result}")
-        print(f"Task state: {task_with_app.result.state}")
-        print(f"Emulator execute called: {mock_emulator.execute.call_count}")
-        print(f"Tool execute called: {mock_tool_execution.execute.call_count}")
-        
+
         assert result is True
         assert task_with_app.result.state == TaskState.COMPLETED
-        
-        # Verify components were called
-        # Note: EmulatorComponent's execute method is not called in the current implementation
-        # The emulator works through start_emulator and install_app methods
+
+        # Verify emulator lifecycle methods were called
         mock_emulator.start_emulator.assert_called_once_with("RVSec")
         mock_emulator.install_app.assert_called_once_with(mock_android, task_with_app.app)
         mock_tool_execution.execute.assert_called_once()
@@ -176,14 +166,22 @@ class TestTaskExecutor:
     def test_execute_failure_component_error(self, task_with_app, mock_tool):
         """Test execution failure when component fails"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
-        # Add mock components with one that fails
-        mock_emulator = MagicMock()
+
+        # Add mock components with spec for isinstance() checks
+        mock_emulator = MagicMock(spec=EmulatorComponent)
         mock_emulator.name = "EmulatorComponent"
         mock_emulator.execute.return_value = True
+
+        # Mock the context manager for start_emulator
+        mock_android = MagicMock()
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_android)
+        mock_context_manager.__exit__ = MagicMock(return_value=False)
+        mock_emulator.start_emulator.return_value = mock_context_manager
+        mock_emulator.install_app.return_value = True
         executor.register_component(mock_emulator)
-        
-        mock_tool_execution = MagicMock()
+
+        mock_tool_execution = MagicMock(spec=ToolExecutionComponent)
         mock_tool_execution.name = "ToolExecutionComponent"
         mock_tool_execution.execute.return_value = False  # This one fails
         executor.register_component(mock_tool_execution)
@@ -222,14 +220,22 @@ class TestTaskExecutor:
     def test_execute_exception_handling(self, task_with_app, mock_tool):
         """Test exception handling during execution"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
-        # Add mock components with one that raises an exception
-        mock_emulator = MagicMock()
+
+        # Add mock components with spec for isinstance() checks
+        mock_emulator = MagicMock(spec=EmulatorComponent)
         mock_emulator.name = "EmulatorComponent"
         mock_emulator.execute.return_value = True
+
+        # Mock the context manager for start_emulator
+        mock_android = MagicMock()
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_android)
+        mock_context_manager.__exit__ = MagicMock(return_value=False)
+        mock_emulator.start_emulator.return_value = mock_context_manager
+        mock_emulator.install_app.return_value = True
         executor.register_component(mock_emulator)
-        
-        mock_tool_execution = MagicMock()
+
+        mock_tool_execution = MagicMock(spec=ToolExecutionComponent)
         mock_tool_execution.name = "ToolExecutionComponent"
         mock_tool_execution.execute.side_effect = Exception("Test exception")  # This one fails
         executor.register_component(mock_tool_execution)
