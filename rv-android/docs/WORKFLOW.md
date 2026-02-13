@@ -103,11 +103,25 @@ Bidirectional traceability links all artifacts to their originating issue:
 
 ### How Claude Code Manages the Board
 
-During SDD workflow execution, Claude Code updates the Kanban board status using the GitHub MCP server:
+Board management relies on GitHub Projects automation to minimize manual overhead. The only action Claude Code must take is closing the issue — the board automation handles column transitions.
 
-1. **Starting work**: Move issue from Backlog to In Progress when beginning any SDD phase
-2. **Entering review**: Move to In Review when running `/opsx:verify` or creating a PR
-3. **Closing**: Move to Done when archiving the change (automatic via issue close)
+**Protocol:**
+
+| Moment | Action | Mechanism |
+|--------|--------|-----------|
+| Issue created | Appears in Backlog | Automatic (GitHub Projects automation) |
+| Work in progress | Commits reference the issue | `refs #N` in commit messages |
+| Work complete (single commit) | Close the issue via commit | `closes #N` in the final commit message |
+| Work complete (already committed with `refs`) | Close the issue via MCP | `issue_write` with `state: "closed"`, `state_reason: "completed"` |
+| Issue closed | Moves to Done | Automatic (GitHub Projects automation) |
+
+**Simplified rules:**
+1. Use `refs #N` in intermediate commits during multi-commit work
+2. Use `closes #N` in the final commit to auto-close and auto-move to Done
+3. If the final commit already used `refs #N`, close the issue explicitly via MCP after verification
+4. Skip the "In Progress" and "In Review" columns — they exist for manual use by the researcher but are not programmatically managed by Claude Code, since the GitHub Projects API does not expose simple column-move operations without GraphQL project item mutations
+
+This approach keeps the workflow lean: Claude Code focuses on code and commits, the board reflects reality through issue state.
 
 ---
 
