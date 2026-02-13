@@ -174,3 +174,92 @@ mv src/old_file.py backup/$(date +%Y%m%d)_cleanup/
 | LLM connection | Verify SGLang server at `http://192.168.0.36:30000/v1` |
 | Emulator issues | Check `ANDROID_HOME` and `adb devices` |
 | Monitor generation | Verify `RVSEC_HOME` is set |
+
+---
+
+## Docker Execution
+
+```bash
+# Run experiment in Docker container
+docker run --rm --device /dev/kvm \
+  -e RV_TOOLS=monkey \
+  -e RV_TIMEOUTS=300 \
+  -e RV_NO_WINDOW=true \
+  -e RV_APKS_DIR=/opt/rvsec/rv-android/apks \
+  -v ./apks_examples:/opt/rvsec/rv-android/apks \
+  -v ./results:/opt/rvsec/rv-android/results \
+  phtcosta/rvandroid_dev:0.8.0
+
+# Resume interrupted experiment (same --name, same volume)
+docker run --rm --device /dev/kvm \
+  -e RV_TOOLS=monkey \
+  -e RV_TIMEOUTS=300 \
+  -e RV_EXPERIMENT_NAME=batch_01 \
+  -v ./results:/opt/rvsec/rv-android/results \
+  phtcosta/rvandroid_dev:0.8.0
+```
+
+---
+
+## Monitor Generation
+
+```bash
+# Generate JCA cryptography monitors
+poetry run rv-monitor-generator generate \
+  --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
+  --output ./output/jca-monitors
+
+# Auto-discover specifications
+poetry run rv-monitor-generator generate --output ./output/auto-monitors
+```
+
+---
+
+## Output Directory Structure
+
+```
+rv-android/
+├── apks_examples/              # Source APKs (input, not cleaned)
+├── out/                        # Temporary artifacts (cleaned by clear.sh)
+│   ├── monitors/               # Generated monitors from rv-monitor-generator
+│   ├── instrumented_apks/      # APKs with monitors woven by rv-instrumentation
+│   └── static_analysis/        # GATOR, GESDA, REACH output files
+├── results/                    # Persistent experiment results
+│   └── <experiment_id>/        # Per-experiment directory
+│       └── <apk_name>/         # Per-APK results
+│           ├── coverage.csv    # Per-method coverage data
+│           ├── errors.csv      # Monitored operations violations
+│           ├── summary.csv     # Aggregate metrics per task
+│           ├── results.json    # Complete experiment data (JSON)
+│           ├── performance.csv # Task execution timing
+│           └── tasks.json      # Task state persistence
+├── tmp/, rvm_tmp/, lib_tmp/    # Various temporary files
+├── sootOutput/                 # Soot compiler output
+└── clear.sh                    # Cleanup script
+```
+
+**What gets cleaned by `./clear.sh`:**
+- `out/`, `tmp/`, `rvm_tmp/`, `lib_tmp/`, `sootOutput/`, `output/`, `mop_out/`, `__pycache__/`, `*.dex`, `ajcore*.txt`
+
+**Preserved (unless `--clean-results`):** `results/`, `apks_examples/`
+
+---
+
+## Reusing Pre-Processed Artifacts (--skip-* flags)
+
+When using `--skip-monitors`, `--skip-instrument`, or `--skip-static`, **`--apks-dir` must point to instrumented APKs** from a previous run, not original APKs (otherwise coverage = 0%).
+
+```bash
+# WRONG: Points to original APKs — coverage will be 0%
+rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --skip-monitors --skip-instrument --skip-static
+
+# CORRECT: Point to instrumented APKs from a previous run
+rv-experiment run --tools rvagent:pure_algorithm \
+  --apks-dir ./results/<experiment_id>/instrumented_apks \
+  --skip-monitors --skip-instrument --skip-static
+```
+
+**Pre-processed artifact locations** (from a completed experiment):
+- `results/<experiment_id>/instrumented_apks/` — Instrumented APKs with monitors
+- `results/<experiment_id>/static_analysis/` — GATOR, GESDA, REACH output
+- `out/monitors/` — Generated monitors (may be cleaned by clear.sh)

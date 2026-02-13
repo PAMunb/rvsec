@@ -40,245 +40,59 @@ The system consists of the following modules:
 
 ## Development Commands
 
-### Environment Setup
+### Environment and Installation
 ```bash
-# Set environment variables
 export RV_PYDANTIC=true  # Enable validation during development
-export RVSEC_HOME="/path/to/rvsec"  # Required for monitor generation and static analysis
+export RVSEC_HOME="/path/to/rvsec"  # Required for monitors and static analysis
 export ANDROID_HOME="/path/to/android-sdk"
 
-# Install all modules (Poetry workspace with editable mode)
-cd modules
-./install.sh
-
-# Or directly from root
-poetry install
-
-# Verify installation
-poetry run python -c "import rv_android_core, rv_agent; print('Setup complete')"
+# Install all modules (Poetry workspace, editable mode, shared .venv)
+poetry install  # or: cd modules && ./install.sh
 ```
 
-### Poetry Workspace Architecture
+Poetry workspace: single `poetry install` at root installs ALL modules in editable mode. Source changes are immediate — no reinstall needed unless `pyproject.toml` changes.
 
-The project uses **Poetry workspaces** with all modules defined in the root `pyproject.toml` with `develop = true`. This means:
-
-1. **Single `poetry install`** at root installs ALL modules in editable mode
-2. **Source changes are immediate** - no reinstall needed after editing code
-3. **Shared virtual environment** - all modules use the root `.venv`
-
+### Testing and Quality
 ```bash
-# Root pyproject.toml structure:
-[tool.poetry.dependencies]
-rv-android-core = {path = "modules/rv-android-core", develop = true}
-rv-agent = {path = "modules/rv-agent", develop = true}
-# ... all other modules
-```
-
-### Common Development Tasks
-```bash
-# Run all tests from workspace root
-poetry run pytest
-
-# Test specific module
-poetry run pytest modules/rv-android-core/tests/ -v
-
-# Reinstall all modules (only needed if pyproject.toml changes)
-cd modules && ./install.sh
-# Or: poetry install --sync  (removes unused packages)
-
-# Verify modules are editable
-./modules/install.sh --verify
-
-# Run with coverage
-poetry run pytest --cov=modules --cov-report=html
-
-# Generate configuration templates
-poetry run rv-experiment config --template-type basic --output basic_config.json
-```
-
-### Monitor Generation Workflow
-```bash
-# Generate JCA cryptography monitors
-poetry run rv-monitor-generator generate \
-  --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
-  --output ./output/jca-monitors
-
-# Auto-discover specifications
-poetry run rv-monitor-generator generate --output ./output/auto-monitors
+poetry run pytest                                    # All tests
+poetry run pytest modules/MODULE_NAME/tests/ -v      # Specific module
+poetry run pytest -m "not slow" -v                   # Fast unit tests only
+poetry run black modules/ && poetry run flake8 modules/  # Format + lint
 ```
 
 ### Experiment Execution
 ```bash
-# Run complete experiment
-poetry run python run_test_framework.py
-
-# Execute with specific configuration
 poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-set jca
-
-# Run rv-platform directly
-poetry run rv-platform run --tools monkey --apks-dir ./apks_examples
-
-# Resume experiment from existing results directory
-poetry run rv-experiment run --tools monkey --resume-dir ./results/my_experiment
-
-# Named experiment with auto-resume on re-run
-poetry run rv-experiment run --tools monkey --name my_experiment
+poetry run rv-experiment run --tools monkey --name my_experiment  # Auto-resume on re-run
+poetry run rv-platform run --tools monkey --apks-dir ./apks_examples  # Direct platform
 ```
 
-### Docker Execution
-```bash
-# Run experiment in Docker container
-docker run --rm --device /dev/kvm \
-  -e RV_TOOLS=monkey \
-  -e RV_TIMEOUTS=300 \
-  -e RV_NO_WINDOW=true \
-  -e RV_APKS_DIR=/opt/rvsec/rv-android/apks \
-  -v ./apks_examples:/opt/rvsec/rv-android/apks \
-  -v ./results:/opt/rvsec/rv-android/results \
-  phtcosta/rvandroid_dev:0.8.0
-
-# Resume interrupted experiment (same --name, same volume)
-docker run --rm --device /dev/kvm \
-  -e RV_TOOLS=monkey \
-  -e RV_TIMEOUTS=300 \
-  -e RV_EXPERIMENT_NAME=batch_01 \
-  -v ./results:/opt/rvsec/rv-android/results \
-  phtcosta/rvandroid_dev:0.8.0
-```
-
-### RV-Agent Commands
-
-RV-Agent can run in two modes:
-1. **Standalone CLI** (`rv-agent`): User manages emulator and APK installation
-2. **Via rv-experiment** (`rvagent` tool): Platform manages emulator and APK installation
-
-#### Standalone Mode (requires manual setup)
-```bash
-# Prerequisites:
-# 1. Start emulator
-./scripts/run_emulator.sh
-# 2. Wait for device
-adb wait-for-device
-# 3. Install APK
-adb install apks_examples/cryptoapp.apk
-
-# Run with pure algorithm (no LLM needed - quick testing)
-cd modules/rv-agent
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
-
-# Run with multimode (requires SGLang server)
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300
-
-# Test device connection
-poetry run rv-agent test
-```
-
-#### Via rv-experiment (recommended - handles emulator and APK)
-
-**IMPORTANT**: Set RVSEC_HOME for static analysis (WTG, REACH, GESDA):
-```bash
-export RVSEC_HOME=/path/to/rvsec  # Required for full functionality
-```
-
-Without RVSEC_HOME, rv-experiment will run but skip static analysis and instrumentation.
+### RV-Agent
+Two modes: **standalone CLI** (`rv-agent` — user manages emulator/APK) or **via rv-experiment** (`rvagent` tool — platform manages everything). Without `RVSEC_HOME`, static analysis and instrumentation are skipped.
 
 ```bash
-# Run with rvagent tool (note: no hyphen in tool name)
-# Headless mode (default)
-poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60 --no-window
-
-# With emulator window visible
-poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60 --window
-
-# Run multimode (requires SGLang server)
-poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
-
-# Multiple tools
-poetry run rv-experiment run --tools monkey,rvagent:multimode --apks-dir ./apks_examples
+# Via rv-experiment (recommended)
+poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
+# Standalone (requires emulator running + APK installed)
+cd modules/rv-agent && poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
 ```
 
-### Code Quality and Linting
-```bash
-# Format code
-poetry run black modules/
-
-# Lint code
-poetry run flake8 modules/
-
-# Type checking
-poetry run mypy modules/
-
-# Security analysis
-poetry run bandit -r modules/
-```
+See `.claude/project-info.md` for Docker commands, monitor generation, and full command reference.
 
 ## Execution Flow
 
-### Primary Entry Points
+### Entry Points
+- **rv-experiment** (`rv_experiment/__main__.py`): Experiment orchestration — pre-processing (instrumentation, static analysis) -> execution -> post-processing
+- **rv-platform** (`rv_platform/__main__.py`): Direct task execution without experiment wrapper
+- **rv-agent** (`rv_agent/cli/main.py`): Standalone LLM-driven testing (modes: pure_algorithm, llm_only, multimode)
 
-1. **rv-experiment CLI** (`modules/rv-experiment/src/rv_experiment/__main__.py`):
-   - Main experiment orchestration interface
-   - Supports tool specification DSL and configuration files
-   - Coordinates three-phase workflow (pre-processing, execution, post-processing)
+### Core Flow
+`ExperimentController` -> `ExecutionController` -> `Platform` -> `TaskExecutor` (component-based: emulator, static analysis, coverage, logcat, tool execution)
 
-2. **rv-platform CLI** (`modules/rv-platform/src/rv_platform/__main__.py`):
-   - Direct platform execution without experiment wrapper
-   - Task generation and execution coordination
-   - Result processing and metrics collection
-
-3. **rv-agent CLI** (`modules/rv-agent/src/rv_agent/cli/main.py`):
-   - Standalone LLM-driven testing tool
-   - Supports multiple execution modes (pure_algorithm, llm_only, multimode)
-   - Requires: emulator running + APK installed (use `rv-agent install <apk>`)
-   - Can also run via rv-experiment as `rvagent` tool (platform manages emulator/APK)
-   - Can run independently or through rv-platform
-
-### Core Execution Flow
-
-1. **Experiment Controller** (`modules/rv-experiment/src/rv_experiment/experiment/experiment_controller.py`):
-   - Orchestrates complete experiment lifecycle
-   - Manages pre-processing (instrumentation, static analysis)
-   - Delegates execution to rv-platform via ExecutionController
-   - Handles post-processing and cleanup
-
-2. **Platform** (`modules/rv-platform/src/rv_platform/platform.py`):
-   - Central execution engine for Android testing tasks
-   - Generates tasks from APK discovery and tool configurations
-   - Manages task execution through TaskExecutor with component-based architecture
-   - Processes results and generates reports
-
-3. **Task Executor** (`modules/rv-platform/src/rv_platform/execution/executor.py`):
-   - Component-based task execution with proper lifecycle management
-   - Coordinates emulator, static analysis, coverage, logcat, and tool execution components
-   - Manages Android emulator sessions and application installation
-   - Provides error handling and performance monitoring
-
-### RV-Agent Integration
-
-1. **RVAgent** (`modules/rv-agent/src/rv_agent/agent/rv_agent.py`):
-   - LLM-guided Android application testing using LangGraph
-   - Supports three execution modes: pure_algorithm, llm_only, multimode
-   - Uses SGLang (OpenAI-compatible API) as LLM backend
-   - Externalized workflow nodes in `agent/nodes/` directory
-
-2. **Workflow Nodes** (`modules/rv-agent/src/rv_agent/agent/nodes/`):
-   - `parse_node.py`: UI capture and parsing
-   - `decision_node.py`: LLM/algorithm routing
-   - `algorithm_node.py`: Algorithmic action generation
-   - `llm_node.py`: LLM-based action generation
-   - `validation_node.py`: Action validation and loop detection
-   - `execute_node.py`: Device action execution
-   - `learn_node.py`: Memory updates and stuck detection
-
-3. **RVAgentStrategy** (`modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/`):
-   - Main exploration strategy with DFS-based traversal
-   - Successor Tracker for handling state transitions
-   - Plateau Detector for stagnation detection
-   - MOP Prioritization for security-sensitive method coverage
-
-4. **LLMClient** (`modules/rv-agent/src/rv_agent/llm/llm_client.py`):
-   - LLM interaction and tool call handling
-   - Configured for Qwen3-VL model via SGLang
+### RV-Agent Architecture
+- **RVAgent** (`agent/rv_agent.py`): LangGraph workflow with externalized nodes in `agent/nodes/` (parse, decision, algorithm, llm, validation, execute, learn)
+- **RVAgentStrategy** (`strategies/rvagent_strategy/`): DFS-based exploration with Successor Tracker, Plateau Detector, MOP Prioritization
+- **LLMClient** (`llm/llm_client.py`): Qwen3-VL via SGLang (OpenAI-compatible API)
 
 ## Module Dependencies and Relationships
 
@@ -314,93 +128,16 @@ poetry run bandit -r modules/
 
 ## Directory Structure and Cleanup
 
-### Output Directory Structure
-```
-rv-android/
-├── apks_examples/              # Source APKs (input, not cleaned)
-├── out/                        # Temporary artifacts (cleaned by clear.sh)
-│   ├── monitors/               # Generated monitors from rv-monitor-generator
-│   ├── instrumented_apks/      # APKs with monitors woven by rv-instrumentation
-│   └── static_analysis/        # GATOR, GESDA, REACH output files
-├── results/                    # Persistent experiment results
-│   └── <experiment_id>/        # Per-experiment directory
-│       └── <apk_name>/         # Per-APK results
-│           ├── coverage.csv    # Per-method coverage data
-│           ├── errors.csv      # Monitored operations violations
-│           ├── summary.csv     # Aggregate metrics per task
-│           ├── results.json    # Complete experiment data (JSON)
-│           ├── performance.csv # Task execution timing
-│           └── tasks.json      # Task state persistence
-├── tmp/, rvm_tmp/, lib_tmp/    # Various temporary files
-├── sootOutput/                 # Soot compiler output
-└── clear.sh                    # Cleanup script
-```
-
-### Cleanup Script (clear.sh)
-Located at project root: `./clear.sh`
+Key directories: `out/` (temporary artifacts — monitors, instrumented APKs, static analysis), `results/` (persistent experiment results), `apks_examples/` (source APKs).
 
 ```bash
-# Clean temporary artifacts only (keeps results/)
-./clear.sh
-
-# Clean everything including experiment results
-./clear.sh --clean-results
-
-# Show help
-./clear.sh --help
+./clear.sh                 # Clean temporary artifacts (keeps results/)
+./clear.sh --clean-results # Clean everything including results
 ```
 
-**What gets cleaned:**
-- `out/` - Default output directory with monitors/, instrumented_apks/, static_analysis/
-- `tmp/`, `rvm_tmp/`, `lib_tmp/` - Temporary files
-- `sootOutput/` - Soot compiler output
-- `output/`, `mop_out/` - Legacy directories
-- `__pycache__/` - Python cache
-- `*.dex`, `ajcore*.txt` - Compilation artifacts
+**Gotcha**: When using `--skip-monitors`/`--skip-instrument`/`--skip-static` flags, `--apks-dir` must point to **instrumented APKs** from a previous run (`results/<id>/instrumented_apks/`), not original APKs — otherwise coverage will be 0%.
 
-**What is preserved (unless --clean-results):**
-- `results/` - Persistent experiment results
-- `apks_examples/` - Source APKs
-
-### Pre-Experiment Cleanup
-Before running experiments, clean previous artifacts:
-```bash
-# Recommended: clean artifacts but keep results
-./clear.sh
-
-# Full clean for fresh start
-./clear.sh --clean-results
-```
-
-### Reusing Pre-Processed Artifacts (--skip-* flags)
-
-When running experiments with `--skip-monitors`, `--skip-instrument`, or `--skip-static` flags, **the `--apks-dir` must point to the instrumented APKs directory** from a previous pre-processing run, not the original APKs directory.
-
-**Why**: The `--skip-*` flags assume pre-processing was already done. If you point to original (non-instrumented) APKs, the experiment will run but coverage will be 0% because the APKs don't have runtime verification monitors.
-
-```bash
-# WRONG: Skipping pre-processing but pointing to original APKs
-# Coverage will be 0% because APKs are not instrumented
-rv-experiment run \
-  --tools rvagent:pure_algorithm \
-  --apks-dir ./apks_examples \
-  --skip-monitors --skip-instrument --skip-static
-
-# CORRECT: Point to instrumented APKs from a previous run
-# First, run full pre-processing (or find existing instrumented APKs)
-rv-experiment run --tools monkey --specification-set jca
-
-# Then reuse instrumented APKs (found in results/<experiment_id>/instrumented_apks/)
-rv-experiment run \
-  --tools rvagent:pure_algorithm \
-  --apks-dir ./results/cli_experiment_20260127_150952_ce3eec6c/instrumented_apks \
-  --skip-monitors --skip-instrument --skip-static
-```
-
-**Pre-processed artifact locations** (from a completed experiment):
-- `results/<experiment_id>/instrumented_apks/` - Instrumented APKs with monitors
-- `results/<experiment_id>/static_analysis/` - Static analysis output (GATOR, GESDA, REACH)
-- `out/monitors/` - Generated monitors (may be cleaned by clear.sh)
+See `.claude/project-info.md` for full directory tree and pre-processed artifact locations.
 
 ## Key Architectural Patterns
 
@@ -426,110 +163,25 @@ rv-experiment run \
 
 ## Testing Strategy
 
-### Test Organization
-```bash
-# Fast unit tests (no external dependencies)
-poetry run pytest -m "not slow" -v
+RV-Agent test dirs: `unit/`, `integration/`, `smoke/`, `online/`, `performance/`, `regression/`, `system/` in `modules/rv-agent/tests/`. Run with `PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/<dir>/ -v`.
 
-# Integration tests (requires RVSEC)
-poetry run pytest -m "slow" -v
-
-# Module-specific testing
-poetry run pytest modules/MODULE_NAME/tests/ -v
-```
-
-### RV-Agent Test Structure
-
-The rv-agent module has a well-organized test structure in `modules/rv-agent/tests/`:
-
-| Directory | Purpose | Command |
-|-----------|---------|---------|
-| `unit/` | Isolated unit tests (no external deps) | `pytest tests/unit/ -v` |
-| `integration/` | Component integration tests | `pytest tests/integration/ -v` |
-| `smoke/` | Quick sanity checks | `pytest tests/smoke/ -v` |
-| `online/` | Tests requiring device/LLM server | `pytest tests/online/ -v` |
-| `performance/` | Performance and latency tests | `pytest tests/performance/ -v` |
-| `regression/` | Regression tests | `pytest tests/regression/ -v` |
-| `system/` | Full system tests | `pytest tests/system/ -v` |
-| `fixtures/` | Test data (screenshots, XML dumps) | N/A |
-
-**Running rv-agent tests:**
-```bash
-cd modules/rv-agent
-
-# Unit tests only (fast, no external dependencies)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
-
-# Smoke tests (quick sanity checks)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/smoke/ -v
-
-# All tests
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
-```
-
-### Test Categories
-- Unit tests for individual components and functions
-- Integration tests for module interactions
-- End-to-end tests for complete workflows
-- Performance tests for optimization validation
-
-### Test Data and Datasets
-- **Primary screenshot dataset**: `/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots`
-  - Contains screenshots from 28+ Android apps for LLM testing
-  - Organized by app package name (e.g., `cryptoapp/`, `hashpass/`, `ludo/`)
-- **Project test fixtures**: `modules/rv-agent/tests/fixtures/screenshots/`
-  - Curated screenshots for unit and integration tests
-  - Includes: cryptoapp, hashpass, ludo
-- **UI dump fixtures**: `modules/rv-agent/tests/fixtures/ui_dumps/`
-  - UIAutomator XML dumps corresponding to screenshots
+Test data: screenshots in `/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots` (28+ apps), fixtures in `modules/rv-agent/tests/fixtures/`. See `.claude/project-info.md` for full test commands.
 
 ## Development Principles
 
-These four principles govern all development in RV-Android — code, comments, documentation, and specs. They apply regardless of which workflow track (Full SDD, Fast-Forward SDD, Quick Path) is being used. They are non-negotiable.
+These four principles are **non-negotiable** and govern all code, comments, documentation, and specs.
 
-### Principle 1: Simplicity
+### P1: Simplicity
+Minimum complexity for the current task. Three similar lines > premature abstraction. Direct call > indirection with one subscriber. No speculative features, no validation for impossible scenarios, no helpers for one-time operations. Only validate at system boundaries (user input, external APIs). Prefer composition over inheritance, flat over nested.
 
-The system must be as simple and elegant as possible. Every change should follow established best practices and avoid introducing unnecessary complexity. Three similar lines of code are better than a premature abstraction. A direct function call is better than an event-driven indirection when only one subscriber exists. A flat `if/elif` chain is better than a strategy pattern when there are only two branches.
+### P2: Human-Readable Documentation
+All docs (specs, proposals, design docs) must be narrative and self-contained. Explain *why*, not just *what*. Use WHEN/THEN/AND format with concrete values in scenarios. When behavior has a non-obvious reason, explain it inline.
 
-Concretely:
-- Do not add features, refactor code, or make "improvements" beyond what was explicitly requested
-- Do not add error handling, fallbacks, or validation for scenarios that cannot happen — trust internal code and framework guarantees, only validate at system boundaries (user input, external APIs)
-- Do not create helpers, utilities, or abstractions for one-time operations
-- Do not design for hypothetical future requirements — the right amount of complexity is the minimum needed for the current task
-- Do not use feature flags or backward-compatibility shims when you can just change the code
-- Prefer composition over inheritance, flat structures over deep nesting, explicit logic over implicit convention
+### P3: No Backward Compatibility
+Dead/superseded code is deleted entirely — no adapters, shims, wrappers, `# removed` comments, or `_unused` renames. Backup to `backup/` (gitignored) before deletion. All changes must be complete: update all callers, grep for dangling references, one commit = one consistent state.
 
-### Principle 2: Human-Readable Documentation
-
-The target audience for all documentation is **humans** — developers and researchers who need to understand, maintain, and extend the system. All text (specs, proposals, design docs, comments, docstrings, CLAUDE.md sections) must be deep, narrative, and explanatory. The reader must have all the information needed to implement or review a change without ambiguity.
-
-Concretely:
-- Specs and design docs must use multi-paragraph narrative explanations, not telegraphic bullet points — explain the *why* behind each decision, the alternatives considered, and the rationale for the chosen approach
-- Each requirement or invariant description should be self-contained: a developer reading it in isolation must understand what it means, why it exists, and how it connects to the rest of the system
-- Scenarios must be precise and unambiguous — use WHEN/THEN/AND format with concrete values, not vague descriptions like "the system should handle errors gracefully"
-- When a behavior has a non-obvious reason (performance, compatibility with external tool, historical constraint from the ICST study), explain that reason inline — do not assume the reader knows the context
-
-### Principle 3: No Backward Compatibility
-
-RV-Android evolves through **complete replacements**, never through backward-compatible adaptations. When code is identified as dead, abandoned, or superseded by a new approach, it is deleted entirely from the source files. No adapters, wrappers, shims, deprecation annotations, compatibility re-exports, commented-out blocks, or `# removed` comments are created. The system at any point in time contains only live, working code — never archaeological layers of previous attempts.
-
-Concretely:
-- **Complete implementation**: All changes must be fully implemented, not partial. Do not leave TODO stubs or half-finished abstractions.
-- **No legacy wrappers**: Do not use adapters, shims, or compatibility layers for old code. If the interface changes, update all callers in the same commit.
-- **Remove, don't wrap**: Legacy code must be removed or overwritten, never wrapped. Do not rename unused variables with `_` prefix, do not re-export types for backward compatibility, do not add `# removed` comments for deleted code.
-- **Backup first**: Move old files to `backup/` directory before replacement, preserving the original for thesis records and enabling recovery. The `backup/` directory is gitignored and serves as a safety net, not as a compatibility mechanism.
-- **Update references**: All imports and references must point to new implementations. Grep the entire codebase to confirm zero dangling references before committing.
-- **One commit, one state**: After a change is committed, the codebase must be in a consistent, working state with no vestiges of the old approach.
-
-### Principle 4: Current-State Comments
-
-Comments and naming must reflect the **current state of the system only**. They must not describe migration history, previous implementations, what was removed, or how things used to work. A developer reading the code should understand what the code does *now*, not what journey it took to get here.
-
-Concretely:
-- Do not write comments like "migrated from X", "replaces the old Y", "previously this was Z", "legacy approach was...", "in phase 1 we used..."
-- Do not use promotional or bias language in comments or names: avoid "modern", "sophisticated", "elegant", "state-of-the-art", "cutting-edge", "next-generation", "advanced", "intelligent". The target audience is developers and researchers who evaluate systems on technical merit, not marketing claims.
-- Variable and function names must describe what they do, not what they replaced: `process_tasks()` not `process_tasks_v2()`, `config` not `new_config`
-- If historical context is needed for understanding (e.g., why a particular constant has a specific value), reference the thesis, ICST paper, or a design document — do not embed the history in the code comment itself
+### P4: Current-State Comments
+Comments describe what the code does *now*. No migration history ("migrated from X", "replaces old Y"). No promotional language ("modern", "elegant", "advanced"). Names describe function, not lineage (`process_tasks` not `process_tasks_v2`). Reference thesis/ICST paper for historical context, don't embed it in comments.
 
 ---
 
@@ -597,27 +249,7 @@ The system supports two distinct specification sets for runtime verification:
 - Multimode default: 70% LLM / 30% algorithm decisions
 
 ### Tool Calling Híbrido (Qwen3-VL + SGLang)
-
-**Contexto**: O SGLang não possui suporte oficial a tool calling para modelos Qwen3-VL (vision/multimodal). O comportamento observado é não-determinístico: ~50% native tool_calls, ~50% XML no content.
-
-**Decisão (2026-01-07)**: Usar abordagem híbrida com fallback parser.
-
-**Fluxo**:
-1. LangChain `bind_tools()` tenta obter `response.tool_calls` (native)
-2. Se vazio, `tool_call_parser.py` extrai do `response.content` (XML/JSON)
-3. Ambas as estratégias funcionam com 100% de sucesso
-
-**Estratégias de parsing** (em ordem de prioridade):
-- `native`: tool_calls estruturados da API
-- `xml`: tags `<tool_call>` no content (formato Hermes)
-- `json_array`, `json_object`, `markdown`, `pythonic`: fallbacks adicionais
-
-**Observações**:
-- Latência XML (~700ms) é menor que native (~1500ms) devido a menos tokens gerados
-- Parser robusto em `rv_agent/llm/tools/tool_call_parser.py`
-- Métricas coletadas via `parser_stats.get_stats()`
-
-**Documentação completa**: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-vision-llm/docs/022_problema_sglang_native_tools.md`
+SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid approach: try `bind_tools()` native first, fallback to XML/JSON parsing via `rv_agent/llm/tools/tool_call_parser.py`. Both strategies achieve 100% success.
 
 ### Qwen3-VL Coordinate System
 - Qwen3-VL returns coordinates in normalized [0, 1000) range for both x and y
@@ -630,53 +262,9 @@ The system supports two distinct specification sets for runtime verification:
 
 ## Current Work
 
-### Active Tasks (2026-01-06)
+**rv-agent key files**: `agent/rv_agent.py` (main), `agent/nodes/` (workflow nodes), `strategies/rvagent_strategy/` (DFS strategy), `services/transition_manager.py` (WTG integration), `services/navigation_guidance.py` (navigation), `llm/llm_client.py` (LLM client), `routing/` (LLM/algorithm routing). All paths relative to `modules/rv-agent/src/rv_agent/`.
 
-**Status**: Integração do TransitionManager (WTG) no rv-agent
-
-**Documentos Relevantes**:
-- `docs/20260105_rvagent_refactoring.md` - Plano de refatoração com 3 melhorias
-- `docs/20251231_rvagent_validacao.md` - Plano de validação extensiva (Seção 13 adicionada)
-
-**Contexto**:
-Integração do TransitionManager para guiar exploração usando Window Transition Graph (WTG) da análise estática.
-
-**TransitionManager Integration** (2026-01-06):
-- ✅ TransitionManager criado em `services/transition_manager.py`
-- ✅ Integrado em `agent_factory.py` (criação)
-- ✅ Integrado em `strategy_registry.py` (passagem de parâmetro)
-- ✅ Integrado em `rvagent_strategy.py` (uso via `_get_wtg_guided_action`)
-- ✅ **NavigationGuidance** criado em `services/navigation_guidance.py` (abstração unificada)
-- ✅ Integrado em `llm_client.py` (parâmetro navigation_hint)
-- ✅ Integrado em `llm_node.py` (obtém guidance e passa para LLM)
-- ✅ Integrado em `prompts/v12.py` (build_user_message aceita navigation_hint)
-
-**Melhorias Planejadas** (3 de alta prioridade):
-1. **Failed Actions Tracking**: Evitar re-execução de ações que causaram crash
-2. **UI Mutation Detection**: Detectar mudanças de estado enabled/disabled/checked
-3. **Scroll Detection**: Revelar conteúdo oculto em listas e views scrollable
-
-**Fluxo de Trabalho**:
-1. ✅ Análise de sugestões de outras LLMs
-2. ✅ Criação do plano de refatoração (`docs/20260106_rvagent_refactoring.md`)
-3. ✅ Integração do TransitionManager (algoritmo)
-4. ⏳ Integração do TransitionManager (LLM) - ver TODO acima
-5. ⏳ Executar validação baseline (14 apps, 4 estratégias)
-6. ⏳ Analisar resultados e refinar plano
-7. ⏳ Implementar melhorias restantes
-8. ⏳ Validar novamente e comparar com baseline
-
-**Arquivos Principais do rv-agent**:
-- `modules/rv-agent/src/rv_agent/agent/rv_agent.py` - Agente principal (LangGraph)
-- `modules/rv-agent/src/rv_agent/agent/nodes/` - Nodes externalizados do workflow
-- `modules/rv-agent/src/rv_agent/agent/dynamic_state_graph.py` - Grafo de estados
-- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/` - Estratégia principal
-- `modules/rv-agent/src/rv_agent/strategies/base_strategy.py` - Classe base de estratégias
-- `modules/rv-agent/src/rv_agent/services/transition_manager.py` - Integração WTG + DynamicGraph
-- `modules/rv-agent/src/rv_agent/services/navigation_guidance.py` - Abstração unificada para LLM e algoritmo
-- `modules/rv-agent/src/rv_agent/routing/` - Routing entre LLM e algoritmo
-- `modules/rv-agent/src/rv_agent/llm/llm_client.py` - Cliente LLM com navigation_hint
-- `modules/rv-agent/src/rv_agent/prompts/v12.py` - Prompt com suporte a navigation guidance
+**Plans**: `docs/20260105_rvagent_refactoring.md` (refactoring), `docs/20260213_plano_refatoracao.md` (current)
 
 ---
 
@@ -760,98 +348,31 @@ All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for
 
 ## Development Workflows
 
-**Full reference**: See `docs/WORKFLOW.md` for detailed workflow documentation with examples.
-**Skill reference**: See `.claude/AGENTS.md` for complete skill and agent documentation.
-**Backlog**: [GitHub Project Kanban](https://github.com/orgs/PAMunb/projects/7) — issues on `PAMunb/rvsec` with 5 issue templates, 18 labels, and 4-column board (Backlog, In Progress, In Review, Done). See `docs/WORKFLOW.md` Section 2 for details.
+**Full reference**: `docs/WORKFLOW.md` | **Skills/Agents**: `.claude/AGENTS.md` | **Backlog**: [GitHub Kanban](https://github.com/orgs/PAMunb/projects/7)
 
-### Workflow Track Selection
+### Track Selection
 
-Match workflow formality to change scope. The key question: **does this change require design decisions that need spec artifacts, or is it a mechanical task where a plan suffices?** Do not select a heavier track based on file count alone — file count determines subagent orchestration, not workflow track.
+Select track by whether the change requires **design decisions** (not by file count — file count determines subagent use, not track):
 
-```mermaid
-flowchart TD
-    START([New Task]) --> ASSESS{Design decisions needed?}
-    ASSESS -->|"Yes: multi-module\nor architectural"| FULL[Full SDD]
-    ASSESS -->|"Yes: single module\nclear requirements"| FAST[Fast-Forward SDD]
-    ASSESS -->|"No: mechanical task\nclear what to do"| QUICK[Quick Path]
-```
+| Track | When | Phases |
+|-------|------|--------|
+| **Full SDD** | Design decisions + multi-module/architectural | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
+| **FF SDD** | Design decisions + single module, clear requirements | Explore -> FF -> Implement -> Close |
+| **Quick Path** | No design decisions, mechanical/clear plan | Analyze -> Fix -> Verify |
 
-| Track | When | Change Directory | Phases |
-|-------|------|------------------|--------|
-| **Full SDD** | Design decisions + multi-module/architectural | `openspec/changes/` (full artifacts) | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
-| **Fast-Forward SDD** | Design decisions + single module, clear requirements | `openspec/changes/` (full artifacts, auto-generated) | Explore -> Fast-Forward -> Implement -> Close |
-| **Quick Path** | No design decisions — mechanical, clear plan | `openspec/changes/` (`plan.md` only) | Analyze -> Fix -> Verify |
-
-### Full SDD (6 phases)
-
-| Phase | OpenSpec | RV Skills |
-|-------|----------|-----------|
-| 1. Explore | `/opsx:explore` | `/rv-analyze-module`, `/rv-impact-analyzer` |
-| 2. Propose | `/opsx:new` + `/opsx:continue` (x2) | -- |
-| 3. Design | `/opsx:continue` (x2) | `/rv-doc-adr` (if architectural) |
-| 4. Implement | `/opsx:apply` | `/rv-tdd`, `/rv-refactor`, `/rv-feature` |
-| 5. Verify | `/opsx:verify` | `/rv-verify` |
-| 6. Archive | `/opsx:sync` + `/opsx:archive` | `/rv-docs-sync` |
-
-### Fast-Forward SDD (4 phases)
-
-| Phase | Skills |
-|-------|--------|
-| 1. Explore | `/opsx:explore` or `/rv-analyze-module` |
-| 2. Fast-Forward | `/opsx:ff` (generates all artifacts at once) |
-| 3. Implement | `/opsx:apply` + orchestrators |
-| 4. Close | `/rv-verify` + `/opsx:verify` + `/opsx:archive` |
-
-### Quick Path (3 phases)
-
-| Phase | Skills |
-|-------|--------|
-| 1. Analyze | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression`. Create `plan.md` in `openspec/changes/`. |
-| 2. Fix | `/rv-tdd`, `/rv-refactor`, `/rv-cleanup`, or direct edit. Use subagents if 20+ files. |
-| 3. Verify | `/rv-verify` or `/rv-test-run`. Check acceptance criteria from `plan.md`. |
-
-### Subagent Orchestration for Heavy Tasks
-
-When a task touches **20+ files** or has **3+ independent task groups**, execute implementation via subagents to prevent context window compaction. The main window acts as a thin orchestrator: reads the plan, dispatches subagents, collects summaries, runs final verification.
-
-**Rule**: If you estimate a change will require reading or editing more than ~15 files total, proactively split the work into subagent groups before starting implementation. Do not attempt to execute all edits in the main context window.
-
-**Dispatch pattern**:
-1. Group tasks by **independence** (no shared files) and **locality** (same module/directory)
-2. Dispatch each group to a `general-purpose` subagent with: plan file path, target file list, specific instructions
-3. Run prerequisite groups first (e.g., file moves before code edits), then parallelize independent groups
-4. After all subagents complete, run verification in the main window (tests, grep, lint)
-
-**Sizing**: 3-15 files per subagent. Fewer than 3 is overhead; more than 15 risks compaction within the subagent.
-
-**Full reference**: See `docs/WORKFLOW.md` Section 5 for detailed guidelines, task grouping strategy, and a concrete example.
-
-### Quick Reference: Common Scenarios
+### Common Scenarios
 
 | Scenario | Track | Skill Sequence |
 |----------|-------|----------------|
-| New feature in rv-agent | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
-| Add config option to module | FF SDD | `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
-| Refactor module internals | Quick | `rv-analyze-module` -> `rv-refactor` -> `rv-verify` |
+| New feature in rv-agent | Full | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
+| Add config option | FF | `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
+| Refactor internals | Quick | `rv-analyze-module` -> `rv-refactor` -> `rv-verify` |
 | Fix a bug | Quick | `rv-debug-regression` -> `rv-tdd` -> `rv-verify` |
-| Add tests to existing code | Quick | `rv-test-add` -> `rv-test-run` |
 | Remove dead code | Quick | `rv-analyze-dead-code` -> `rv-cleanup` -> `rv-verify` |
 
-### Skill Architecture (3 layers)
+### Subagent Orchestration
 
-1. **Process Layer** (OpenSpec): `opsx:new`, `opsx:ff`, `opsx:continue`, `opsx:apply`, `opsx:verify`, `opsx:sync`, `opsx:archive`
-2. **Execution Layer** (rv-*): 4 orchestrators (`rv-feature`, `rv-refactor`, `rv-tdd`, `rv-cleanup`) + 26 component skills
-3. **Quality Gate**: `rv-code-reviewer` agent (auto-chained by orchestrators)
-
-**Key principle**: Unidirectional flow — Process Layer invokes Execution Layer, never the reverse.
-
-### MCP Tools Usage in Workflows
-
-| MCP Tool | When to Use |
-|----------|-------------|
-| **context7** | Fetch docs for LangGraph, pytest, pydantic, etc. |
-| **sequential-thinking** | Complex analysis requiring step-by-step reasoning |
-| **memory** | Persist module analysis, track findings over time |
+When a task touches **20+ files** or has **3+ independent task groups**, use subagents. Main window acts as orchestrator: reads plan, dispatches subagents (3-15 files each), collects summaries, runs final verification. See `docs/WORKFLOW.md` Section 5 for details.
 
 ---
 
