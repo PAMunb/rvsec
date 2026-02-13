@@ -1050,12 +1050,12 @@ class TestErrorHandlerEdgeCases:
 
     def test_all_builtin_handlers_registered(self, error_handler):
         """Test that all expected builtin handlers are registered."""
-        # Should have 28 built-in handlers as mentioned in existing tests
-        assert len(error_handler._error_callbacks) == 28
+        # Should have 27 built-in handlers registered
+        assert len(error_handler._error_callbacks) == 27
 
         # Should have registered handlers tracking
         assert hasattr(error_handler, '_registered_handlers')
-        assert len(error_handler._registered_handlers) == 28
+        assert len(error_handler._registered_handlers) == 27
 
 
 class TestSpecificHandlerBehaviors:

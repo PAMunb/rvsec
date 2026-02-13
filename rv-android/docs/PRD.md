@@ -137,7 +137,7 @@ block-beta
         H["rv-monitor-generator"] I["rv-instrumentation"]
     end
     block:llm["LLM Testing"]
-        J["rv-agent"] K["rvagent-tool"] L0["rv-llm (deprecated)"]
+        J["rv-agent"] K["rvagent-tool"]
     end
     block:orch["Experiment Orchestration"]
         L["rv-experiment"] M["rv-agent-validation"]
@@ -152,7 +152,6 @@ block-beta
 | rv-tools | rv-android-core |
 | rv-uiautomator | rv-android-core, rv-screen-parser |
 | rv-screen-parser | rv-android-core |
-| rv-llm | rv-android-core, rv-screen-parser |
 | rv-coverage | rv-android-core |
 | rv-static-analysis | rv-android-core |
 | rv-monitor-generator | rv-android-core |
@@ -160,7 +159,7 @@ block-beta
 | rv-agent | rv-android-core, rv-screen-parser, rv-uiautomator, rv-static-analysis |
 | rvagent-tool | rv-android-core, rv-agent, rv-tools |
 | rv-platform | rv-android-core, rv-tools, rv-coverage, rv-static-analysis |
-| rv-experiment | rv-android-core, rv-platform, rv-tools, rv-llm (unused import), rv-monitor-generator, rv-instrumentation, rv-static-analysis |
+| rv-experiment | rv-android-core, rv-platform, rv-tools, rv-monitor-generator, rv-instrumentation, rv-static-analysis |
 | rv-agent-validation | rv-android-core, rv-agent, rv-static-analysis, rv-screen-parser, rv-monitor-generator, rv-instrumentation |
 
 ### 4.3 Key External Dependencies
@@ -779,10 +778,10 @@ The system MUST support reproducible experiments through:
 |--------|---------------|---------------|-------------------|
 | rv-android-core | Domain models, EventBus, ErrorHandler, logging, validation, Command | — | pydantic |
 | rv-platform | Task execution engine, components, storage, result processing | core, tools, coverage, static-analysis | pydantic, pandas |
-| rv-experiment | Experiment orchestration, CLI, 3-phase workflow | core, platform, tools, llm, monitor-gen, instrumentation, static-analysis | pydantic, click |
+| rv-experiment | Experiment orchestration, CLI, 3-phase workflow | core, platform, tools, monitor-gen, instrumentation, static-analysis | pydantic, click |
 | rv-agent | LLM-guided testing with LangGraph, strategies, memory | core, screen-parser, uiautomator, static-analysis | langchain, langgraph, scipy, pillow |
 | rvagent-tool | Tool wrapper integrating rv-agent with rv-platform/rv-experiment | core, agent, tools | — |
-| rv-llm | LLM provider abstraction, prompt framework **(deprecated — used only by discontinued tools)** | core, screen-parser | langchain, jinja2 |
+| rv-llm | LLM provider abstraction, prompt framework **(removed from workspace)** | core, screen-parser | langchain, jinja2 |
 | rv-tools | Tool registry, factory, 8 built-in tools | core | pydantic |
 | rv-uiautomator | UIAutomator2 adapter, device interaction | core, screen-parser | uiautomator2, pillow |
 | rv-coverage | Coverage tracking, logcat parsing, metrics | core | pydantic, regex |
@@ -941,7 +940,7 @@ The ongoing experiment compares calibrated rv-agent against the best-performing 
 | rv-monitor-generator | Stable | JavaMOP pipeline |
 | rv-instrumentation | Stable | APK weaving |
 | rv-screen-parser | Stable | XML parsing + CV analysis |
-| rv-llm | Deprecated | Used only by discontinued tools (rvandroid, rvsmart, rvdroid); rv-agent uses langchain-openai directly |
+| rv-llm | Removed | Module removed from workspace; rv-agent uses langchain-openai directly |
 | rv-agent | Active development | LangGraph workflow, 3 modes, Fase D calibration |
 | rvagent-tool | Stable | Tool wrapper integrating rv-agent with rv-experiment |
 | rv-agent-validation | Active development | Calibration framework with Optuna |
@@ -953,7 +952,7 @@ The ongoing experiment compares calibrated rv-agent against the best-performing 
 3. **Scroll Detection**: Reveal hidden content in scrollable views and lists
 4. **Improved Instrumentation**: Address d8 and ajc compilation failures (currently 34.6% success rate)
 5. **Extended Specification Sets**: Support for API domains beyond cryptography
-6. **Remove discontinued modules**: Remove rv-llm, rvsmart-tool, rvdroid-tool from the workspace. rv-llm is deprecated (no active module uses it; rv-experiment has dead imports returning `{}`). rvsmart-tool and rvdroid-tool are discontinued LLM tools with incomplete development. Cleanup includes: (a) remove dead `rv_llm` imports from `rv-experiment/config.py` (lines 51-52, 721, 734, 748-750), (b) remove rv-llm from `rv-experiment/pyproject.toml`, (c) remove rv-llm, rvsmart-tool, rvdroid-tool from root `pyproject.toml`, (d) remove rvandroid/rvdroid registration from `rv-experiment/tools/experiment_tools.py` (keep only rvagent), (e) move module directories to `backup/`
+6. **~~Remove discontinued modules~~** (completed): rv-llm, rvsmart-tool, and rvdroid-tool have been removed from the workspace. Module directories moved to `backup/`, dead imports and references cleaned from all source files, pyproject.toml entries removed, and documentation updated.
 
 ## 13. Environment Requirements
 

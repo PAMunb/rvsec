@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The LLM Agent domain encompasses rv-agent and rv-llm, implementing an autonomous Android application exploration agent that combines vision-language model (VLM) intelligence with algorithmic graph traversal strategies. The agent explores Android applications running on an emulator, generating test inputs to maximize code coverage -- specifically coverage of methods monitored by runtime verification specifications (MOP methods).
+The LLM Agent domain encompasses rv-agent, implementing an autonomous Android application exploration agent that combines vision-language model (VLM) intelligence with algorithmic graph traversal strategies. The agent explores Android applications running on an emulator, generating test inputs to maximize code coverage -- specifically coverage of methods monitored by runtime verification specifications (MOP methods).
 
 ### Problem Context
 

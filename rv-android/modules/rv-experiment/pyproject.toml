@@ -16,10 +16,8 @@ rv-instrumentation = {path = "../rv-instrumentation", develop = true}
 rv-static-analysis = {path = "../rv-static-analysis", develop = true}
 rv-screen-parser = {path = "../rv-screen-parser", develop = true}
 rv-coverage = {path = "../rv-coverage", develop = true}
-rv-llm = {path = "../rv-llm", develop = true}
 rv-tools = {path = "../rv-tools", develop = true}
 rvagent-tool = {path = "../rvagent-tool", develop = true}
-rvdroid-tool = {path = "../rvdroid-tool", develop = true}
 pydantic = "^2.9.0"
 # Dependências específicas para orquestração
 matplotlib = "^3.9.0"  # Para silenciar logs verbosos no CLI

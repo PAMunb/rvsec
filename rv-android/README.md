@@ -15,11 +15,8 @@ rv-android/
 │   ├── rv-static-analysis/          # 🔍 Static analysis tools
 │   ├── rv-coverage/                 # 📊 Coverage analysis
 │   ├── rv-screen-parser/            # 📱 UI parsing framework
-│   ├── rv-llm/                      # 🤖 LLM integration
 │   ├── rv-tools/                    # 🛠️ Testing tools registry
-│   ├── rv-experiment/               # 🧪 Experiment framework
-│   ├── rvandroid-tool/              # 🎯 AI-driven testing server
-│   └── rvandroid/                   # 📦 Tool registry and patterns
+│   └── rv-experiment/               # 🧪 Experiment framework
 ├── pyproject.toml                   # 📋 Workspace configuration
 └── modules/install.sh               # 🚀 Module installer
 ```
@@ -34,11 +31,8 @@ rv-android/
 | **rv-static-analysis** | Static analysis tools (GATOR, GESDA, REACH) | [📖](modules/rv-static-analysis/README.md) |
 | **rv-coverage** | Coverage analysis and tracking | [📖](modules/rv-coverage/README.md) |
 | **rv-screen-parser** | Android UI parsing with visitor patterns | [📖](modules/rv-screen-parser/README.md) |
-| **rv-llm** | Language model integration framework | [📖](modules/rv-llm/README.md) |
 | **rv-tools** | Testing tool plugin system | [📖](modules/rv-tools/README.md) |
 | **rv-experiment** | Experiment orchestration and coordination | [📖](modules/rv-experiment/README.md) |
-| **rvandroid-tool** | AI-driven testing server with LLM integration | [📖](modules/rvandroid-tool/README.md) |
-| **rvandroid** | Tool registry and UI pattern detection | [📖](modules/rvandroid/README.md) |
 
 ## 🚀 Quick Start Guide
 

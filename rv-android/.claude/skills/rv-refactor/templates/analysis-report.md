@@ -43,8 +43,7 @@ Use this template to document Phase 1 (Analysis) findings.
 ```
 [module] depends on:
 ├── rv-android-core (foundation)
-├── rv-screen-parser (UI parsing)
-└── rv-llm (LLM client)
+└── rv-screen-parser (UI parsing)
 ```
 
 ### Circular Dependencies

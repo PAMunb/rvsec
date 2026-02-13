@@ -11,7 +11,7 @@ This file provides guidance for working with the rv-experiment module.
 - **CLI Interface**: Primary entry point for experiment execution (`rv-experiment` command)
 - **Experiment Orchestration**: Three-phase workflow (pre-processing, execution, post-processing)
 - **Configuration Management**: Type-safe experiment configuration with Pydantic validation
-- **Tool Registration**: External tool registration for rvandroid and rvdroid tools
+- **Tool Registration**: External tool registration for rvagent tool
 - **Module Coordination**: Delegates execution to rv-platform while managing pre/post processing
 
 ### Architectural Principles
@@ -39,7 +39,7 @@ modules/rv-experiment/
 │   ├── factories/
 │   │   └── configuration_factory.py    # Factory pattern for configurations
 │   └── tools/
-│       └── experiment_tools.py         # External tool registration (rvandroid, rvdroid)
+│       └── experiment_tools.py         # External tool registration (rvagent)
 └── tests/
     ├── experiment/
     │   └── test_experiment_controller.py
@@ -57,7 +57,7 @@ rv-experiment run --tools monkey
 rv-experiment run --tools monkey,droidbot:dfs_greedy
 
 # With specification set and parameters
-rv-experiment run --tools rvandroid:llama:batch@temperature=0.3 --specification-set jca
+rv-experiment run --tools rvagent:multimode@temperature=0.3 --specification-set jca
 
 # From configuration file
 rv-experiment run --config experiment_config.json
@@ -110,8 +110,8 @@ Format: `tool_name[:variant1][:variant2][@param1=value1,param2=value2]`
 Examples:
 - `monkey` - Basic tool usage
 - `droidbot:dfs_greedy` - Tool with variant
-- `rvandroid:llama:batch` - Tool with multiple variants
-- `rvandroid:llama@temperature=0.3,max_tokens=2048` - Tool with parameters
+- `rvagent:multimode` - Tool with variant
+- `rvagent:multimode@temperature=0.3` - Tool with parameters
 - `monkey,droidbot:dfs_greedy,ape` - Multiple tools (comma-separated)
 
 ## Three-Phase Workflow
@@ -208,12 +208,11 @@ registry = ExperimentToolRegistry.get_instance()
 
 # Access registered tools
 tools = registry.get_all_tools()
-variants = registry.get_tool_variants("rvandroid")
+variants = registry.get_tool_variants("rvagent")
 ```
 
 Registered external tools:
-- `rvandroid` - LLM-driven Android testing tool
-- `rvdroid` - Alternative testing tool
+- `rvagent` - LLM-driven Android testing tool (via rv-agent)
 
 ## Integration with rv-platform
 
@@ -258,7 +257,7 @@ poetry run pytest --cov=src --cov-report=html
 ## Common Development Tasks
 
 ### Adding a New Tool
-1. Create tool class in appropriate module (e.g., rvandroid-tool)
+1. Create tool class in appropriate module (e.g., rvagent-tool)
 2. Register in `experiment_tools.py`:
 ```python
 def _register_new_tool(self) -> None:

@@ -14,7 +14,7 @@ RV-Android evaluates multiple Android test-generation tools (Monkey, DroidBot, A
 
 2. **Auto-Registration at Import**: When `rv_tools` is imported, `_register_builtin_tools()` iterates over `BUILTIN_TOOLS` (a list of 8 tool classes from `rv_tools.builtin`) and calls `registry.register_tool_class(tool_class)` for each. This means the 8 built-in tools are available immediately after `import rv_tools`. Registration failures are logged as warnings but do not block module import.
 
-3. **External Tool Registration via rv-experiment**: Tools that live outside rv-tools (rvagent in `rvagent-tool`, rvandroid in `rvandroid-tool`, rvdroid in `rvdroid-tool`) are registered by `ExperimentToolRegistry` in rv-experiment. This respects the module dependency hierarchy: rv-tools depends only on rv-android-core, while rvagent-tool depends on rv-agent + rv-tools. The `ExperimentToolRegistry` is a singleton that registers external tools on first initialization and is idempotent.
+3. **External Tool Registration via rv-experiment**: Tools that live outside rv-tools (rvagent in `rvagent-tool`) are registered by `ExperimentToolRegistry` in rv-experiment. This respects the module dependency hierarchy: rv-tools depends only on rv-android-core, while rvagent-tool depends on rv-agent + rv-tools. The `ExperimentToolRegistry` is a singleton that registers external tools on first initialization and is idempotent.
 
 4. **AbstractTool Contract**: All tools extend `AbstractTool` (defined in rv-android-core), which enforces a template method pattern: `execute()` calls `execute_tool_specific_logic()`, handles `RVCommandTimeoutError` (converting it to `RVToolTimeoutError` -- timeouts are expected behavior), performs process cleanup via `kill_related_processes()`, and delegates to `ErrorHandler` for other exceptions. This gives every tool consistent timeout handling and cleanup.
 
@@ -83,8 +83,6 @@ ToolRegistry.get_instance() <-- register_tool_class(tool_class)
 ExperimentToolRegistry (rv-experiment)
      |
      +-- _register_rvagent_tool()   --> import RVAgentTool from rvagent_tool
-     +-- _register_rvandroid_tool() --> import RVAndroidTool (legacy)
-     +-- _register_rvdroid_tool()   --> import RVDroidTool (legacy)
      v
 ToolFactory.create_tool(tool_config)
      |
@@ -208,7 +206,7 @@ The registration flow has two phases: (1) built-in tools are registered automati
 
 `register_tool_class()` performs complete registration in a single call: it invokes `get_tool_spec()` to obtain the `ToolSpec`, registers the class and spec, then calls `get_variants()` and registers each variant individually. This means a tool author only needs to implement `get_tool_spec()` and `get_variants()` for their tool to be fully registered.
 
-The `ToolFactory` creates configured instances by: (1) resolving the tool class from the registry, (2) getting variant configuration, (3) merging with additional parameters from the experiment config (overrides take precedence), and (4) calling `tool.configure()` on the instance. For standard tools, configuration is a flat dictionary. For `rvandroid`, the factory uses `create_tool_config()` to produce a typed configuration object.
+The `ToolFactory` creates configured instances by: (1) resolving the tool class from the registry, (2) getting variant configuration, (3) merging with additional parameters from the experiment config (overrides take precedence), and (4) calling `tool.configure()` on the instance. For standard tools, configuration is a flat dictionary.
 
 #### Scenario: Built-in tools are registered at import time
 
@@ -222,7 +220,7 @@ The `ToolFactory` creates configured instances by: (1) resolving the tool class 
 - **WHEN** `ExperimentToolRegistry.get_instance()` is called for the first time
 - **THEN** `register_external_tools()` MUST be called automatically
 - **AND** if the `rvagent_tool` package is importable, the `"rvagent"` tool MUST be registered with variants `default`, `multimode`, `pure_algorithm`, `llm_only`, `thorough`
-- **AND** if an external tool package is not importable, the failure MUST be logged as a warning and other tools MUST still be registered
+- **AND** if the `rvagent_tool` package is not importable, the failure MUST be logged as a warning
 
 #### Scenario: Factory creates configured tool from ToolConfig
 

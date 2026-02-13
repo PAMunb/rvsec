@@ -321,12 +321,7 @@ class ExperimentConfig(BaseValidatedModel):
         Returns:
             True if custom variant is valid, False otherwise
         """
-        if tool_config.name == "rvandroid":
-            # RVAndroid requires specific LLM parameters for custom variants
-            required_params = ["llm_type", "llm_model", "prompt_strategy"]
-            return all(param in tool_config.parameters for param in required_params)
-        
-        # For other tools, basic validation - custom variants should have some parameters
+        # Custom variants should have some parameters
         return len(tool_config.parameters) > 0
 
     def get_apk_list(self) -> List[str]:
@@ -587,12 +582,6 @@ class ExperimentConfig(BaseValidatedModel):
         except Exception as e:
             raise ConfigurationError(f"Static analysis configuration failed: {e}") from e
 
-    # REMOVED: get_llm_config() method - created circular dependency with RvAndroidConfigFactory
-    # LLM configuration will be created directly by RVAndroid tool during configure() phase
-
-    # REMOVED: get_prompt_config() method - created circular dependency with RvAndroidConfigFactory
-    # Prompt configuration will be created directly by RVAndroid tool during configure() phase
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert configuration to dictionary format for serialization and storage.
@@ -736,7 +725,6 @@ class ExperimentConfig(BaseValidatedModel):
         - **rv-monitor-generator**: Monitor generation configuration
         - **rv-instrumentation**: APK instrumentation configuration
         - **rv-static-analysis**: Static analysis tool configuration
-        - **rv-llm**: LLM integration configuration for AI-driven tools
         
         Args:
             module_name: Name of the module requiring configuration
@@ -750,9 +738,6 @@ class ExperimentConfig(BaseValidatedModel):
             return self.get_instrumentation_config()
         elif module_name == "rv-static-analysis":
             return self.get_static_analysis_config()
-        elif module_name == "rv-llm":
-            # LLM configuration now handled by RVAndroid tool directly
-            return {}
         else:
             return {}
 

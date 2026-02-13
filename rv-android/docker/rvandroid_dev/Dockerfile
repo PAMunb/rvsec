@@ -26,8 +26,6 @@ COPY pyproject.toml poetry.lock ./
 COPY droidbot/ ./droidbot/
 
 # --- Layer 2: Module pyproject.toml files only (changes rarely) ---
-# Active modules only — discontinued modules (rv-llm, rvsmart-tool, rvdroid-tool)
-# are excluded from Docker images (see design.md D14).
 COPY modules/rv-android-core/pyproject.toml ./modules/rv-android-core/
 COPY modules/rv-platform/pyproject.toml ./modules/rv-platform/
 COPY modules/rv-tools/pyproject.toml ./modules/rv-tools/
@@ -41,12 +39,6 @@ COPY modules/rv-screen-parser/pyproject.toml ./modules/rv-screen-parser/
 COPY modules/rv-uiautomator/pyproject.toml ./modules/rv-uiautomator/
 COPY modules/rvagent-tool/pyproject.toml ./modules/rvagent-tool/
 COPY modules/rv-agent-validation/pyproject.toml ./modules/rv-agent-validation/
-
-# --- Layer 2b: Remove discontinued modules from pyproject.toml files ---
-# These modules exist in the codebase but are non-functional (PRD Section 6.1).
-# Remove their path dependencies so poetry install does not try to resolve them.
-RUN sed -i '/^rv-llm = /d; /^rvsmart-tool = /d; /^rvdroid-tool = /d' pyproject.toml \
- && sed -i '/^rv-llm = /d; /^rvdroid-tool = /d' modules/rv-experiment/pyproject.toml
 
 # --- Layer 3: Stub packages for editable installs ---
 # Poetry develop=true requires package directories and README.md to exist.

@@ -18,7 +18,6 @@ Quick reference for common paths, commands, and environment setup.
 | rv-coverage | `modules/rv-coverage` | Coverage tracking |
 | rv-screen-parser | `modules/rv-screen-parser` | UI parsing |
 | rv-agent | `modules/rv-agent` | LLM-driven testing |
-| rv-llm | `modules/rv-llm` | LLM client abstraction |
 | rv-experiment | `modules/rv-experiment` | Experiment orchestration |
 | rv-agent-validation | `modules/rv-agent-validation` | Validation framework |
 
@@ -128,7 +127,7 @@ poetry run flake8 src/
 When installing or updating modules, follow this order:
 
 1. `rv-android-core` (base)
-2. `rv-tools`, `rv-uiautomator`, `rv-llm` (infrastructure)
+2. `rv-tools`, `rv-uiautomator` (infrastructure)
 3. `rv-screen-parser`, `rv-coverage`, `rv-static-analysis` (analysis)
 4. `rv-instrumentation`, `rv-monitor-generator` (instrumentation)
 5. `rv-agent`, `rv-platform` (execution)

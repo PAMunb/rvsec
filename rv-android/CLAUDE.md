@@ -33,11 +33,10 @@ The system consists of the following modules:
 
 **LLM Testing:**
 10. **rv-agent**: Main LLM-driven testing tool using LangGraph for workflow orchestration
-11. **rv-llm**: LLM client abstraction and integration layer
 
 **Experiment Orchestration:**
-12. **rv-experiment**: Experiment orchestration and coordination system
-13. **rv-agent-validation**: Validation framework for rv-agent testing and benchmarking
+11. **rv-experiment**: Experiment orchestration and coordination system
+12. **rv-agent-validation**: Validation framework for rv-agent testing and benchmarking
 
 ## Development Commands
 
@@ -546,7 +545,6 @@ Concretely:
 - Main constant files:
   - `modules/rv-android-core/src/rv_android_core/constants.py`
   - `modules/rv-experiment/src/rv_experiment/constants.py`
-  - `modules/rv-llm/src/rv_llm/llm/constants.py`
 - Each module may have its own constants file
 
 ### Error Handling
@@ -740,7 +738,7 @@ The system is documented via Spec-Driven Development. Specs document current beh
 | Core | `openspec/specs/core/spec.md` | rv-android-core | FR33-FR37 |
 | Platform | `openspec/specs/platform/spec.md` | rv-platform | FR07-FR11, FR14 |
 | Experiment | `openspec/specs/experiment/spec.md` | rv-experiment | FR15-FR17 |
-| Agent | `openspec/specs/agent/spec.md` | rv-agent, rv-llm | FR21-FR32 |
+| Agent | `openspec/specs/agent/spec.md` | rv-agent | FR21-FR32 |
 | Instrumentation | `openspec/specs/instrumentation/spec.md` | rv-monitor-generator, rv-instrumentation | FR01-FR03 |
 | Analysis | `openspec/specs/analysis/spec.md` | rv-static-analysis, rv-coverage, rv-screen-parser | FR04-FR06, FR12-FR13 |
 | Tools | `openspec/specs/tools/spec.md` | rv-tools, rv-uiautomator | FR18-FR20 |
@@ -769,21 +767,21 @@ All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for
 
 ### Workflow Track Selection
 
-Match workflow formality to change scope. Three tracks:
+Match workflow formality to change scope. The key question: **does this change require design decisions that need spec artifacts, or is it a mechanical task where a plan suffices?** Do not select a heavier track based on file count alone — file count determines subagent orchestration, not workflow track.
 
 ```mermaid
 flowchart TD
-    START([New Task]) --> ASSESS{Change Scope}
-    ASSESS -->|"Multi-module\nArchitectural\nNew capability"| FULL[Full SDD]
-    ASSESS -->|"Single module\nClear requirements"| FAST[Fast-Forward SDD]
-    ASSESS -->|"Bug fix\nSmall refactor\nTest addition"| QUICK[Quick Path]
+    START([New Task]) --> ASSESS{Design decisions needed?}
+    ASSESS -->|"Yes: multi-module\nor architectural"| FULL[Full SDD]
+    ASSESS -->|"Yes: single module\nclear requirements"| FAST[Fast-Forward SDD]
+    ASSESS -->|"No: mechanical task\nclear what to do"| QUICK[Quick Path]
 ```
 
-| Track | When | Phases |
-|-------|------|--------|
-| **Full SDD** | Multi-module, architectural, new features | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
-| **Fast-Forward SDD** | Single module, clear requirements | Explore -> Fast-Forward -> Implement -> Close |
-| **Quick Path** | Bug fixes, refactoring, test additions | Analyze -> Fix -> Verify |
+| Track | When | Change Directory | Phases |
+|-------|------|------------------|--------|
+| **Full SDD** | Design decisions + multi-module/architectural | `openspec/changes/` (full artifacts) | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
+| **Fast-Forward SDD** | Design decisions + single module, clear requirements | `openspec/changes/` (full artifacts, auto-generated) | Explore -> Fast-Forward -> Implement -> Close |
+| **Quick Path** | No design decisions — mechanical, clear plan | `openspec/changes/` (`plan.md` only) | Analyze -> Fix -> Verify |
 
 ### Full SDD (6 phases)
 
@@ -809,9 +807,25 @@ flowchart TD
 
 | Phase | Skills |
 |-------|--------|
-| 1. Analyze | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression` |
-| 2. Fix | `/rv-tdd`, `/rv-refactor`, `/rv-cleanup`, or direct edit |
-| 3. Verify | `/rv-verify` or `/rv-test-run` |
+| 1. Analyze | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression`. Create `plan.md` in `openspec/changes/`. |
+| 2. Fix | `/rv-tdd`, `/rv-refactor`, `/rv-cleanup`, or direct edit. Use subagents if 20+ files. |
+| 3. Verify | `/rv-verify` or `/rv-test-run`. Check acceptance criteria from `plan.md`. |
+
+### Subagent Orchestration for Heavy Tasks
+
+When a task touches **20+ files** or has **3+ independent task groups**, execute implementation via subagents to prevent context window compaction. The main window acts as a thin orchestrator: reads the plan, dispatches subagents, collects summaries, runs final verification.
+
+**Rule**: If you estimate a change will require reading or editing more than ~15 files total, proactively split the work into subagent groups before starting implementation. Do not attempt to execute all edits in the main context window.
+
+**Dispatch pattern**:
+1. Group tasks by **independence** (no shared files) and **locality** (same module/directory)
+2. Dispatch each group to a `general-purpose` subagent with: plan file path, target file list, specific instructions
+3. Run prerequisite groups first (e.g., file moves before code edits), then parallelize independent groups
+4. After all subagents complete, run verification in the main window (tests, grep, lint)
+
+**Sizing**: 3-15 files per subagent. Fewer than 3 is overhead; more than 15 risks compaction within the subagent.
+
+**Full reference**: See `docs/WORKFLOW.md` Section 5 for detailed guidelines, task grouping strategy, and a concrete example.
 
 ### Quick Reference: Common Scenarios
 

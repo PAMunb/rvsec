@@ -273,7 +273,6 @@ flowchart TB
 | rv-experiment | rv-instrumentation | Internal |
 | rv-experiment | rv-static-analysis | Internal |
 | rv-experiment | rv-tools | Internal |
-| rv-experiment | rv-llm | Internal |
 | rv-experiment | pydantic | External |
 | rv-experiment | click | External |
 
@@ -558,8 +557,8 @@ Format: `tool_name[:variant1][:variant2][@param1=value1,param2=value2]`
 # Examples
 monkey                           # Basic tool usage
 droidbot:dfs_greedy              # Tool with variant
-rvandroid:llama:batch            # Tool with multiple variants
-rvandroid:llama@temperature=0.3  # Tool with parameters
+rvagent:multimode                # Tool with variant
+rvagent:multimode@temperature=0.3  # Tool with parameters
 monkey,droidbot:dfs_greedy,ape   # Multiple tools (comma-separated)
 ```
 
@@ -712,7 +711,6 @@ The entrypoint also supports interactive mode: passing `bash` or `shell` as the 
 | rv-instrumentation | APK instrumentation with monitors |
 | rv-static-analysis | GATOR, GESDA, REACH static analysis tools |
 | rv-tools | Tool registry and factory patterns |
-| rv-llm | LLM configuration for AI-driven tools |
 
 ### External
 

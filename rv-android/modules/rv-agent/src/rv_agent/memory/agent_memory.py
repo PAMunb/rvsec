@@ -5,9 +5,8 @@ Manages memory summaries for RVAgent without accumulating message history.
 Provides pre-formatted string summaries that enable constant-token LLM calls.
 
 ### Architectural Pattern:
-Inspired by rvsmart-tool's MemoryManager, this module maintains internal
-action history and exploration state, but exports only PRE-FORMATTED STRINGS
-for inclusion in fresh LLM messages.
+This module maintains internal action history and exploration state, but
+exports only PRE-FORMATTED STRINGS for inclusion in fresh LLM messages.
 
 ### Key Features:
 - Limited action history (default 5 most recent)
@@ -35,8 +34,7 @@ class AgentMemoryManager:
     enables stateless LLM messaging where each call receives a fresh message
     with all necessary context embedded as text.
 
-    ### Integration with rvsmart-tool Pattern:
-    - Like rvsmart-tool's MemoryManager.enrich_state_with_history()
+    ### Stateless Summary Pattern:
     - Generates formatted strings, not raw objects
     - Limits history to prevent context bloat
     - Provides exploration guidance based on visit patterns

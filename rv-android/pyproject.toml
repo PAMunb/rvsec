@@ -19,14 +19,11 @@ rv-instrumentation = {path = "modules/rv-instrumentation", develop = true}
 rv-static-analysis = {path = "modules/rv-static-analysis", develop = true}
 rv-screen-parser = {path = "modules/rv-screen-parser", develop = true}
 rv-coverage = {path = "modules/rv-coverage", develop = true}
-rv-llm = {path = "modules/rv-llm", develop = true}
 rv-tools = {path = "modules/rv-tools", develop = true}
 rv-uiautomator = {path = "modules/rv-uiautomator", develop = true}
 rv-platform = {path = "modules/rv-platform", develop = true}
 rv-agent = {path = "modules/rv-agent", develop = true}
 rv-agent-validation = {path = "modules/rv-agent-validation", develop = true}
-rvsmart-tool = {path = "modules/rvsmart-tool", develop = true}
-rvdroid-tool = {path = "modules/rvdroid-tool", develop = true}
 rvagent-tool = {path = "modules/rvagent-tool", develop = true}
 rv-experiment = {path = "modules/rv-experiment", develop = true}
 androguard = "3.4.0a1"

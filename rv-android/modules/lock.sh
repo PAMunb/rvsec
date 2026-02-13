@@ -13,17 +13,18 @@ set -euo pipefail  # Strict error handling
 # Static module list in dependency order - same as install.sh
 declare -ra MODULES=(
     "rv-android-core"           # Foundation - core utilities and domain models
-    "rv-monitor-generator"      # Monitor generation from MOP specifications  
+    "rv-monitor-generator"      # Monitor generation from MOP specifications
     "rv-instrumentation"        # APK instrumentation with monitors
     "rv-static-analysis"        # Static analysis tools (GATOR, GESDA, REACH)
     "rv-coverage"               # Coverage analysis tools
     "rv-screen-parser"          # Screen parsing utilities
-    "rv-llm"                    # Language Model integration infrastructure
     "rv-tools"                  # Tool registry and plugin system
+    "rv-uiautomator"           # Shared UIAutomator components for device interaction
     "rv-platform"               # Central execution platform for Android experiments
-    "rvandroid-tool"            # RVAndroid tool implementation with LLM integration
+    "rv-agent"                  # LLM-driven agentic testing with LangGraph
+    "rvagent-tool"              # RVAgent tool plugin for rv-tools registry
     "rv-experiment"             # Experiment orchestration and coordination
-#    "rvandroid"                 # Main framework module
+    "rv-agent-validation"       # Validation framework for rv-agent
 )
 
 # Colors for output (with fallbacks for non-color terminals)
@@ -368,18 +369,19 @@ MODULES:
         rv-static-analysis        Static analysis tools (GATOR, GESDA, REACH)
         rv-coverage              Coverage analysis tools
         rv-screen-parser         Screen parsing utilities
-        rv-llm                   Language Model integration infrastructure
         rv-tools                 Tool registry and plugin system
+        rv-uiautomator           Shared UIAutomator components for device interaction
         rv-platform              Central execution platform for Android experiments
-        rvandroid-tool           RVAndroid tool implementation with LLM integration
+        rv-agent                 LLM-driven agentic testing with LangGraph
+        rvagent-tool             RVAgent tool plugin for rv-tools registry
         rv-experiment            Experiment orchestration and coordination
-        rvandroid               Main framework module
+        rv-agent-validation      Validation framework for rv-agent
 
 EXAMPLES:
     ./lock.sh                                       # Lock all modules
     ./lock.sh lock rv-android-core rv-static-analysis # Lock specific modules
     ./lock.sh update                                # Update all module locks
-    ./lock.sh --dry-run update rv-llm               # Preview update for rv-llm
+    ./lock.sh --dry-run update rv-agent             # Preview update for rv-agent
     ./lock.sh --verbose lock                        # Lock with verbose output
     ./lock.sh verify                                # Verify all lock files
 

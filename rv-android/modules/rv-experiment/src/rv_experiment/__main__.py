@@ -153,10 +153,7 @@ class CLIContext:
         
         ### Current Tool Support:
         - Builtin tools: monkey, droidbot, ape, fastbot (auto-registered via rv-tools)
-        - Future tools: RVAndroid (requires LLM configuration integration)
-        
-        Note: RVAndroid tool registration is commented out pending LLM configuration
-        modernization as it requires specific LLM backend setup and configuration.
+        - External tools: rvagent (LLM-driven agentic testing via rvagent-tool)
         """
         try:
             # Builtin tools are auto-registered through rv-tools import
@@ -183,9 +180,6 @@ class CLIContext:
         ### Examples:
         - `monkey` -> {name: "monkey", variants: [], parameters: {}}
         - `droidbot:dfs_greedy` -> {name: "droidbot", variants: ["dfs_greedy"], parameters: {}}
-        - `rvandroid:llama:batch@temperature=0.3,max_tokens=2048` ->
-          {name: "rvandroid", variants: ["llama", "batch"], parameters: {"temperature": "0.3", "max_tokens": "2048"}}
-        
         ### Parsing Strategy:
         1. Split tool name/variants from parameters using '@' delimiter
         2. Parse parameter section as key=value pairs separated by commas
@@ -266,9 +260,8 @@ def cli(ctx: CLIContext, debug: bool):
     
     Examples:
     - Basic: `monkey`, `droidbot`, `ape`
-    - With variants: `droidbot:dfs_greedy`, `rvandroid:llama:batch`
-    - With parameters: `rvandroid:llama@temperature=0.3,max_tokens=2048`
-    - Multiple tools: `monkey,droidbot:dfs_greedy,rvandroid:llama:batch@temperature=0.2`
+    - With variants: `droidbot:dfs_greedy`, `rvagent:multimode`
+    - Multiple tools: `monkey,droidbot:dfs_greedy,rvagent:pure_algorithm`
     
     **Monitored Operations Support:**
     - `--specification-set jca`: JCA cryptography API monitoring
@@ -301,7 +294,7 @@ def cli(ctx: CLIContext, debug: bool):
 @click.option('--tools', '-t', default='monkey',
               help='Comma-separated tools with variants and parameters\n'
                    'Format: tool1[:variants][@params],tool2[:variants][@params]\n'
-                   'Examples: monkey,droidbot:dfs_greedy,rvandroid:llama:batch@temperature=0.3')
+                   'Examples: monkey,droidbot:dfs_greedy,rvagent:multimode')
 @click.option('--config', '-c', type=click.Path(exists=True),
               help='Configuration file path (JSON format)')
 @click.option('--timeout', default=DEFAULT_TIMEOUT,
@@ -378,10 +371,7 @@ def run(ctx: CLIContext, tools: str, config: Optional[str], timeout: int, repeti
     # Basic tools
     rv-experiment run --tools monkey
     rv-experiment run --tools droidbot:dfs_greedy
-    
-    # LLM-driven testing with variants (when available)
-    rv-experiment run --tools rvandroid:llama:batch@temperature=0.3
-    
+
     # Multiple tools comparison
     rv-experiment run --tools monkey,droidbot:dfs_greedy --repetitions 3
     ```
@@ -656,12 +646,7 @@ def list_tools(ctx: CLIContext, detailed: bool, filter_by: str):
         
         if not detailed:
             click.echo("\n💡 Use --detailed flag for more information about tool variants and parameters")
-            
-        # Show note about RVAndroid availability
-        rvandroid_available = any(tool.name == 'rvandroid' for tool in tools)
-        if not rvandroid_available:
-            click.echo("\n📝 Note: RVAndroid tool will be available after LLM configuration modernization")
-        
+
     except Exception as e:
         ctx.logger.error(f"Tool listing failed: {e}")
         click.echo(f"❌ Tool listing failed: {e}", err=True)

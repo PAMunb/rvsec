@@ -137,17 +137,15 @@ tool_config_custom = ToolConfig(
 )
 droidbot_tool = factory.create_tool(tool_config_custom)
 
-# Create RVAndroid tool with typed configuration
-rvandroid_config = ToolConfig(
-    tool_name="rvandroid",
-    variant="default",
+# Create RVAgent tool with configuration
+rvagent_config = ToolConfig(
+    tool_name="rvagent",
+    variant="multimode",
     additional_params={
-        "llm_type": "ollama",
-        "llm_model": "llama3.2",
-        "prompt_strategy": "single"
+        "timeout": 300
     }
 )
-rvandroid_tool = factory.create_tool(rvandroid_config)
+rvagent_tool = factory.create_tool(rvagent_config)
 ```
 
 ## Built-in Tools

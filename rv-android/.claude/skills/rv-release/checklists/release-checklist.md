@@ -95,7 +95,7 @@ For workspaces with multiple modules:
 
 - [ ] Process modules in dependency order:
   1. [ ] rv-android-core (no deps)
-  2. [ ] rv-tools, rv-uiautomator, rv-llm (core deps)
+  2. [ ] rv-tools, rv-uiautomator (core deps)
   3. [ ] rv-screen-parser, rv-static-analysis, rv-coverage
   4. [ ] rv-monitor-generator, rv-instrumentation
   5. [ ] rv-platform
@@ -170,7 +170,6 @@ MODULES=(
     "rv-android-core"
     "rv-tools"
     "rv-uiautomator"
-    "rv-llm"
     "rv-screen-parser"
     "rv-static-analysis"
     "rv-coverage"

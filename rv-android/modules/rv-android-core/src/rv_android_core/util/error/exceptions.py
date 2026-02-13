@@ -119,13 +119,6 @@ class ToolCreationError(RVAndroidError):
     pass
 
 
-class RVAndroidToolError(ToolError):
-    """Error raised specifically by the RVAndroid tool."""
-    
-    def __init__(self, message: str, cause: Optional[Exception] = None):
-        super().__init__(message, "rvandroid", cause)
-
-
 class ActionExecutionError(ExecutionError):
     """Error raised specifically during action execution."""
 
@@ -199,16 +192,6 @@ class RVToolTimeoutError(RVToolError):
 class RVToolConfigurationError(RVToolError):
     """Exception for tool configuration errors during setup."""
     pass
-
-
-class RVAndroidToolError(RVToolError):
-    """Exception raised during RVAndroid tool execution."""
-    
-    def __init__(self, message: str, tool_name: Optional[str] = "rvandroid", cause: Optional[Exception] = None):
-        super().__init__(message, tool_name, cause)
-        
-    def __str__(self):
-        return f"RVAndroidToolError: {super().__str__()}"
 
 
 class ToolNotFoundError(RVToolError):

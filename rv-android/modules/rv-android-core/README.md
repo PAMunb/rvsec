@@ -69,7 +69,7 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **External Tools**: Base classes for tool integration (Monkey, DroidBot, etc.)
 - **Analysis Pipeline**: Domain models consumed by coverage and static analysis modules
 - **Experiment Framework**: Event system and configuration used by rv-experiment
-- **LLM Integration**: Base infrastructure used by rv-llm for error handling and logging
+- **LLM Testing**: Base infrastructure used by rv-agent for error handling and logging
 
 ## Installation
 

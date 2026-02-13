@@ -47,7 +47,6 @@ The rv-agent module has grown significantly and now contains several files excee
 rv-agent depends on:
 ├── rv-android-core (foundation, events, errors)
 ├── rv-screen-parser (UI element parsing)
-├── rv-llm (LLM client abstraction)
 ├── rv-uiautomator (device interaction)
 └── rv-static-analysis (WTG data)
 ```

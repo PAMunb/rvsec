@@ -428,7 +428,7 @@ In Waterfall, the specification is frozen after the planning phase. Changes are 
 
 **Why it matters**: One of the most common criticisms of SDD is that it creates too much overhead (see Section 10.2). Proportional ceremony addresses this directly: small changes get light-touch processes; large changes get full processes. This prevents SDD from degenerating into bureaucracy.
 
-**How RV-Android implements this**: Three workflow tracks — Full SDD (6 phases, for multi-module changes), Fast-Forward SDD (4 phases, for single-module changes), and Quick Path (3 phases, no specs, for bug fixes). See Section 11.5 for details.
+**How RV-Android implements this**: Three workflow tracks — Full SDD (6 phases, for changes requiring design decisions across modules), Fast-Forward SDD (4 phases, for single-module design decisions), and Quick Path (3 phases, plan.md only, for mechanical changes). Track selection is based on whether design decisions are needed, not file count. See Section 11.5 for details.
 
 ---
 
@@ -1165,7 +1165,7 @@ Marmelab published "Spec-Driven Development: The Waterfall Strikes Back" — the
 **The proposed alternative**: Marmelab advocates "Natural Language Development" — iterative feature building using Agile principles with AI coding agents. Identify risky assumptions, design minimal experiments, develop incrementally. They built a 3D sculpting tool in 10 hours "without writing any spec."
 
 **Counter-arguments**:
-- **Proportional ceremony** addresses the "1,300 lines for a date feature" problem. SDD implementations with tiered workflows (like RV-Android's Quick Path) do not require specifications for small changes.
+- **Proportional ceremony** addresses the "1,300 lines for a date feature" problem. SDD implementations with tiered workflows (like RV-Android's Quick Path) do not require spec artifacts for mechanical changes — a lightweight `plan.md` suffices.
 - **SDD is explicitly iterative**, unlike Waterfall. Specifications are living documents, not frozen contracts. The "Big Design Up Front" critique applies to rigid SDD implementations, not to the approach itself.
 - **The "no spec" alternative works for prototypes** but has documented failures at scale (see Section 1.2 on vibe coding failures).
 
@@ -1203,7 +1203,7 @@ Fowler notes: "Non-deterministic AI behavior persists despite elaborate specific
 
 For existing codebases with established patterns and conventions, the overhead of writing specifications may exceed the benefit. The existing code itself serves as a specification (the "code as spec" argument). New developers can read the code; AI agents can be pointed at the code directly.
 
-**Mitigation**: Tiered workflows. RV-Android's Quick Path (no specs) is used for small changes to existing code where the code itself is sufficient context. SDD ceremony is reserved for changes where the additional structure provides genuine value.
+**Mitigation**: Tiered workflows. RV-Android's Quick Path (plan.md only, no spec artifacts) is used for mechanical changes to existing code where the code itself is sufficient context. SDD ceremony is reserved for changes where design decisions benefit from the additional structure.
 
 ### 10.8 The "Verschlimmbesserung" Risk
 
@@ -1225,7 +1225,7 @@ This is a fair assessment as of early 2026. SDD is worth adopting carefully and 
 | Context blindness | Multiple | Brownfield-aware tools; require reading existing code |
 | Non-determinism | Böckeler, ThoughtWorks | Tests as deterministic anchor; verification phase |
 | Agents ignoring specs | Marmelab | Human review; automated verification |
-| Brownfield diminishing returns | Multiple | Quick Path (no specs) for small changes |
+| Brownfield diminishing returns | Multiple | Quick Path (plan.md only) for mechanical changes |
 
 ---
 
@@ -1306,7 +1306,7 @@ openspec/
 │   ├── core/spec.md              # rv-android-core: EventBus, ErrorHandler, logging (FR33-FR37)
 │   ├── platform/spec.md          # rv-platform: task execution, results (FR07-FR11, FR14)
 │   ├── experiment/spec.md        # rv-experiment: orchestration (FR15-FR17)
-│   ├── agent/spec.md             # rv-agent, rv-llm: LLM-driven testing (FR21-FR32)
+│   ├── agent/spec.md             # rv-agent: LLM-driven testing (FR21-FR32)
 │   ├── instrumentation/spec.md   # rv-monitor-generator, rv-instrumentation (FR01-FR03)
 │   ├── analysis/spec.md          # rv-static-analysis, rv-coverage, rv-screen-parser (FR04-FR06, FR12-FR13)
 │   └── tools/spec.md             # rv-tools, rv-uiautomator (FR18-FR20)
@@ -1359,17 +1359,19 @@ flowchart TD
 
 ### 11.5 Workflow Tracks
 
-Not every change requires full SDD ceremony. Three tracks match formality to scope:
+Not every change requires full SDD ceremony. The guiding principle is: **use the minimum level of specification rigor that removes ambiguity for your context** (ArXiv, "Spec-Driven Development: From Code to Contract", 2026). Three tracks match formality to the nature of the change — specifically, whether the change requires **design decisions** that benefit from spec artifacts, or whether it is a mechanical task where a plan document suffices.
+
+Böckeler (Martin Fowler, 2026) documented the anti-pattern of applying SDD uniformly: Kiro turned a small bug fix into "4 user stories with 16 acceptance criteria" — a "sledgehammer to crack a nut." File count alone does not determine the track: a 45-file dead module removal is Quick Path if the plan is clear and no design decisions are needed.
 
 ```mermaid
 flowchart TD
-    START([New Task]) --> ASSESS{What is the\nchange scope?}
+    START([New Task]) --> ASSESS{Design decisions\nneeded?}
 
-    ASSESS -->|"Multi-module change\nArchitectural decision\nNew capability"| FULL["<b>Full SDD</b>\n6 phases\nAll artifacts created step-by-step"]
+    ASSESS -->|"Yes: multi-module\nor architectural"| FULL["<b>Full SDD</b>\n6 phases\nAll artifacts step-by-step"]
 
-    ASSESS -->|"Single module change\nClear requirements\nBounded scope"| FAST["<b>Fast-Forward SDD</b>\n4 phases\nAll artifacts auto-generated"]
+    ASSESS -->|"Yes: single module\nclear requirements"| FAST["<b>Fast-Forward SDD</b>\n4 phases\nAll artifacts auto-generated"]
 
-    ASSESS -->|"Bug fix\nSmall refactor\nTest addition\nDocumentation"| QUICK["<b>Quick Path</b>\n3 phases\nNo OpenSpec artifacts"]
+    ASSESS -->|"No: mechanical task\nclear what to do"| QUICK["<b>Quick Path</b>\n3 phases\nplan.md only"]
 
     FULL --> F_EX["Explore → Propose → Design\n→ Implement → Verify → Archive"]
     FAST --> FF_EX["Explore → Fast-Forward\n→ Implement → Close"]
@@ -1380,19 +1382,24 @@ flowchart TD
     style QUICK fill:#e8f5e9,stroke:#2e7d32
 ```
 
-| Track | When to Use | OpenSpec Artifacts | Example |
-|-------|-------------|-------------------|---------|
-| **Full SDD** | Multi-module, architectural, new features | Proposal, delta specs, design, tasks (step by step) | Adding scroll detection to rv-agent + rv-screen-parser |
-| **Fast-Forward SDD** | Single module, clear requirements, bounded scope | All artifacts (auto-generated in one step via `/opsx:ff`) | Adding a new config option to rv-experiment |
-| **Quick Path** | Bug fixes, small refactoring, test additions | None | Fixing a coverage tracking bug in rv-coverage |
+| Track | When to Use | Change Directory | Example |
+|-------|-------------|------------------|---------|
+| **Full SDD** | Design decisions + multi-module or architectural | `openspec/changes/` with full artifacts (proposal, delta specs, design, tasks) | Adding scroll detection to rv-agent + rv-screen-parser |
+| **Fast-Forward SDD** | Design decisions + single module, clear requirements | `openspec/changes/` with full artifacts (auto-generated via `/opsx:ff`) | Adding a new config option to rv-experiment |
+| **Quick Path** | No design decisions — mechanical, clear plan | `openspec/changes/` with `plan.md` only | Removing discontinued modules (45 files), fixing a coverage bug |
 
-**Decision guide**: Ask these questions in order:
-1. Does it cross module boundaries? → **Full SDD**
-2. Does it introduce a new capability or change architecture? → **Full SDD**
-3. Is it a single-module change with clear requirements? → **Fast-Forward SDD**
-4. Is it a bug fix, refactor, or test? → **Quick Path**
+**Decision guide**: The key question is whether the change requires choices between alternatives that affect behavior, interface, or architecture:
 
-When in doubt, start with Quick Path. You can escalate to a higher track if the change turns out to be larger than expected.
+| Question | Track |
+|----------|-------|
+| Does it introduce new behavior that must be documented in specs? | Full or FF SDD |
+| Does it cross module boundaries with architectural implications? | Full SDD |
+| Is it a single-module change with spec implications? | FF SDD |
+| Does it remove/refactor without adding new documented behavior? | **Quick Path** |
+| Is it a bug fix, cleanup, or documentation update? | **Quick Path** |
+| Are requirements crystal clear and the task is mechanical? | **Quick Path** |
+
+When in doubt, start with Quick Path. You can escalate to a higher track if the change turns out to need design decisions.
 
 ### 11.6 Example: Full SDD — Adding Scroll Detection to rv-agent
 
@@ -1453,7 +1460,7 @@ A coverage tracking bug in rv-coverage — no SDD artifacts needed.
 /rv-verify rv-coverage                       # Run all checks (tests + lint + types)
 ```
 
-Notice the difference: Full SDD took 6 phases with multiple OpenSpec commands; Quick Path took 3 phases with no OpenSpec commands at all. The same SDD system supports both — proportional ceremony in action.
+Notice the difference: Full SDD took 6 phases with multiple OpenSpec commands and full spec artifacts; Quick Path took 3 phases with only a `plan.md` and no spec ceremony. The same SDD system supports both — proportional ceremony in action.
 
 ### 11.8 SDD Artifact Inventory
 

@@ -103,7 +103,6 @@ rv-experiment
         │   └── rv-android-core
         └── rv-agent
             ├── rv-android-core
-            ├── rv-llm
             └── rv-screen-parser
 ```
 
@@ -135,7 +134,7 @@ Layer 1 (Foundation):
   rv-android-core
 
 Layer 2 (Utilities):
-  rv-tools, rv-uiautomator, rv-llm, rv-screen-parser
+  rv-tools, rv-uiautomator, rv-screen-parser
 
 Layer 3 (Analysis):
   rv-static-analysis, rv-coverage, rv-monitor-generator

@@ -230,18 +230,18 @@ class ConfigurationFactory:
     def create_llm_template(self) -> ExperimentConfig:
         """
         Create LLM-focused configuration template using factory pattern.
-        
+
         ### Template Factory Pattern:
         This method creates LLM-focused configuration templates optimized for
-        AI-driven testing scenarios with RVAndroid and monitored operations.
-        
+        agentic testing scenarios with rvagent and monitored operations.
+
         Returns:
             LLM-focused ExperimentConfig template
         """
         return ExperimentConfig(
             name="llm_experiment",
-            description="LLM-driven testing experiment", 
-            tool_configs=[ToolConfig(name="rvandroid", variants=["llama", "batch"])],
+            description="LLM-driven testing experiment",
+            tool_configs=[ToolConfig(name="rvagent", variants=["multimode"])],
             timeouts=[1800],  # 30 minutes for LLM
             specification_set="jca"
         )

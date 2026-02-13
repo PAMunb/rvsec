@@ -23,7 +23,7 @@ context: |
   - core: rv-android-core (domain models, events, errors, logging, utilities)
   - platform: rv-platform (task execution engine, components, storage, results)
   - experiment: rv-experiment (orchestration, CLI, 3-phase workflow)
-  - agent: rv-agent + rv-llm (LLM exploration, LangGraph, strategies, memory)
+  - agent: rv-agent (LLM exploration, LangGraph, strategies, memory)
   - instrumentation: rv-monitor-generator + rv-instrumentation (RV pipeline)
   - analysis: rv-static-analysis + rv-coverage + rv-screen-parser
   - tools: rv-tools + rv-uiautomator (tool infrastructure, device interaction)

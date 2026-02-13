@@ -1,4 +1,4 @@
-# rvandroid/experiment_workflow/workflow_factory.py
+# rv_experiment/experiment/workflow/workflow_factory.py
 """
 Factory for creating experiment workflow components.
 Enables centralized component creation and configuration.

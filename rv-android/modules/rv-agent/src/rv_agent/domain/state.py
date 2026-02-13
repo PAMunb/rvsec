@@ -5,8 +5,7 @@ Defines the complete state structure for the RVAgent autonomous exploration
 workflow, including UI observations, strategy context, and execution metadata.
 
 ### Stateless Context Architecture:
-This state uses a stateless messaging pattern inspired by rvsmart-tool, where
-each LLM call receives a fresh message constructed from pre-formatted summaries.
+Each LLM call receives a fresh message constructed from pre-formatted summaries.
 NO message history is accumulated, preventing context window overflow.
 
 ### V5 Tool Calling Support:

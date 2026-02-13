@@ -65,7 +65,6 @@ As a [user type], I want [feature] so that [benefit].
 | Module | Purpose |
 |--------|---------|
 | `rv-android-core` | Base classes |
-| `rv-llm` | LLM client |
 
 ### External Dependencies
 

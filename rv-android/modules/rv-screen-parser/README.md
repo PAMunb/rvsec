@@ -69,8 +69,7 @@ rv-screen-parser/
 ### Integration Points
 
 - **rv-android-core**: Uses BaseScreenParser infrastructure, ErrorHandler decorators, LoggingManager, and domain models
-- **rvandroid-tool**: Provides screenshot analysis results for action complementation and visual UI enhancement
-- **rv-llm**: Supplies parsed screen data and visual analysis results for AI-driven testing and prompt context
+- **rv-agent**: Consumes parsed screen data for LLM-driven testing and exploration
 - **rv-experiment**: Provides screen parsing and analysis components for experiment orchestration
 - **Testing Tools Integration**: Supports parsing of screen data from various testing tools for unified analysis
 - **Factory Pattern**: Dynamic parser and detector selection through factory systems

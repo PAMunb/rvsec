@@ -23,7 +23,7 @@ class UIAdapter(ABC):
     - Primary interface between testing tools and Android devices
     - Abstracts implementation details from higher-level components
     - Enables framework-agnostic testing strategies
-    - Provides unified API for both rvsmart and rvdroid tools
+    - Provides unified API for all testing tools
     """
     
     @abstractmethod

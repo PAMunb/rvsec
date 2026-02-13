@@ -9,7 +9,7 @@ Specs are organized by 7 domains, each covering one or more Python modules. Toge
 | **core** | rv-android-core | FR33-FR37 | NFR01-NFR06 | 26 | 37 | [core/spec.md](core/spec.md) |
 | **platform** | rv-platform | FR07-FR11, FR14 | NFR02, NFR04, NFR07, NFR08 | 14 | 30 | [platform/spec.md](platform/spec.md) |
 | **experiment** | rv-experiment | FR15-FR17 | NFR05, NFR08 | 12 | 18 | [experiment/spec.md](experiment/spec.md) |
-| **agent** | rv-agent, rv-llm | FR21-FR32 | NFR02, NFR04, NFR07, NFR08 | 18 | 54 | [agent/spec.md](agent/spec.md) |
+| **agent** | rv-agent | FR21-FR32 | NFR02, NFR04, NFR07, NFR08 | 18 | 54 | [agent/spec.md](agent/spec.md) |
 | **instrumentation** | rv-monitor-generator, rv-instrumentation | FR01-FR03 | NFR07 | 12 | 19 | [instrumentation/spec.md](instrumentation/spec.md) |
 | **analysis** | rv-static-analysis, rv-coverage, rv-screen-parser | FR04-FR06, FR12-FR13 | NFR06 | 15 | 32 | [analysis/spec.md](analysis/spec.md) |
 | **tools** | rv-tools, rv-uiautomator | FR18-FR20 | NFR02 | 14 | 24 | [tools/spec.md](tools/spec.md) |

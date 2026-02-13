@@ -6,7 +6,7 @@ Authoritative reference for the Spec-Driven Development (SDD) workflow used in R
 
 **Key principle**: The workflow is **fluid, not rigid**. Following OpenSpec's principle: "no phase gates, work on what makes sense." Artifact dependencies are enablers, not gates.
 
-**Sources**: Martin Fowler (spec-anchored spectrum), GitHub Spec Kit, OpenSpec docs, ThoughtWorks Tech Radar.
+**Sources**: Martin Fowler (spec-anchored spectrum), Birgitta Böckeler (SDD: 3 Tools, 2026), ArXiv (Spec-Driven Development: From Code to Contract, 2026), GitHub Spec Kit, OpenSpec docs, ThoughtWorks Tech Radar.
 
 ---
 
@@ -94,8 +94,8 @@ Bidirectional traceability links all artifacts to their originating issue:
 
 | From | To | Mechanism |
 |------|----|-----------|
-| Issue -> OpenSpec change | Change directory name includes issue number: `YYYY-MM-DD-GH<N>-<short-name>` |
-| OpenSpec change -> Issue | `proposal.md` header includes: `GitHub Issue: #N` |
+| Issue -> Change directory | All tracks: `openspec/changes/YYYY-MM-DD-GH<N>-<short-name>/` |
+| Change -> Issue | Full/FF SDD: `proposal.md` header. Quick Path: `plan.md` header. Both include `GitHub Issue: #N` |
 | Issue -> Commits | Use `refs #N` during work, `closes #N` in the final commit |
 | Issue -> PR | Include `Closes #N` in PR body |
 | Issue -> Specs | Affected specs are listed in the issue body (domains checkboxes) |
@@ -113,7 +113,9 @@ During SDD workflow execution, Claude Code updates the Kanban board status using
 
 ## 3. Workflow Track Selection
 
-Not every change requires the full SDD ceremony. Three tracks match change scope to workflow formality.
+Not every change requires the full SDD ceremony. The guiding principle is: **use the minimum level of specification rigor that removes ambiguity for your context** (ArXiv, "Spec-Driven Development: From Code to Contract", 2026). Three tracks match change scope to workflow formality.
+
+Birgitta Böckeler (Martin Fowler, 2026) documented a common anti-pattern: SDD tools that turn a small bug fix into "4 user stories with 16 acceptance criteria" — a "sledgehammer to crack a nut." When spec-kit generated numerous markdown files for a small feature, she observed: "in the same time it took me to run and review the spec-kit results I could have implemented the feature with plain AI-assisted coding." RV-Android avoids this trap by providing three tracks with decreasing ceremony, and by making the **distinguishing question** explicit: **does this change require design decisions that need spec artifacts (proposal, delta specs, design), or is it a mechanical task where a plan document suffices?**
 
 ```mermaid
 flowchart TD
@@ -121,34 +123,40 @@ flowchart TD
     P0 -->|"Vague idea\nUnclear scope"| IDEATE["Phase 0: Ideation\n(brainstorming, explore,\nsequential-thinking)"]
     P0 -->|"Clear task"| ASSESS
 
-    IDEATE --> ASSESS{Change Scope}
-    ASSESS -->|"Multi-module\nArchitectural\nNew capability"| FULL[Full SDD]
-    ASSESS -->|"Single module\nClear requirements"| FAST[Fast-Forward SDD]
-    ASSESS -->|"Bug fix\nSmall refactor\nTest addition"| QUICK[Quick Path]
+    IDEATE --> ASSESS{Design decisions?}
+    ASSESS -->|"Yes: multi-module\nor architectural"| FULL[Full SDD]
+    ASSESS -->|"Yes: single module\nclear requirements"| FAST[Fast-Forward SDD]
+    ASSESS -->|"No: mechanical task\nclear what to do"| QUICK[Quick Path]
 
     FULL --> F_FLOW["6 phases\n(all artifacts step-by-step)"]
     FAST --> FF_FLOW["4 phases\n(artifacts auto-generated)"]
-    QUICK --> Q_FLOW["3 phases\n(no OpenSpec artifacts)"]
+    QUICK --> Q_FLOW["3 phases\n(plan.md only)"]
 ```
 
 ### Selection Criteria
 
-| Track | When to Use | Artifacts Created | Phases |
-|-------|-------------|-------------------|--------|
-| **Full SDD** | Multi-module changes, architectural decisions, new capabilities | proposal, delta specs, design, tasks (step by step) | 6 |
-| **Fast-Forward SDD** | Single module, clear requirements, bounded scope | All artifacts (auto-generated via `/opsx:ff`) | 4 |
-| **Quick Path** | Bug fixes, small refactoring, test additions, documentation | None (no OpenSpec ceremony) | 3 |
+| Track | When to Use | Artifacts Created | Change Directory | Phases |
+|-------|-------------|-------------------|------------------|--------|
+| **Full SDD** | Design decisions needed + multi-module or architectural | proposal, delta specs, design, tasks (step by step) | `openspec/changes/` (full) | 6 |
+| **Fast-Forward SDD** | Design decisions needed + single module, clear requirements | All artifacts (auto-generated via `/opsx:ff`) | `openspec/changes/` (full) | 4 |
+| **Quick Path** | No design decisions — mechanical task with clear plan | `plan.md` only | `openspec/changes/` (minimal) | 3 |
 
 ### Decision Guide
 
-Ask these questions to pick the right track:
+The key question is whether the change requires **design decisions** — choices between alternatives that affect the system's behavior, interface, or architecture. If the answer to "what should I do?" is obvious and the only question is "where are all the places I need to touch?", that's Quick Path.
 
-1. **Does it cross module boundaries?** Yes -> Full SDD
-2. **Does it introduce a new capability or change architecture?** Yes -> Full SDD
-3. **Is it a single-module change with clear requirements?** Yes -> Fast-Forward SDD
-4. **Is it a bug fix, refactor, or test?** Yes -> Quick Path
+| Question | Answer → Track |
+|----------|---------------|
+| Does it introduce new behavior that must be documented in specs? | Yes → Full or FF SDD |
+| Does it cross module boundaries with architectural implications? | Yes → Full SDD |
+| Is it a single-module change with spec implications? | Yes → FF SDD |
+| Does it remove/refactor without adding new documented behavior? | Yes → **Quick Path** |
+| Is it a bug fix, cleanup, or documentation update? | Yes → **Quick Path** |
+| Are requirements crystal clear and the task is mechanical? | Yes → **Quick Path** |
 
-When in doubt, start with Quick Path. You can escalate to a higher track if the change turns out to be larger than expected.
+**Anti-pattern warning**: Do not select FF SDD or Full SDD based on **file count alone**. A change that touches 45 files but is purely mechanical (remove dead module references, update MODULES arrays, clean documentation) is Quick Path — the plan document captures everything needed. Creating proposal/delta-spec/design/tasks artifacts for such a change wastes time and produces specs that describe removal rather than design. The number of files determines whether to use **subagent orchestration** (Section 5), not which **workflow track** to follow.
+
+When in doubt, start with Quick Path. You can escalate to a higher track if the change turns out to need design decisions.
 
 ---
 
@@ -188,7 +196,86 @@ This applies to code comments, docstrings, spec descriptions, design documents, 
 
 ---
 
-## 5. Full SDD Workflow
+## 5. Context Management: Subagent Orchestration
+
+Complex changes (20+ files, multiple modules) consume the main context window rapidly. Context compaction mid-implementation causes loss of state, forcing re-analysis and reducing the probability of completing the change successfully in a single session. This section defines how to use subagents to keep the main context window lean and focused on orchestration.
+
+### The Principle
+
+The main context window acts as a **thin orchestrator**. It holds the plan, dispatches work to subagents, collects their summaries, and runs final verification. Subagents handle the actual file reading, editing, and analysis in their own isolated context windows. When a subagent finishes, its context is discarded — only the summary returns to the main window.
+
+```
+Main Window (orchestrator):
+├── Reads plan / tasks.md
+├── Groups tasks by independence and locality
+├── Dispatches subagent per group (parallel when independent)
+├── Collects summaries (minimal context consumed)
+├── Runs final verification (tests, grep, lint)
+└── Commits
+```
+
+This pattern works because most implementation tasks are **embarrassingly parallel** — editing constants.py in rv-experiment has no dependency on editing README.md or moving directories to backup. The main window does not need to hold the contents of 45 files simultaneously; it only needs to know which groups succeeded and which need attention.
+
+### When to Use Subagents
+
+| Situation | Subagent? | Rationale |
+|-----------|-----------|-----------|
+| Implementation phase with 3+ independent task groups | Yes | Each group runs in its own context |
+| Documentation updates touching 5+ files | Yes | Doc edits are independent and verbose |
+| Deep codebase exploration (Explore phase) | Yes | Exploration produces voluminous output that pollutes the main context |
+| Phase 6 Archive (spec sync + doc sync) | Yes | Spec and doc sync are independent |
+| Quick Path with 1-3 files | No | Overhead of subagent dispatch exceeds benefit |
+| Tasks with strict sequential dependency | No | Subagent N+1 needs the exact output of subagent N |
+| Single-file edit | No | Direct edit is faster |
+
+### How to Dispatch Subagents
+
+**What to pass to each subagent**:
+- The plan file path or inline task description with acceptance criteria
+- The specific file list (paths + line numbers when available)
+- Any constants or conventions needed (e.g., "use `backup/` not `deleted/`")
+- The development principles (P1-P4) if the subagent writes docs or comments
+
+**What NOT to pass**:
+- The entire conversation history (subagent has its own clean context)
+- Unrelated context from other task groups
+- Verbose exploration results from Phase 1
+
+**What to expect back**:
+- A concise summary: files changed, what was done, any issues encountered
+- The main window does NOT re-read every file the subagent edited
+
+### Task Grouping Strategy
+
+Group tasks for subagent dispatch using two criteria:
+
+1. **Independence**: Tasks that share no files and have no ordering dependency go to separate subagents (can run in parallel)
+2. **Locality**: Tasks that touch files in the same module or directory go to the same subagent (avoids merge conflicts and leverages shared context)
+
+**Sizing**: Each subagent should handle 3-15 files. Fewer than 3 is overhead; more than 15 risks compaction within the subagent itself.
+
+### Example: 45-File Refactoring Change
+
+This is the pattern for the "Remove Discontinued LLM Modules" change (see `docs/20260213_remover_modulos.md`):
+
+```
+Main Window:
+├── Read plan (1 file)
+├── Subagent 1 (Bash): Groups A+B — move dirs and scripts to backup/
+├── Subagent 2 (general-purpose): Group C — edit pyproject.toml files, run poetry lock
+├── Subagent 3 (general-purpose): Group D — clean rv-experiment Python source (7 files)
+├── Subagent 4 (general-purpose): Group E — update shell script MODULES arrays (3 files)
+├── Subagent 5 (general-purpose): Group F — Docker cleanup (1 file)
+├── Subagent 6 (general-purpose): Groups G+H — update all docs/specs/skills (17 files)
+├── Verification: poetry install, pytest, grep for dead references
+└── Commit
+```
+
+Subagents 1-2 must run before 3-6 (file moves and pyproject changes are prerequisites). Subagents 3-6 are independent and can run in parallel.
+
+---
+
+## 6. Full SDD Workflow
 
 For changes that cross module boundaries or introduce new capabilities. Each phase produces artifacts reviewed before advancing.
 
@@ -270,6 +357,8 @@ flowchart LR
    - `/rv-feature` — when implementing a new capability
 3. The orchestrator chains to `rv-code-reviewer` automatically at the end
 
+**Subagent orchestration** (see Section 5): When `tasks.md` has 3+ independent task groups touching 20+ files total, dispatch each group to a subagent. The main window reads the plan, dispatches subagents (parallel when independent, sequential when dependent), collects summaries, and runs final verification. This prevents context compaction mid-implementation.
+
 #### Phase 5: Verify
 
 **Goal**: Run all checks and validate implementation against specs.
@@ -302,9 +391,11 @@ flowchart LR
 2. Run `/opsx:archive` to archive the completed change
 3. Run `/rv-docs-sync` if CLAUDE.md or other docs need updating
 
+**Subagent orchestration** (see Section 5): When documentation updates touch 5+ files (specs, CLAUDE.md, README, skills), delegate the doc sync to a subagent. The main window handles `/opsx:sync` and `/opsx:archive` (lightweight), while the subagent handles the bulk file edits.
+
 ---
 
-## 6. Fast-Forward SDD Workflow
+## 7. Fast-Forward SDD Workflow
 
 For single-module changes with clear requirements. `/opsx:ff` generates all planning artifacts at once, skipping the step-by-step proposal/design/tasks phases.
 
@@ -345,6 +436,8 @@ flowchart LR
 | **Outputs** | Implemented code changes, tests |
 | **Exit criteria** | All tasks complete, tests passing |
 
+**Subagent orchestration** (see Section 5): Same pattern as Full SDD Phase 4. For changes with multiple independent task groups, dispatch each to a subagent from the main window.
+
 #### Phase 4: Close
 
 **Goal**: Verify, sync specs, and archive in one phase.
@@ -357,26 +450,48 @@ flowchart LR
 
 ---
 
-## 7. Quick Path
+## 8. Quick Path
 
-For targeted fixes that do not need OpenSpec formality. No planning artifacts created.
+For changes that do not require design decisions — the task is clear, the plan is mechanical, and the only question is execution. Quick Path covers bug fixes, dead code removal, refactoring, test additions, documentation updates, and any multi-file cleanup where requirements are unambiguous.
+
+**Important**: Quick Path is not limited to small changes. A 45-file dead module removal is Quick Path if the plan is clear and no design decisions are needed. File count determines whether to use **subagent orchestration** (Section 5), not which workflow track to follow.
+
+### Change Directory
+
+All Quick Path changes get a change directory in `openspec/changes/` with a single `plan.md` artifact. This provides traceability (linked to GitHub Issue) and a consistent archive location across all tracks.
+
+```
+openspec/changes/YYYY-MM-DD-GH<N>-short-name/
+└── plan.md          # Analysis + file inventory + acceptance criteria
+```
+
+The `plan.md` is created during the Analyze phase. For trivial changes (typo fix, single-line edit), the plan can be a few lines. For larger mechanical changes, it includes a complete file inventory with line numbers (e.g., `docs/20260213_remover_modulos.md`).
+
+**Cross-referencing**: The directory name includes the GitHub Issue number (`GH<N>`). The `plan.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit.
 
 ```mermaid
 flowchart LR
-    A["1. Analyze"] --> F["2. Fix"] --> V["3. Verify"]
+    A["1. Analyze\n(create plan.md)"] --> F["2. Fix"] --> V["3. Verify"]
 ```
 
 ### Phase Details
 
 #### Phase 1: Analyze
 
-**Goal**: Understand the issue.
+**Goal**: Understand the issue and create the plan.
 
 | Aspect | Detail |
 |--------|--------|
-| **Skills** | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression`, or direct code reading |
-| **Outputs** | Understanding of the root cause or change needed |
-| **Exit criteria** | Clear path to the fix |
+| **Skills** | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression`, `/rv-analyze-dead-code`, or direct code reading |
+| **Outputs** | `plan.md` in `openspec/changes/` with scope, file inventory, and acceptance criteria |
+| **Exit criteria** | Clear path to the fix, all affected files identified |
+
+**What to include in `plan.md`**:
+- Context: why this change is needed
+- Scope: what modules/files are affected
+- File inventory: exact files and line numbers when possible
+- Acceptance criteria: how to verify the change is complete
+- For large changes: task groups for subagent dispatch (see Section 5)
 
 #### Phase 2: Fix
 
@@ -388,6 +503,8 @@ flowchart LR
 | **Outputs** | Code changes, tests |
 | **Exit criteria** | Fix implemented |
 
+**Subagent orchestration** (see Section 5): When the plan has 3+ independent task groups or touches 20+ files, dispatch each group to a subagent. The main window reads the plan, dispatches, collects summaries, and runs final verification.
+
 #### Phase 3: Verify
 
 **Goal**: Confirm the fix works.
@@ -396,11 +513,13 @@ flowchart LR
 |--------|--------|
 | **Skills** | `/rv-verify` or `/rv-test-run` |
 | **Outputs** | Tests passing, quality checks clean |
-| **Exit criteria** | All checks pass |
+| **Exit criteria** | All checks pass, acceptance criteria from `plan.md` met |
+
+After verification, archive the change by moving the change directory to `openspec/archive/` and closing the GitHub Issue.
 
 ---
 
-## 8. Skill Architecture
+## 9. Skill Architecture
 
 The skill system has three layers with unidirectional flow. The Process Layer (OpenSpec) invokes the Execution Layer (rv-*), never the reverse.
 
@@ -545,7 +664,7 @@ These are architectural principles for the skill system itself. For the developm
 
 ---
 
-## 9. Quick Reference: Common Scenarios
+## 10. Quick Reference: Common Scenarios
 
 | Scenario | Track | Skill Sequence |
 |----------|-------|----------------|
@@ -554,15 +673,17 @@ These are architectural principles for the skill system itself. For the developm
 | Refactor module internals | Quick | `rv-analyze-module` -> `rv-refactor` -> `rv-verify` |
 | Fix a bug | Quick | `rv-debug-regression` or analysis -> `rv-tdd` -> `rv-verify` |
 | Add tests to existing code | Quick | `rv-test-add` -> `rv-test-run` |
-| Remove dead code | Quick | `rv-analyze-dead-code` -> `rv-cleanup` -> `rv-verify` |
+| Remove dead code / modules | Quick | `rv-analyze-dead-code` -> plan.md -> `rv-cleanup` (w/ subagents if 20+ files) -> `rv-verify` |
 | Architectural change | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `rv-doc-adr` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
 | Add a new module | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-feature`) -> `rv-verify` -> `opsx:archive` |
 | Optimize performance | FF SDD | `rv-analyze-complexity` -> `opsx:ff` -> `opsx:apply` (w/ `rv-refactor`) -> `rv-verify` -> `opsx:archive` |
 | Fix lint issues | Quick | `rv-qa-lint` -> `rv-qa-lint-fix` -> `rv-test-run` |
+| Large mechanical cleanup (45 files) | Quick | plan.md -> subagent dispatch -> `rv-verify` |
+| Update docs across modules | Quick | plan.md -> subagent dispatch -> verify |
 
 ---
 
-## 10. Workflow Examples
+## 11. Workflow Examples
 
 ### Example 1: Full SDD — Adding scroll detection to rv-agent
 
@@ -637,13 +758,13 @@ Single module, clear requirements: add `max_scroll_attempts` to RVAgentConfig.
 
 ---
 
-## 11. Assessment of External Feedback
+## 12. Assessment of External Feedback
 
 Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow design.
 
 | Source | Suggestion | Decision | Rationale |
 |--------|-----------|----------|-----------|
-| Gemini | Create `/rv-help` skill | Skip | Quick reference table (Section 9) addresses discoverability without adding complexity |
+| Gemini | Create `/rv-help` skill | Skip | Quick reference table (Section 10) addresses discoverability without adding complexity |
 | Gemini | Create `/rv-onboard` skill | Skip | `/opsx:onboard` already exists for SDD; workflow docs serve as rv-* onboarding |
 | Gemini | Improve discoverability | Accept | Addressed via workflow track selection + quick reference table + CLAUDE.md update |
 | Both LLMs | Unidirectional flow is sound | Keep | Preserved as Design Principle #1 |
@@ -655,7 +776,7 @@ Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow des
 
 ---
 
-## 12. OpenSpec CLI Reference
+## 13. OpenSpec CLI Reference
 
 The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal commands are also available directly for inspection, validation, and debugging.
 
@@ -732,7 +853,7 @@ openspec validate --all --json
 
 ---
 
-## 13. Related Documents
+## 14. Related Documents
 
 | Document | Purpose |
 |----------|---------|

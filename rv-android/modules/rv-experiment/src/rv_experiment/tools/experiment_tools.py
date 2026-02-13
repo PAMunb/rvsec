@@ -1,8 +1,8 @@
 """
 External tool registration for rv-experiment execution.
 
-This module provides comprehensive external tool registration using constants
-and modern architecture patterns. All legacy code has been removed.
+This module registers external testing tools (rvagent) into the rv-tools
+registry so they are available for experiment execution.
 """
 
 from typing import List, Optional
@@ -14,8 +14,6 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_tools import ToolRegistry
 
 from rv_experiment.constants import (
-    EXTERNAL_TOOL_RVANDROID,
-    EXTERNAL_TOOL_RVDROID,
     EXTERNAL_TOOL_RVAGENT,
     TOOL_REGISTRATION_SUCCESS,
     TOOL_REGISTRATION_FAILED,
@@ -78,9 +76,8 @@ class ExperimentToolRegistry:
         Register all external tools respecting module hierarchy.
         
         Registers tools from modules that depend on rv-tools:
-        - rvandroid-tool (module 10 > rv-tools module 8)
-        - rvdroid-tool (module 11 > rv-tools module 8)
-        
+        - rvagent-tool (agentic testing with LangGraph)
+
         This method is idempotent - it can be called multiple times safely.
         """
         # Check if already registered to prevent duplicates
@@ -89,12 +86,6 @@ class ExperimentToolRegistry:
             return
             
         self.logger.info("Starting external tools registration")
-        
-        # Register RVAndroid tool
-        self._register_rvandroid_tool()
-
-        # Register RVDroid tool
-        self._register_rvdroid_tool()
 
         # Register RVAgent tool
         self._register_rvagent_tool()
@@ -106,37 +97,6 @@ class ExperimentToolRegistry:
         self._log_registration_summary()
         
         self.logger.info("External tools registration completed")
-
-    def _register_rvandroid_tool(self) -> None:
-        """Register RVAndroid tool with comprehensive error handling."""
-        try:
-            from rvandroid_tool.tools.rvandroid.tool import RVAndroidTool
-            self.registry.register_tool_class(RVAndroidTool)
-            
-            self.logger.info(TOOL_REGISTRATION_SUCCESS.format(EXTERNAL_TOOL_RVANDROID))
-        except ImportError as e:
-            self.logger.warning(TOOL_REGISTRATION_IMPORT_ERROR.format(
-                EXTERNAL_TOOL_RVANDROID.title(), e
-            ))
-        except Exception as e:
-            self.logger.error(TOOL_REGISTRATION_FAILED.format(EXTERNAL_TOOL_RVANDROID, e))
-            import traceback
-            traceback.print_exc()
-
-    def _register_rvdroid_tool(self) -> None:
-        """Register RVDroid tool with comprehensive error handling."""
-        try:
-            from rvdroid_tool.tools.tool import RVDroidTool
-            self.registry.register_tool_class(RVDroidTool)
-            self.logger.info(TOOL_REGISTRATION_SUCCESS.format(EXTERNAL_TOOL_RVDROID))
-        except ImportError as e:
-            self.logger.warning(TOOL_REGISTRATION_IMPORT_ERROR.format(
-                EXTERNAL_TOOL_RVDROID.title(), e
-            ))
-        except Exception as e:
-            self.logger.error(TOOL_REGISTRATION_FAILED.format(EXTERNAL_TOOL_RVDROID, e))
-            import traceback
-            traceback.print_exc()
 
     def _register_rvagent_tool(self) -> None:
         """Register RVAgent tool with comprehensive error handling."""
@@ -162,7 +122,7 @@ class ExperimentToolRegistry:
             self.logger.info(f"Available tools: {', '.join(sorted(tool_names))}")
             
             # Log variant information for external tools
-            for tool_name in [EXTERNAL_TOOL_RVANDROID, EXTERNAL_TOOL_RVDROID, EXTERNAL_TOOL_RVAGENT]:
+            for tool_name in [EXTERNAL_TOOL_RVAGENT]:
                 if self.registry.has_tool(tool_name):
                     variants = self.registry.get_tool_variants(tool_name)
                     self.logger.info(f"{tool_name} variants: {', '.join(variants)}")

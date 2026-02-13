@@ -340,5 +340,5 @@ BaseClass (abstract)
 - rv-android-core, rv-platform, rv-tools, rv-uiautomator
 - rv-monitor-generator, rv-instrumentation, rv-static-analysis
 - rv-coverage, rv-screen-parser
-- rv-agent, rv-llm
+- rv-agent
 - rv-experiment, rv-agent-validation
