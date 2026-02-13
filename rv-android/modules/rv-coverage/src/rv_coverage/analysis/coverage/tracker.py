@@ -361,17 +361,14 @@ class CoverageTracker:
 
             elif coverage_log:
                 # Calculate time since tool execution start using logcat timestamp
-                # TODO
                 if self.tool_execution_start_time and coverage_log.time_occurred:
                     time_since_start = int((coverage_log.time_occurred - self.tool_execution_start_time).total_seconds())
                     time_since_start = max(0, time_since_start)  # Ensure non-negative
                 else:
                     time_since_start = 0
 
-                # TODO onde esta lancando o evento?
-
                 # Set timing info for coverage
-                coverage_log.time_since_task_start = time_since_start # TODO
+                coverage_log.time_since_task_start = time_since_start
                 self.repository.register_method_call(coverage_log)
                 self.total_method_calls += 1
                 self._data_changed_since_last_update = True  # Mark data as changed

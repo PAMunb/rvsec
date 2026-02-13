@@ -158,11 +158,10 @@ class CoverageComponent:
             try:
                 self.logger.info(LOG_START.format(phase="initializing coverage tracker"))
                 
-                # CRITICAL: Use tool_execution_start for accurate timing in CSV generation
-                # tool_execution_start reflects when the actual tool began execution (after emulator setup)
-                # This ensures coverage.csv and errors.csv have accurate timing that excludes setup overhead
-                # TODO rever
-                timing_reference = self.task.result.tool_execution_start or self.task.result.start_time
+                # Use task start_time as initial timing reference during tracker initialization.
+                # The accurate tool_execution_start timestamp is set later in start_tracking(),
+                # after mark_tool_execution_start() has been called in the executor.
+                timing_reference = self.task.result.start_time
                 
                 self.coverage_tracker = CoverageTracker(
                     logcat_file=self.task.result.logcat_file,
@@ -202,6 +201,11 @@ class CoverageComponent:
 
             try:
                 self.logger.info(LOG_START.format(phase="coverage tracking"))
+
+                # Update timing reference now that tool_execution_start is available
+                if self.task.result.tool_execution_start:
+                    self.coverage_tracker.tool_execution_start_time = self.task.result.tool_execution_start
+
                 self.coverage_tracker.start()
 
                 # Publish event

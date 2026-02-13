@@ -9,6 +9,7 @@ from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState
 from rv_platform.execution.executor import TaskExecutor
+from rv_platform.components.coverage import CoverageComponent
 from rv_platform.components.emulator import EmulatorComponent
 from rv_platform.components.tool_execution import ToolExecutionComponent
 
@@ -285,3 +286,68 @@ class TestTaskExecutor:
         # Both should be called even if first fails
         mock_component1.cleanup.assert_called_once_with(context)
         mock_component2.cleanup.assert_called_once_with(context)
+
+    def test_mark_tool_execution_start_called_before_coverage_start_tracking(
+        self, task_with_app, mock_tool
+    ):
+        """
+        Verify that mark_tool_execution_start() is called BEFORE coverage
+        start_tracking() during emulator session execution.
+
+        This ordering is critical: CoverageTracker needs the accurate
+        tool_execution_start timestamp to calculate correct relative times
+        in coverage.csv. If start_tracking() runs first, the tracker uses
+        the task creation time as fallback, causing a ~60s offset in times.
+        """
+        executor = TaskExecutor(task_with_app, mock_tool)
+
+        # Track call order
+        call_order = []
+
+        # Mock emulator component
+        mock_emulator = MagicMock(spec=EmulatorComponent)
+        mock_emulator.name = "EmulatorComponent"
+        mock_android = MagicMock()
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_android)
+        mock_context_manager.__exit__ = MagicMock(return_value=False)
+        mock_emulator.start_emulator.return_value = mock_context_manager
+        mock_emulator.install_app.return_value = True
+        executor.register_component(mock_emulator)
+
+        # Mock coverage component that records call order
+        mock_coverage = MagicMock(spec=CoverageComponent)
+        mock_coverage.name = "CoverageComponent"
+        mock_coverage.execute.return_value = True
+        mock_coverage.start_tracking.side_effect = lambda: call_order.append("start_tracking")
+        mock_coverage.stop_tracking.return_value = True
+        mock_coverage.process_results.return_value = True
+        executor.register_component(mock_coverage)
+
+        # Mock tool component
+        mock_tool_execution = MagicMock(spec=ToolExecutionComponent)
+        mock_tool_execution.name = "ToolExecutionComponent"
+        mock_tool_execution.execute.return_value = True
+        executor.register_component(mock_tool_execution)
+
+        # Patch mark_tool_execution_start to record call order
+        original_mark = task_with_app.mark_tool_execution_start
+        def tracked_mark():
+            call_order.append("mark_tool_execution_start")
+            original_mark()
+        task_with_app.mark_tool_execution_start = tracked_mark
+
+        executor.execute()
+
+        # Verify both were called
+        assert "mark_tool_execution_start" in call_order
+        assert "start_tracking" in call_order
+
+        # Verify ordering: mark_tool_execution_start BEFORE start_tracking
+        mark_idx = call_order.index("mark_tool_execution_start")
+        tracking_idx = call_order.index("start_tracking")
+        assert mark_idx < tracking_idx, (
+            f"mark_tool_execution_start (index {mark_idx}) must be called "
+            f"before start_tracking (index {tracking_idx}). "
+            f"Actual order: {call_order}"
+        )

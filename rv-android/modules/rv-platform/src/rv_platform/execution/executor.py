@@ -322,13 +322,13 @@ class TaskExecutor:
                 self.logger.info("Starting logcat capture")
                 logcat_component.start_capture()
 
-            if coverage_component:
-                self.logger.info("Starting coverage tracking")
-                coverage_component.start_tracking()
-
             # Mark precise tool execution start for accurate timing measurement
             self.task.mark_tool_execution_start()
             self._publish_tool_execution_started_event()
+
+            if coverage_component:
+                self.logger.info("Starting coverage tracking")
+                coverage_component.start_tracking()
 
             # Execute the tool
             self.logger.info(f"Executing component: {tool_component.name}")
