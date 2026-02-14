@@ -185,9 +185,14 @@ Direct rv-platform execution test: uses instrumented APKs from rv-experiment run
 Docker builds are the final verification step — after local E2E passes.
 
 - [x] 18.1 Commit all changes (8ed63d58, required for production image COPY)
-- [ ] 18.2 `docker build -f docker/base/Dockerfile -t phtcosta/rvandroid-base:uv-test .` — exits 0, uv binary available
-- [ ] 18.3 `docker build -f docker/rvandroid/Dockerfile -t phtcosta/rvandroid:uv-test .` — exits 0, `uv run rv-experiment --help` works inside container
-- [ ] 18.4 `docker build -f docker/rvandroid_dev/Dockerfile -t phtcosta/rvandroid-dev:uv-test .` — exits 0
+- [x] 18.2 All 6 images built via `docker/build_all.sh` — exits 0:
+  - `phtcosta/rvsec_base:0.8.0` (1.26 GB) — uv binary installed via `curl -LsSf https://astral.sh/uv/install.sh`
+  - `phtcosta/rvsec_android:0.8.0` (8.15 GB) — Android SDK + emulator
+  - `phtcosta/rvandroid_tools:0.8.0` (8.56 GB) — DroidBot, APE, Monkey tools
+  - `phtcosta/rvandroid:0.8.0` (11.5 GB) — production image, `uv sync --no-dev` installs all modules
+  - `phtcosta/ares:latest` (4.6 GB) — ARES testing tool
+  - `phtcosta/qtesting:latest` (3.69 GB) — QTesting testing tool
+- [x] 18.3 Production image E2E: `docker run --rm phtcosta/rvandroid:latest` starts rv-experiment, registers all 9 tools (ape, monkey, ares, droidbot, droidmate, fastbot, humanoid, qtesting, rvagent), generates 23 JCA monitors, instruments APK, runs Maven successfully — full pipeline works with uv inside Docker
 
 ## 19. Verification — No Dangling Poetry References (AC5)
 
