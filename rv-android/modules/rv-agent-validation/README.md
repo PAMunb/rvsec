@@ -22,26 +22,26 @@ cd modules && ./install.sh rv-agent-validation
 
 ```bash
 # Run experiment from config file
-poetry run python -m rv_agent_validation run --config data/configs/my_config.json --output results
+uv run python -m rv_agent_validation run --config data/configs/my_config.json --output results
 
 # Dry run (show what would execute)
-poetry run python -m rv_agent_validation run --config data/configs/my_config.json --dry-run
+uv run python -m rv_agent_validation run --config data/configs/my_config.json --dry-run
 
 # Resume from checkpoint
-poetry run python -m rv_agent_validation run --config data/configs/my_config.json --resume
+uv run python -m rv_agent_validation run --config data/configs/my_config.json --resume
 ```
 
 ### Preprocess APKs
 
 ```bash
 # Instrument APKs and run static analysis
-poetry run python -m rv_agent_validation preprocess --data-dir data/
+uv run python -m rv_agent_validation preprocess --data-dir data/
 
 # Force re-instrumentation
-poetry run python -m rv_agent_validation preprocess --force
+uv run python -m rv_agent_validation preprocess --force
 
 # Skip static analysis
-poetry run python -m rv_agent_validation preprocess --skip-static
+uv run python -m rv_agent_validation preprocess --skip-static
 ```
 
 ### Parameter Calibration (Docker-based)
@@ -50,14 +50,14 @@ Calibration uses Docker containers for parallel trial execution, orchestrated by
 
 ```bash
 # Run calibration (macro phase, 6 parallel containers, 50 trials)
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --data-dir data/calibration_dataset_v2 \
     --filter-file data/calibration_set_v2.txt \
     --output-dir ./results/calibration_macro \
     --n-containers 6 --n-trials 50 --timeout 300 --phase macro
 
 # Run baseline experiment (3 tools, 6 containers)
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools ape,fastbot,rvagent:pure_algorithm \
     --data-dir data/calibration_dataset_v2 \
     --filter-file data/all_valid_apks.txt \
@@ -65,11 +65,11 @@ poetry run python scripts/baseline_docker.py \
     --n-containers 6 --timeout 300 --repetitions 3
 
 # Show calibrated parameters
-poetry run python -m rv_agent_validation show-params \
+uv run python -m rv_agent_validation show-params \
     --params-file ./results/calibration_macro/optimal_params.json
 
 # Show default parameter values
-poetry run python -m rv_agent_validation show-defaults
+uv run python -m rv_agent_validation show-defaults
 ```
 
 **Calibration Workflow:**
@@ -323,10 +323,10 @@ Comparing v13 (dialog handling) vs v14 (structured reasoning) with different sam
 ```bash
 # Run unit tests
 cd modules/rv-agent-validation
-poetry run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run calibration smoke test (3 trials, generate-only)
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --data-dir data/calibration_dataset_v2 \
     --filter-file data/calibration_set_v2.txt \
     --output-dir ./results/smoke_test \

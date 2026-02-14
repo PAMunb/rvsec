@@ -42,25 +42,25 @@ This skill verifies **product standards** (code quality) and **process standards
    cd modules/$MODULE
 
    # Flake8 (style + errors)
-   poetry run flake8 src/ --max-line-length=120
+   uv run flake8 src/ --max-line-length=120
 
    # MyPy (type checking)
-   poetry run mypy src/ --ignore-missing-imports
+   uv run mypy src/ --ignore-missing-imports
 
    # Black (formatting check)
-   poetry run black src/ --check
+   uv run black src/ --check
 
    # isort (import order check)
-   poetry run isort src/ --check-only
+   uv run isort src/ --check-only
    ```
 
 3. **Run security analysis**:
    ```bash
    # Bandit (security vulnerabilities)
-   poetry run bandit -r src/ --severity-level medium -f txt
+   uv run bandit -r src/ --severity-level medium -f txt
 
    # For detailed JSON report
-   poetry run bandit -r src/ -f json -o bandit_report.json
+   uv run bandit -r src/ -f json -o bandit_report.json
    ```
 
    **Severity Levels**:
@@ -71,10 +71,10 @@ This skill verifies **product standards** (code quality) and **process standards
 4. **Run complexity metrics** (optional but recommended):
    ```bash
    # Cyclomatic complexity
-   poetry run radon cc src/ -a -s
+   uv run radon cc src/ -a -s
 
    # Maintainability index
-   poetry run radon mi src/ -s
+   uv run radon mi src/ -s
    ```
 
    **Complexity Thresholds**:

@@ -157,7 +157,7 @@ When capturing requirements:
 
 | Type | Constraint |
 |------|------------|
-| Technology | Python 3.10+, Poetry |
+| Technology | Python 3.10+, uv |
 | Integration | Must use existing EventBus |
 | Standard | PEP 8 compliance |
 

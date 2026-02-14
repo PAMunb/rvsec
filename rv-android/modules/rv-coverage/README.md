@@ -45,20 +45,20 @@ The RV-Coverage module provides coverage tracking capabilities for Android appli
 ### Prerequisites
 
 - Python 3.12+
-- Poetry for dependency management
+- uv for dependency management
 - rv-android-core module
 
 ### Setup
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 
 # Install in development mode
-poetry install --extras dev
+uv sync --extras dev
 ```
 
 ## Usage
@@ -227,14 +227,14 @@ The module implements error handling:
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=rv_coverage
+uv run pytest --cov=rv_coverage
 
 # Run specific test categories
-poetry run pytest tests/analysis/
-poetry run pytest tests/parser/
+uv run pytest tests/analysis/
+uv run pytest tests/parser/
 ```
 
 ### Test Structure

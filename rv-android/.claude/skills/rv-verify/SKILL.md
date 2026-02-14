@@ -105,7 +105,7 @@ fi
 
 ```bash
 # From project root
-poetry run pytest modules/$ARGUMENTS/tests/unit/ -v --tb=short
+uv run pytest modules/$ARGUMENTS/tests/unit/ -v --tb=short
 ```
 
 **Expected**: All tests pass (exit code 0)
@@ -114,7 +114,7 @@ poetry run pytest modules/$ARGUMENTS/tests/unit/ -v --tb=short
 
 ```bash
 if [ -d "modules/$ARGUMENTS/tests/integration" ]; then
-    poetry run pytest modules/$ARGUMENTS/tests/integration/ -v --tb=short
+    uv run pytest modules/$ARGUMENTS/tests/integration/ -v --tb=short
 fi
 ```
 
@@ -124,10 +124,10 @@ fi
 
 ```bash
 # Check for known vulnerabilities in dependencies
-poetry run safety check
+uv run safety check
 
 # For JSON output (CI integration)
-poetry run safety check --json
+uv run safety check --json
 ```
 
 **Expected**: No known vulnerabilities (exit code 0)
@@ -140,10 +140,10 @@ poetry run safety check --json
 
 ```bash
 # Black
-poetry run black --check src/
+uv run black --check src/
 
 # isort
-poetry run isort --check src/
+uv run isort --check src/
 ```
 
 **Expected**: No formatting issues (exit code 0)
@@ -151,7 +151,7 @@ poetry run isort --check src/
 ### 6. Run Linter
 
 ```bash
-poetry run flake8 src/
+uv run flake8 src/
 ```
 
 **Expected**: No lint errors (exit code 0)
@@ -161,7 +161,7 @@ poetry run flake8 src/
 ```bash
 # Check if mypy is configured
 if [ -f "mypy.ini" ] || grep -q "\[tool.mypy\]" pyproject.toml; then
-    poetry run mypy src/
+    uv run mypy src/
 fi
 ```
 
@@ -172,11 +172,11 @@ fi
 ```bash
 # Cyclomatic Complexity (CC)
 # Grades: A (1-5), B (6-10), C (11-20), D (21-30), E (31-40), F (41+)
-poetry run radon cc src/ -a -s --total-average
+uv run radon cc src/ -a -s --total-average
 
 # Maintainability Index (MI)
 # Grades: A (100-20), B (19-10), C (9-0)
-poetry run radon mi src/ -s
+uv run radon mi src/ -s
 ```
 
 **Thresholds**:
@@ -191,10 +191,10 @@ After collecting metrics, identify components that deviate significantly:
 
 ```bash
 # List files with complexity > 10 (grade C or worse)
-poetry run radon cc src/ -a -nc
+uv run radon cc src/ -a -nc
 
 # List files with poor maintainability (MI < 40)
-poetry run radon mi src/ -s | grep -E "^[CF]"
+uv run radon mi src/ -s | grep -E "^[CF]"
 ```
 
 **Anomaly Criteria**:
@@ -262,7 +262,7 @@ If verification fails, use these to auto-fix:
 
 ```bash
 # Fix formatting
-poetry run black src/ && poetry run isort src/
+uv run black src/ && uv run isort src/
 
 # Then re-run verification
 /rv-verify [module-name]

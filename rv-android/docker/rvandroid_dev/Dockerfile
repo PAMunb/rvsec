@@ -6,22 +6,22 @@ ENV RVSEC_HOME=/opt/rvsec
 # The tools image installs upstream droidbot (honeynet/droidbot) via pip at
 # /opt/droidbot/ and sets PYTHONPATH=/opt/droidbot. This conflicts with the
 # local modified droidbot (which has POLICY_RVANDROID and other RV-Android
-# customizations) installed by Poetry in Layer 4. PYTHONPATH takes precedence
-# over the Poetry venv's site-packages, so `import droidbot.input_policy`
+# customizations) installed by uv in Layer 4. PYTHONPATH takes precedence
+# over the uv venv's site-packages, so `import droidbot.input_policy`
 # resolves to the upstream version (missing POLICY_RVANDROID) instead of the
 # local copy. Fix: remove the upstream install and clear PYTHONPATH.
 RUN pip uninstall -y droidbot 2>/dev/null || true
 ENV PYTHONPATH=
 
-# --- Layer 1: Root Poetry files (changes rarely) ---
+# --- Layer 1: Root project files (changes rarely) ---
 WORKDIR /opt/rvsec/rv-android
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml uv.lock ./
 
 # --- Layer 1b: DroidBot source ---
 # DroidBot is a local path dependency (setup.py, not pyproject.toml).
-# The full source is needed because `poetry run droidbot` uses the Poetry
+# The full source is needed because `uv run droidbot` uses the uv
 # virtualenv, which does not inherit the pip-installed droidbot from the
-# base tools image. Poetry installs droidbot from this local path into
+# base tools image. uv installs droidbot from this local path into
 # the venv, including the console_scripts entry point.
 COPY droidbot/ ./droidbot/
 
@@ -41,8 +41,8 @@ COPY modules/rvagent-tool/pyproject.toml ./modules/rvagent-tool/
 COPY modules/rv-agent-validation/pyproject.toml ./modules/rv-agent-validation/
 
 # --- Layer 3: Stub packages for editable installs ---
-# Poetry develop=true requires package directories and README.md to exist.
-# All modules have `readme = "README.md"` in pyproject.toml — Poetry fails
+# uv workspace requires package directories and README.md to exist.
+# All modules have `readme = "README.md"` in pyproject.toml — the build fails
 # with FileNotFoundError during PEP 517 build if README.md is missing.
 # Create minimal stubs; real source code overwrites these in Layer 5.
 RUN for mod in \
@@ -67,7 +67,7 @@ RUN for mod in \
   done
 
 # --- Layer 4: Install dependencies (cached unless pyproject.toml changes) ---
-RUN poetry lock && poetry install --no-root --sync --without dev
+RUN uv sync --no-dev
 
 # --- Layer 5: Source code (changes frequently, only this layer rebuilds) ---
 COPY modules/ ./modules/

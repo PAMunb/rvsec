@@ -239,7 +239,7 @@ Look for common vulnerability patterns:
 Run security-focused static analysis:
 ```bash
 cd modules/$MODULE
-poetry run bandit -r src/ -f json -o bandit_report.json
+uv run bandit -r src/ -f json -o bandit_report.json
 ```
 
 **Output Format**:

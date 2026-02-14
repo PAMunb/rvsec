@@ -82,7 +82,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 ### Prerequisites
 
 - Python 3.12+
-- Poetry for dependency management
+- uv for dependency management
 - Access to other RV-Android modules
 - Android SDK (for emulator management)
 
@@ -90,13 +90,13 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 
 # Install in development mode
-poetry install --extras dev
+uv sync --extras dev
 ```
 
 ## Usage
@@ -257,14 +257,14 @@ results = platform.run()
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=rv_platform
+uv run pytest --cov=rv_platform
 
 # Run specific test categories
-poetry run pytest tests/execution/
-poetry run pytest tests/components/
+uv run pytest tests/execution/
+uv run pytest tests/components/
 ```
 
 ### Test Structure

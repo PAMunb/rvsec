@@ -39,7 +39,7 @@ No issues found.
 {{#if NEEDS_FORMAT_FIX}}
 ```bash
 # Fix formatting (from project root)
-poetry run black modules/{{MODULE_NAME}}/src/ && poetry run isort modules/{{MODULE_NAME}}/src/
+uv run black modules/{{MODULE_NAME}}/src/ && uv run isort modules/{{MODULE_NAME}}/src/
 ```
 {{/if}}
 

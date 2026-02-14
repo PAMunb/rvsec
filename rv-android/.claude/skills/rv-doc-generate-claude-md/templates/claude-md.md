@@ -40,7 +40,7 @@ For each pattern, name it and state where it's implemented.]
 
 ```bash
 # CLI (if applicable)
-poetry run [command] [args]
+uv run [command] [args]
 ```
 
 ```python
@@ -73,13 +73,13 @@ result = instance.run()
 
 ```bash
 # Install (from project root)
-poetry install
+uv sync
 
 # Run tests (from project root)
-poetry run pytest modules/[module-name]/tests/ -v
+uv run pytest modules/[module-name]/tests/ -v
 
 # Run specific test
-poetry run pytest modules/[module-name]/tests/unit/test_[file].py -v -k "test_name"
+uv run pytest modules/[module-name]/tests/unit/test_[file].py -v -k "test_name"
 ```
 
 ### Testing

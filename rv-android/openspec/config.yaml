@@ -4,8 +4,8 @@ context: |
   Project: RV-Android
   Type: Modular framework for Android app testing with runtime verification
   Language: Python 3.11+
-  Stack: Poetry workspace, Pydantic v2, LangGraph, SGLang/Qwen3-VL, JavaMOP/RV-Monitor
-  Architecture: 14 Poetry modules with develop=true (shared venv)
+  Stack: uv workspace, Pydantic v2, LangGraph, SGLang/Qwen3-VL, JavaMOP/RV-Monitor
+  Architecture: 14 uv workspace modules in editable mode (shared venv)
   Academic context: PhD thesis on detecting cryptographic API misuses via RV
 
   CRITICAL RULE — Existing system (brownfield):

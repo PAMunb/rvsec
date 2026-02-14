@@ -41,7 +41,7 @@ study.tell(trial.number, score)                  # Reports result back
 ```
 params_to_tool_spec({"mop_direct_score": 350.0}) -> "mop_direct_score=350.0000"
 f"rvagent:pure_algorithm@{spec}" -> "rvagent:pure_algorithm@mop_direct_score=350.0000"
-entrypoint.sh: CMD="poetry run rv-experiment run --tools rvagent:pure_algorithm@mop_direct_score=350.0000"
+entrypoint.sh: CMD="uv run rv-experiment run --tools rvagent:pure_algorithm@mop_direct_score=350.0000"
 ```
 
 ### A3: Parameter counts match
@@ -435,8 +435,8 @@ grep -r "CalibrationOptimizer\|CalibrationRunner\|EmulatorPool" \
 **6.1 Unit tests** (no Docker required)
 
 ```bash
-poetry run pytest modules/rv-agent-validation/tests/calibration/ -v
-poetry run pytest modules/rv-agent-validation/tests/ -v
+uv run pytest modules/rv-agent-validation/tests/calibration/ -v
+uv run pytest modules/rv-agent-validation/tests/ -v
 ```
 
 **6.2 Dangling reference check**
@@ -456,7 +456,7 @@ The Docker image `phtcosta/rvandroid:0.8.0` and KVM are available on this machin
 head -3 modules/rv-agent-validation/data/calibration_set_v2.txt > /tmp/smoke_filter.txt
 
 # Smoke: calibration orchestrator (2 trials, 2 containers, 60s timeout)
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --phase macro --n-trials 2 --n-containers 2 \
     --data-dir modules/rv-agent-validation/data/calibration_dataset_v2 \
     --filter-file /tmp/smoke_filter.txt \
@@ -469,7 +469,7 @@ ls /tmp/smoke_calibration/trial_0/trial_0/summary.csv
 cat /tmp/smoke_calibration/optimal_params.json
 
 # Smoke: baseline docker (2 containers, 1 rep)
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools rvagent:pure_algorithm \
     --data-dir modules/rv-agent-validation/data/calibration_dataset_v2 \
     --filter-file /tmp/smoke_filter.txt \
@@ -481,7 +481,7 @@ ls /tmp/smoke_baseline/batch_0/batch_0/summary.csv
 ls /tmp/smoke_baseline/summary.csv
 
 # Smoke: --generate-only (no containers launched)
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools ape,fastbot,rvagent:pure_algorithm \
     --data-dir modules/rv-agent-validation/data/calibration_dataset_v2 \
     --filter-file /tmp/smoke_filter.txt \

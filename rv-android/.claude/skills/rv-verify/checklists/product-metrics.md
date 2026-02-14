@@ -38,16 +38,16 @@ Collected by analyzing source code without execution.
 
 ```bash
 # Cyclomatic complexity
-poetry run radon cc src/ -a -s
+uv run radon cc src/ -a -s
 
 # Maintainability index
-poetry run radon mi src/ -s
+uv run radon mi src/ -s
 
 # Raw metrics (LOC, comments, etc.)
-poetry run radon raw src/ -s
+uv run radon raw src/ -s
 
 # Halstead complexity metrics
-poetry run radon hal src/
+uv run radon hal src/
 ```
 
 ---
@@ -81,7 +81,7 @@ Metrics specifically designed for OO code.
 ```bash
 # For Python, use radon or wily
 # radon provides cc (complexity) which correlates with WMC
-poetry run radon cc src/ --total-average
+uv run radon cc src/ --total-average
 
 # wily provides historical metrics
 # pip install wily
@@ -131,10 +131,10 @@ Collected during program execution.
 
 ```bash
 # Test coverage
-poetry run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 
 # Performance profiling
-poetry run python -m cProfile -o profile.stats script.py
+uv run python -m cProfile -o profile.stats script.py
 ```
 
 ---
@@ -186,14 +186,14 @@ Test Coverage            ───► Reliability
 # Full metrics analysis (from project root)
 
 # Complexity
-poetry run radon cc modules/$MODULE/src/ -a -s --total-average
+uv run radon cc modules/$MODULE/src/ -a -s --total-average
 
 # Maintainability
-poetry run radon mi modules/$MODULE/src/ -s
+uv run radon mi modules/$MODULE/src/ -s
 
 # Coverage (if tests exist)
-poetry run pytest modules/$MODULE/tests/ --cov=modules/$MODULE/src --cov-report=term-missing
+uv run pytest modules/$MODULE/tests/ --cov=modules/$MODULE/src --cov-report=term-missing
 
 # Security
-poetry run bandit -r modules/$MODULE/src/ -f txt
+uv run bandit -r modules/$MODULE/src/ -f txt
 ```

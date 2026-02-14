@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-RV-Android is a platform for Android application testing using runtime verification techniques with AI-driven testing capabilities. The platform uses a modular Poetry-based architecture with modules in the `modules` directory. The platform combines static analysis, dynamic testing, formal verification, and LLM-guided exploration to detect issues in Android applications, leveraging JavaMOP (Monitoring-Oriented Programming) and RV-Monitor for property verification.
+RV-Android is a platform for Android application testing using runtime verification techniques with AI-driven testing capabilities. The platform uses a modular uv-based architecture with modules in the `modules` directory. The platform combines static analysis, dynamic testing, formal verification, and LLM-guided exploration to detect issues in Android applications, leveraging JavaMOP (Monitoring-Oriented Programming) and RV-Monitor for property verification.
 
 This document details the architecture of the RV-Android platform, focusing on its modular structure, component-based task execution system, and LLM-guided testing capabilities.
 
@@ -10,7 +10,7 @@ This document details the architecture of the RV-Android platform, focusing on i
 
 The RV-Android architecture is built on several key principles:
 
-1.  **Modular Architecture**: The system is divided into independent, reusable modules managed by Poetry. Each module has a well-defined responsibility and clear separation of concerns.
+1.  **Modular Architecture**: The system is divided into independent, reusable modules managed by uv. Each module has a well-defined responsibility and clear separation of concerns.
 2.  **Component-Based Architecture**: Within modules, a component-based approach with clear interfaces enables flexible system composition.
 3.  **Event-Driven Communication**: Decoupled components communicate through an event bus system.
 4.  **LLM Integration**: Integration with language models for intelligent test generation.
@@ -555,13 +555,13 @@ Tool configurations support unified configuration through Pydantic models. Exper
 
 ```bash
 # Run all tests from workspace root
-poetry run pytest
+uv run pytest
 
 # Test specific module
-poetry run pytest modules/rv-android-core/tests/ -v
+uv run pytest modules/rv-android-core/tests/ -v
 
 # Run with coverage
-poetry run pytest --cov=modules --cov-report=html
+uv run pytest --cov=modules --cov-report=html
 ```
 
 ### 11.2 Test Categories

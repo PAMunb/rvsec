@@ -7,10 +7,10 @@ All verification functions are pure (Path in, VerificationResult out) and
 unit-testable without Docker or actual experiment results.
 
 Usage:
-    poetry run python scripts/verify_phase.py b --results-dir ./results/baseline_v2
-    poetry run python scripts/verify_phase.py c --results-dir ./results/calibration_macro_v2
-    poetry run python scripts/verify_phase.py d --results-dir ./results/calibration_micro_v2 --macro-dir ./results/calibration_macro_v2
-    poetry run python scripts/verify_phase.py e --results-dir ./results/validation_v2 --baseline-dir ./results/baseline_v2
+    uv run python scripts/verify_phase.py b --results-dir ./results/baseline_v2
+    uv run python scripts/verify_phase.py c --results-dir ./results/calibration_macro_v2
+    uv run python scripts/verify_phase.py d --results-dir ./results/calibration_micro_v2 --macro-dir ./results/calibration_macro_v2
+    uv run python scripts/verify_phase.py e --results-dir ./results/validation_v2 --baseline-dir ./results/baseline_v2
 """
 
 import argparse

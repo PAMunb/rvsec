@@ -233,14 +233,14 @@ Update imports as needed.
 
 ```bash
 cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 ```
 
 ### Step 5.2: Verify Imports
 
 ```bash
 cd modules/$MODULE
-poetry run python -c "from module.new_file import X; print('Import OK')"
+uv run python -c "from module.new_file import X; print('Import OK')"
 ```
 
 ### Step 5.3: Check for Broken References

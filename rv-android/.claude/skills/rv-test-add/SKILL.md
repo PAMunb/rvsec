@@ -242,7 +242,7 @@ def test_target_function():
 
 ### Run Command
 ```bash
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_[name].py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_[name].py -v
 ```
 
 ### Test Results

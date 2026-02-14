@@ -958,7 +958,7 @@ Call the appropriate tool after your analysis."""
 ```bash
 # Comparar v13 vs v14 em 3-5 apps
 cd modules/rv-agent-validation
-poetry run python -m rv_agent_validation multimodal --config data/configs/quick_test.json
+uv run python -m rv_agent_validation multimodal --config data/configs/quick_test.json
 
 # Metricas a comparar:
 # - Latencia media por iteracao (target: < 1.5x v13)

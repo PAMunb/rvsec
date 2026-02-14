@@ -88,7 +88,7 @@ Extends BaseAnalyzer from rv-android-core with coverage-specific implementation.
 ## Dependencies
 
 ```toml
-[tool.poetry.dependencies]
+[project.dependencies]
 python = ">=3.12,<4.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 pydantic = "^2.9.0"
@@ -153,17 +153,17 @@ if coverage_log:
 cd modules/rv-coverage
 
 # Install dependencies
-poetry install
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 
 # Run tests with coverage
-poetry run pytest --cov=rv_coverage
+uv run pytest --cov=rv_coverage
 
 # Run specific test category
-poetry run pytest tests/parser/        # Logcat parser tests
-poetry run pytest tests/analysis/      # Coverage analysis tests
+uv run pytest tests/parser/        # Logcat parser tests
+uv run pytest tests/analysis/      # Coverage analysis tests
 ```
 
 ## Test Structure
@@ -258,16 +258,15 @@ CoverageTracker operations are thread-safe:
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

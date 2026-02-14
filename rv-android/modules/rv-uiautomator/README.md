@@ -10,10 +10,10 @@ RV-UIAutomator provides a unified interface for interacting with Android devices
 
 ```bash
 # Install all rv-android modules (from project root)
-poetry install
+uv sync
 ```
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in editable mode — source changes are reflected immediately.
+This module is part of the RV-Android uv workspace. All modules are installed in editable mode — source changes are reflected immediately.
 
 **Prerequisites**: ADB must be installed and available on `PATH` (included with Android SDK).
 
@@ -209,10 +209,10 @@ adapter.stop_app("com.example.myapp")
 
 ```bash
 # From project root
-poetry run pytest modules/rv-uiautomator/tests/ -v
+uv run pytest modules/rv-uiautomator/tests/ -v
 
 # With coverage
-poetry run pytest modules/rv-uiautomator/tests/ --cov=modules/rv-uiautomator/src --cov-report=html
+uv run pytest modules/rv-uiautomator/tests/ --cov=modules/rv-uiautomator/src --cov-report=html
 ```
 
 ## License

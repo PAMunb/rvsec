@@ -1,6 +1,6 @@
 # Version Management
 
-Guidelines for version numbering and synchronization in Poetry workspaces.
+Guidelines for version numbering and synchronization in uv workspaces.
 
 ---
 
@@ -162,7 +162,7 @@ done
 
 | Constraint | Meaning | Example |
 |------------|---------|---------|
-| `^1.2.3` | Compatible (Poetry default) | >=1.2.3, <2.0.0 |
+| `^1.2.3` | Compatible | >=1.2.3, <2.0.0 |
 | `~1.2.3` | Patch-level | >=1.2.3, <1.3.0 |
 | `>=1.2.3` | Minimum version | >=1.2.3 |
 | `==1.2.3` | Exact version | Only 1.2.3 |
@@ -173,7 +173,7 @@ done
 For internal modules, use compatible constraint:
 
 ```toml
-[tool.poetry.dependencies]
+[project.dependencies]
 rv-android-core = "^1.2.3"
 ```
 
@@ -284,10 +284,8 @@ else:
 ### Bump Commands
 
 ```bash
-# Using poetry-version-plugin
-poetry version patch   # 1.2.3 → 1.2.4
-poetry version minor   # 1.2.3 → 1.3.0
-poetry version major   # 1.2.3 → 2.0.0
+# Manual version bump
+# Edit pyproject.toml version field directly
 
 # Manual
 # Edit pyproject.toml directly
@@ -302,6 +300,6 @@ grep '^version = ' pyproject.toml
 # From installed package
 python -c "import rv_android_core; print(rv_android_core.__version__)"
 
-# From Poetry
-poetry version --short
+# From pyproject.toml
+grep '^version = ' pyproject.toml | cut -d'"' -f2
 ```

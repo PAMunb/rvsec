@@ -163,7 +163,7 @@ Before extracting code, assess whether it should be extracted for reuse. Not all
 | Class | Separate file in module | `module/helper.py` |
 | Component | Subpackage in module | `module/subcomponent/` |
 | Shared Component | Core module | `rv-android-core/` |
-| New Module | Separate Poetry package | `modules/new-module/` |
+| New Module | Separate uv workspace package | `modules/new-module/` |
 
 ---
 

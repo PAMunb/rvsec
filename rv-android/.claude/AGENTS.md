@@ -442,13 +442,13 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 ```bash
 # Run module tests
 cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 
 # Run single test
-poetry run pytest tests/unit/test_file.py::TestClass::test_name -v
+uv run pytest tests/unit/test_file.py::TestClass::test_name -v
 ```
 
 ---
@@ -472,14 +472,14 @@ poetry run pytest tests/unit/test_file.py::TestClass::test_name -v
 **Lint Commands**:
 ```bash
 # Format
-poetry run black src/ && poetry run isort src/
+uv run black src/ && uv run isort src/
 
 # Check
-poetry run flake8 src/
-poetry run mypy src/
+uv run flake8 src/
+uv run mypy src/
 
 # Security
-poetry run bandit -r src/ --severity-level medium
+uv run bandit -r src/ --severity-level medium
 ```
 
 ---
@@ -564,14 +564,14 @@ poetry run bandit -r src/ --severity-level medium
 | Skill | Command | Purpose |
 |-------|---------|---------|
 | `rv-security` | `/rv-security [target]` | Security vulnerability review and threat analysis |
-| `rv-release` | `/rv-release [major\|minor\|patch] [module]` | Poetry workspace release management and PyPI publishing |
+| `rv-release` | `/rv-release [major\|minor\|patch] [module]` | uv workspace release management and PyPI publishing |
 
 **rv-security** — Reviews code for security vulnerabilities (OWASP Top 10, injection, secrets exposure), plans security architecture, and conducts threat analysis.
 
 **Supporting Files**: `.claude/skills/rv-security/`
 - Checklists: security analysis checklists
 
-**rv-release** — Coordinates multi-module releases in the Poetry workspace: version bumping, changelog generation, dependency synchronization, and PyPI publishing.
+**rv-release** — Coordinates multi-module releases in the uv workspace: version bumping, changelog generation, dependency synchronization, and PyPI publishing.
 
 **Supporting Files**: `.claude/skills/rv-release/`
 - Checklists: release process checklists
@@ -588,7 +588,7 @@ When adding new dependencies to a module, follow this workflow:
 1. Identify needed dependency
        │
        ▼
-2. poetry add [--group dev] [package]
+2. uv add [--group dev] [package]
        │
        ▼
 3. Invoke /rv-analyze-dependencies [module]
@@ -598,7 +598,7 @@ When adding new dependencies to a module, follow this workflow:
        │  - Security vulnerabilities
        │
        ▼
-4. poetry lock
+4. uv lock
        │
        ▼
 5. Continue implementation
@@ -610,16 +610,16 @@ When adding new dependencies to a module, follow this workflow:
 cd modules/$MODULE
 
 # Production dependency
-poetry add [package-name]
+uv add [package-name]
 
 # Development-only dependency (tests, linting)
-poetry add --group dev [package-name]
+uv add --group dev [package-name]
 
 # Lock dependencies
-poetry lock
+uv lock
 
 # Verify
-poetry run safety check
+uv run safety check
 ```
 
 ### Common Dependencies by Purpose
@@ -958,7 +958,7 @@ Do you need...
 **Commands**:
 ```bash
 cd modules/rv-agent
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 ```
 
 ---

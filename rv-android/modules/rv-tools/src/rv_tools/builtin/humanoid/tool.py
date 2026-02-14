@@ -28,7 +28,7 @@ class HumanoidTool(AbstractTool):
     trained model that predicts human-like touch interactions based on UI screenshots.
 
     The command format is identical to DroidBot with one addition:
-        poetry run droidbot -d <serial> -a <apk> -humanoid <url> -policy <policy>
+        uv run droidbot -d <serial> -a <apk> -humanoid <url> -policy <policy>
             -count 10000000000 -timeout <t> -ignore_ad -is_emulator
 
     The Humanoid server URL can be configured via:
@@ -140,7 +140,7 @@ class HumanoidTool(AbstractTool):
         Build DroidBot command with the -humanoid flag.
 
         Command format:
-            poetry run droidbot -d <serial> -a <apk> -humanoid <url>
+            uv run droidbot -d <serial> -a <apk> -humanoid <url>
                 -policy <policy> -count 10000000000 -timeout <t> -ignore_ad -is_emulator
 
         Args:
@@ -164,7 +164,7 @@ class HumanoidTool(AbstractTool):
             "-is_emulator"
         ]
 
-        return Command("poetry", cmd_args, timeout_seconds)
+        return Command("uv", cmd_args, timeout_seconds)
 
     def get_tool_info(self) -> dict:
         """Get Humanoid tool information."""

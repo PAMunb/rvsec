@@ -10,10 +10,10 @@ This module provides an `AbstractTool` implementation that wraps rv-agent for ex
 
 ```bash
 # Install all rv-android modules (from project root)
-poetry install
+uv sync
 ```
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in editable mode --- source changes are reflected immediately.
+This module is part of the RV-Android uv workspace. All modules are installed in editable mode --- source changes are reflected immediately.
 
 ## Quick Start
 
@@ -21,13 +21,13 @@ This module is part of the RV-Android Poetry workspace. All modules are installe
 
 ```bash
 # Run with default multimode variant
-poetry run rv-experiment run --tools rvagent --apks-dir ./apks_examples
+uv run rv-experiment run --tools rvagent --apks-dir ./apks_examples
 
 # Run with a specific variant
-poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples
+uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples
 
 # Combine with other tools
-poetry run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --apks-dir ./apks_examples
+uv run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --apks-dir ./apks_examples
 ```
 
 ### Programmatic Usage
@@ -150,10 +150,10 @@ RVAgent.run() -> results
 
 ```bash
 # From project root
-poetry run pytest modules/rvagent-tool/tests/ -v
+uv run pytest modules/rvagent-tool/tests/ -v
 
 # With coverage
-poetry run pytest modules/rvagent-tool/tests/ --cov=modules/rvagent-tool/src --cov-report=html
+uv run pytest modules/rvagent-tool/tests/ --cov=modules/rvagent-tool/src --cov-report=html
 ```
 
 ## License

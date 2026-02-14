@@ -28,16 +28,16 @@ cd modules && ./install.sh rv-agent
 
 ```bash
 # Basic usage with multimode (70% LLM / 30% algorithm)
-poetry run rv-agent run --package com.example.app
+uv run rv-agent run --package com.example.app
 
 # With specific device and timeout
-poetry run rv-agent run --package com.example.app --device emulator-5554 --timeout 600
+uv run rv-agent run --package com.example.app --device emulator-5554 --timeout 600
 
 # With debug logging
-poetry run rv-agent run --package com.example.app --debug
+uv run rv-agent run --package com.example.app --debug
 
 # Test configuration and connections
-poetry run rv-agent test
+uv run rv-agent test
 ```
 
 ### Programmatic Usage
@@ -68,10 +68,10 @@ print(f"Explored {results['unique_states']} states in {results['iterations']} it
 
 ```bash
 # Run via rv-experiment
-poetry run rv-experiment run --tools rv-agent:multimode --apks-dir ./apks_examples
+uv run rv-experiment run --tools rv-agent:multimode --apks-dir ./apks_examples
 
 # Run via rv-platform directly
-poetry run rv-platform run --tools rv-agent --apks-dir ./apks_examples
+uv run rv-platform run --tools rv-agent --apks-dir ./apks_examples
 ```
 
 ## Features
@@ -96,7 +96,7 @@ Set mode via environment variable or configuration:
 
 ```bash
 # Via environment variable
-RVAGENT_MODE=pure_algorithm poetry run rv-agent run --package com.example.app
+RVAGENT_MODE=pure_algorithm uv run rv-agent run --package com.example.app
 
 # Via configuration
 config = RVAgentConfig(package_name="com.example.app", agent_mode="llm_only")
@@ -146,7 +146,7 @@ config = RVAgentConfig(package_name="com.example.app", agent_mode="llm_only")
 
 ```bash
 # Explore an app for 5 minutes
-poetry run rv-agent run --package br.unb.cic.cryptoapp --timeout 300
+uv run rv-agent run --package br.unb.cic.cryptoapp --timeout 300
 
 # Results saved to ./rvagent_results/
 ```
@@ -154,7 +154,7 @@ poetry run rv-agent run --package br.unb.cic.cryptoapp --timeout 300
 ### Example 2: Targeted Testing with Custom Objective
 
 ```bash
-poetry run rv-agent run \
+uv run rv-agent run \
   --package com.example.app \
   --objective "Test the login flow and verify authentication" \
   --timeout 600 \
@@ -216,7 +216,7 @@ Connect RV-Agent to a remote SGLang server:
 
 ```bash
 # Remote SGLang server
-poetry run rv-agent run --package com.example.app
+uv run rv-agent run --package com.example.app
 
 # With custom URL (via configuration)
 config = RVAgentConfig(
@@ -289,19 +289,19 @@ graph TD
 cd modules/rv-agent
 
 # Run all unit tests (fast, no external dependencies)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
 
 # Run smoke tests (quick sanity checks)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/smoke/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/smoke/ -v
 
 # Run integration tests
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/integration/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/integration/ -v
 
 # Run online tests (requires device and LLM server)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/online/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/online/ -v
 
 # Run with coverage
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v --cov=src/rv_agent
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v --cov=src/rv_agent
 ```
 
 ### Test Structure

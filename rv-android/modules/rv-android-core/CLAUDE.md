@@ -129,16 +129,16 @@ In ~27.5% of APKs, these differ (e.g., Godot games: manifest=`ir.hsn6.trans`, co
 cd modules/rv-android-core
 
 # Run all tests
-poetry run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run with coverage
-poetry run pytest tests/ --cov=src --cov-report=html
+uv run pytest tests/ --cov=src --cov-report=html
 
 # Run specific test categories
-poetry run pytest tests/domain/ -v      # Domain model tests
-poetry run pytest tests/event/ -v       # Event system tests
-poetry run pytest tests/util/ -v        # Utility tests
-poetry run pytest tests/commands/ -v    # Command execution tests
+uv run pytest tests/domain/ -v      # Domain model tests
+uv run pytest tests/event/ -v       # Event system tests
+uv run pytest tests/util/ -v        # Utility tests
+uv run pytest tests/commands/ -v    # Command execution tests
 ```
 
 ## Common Tasks
@@ -231,16 +231,15 @@ class MyTool(AbstractTool):
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

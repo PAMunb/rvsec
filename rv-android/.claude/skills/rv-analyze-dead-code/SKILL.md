@@ -60,7 +60,7 @@ If MCP tools fail:
 2. **Find unused imports**:
    ```bash
    cd modules/$MODULE
-   poetry run python -m pyflakes src/ 2>&1 | grep "imported but unused"
+   uv run python -m pyflakes src/ 2>&1 | grep "imported but unused"
    ```
 
 3. **Find unused functions**:
@@ -70,7 +70,7 @@ If MCP tools fail:
 
 4. **Find unused variables**:
    ```bash
-   poetry run python -m pyflakes src/ 2>&1 | grep "assigned to but never used"
+   uv run python -m pyflakes src/ 2>&1 | grep "assigned to but never used"
    ```
 
 5. **Check for dead code patterns**:
@@ -114,7 +114,7 @@ If MCP tools fail:
 
 ```bash
 # Remove unused imports automatically
-poetry run autoflake --in-place --remove-all-unused-imports src/
+uv run autoflake --in-place --remove-all-unused-imports src/
 ```
 
 ### Recommendations

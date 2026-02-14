@@ -13,7 +13,7 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 3. Task 3: Unit tests (39 tests across 6 files in `tests/calibration/`)
 4. Task 4: Dead code removal (optimizer.py, runner.py, emulator_pool.py -> `backup/calibration_legacy/`)
 5. Task 5: Documentation updates (CLAUDE.md, README.md for rv-agent-validation)
-6. Task 6: Optuna upgrade (3.5 -> 4.7.0 in pyproject.toml + poetry.lock)
+6. Task 6: Optuna upgrade (3.5 -> 4.7.0 in pyproject.toml + uv.lock)
 7. Task 7: Fix G1 — add `aggregated_summary.csv` symlink in `baseline_docker.py`
 8. Task 8: Fix G2 — fix compose file naming in `calibration_orchestrator.py`
 9. Task 9: Update unit tests for G1/G2 fixes
@@ -128,7 +128,7 @@ Commit all infrastructure code, bug fixes, preprocessing script, and the rewritt
 - [ ] 13.1 Run unit tests: all must pass.
 - [ ] 13.2 Update GH#9 title to: "Docker-based calibration: infrastructure + full execution campaign (Phases A-E)"
 - [ ] 13.3 Update GH#9 body with full lifecycle acceptance criteria.
-- [ ] 13.4 Stage all files: scripts, tests, dead code removals, docs, OpenSpec artifacts, poetry.lock.
+- [ ] 13.4 Stage all files: scripts, tests, dead code removals, docs, OpenSpec artifacts, uv.lock.
 - [ ] 13.5 Commit with `refs #9`.
 
 ### 14. Transfer and Verify on Desktop
@@ -136,7 +136,7 @@ Commit all infrastructure code, bug fixes, preprocessing script, and the rewritt
 Transfer code to the desktop machine and run smoke tests to validate end-to-end before committing to the ~308-hour campaign.
 
 - [ ] 14.1 `git pull` on desktop.
-- [ ] 14.2 `poetry install` on desktop.
+- [ ] 14.2 `uv sync` on desktop.
 - [ ] 14.3 Verify environment: Docker image, KVM, disk space. (RVSEC_HOME and Java 8 NOT needed on host.)
 - [ ] 14.4 Copy `apks_complete.csv` to `modules/rv-agent-validation/data/`.
 - [ ] 14.5 Verify APK source directory: flat structure, 188+ APKs.
@@ -270,7 +270,7 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 - [ ] 25.1 Update default values in `parameter_space.py` (`MACRO_PARAMETERS` and `MICRO_PARAMETERS`).
 - [ ] 25.2 Update any unit tests that assert default parameter values.
-- [ ] 25.3 Run `poetry run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
+- [ ] 25.3 Run `uv run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
 
 ### 26. Update Agent Spec
 

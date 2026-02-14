@@ -45,11 +45,9 @@ RUN mkdir $ASPECTJ_HOME && \
     chmod a+x $ASPECTJ_HOME/bin/ajc && \
     rm aspectj-1.9.24.jar
 
-# Install Poetry as a core build tool
-ENV POETRY_HOME="/opt/poetry"
-ENV POETRY_VIRTUALENVS_IN_PROJECT=true
-ENV PATH="${POETRY_HOME}/bin:${PATH}"
-RUN curl -sSL https://install.python-poetry.org | python - 
+# Install uv as a core build tool
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
 
 # Install Docker CLI - required for running ARES and QTesting as sibling containers
 # Adapting for Debian Trixie which might not be 'stable' yet. Using 'bookworm' in case 'trixie' (lsb_release -cs) fails.

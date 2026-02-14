@@ -174,8 +174,8 @@ Target
 
 3. **Tests to run**:
    ```bash
-   poetry run pytest tests/unit/test_llm_client.py -v
-   poetry run pytest tests/integration/test_llm_node.py -v
+   uv run pytest tests/unit/test_llm_client.py -v
+   uv run pytest tests/integration/test_llm_node.py -v
    ```
 ```
 

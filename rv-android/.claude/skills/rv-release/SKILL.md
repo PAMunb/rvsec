@@ -1,7 +1,7 @@
 ---
 name: rv-release
 description: >-
-  Poetry workspace release manager. Use when publishing modules to PyPI, bumping versions,
+  uv workspace release manager. Use when publishing modules to PyPI, bumping versions,
   generating changelogs, or coordinating multi-module releases.
   Do NOT use for: CI/CD pipeline setup, deployment, or infrastructure changes.
 argument-hint: [major|minor|patch] [module-name (optional)]
@@ -12,7 +12,7 @@ allowed-tools: Read, Bash, Glob, Edit, Write, AskUserQuestion
 
 # Release Management: $ARGUMENTS
 
-You are a **release manager** for Poetry workspaces with multiple interdependent modules. You coordinate version management, changelog generation, multi-module synchronization, and PyPI publishing.
+You are a **release manager** for uv workspaces with multiple interdependent modules. You coordinate version management, changelog generation, multi-module synchronization, and PyPI publishing.
 
 ## Your Identity
 
@@ -34,7 +34,7 @@ Reference these files from this skill directory:
 
 | Term | Definition | In This Project |
 |------|------------|-----------------|
-| **Configuration Item** | Component under version control | Each Poetry module |
+| **Configuration Item** | Component under version control | Each uv workspace module |
 | **Version** | Specific instance of a configuration item | `pyproject.toml` version field |
 | **Baseline** | Collection of versions that form a release | Tagged git commit |
 | **Codeline** | Development branch | `master`, feature branches |
@@ -56,10 +56,10 @@ PHASE 3: CHANGELOG GENERATION ────────────────�
     │  Generate from git commits
     ▼
 PHASE 4: BUILD & VERIFY ──────────────────────────────────────────►
-    │  poetry build, dry-run validation
+    │  uv build, dry-run validation
     ▼
 PHASE 5: PUBLISH ─────────────────────────────────────────────────►
-    │  poetry publish, git tag, GitHub release
+    │  uv publish, git tag, GitHub release
     ▼
 DONE
 ```
@@ -87,14 +87,14 @@ DONE
 3. **Run full verification**:
    ```bash
    # For each module in dependency order
-   cd modules/rv-android-core && poetry run pytest -v && cd ../..
-   cd modules/rv-agent && poetry run pytest -v && cd ../..
+   cd modules/rv-android-core && uv run pytest -v && cd ../..
+   cd modules/rv-agent && uv run pytest -v && cd ../..
    # ... etc
    ```
 
 4. **Check dependencies are up-to-date**:
    ```bash
-   poetry lock --check
+   uv lock --check
    ```
 
 ### Pre-Release Checklist
@@ -105,9 +105,9 @@ Reference `checklists/release-checklist.md`:
 |-------|---------|----------|
 | No uncommitted changes | `git status --porcelain` | Empty |
 | On release branch | `git branch --show-current` | master/release |
-| All tests pass | `poetry run pytest` | Exit 0 |
-| No lint errors | `poetry run flake8` | Exit 0 |
-| Lock file current | `poetry lock --check` | Up to date |
+| All tests pass | `uv run pytest` | Exit 0 |
+| No lint errors | `uv run flake8` | Exit 0 |
+| Lock file current | `uv lock --check` | Up to date |
 
 **Output Format**:
 ```markdown
@@ -198,7 +198,7 @@ Reference `checklists/version-management.md`:
 
 5. **Regenerate lock files**:
    ```bash
-   cd modules/rv-android-core && poetry lock && cd ../..
+   cd modules/rv-android-core && uv lock && cd ../..
    # ... for each module
    ```
 
@@ -297,7 +297,7 @@ Reference `checklists/version-management.md`:
 1. **Build each module** (in dependency order):
    ```bash
    cd modules/rv-android-core
-   poetry build
+   uv build
    # Creates dist/rv_android_core-X.Y.Z-py3-none-any.whl
    # Creates dist/rv_android_core-X.Y.Z.tar.gz
    ```
@@ -329,9 +329,9 @@ Reference `checklists/version-management.md`:
 
 4. **Dry-run publish** (PyPI test server):
    ```bash
-   poetry publish --dry-run
+   uv publish --dry-run
    # OR to test PyPI
-   poetry publish -r testpypi
+   uv publish -r testpypi
    ```
 
 **Output Format**:
@@ -380,11 +380,11 @@ Reference `checklists/version-management.md`:
 3. **Publish to PyPI** (in dependency order):
    ```bash
    cd modules/rv-android-core
-   poetry publish
+   uv publish
    # Wait for availability before publishing dependents
 
    cd ../rv-tools
-   poetry publish
+   uv publish
    # ... continue for each module
    ```
 

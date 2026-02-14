@@ -73,9 +73,9 @@ handlers[action]()
 
 ### pyproject.toml Scripts
 
-Functions referenced in `[tool.poetry.scripts]` are entry points that may not be imported anywhere in the codebase.
+Functions referenced in `[project.scripts]` are entry points that may not be imported anywhere in the codebase.
 
-**Detection**: Check `pyproject.toml` for `[tool.poetry.scripts]` entries.
+**Detection**: Check `pyproject.toml` for `[project.scripts]` entries.
 
 ### Click/Typer Commands
 

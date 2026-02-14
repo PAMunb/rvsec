@@ -46,7 +46,7 @@ the config
 **Do**: Include full command with working directory context.
 ```bash
 # From project root
-poetry run pytest modules/rv-agent/tests/unit/ -v
+uv run pytest modules/rv-agent/tests/unit/ -v
 ```
 
 **Don't**: Assume context.

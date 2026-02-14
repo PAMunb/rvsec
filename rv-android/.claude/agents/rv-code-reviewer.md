@@ -66,7 +66,7 @@ Then incorporate the analysis findings into your review.
 
 ## Project Context
 
-- Python codebase with Poetry modules in `modules/`
+- Python codebase with uv workspace modules in `modules/`
 - Uses LangGraph for agent orchestration (rv-agent)
 - Pydantic for configuration validation
 - pytest for testing

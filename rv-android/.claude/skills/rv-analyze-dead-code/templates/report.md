@@ -63,7 +63,7 @@
 ### Auto-fix Unused Imports
 ```bash
 cd modules/{{MODULE}}
-poetry run autoflake --in-place --remove-all-unused-imports src/
+uv run autoflake --in-place --remove-all-unused-imports src/
 ```
 
 ### Manual Review Required

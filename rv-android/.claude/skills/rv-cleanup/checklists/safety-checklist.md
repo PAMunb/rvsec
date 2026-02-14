@@ -34,8 +34,8 @@ After EACH cleanup group:
 - [ ] No syntax errors (file loads)
 - [ ] Linters pass:
   ```bash
-  poetry run flake8 path/to/file.py
-  poetry run black path/to/file.py --check
+  uv run flake8 path/to/file.py
+  uv run black path/to/file.py --check
   ```
 
 ### Test Verification

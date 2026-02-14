@@ -297,12 +297,12 @@ This is the pattern for the "Remove Discontinued LLM Modules" change (see `docs/
 Main Window:
 ├── Read plan (1 file)
 ├── Subagent 1 (Bash): Groups A+B — move dirs and scripts to backup/
-├── Subagent 2 (general-purpose): Group C — edit pyproject.toml files, run poetry lock
+├── Subagent 2 (general-purpose): Group C — edit pyproject.toml files, run uv lock
 ├── Subagent 3 (general-purpose): Group D — clean rv-experiment Python source (7 files)
 ├── Subagent 4 (general-purpose): Group E — update shell script MODULES arrays (3 files)
 ├── Subagent 5 (general-purpose): Group F — Docker cleanup (1 file)
 ├── Subagent 6 (general-purpose): Groups G+H — update all docs/specs/skills (17 files)
-├── Verification: poetry install, pytest, grep for dead references
+├── Verification: uv sync, pytest, grep for dead references
 └── Commit
 ```
 

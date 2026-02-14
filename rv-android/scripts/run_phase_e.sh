@@ -63,7 +63,7 @@ echo "Tasks:       3 tools x 30 APKs x 3 reps = 270"
 echo "Est. time:   ~5.6 hours"
 echo "============================="
 
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools "$TOOLS" \
     --data-dir "$DATA_DIR" \
     --filter-file "$FILTER_FILE" \
@@ -78,5 +78,5 @@ if [[ "$EXTRA_FLAGS" != *"--generate-only"* ]]; then
     echo ""
     echo "=== Phase E Complete ==="
     echo "Run verification:"
-    echo "  poetry run python scripts/verify_phase.py e --results-dir $OUTPUT_DIR --baseline-dir ./results/baseline_v2"
+    echo "  uv run python scripts/verify_phase.py e --results-dir $OUTPUT_DIR --baseline-dir ./results/baseline_v2"
 fi

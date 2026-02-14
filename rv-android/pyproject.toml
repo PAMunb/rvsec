@@ -1,51 +1,70 @@
-[tool.poetry]
+[project]
 name = "rv-android"
 version = "0.1.0"
 description = "RV-Android Modular Platform Workspace"
-authors = ["RV-Android Team"]
-package-mode = false
+authors = [{name = "RV-Android Team"}]
+requires-python = ">=3.12"
+dependencies = [
+    # Workspace members (resolved via [tool.uv.sources])
+    "rv-android-core",
+    "rv-monitor-generator",
+    "rv-instrumentation",
+    "rv-static-analysis",
+    "rv-screen-parser",
+    "rv-coverage",
+    "rv-tools",
+    "rv-uiautomator",
+    "rv-platform",
+    "rv-agent",
+    "rv-agent-validation",
+    "rvagent-tool",
+    "rv-experiment",
+    # External path dependency
+    "droidbot",
+    # Shared third-party
+    "requests>=2.32.0",
+    "pyyaml>=6.0",
+    "faker>=29.0.0",
+    "androguard==3.4.0a1",
+    "networkx>=3.5",
+    "python-dotenv>=1.1.1",
+    "seaborn>=0.13.2",
+    "matplotlib>=3.10.5",
+    "langchain-openai>=0.3",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-# Dependências comuns do workspace
-requests = "^2.32.0"
-pyyaml = "^6.0"
-faker = "^29.0.0"
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "hypothesis>=6.135.26",
+    "black>=24.0.0",
+    "flake8>=7.0.0",
+    "pylint>=3.2.0",
+    "mypy>=1.11.0",
+    "bandit>=1.7.0",
+    "vulture>=2.7.0",
+    "safety>=3.2.0",
+]
 
-# Path dependencies
-rv-android-core = {path = "modules/rv-android-core", develop = true}
-rv-monitor-generator = {path = "modules/rv-monitor-generator", develop = true}
-rv-instrumentation = {path = "modules/rv-instrumentation", develop = true}
-rv-static-analysis = {path = "modules/rv-static-analysis", develop = true}
-rv-screen-parser = {path = "modules/rv-screen-parser", develop = true}
-rv-coverage = {path = "modules/rv-coverage", develop = true}
-rv-tools = {path = "modules/rv-tools", develop = true}
-rv-uiautomator = {path = "modules/rv-uiautomator", develop = true}
-rv-platform = {path = "modules/rv-platform", develop = true}
-rv-agent = {path = "modules/rv-agent", develop = true}
-rv-agent-validation = {path = "modules/rv-agent-validation", develop = true}
-rvagent-tool = {path = "modules/rvagent-tool", develop = true}
-rv-experiment = {path = "modules/rv-experiment", develop = true}
-androguard = "3.4.0a1"
-droidbot = {path = "droidbot", develop = true}
-networkx = "^3.5"
-python-dotenv = "^1.1.1"
-seaborn = "^0.13.2"
-matplotlib = "^3.10.5"
-langchain-openai = "^0.3"
+[tool.uv]
+package = false
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^6.0.0"
-hypothesis = "^6.135.26"
-black = "^24.0.0"
-flake8 = "^7.0.0"
-pylint = "^3.2.0"
-mypy = "^1.11.0"
-bandit = "^1.7.0"
-vulture = "^2.7.0"
-safety = "^3.2.0"
+[tool.uv.workspace]
+members = ["modules/*"]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-monitor-generator = { workspace = true }
+rv-instrumentation = { workspace = true }
+rv-static-analysis = { workspace = true }
+rv-screen-parser = { workspace = true }
+rv-coverage = { workspace = true }
+rv-tools = { workspace = true }
+rv-uiautomator = { workspace = true }
+rv-platform = { workspace = true }
+rv-agent = { workspace = true }
+rv-agent-validation = { workspace = true }
+rvagent-tool = { workspace = true }
+rv-experiment = { workspace = true }
+droidbot = { path = "droidbot" }

@@ -113,7 +113,7 @@ def test_full_iteration():
 
     # Run a single iteration test
     cmd = [
-        "poetry", "run", "python", "-c",
+        "uv", "run", "python", "-c",
         """
 import logging
 logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')

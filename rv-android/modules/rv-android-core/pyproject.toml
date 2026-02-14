@@ -1,22 +1,26 @@
-[tool.poetry]
+[project]
 name = "rv-android-core"
 version = "0.1.0"
 description = "Core utilities and domain models for RV-Android"
-authors = ["RV-Android Team"]
+authors = [{name = "RV-Android Team"}]
 readme = "README.md"
-packages = [{include = "rv_android_core", from = "src"}]
+requires-python = ">=3.12"
+dependencies = [
+    "androguard==3.4.0a1",
+    "psutil>=7.0.0",
+    "networkx>=3.5",
+    "pydantic>=2.9.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-androguard = "3.4.0a1"
-psutil = "^7.0.0"
-networkx = "^3.5"
-pydantic = "^2.9.0"
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "hypothesis>=6.135.26",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^6.0.0"
-hypothesis = "^6.135.26"
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_android_core"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
@@ -33,5 +37,5 @@ omit = [
 # fail_under = 80
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

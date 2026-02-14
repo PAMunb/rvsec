@@ -251,7 +251,7 @@ def run_trial(self, trial_id: int, params: Dict[str, Any],
 def _build_command(self, tool_spec: str, output_dir: str,
                    trial_id: int, device_port: Optional[int] = None) -> List[str]:
     cmd = [
-        "poetry", "run", "rv-experiment", "run",
+        "uv", "run", "rv-experiment", "run",
         "--tools", tool_spec,
         "--apks-dir", str(self.dataset_dir),
         "--skip-monitors", "--skip-instrument", "--skip-static",
@@ -357,7 +357,7 @@ O script:
 3. Cria N arquivos temporarios de filtro (group_0.txt, group_1.txt, ...)
 4. Lanca N processos rv-experiment em paralelo:
    ```bash
-   poetry run rv-experiment run \
+   uv run rv-experiment run \
        --tools ape,fastbot,rvagent:pure_algorithm \
        --apks-dir ./data/calibration_dataset_v2 \
        --apks-filter /tmp/group_0.txt \
@@ -528,7 +528,7 @@ export RVSEC_HOME="/pedro/desenvolvimento/workspaces/workspaces-doutorado/worksp
 APKS_DIR="/home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS"
 
 # Step 1: Preprocessing (testa --skip-execution + --apks-filter no preprocessing)
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools monkey \
   --apks-dir $APKS_DIR \
   --apks-filter ./results/mini_validation/filter_2apks.txt \

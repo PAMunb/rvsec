@@ -1,45 +1,48 @@
-[tool.poetry]
+[project]
 name = "rv-agent-validation"
 version = "0.1.0"
 description = "Validation framework for RV-Agent experiments"
-authors = ["RV-Android Team"]
+authors = [{name = "RV-Android Team"}]
 readme = "README.md"
-packages = [{include = "rv_agent_validation", from = "src"}]
+requires-python = ">=3.12"
+dependencies = [
+    # Statistics
+    "scipy>=1.14.0",
+    # Optimization (for calibration)
+    "optuna>=4.0",
+    "pandas>=2.2.0",
+    # LLM (for multimodal validation)
+    "langchain-openai>=0.3",
+    # Utils
+    "pydantic>=2.9.0",
+    "click>=8.1.0",
+    # Core dependencies
+    "rv-android-core",
+    "rv-agent",
+    "rv-static-analysis",
+    "rv-screen-parser",
+    # Preprocessing dependencies (for APK instrumentation)
+    "rv-monitor-generator",
+    "rv-instrumentation",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-
-# Core dependencies
-rv-android-core = {path = "../rv-android-core", develop = true}
-rv-agent = {path = "../rv-agent", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
-rv-screen-parser = {path = "../rv-screen-parser", develop = true}
-
-# Preprocessing dependencies (for APK instrumentation)
-rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
-rv-instrumentation = {path = "../rv-instrumentation", develop = true}
-
-# Statistics
-scipy = "^1.14.0"
-
-# Optimization (for calibration)
-optuna = "^4.0"
-pandas = "^2.2.0"
-
-# LLM (for multimodal validation)
-langchain-openai = "^0.3"
-
-# Utils
-pydantic = "^2.9.0"
-click = "^8.1.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 rv-agent-validation = "rv_agent_validation.__main__:cli"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^7.0.0"
-hypothesis = "^6.100.2"
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=7.0.0",
+    "hypothesis>=6.100.2",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-agent = { workspace = true }
+rv-static-analysis = { workspace = true }
+rv-screen-parser = { workspace = true }
+rv-monitor-generator = { workspace = true }
+rv-instrumentation = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
@@ -49,5 +52,8 @@ source = ["src"]
 omit = ["*/tests/*", "*/test_*.py"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_agent_validation"]

@@ -85,7 +85,7 @@ Follows the standard tool-with-plugins pattern used by pytest and other testing 
 **Example**:
 ```markdown
 ### Structuring Approach
-Modular architecture with Poetry workspace:
+Modular architecture with uv workspace:
 - Each module is independently versioned
 - Clear dependency order
 - Minimal coupling between modules

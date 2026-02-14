@@ -51,7 +51,7 @@ echo "Output:      $OUTPUT_DIR"
 echo "Est. time:   ~122 hours (5.1 days)"
 echo "===================================="
 
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --phase macro \
     --n-trials "$N_TRIALS" \
     --n-containers "$N_CONTAINERS" \
@@ -67,4 +67,4 @@ poetry run python scripts/calibration_orchestrator.py \
 echo ""
 echo "=== Phase C Complete ==="
 echo "Run verification:"
-echo "  poetry run python scripts/verify_phase.py c --results-dir $OUTPUT_DIR"
+echo "  uv run python scripts/verify_phase.py c --results-dir $OUTPUT_DIR"

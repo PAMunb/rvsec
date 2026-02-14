@@ -15,7 +15,7 @@ This is an **execution runbook**, not a code design. Each section corresponds to
 | Machine | Desktop: 64 CPUs, 128GB RAM | `nproc && free -h` |
 | Docker | Image `phtcosta/rvandroid:0.8.0` | `docker images \| grep rvandroid` |
 | KVM | `/dev/kvm` accessible | `ls -la /dev/kvm` |
-| rv-android | Poetry install, all modules | `poetry run python -c "from rv_agent_validation.calibration import ObjectiveFunction; print('OK')"` |
+| rv-android | uv sync, all modules | `uv run python -c "from rv_agent_validation.calibration import ObjectiveFunction; print('OK')"` |
 | SGLang (Phases D, E) | Server at `localhost:30000` | `curl -s http://localhost:30000/v1/models` |
 
 RVSEC_HOME and Java 8 are **not required on the host**. The Docker image `phtcosta/rvandroid:0.8.0` contains all prerequisites (RVSEC_HOME, Java 8, rv-android, Android SDK). All preprocessing and execution happens inside containers.
@@ -86,7 +86,7 @@ services:
     command:
       - >
         sleep ${RV_DELAY:-0} &&
-        poetry run rv-experiment run
+        uv run rv-experiment run
         --tools monkey
         --skip-execution
         --specification-set jca
@@ -119,14 +119,14 @@ with open('/tmp/exp01_jca_apks.txt', 'w') as f:
 "
 
 # Step 2: Run Docker preprocessing
-poetry run python scripts/preprocess_docker.py \
+uv run python scripts/preprocess_docker.py \
     --apks-dir /path/to/desktop/original_apks \
     --filter-file /tmp/exp01_jca_apks.txt \
     --output-dir ./results/preprocessing_v2 \
     --n-containers 6
 
 # Step 3: Dataset selection (75 cal + 30 holdout)
-poetry run python scripts/select_dataset.py \
+uv run python scripts/select_dataset.py \
     --passed-apks ./results/preprocessing_v2/passed_apks.txt \
     --csv modules/rv-agent-validation/data/apks_complete.csv \
     --output-dir modules/rv-agent-validation/data \
@@ -205,7 +205,7 @@ Establish performance baselines for 3 tools (APE, FastBot, RVAgent:pure_algorith
 ```bash
 ./scripts/run_phase_b.sh
 # Or manually:
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools ape,fastbot,rvagent:pure_algorithm \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_ALL \
@@ -235,7 +235,7 @@ results/baseline_v2/
 ### Verification
 
 ```bash
-poetry run python scripts/verify_phase.py b --results-dir ./results/baseline_v2
+uv run python scripts/verify_phase.py b --results-dir ./results/baseline_v2
 ```
 
 Manual checks:
@@ -257,7 +257,7 @@ print(f'BASELINE_MAX_ERRORS = {max_errors:.2f}')
 |---------|-------|------------|
 | Container exits with code 137 | OOM kill (20GB exceeded) | Check which APK caused it; consider excluding or reducing timeout |
 | `summary.csv` has fewer rows than expected | Some APKs failed | Check `tasks.json` for failed entries; restart container to retry |
-| `aggregated_summary.csv` missing | Script interrupted before aggregation | Run: `poetry run python -c "from baseline_docker import aggregate_summaries; ..."` |
+| `aggregated_summary.csv` missing | Script interrupted before aggregation | Run: `uv run python -c "from baseline_docker import aggregate_summaries; ..."` |
 | Emulator boot timeout | KVM contention at startup | Increase `RV_DELAY` between containers |
 
 ### Resume (if interrupted)
@@ -290,7 +290,7 @@ Tune 8 high-impact parameters (scorer weights and exploration settings) using Op
 ```bash
 ./scripts/run_phase_c.sh
 # Or manually:
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --phase macro --n-trials 80 --n-containers 6 \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_CAL \
@@ -323,7 +323,7 @@ results/calibration_macro_v2/
 ### Verification
 
 ```bash
-poetry run python scripts/verify_phase.py c --results-dir ./results/calibration_macro_v2
+uv run python scripts/verify_phase.py c --results-dir ./results/calibration_macro_v2
 ```
 
 **Gate**: 80 trials completed, best_score > 0.0, convergence visible (last 20 trials score higher than first 20 on average), `optimal_params.json` and `param_string.txt` exist.
@@ -332,7 +332,7 @@ poetry run python scripts/verify_phase.py c --results-dir ./results/calibration_
 
 ```bash
 # Same command, add --resume
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --phase macro --n-trials 80 --n-containers 6 \
     ... (same args) ... \
     --resume
@@ -385,7 +385,7 @@ docker compose down
 ```bash
 ./scripts/run_phase_d.sh
 # Or manually:
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --phase micro --n-trials 100 --n-containers 6 \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_CAL \
@@ -405,7 +405,7 @@ poetry run python scripts/calibration_orchestrator.py \
 ### Verification
 
 ```bash
-poetry run python scripts/verify_phase.py d \
+uv run python scripts/verify_phase.py d \
     --results-dir ./results/calibration_micro_v2 \
     --macro-dir ./results/calibration_macro_v2
 ```
@@ -436,7 +436,7 @@ Validate the calibrated parameters on the 30-APK holdout set (never seen during 
 # Or manually:
 PARAMS=$(cat ./results/calibration_micro_v2/param_string.txt)
 
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools "ape,fastbot,rvagent:multimode@${PARAMS}" \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_HOLDOUT \
@@ -454,7 +454,7 @@ poetry run python scripts/baseline_docker.py \
 ### Verification
 
 ```bash
-poetry run python scripts/verify_phase.py e \
+uv run python scripts/verify_phase.py e \
     --results-dir ./results/validation_v2 \
     --baseline-dir ./results/baseline_v2
 ```

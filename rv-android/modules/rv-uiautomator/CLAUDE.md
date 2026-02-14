@@ -205,10 +205,10 @@ The rv-platform coordinates device interaction through:
 ```bash
 # Run tests
 cd modules/rv-uiautomator
-PYTHONPATH=../rv-android-core/src:../rv-screen-parser/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:../rv-screen-parser/src:src uv run pytest tests/ -v
 
 # Test with coverage
-poetry run pytest tests/ --cov=src --cov-report=html
+uv run pytest tests/ --cov=src --cov-report=html
 
 # Install module
 cd modules && ./install.sh rv-uiautomator
@@ -253,16 +253,15 @@ This provides:
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

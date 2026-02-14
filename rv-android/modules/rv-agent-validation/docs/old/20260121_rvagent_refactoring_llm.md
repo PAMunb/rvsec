@@ -263,11 +263,11 @@ Tempo estimado: ~7 horas
 ```bash
 # Teste rapido
 cd modules/rv-agent-validation
-poetry run python scripts/run_v16_quick_test.py
+uv run python scripts/run_v16_quick_test.py
 
 # Fase 2 completa
 cd modules/rv-agent-validation
-poetry run python scripts/run_v16_phase2.py
+uv run python scripts/run_v16_phase2.py
 ```
 
 ---
@@ -282,7 +282,7 @@ poetry run python scripts/run_v16_phase2.py
 
 4. **Backup**: Arquivos substituidos movidos para `backup/`.
 
-5. **Poetry**: Todos comandos via `poetry run`.
+5. **uv**: Todos comandos via `uv run`.
 
 ---
 

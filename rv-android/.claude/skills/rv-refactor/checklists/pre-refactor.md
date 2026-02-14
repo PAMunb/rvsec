@@ -43,7 +43,7 @@ Complete this checklist BEFORE starting any refactoring.
 ```bash
 # 1. Verify tests pass
 cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 
 # 2. Check for uncommitted changes
 git status

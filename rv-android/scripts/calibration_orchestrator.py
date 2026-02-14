@@ -11,7 +11,7 @@ file with N services, launches them in parallel, waits for completion, scores
 results, and tells Optuna. Repeats until n_trials is reached.
 
 Usage:
-    poetry run python scripts/calibration_orchestrator.py \
+    uv run python scripts/calibration_orchestrator.py \
         --phase macro --n-trials 80 --n-containers 6 \
         --data-dir /path/to/calibration_dataset_v2 \
         --filter-file /path/to/calibration_set_v2.txt \

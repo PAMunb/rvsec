@@ -71,11 +71,11 @@
 
 ```bash
 # Fix imports
-poetry run autoflake --in-place --remove-all-unused-imports --recursive src/
-poetry run isort src/
+uv run autoflake --in-place --remove-all-unused-imports --recursive src/
+uv run isort src/
 
 # Fix formatting
-poetry run black src/
+uv run black src/
 
 # Re-run verification
 /rv-verify {module}

@@ -131,23 +131,23 @@ Monitor general programming patterns:
 
 ```bash
 cd modules/rv-monitor-generator
-poetry install
+uv sync
 ```
 
 ### Running Tests
 
 ```bash
 # All tests
-poetry run pytest
+uv run pytest
 
 # With coverage
-poetry run pytest --cov=rv_monitor_generator
+uv run pytest --cov=rv_monitor_generator
 
 # Skip slow integration tests
-poetry run pytest -m "not slow"
+uv run pytest -m "not slow"
 
 # Specific test file
-poetry run pytest tests/test_runtime_verification_generator.py -v
+uv run pytest tests/test_runtime_verification_generator.py -v
 ```
 
 ### CLI Usage
@@ -327,16 +327,15 @@ JavaMOP and RV-Monitor may return non-zero exit codes when invoked with `-h` fla
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

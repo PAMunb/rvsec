@@ -41,17 +41,17 @@ The RV-Tools module provides a centralized tool management system for Android te
 ### Prerequisites
 
 - Python 3.12+
-- Poetry for dependency management
+- uv for dependency management
 - rv-android-core module
 
 ### Setup
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 ```
 
 ## Usage
@@ -363,13 +363,13 @@ tool = ToolFactory.create_tool_from_spec("mytool:fast", registry)
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with verbose output
-poetry run pytest -v
+uv run pytest -v
 
 # Run specific test file
-poetry run pytest tests/test_main_functionalities.py
+uv run pytest tests/test_main_functionalities.py
 ```
 
 ### Test Structure

@@ -104,16 +104,16 @@ rv-agent-validation/
 
 ```bash
 # Run from configuration file
-poetry run python -m rv_agent_validation run --config data/configs/my_config.json --output results
+uv run python -m rv_agent_validation run --config data/configs/my_config.json --output results
 
 # Dry run (show what would execute)
-poetry run python -m rv_agent_validation run --config data/configs/my_config.json --dry-run
+uv run python -m rv_agent_validation run --config data/configs/my_config.json --dry-run
 
 # Resume interrupted experiment
-poetry run python -m rv_agent_validation run --config data/configs/my_config.json --resume
+uv run python -m rv_agent_validation run --config data/configs/my_config.json --resume
 
 # Direct CLI (without config file)
-poetry run python -m rv_agent_validation.experiment.runner run \
+uv run python -m rv_agent_validation.experiment.runner run \
     --apks-dir ./apks \
     --strategies rvagent,dfs \
     --mode pure_algorithm \
@@ -125,13 +125,13 @@ poetry run python -m rv_agent_validation.experiment.runner run \
 
 ```bash
 # Instrument APKs and run static analysis
-poetry run python -m rv_agent_validation preprocess --data-dir data/
+uv run python -m rv_agent_validation preprocess --data-dir data/
 
 # Force re-instrumentation
-poetry run python -m rv_agent_validation preprocess --force
+uv run python -m rv_agent_validation preprocess --force
 
 # Skip static analysis phase
-poetry run python -m rv_agent_validation preprocess --skip-static
+uv run python -m rv_agent_validation preprocess --skip-static
 ```
 
 ### Analyze Results
@@ -154,14 +154,14 @@ the process:
 
 ```bash
 # Run calibration (macro phase, 6 parallel containers, 50 trials)
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --data-dir data/calibration_dataset_v2 \
     --filter-file data/calibration_set_v2.txt \
     --output-dir ./results/calibration_macro \
     --n-containers 6 --n-trials 50 --timeout 300 --phase macro
 
 # Run baseline experiment (3 tools, 6 containers, 3 repetitions)
-poetry run python scripts/baseline_docker.py \
+uv run python scripts/baseline_docker.py \
     --tools ape,fastbot,rvagent:pure_algorithm \
     --data-dir data/calibration_dataset_v2 \
     --filter-file data/all_valid_apks.txt \
@@ -169,11 +169,11 @@ poetry run python scripts/baseline_docker.py \
     --n-containers 6 --timeout 300 --repetitions 3
 
 # Show calibrated parameters
-poetry run python -m rv_agent_validation show-params \
+uv run python -m rv_agent_validation show-params \
     --params-file ./results/calibration_macro/optimal_params.json
 
 # Show default parameter values
-poetry run python -m rv_agent_validation show-defaults
+uv run python -m rv_agent_validation show-defaults
 ```
 
 **Calibration Workflow:**
@@ -430,13 +430,13 @@ Enables experiment resume capability:
 ```bash
 # Run all tests
 cd modules/rv-agent-validation
-poetry run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run specific test file
-poetry run pytest tests/test_pilot.py -v
+uv run pytest tests/test_pilot.py -v
 
 # Run with coverage
-poetry run pytest --cov=src tests/
+uv run pytest --cov=src tests/
 ```
 
 ## Dependencies
@@ -511,16 +511,15 @@ Each run produces a JSON file with:
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

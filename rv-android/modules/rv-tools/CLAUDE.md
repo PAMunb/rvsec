@@ -97,7 +97,7 @@ rv-tools/
 │       └── qtesting/            # QTesting (Docker-based Q-learning)
 ├── tests/
 │   └── test_basic.py            # Basic registry and factory tests
-├── pyproject.toml               # Poetry configuration
+├── pyproject.toml               # Project configuration
 └── README.md                    # Detailed documentation
 ```
 
@@ -161,7 +161,7 @@ ARES and QTesting are Docker-based tools that spawn sibling containers. Inside D
 ## Dependencies
 
 ```toml
-[tool.poetry.dependencies]
+[project.dependencies]
 python = ">=3.12,<4.0"
 rv-android-core = {path = "../rv-android-core", develop = true}
 pydantic = "^2.9.0"
@@ -180,13 +180,13 @@ pydantic = "^2.9.0"
 ```bash
 # Run all tests
 cd modules/rv-tools
-poetry run pytest
+uv run pytest
 
 # Run with verbose output
-poetry run pytest -v
+uv run pytest -v
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing
 ```
 
 ### Test Categories
@@ -287,16 +287,15 @@ if registry.is_tool_registered("droidbot"):
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

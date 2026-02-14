@@ -83,7 +83,7 @@ grep "RVTRACK:SELECT" agent.log
 grep -v "RVTRACK" agent.log > clean.log
 ```
 
-**NOTE**: The project uses Poetry workspace with editable mode. Source changes are reflected immediately without reinstalling. Only run `poetry install` from root if `pyproject.toml` dependencies change.
+**NOTE**: The project uses uv workspace with editable mode. Source changes are reflected immediately without reinstalling. Only run `uv sync` from root if `pyproject.toml` dependencies change.
 
 ### Key Components
 
@@ -294,25 +294,25 @@ tests/
 cd modules/rv-agent
 
 # Unit tests only (fast, no external dependencies)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
 
 # Smoke tests (quick sanity checks)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/smoke/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/smoke/ -v
 
 # Integration tests
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/integration/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/integration/ -v
 
 # Online tests (requires device and LLM server)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/online/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/online/ -v
 
 # All tests with coverage
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v --cov=src/rv_agent
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v --cov=src/rv_agent
 
 # Property-based tests (Hypothesis)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_*_hypothesis.py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_*_hypothesis.py -v
 
 # Specific test file
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_rvagent_strategy.py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_rvagent_strategy.py -v
 ```
 
 ## Common Tasks
@@ -336,7 +336,7 @@ adb wait-for-device
 # 3. Install APK
 adb install apks_examples/cryptoapp.apk
 # Or use the convenience command:
-poetry run rv-agent install apks_examples/cryptoapp.apk
+uv run rv-agent install apks_examples/cryptoapp.apk
 
 # 4. For LLM modes (multimode, llm_only): start SGLang server
 # (see LLM Configuration section below)
@@ -348,19 +348,19 @@ poetry run rv-agent install apks_examples/cryptoapp.apk
 cd modules/rv-agent
 
 # Pure algorithm mode (no LLM needed - good for quick testing)
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
 
 # Multimode (default: 70% LLM / 30% algorithm) - requires SGLang server
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300
 
 # LLM only mode - requires SGLang server
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode llm_only --timeout 300
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode llm_only --timeout 300
 
 # With debug logging
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60 --debug
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60 --debug
 
 # Test device connection
-poetry run rv-agent test
+uv run rv-agent test
 ```
 
 ### Programmatic Usage
@@ -397,13 +397,13 @@ When running via rv-experiment, the platform handles:
 
 ```bash
 # Run via rv-experiment (handles emulator and APK installation)
-poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
 
 # Run multimode with longer timeout
-poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
 
 # Multiple tools in one experiment
-poetry run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --apks-dir ./apks_examples
+uv run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --apks-dir ./apks_examples
 ```
 
 **Note**: The tool name is `rvagent` (no hyphen) when used via rv-experiment.
@@ -517,15 +517,14 @@ When `static_data` is provided:
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```

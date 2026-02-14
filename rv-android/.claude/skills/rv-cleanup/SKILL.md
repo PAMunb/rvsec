@@ -240,13 +240,13 @@ Backup ──► Remove ──► Lint ──► Test ──► Pass? ──► 
 ```bash
 # Lint
 cd modules/$MODULE
-poetry run black src/ && poetry run isort src/
+uv run black src/ && uv run isort src/
 
 # Test
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 
 # Auto-fix imports (optional, with approval)
-poetry run autoflake --in-place --remove-all-unused-imports src/
+uv run autoflake --in-place --remove-all-unused-imports src/
 ```
 
 ### Rollback Procedure

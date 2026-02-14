@@ -110,10 +110,10 @@ Preserve custom sections if they existed.
 
 ```bash
 # Install (from project root)
-poetry install
+uv sync
 
 # Run tests (from project root)
-poetry run pytest modules/[module-name]/tests/ -v
+uv run pytest modules/[module-name]/tests/ -v
 ```
 
 ## Architecture

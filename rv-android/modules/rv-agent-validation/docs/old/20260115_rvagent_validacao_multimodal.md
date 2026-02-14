@@ -31,7 +31,7 @@
 
 3. **Comentarios**: Refletir apenas estado atual. Sem mencoes a migracao/fases/legado. Sem linguagem promocional ou termos de vies.
 
-4. **Sempre usar Poetry**: Todos os comandos Python devem ser executados via `poetry run` dentro do diretorio do modulo.
+4. **Sempre usar uv**: Todos os comandos Python devem ser executados via `uv run` dentro do diretorio do modulo.
 
 ---
 
@@ -241,7 +241,7 @@ metrics["successor_re_enables"] = tracker_stats.get("successor_re_enables", 0)
 
 ```bash
 cd modules/rv-agent-validation
-poetry run python -m rv_agent_validation experiment \
+uv run python -m rv_agent_validation experiment \
   --config data/configs/mini_calibration.json
 ```
 
@@ -744,7 +744,7 @@ Ver `docs/20260113_rvagent_validacao_multimodal.md` Secao 1.3 para tabela comple
 cd modules/rv-agent-validation
 
 # Verificar config da Fase 1
-poetry run python -c "
+uv run python -c "
 from rv_agent_validation.experiment.config import ExperimentConfig
 import json
 with open('data/configs/phase1_static_impact.json') as f:
@@ -760,17 +760,17 @@ print(f'Estimated time: {config.estimated_time_hours:.1f}h')
 cd modules/rv-agent-validation
 
 # Executar Fase 1
-poetry run python -m rv_agent_validation.experiment.runner run \
+uv run python -m rv_agent_validation.experiment.runner run \
   --config data/configs/phase1_static_impact.json \
   --output results
 
 # Com resume (continua de onde parou)
-poetry run python -m rv_agent_validation.experiment.runner run \
+uv run python -m rv_agent_validation.experiment.runner run \
   --config data/configs/phase1_static_impact.json \
   --output results
 
 # Sem resume (reinicia do zero)
-poetry run python -m rv_agent_validation.experiment.runner run \
+uv run python -m rv_agent_validation.experiment.runner run \
   --config data/configs/phase1_static_impact.json \
   --output results \
   --no-resume
@@ -781,7 +781,7 @@ poetry run python -m rv_agent_validation.experiment.runner run \
 ```bash
 cd modules/rv-agent-validation
 
-poetry run python -m rv_agent_validation.experiment.runner run \
+uv run python -m rv_agent_validation.experiment.runner run \
   --config data/configs/phase2_prompt_static.json \
   --output results
 ```
@@ -791,7 +791,7 @@ poetry run python -m rv_agent_validation.experiment.runner run \
 ```bash
 cd modules/rv-agent-validation
 
-poetry run python -m rv_agent_validation.experiment.runner run \
+uv run python -m rv_agent_validation.experiment.runner run \
   --config data/configs/phase3_multimode_static.json \
   --output results
 ```
@@ -802,12 +802,12 @@ poetry run python -m rv_agent_validation.experiment.runner run \
 cd modules/rv-agent-validation
 
 # Analise estatistica
-poetry run python -m rv_agent_validation analyze \
+uv run python -m rv_agent_validation analyze \
   --input results/phase1_static_impact \
   --output results/phase1_static_impact/report.json
 
 # Gerar CSV
-poetry run python -m rv_agent_validation report \
+uv run python -m rv_agent_validation report \
   --input results/phase1_static_impact \
   --format csv \
   --output results/phase1_static_impact/summary.csv

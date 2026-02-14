@@ -74,7 +74,7 @@ echo "Output:      $OUTPUT_DIR"
 echo "Est. time:   ~160 hours (6.7 days)"
 echo "===================================="
 
-poetry run python scripts/calibration_orchestrator.py \
+uv run python scripts/calibration_orchestrator.py \
     --phase micro \
     --n-trials "$N_TRIALS" \
     --n-containers "$N_CONTAINERS" \
@@ -93,4 +93,4 @@ echo ""
 echo "=== Phase D Complete ==="
 echo "Keep SGLang running for Phase E."
 echo "Run verification:"
-echo "  poetry run python scripts/verify_phase.py d --results-dir $OUTPUT_DIR --macro-dir ./results/calibration_macro_v2"
+echo "  uv run python scripts/verify_phase.py d --results-dir $OUTPUT_DIR --macro-dir ./results/calibration_macro_v2"

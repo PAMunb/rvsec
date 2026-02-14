@@ -81,7 +81,7 @@ This ensures that refactoring is deliberate and directly contributes to a better
 6. **Verify**:
    ```bash
    cd modules/$MODULE
-   PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+   PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
    ```
 
 ## Common Simplifications

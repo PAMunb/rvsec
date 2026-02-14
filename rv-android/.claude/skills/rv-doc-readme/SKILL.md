@@ -99,10 +99,10 @@ Write to `modules/$ARGUMENTS/README.md` using template below.
 
 ```bash
 # Install all rv-android modules (from project root)
-poetry install
+uv sync
 ```
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in editable mode — source changes are reflected immediately.
+This module is part of the RV-Android uv workspace. All modules are installed in editable mode — source changes are reflected immediately.
 
 ## Quick Start
 
@@ -117,7 +117,7 @@ result = instance.run()
 Or via CLI (if available):
 
 ```bash
-poetry run [cli-command] [options]
+uv run [cli-command] [options]
 ```
 
 ## Features
@@ -169,10 +169,10 @@ poetry run [cli-command] [options]
 
 ```bash
 # From project root
-poetry run pytest modules/[module-name]/tests/ -v
+uv run pytest modules/[module-name]/tests/ -v
 
 # With coverage
-poetry run pytest modules/[module-name]/tests/ --cov=modules/[module-name]/src --cov-report=html
+uv run pytest modules/[module-name]/tests/ --cov=modules/[module-name]/src --cov-report=html
 ```
 
 ## License

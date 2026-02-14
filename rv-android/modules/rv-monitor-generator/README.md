@@ -58,12 +58,12 @@ The RV-Monitor-Generator module provides runtime verification monitor generation
 ## Installation
 
 ```bash
-# Install using Poetry
+# Install dependencies
 cd modules/rv-monitor-generator
-poetry install
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 ```
 
 ## Configuration
@@ -211,13 +211,13 @@ config = RVGeneratorConfig(
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=rv_monitor_generator
+uv run pytest --cov=rv_monitor_generator
 
 # Run specific tests
-poetry run pytest tests/test_runtime_verification_generator.py
+uv run pytest tests/test_runtime_verification_generator.py
 ```
 
 ### Test Structure

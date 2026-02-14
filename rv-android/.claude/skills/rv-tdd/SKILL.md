@@ -125,11 +125,11 @@ DONE
 
 | Dependency | Purpose | Command |
 |------------|---------|---------|
-| hypothesis | Property-based testing | `poetry add --group dev hypothesis` |
-| pytest-snapshot | Snapshot testing | `poetry add --group dev pytest-snapshot` |
-| syrupy | Alternative snapshot testing | `poetry add --group dev syrupy` |
-| pytest-cov | Coverage reporting | `poetry add --group dev pytest-cov` |
-| pytest-xdist | Parallel test execution | `poetry add --group dev pytest-xdist` |
+| hypothesis | Property-based testing | `uv add --group dev hypothesis` |
+| pytest-snapshot | Snapshot testing | `uv add --group dev pytest-snapshot` |
+| syrupy | Alternative snapshot testing | `uv add --group dev syrupy` |
+| pytest-cov | Coverage reporting | `uv add --group dev pytest-cov` |
+| pytest-xdist | Parallel test execution | `uv add --group dev pytest-xdist` |
 
 ### Process
 
@@ -143,7 +143,7 @@ DONE
    Extract $MODULE_NAME from $ARGUMENTS (the module containing the target).
    ```bash
    cd modules/$MODULE_NAME
-   poetry add --group dev [package-name]
+   uv add --group dev [package-name]
    ```
 
 3. **Verify dependency health** - Use the **Skill tool**:
@@ -157,7 +157,7 @@ DONE
 
 4. **Lock dependencies**:
    ```bash
-   poetry lock
+   uv lock
    ```
 
 **Note**: Only add dependencies that are actually needed. Avoid bloating the dependency tree.
@@ -280,7 +280,7 @@ Skill tool: skill="rv-test-run", args="[module] [test-file]"
 Or manually:
 ```bash
 cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_$FILE.py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_$FILE.py -v
 ```
 
 ### Verification
@@ -415,16 +415,16 @@ If stuck after 5 attempts:
 ```bash
 # Run specific test file
 cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_$FILE.py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_$FILE.py -v
 
 # Run with output
-poetry run pytest -v -s
+uv run pytest -v -s
 
 # Run single test
-poetry run pytest tests/unit/test_file.py::TestClass::test_name -v
+uv run pytest tests/unit/test_file.py::TestClass::test_name -v
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 ```
 
 ---

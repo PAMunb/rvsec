@@ -12,7 +12,7 @@ dependencies needed. The entrypoint is overridden because the frozen image's
 docker-entrypoint.sh does not support RV_SKIP_EXECUTION.
 
 Usage:
-    poetry run python scripts/preprocess_docker.py \
+    uv run python scripts/preprocess_docker.py \
         --apks-dir /path/to/original_apks \
         --filter-file /tmp/exp01_jca_apks.txt \
         --output-dir ./results/preprocessing_v2 \
@@ -85,7 +85,7 @@ def generate_preprocess_compose(
             "entrypoint": ["bash", "-c"],
             "command": [
                 f"sleep {i * CONTAINER_STAGGER_SECONDS} && "
-                "poetry run rv-experiment run "
+                "uv run rv-experiment run "
                 "--tools monkey "
                 "--skip-execution "
                 "--specification-set jca "

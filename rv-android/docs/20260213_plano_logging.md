@@ -323,9 +323,9 @@ Phases 2-5 are independent of each other (any order after Phase 1). All phases e
 ## 5. Verification
 
 After each phase:
-1. `poetry run pytest modules/rv-android-core/tests/ -v`
-2. `poetry run pytest modules/rv-platform/tests/ -v`
-3. Real experiment: `poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60`
+1. `uv run pytest modules/rv-android-core/tests/ -v`
+2. `uv run pytest modules/rv-platform/tests/ -v`
+3. Real experiment: `uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60`
 4. Inspect log output for: context display `[key=value]`, no duplicate messages, timeouts as WARNING, consistent logger names
 
 ## 6. Scope Boundaries

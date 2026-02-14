@@ -187,22 +187,22 @@ com.example.MainActivity,true,true,onCreate,[Bundle],true,true,false,<sig>
 
 ```bash
 cd modules/rv-static-analysis
-poetry install
+uv sync
 ```
 
 ### Running Tests
 
 ```bash
 # All tests
-poetry run pytest
+uv run pytest
 
 # With coverage
-poetry run pytest --cov=rv_static_analysis
+uv run pytest --cov=rv_static_analysis
 
 # Specific test categories
-poetry run pytest tests/parser/     # Parser tests
-poetry run pytest tests/analysis/   # Analyzer tests
-poetry run pytest tests/test_config.py  # Configuration tests
+uv run pytest tests/parser/     # Parser tests
+uv run pytest tests/analysis/   # Analyzer tests
+uv run pytest tests/test_config.py  # Configuration tests
 ```
 
 ### CLI Usage
@@ -337,16 +337,15 @@ StaticAnalyzer implements intelligent caching:
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

@@ -16,7 +16,7 @@ if [ -n "$RV_DELAY" ] && [ "$RV_DELAY" -gt 0 ] 2>/dev/null; then
 fi
 
 # Build CLI command from environment variables
-CMD="poetry run rv-experiment run"
+CMD="uv run rv-experiment run"
 
 # Tool specification
 if [ -n "$RV_TOOLS" ]; then

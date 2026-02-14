@@ -256,14 +256,14 @@ The `ToolFactory` creates configured instances by: (1) resolving the tool class 
 
 The system MUST support 8 third-party Android test generation tools, each implemented as a class extending `AbstractTool` in the `rv_tools.builtin` package. Each tool implementation follows a consistent pattern: a class-level `TOOL_SPEC` attribute created via `ToolSpec.create_builtin_spec()`, a parameterless `__init__()` that delegates to `super().__init__(name, description, process_pattern)`, and implementations of `get_tool_spec()`, `get_variants()`, `configure()`, and `execute_tool_specific_logic()`.
 
-Tools execute via the template method in `AbstractTool.execute()`: it calls `execute_tool_specific_logic()`, then `kill_related_processes()`. If `RVCommandTimeoutError` is raised, it is converted to `RVToolTimeoutError` (expected behavior). Tools build their specific commands (ADB shell commands, poetry scripts, etc.) and execute them via `_execute_and_check_command()`, which integrates the circuit breaker pattern for resilience against consistently failing commands.
+Tools execute via the template method in `AbstractTool.execute()`: it calls `execute_tool_specific_logic()`, then `kill_related_processes()`. If `RVCommandTimeoutError` is raised, it is converted to `RVToolTimeoutError` (expected behavior). Tools build their specific commands (ADB shell commands, project scripts, etc.) and execute them via `_execute_and_check_command()`, which integrates the circuit breaker pattern for resilience against consistently failing commands.
 
 The 8 built-in tools and their invocation mechanisms are:
 
 | Tool | Module | Invocation | Process Pattern |
 |------|--------|------------|-----------------|
 | Monkey | `builtin/monkey/` | `adb shell monkey` | `com.android.commands.monkey` |
-| DroidBot | `builtin/droidbot/` | `poetry run droidbot` | `droidbot` |
+| DroidBot | `builtin/droidbot/` | `uv run droidbot` | `droidbot` |
 | APE | `builtin/ape/` | ADB command | `ape` |
 | FastBot | `builtin/fastbot/` | ADB command | `fastbot` |
 | ARES | `builtin/ares/` | Docker-based | `ares` |

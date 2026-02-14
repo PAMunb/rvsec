@@ -245,13 +245,13 @@ results = platform.run()
 cd modules/rv-experiment
 
 # Run all tests
-poetry run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run specific test file
-poetry run pytest tests/experiment/test_experiment_controller.py -v
+uv run pytest tests/experiment/test_experiment_controller.py -v
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 ```
 
 ## Common Development Tasks
@@ -408,16 +408,15 @@ The entrypoint supports interactive mode: pass `bash` or `shell` as the first ar
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

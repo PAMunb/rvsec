@@ -10,10 +10,10 @@ Pre-release validation steps to ensure quality releases.
 
 | Check | Command | Criteria | Required |
 |-------|---------|----------|----------|
-| All tests pass | `poetry run pytest -v` | Exit code 0 | **Yes** |
-| Lint clean | `poetry run flake8 src/` | No errors | **Yes** |
-| Type check | `poetry run mypy src/` | No errors | Recommended |
-| Security scan | `poetry run bandit -r src/` | No HIGH issues | Recommended |
+| All tests pass | `uv run pytest -v` | Exit code 0 | **Yes** |
+| Lint clean | `uv run flake8 src/` | No errors | **Yes** |
+| Type check | `uv run mypy src/` | No errors | Recommended |
+| Security scan | `uv run bandit -r src/` | No HIGH issues | Recommended |
 
 ### Version Control
 
@@ -28,9 +28,9 @@ Pre-release validation steps to ensure quality releases.
 
 | Check | Command | Criteria | Required |
 |-------|---------|----------|----------|
-| Lock file current | `poetry lock --check` | No changes needed | **Yes** |
-| No security vulnerabilities | `poetry run safety check` | No critical | Recommended |
-| Dependencies installable | `poetry install` | Success | **Yes** |
+| Lock file current | `uv lock --check` | No changes needed | **Yes** |
+| No security vulnerabilities | `uv run safety check` | No critical | Recommended |
+| Dependencies installable | `uv sync` | Success | **Yes** |
 
 ### Documentation
 
@@ -145,15 +145,15 @@ fi
 echo "✓ On branch: $BRANCH"
 
 echo "3. Running tests..."
-poetry run pytest -v --tb=short
+uv run pytest -v --tb=short
 echo "✓ Tests passed"
 
 echo "4. Running lint..."
-poetry run flake8 src/
+uv run flake8 src/
 echo "✓ Lint passed"
 
 echo "5. Checking lock file..."
-poetry lock --check
+uv lock --check
 echo "✓ Lock file current"
 
 echo ""
@@ -195,14 +195,14 @@ for module in "${MODULES[@]}"; do
     cd "modules/$module"
 
     # Check tests
-    if poetry run pytest -v --tb=line 2>/dev/null; then
+    if uv run pytest -v --tb=line 2>/dev/null; then
         echo "✓ Tests passed"
     else
         echo "✗ Tests failed"
     fi
 
     # Check lint
-    if poetry run flake8 src/ 2>/dev/null; then
+    if uv run flake8 src/ 2>/dev/null; then
         echo "✓ Lint passed"
     else
         echo "✗ Lint issues"
@@ -226,7 +226,7 @@ echo "=== Validation Complete ==="
 | Tests fail in CI | Run with same Python version | Fix test or update CI |
 | Missing dependencies | Check pyproject.toml | Add missing deps |
 | Version mismatch | Compare pyproject.toml and __init__.py | Sync versions |
-| Outdated lock file | Run `poetry lock` | Regenerate and commit |
+| Outdated lock file | Run `uv lock` | Regenerate and commit |
 
 ### After Release
 

@@ -196,10 +196,10 @@ rv-instrumentation instrument --apk /path/to/app.apk --output /tmp --dry-run
 cd modules/rv-instrumentation
 
 # Run all tests
-poetry run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run with coverage
-poetry run pytest --cov=src -v
+uv run pytest --cov=src -v
 ```
 
 ### Test Structure
@@ -349,16 +349,15 @@ These are cleaned up after each APK to prevent disk space issues during batch pr
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

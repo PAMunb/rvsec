@@ -500,13 +500,13 @@ classDiagram
 
 ```bash
 # Unit tests (fast, no external dependencies)
-poetry run pytest tests/unit/ -v
+uv run pytest tests/unit/ -v
 
 # Smoke tests (quick sanity checks)
-poetry run pytest tests/smoke/ -v
+uv run pytest tests/smoke/ -v
 
 # All tests with coverage
-poetry run pytest tests/ -v --cov=src/rv_agent
+uv run pytest tests/ -v --cov=src/rv_agent
 ```
 
 ## Related Documentation

@@ -50,10 +50,10 @@ First, reproduce the failure:
 ```bash
 # Run the failing test
 cd modules/[module]
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/[path]::$ARGUMENTS -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/[path]::$ARGUMENTS -v
 
 # Capture error output
-poetry run pytest tests/[path]::$ARGUMENTS -v 2>&1 | tee /tmp/test_failure.log
+uv run pytest tests/[path]::$ARGUMENTS -v 2>&1 | tee /tmp/test_failure.log
 ```
 
 **Document**:
@@ -72,7 +72,7 @@ git log --oneline -20
 
 # Check if test passed N commits ago
 git checkout HEAD~5
-poetry run pytest tests/[path]::$ARGUMENTS -v
+uv run pytest tests/[path]::$ARGUMENTS -v
 
 # Binary search to narrow down
 # If PASS at HEAD~5, check HEAD~2
@@ -237,7 +237,7 @@ When manually bisecting:
 git checkout [commit-hash]
 
 # Run test
-poetry run pytest tests/[path] -v
+uv run pytest tests/[path] -v
 
 # Return to original branch
 git checkout -

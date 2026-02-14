@@ -55,7 +55,7 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             {CONTEXT_COMPONENT: "UIAutomator2Parser"}
         )
 
-    @task_phase("parse_xml_hierarchy", measure_performance=True)
+    @task_phase("parse_xml_hierarchy")
     def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None,
               activity: str = "", state_data: Optional[Dict[str, Any]] = None) -> ScreenDescription:
         """

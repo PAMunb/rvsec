@@ -89,7 +89,7 @@ def run_worker(worker_id: int, args: argparse.Namespace,
     output_dir = str(Path(args.output_base) / f"worker_{worker_id}")
 
     cmd = [
-        "poetry", "run", "rv-experiment", "run",
+        "uv", "run", "rv-experiment", "run",
         "--tools", args.tools,
         "--apks-dir", args.apks_dir,
         "--apks-filter", filter_file,

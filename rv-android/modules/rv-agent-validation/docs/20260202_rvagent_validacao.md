@@ -385,7 +385,7 @@ Para usar o dataset nos trials de calibracao:
 CALIBRATION_DATASET="results/cli_experiment_20260201_122731_f9e9f5a4/instrumented_apks"
 
 # Executar trial de calibracao
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools "rvagent:pure_algorithm@mop_direct_score=400" \
   --apks-dir $CALIBRATION_DATASET \
   --skip-monitors --skip-instrument --skip-static \
@@ -413,7 +413,7 @@ class CalibrationRunner:
 
         # Executar via rv-experiment com flags skip (sem preprocessing)
         cmd = [
-            "poetry", "run", "rv-experiment", "run",
+            "uv", "run", "rv-experiment", "run",
             "--tools", tool_spec,
             "--apks-dir", self.dataset_dir,
             "--skip-monitors", "--skip-instrument", "--skip-static",
@@ -558,7 +558,7 @@ export RVSEC_HOME="/pedro/desenvolvimento/workspaces/workspaces-doutorado/worksp
 # Executar APE, FastBot, RVAgent nos mesmos APKs (sem preprocessing)
 # 3 repetições para melhor significância estatística
 # Output redirecionado para arquivo de log
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools ape,fastbot,rvagent:pure_algorithm \
   --apks-dir $CALIBRATION_DATASET \
   --skip-monitors --skip-instrument --skip-static \
@@ -572,7 +572,7 @@ poetry run rv-experiment run \
 ```bash
 # Usar apenas CALIBRATION_SET (10 APKs) - NAO usar hold-out set
 # Seed fixo para reprodutibilidade
-poetry run python -m rv_agent_validation calibrate \
+uv run python -m rv_agent_validation calibrate \
   --apks-dir $CALIBRATION_DATASET \
   --apks-filter calibration_set.txt \
   --phase macro \
@@ -603,7 +603,7 @@ poetry run python -m rv_agent_validation calibrate \
 ./run_calibration_micro.sh
 
 # Ou manualmente:
-poetry run python -m rv_agent_validation calibrate \
+uv run python -m rv_agent_validation calibrate \
   --apks-dir "$CALIBRATION_SET" \
   --phase micro \
   --n-trials 80 \
@@ -622,7 +622,7 @@ poetry run python -m rv_agent_validation calibrate \
 # IMPORTANTE: Usar HOLD-OUT SET (5 APKs) para validacao final
 # Isso prova que os parametros generalizam alem do dataset de calibracao
 # 3 repetições para significância estatística
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools "ape,fastbot,rvagent:pure_algorithm@$(cat ./calibration_micro/param_string.txt)" \
   --apks-dir $CALIBRATION_DATASET \
   --apks-filter holdout_set.txt \
@@ -632,7 +632,7 @@ poetry run rv-experiment run \
   --output-dir ./results/validation_holdout
 
 # Tambem executar no calibration set para comparacao completa
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools "ape,fastbot,rvagent:pure_algorithm@$(cat ./calibration_micro/param_string.txt)" \
   --apks-dir $CALIBRATION_DATASET \
   --apks-filter calibration_set.txt \
@@ -722,11 +722,11 @@ export CALIBRATION_DATASET="modules/rv-agent-validation/data/calibration_dataset
 
 # Testar fluxo de parametros
 cd modules/rv-agent
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_agent_config.py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_agent_config.py -v
 
 # Teste de integracao com rv-experiment (1 APK apenas para teste rapido)
 # Nota: usar um APK pequeno como com.aidinhut.simpletextcrypt_14.apk
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools "rvagent:pure_algorithm@mop_direct_score=400" \
   --apks-dir $CALIBRATION_DATASET \
   --skip-monitors --skip-instrument --skip-static \
@@ -741,7 +741,7 @@ cat ./test_calibration/summary.csv
 
 ```toml
 # modules/rv-agent-validation/pyproject.toml
-[tool.poetry.dependencies]
+[project.dependencies]
 optuna = "^3.5.0"
 plotly = "^5.18.0"  # Opcional: para visualizacao Optuna
 ```

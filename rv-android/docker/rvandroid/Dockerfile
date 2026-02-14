@@ -7,7 +7,7 @@ RUN git clone --branch modules https://github.com/PAMunb/rvsec.git . && \
     mvn clean install -DskipTests -DskipMopAgent && \
     mvn clean compile -f $RVSEC_HOME/rv-android/pom.xml && \
     cd $RVSEC_HOME/rv-android && \
-    poetry install --no-root --sync --without dev
+    uv sync --no-dev
 
 # Default environment variables
 ENV RV_TOOLS=monkey

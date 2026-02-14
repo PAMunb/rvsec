@@ -6,13 +6,13 @@ Lightweight test input generator for Android applications with policy-based UI e
 
 ## Execution
 
-Runs as a Python process via Poetry:
+Runs as a Python process:
 
 ```
-poetry run droidbot -d emulator-5554 -a <apk_path> -policy <policy> -count <events> -timeout <seconds> -ignore_ad -is_emulator
+uv run droidbot -d emulator-5554 -a <apk_path> -policy <policy> -count <events> -timeout <seconds> -ignore_ad -is_emulator
 ```
 
-DroidBot is installed in the Poetry virtual environment (the local `droidbot/` directory is a path dependency in `pyproject.toml`). The tool connects to the device via ADB and uses Android's accessibility service for UI element discovery.
+DroidBot is installed in the uv virtual environment (the local `droidbot/` directory is a path dependency in `pyproject.toml`). The tool connects to the device via ADB and uses Android's accessibility service for UI element discovery.
 
 ## Variants
 
@@ -52,8 +52,8 @@ docker run --rm --device /dev/kvm \
 
 ## Dependencies
 
-- Python, Poetry
-- DroidBot Python package (installed via Poetry path dependency from `droidbot/`)
+- Python, uv
+- DroidBot Python package (installed via uv path dependency from `droidbot/`)
 - Android SDK (adb)
 - Running Android emulator or device
 

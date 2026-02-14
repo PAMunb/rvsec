@@ -81,7 +81,7 @@ rv-screen-parser/
 ```bash
 # From the modules directory
 cd rv-screen-parser
-poetry install
+uv sync
 ```
 
 ## Usage
@@ -288,16 +288,16 @@ The module includes a comprehensive test suite covering all functionality:
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing
 
 # Run specific test categories
-poetry run pytest tests/parser/screen/droidbot/
-poetry run pytest tests/parser/screen/uiautomator/
-poetry run pytest tests/parser/screen/visitor/
-poetry run pytest tests/analysis/screenshot/
+uv run pytest tests/parser/screen/droidbot/
+uv run pytest tests/parser/screen/uiautomator/
+uv run pytest tests/parser/screen/visitor/
+uv run pytest tests/analysis/screenshot/
 ```
 
 ### Test Coverage

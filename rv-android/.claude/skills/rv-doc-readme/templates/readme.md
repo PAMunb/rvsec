@@ -10,10 +10,10 @@
 
 ```bash
 # Install all rv-android modules (from project root)
-poetry install
+uv sync
 ```
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in editable mode — source changes are reflected immediately.
+This module is part of the RV-Android uv workspace. All modules are installed in editable mode — source changes are reflected immediately.
 
 ## Quick Start
 
@@ -34,7 +34,7 @@ result = instance.run()
 ### CLI Usage
 
 ```bash
-poetry run {cli-command} --option value
+uv run {cli-command} --option value
 ```
 
 ## Features
@@ -98,10 +98,10 @@ poetry run {cli-command} --option value
 
 ```bash
 # From project root
-poetry run pytest modules/{module-name}/tests/ -v
+uv run pytest modules/{module-name}/tests/ -v
 
 # With coverage
-poetry run pytest modules/{module-name}/tests/ --cov=modules/{module-name}/src --cov-report=html
+uv run pytest modules/{module-name}/tests/ --cov=modules/{module-name}/src --cov-report=html
 ```
 
 ## License

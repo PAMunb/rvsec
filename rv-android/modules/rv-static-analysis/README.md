@@ -47,12 +47,12 @@ The RV-Static-Analysis module provides static analysis capabilities for Android 
 ## Installation
 
 ```bash
-# Install using Poetry
+# Install dependencies
 cd modules/rv-static-analysis
-poetry install
+uv sync
 
 # Run tests
-poetry run pytest
+uv run pytest
 ```
 
 ## Configuration
@@ -210,14 +210,14 @@ if static_data.reach:
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=rv_static_analysis
+uv run pytest --cov=rv_static_analysis
 
 # Run specific test categories
-poetry run pytest tests/analysis/
-poetry run pytest tests/parser/
+uv run pytest tests/analysis/
+uv run pytest tests/parser/
 ```
 
 ### Test Structure

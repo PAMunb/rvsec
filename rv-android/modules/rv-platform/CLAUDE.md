@@ -111,12 +111,12 @@ src/rv_platform/
 cd modules/rv-platform
 
 # Run all tests with coverage
-PYTHONPATH=../rv-android-core/src:../rv-tools/src:../rv-coverage/src:../rv-static-analysis/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:../rv-tools/src:../rv-coverage/src:../rv-static-analysis/src:src uv run pytest tests/ -v
 
 # Run specific test category
-PYTHONPATH=../rv-android-core/src:../rv-tools/src:src poetry run pytest tests/components/ -v
-PYTHONPATH=../rv-android-core/src:../rv-tools/src:src poetry run pytest tests/execution/ -v
-PYTHONPATH=../rv-android-core/src:../rv-tools/src:src poetry run pytest tests/config/ -v
+PYTHONPATH=../rv-android-core/src:../rv-tools/src:src uv run pytest tests/components/ -v
+PYTHONPATH=../rv-android-core/src:../rv-tools/src:src uv run pytest tests/execution/ -v
+PYTHONPATH=../rv-android-core/src:../rv-tools/src:src uv run pytest tests/config/ -v
 ```
 
 ### Test Structure
@@ -143,45 +143,45 @@ tests/
 
 ```bash
 # Basic execution with monkey tool
-poetry run rv-platform run --tools monkey --apks-dir ./apks_examples
+uv run rv-platform run --tools monkey --apks-dir ./apks_examples
 
 # Multiple tools with variants
-poetry run rv-platform run --tools monkey,droidbot --apks-dir ./apks_examples --repetitions 3
+uv run rv-platform run --tools monkey,droidbot --apks-dir ./apks_examples --repetitions 3
 
 # With custom timeout and headless mode
-poetry run rv-platform run --tools rvandroid:vision --apks-dir ./apks --timeout 600 --no-window
+uv run rv-platform run --tools rvandroid:vision --apks-dir ./apks --timeout 600 --no-window
 
 # Skip result processing (for debugging)
-poetry run rv-platform run --tools monkey --apks-dir ./apks --skip-result-processing
+uv run rv-platform run --tools monkey --apks-dir ./apks --skip-result-processing
 
 # Process existing results (standalone mode)
-poetry run rv-platform run --process-results ./results/experiment_dir
+uv run rv-platform run --process-results ./results/experiment_dir
 ```
 
 ### List Available Tools
 
 ```bash
 # List all registered tools
-poetry run rv-platform list-tools
+uv run rv-platform list-tools
 
 # With detailed information (variants, capabilities)
-poetry run rv-platform list-tools --detailed
+uv run rv-platform list-tools --detailed
 ```
 
 ### Generate Configuration Templates
 
 ```bash
 # Basic configuration template
-poetry run rv-platform config --template-type basic --output basic_config.json
+uv run rv-platform config --template-type basic --output basic_config.json
 
 # Advanced configuration template
-poetry run rv-platform config --template-type advanced --output advanced_config.json
+uv run rv-platform config --template-type advanced --output advanced_config.json
 ```
 
 ### Validate Configuration
 
 ```bash
-poetry run rv-platform validate-config my_config.json
+uv run rv-platform validate-config my_config.json
 ```
 
 ### Use Platform Programmatically
@@ -269,16 +269,15 @@ Tasks loaded from `tasks.json` have `repository=None` because the in-memory `Log
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

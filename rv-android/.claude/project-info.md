@@ -51,7 +51,7 @@ cd modules && ./install.sh
 cd modules && ./install.sh rv-agent --verbose
 
 # Verify installation
-poetry run python -c "import rv_android_core, rv_agent; print('OK')"
+uv run python -c "import rv_android_core, rv_agent; print('OK')"
 ```
 
 ### Testing
@@ -59,32 +59,32 @@ poetry run python -c "import rv_android_core, rv_agent; print('OK')"
 ```bash
 # Run module tests
 cd modules/[module-name]
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 
 # Run unit tests only
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 
 # Run single test
-poetry run pytest tests/unit/test_file.py::TestClass::test_name -v
+uv run pytest tests/unit/test_file.py::TestClass::test_name -v
 ```
 
 ### Code Quality
 
 ```bash
 # Format
-poetry run black src/ && poetry run isort src/
+uv run black src/ && uv run isort src/
 
 # Lint
-poetry run flake8 src/
+uv run flake8 src/
 
 # Type check
-poetry run mypy src/
+uv run mypy src/
 
 # Security scan
-poetry run bandit -r src/
+uv run bandit -r src/
 ```
 
 ### Full Verification (tests + lint + type)
@@ -93,10 +93,10 @@ poetry run bandit -r src/
 cd modules/[module-name]
 
 # Run all checks
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v && \
-poetry run black --check src/ && \
-poetry run isort --check src/ && \
-poetry run flake8 src/
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v && \
+uv run black --check src/ && \
+uv run isort --check src/ && \
+uv run flake8 src/
 ```
 
 ---
@@ -105,10 +105,10 @@ poetry run flake8 src/
 
 | Entry Point | Command | Purpose |
 |-------------|---------|---------|
-| rv-experiment | `poetry run rv-experiment run` | Full experiment workflow |
-| rv-platform | `poetry run rv-platform run` | Direct task execution |
-| rv-agent | `poetry run rv-agent` | LLM-driven testing |
-| rv-monitor-generator | `poetry run rv-monitor-generator generate` | Monitor generation |
+| rv-experiment | `uv run rv-experiment run` | Full experiment workflow |
+| rv-platform | `uv run rv-platform run` | Direct task execution |
+| rv-agent | `uv run rv-agent` | LLM-driven testing |
+| rv-monitor-generator | `uv run rv-monitor-generator generate` | Monitor generation |
 
 ---
 
@@ -205,12 +205,12 @@ docker run --rm --device /dev/kvm \
 
 ```bash
 # Generate JCA cryptography monitors
-poetry run rv-monitor-generator generate \
+uv run rv-monitor-generator generate \
   --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
   --output ./output/jca-monitors
 
 # Auto-discover specifications
-poetry run rv-monitor-generator generate --output ./output/auto-monitors
+uv run rv-monitor-generator generate --output ./output/auto-monitors
 ```
 
 ---

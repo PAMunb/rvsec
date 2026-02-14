@@ -1,27 +1,37 @@
-[tool.poetry]
+[project]
 name = "rv-platform"
 version = "0.1.0"
 description = "Independent and central executor for Android experiments"
-authors = ["RV-Android Team"]
+authors = [{name = "RV-Android Team"}]
 readme = "README.md"
-packages = [{include = "rv_platform", from = "src"}]
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "rv-tools",
+    "rv-coverage",
+    "rv-static-analysis",
+    "pydantic>=2.9.0",
+    "pandas>=2.3.1",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-rv-android-core = {path = "../rv-android-core", develop = true}
-rv-tools = {path = "../rv-tools", develop = true}
-rv-coverage = {path = "../rv-coverage", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
-pydantic = "^2.9.0"
-pandas = "^2.3.1"
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "hypothesis>=6.135.26",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^6.0.0"
-hypothesis = "^6.135.26"
-
-[tool.poetry.scripts]
+[project.scripts]
 rv-platform = "rv_platform.__main__:main"
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-tools = { workspace = true }
+rv-coverage = { workspace = true }
+rv-static-analysis = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_platform"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
@@ -40,5 +50,5 @@ omit = [
 
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

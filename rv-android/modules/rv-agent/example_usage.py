@@ -6,18 +6,18 @@ Provides quick access to different agent modes with sensible defaults.
 
 Usage:
     # Interactive mode
-    poetry run python modules/rv-agent/example_usage.py
+    uv run python modules/rv-agent/example_usage.py
 
     # Direct mode selection
-    poetry run python modules/rv-agent/example_usage.py --mode pure_algorithm
-    poetry run python modules/rv-agent/example_usage.py --mode pure_llm
-    poetry run python modules/rv-agent/example_usage.py --mode multimode
+    uv run python modules/rv-agent/example_usage.py --mode pure_algorithm
+    uv run python modules/rv-agent/example_usage.py --mode pure_llm
+    uv run python modules/rv-agent/example_usage.py --mode multimode
 
     # Quick test (1 minute)
-    poetry run python modules/rv-agent/example_usage.py --quick
+    uv run python modules/rv-agent/example_usage.py --quick
 
     # Custom app
-    poetry run python modules/rv-agent/example_usage.py --package com.example.app
+    uv run python modules/rv-agent/example_usage.py --package com.example.app
 """
 
 import argparse

@@ -6,10 +6,10 @@ The Docker image chain builds incrementally:
 
 | Layer | Image | Base | Purpose |
 |-------|-------|------|---------|
-| 1 | `phtcosta/rvandroid_base` | Ubuntu 22.04 | Java 8, Python 3.10, Poetry |
+| 1 | `phtcosta/rvandroid_base` | Ubuntu 22.04 | Java 8, Python 3.10, uv |
 | 2 | `phtcosta/rvandroid_android` | rvandroid_base | Android SDK, emulator (API 25 x86), KVM support |
 | 3 | `phtcosta/rvandroid_tools` | rvandroid_android | DroidBot, APE, FastBot, Docker CLI |
-| 4a | `phtcosta/rvandroid_dev:0.8.0` | rvandroid_tools | Full framework (editable Poetry install) |
+| 4a | `phtcosta/rvandroid_dev:0.8.0` | rvandroid_tools | Full framework (editable uv install) |
 | 4b | `phtcosta/rvandroid:0.8.0` | rvandroid_tools | Production image |
 
 ## Entry Point

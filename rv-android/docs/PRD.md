@@ -8,7 +8,7 @@ The system was the subject of an empirical study submitted to the IEEE Internati
 
 ### 1.1 Key Facts
 
-- **14 Python modules** managed in a Poetry workspace with shared virtual environment
+- **14 Python modules** managed in a uv workspace with shared virtual environment
 - **188 Android applications** analyzed in the ICST study (from F-Droid, filtered by JCA API reachability)
 - **230 unique JCA violations** detected across all tool configurations
 - **124 violations** found exclusively by RV (not detected by CogniCrypt static analysis)
@@ -124,7 +124,7 @@ graph TD
 
 ### 4.1 Module Organization
 
-The system is organized into 14 Poetry modules grouped in four layers:
+The system is organized into 14 uv workspace modules grouped in four layers:
 
 ```mermaid
 block-beta
@@ -707,7 +707,7 @@ The `ActionNormalizer` in `domain/action.py` handles this conversion via `denorm
 
 #### NFR01: Modularity
 
-The system MUST be organized as independent Poetry modules with `develop = true` in a shared workspace. A single `poetry install` at the root installs all modules in editable mode. Source changes are reflected immediately without reinstallation.
+The system MUST be organized as independent uv workspace modules in a shared workspace. A single `uv sync` at the root installs all modules in editable mode. Source changes are reflected immediately without reinstallation.
 
 #### NFR02: Extensibility
 
@@ -798,7 +798,7 @@ The system MUST support reproducible experiments through:
 The primary entry point for complete experiments with pre-processing (monitors, instrumentation, static analysis), execution, and post-processing.
 
 ```bash
-poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-set jca --apks-dir ./apks_examples
+uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-set jca --apks-dir ./apks_examples
 ```
 
 ### 9.2 rv-platform CLI (Direct Execution)
@@ -806,7 +806,7 @@ poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-
 Direct task execution without the experiment wrapper. Assumes APKs are already instrumented if RV coverage is desired.
 
 ```bash
-poetry run rv-platform run --tools monkey --apks-dir ./apks_examples --timeout 300
+uv run rv-platform run --tools monkey --apks-dir ./apks_examples --timeout 300
 ```
 
 ### 9.3 rv-agent CLI (Standalone)
@@ -815,7 +815,7 @@ Standalone mode where the user manages the emulator and APK installation. Useful
 
 ```bash
 # Start emulator and install APK manually
-poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
 ```
 
 ### 9.4 rv-agent via rv-experiment (Managed)
@@ -823,7 +823,7 @@ poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --t
 rv-agent runs as a tool within rv-experiment, which manages the emulator, APK installation, and coverage tracking.
 
 ```bash
-poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
 ```
 
 ## 10. Research Integration

@@ -10,8 +10,8 @@ Combines all functionality:
 - CLI interface
 
 Usage:
-    poetry run python -m rv_agent_validation.experiment.runner run --help
-    poetry run python -m rv_agent_validation.experiment.runner run --apks-dir ./apks --timeout 300
+    uv run python -m rv_agent_validation.experiment.runner run --help
+    uv run python -m rv_agent_validation.experiment.runner run --apks-dir ./apks --timeout 300
 """
 
 import argparse

@@ -19,8 +19,8 @@ rv-experiment orchestrates the complete experiment lifecycle for the RV-Android 
 ## Installation
 
 ```bash
-# From the project root (Poetry workspace)
-poetry install
+# From the project root (uv workspace)
+uv sync
 ```
 
 ## CLI Commands
@@ -30,7 +30,7 @@ poetry install
 Execute experiments with tool specification parsing or configuration files.
 
 ```bash
-poetry run rv-experiment run [OPTIONS]
+uv run rv-experiment run [OPTIONS]
 ```
 
 **Core options:**
@@ -70,27 +70,27 @@ poetry run rv-experiment run [OPTIONS]
 
 ```bash
 # Basic experiment
-poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples
+uv run rv-experiment run --tools monkey --apks-dir ./apks_examples
 
 # Multiple tools with variants
-poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --repetitions 3
+uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --repetitions 3
 
 # RVAgent with calibrated parameters
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools "rvagent:pure_algorithm@mop_direct_score=400,stochastic_probability=0.5" \
   --apks-dir ./data/calibration_dataset \
   --skip-monitors --skip-instrument --skip-static \
   --timeout 300
 
 # Pre-processing only (no task execution)
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools monkey \
   --apks-dir ./apks \
   --specification-set jca \
   --skip-execution
 
 # Parallel execution on specific emulator port
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools rvagent:pure_algorithm \
   --apks-dir ./data/instrumented_apks \
   --device-port 5556 \
@@ -98,7 +98,7 @@ poetry run rv-experiment run \
   --skip-monitors --skip-instrument --skip-static
 
 # Process only a subset of APKs
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools ape,fastbot \
   --apks-dir ./data/instrumented_apks \
   --apks-filter ./calibration_set.txt \
@@ -110,10 +110,10 @@ poetry run rv-experiment run \
 Generate configuration templates.
 
 ```bash
-poetry run rv-experiment config [template_type] [OPTIONS]
+uv run rv-experiment config [template_type] [OPTIONS]
 
 # Templates: basic, advanced, research
-poetry run rv-experiment config --template-type basic --output config.json
+uv run rv-experiment config --template-type basic --output config.json
 ```
 
 ### list-tools
@@ -121,8 +121,8 @@ poetry run rv-experiment config --template-type basic --output config.json
 List available tools and variants.
 
 ```bash
-poetry run rv-experiment list-tools
-poetry run rv-experiment list-tools --detailed
+uv run rv-experiment list-tools
+uv run rv-experiment list-tools --detailed
 ```
 
 ### validate
@@ -130,7 +130,7 @@ poetry run rv-experiment list-tools --detailed
 Validate experiment configuration files.
 
 ```bash
-poetry run rv-experiment validate config.json
+uv run rv-experiment validate config.json
 ```
 
 ## Tool Specification DSL
@@ -180,13 +180,13 @@ rv-experiment supports resuming interrupted or expanding completed experiments t
 
 ```bash
 # First run: 1 repetition
-poetry run rv-experiment run --tools ape --name my_exp --repetitions 1
+uv run rv-experiment run --tools ape --name my_exp --repetitions 1
 
 # Resume with 2 repetitions: skips rep 1, executes rep 2
-poetry run rv-experiment run --tools ape --name my_exp --repetitions 2
+uv run rv-experiment run --tools ape --name my_exp --repetitions 2
 
 # Crash recovery: re-run same command, completed tasks are skipped
-poetry run rv-experiment run --tools ape --name my_exp --repetitions 3
+uv run rv-experiment run --tools ape --name my_exp --repetitions 3
 ```
 
 ### Resume via `--resume-dir`
@@ -194,7 +194,7 @@ poetry run rv-experiment run --tools ape --name my_exp --repetitions 3
 For resuming from a specific directory (overrides `--name`):
 
 ```bash
-poetry run rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir ./results/my_exp
+uv run rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir ./results/my_exp
 ```
 
 ### Resume Behavior
@@ -228,14 +228,14 @@ When using `--skip-monitors`, `--skip-instrument`, or `--skip-static`, the `--ap
 
 ```bash
 # Step 1: Run full pre-processing
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools monkey \
   --apks-dir ./apks_examples \
   --specification-set jca \
   --skip-execution
 
 # Step 2: Reuse instrumented APKs
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools rvagent:pure_algorithm \
   --apks-dir ./results/<experiment_id>/instrumented_apks \
   --skip-monitors --skip-instrument --skip-static
@@ -305,7 +305,7 @@ modules/rv-experiment/
 ## Testing
 
 ```bash
-poetry run pytest modules/rv-experiment/tests/ -v
+uv run pytest modules/rv-experiment/tests/ -v
 ```
 
 ## Dependencies

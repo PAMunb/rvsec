@@ -1,28 +1,35 @@
-# modules/rv-instrumentation/pyproject.toml
-[tool.poetry]
+[project]
 name = "rv-instrumentation"
 version = "0.1.0"
 description = "APK instrumentation with runtime verification monitors"
-authors = ["RV-Android Team"]
+authors = [{name = "RV-Android Team"}]
 readme = "README.md"
-packages = [{include = "rv_instrumentation", from = "src"}]
-include = ["assets/*"]
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "pydantic>=2.9.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-rv-android-core = {path = "../rv-android-core", develop = true}
-pydantic = "^2.9.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^6.0.0" 
-
-[tool.poetry.scripts]
+[project.scripts]
 rv-instrumentation = "rv_instrumentation.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_instrumentation"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"assets" = "rv_instrumentation/assets"
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
-
 
 [tool.coverage.run]
 source = ["src"]
@@ -35,7 +42,6 @@ omit = [
 # show_missing = true
 # fail_under = 80
 
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

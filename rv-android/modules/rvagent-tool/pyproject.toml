@@ -1,25 +1,30 @@
-[tool.poetry]
+[project]
 name = "rvagent-tool"
 version = "0.1.0"
 description = "RV-Agent tool wrapper for rv-platform integration"
-authors = ["RV-Android Team"]
+authors = [{name = "RV-Android Team"}]
 readme = "README.md"
-packages = [{include = "rvagent_tool", from = "src"}]
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "rv-agent",
+    "rv-tools",
+    "pydantic>=2.9.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-rv-android-core = {path = "../rv-android-core", develop = true}
-rv-agent = {path = "../rv-agent", develop = true}
-rv-tools = {path = "../rv-tools", develop = true}
-pydantic = "^2.9.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^6.0.0"
-
-# Plugin registration for rv-tools
-[tool.poetry.plugins."rv_tools.plugins"]
+[project.entry-points."rv_tools.plugins"]
 rvagent = "rvagent_tool.tools.rvagent.tool:RVAgentTool"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-agent = { workspace = true }
+rv-tools = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
@@ -32,5 +37,8 @@ omit = [
 ]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rvagent_tool"]

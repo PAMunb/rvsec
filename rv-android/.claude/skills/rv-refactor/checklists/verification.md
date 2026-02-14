@@ -37,7 +37,7 @@ After ALL steps complete:
 
 ```bash
 cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v --tb=short
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v --tb=short
 ```
 
 - [ ] All tests pass
@@ -47,10 +47,10 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v --tb=short
 ### Full Lint Suite
 
 ```bash
-poetry run black src/ --check
-poetry run isort src/ --check-only
-poetry run flake8 src/
-poetry run mypy src/ --ignore-missing-imports
+uv run black src/ --check
+uv run isort src/ --check-only
+uv run flake8 src/
+uv run mypy src/ --ignore-missing-imports
 ```
 
 - [ ] All linters pass

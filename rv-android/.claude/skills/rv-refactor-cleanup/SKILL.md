@@ -41,23 +41,23 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 
 5. **Verify**:
    ```bash
-   poetry run pytest tests/ -v
+   uv run pytest tests/ -v
    ```
 
 ## Automated Cleanup
 
 ```bash
 # Remove unused imports
-poetry run autoflake --in-place --remove-all-unused-imports --recursive src/
+uv run autoflake --in-place --remove-all-unused-imports --recursive src/
 
 # Sort imports
-poetry run isort src/
+uv run isort src/
 
 # Format code
-poetry run black src/
+uv run black src/
 
 # Check for remaining issues
-poetry run flake8 src/
+uv run flake8 src/
 ```
 
 ## Manual Cleanup Checklist

@@ -78,7 +78,7 @@ These drivers appear frequently in rv-android decisions:
 |--------|----------|-----------|
 | P1 Simplicity | Must-have | Minimum complexity for current task |
 | Thesis Timeline | Must-have | Academic deadline constraints |
-| Module Boundaries | Must-have | Clean separation between Poetry modules |
+| Module Boundaries | Must-have | Clean separation between uv workspace modules |
 | LLM Compatibility | Should-have | Must work with Qwen3-VL via SGLang |
 | Single Developer | Context | Architecture must be understandable by one person |
 | Reproducibility | Should-have | Experiments must produce reproducible results |

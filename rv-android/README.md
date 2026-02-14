@@ -4,7 +4,7 @@ A modular platform for Android application testing that integrates runtime verif
 
 ## Architecture Overview
 
-RV-Android uses a Poetry workspace with 13 independent modules organized in four layers:
+RV-Android uses a uv workspace with 13 independent modules organized in four layers:
 
 ```
 Experiment Orchestration:  rv-experiment, rv-agent-validation
@@ -57,9 +57,9 @@ The full experiment workflow consists of three phases:
 export RVSEC_HOME="/path/to/rvsec"
 export ANDROID_HOME="/path/to/android-sdk"
 
-# Install all modules (Poetry workspace, editable mode)
+# Install all modules (uv workspace, editable mode)
 cd rv-android
-poetry install
+uv sync
 ```
 
 All 13 modules are installed in editable mode via the root `pyproject.toml`. Source code changes are reflected immediately — no reinstall needed unless `pyproject.toml` dependencies change.
@@ -68,16 +68,16 @@ All 13 modules are installed in editable mode via the root `pyproject.toml`. Sou
 
 ```bash
 # Run experiment with Monkey tool
-poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 300
+uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 300
 
 # Run with multiple tools and DroidBot variant
-poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --timeout 600 --repetitions 3
+uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --timeout 600 --repetitions 3
 
 # Run with rv-agent (LLM-driven testing)
-poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
 
 # Skip pre-processing (use pre-processed APKs from a previous run)
-poetry run rv-experiment run --tools monkey --apks-dir results/my_exp/instrumented_apks \
+uv run rv-experiment run --tools monkey --apks-dir results/my_exp/instrumented_apks \
   --skip-monitors --skip-instrument --skip-static
 ```
 
@@ -130,13 +130,13 @@ Specification source: `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/`
 
 ```bash
 # JCA specifications (default)
-poetry run rv-experiment run --tools monkey --specification-set jca
+uv run rv-experiment run --tools monkey --specification-set jca
 
 # Generic FSM specifications
-poetry run rv-experiment run --tools monkey --specification-set generic
+uv run rv-experiment run --tools monkey --specification-set generic
 
 # Custom specification directory
-poetry run rv-experiment run --tools monkey --specification-set custom --custom-specs-dir /path/to/specs
+uv run rv-experiment run --tools monkey --specification-set custom --custom-specs-dir /path/to/specs
 ```
 
 ## RV-Agent (LLM-Driven Testing)
@@ -172,10 +172,10 @@ RV-Agent uses a LangGraph workflow: parse UI state from device, route decision t
 ```bash
 # Requires: emulator running + APK installed
 cd modules/rv-agent
-poetry run rv-agent run --package com.example.app --mode multimode --timeout 60
+uv run rv-agent run --package com.example.app --mode multimode --timeout 60
 
 # Via rv-experiment (recommended — platform manages emulator and APK)
-poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
 ```
 
 ## Experiment Resume
@@ -186,10 +186,10 @@ Experiments can be resumed after interruption or expanded with additional repeti
 
 ```bash
 # Implicit resume via --name (resumes if results/<name>/tasks.json exists)
-poetry run rv-experiment run --tools monkey --name my_experiment --repetitions 3
+uv run rv-experiment run --tools monkey --name my_experiment --repetitions 3
 
 # Explicit resume via --resume-dir
-poetry run rv-experiment run --tools monkey --resume-dir ./results/my_experiment
+uv run rv-experiment run --tools monkey --resume-dir ./results/my_experiment
 ```
 
 ### Resume Behavior
@@ -203,10 +203,10 @@ poetry run rv-experiment run --tools monkey --resume-dir ./results/my_experiment
 
 ```bash
 # First run: 1 repetition
-poetry run rv-experiment run --tools ape --name exp1 --repetitions 1
+uv run rv-experiment run --tools ape --name exp1 --repetitions 1
 
 # Expand: adds repetition 2 (repetition 1 is skipped)
-poetry run rv-experiment run --tools ape --name exp1 --repetitions 2
+uv run rv-experiment run --tools ape --name exp1 --repetitions 2
 ```
 
 ## Docker Deployment
@@ -215,7 +215,7 @@ RV-Android runs inside Docker containers with a 4-layer image chain:
 
 | Layer | Image | Purpose |
 |-------|-------|---------|
-| 1 | `phtcosta/rvandroid_base` | Java 8, Python 3.10, Poetry (Ubuntu 22.04) |
+| 1 | `phtcosta/rvandroid_base` | Java 8, Python 3.10, uv (Ubuntu 22.04) |
 | 2 | `phtcosta/rvandroid_android` | Android SDK, emulator (API 25 x86), KVM support |
 | 3 | `phtcosta/rvandroid_tools` | DroidBot, APE, FastBot, Docker CLI |
 | 4 | `phtcosta/rvandroid:0.8.0` | Full RV-Android framework |
@@ -276,7 +276,7 @@ The platform generates the following files in the results directory:
 
 ```bash
 # Run experiment
-poetry run rv-experiment run --tools <tools> [options]
+uv run rv-experiment run --tools <tools> [options]
 
 # Options
 --tools TOOLS              # Tool specification DSL (required)
@@ -295,30 +295,30 @@ poetry run rv-experiment run --tools <tools> [options]
 --static-analysis          # Run static analysis in pre-processing
 
 # List available tools
-poetry run rv-experiment list-tools --detailed
+uv run rv-experiment list-tools --detailed
 
 # Generate configuration template
-poetry run rv-experiment config --template-type basic --output config.json
+uv run rv-experiment config --template-type basic --output config.json
 
 # Validate configuration
-poetry run rv-experiment validate config.json
+uv run rv-experiment validate config.json
 ```
 
 ### rv-platform (Direct Task Execution)
 
 ```bash
 # Run tasks directly (no pre-processing)
-poetry run rv-platform run --tools monkey --apks-dir ./apks_examples
+uv run rv-platform run --tools monkey --apks-dir ./apks_examples
 
 # Process existing results
-poetry run rv-platform run --process-results ./results/experiment_dir
+uv run rv-platform run --process-results ./results/experiment_dir
 ```
 
 ### rv-agent (Standalone LLM Testing)
 
 ```bash
 # Requires emulator running + APK installed
-poetry run rv-agent run --package <package_name> --mode <mode> --timeout <seconds>
+uv run rv-agent run --package <package_name> --mode <mode> --timeout <seconds>
 ```
 
 ## Development
@@ -335,23 +335,23 @@ poetry run rv-agent run --package <package_name> --mode <mode> --timeout <second
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Test specific module
-poetry run pytest modules/rv-agent/tests/ -v
+uv run pytest modules/rv-agent/tests/ -v
 
 # Fast unit tests only
-poetry run pytest -m "not slow" -v
+uv run pytest -m "not slow" -v
 
 # Format and lint
-poetry run black modules/ && poetry run flake8 modules/
+uv run black modules/ && uv run flake8 modules/
 ```
 
 ### Directory Structure
 
 ```
 rv-android/
-├── modules/                   # 13 independent Poetry modules
+├── modules/                   # 13 uv workspace modules
 │   ├── rv-android-core/       # Foundation infrastructure
 │   ├── rv-platform/           # Execution engine
 │   ├── rv-tools/              # Tool plugin system
@@ -371,7 +371,7 @@ rv-android/
 ├── out/                       # Temporary artifacts (monitors, instrumented APKs)
 ├── docs/                      # Documentation
 ├── openspec/                  # Spec-Driven Development artifacts
-└── pyproject.toml             # Poetry workspace configuration
+└── pyproject.toml             # uv workspace configuration
 ```
 
 ### Cleanup

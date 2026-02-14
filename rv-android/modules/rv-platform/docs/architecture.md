@@ -517,11 +517,11 @@ The reconstruction is used in three result-generation methods:
 
 ```bash
 # Run all tests
-PYTHONPATH=../rv-android-core/src:../rv-tools/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:../rv-tools/src:src uv run pytest tests/ -v
 
 # Run specific category
-poetry run pytest tests/execution/ -v
-poetry run pytest tests/components/ -v
+uv run pytest tests/execution/ -v
+uv run pytest tests/components/ -v
 ```
 
 ## Output Files

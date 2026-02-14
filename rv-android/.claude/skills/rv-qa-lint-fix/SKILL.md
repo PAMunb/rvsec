@@ -20,22 +20,22 @@ allowed-tools: Read, Bash, Skill
    cd modules/$MODULE
 
    # Fix imports (remove unused, sort)
-   poetry run autoflake --in-place --remove-all-unused-imports --recursive src/
-   poetry run isort src/
+   uv run autoflake --in-place --remove-all-unused-imports --recursive src/
+   uv run isort src/
 
    # Fix formatting
-   poetry run black src/
+   uv run black src/
    ```
 
 3. **Verify fixes**:
    ```bash
-   poetry run flake8 src/ --max-line-length=120
-   poetry run mypy src/ --ignore-missing-imports
+   uv run flake8 src/ --max-line-length=120
+   uv run mypy src/ --ignore-missing-imports
    ```
 
 4. **Run tests** to ensure no breakage:
    ```bash
-   poetry run pytest tests/unit/ -v
+   uv run pytest tests/unit/ -v
    ```
 
 5. **Run full verification** - Use the **Skill tool**:

@@ -9,7 +9,7 @@ DroidBot with Humanoid inference server for human-like UI exploration. Humanoid 
 Runs DroidBot with the `-humanoid` flag pointing to an inference HTTP server:
 
 ```
-poetry run droidbot -d emulator-5554 -a <apk_path> \
+uv run droidbot -d emulator-5554 -a <apk_path> \
   -humanoid <server_url> -policy dfs_greedy \
   -count 10000000000 -timeout <seconds> -ignore_ad -is_emulator
 ```
@@ -63,8 +63,8 @@ docker network rm rv-test
 
 ## Dependencies
 
-- Python, Poetry
-- DroidBot Python package (installed via Poetry)
+- Python, uv
+- DroidBot Python package (installed via uv)
 - Humanoid inference server (`phtcosta/humanoid:1.0` Docker image, port 50405)
 - Android SDK (adb)
 - Running Android emulator or device

@@ -48,9 +48,9 @@ The RV-Instrumentation module provides sophisticated APK instrumentation capabil
 ## Installation
 
 ```bash
-# Install using Poetry (recommended)
+# Install dependencies
 cd modules/rv-instrumentation
-poetry install
+uv sync
 
 # Install in development mode with pip
 pip install -e .

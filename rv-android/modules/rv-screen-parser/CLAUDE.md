@@ -144,7 +144,7 @@ sudo apt-get install -y tesseract-ocr libtesseract-dev libopencv-dev python3-ope
 
 ```bash
 cd modules/rv-screen-parser
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 ```
 
 ### Test Organization
@@ -161,16 +161,16 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 
 ```bash
 # Parser tests
-poetry run pytest tests/parser/ -v
+uv run pytest tests/parser/ -v
 
 # Visitor tests
-poetry run pytest tests/parser/screen/visitor/ -v
+uv run pytest tests/parser/screen/visitor/ -v
 
 # Screenshot analysis tests
-poetry run pytest tests/analysis/screenshot/ -v
+uv run pytest tests/analysis/screenshot/ -v
 
 # With coverage
-poetry run pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 ```
 
 ## Common Tasks
@@ -305,16 +305,15 @@ Screenshot analysis uses dependency injection with specialized detector componen
 
 ## Development Notes
 
-This module is part of the RV-Android Poetry workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
+This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
 
 **Key points:**
-- Run `poetry install` from the project root to install all modules
+- Run `uv sync` from the project root to install all modules
 - Source code changes are reflected immediately (no reinstall needed)
 - Only reinstall if `pyproject.toml` dependencies change
 
 ```bash
 # From project root
-poetry install          # Install/update all modules
-poetry install --sync   # Also remove unused packages
+uv sync             # Install/update all modules (also removes unused packages)
 ```
 

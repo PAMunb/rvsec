@@ -184,12 +184,12 @@ For each planned change:
 
 3. **Lint immediately**:
    ```bash
-   cd modules/$MODULE && poetry run black src/ && poetry run isort src/
+   cd modules/$MODULE && uv run black src/ && uv run isort src/
    ```
 
 4. **Test after each change**:
    ```bash
-   PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+   PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
    ```
 
 ### Test Loop

@@ -44,7 +44,7 @@ declare -g DEEP_CLEAN=false
 
 # Files and directories to clean (per module)
 declare -ra CLEAN_TARGETS=(
-    ".venv"                     # Poetry virtual environments
+    ".venv"                     # Virtual environments
     "__pycache__"               # Python bytecode cache
     "*.pyc"                     # Compiled Python files
     "*.pyo"                     # Optimized Python files
@@ -223,7 +223,7 @@ clean_module() {
         return 1
     fi
 
-    poetry env remove --all
+    rm -rf .venv
     
     # Clean standard targets
     for target in "${CLEAN_TARGETS[@]}"; do
@@ -354,7 +354,7 @@ MODULES:
 
 WHAT GETS CLEANED:
     Standard Clean:
-        - .venv (Poetry virtual environments)
+        - .venv (virtual environments)
         - __pycache__ (Python bytecode cache)
         - .pytest_cache (Pytest cache)
         - .coverage (Coverage data)

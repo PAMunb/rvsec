@@ -245,7 +245,7 @@ class DroidBotTool(AbstractTool):
         Constructs DroidBot command for UI exploration with policy-based testing,
         device targeting, and emulator-specific configurations.
         
-        Command format: poetry run droidbot -d <device_serial> -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
+        Command format: uv run droidbot -d <device_serial> -a <apk> -policy <policy> -count 10000000000 -timeout <timeout> -ignore_ad -is_emulator
         
         Args:
             app: Application under test containing APK path and metadata
@@ -268,7 +268,7 @@ class DroidBotTool(AbstractTool):
             "-is_emulator"  # Emulator-specific optimizations
         ]
 
-        return Command("poetry", cmd_args, timeout_seconds)
+        return Command("uv", cmd_args, timeout_seconds)
 
     def get_available_policies(self) -> List[str]:
         """

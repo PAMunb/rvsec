@@ -644,7 +644,7 @@ flowchart LR
 
 rv-experiment supports execution inside Docker containers through `docker/rvandroid/docker-entrypoint.sh`. The entrypoint script translates environment variables into CLI arguments, enabling fully declarative experiment configuration via Docker Compose or `docker run` without modifying the container image.
 
-The entrypoint builds a `poetry run rv-experiment run` command from the following environment variables:
+The entrypoint builds a `uv run rv-experiment run` command from the following environment variables:
 
 | Environment Variable | CLI Argument | Description |
 |---------------------|--------------|-------------|

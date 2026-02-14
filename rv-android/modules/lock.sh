@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Lock Manager for RV-Android
-# Manages Poetry lock files for monitored operations modules
+# Manages uv lock file for all workspace modules
 # Ensures consistent dependency resolution across all modules
 
 set -euo pipefail  # Strict error handling
@@ -76,7 +76,7 @@ print_header() {
     echo
     echo -e "${CYAN}============================================================================${NC}"
     echo -e "${CYAN} RV-Android Lock Manager${NC}"
-    echo -e "${CYAN} Poetry lock file management for monitored operations modules${NC}"
+    echo -e "${CYAN} uv lock file management for monitored operations modules${NC}"
     echo -e "${CYAN}============================================================================${NC}"
     echo
 }
@@ -104,15 +104,15 @@ validate_environment() {
         error_exit "Must run from the modules directory containing lock.sh"
     fi
     
-    # Check Poetry availability
-    if ! command -v poetry &> /dev/null; then
-        error_exit "Poetry is required but not found. Please install Poetry first."
+    # Check uv availability
+    if ! command -v uv &> /dev/null; then
+        error_exit "uv is required but not found. Please install uv first."
     fi
-    
-    # Check Poetry version (basic check)
-    local poetry_version
-    poetry_version=$(poetry --version 2>/dev/null | cut -d' ' -f3 || echo "unknown")
-    log_debug "Found Poetry version: $poetry_version"
+
+    # Check uv version (basic check)
+    local uv_version
+    uv_version=$(uv --version 2>/dev/null || echo "unknown")
+    log_debug "Found uv version: $uv_version"
     
     log_success "Environment validation passed"
 }
@@ -141,201 +141,129 @@ validate_module() {
 # LOCK LOGIC
 # ============================================================================
 
-lock_module() {
-    local module="$1"
-    
-    log_step "Locking module: $module"
-    
-    # Validate module before locking
-    if ! validate_module "$module"; then
-        return 1
-    fi
-    
-    # Change to module directory
-    if ! cd "$module"; then
-        log_error "Failed to enter directory: $module"
-        return 1
-    fi
-    
+lock_workspace() {
+    log_step "Locking workspace (single uv.lock at root)"
+
+    cd ..
+
     # Dry run mode
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY RUN] Would lock: $module"
-        cd ..
+        log_info "[DRY RUN] Would run: uv lock"
+        cd - > /dev/null
         return 0
     fi
-    
-    # Execute poetry lock with appropriate flags
-    local lock_cmd="poetry lock"
-    if [[ "$UPDATE_MODE" == "true" ]]; then
-        lock_cmd="$lock_cmd --no-update"
-    fi
-    
+
+    local lock_cmd="uv lock"
+
     log_debug "Executing: $lock_cmd"
-    
+
     if [[ "$VERBOSE" == "true" ]]; then
         if eval "$lock_cmd"; then
-            log_success "Successfully locked: $module"
+            log_success "Successfully locked workspace"
         else
-            log_error "Failed to lock: $module"
-            cd ..
+            log_error "Failed to lock workspace"
+            cd - > /dev/null
             return 1
         fi
     else
         if eval "$lock_cmd" >/dev/null 2>&1; then
-            log_success "Successfully locked: $module"
+            log_success "Successfully locked workspace"
         else
-            log_error "Failed to lock: $module"
+            log_error "Failed to lock workspace"
             log_error "Run with --verbose for detailed error output"
-            cd ..
+            cd - > /dev/null
             return 1
         fi
     fi
-    
-    # Return to parent directory
-    cd ..
+
+    cd - > /dev/null
     return 0
 }
 
 verify_lock() {
-    local module="$1"
-    
-    log_debug "Verifying lock: $module"
-    
+    log_debug "Verifying lock file"
+
     if [[ "$DRY_RUN" == "true" ]]; then
         return 0
     fi
-    
-    # Change to module directory
-    if ! cd "$module"; then
-        log_error "Failed to enter directory for verification: $module"
-        return 1
-    fi
-    
-    # Check if poetry.lock exists and is valid
-    if [[ -f "poetry.lock" ]] && poetry check --lock >/dev/null 2>&1; then
-        log_debug "Lock file verified: $module"
-        cd ..
+
+    # Check if uv.lock exists at root
+    if [[ -f "../uv.lock" ]]; then
+        log_debug "Lock file verified: ../uv.lock"
         return 0
     else
-        log_warning "Lock file verification failed: $module"
-        cd ..
+        log_warning "Lock file not found: ../uv.lock"
         return 1
     fi
 }
 
 lock_all_modules() {
-    local modules_to_lock=("$@")
-    local failed_modules=()
-    local locked_count=0
-    
-    log_info "Locking ${#modules_to_lock[@]} modules in dependency order"
-    if [[ "$UPDATE_MODE" == "true" ]]; then
-        log_info "Update mode: Re-locking without updating dependencies"
-    fi
+    log_info "Locking workspace (uv uses single lock file)"
     print_separator
-    
-    for module in "${modules_to_lock[@]}"; do
-        echo
-        if lock_module "$module"; then
-            if verify_lock "$module"; then
-                ((locked_count++))
-            else
-                failed_modules+=("$module (verification failed)")
-            fi
+
+    echo
+    if lock_workspace; then
+        if verify_lock; then
+            log_success "Workspace locked and verified"
         else
-            failed_modules+=("$module (lock failed)")
+            log_error "Lock verification failed"
+            return 1
         fi
-    done
-    
+    else
+        log_error "Lock failed"
+        return 1
+    fi
+
     # Report results
     print_separator
     log_info "Lock Summary:"
-    log_success "Successfully locked: $locked_count modules"
-    
-    if [[ ${#failed_modules[@]} -gt 0 ]]; then
-        log_error "Failed modules: ${#failed_modules[@]}"
-        for failed in "${failed_modules[@]}"; do
-            log_error "  - $failed"
-        done
-        return 1
-    fi
-    
+    log_success "Workspace locked successfully"
+
     return 0
 }
 
 update_all_locks() {
-    local modules_to_update=("$@")
-    local failed_modules=()
-    local updated_count=0
-    
-    log_info "Updating lock files for ${#modules_to_update[@]} modules"
+    log_info "Updating workspace lock file"
     log_warning "This will update dependencies to latest compatible versions"
     print_separator
-    
-    for module in "${modules_to_update[@]}"; do
-        echo
-        log_step "Updating lock for module: $module"
-        
-        # Validate module before updating
-        if ! validate_module "$module"; then
-            failed_modules+=("$module (validation failed)")
-            continue
-        fi
-        
-        # Change to module directory
-        if ! cd "$module"; then
-            log_error "Failed to enter directory: $module"
-            failed_modules+=("$module (directory access failed)")
-            continue
-        fi
-        
-        # Dry run mode
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log_info "[DRY RUN] Would update lock: $module"
-            cd ..
-            ((updated_count++))
-            continue
-        fi
-        
-        # Execute poetry update and lock
-        log_debug "Executing: poetry update && poetry lock"
-        
-        if [[ "$VERBOSE" == "true" ]]; then
-            if poetry update && poetry lock; then
-                log_success "Successfully updated lock: $module"
-                ((updated_count++))
-            else
-                log_error "Failed to update lock: $module"
-                failed_modules+=("$module (update failed)")
-            fi
+
+    cd ..
+
+    # Dry run mode
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY RUN] Would run: uv lock --upgrade"
+        cd - > /dev/null
+        return 0
+    fi
+
+    log_debug "Executing: uv lock --upgrade"
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        if uv lock --upgrade; then
+            log_success "Successfully updated workspace lock"
         else
-            if poetry update >/dev/null 2>&1 && poetry lock >/dev/null 2>&1; then
-                log_success "Successfully updated lock: $module"
-                ((updated_count++))
-            else
-                log_error "Failed to update lock: $module"
-                log_error "Run with --verbose for detailed error output"
-                failed_modules+=("$module (update failed)")
-            fi
+            log_error "Failed to update workspace lock"
+            cd - > /dev/null
+            return 1
         fi
-        
-        # Return to parent directory
-        cd ..
-    done
-    
+    else
+        if uv lock --upgrade >/dev/null 2>&1; then
+            log_success "Successfully updated workspace lock"
+        else
+            log_error "Failed to update workspace lock"
+            log_error "Run with --verbose for detailed error output"
+            cd - > /dev/null
+            return 1
+        fi
+    fi
+
+    cd - > /dev/null
+
     # Report results
     print_separator
     log_info "Update Summary:"
-    log_success "Successfully updated: $updated_count modules"
-    
-    if [[ ${#failed_modules[@]} -gt 0 ]]; then
-        log_error "Failed modules: ${#failed_modules[@]}"
-        for failed in "${failed_modules[@]}"; do
-            log_error "  - $failed"
-        done
-        return 1
-    fi
-    
+    log_success "Workspace lock updated successfully"
+
     return 0
 }
 
@@ -347,8 +275,9 @@ print_usage() {
     cat << 'EOF'
 Usage: ./lock.sh [OPTIONS] [COMMAND] [MODULES...]
 
-Poetry lock file manager for RV-Android monitored operations modules.
+uv lock file manager for RV-Android monitored operations modules.
 Manages dependency resolution and lock file consistency across all modules.
+uv uses a single lock file at the workspace root, so module arguments are ignored.
 
 COMMANDS:
     lock                Lock specified modules (default command)
@@ -464,38 +393,22 @@ parse_arguments() {
 }
 
 verify_all_locks() {
-    local modules_to_verify=("$@")
-    local failed_modules=()
-    local verified_count=0
-    
-    log_info "Verifying lock files for ${#modules_to_verify[@]} modules"
+    log_info "Verifying workspace lock file"
     print_separator
-    
-    for module in "${modules_to_verify[@]}"; do
-        echo
-        log_step "Verifying lock for module: $module"
-        
-        if verify_lock "$module"; then
-            ((verified_count++))
-        else
-            failed_modules+=("$module")
-        fi
-    done
-    
-    # Report results
-    print_separator
-    log_info "Verification Summary:"
-    log_success "Successfully verified: $verified_count modules"
-    
-    if [[ ${#failed_modules[@]} -gt 0 ]]; then
-        log_error "Failed verification: ${#failed_modules[@]} modules"
-        for failed in "${failed_modules[@]}"; do
-            log_error "  - $failed"
-        done
+
+    echo
+    log_step "Verifying workspace lock file"
+
+    if verify_lock; then
+        print_separator
+        log_info "Verification Summary:"
+        log_success "Workspace lock file verified"
+        return 0
+    else
+        print_separator
+        log_error "Workspace lock file verification failed"
         return 1
     fi
-    
-    return 0
 }
 
 # ============================================================================
@@ -524,10 +437,10 @@ main() {
     # Validate environment
     validate_environment
     
-    # Execute command
+    # Execute command (uv uses single workspace lock, module selection is ignored)
     case "$LOCK_COMMAND" in
         "lock")
-            if lock_all_modules "${SELECTED_MODULES[@]}"; then
+            if lock_all_modules; then
                 echo
                 log_success "All modules locked successfully!"
                 if [[ "$DRY_RUN" == "true" ]]; then
@@ -540,7 +453,7 @@ main() {
             fi
             ;;
         "update")
-            if update_all_locks "${SELECTED_MODULES[@]}"; then
+            if update_all_locks; then
                 echo
                 log_success "All module locks updated successfully!"
                 if [[ "$DRY_RUN" == "true" ]]; then
@@ -553,7 +466,7 @@ main() {
             fi
             ;;
         "verify")
-            if verify_all_locks "${SELECTED_MODULES[@]}"; then
+            if verify_all_locks; then
                 echo
                 log_success "All lock files verified successfully!"
                 exit 0

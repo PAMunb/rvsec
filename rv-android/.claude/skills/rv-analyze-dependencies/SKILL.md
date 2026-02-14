@@ -70,7 +70,7 @@ MCP is unavailable if:
    # For each module, check pyproject.toml
    for module in modules/rv-*/; do
      echo "=== $(basename $module) ==="
-     grep -A 20 "\[tool.poetry.dependencies\]" $module/pyproject.toml | grep "rv-"
+     grep -A 20 "\[project.dependencies\]" $module/pyproject.toml | grep "rv-"
    done
    ```
 

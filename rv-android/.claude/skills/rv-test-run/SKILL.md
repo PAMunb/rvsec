@@ -19,7 +19,7 @@ allowed-tools: Read, Bash
    - Test function (file::function): run specific test
 
 2. **Build test command**:
-   - Run from project root using Poetry workspace
+   - Run from project root using uv workspace
    - Select pytest options based on scope
 
 3. **Execute tests**
@@ -28,20 +28,20 @@ allowed-tools: Read, Bash
 
 ## Test Commands by Module
 
-All commands run from the project root (Poetry workspace handles PYTHONPATH).
+All commands run from the project root (uv workspace handles PYTHONPATH).
 
 ```bash
 # rv-agent (most common)
-poetry run pytest modules/rv-agent/tests/unit/ -v
+uv run pytest modules/rv-agent/tests/unit/ -v
 
 # rv-android-core
-poetry run pytest modules/rv-android-core/tests/ -v
+uv run pytest modules/rv-android-core/tests/ -v
 
 # rv-platform
-poetry run pytest modules/rv-platform/tests/ -v
+uv run pytest modules/rv-platform/tests/ -v
 
 # Generic pattern
-poetry run pytest modules/$MODULE/tests/ -v
+uv run pytest modules/$MODULE/tests/ -v
 ```
 
 ## Test Categories (rv-agent)

@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Architecture Overview
 
-RV-Android is a modular framework for runtime verification of Android applications with LLM-driven testing capabilities. The system uses a Poetry workspace architecture with modules in the `modules` directory.
+RV-Android is a modular framework for runtime verification of Android applications with LLM-driven testing capabilities. The system uses a uv workspace architecture with modules in the `modules` directory.
 
 ### Core Architecture Principles
 
-- **Modular Design**: Independent Poetry modules with clear dependencies and interfaces
+- **Modular Design**: uv workspace modules in editable mode with clear dependencies and interfaces
 - **Component-Based Execution**: TaskExecutor uses pluggable components for different execution phases
 - **Configuration Management**: Unified configuration across all modules using Pydantic models
 - **Error Handling**: Error handling with proper context and recovery strategies
@@ -45,25 +45,25 @@ export RV_PYDANTIC=true  # Enable validation during development
 export RVSEC_HOME="/path/to/rvsec"  # Required for monitors and static analysis
 export ANDROID_HOME="/path/to/android-sdk"
 
-# Install all modules (Poetry workspace, editable mode, shared .venv)
-poetry install  # or: cd modules && ./install.sh
+# Install all modules (uv workspace, editable mode, shared .venv)
+uv sync  # or: cd modules && ./install.sh
 ```
 
-Poetry workspace: single `poetry install` at root installs ALL modules in editable mode. Source changes are immediate — no reinstall needed unless `pyproject.toml` changes.
+uv workspace: single `uv sync` at root installs ALL modules in editable mode. Source changes are immediate — no reinstall needed unless `pyproject.toml` changes.
 
 ### Testing and Quality
 ```bash
-poetry run pytest                                    # All tests
-poetry run pytest modules/MODULE_NAME/tests/ -v      # Specific module
-poetry run pytest -m "not slow" -v                   # Fast unit tests only
-poetry run black modules/ && poetry run flake8 modules/  # Format + lint
+uv run pytest                                    # All tests
+uv run pytest modules/MODULE_NAME/tests/ -v      # Specific module
+uv run pytest -m "not slow" -v                   # Fast unit tests only
+uv run black modules/ && uv run flake8 modules/  # Format + lint
 ```
 
 ### Experiment Execution
 ```bash
-poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-set jca
-poetry run rv-experiment run --tools monkey --name my_experiment  # Auto-resume on re-run
-poetry run rv-platform run --tools monkey --apks-dir ./apks_examples  # Direct platform
+uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-set jca
+uv run rv-experiment run --tools monkey --name my_experiment  # Auto-resume on re-run
+uv run rv-platform run --tools monkey --apks-dir ./apks_examples  # Direct platform
 ```
 
 ### RV-Agent
@@ -71,9 +71,9 @@ Two modes: **standalone CLI** (`rv-agent` — user manages emulator/APK) or **vi
 
 ```bash
 # Via rv-experiment (recommended)
-poetry run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
 # Standalone (requires emulator running + APK installed)
-cd modules/rv-agent && poetry run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
+cd modules/rv-agent && uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
 ```
 
 See `.claude/project-info.md` for Docker commands, monitor generation, and full command reference.
@@ -157,7 +157,7 @@ See `.claude/project-info.md` for full directory tree and pre-processed artifact
 
 ## Testing Strategy
 
-RV-Agent test dirs: `unit/`, `integration/`, `smoke/`, `online/`, `performance/`, `regression/`, `system/` in `modules/rv-agent/tests/`. Run with `PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/<dir>/ -v`.
+RV-Agent test dirs: `unit/`, `integration/`, `smoke/`, `online/`, `performance/`, `regression/`, `system/` in `modules/rv-agent/tests/`. Run with `PYTHONPATH=../rv-android-core/src:src uv run pytest tests/<dir>/ -v`.
 
 Test data: screenshots in `/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots` (28+ apps), fixtures in `modules/rv-agent/tests/fixtures/`. See `.claude/project-info.md` for full test commands.
 

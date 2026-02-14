@@ -1,37 +1,47 @@
-[tool.poetry]
+[project]
 name = "rv-experiment"
 version = "0.1.0"
 description = "Experiment orchestration and coordination for RV-Android platform"
-authors = ["RV-Android Team"]
+authors = [{name = "RV-Android Team"}]
 readme = "README.md"
-packages = [{include = "rv_experiment", from = "src"}]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9.0",
+    "matplotlib>=3.9.0",
+    # Module dependencies (orchestrator)
+    "rv-platform",
+    "rv-android-core",
+    "rv-monitor-generator",
+    "rv-instrumentation",
+    "rv-static-analysis",
+    "rv-screen-parser",
+    "rv-coverage",
+    "rv-tools",
+    "rvagent-tool",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-# Dependências de todos os módulos (orquestrador final)
-rv-platform = {path = "../rv-platform", develop = true}
-rv-android-core = {path = "../rv-android-core", develop = true}
-rv-monitor-generator = {path = "../rv-monitor-generator", develop = true}
-rv-instrumentation = {path = "../rv-instrumentation", develop = true}
-rv-static-analysis = {path = "../rv-static-analysis", develop = true}
-rv-screen-parser = {path = "../rv-screen-parser", develop = true}
-rv-coverage = {path = "../rv-coverage", develop = true}
-rv-tools = {path = "../rv-tools", develop = true}
-rvagent-tool = {path = "../rvagent-tool", develop = true}
-pydantic = "^2.9.0"
-# Dependências específicas para orquestração
-matplotlib = "^3.9.0"  # Para silenciar logs verbosos no CLI
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-cov = "^6.0.0" 
-
-[tool.poetry.scripts]
+[project.scripts]
 rv-experiment = "rv_experiment.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-platform = { workspace = true }
+rv-android-core = { workspace = true }
+rv-monitor-generator = { workspace = true }
+rv-instrumentation = { workspace = true }
+rv-static-analysis = { workspace = true }
+rv-screen-parser = { workspace = true }
+rv-coverage = { workspace = true }
+rv-tools = { workspace = true }
+rvagent-tool = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
-
 
 [tool.coverage.run]
 source = ["src"]
@@ -44,7 +54,9 @@ omit = [
 # show_missing = true
 # fail_under = 80
 
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_experiment"]

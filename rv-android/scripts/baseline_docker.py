@@ -7,7 +7,7 @@ Each container runs all specified tools on its batch of APKs. Results
 are auto-aggregated into a single summary.csv after all containers complete.
 
 Usage:
-    poetry run python scripts/baseline_docker.py \
+    uv run python scripts/baseline_docker.py \
         --tools ape,fastbot,rvagent:pure_algorithm \
         --data-dir /path/to/calibration_dataset_v2 \
         --filter-file /path/to/all_valid_apks.txt \

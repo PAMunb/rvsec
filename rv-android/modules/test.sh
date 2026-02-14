@@ -128,13 +128,13 @@ validate_environment() {
         error_exit "Must run from the modules directory containing test.sh"
     fi
     
-    # Check Poetry availability
-    if ! command -v poetry &> /dev/null; then
-        error_exit "Poetry is required but not found. Please install Poetry first."
+    # Check uv availability
+    if ! command -v uv &> /dev/null; then
+        error_exit "uv is required but not found. Please install uv first."
     fi
-    
+
     # Check pytest availability (will be checked per module)
-    log_debug "Poetry found, pytest availability will be checked per module"
+    log_debug "uv found, pytest availability will be checked per module"
     
     log_success "Environment validation passed"
 }
@@ -202,17 +202,16 @@ test_module() {
         return 1
     fi
     
-    # Check if poetry environment exists
-    if ! poetry env info --path >/dev/null 2>&1; then
-        log_error "Poetry environment not found for: $module"
-        log_error "Run './install.sh $module' first"
+    # Check if virtual environment exists (uv workspace: .venv at project root)
+    if [[ ! -d "../../.venv" ]]; then
+        log_error "Virtual environment not found. Run 'uv sync' from project root first"
         cd ..
         FAILED_MODULES+=("$module")
         return 1
     fi
-    
+
     # Build pytest command
-    local pytest_cmd="poetry run pytest"
+    local pytest_cmd="uv run pytest"
     
     if [[ "$COVERAGE" == "true" ]]; then
         pytest_cmd="$pytest_cmd --cov=src --cov-report=term-missing"

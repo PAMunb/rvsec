@@ -68,7 +68,7 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 ### Prerequisites
 
 - Python 3.12+
-- Poetry for dependency management
+- uv for dependency management
 - Pydantic v2.8.0+ for data validation
 - Android SDK (for emulator management utilities)
 
@@ -76,16 +76,16 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Enable validation in development (optional)
 export RV_PYDANTIC=true
 
 # Run tests
-poetry run pytest
+uv run pytest
 
 # Install in development mode
-poetry install --extras dev
+uv sync --extras dev
 ```
 
 ### Environment Configuration
@@ -381,15 +381,15 @@ System failures could cascade as resource exhaustion from one failing command im
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=rv_android_core
+uv run pytest --cov=rv_android_core
 
 # Run specific test categories
-poetry run pytest tests/util/error/
-poetry run pytest tests/event/
-poetry run pytest tests/domain/
+uv run pytest tests/util/error/
+uv run pytest tests/event/
+uv run pytest tests/domain/
 ```
 
 ### Test Structure

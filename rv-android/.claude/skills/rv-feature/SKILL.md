@@ -348,10 +348,10 @@ Options:
    cd modules/$MODULE
 
    # Production dependency
-   poetry add [package-name]
+   uv add [package-name]
 
    # Development-only dependency
-   poetry add --group dev [package-name]
+   uv add --group dev [package-name]
    ```
 
 3. **Verify dependency health** - Use the **Skill tool**:
@@ -365,7 +365,7 @@ Options:
 
 4. **Lock dependencies**:
    ```bash
-   poetry lock
+   uv lock
    ```
 
 ### Common Dependencies by Feature Type

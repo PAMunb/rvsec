@@ -406,7 +406,7 @@ The `docker.sock` mount (`/var/run/docker.sock:/var/run/docker.sock`) in both co
 #### Scenario: Docker Entry Point Translates Environment Variables to CLI
 
 - **WHEN** a Docker container starts with `RV_TOOLS=monkey,droidbot`, `RV_TIMEOUTS=300`, `RV_EXPERIMENT_NAME=batch_01`, `RV_NO_WINDOW=true`
-- **THEN** the entry point MUST generate: `poetry run rv-experiment run --tools monkey,droidbot --timeout 300 --name batch_01 --no-window`
+- **THEN** the entry point MUST generate: `uv run rv-experiment run --tools monkey,droidbot --timeout 300 --name batch_01 --no-window`
 - **AND** MUST echo the generated command to stdout for debugging
 - **AND** MUST use `exec` to replace the shell process with the Python process (proper signal handling)
 

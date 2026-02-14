@@ -354,7 +354,7 @@ export RVSEC_HOME="/pedro/desenvolvimento/workspaces/workspaces-doutorado/worksp
 # Baseline: 3 tools × 105 APKs × 3 reps = 945 tasks
 # 3 reps para significancia estatistica (Wilcoxon signed-rank, p < 0.05)
 # 6 emuladores distribuem tasks em paralelo via parallel_run.py
-poetry run python scripts/parallel_run.py \
+uv run python scripts/parallel_run.py \
   --tools ape,fastbot,rvagent:pure_algorithm \
   --apks-dir modules/rv-agent-validation/data/calibration_dataset_v2 \
   --n-emulators 6 \
@@ -384,7 +384,7 @@ poetry run python scripts/parallel_run.py \
 ```bash
 # 80 trials × 75 cal APKs, 6 emuladores em paralelo
 # Optuna TPESampler com n_jobs=6
-poetry run python -m rv_agent_validation calibrate \
+uv run python -m rv_agent_validation calibrate \
   --apks-dir $CALIBRATION_DATASET \
   --apks-filter calibration_set_v2.txt \
   --phase macro \
@@ -413,7 +413,7 @@ poetry run python -m rv_agent_validation calibrate \
 ```bash
 # 100 trials × 75 cal APKs, multimode, 6 emuladores em paralelo
 # Requer: SGLang server (6 emuladores geram ~4.2 requests LLM concorrentes)
-poetry run python -m rv_agent_validation calibrate \
+uv run python -m rv_agent_validation calibrate \
   --apks-dir "$CALIBRATION_DATASET" \
   --apks-filter calibration_set_v2.txt \
   --phase micro \
@@ -733,7 +733,7 @@ class CalibrationRunner:
 
         # Executar via rv-experiment com flags skip (sem preprocessing)
         cmd = [
-            "poetry", "run", "rv-experiment", "run",
+            "uv", "run", "rv-experiment", "run",
             "--tools", tool_spec,
             "--apks-dir", self.dataset_dir,
             "--skip-monitors", "--skip-instrument", "--skip-static",
@@ -779,10 +779,10 @@ export CALIBRATION_DATASET="modules/rv-agent-validation/data/calibration_dataset
 
 # Testar fluxo de parametros
 cd modules/rv-agent
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_agent_config.py -v
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_agent_config.py -v
 
 # Teste de integracao com rv-experiment (1 APK apenas para teste rapido)
-poetry run rv-experiment run \
+uv run rv-experiment run \
   --tools "rvagent:pure_algorithm@mop_direct_score=400" \
   --apks-dir $CALIBRATION_DATASET \
   --skip-monitors --skip-instrument --skip-static \
@@ -797,7 +797,7 @@ cat ./test_calibration_v2/summary.csv
 
 ```toml
 # modules/rv-agent-validation/pyproject.toml
-[tool.poetry.dependencies]
+[project.dependencies]
 optuna = "^3.5.0"
 plotly = "^5.18.0"  # Opcional: para visualizacao Optuna
 ```
