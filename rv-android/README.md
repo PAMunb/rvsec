@@ -1,414 +1,398 @@
 # RV-Android: Runtime Verification for Android Applications
 
-A modular framework for runtime verification of Android applications, supporting monitored operations through JavaMOP and RV-Monitor integration. Enables monitoring of both JCA (Java Cryptographic Architecture) and generic programming patterns.
+A modular platform for Android application testing that integrates runtime verification (JavaMOP/RV-Monitor), static analysis, automated test generation, and LLM-guided exploration. Supports detection of both JCA (Java Cryptography Architecture) API misuses and general programming pattern violations through 168+ MOP specifications.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
-RV-Android uses a modular Poetry workspace architecture optimized for development productivity while maintaining clear separation of concerns:
+RV-Android uses a Poetry workspace with 13 independent modules organized in four layers:
 
 ```
-rv-android/
-├── modules/                          # 📦 Independent modules
-│   ├── rv-android-core/             # 🧠 Core infrastructure
-│   ├── rv-monitor-generator/        # 🔧 Monitor generation
-│   ├── rv-instrumentation/          # 📱 APK instrumentation
-│   ├── rv-static-analysis/          # 🔍 Static analysis tools
-│   ├── rv-coverage/                 # 📊 Coverage analysis
-│   ├── rv-screen-parser/            # 📱 UI parsing framework
-│   ├── rv-tools/                    # 🛠️ Testing tools registry
-│   └── rv-experiment/               # 🧪 Experiment framework
-├── pyproject.toml                   # 📋 Workspace configuration
-└── modules/install.sh               # 🚀 Module installer
+Experiment Orchestration:  rv-experiment, rv-agent-validation
+LLM Testing:               rv-agent, rvagent-tool
+Analysis and Processing:   rv-monitor-generator, rv-instrumentation, rv-static-analysis,
+                           rv-coverage, rv-screen-parser
+Core Infrastructure:       rv-android-core, rv-platform, rv-tools, rv-uiautomator
 ```
 
-### Modules Overview
+### Modules
 
-| Module | Purpose | README |
-|--------|---------|--------|
-| **rv-android-core** | Foundation infrastructure (ErrorHandler, EventBus, domain models) | [📖](modules/rv-android-core/README.md) |
-| **rv-monitor-generator** | JavaMOP/RV-Monitor integration for generating monitors | [📖](modules/rv-monitor-generator/README.md) |
-| **rv-instrumentation** | APK instrumentation with monitor weaving | [📖](modules/rv-instrumentation/README.md) |
-| **rv-static-analysis** | Static analysis tools (GATOR, GESDA, REACH) | [📖](modules/rv-static-analysis/README.md) |
-| **rv-coverage** | Coverage analysis and tracking | [📖](modules/rv-coverage/README.md) |
-| **rv-screen-parser** | Android UI parsing with visitor patterns | [📖](modules/rv-screen-parser/README.md) |
-| **rv-tools** | Testing tool plugin system | [📖](modules/rv-tools/README.md) |
-| **rv-experiment** | Experiment orchestration and coordination | [📖](modules/rv-experiment/README.md) |
+| Module | Purpose |
+|--------|---------|
+| **rv-android-core** | Foundation infrastructure: domain models, error handling, logging |
+| **rv-platform** | Central execution engine: task generation, component-based execution, result processing |
+| **rv-tools** | Testing tool plugin system with registry and factory patterns |
+| **rv-uiautomator** | Shared UIAutomator2 components for Android device interaction |
+| **rv-monitor-generator** | JavaMOP/RV-Monitor integration for generating runtime verification monitors |
+| **rv-instrumentation** | APK instrumentation with monitor and coverage aspect weaving |
+| **rv-static-analysis** | Static analysis tools: GATOR (WTG), GESDA (GUI elements), REACH (MOP reachability) |
+| **rv-coverage** | Coverage analysis and tracking for monitored operations |
+| **rv-screen-parser** | Android UI parsing with visitor patterns for state analysis |
+| **rv-agent** | LLM-driven testing tool using Qwen3-VL vision model with LangGraph workflow |
+| **rvagent-tool** | Bridge module registering rv-agent as a tool in the rv-tools plugin system |
+| **rv-experiment** | Experiment orchestration: pre-processing, execution coordination, post-processing |
+| **rv-agent-validation** | Validation framework for rv-agent calibration and benchmarking |
 
-## 🚀 Quick Start Guide
+### Pipeline
 
-### 1. First-Time Setup (New Project)
+The full experiment workflow consists of three phases:
 
-**Prerequisites:**
+1. **Pre-processing**: Monitor generation from MOP specs, APK instrumentation with monitors + coverage aspect, static analysis (GATOR, GESDA, REACH)
+2. **Execution**: Task generation (APK x tool x variant x repetition x timeout), emulator management, tool execution with logcat capture, coverage tracking
+3. **Post-processing**: Result generation in CSV/JSON format (coverage, errors, summary, performance)
+
+## Quick Start
+
+### Prerequisites
+
 - Python 3.12+
 - Java 21+
-- Aspectj 1.9.24
-- Android SDK
-- RVSEC environment
+- AspectJ 1.9.24
+- Android SDK (with emulator and platform-tools)
+- RVSEC environment (for monitor generation and instrumentation)
 
-
-**Complete setup sequence:**
+### Installation
 
 ```bash
-# 1. Install RVSEC (required for monitor generation)
-cd /path/to/rvsec
-./configure.sh
-mvn clean install -DskipTests -DskipMopAgent
-
-# 2. Set environment variables
+# Set environment variables
 export RVSEC_HOME="/path/to/rvsec"
 export ANDROID_HOME="/path/to/android-sdk"
-export RV_PYDANTIC=true  # Enable validation in development
 
-# 3. Setup RV-Android
+# Install all modules (Poetry workspace, editable mode)
 cd rv-android
-
-# 4. Install all modules in dependency order
-cd modules
-./install.sh
-
-# 5. Verify installation
-cd ..
-poetry run python -c "import rv_android_core, rv_monitor_generator; print('✅ Setup complete')"
+poetry install
 ```
 
-### 2. Development Update (Existing Project)
+All 13 modules are installed in editable mode via the root `pyproject.toml`. Source code changes are reflected immediately — no reinstall needed unless `pyproject.toml` dependencies change.
+
+### Running Experiments
 
 ```bash
-# 1. Pull latest changes
-git pull
+# Run experiment with Monkey tool
+poetry run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 300
 
-# 2. Update dependencies across all modules
-cd modules
-./install.sh --verbose
+# Run with multiple tools and DroidBot variant
+poetry run rv-experiment run --tools monkey,droidbot:dfs_greedy --timeout 600 --repetitions 3
 
-# 3. Run tests to verify update
-cd ..
-poetry run pytest modules/*/tests/ -v
+# Run with rv-agent (LLM-driven testing)
+poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
+
+# Skip pre-processing (use pre-processed APKs from a previous run)
+poetry run rv-experiment run --tools monkey --apks-dir results/my_exp/instrumented_apks \
+  --skip-monitors --skip-instrument --skip-static
 ```
 
-### 3. Creating a New Module
+## Testing Tools
+
+RV-Android integrates 9 testing tools through a plugin system:
+
+| Tool | Type | Description |
+|------|------|-------------|
+| **Monkey** | Random | Android's built-in random event generator |
+| **DroidBot** | Model-based | DFS/BFS exploration with UI model (variants: `dfs_greedy`, `bfs_greedy`, `dfs_naive`) |
+| **APE** | Model-based | Activity/Property Explorer with model-based exploration |
+| **FastBot** | Model-based | Bytedance's high-speed fuzzing tool |
+| **ARES** | RL-based | Reinforcement learning exploration (Docker-based) |
+| **DroidMate** | Model-based | GUI-driven testing |
+| **Humanoid** | DL-based | Deep learning model for human-like interaction (requires Humanoid server) |
+| **QTesting** | RL-based | Reinforcement learning testing (Docker-based) |
+| **rv-agent** | LLM-driven | Vision-language model exploration (variants: `pure_algorithm`, `llm_only`, `multimode`) |
+
+### Tool Specification DSL
+
+Tools are specified via a DSL: `tool_name[:variant][@param=value]`
 
 ```bash
-# 1. Create module structure
-cd modules
-mkdir rv-new-module
-cd rv-new-module
+# Simple tool
+--tools monkey
 
-# 2. Initialize Poetry project
-poetry init --name rv-new-module --dependency rv-android-core
-mkdir -p src/rv_new_module tests
+# Tool with variant
+--tools droidbot:dfs_greedy
 
-# 3. Create basic structure
-cat > src/rv_new_module/__init__.py << 'EOF'
-"""RV New Module - Description of functionality."""
-__version__ = "0.1.0"
-EOF
+# Tool with variant and parameters
+--tools rvagent:multimode@temperature=0.3
 
-# 4. Add to install script
-# Edit modules/install.sh and add "rv-new-module" to MODULES array
-
-# 5. Install and test
-cd ..
-./install.sh rv-new-module
-poetry run pytest rv-new-module/tests/
+# Multiple tools (comma-separated)
+--tools monkey,droidbot:dfs_greedy,ape
 ```
 
-## 💻 Development Workflows
+## Specification Sets
 
-### Environment Configuration
+MOP specifications define the runtime verification monitors woven into APKs. Each experiment uses one specification set — sets are never mixed within a single experiment.
 
-RV-Android supports environment-controlled data validation:
+| Set | Specs | Description |
+|-----|-------|-------------|
+| **JCA** | 23 | Java Cryptography Architecture monitors (Cipher, MessageDigest, SSLContext, SecretKeySpec, KeyGenerator, Signature, Mac, KeyStore, etc.). Derived from 23 CrySL rules validated by cryptography experts. |
+| **Generic (FSM)** | 118 | General programming pattern monitors from JavaMOP's specification database (Iterator hasNext/next, stream closing, collection modification during iteration, etc.) |
+| **Generic (new)** | 27 | Curated generic specifications with descriptive names (e.g., `Closeable_MeaninglessClose`, `Map_UnsafeIterator`, `InputStream_ManipulateAfterClose`) |
+| **Custom** | User-defined | Any directory containing `.mop` specification files |
+
+Specification source: `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/`
 
 ```bash
-# Development mode - full validation enabled
-export RV_PYDANTIC=true
+# JCA specifications (default)
+poetry run rv-experiment run --tools monkey --specification-set jca
 
-# Production mode - validation disabled for performance
-export RV_PYDANTIC=false
-# or leave unset (default)
+# Generic FSM specifications
+poetry run rv-experiment run --tools monkey --specification-set generic
+
+# Custom specification directory
+poetry run rv-experiment run --tools monkey --specification-set custom --custom-specs-dir /path/to/specs
 ```
 
-**When to use:**
-- **Development**: Set `RV_PYDANTIC=true` for full type safety and error detection
-- **Production**: Leave unset or `false` for optimal performance
-- **Testing**: Automatically enabled during test execution
+## RV-Agent (LLM-Driven Testing)
 
-### Daily Development Commands
+RV-Agent uses a Vision Language Model (Qwen3-VL-4B-Instruct) served via SGLang to analyze device screenshots and interact with applications. It combines LLM semantic understanding with algorithmic exploration strategies.
+
+### Execution Modes
+
+| Mode | Description |
+|------|-------------|
+| `pure_algorithm` | DFS-based exploration using action ranking without LLM |
+| `llm_only` | LLM decides all actions from screenshots |
+| `multimode` | Hybrid: 70% LLM / 30% algorithm decisions (default) |
+
+### Architecture
+
+RV-Agent uses a LangGraph workflow: parse UI state from device, route decision to LLM or algorithm, validate the chosen action, execute on device, and learn from the result. Key features:
+
+- **Stateless LLM context**: Fresh context each iteration (~2500 tokens) prevents context overflow
+- **MOP-aware prioritization**: Prioritizes actions that reach monitored operations (using REACH data)
+- **WTG-guided navigation**: Uses Window Transition Graph from GATOR for navigation
+- **Hybrid tool calling**: Native `bind_tools()` with XML/JSON fallback for SGLang compatibility
+- **Coordinate normalization**: Handles Qwen3-VL [0, 1000) coordinate space to device pixels
+
+### Infrastructure Requirements
+
+- SGLang inference server with Qwen3-VL-4B-Instruct (default endpoint: `http://192.168.0.36:30000/v1`)
+- GPU with 16GB+ VRAM (tested on NVIDIA RTX 5070 Ti)
+- bf16 precision (no quantization) for optimal quality
+
+### Standalone Usage
 
 ```bash
-# Navigate to project root
-cd /path/to/rv-android
+# Requires: emulator running + APK installed
+cd modules/rv-agent
+poetry run rv-agent run --package com.example.app --mode multimode --timeout 60
 
-# Set development environment
-export RV_PYDANTIC=true
+# Via rv-experiment (recommended — platform manages emulator and APK)
+poetry run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
+```
 
+## Experiment Resume
+
+Experiments can be resumed after interruption or expanded with additional repetitions. Resume is backed by persistent task storage in `tasks.json`.
+
+### Resume Modes
+
+```bash
+# Implicit resume via --name (resumes if results/<name>/tasks.json exists)
+poetry run rv-experiment run --tools monkey --name my_experiment --repetitions 3
+
+# Explicit resume via --resume-dir
+poetry run rv-experiment run --tools monkey --resume-dir ./results/my_experiment
+```
+
+### Resume Behavior
+
+- Completed tasks are loaded from `tasks.json` and skipped
+- Pre-processing (monitor generation, instrumentation, static analysis) is auto-skipped on resume
+- Results are consolidated across all sessions, including MOP violation reconstruction from logcat for resumed tasks
+- Configuration checksum tracks whether the experiment config has changed between runs
+
+### Expanding Experiments
+
+```bash
+# First run: 1 repetition
+poetry run rv-experiment run --tools ape --name exp1 --repetitions 1
+
+# Expand: adds repetition 2 (repetition 1 is skipped)
+poetry run rv-experiment run --tools ape --name exp1 --repetitions 2
+```
+
+## Docker Deployment
+
+RV-Android runs inside Docker containers with a 4-layer image chain:
+
+| Layer | Image | Purpose |
+|-------|-------|---------|
+| 1 | `phtcosta/rvandroid_base` | Java 8, Python 3.10, Poetry (Ubuntu 22.04) |
+| 2 | `phtcosta/rvandroid_android` | Android SDK, emulator (API 25 x86), KVM support |
+| 3 | `phtcosta/rvandroid_tools` | DroidBot, APE, FastBot, Docker CLI |
+| 4 | `phtcosta/rvandroid:0.8.0` | Full RV-Android framework |
+
+### Running with Docker
+
+The entrypoint (`docker-entrypoint.sh`) translates environment variables to `rv-experiment run` CLI arguments:
+
+```bash
+docker run --privileged \
+  -e RV_TOOLS=monkey \
+  -e RV_TIMEOUTS=300 \
+  -e RV_SPEC_SET=jca \
+  -e RV_EXPERIMENT_NAME=batch_01 \
+  -v ./results:/app/results \
+  phtcosta/rvandroid:0.8.0
+```
+
+### Parallel Execution
+
+Docker Compose supports parallel containers with YAML anchors. Each container gets its own experiment name, device port, and startup delay:
+
+```yaml
+# docker-compose.parallel.yml pattern
+services:
+  rv01:
+    environment:
+      RV_EXPERIMENT_NAME: batch_01
+      RV_DEVICE_PORT: 5554
+      RV_DELAY: 0
+  rv02:
+    environment:
+      RV_EXPERIMENT_NAME: batch_02
+      RV_DEVICE_PORT: 5556
+      RV_DELAY: 30
+```
+
+### Resume in Docker
+
+Set `RV_EXPERIMENT_NAME` and mount the results volume. When restarted with the same name, the container auto-detects `tasks.json` and resumes.
+
+## Output Files
+
+The platform generates the following files in the results directory:
+
+| File | Description |
+|------|-------------|
+| `coverage.csv` | Per-method coverage data with timing and progressive metrics |
+| `errors.csv` | Monitored operations violations with timing and context |
+| `summary.csv` | Aggregate metrics per task (activities, methods, MOP coverage, errors) |
+| `results.json` | Hierarchical JSON with complete experiment data |
+| `performance.csv` | Task execution timing and performance metrics |
+| `tasks.json` | Task state persistence for experiment resume |
+
+## CLI Reference
+
+### rv-experiment (Experiment Orchestration)
+
+```bash
+# Run experiment
+poetry run rv-experiment run --tools <tools> [options]
+
+# Options
+--tools TOOLS              # Tool specification DSL (required)
+--timeout SECONDS          # Execution timeout (default: 300)
+--repetitions N            # Number of repetitions (default: 1)
+--apks-dir DIR             # APK directory (default: ./apks_examples)
+--specification-set SET    # jca, generic, or custom (default: jca)
+--name NAME                # Experiment name (enables implicit resume)
+--resume-dir DIR           # Resume from specific directory
+--no-window                # Headless emulator mode
+--skip-monitors            # Skip monitor generation
+--skip-instrument          # Skip APK instrumentation
+--skip-static              # Skip static analysis
+--generate-monitors        # Generate monitors in pre-processing
+--instrument-apks          # Instrument APKs in pre-processing
+--static-analysis          # Run static analysis in pre-processing
+
+# List available tools
+poetry run rv-experiment list-tools --detailed
+
+# Generate configuration template
+poetry run rv-experiment config --template-type basic --output config.json
+
+# Validate configuration
+poetry run rv-experiment validate config.json
+```
+
+### rv-platform (Direct Task Execution)
+
+```bash
+# Run tasks directly (no pre-processing)
+poetry run rv-platform run --tools monkey --apks-dir ./apks_examples
+
+# Process existing results
+poetry run rv-platform run --process-results ./results/experiment_dir
+```
+
+### rv-agent (Standalone LLM Testing)
+
+```bash
+# Requires emulator running + APK installed
+poetry run rv-agent run --package <package_name> --mode <mode> --timeout <seconds>
+```
+
+## Development
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `RVSEC_HOME` | For instrumentation | Path to RVSEC installation |
+| `ANDROID_HOME` | For emulator | Android SDK path |
+| `RV_PYDANTIC` | No | Set to `true` for development validation |
+
+### Testing
+
+```bash
 # Run all tests
 poetry run pytest
 
 # Test specific module
-poetry run pytest modules/rv-monitor-generator/tests/ -v
+poetry run pytest modules/rv-agent/tests/ -v
 
-# Install single module (after changes)
-cd modules
-./install.sh rv-android-core --verbose
-
-# Run with coverage
-poetry run pytest --cov=modules --cov-report=html
-```
-
-### Monitor Generation Workflow
-
-```bash
-# Generate JCA cryptography monitors
-poetry run rv-monitor-generator generate \
-  --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
-  --output ./output/jca-monitors
-
-# Generate generic pattern monitors
-poetry run rv-monitor-generator generate \
-  --specs-dir $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/generic \
-  --output ./output/generic-monitors
-
-# Auto-discover specifications (requires RVSEC_HOME)
-poetry run rv-monitor-generator generate --output ./output/auto-monitors
-```
-
-### Static Analysis Workflow
-
-```bash
-# Analyze single APK
-poetry run rv-static-analysis analyze \
-  --apk /path/to/app.apk \
-  --output /analysis/results
-
-# Batch analysis
-poetry run rv-static-analysis batch \
-  --apks-dir /path/to/apks \
-  --output /analysis/batch-results
-```
-
-### Experiment Execution
-
-```bash
-# Run complete experiment
-poetry run python run_test_framework.py
-
-# Execute main application
-poetry run python main.py
-
-# Run specific experiment configuration
-poetry run python -m rv_experiment \
-  --config ./tf_configs/basic_config.json
-```
-
-## 🔧 PyCharm Development Setup
-
-### Project Configuration
-
-1. **Open Project**: Open the `rv-android` directory (workspace root) in PyCharm
-2. **Python Interpreter**: Configure Poetry environment
-   - File → Settings → Project → Python Interpreter
-   - Add → Poetry Environment → Existing environment
-   - Select the Poetry virtual environment for rv-android
-
-3. **Source Roots**: Mark module source directories
-   - Right-click `modules/rv-android-core/src` → Mark Directory as → Sources Root
-   - Repeat for all modules: `modules/*/src`
-
-4. **Test Configuration**: 
-   - Run/Debug Configurations → Templates → Python tests → pytest
-   - Working directory: `$PROJECT_DIR$`
-   - Additional arguments: `-v`
-
-### Debugging Workflow
-
-```bash
-# Set up debugging in PyCharm
-# 1. Create Python configuration
-# 2. Script path: modules/rv-monitor-generator/src/rv_monitor_generator/__main__.py
-# 3. Parameters: generate --specs-dir /path/to/specs --output /tmp/debug
-# 4. Working directory: /path/to/rv-android
-# 5. Environment variables: RVSEC_HOME=/path/to/rvsec
-```
-
-## 🧪 Testing Strategy
-
-### Test Organization
-
-```bash
-# Fast unit tests (no external dependencies)
+# Fast unit tests only
 poetry run pytest -m "not slow" -v
 
-# Integration tests (requires RVSEC)
-poetry run pytest -m "slow" -v
-
-# Module-specific tests
-poetry run pytest modules/rv-android-core/tests/ -v
-poetry run pytest modules/rv-monitor-generator/tests/test_runtime_verification_generator_complete.py -v
-
-# Test with debugging
-poetry run pytest --tb=long --capture=no -vvv
+# Format and lint
+poetry run black modules/ && poetry run flake8 modules/
 ```
 
-### Continuous Testing
+### Directory Structure
+
+```
+rv-android/
+├── modules/                   # 13 independent Poetry modules
+│   ├── rv-android-core/       # Foundation infrastructure
+│   ├── rv-platform/           # Execution engine
+│   ├── rv-tools/              # Tool plugin system
+│   ├── rv-uiautomator/        # Device interaction
+│   ├── rv-monitor-generator/  # Monitor generation
+│   ├── rv-instrumentation/    # APK instrumentation
+│   ├── rv-static-analysis/    # Static analysis (GATOR, GESDA, REACH)
+│   ├── rv-coverage/           # Coverage tracking
+│   ├── rv-screen-parser/      # UI parsing
+│   ├── rv-agent/              # LLM-driven testing
+│   ├── rvagent-tool/          # rv-agent tool bridge
+│   ├── rv-experiment/         # Experiment orchestration
+│   └── rv-agent-validation/   # Agent validation/calibration
+├── docker/                    # Docker images (4-layer chain)
+├── apks_examples/             # Sample APKs for testing
+├── results/                   # Experiment results (persistent)
+├── out/                       # Temporary artifacts (monitors, instrumented APKs)
+├── docs/                      # Documentation
+├── openspec/                  # Spec-Driven Development artifacts
+└── pyproject.toml             # Poetry workspace configuration
+```
+
+### Cleanup
 
 ```bash
-# Watch mode for development
-poetry run pytest-watch modules/rv-android-core/tests/
-
-# Coverage report
-poetry run pytest --cov=modules --cov-report=html
-# View: open htmlcov/index.html
+./clear.sh                 # Clean temporary artifacts (keeps results/)
+./clear.sh --clean-results # Clean everything including results
 ```
 
-## 🏗️ Module Development Patterns
+## Documentation
 
-### Working on rv-android-core
+| Document | Description |
+|----------|-------------|
+| Module `CLAUDE.md` files | Architecture and development reference per module |
+| Module `docs/architecture.md` files | Detailed architecture documentation |
+| `docs/PRD.md` | Product Requirements Document (37 FRs, 8 NFRs) |
+| `docs/WORKFLOW.md` | Development workflow and SDD process |
+| `docs/VISION.md` | VLM evaluation methodology and results |
+| `docker/README.md` | Docker infrastructure documentation |
 
-```bash
-cd modules/rv-android-core
+## Related Projects
 
-# Run module tests
-poetry run pytest tests/ -v
-
-# Test domain models
-poetry run pytest tests/domain/ -v
-
-# Test error handling
-poetry run pytest tests/util/error/ -v
-```
-
-### Working on rv-monitor-generator
-
-```bash
-# Test monitor generation
-poetry run pytest modules/rv-monitor-generator/tests/ -k "test_generate" -v
-
-# Test CLI interface
-poetry run rv-monitor-generator --help
-
-# Debug with real RVSEC
-poetry run rv-monitor-generator generate \
-  --specs-dir $RVSEC_HOME/examples/MOPSyntax \
-  --output /tmp/debug-monitors \
-  --verbose
-```
-
-### Working on rv-experiment
-
-```bash
-# Test experiment framework
-poetry run pytest modules/rv-experiment/tests/ -v
-
-# Run basic experiment
-poetry run python -c "
-from rv_experiment.experiment.experiment_controller import ExperimentController
-controller = ExperimentController()
-print('Experiment framework ready')
-"
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-#### Module Import Errors
-```bash
-# Error: "No module named 'rv_android_core'"
-# Solution: Ensure you're in workspace root
-cd /path/to/rv-android  # NOT modules/rv-*/
-poetry run pytest modules/rv-monitor-generator/tests/
-
-# Verify Poetry environment
-poetry env info
-poetry show --tree
-```
-
-#### RVSEC Environment Issues
-```bash
-# Set RVSEC_HOME if auto-discovery fails
-export RVSEC_HOME="/path/to/rvsec"
-
-# Verify RVSEC installation
-ls $RVSEC_HOME/javamop/bin/javamop
-ls $RVSEC_HOME/rv-monitor/bin/rv-monitor
-
-# Test RVSEC integration
-poetry run rv-monitor-generator generate --dry-run
-```
-
-#### Poetry Installation Issues
-```bash
-# Clean and reinstall
-cd modules
-for module in */; do
-  cd "$module"
-  poetry env remove --all
-  poetry install
-  cd ..
-done
-
-# Verify installation
-./install.sh --dry-run --verbose
-```
-
-#### Test Failures
-```bash
-# Debug test failures
-poetry run pytest --tb=long --capture=no -vvv
-
-# Skip slow tests during development
-poetry run pytest -m "not slow"
-
-# Run single test with full output
-poetry run pytest modules/rv-android-core/tests/test_app.py::test_app_creation -vvv
-```
-
-### Environment Validation
-
-```bash
-# Quick environment check
-cd modules
-./install.sh --dry-run
-
-# Comprehensive validation
-poetry run python -c "
-import sys
-print(f'Python: {sys.version}')
-
-try:
-    import rv_android_core
-    print('✅ rv-android-core')
-except ImportError as e:
-    print(f'❌ rv-android-core: {e}')
-
-try:
-    import rv_monitor_generator
-    print('✅ rv-monitor-generator')
-except ImportError as e:
-    print(f'❌ rv-monitor-generator: {e}')
-
-import os
-rvsec_home = os.environ.get('RVSEC_HOME')
-print(f'RVSEC_HOME: {rvsec_home or \"Not set\"}')
-"
-```
-
-## 📚 Additional Resources
-
-- **Configuration Examples**: `tf_configs/`, `plateau_config_example.json`
-- **Architecture Documentation**: `docs/`
-- **Module Documentation**: Each module's `README.md`
-- **Test Data**: `modules/*/tests/resources/`
-
-## 🤝 Contributing
-
-1. **Development Environment**: Always use workspace mode for development
-2. **Testing**: Run tests from workspace root, not individual modules
-3. **New Modules**: Follow the module creation pattern above
-4. **Documentation**: Update relevant READMEs when adding features
-5. **Dependencies**: Add new dependencies to appropriate module only
-
----
-
-**Development Note**: This workspace is optimized for integrated development with Poetry path dependencies. All development should be done from the workspace root to ensure proper module resolution and dependency management.
+- **RVSEC**: Parent project providing the runtime verification infrastructure ([github.com/PAMunb/rvsec](https://github.com/PAMunb/rvsec))
+- **RV-Android (original)**: The original bash-based instrumentation tool by Runtime Verification Inc. that inspired the instrumentation pipeline ([github.com/runtimeverification/rv-android](https://github.com/runtimeverification/rv-android))

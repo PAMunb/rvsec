@@ -98,12 +98,11 @@ Write to `modules/$ARGUMENTS/README.md` using template below.
 ## Installation
 
 ```bash
-# Install with all rv-android modules
-cd modules && ./install.sh
-
-# Or install just this module
-cd modules && ./install.sh [module-name]
+# Install all rv-android modules (from project root)
+poetry install
 ```
+
+This module is part of the RV-Android Poetry workspace. All modules are installed in editable mode — source changes are reflected immediately.
 
 ## Quick Start
 
@@ -169,8 +168,11 @@ poetry run [cli-command] [options]
 ## Testing
 
 ```bash
-cd modules/[module-name]
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
+# From project root
+poetry run pytest modules/[module-name]/tests/ -v
+
+# With coverage
+poetry run pytest modules/[module-name]/tests/ --cov=modules/[module-name]/src --cov-report=html
 ```
 
 ## License

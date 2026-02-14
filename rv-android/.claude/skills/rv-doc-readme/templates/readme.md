@@ -9,12 +9,11 @@
 ## Installation
 
 ```bash
-# Install with all rv-android modules
-cd modules && ./install.sh
-
-# Or install just this module
-cd modules && ./install.sh {module-name}
+# Install all rv-android modules (from project root)
+poetry install
 ```
+
+This module is part of the RV-Android Poetry workspace. All modules are installed in editable mode — source changes are reflected immediately.
 
 ## Quick Start
 
@@ -98,16 +97,11 @@ poetry run {cli-command} --option value
 ## Testing
 
 ```bash
-cd modules/{module-name}
+# From project root
+poetry run pytest modules/{module-name}/tests/ -v
 
-# Run all tests
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
-
-# Run unit tests only
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
-
-# Run with coverage
-poetry run pytest --cov=src --cov-report=html
+# With coverage
+poetry run pytest modules/{module-name}/tests/ --cov=modules/{module-name}/src --cov-report=html
 ```
 
 ## License
