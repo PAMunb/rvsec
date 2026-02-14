@@ -36,18 +36,18 @@ EXPERIMENT_LOGS_DIR = "logs"
 EXPERIMENT_CONFIG_FILE = "config.json"
 EXPERIMENT_TASKS_FILE = "tasks.json"
 
-# File extensions (from rv-android-core constants)
-EXTENSION_APK = ".apk"
-EXTENSION_METHODS = ".methods"
-EXTENSION_GESDA = ".gesda"
+# File extensions (re-exported from rv-android-core)
+from rv_android_core.constants import (
+    EXTENSION_APK,
+    EXTENSION_METHODS,
+    EXTENSION_GESDA,
+    EXTENSION_REACH,
+    EXTENSION_RVM,
+    EXTENSION_JAVA,
+)
 EXTENSION_GATOR = ".gator"
-EXTENSION_REACH = ".reach"
 EXTENSION_WTG = ".wtg"
-
-# Monitor file extensions
-EXTENSION_RVM = ".rvm"
 EXTENSION_ASPECTJ = ".aj"
-EXTENSION_JAVA = ".java"
 
 # Default timeouts and repetitions
 DEFAULT_TIMEOUT = 300

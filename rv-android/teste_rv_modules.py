@@ -7,7 +7,7 @@ from rv_android_core.domain.app import App
 from rv_monitor_generator import RuntimeVerificationGenerator, RVGeneratorConfig
 from rv_instrumentation import RVInstrumentation, RVInstrumentationConfig
 from rv_static_analysis import RVStaticAnalysisConfig, StaticAnalyzer
-from rvandroid.util.logging.manager import LoggingManager
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 def setup_logging(debug: bool = True):

@@ -4,7 +4,7 @@ import sys
 
 from rv_monitor_generator import RuntimeVerificationGenerator, RVGeneratorConfig
 from rv_instrumentation import RVInstrumentation, RVInstrumentationConfig
-from rvandroid.util.logging.manager import LoggingManager
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 def setup_logging(debug: bool = True):

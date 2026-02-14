@@ -17,6 +17,10 @@ CONTEXT_TOOL_NAME = "tool_name"
 CONTEXT_COMPONENT = "component"
 CONTEXT_PHASE = "phase"
 
+# Log tags for runtime verification output
+TAG_RVSEC = "RVSEC"
+TAG_RVSEC_COV = "RVSEC-COV"
+
 # Common log messages patterns
 LOG_START = "Starting {phase}"
 LOG_COMPLETE = "Completed {phase}"

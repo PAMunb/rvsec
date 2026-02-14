@@ -55,32 +55,13 @@ class PerformanceProcessorComponent:
         # Ensure results directory exists
         os.makedirs(results_dir, exist_ok=True)
 
-    @ErrorHandler.handle_errors(component="PerformanceProcessorComponent", phase="initialization")
-    def initialize(self, context: Dict[str, Any]) -> None:
-        """
-        Initialize the performance processor component.
-
-        Args:
-            context: Initialization context (unused for this component)
-        """
-        self.logger.info(LOG_COMPLETE.format(phase="performance processor initialization"))
-
     @ErrorHandler.handle_errors(component="PerformanceProcessorComponent", phase="performance_processing")
-    def execute(self, context: Dict[str, Any]) -> None:
-        """
-        Execute performance metrics processing to generate CSV files.
-
-        Args:
-            context: Execution context (unused for this component)
-        """
+    def generate(self) -> None:
+        """Generate performance CSV files from task execution metrics."""
         with self.logger.with_context(phase="performance_processing"):
             self.logger.info(LOG_START.format(phase="performance metrics processing"))
             self._generate_performance_csv()
             self.logger.info(LOG_COMPLETE.format(phase="performance metrics processing"))
-
-    def cleanup(self) -> None:
-        """Clean up resources used by the performance processor."""
-        pass
 
     @ErrorHandler.handle_errors(component="PerformanceProcessorComponent", phase="performance_csv")
     def _generate_performance_csv(self) -> None:

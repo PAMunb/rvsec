@@ -12,10 +12,7 @@ from pydantic import Field, field_validator, computed_field
 from rv_android_core.util import utils
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-
-# Constants for log tags
-TAG_RVSEC = "RVSEC"
-TAG_RVSEC_COV = "RVSEC-COV"
+from rv_android_core.util.logging.constants import TAG_RVSEC, TAG_RVSEC_COV
 
 
 @validated_model(['spec', 'error_type', 'class_full_name', 'method', 'source', 'message'])

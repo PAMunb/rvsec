@@ -18,7 +18,6 @@ from rv_android_core.util.logging.constants import (
     CONTEXT_COMPONENT,
     LOG_START,
     LOG_COMPLETE,
-    LOG_ERROR
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.domain.task import TaskState
@@ -620,15 +619,8 @@ class ResultProcessorComponent:
                 # Import and use performance processor
                 from rv_platform.components.performance_processor import PerformanceProcessorComponent
                 
-                # Create performance processor
                 performance_processor = PerformanceProcessorComponent(completed_tasks, self.results_dir)
-                
-                # Initialize and execute performance processing
-                performance_processor.initialize({})
-                performance_processor.execute({})
-                performance_processor.cleanup()
-                
-                # Get performance summary for logging
+                performance_processor.generate()
                 summary = performance_processor.get_performance_summary()
                 self.logger.info(f"Performance processing completed: {summary.get('summary', 'Unknown status')}")
 
