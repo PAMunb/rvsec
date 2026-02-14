@@ -88,13 +88,15 @@ The project board has four columns that map to the SDD workflow phases:
 - New issues from `PAMunb/rvsec` are automatically added to the Backlog column
 - Issues that are closed are automatically moved to Done
 
+**Known limitation (2026-02-14)**: GitHub Projects automation is not working as expected. New issues are added to the **"No Status"** column instead of "Backlog", and closing issues does not reliably move cards to "Done". This means column state must be managed manually by the researcher through the GitHub Projects web UI. Claude Code manages issue **state** (open/closed) via MCP `issue_write`, but cannot move cards between columns programmatically (requires GraphQL project item mutations not exposed by the GitHub MCP server).
+
 ### Cross-Referencing Convention
 
 Bidirectional traceability links all artifacts to their originating issue:
 
 | From | To | Mechanism |
 |------|----|-----------|
-| Issue -> Change directory | All tracks: `openspec/changes/YYYY-MM-DD-GH<N>-<short-name>/` |
+| Issue -> Change directory | Active: `openspec/changes/gh<N>-<short-name>/`. Archived: `openspec/changes/archive/YYYY-MM-DD-gh<N>-<short-name>/` (date added by `openspec archive`) |
 | Change -> Issue | Full/FF SDD: `proposal.md` header. Quick Path: `plan.md` header. Both include `GitHub Issue: #N` |
 | Issue -> Commits | Use `refs #N` during work, `closes #N` in the final commit |
 | Issue -> PR | Include `Closes #N` in PR body |
@@ -103,25 +105,44 @@ Bidirectional traceability links all artifacts to their originating issue:
 
 ### How Claude Code Manages the Board
 
-Board management relies on GitHub Projects automation to minimize manual overhead. The only action Claude Code must take is closing the issue — the board automation handles column transitions.
+Claude Code manages issue **state** (open/closed) via MCP `issue_write`, and **board column** via `gh project item-edit` CLI.
 
 **Protocol:**
 
 | Moment | Action | Mechanism |
 |--------|--------|-----------|
-| Issue created | Appears in Backlog | Automatic (GitHub Projects automation) |
+| Issue created | Appears in board as "No Status" | Automatic add (automation broken — see Known limitation) |
+| Work starting | Move card to In Progress | `gh project item-edit` with Status → In Progress |
 | Work in progress | Commits reference the issue | `refs #N` in commit messages |
 | Work complete (single commit) | Close the issue via commit | `closes #N` in the final commit message |
 | Work complete (already committed with `refs`) | Close the issue via MCP | `issue_write` with `state: "closed"`, `state_reason: "completed"` |
-| Issue closed | Moves to Done | Automatic (GitHub Projects automation) |
+| Issue closed | Move card to Done | `gh project item-edit` with Status → Done |
 
-**Simplified rules:**
+**Rules:**
 1. Use `refs #N` in intermediate commits during multi-commit work
-2. Use `closes #N` in the final commit to auto-close and auto-move to Done
+2. Use `closes #N` in the final commit to auto-close the issue
 3. If the final commit already used `refs #N`, close the issue explicitly via MCP after verification
-4. Skip the "In Progress" and "In Review" columns — they exist for manual use by the researcher but are not programmatically managed by Claude Code, since the GitHub Projects API does not expose simple column-move operations without GraphQL project item mutations
+4. After closing an issue, move the card to Done via `gh project item-edit`
+5. New issues land in "No Status" — move to Backlog via `gh project item-edit` when triaged
 
-This approach keeps the workflow lean: Claude Code focuses on code and commits, the board reflects reality through issue state.
+**Board management via `gh` CLI:**
+
+The `gh` CLI (`~/.local/bin/gh`) is authenticated and has `project` scope. Column transitions use `gh project item-edit` with the project's Status field:
+
+```bash
+# Project: PVT_kwDOAJRqj84BPHtv (PAMunb #7 "rvagent")
+# Status field: PVTSSF_lADOAJRqj84BPHtvzg9n4kM
+# Options: Backlog=efb2287e, In Progress=88b03dd2, In Review=eb8dfe26, Done=53305933
+
+# Example: move item to Done
+gh project item-edit --project-id PVT_kwDOAJRqj84BPHtv \
+  --id <ITEM_ID> \
+  --field-id PVTSSF_lADOAJRqj84BPHtvzg9n4kM \
+  --single-select-option-id 53305933
+
+# List items to find ITEM_ID:
+gh project item-list 7 --owner PAMunb --format json
+```
 
 ---
 
@@ -475,13 +496,13 @@ For changes that do not require design decisions — the task is clear, the plan
 All Quick Path changes get a change directory in `openspec/changes/` with a single `plan.md` artifact. This provides traceability (linked to GitHub Issue) and a consistent archive location across all tracks.
 
 ```
-openspec/changes/YYYY-MM-DD-GH<N>-short-name/
+openspec/changes/gh<N>-short-name/
 └── plan.md          # Analysis + file inventory + acceptance criteria
 ```
 
 The `plan.md` is created during the Analyze phase. For trivial changes (typo fix, single-line edit), the plan can be a few lines. For larger mechanical changes, it includes a complete file inventory with line numbers (e.g., `docs/20260213_remover_modulos.md`).
 
-**Cross-referencing**: The directory name includes the GitHub Issue number (`GH<N>`). The `plan.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit.
+**Cross-referencing**: The directory name includes the GitHub Issue number (`gh<N>`). The `plan.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit.
 
 ```mermaid
 flowchart LR

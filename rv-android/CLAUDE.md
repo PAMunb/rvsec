@@ -343,7 +343,7 @@ The system is documented via Spec-Driven Development. Specs document current beh
 
 All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for track selection (Full SDD, Fast-Forward SDD, or Quick Path). Specs are updated via delta specs in changes, then synced to main specs via `/opsx:sync`.
 
-**Cross-referencing convention**: OpenSpec change directories include the issue number: `YYYY-MM-DD-GH<N>-<short-name>`. The `proposal.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit. PRs include `Closes #N` in the body.
+**Cross-referencing convention**: OpenSpec change directories use the pattern `gh<N>-<short-name>` (lowercase, no date prefix — `openspec archive` adds the date). The `proposal.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit. PRs include `Closes #N` in the body.
 
 ---
 

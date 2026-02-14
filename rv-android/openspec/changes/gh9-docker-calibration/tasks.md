@@ -279,6 +279,6 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 ### 27. Archive and Close
 
-- [ ] 27.1 Archive change directory to `openspec/changes/archive/2026-02-13-GH9-docker-calibration/`.
+- [ ] 27.1 Run `openspec archive "gh9-docker-calibration" --skip-specs` (archives to `openspec/changes/archive/YYYY-MM-DD-gh9-docker-calibration/`).
 - [ ] 27.2 Commit with `closes #9`.
 - [ ] 27.3 Verify issue closed on GitHub.
