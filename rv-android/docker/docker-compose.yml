@@ -10,10 +10,11 @@ services:
     ports:
       - 50405:50405
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:50405"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      test: ["CMD", "python", "-c", "import socket; s = socket.create_connection(('127.0.0.1', 50405), timeout=3); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   rvandroid:
     image: phtcosta/rvandroid:0.8.0
