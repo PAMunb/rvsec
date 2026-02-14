@@ -62,7 +62,7 @@ Full workflow details: [docs/WORKFLOW.md](../../docs/WORKFLOW.md)
 |----------|------|-------------|
 | **Spec** | [docs/templates/spec-template.md](../../docs/templates/spec-template.md) | Domain specs and delta specs |
 | **Design** | [docs/templates/design-template.md](../../docs/templates/design-template.md) | Design documents for changes |
-| **ADR** | [docs/templates/adr-template.md](../../docs/templates/adr-template.md) | Architectural Decision Records |
+| **ADR** | [.claude/skills/rv-doc-adr/templates/adr.md](../../.claude/skills/rv-doc-adr/templates/adr.md) | Architectural Decision Records (via `/rv-doc-adr` skill) |
 
 ## OpenSpec Skills and Commands
 

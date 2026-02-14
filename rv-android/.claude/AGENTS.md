@@ -533,6 +533,31 @@ poetry run bandit -r src/ --severity-level medium
 
 ---
 
+### Risk & Process Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-risk` | `/rv-risk [target]` | Technical risk assessment with RMMM plan |
+| `rv-retrospective` | `/rv-retrospective [scope]` | Post-change process retrospective |
+
+**rv-risk** — Proactive risk identification and mitigation planning. Produces a risk register with probability/impact scoring and RMMM (Risk Mitigation, Monitoring, Management) plan.
+
+**Supporting Files**: `.claude/skills/rv-risk/`
+- Checklists: `risk-categories.md`, `risk-indicators.md`, `mitigation-strategies.md`
+- Templates: `risk-register.md`
+
+**Workflow Integration**: Optional in Full SDD Phase 3 (Design) — assess implementation risks when the design involves new dependencies, external APIs, or multi-module coordination.
+
+**rv-retrospective** — Post-change process analysis using GQM (Goal-Question-Metric) framework. Identifies what went well, what could improve, and produces actionable improvement items.
+
+**Supporting Files**: `.claude/skills/rv-retrospective/`
+- Checklists: `process-analysis.md`, `improvement-cycle.md`, `gqm-framework.md`
+- Templates: `retrospective-report.md`
+
+**Workflow Integration**: Optional post-Archive step in all three tracks (Full SDD, FF SDD, Quick Path) — captures process learnings after each change cycle.
+
+---
+
 ## Dependency Management
 
 When adding new dependencies to a module, follow this workflow:
@@ -956,23 +981,36 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     │   └── checklists/
     │
     │   # Analysis Skills
-    ├── rv-analyze-complexity/SKILL.md
-    ├── rv-analyze-dependencies/SKILL.md
-    ├── rv-analyze-dead-code/SKILL.md
-    ├── rv-analyze-file/SKILL.md
+    ├── rv-analyze-complexity/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    ├── rv-analyze-dependencies/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-analyze-dead-code/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-analyze-file/
+    │   ├── SKILL.md
+    │   └── checklists/
     ├── rv-analyze-module/SKILL.md
     ├── rv-impact-analyzer/
     │   ├── SKILL.md
     │   └── templates/
     │
     │   # Refactoring Skills
-    ├── rv-refactor-simplify/SKILL.md
+    ├── rv-refactor-simplify/
+    │   ├── SKILL.md
+    │   └── checklists/
     ├── rv-refactor-extract/SKILL.md
     ├── rv-refactor-cleanup/SKILL.md
     ├── rv-refactor-constants/SKILL.md
     │
     │   # Testing & Debugging Skills
-    ├── rv-test-add/SKILL.md
+    ├── rv-test-add/
+    │   ├── SKILL.md
+    │   └── checklists/
     ├── rv-test-run/SKILL.md
     ├── rv-debug-regression/
     │   ├── SKILL.md
@@ -991,11 +1029,27 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     ├── rv-doc-readme/
     │   ├── SKILL.md
     │   └── templates/readme.md
-    ├── rv-doc-generate-claude-md/SKILL.md
+    ├── rv-doc-generate-claude-md/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
     ├── rv-doc-architecture/SKILL.md
-    ├── rv-doc-adr/SKILL.md
-    └── rv-docs-sync/
+    ├── rv-doc-adr/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    ├── rv-docs-sync/
+    │   ├── SKILL.md
+    │   └── templates/
+    │
+    │   # Risk & Process Skills
+    ├── rv-risk/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    └── rv-retrospective/
         ├── SKILL.md
+        ├── checklists/
         └── templates/
 ```
 
@@ -1044,6 +1098,10 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 - `/rv-doc-architecture [module]`
 - `/rv-doc-adr [decision-title]`
 - `/rv-docs-sync [module or 'all']`
+
+**Risk & Process**:
+- `/rv-risk [target]`
+- `/rv-retrospective [scope]`
 
 ### MCP Tools
 - `mcp__sequential-thinking__sequentialthinking`

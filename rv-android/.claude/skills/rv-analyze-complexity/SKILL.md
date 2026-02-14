@@ -14,8 +14,11 @@ allowed-tools: Read, Grep, Glob, Bash
 
 ## Supporting Files
 
-Reference these files from this skill directory:
-- **Templates**: `templates/report.md`
+Read these reference files before starting analysis:
+
+- `checklists/complexity-thresholds.md` — Metric thresholds for risk classification (cyclomatic, cognitive, Halstead, LOC, coupling)
+- `checklists/refactoring-indicators.md` — Code smell to refactoring technique mapping with expected impact
+- `templates/report.md` — Output report format
 
 ---
 

@@ -14,8 +14,11 @@ allowed-tools: Read, Grep, Glob, Bash
 
 ## Supporting Files
 
-Reference these files from this skill directory:
-- **Templates**: `templates/report.md`
+Read these reference files before starting analysis:
+
+- `checklists/dead-code-categories.md` — 8 dead code categories with priority-based removal guidelines
+- `checklists/false-positive-patterns.md` — Patterns where code appears dead but is actually used (dynamic dispatch, frameworks, registries)
+- `templates/report.md` — Output report format
 
 ---
 

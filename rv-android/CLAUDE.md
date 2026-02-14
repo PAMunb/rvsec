@@ -331,7 +331,7 @@ The system is documented via Spec-Driven Development. Specs document current beh
 |----------|------|
 | Spec | `docs/templates/spec-template.md` |
 | Design | `docs/templates/design-template.md` |
-| ADR | `docs/templates/adr-template.md` |
+| ADR | `.claude/skills/rv-doc-adr/templates/adr.md` |
 
 ### Making Changes
 

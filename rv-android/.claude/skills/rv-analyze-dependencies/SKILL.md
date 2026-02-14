@@ -14,8 +14,11 @@ allowed-tools: Read, Grep, Glob, Bash
 
 ## Supporting Files
 
-Reference these files from this skill directory:
-- **Templates**: `templates/report.md`
+Read these reference files before starting analysis:
+
+- `checklists/dependency-health.md` — Health metrics, allowed dependency matrix, instability/abstractness metrics
+- `checklists/circular-dependency-detection.md` — Cycle detection methods, resolution strategies, decision matrix
+- `templates/report.md` — Output report format
 
 ---
 

@@ -1476,7 +1476,7 @@ A complete inventory of all SDD-related artifacts in the RV-Android project:
 | **Adoption plan** | `docs/20260209_plano_spec_driven.md` | 5-phase adoption plan (all phases complete) |
 | **Spec template** | `docs/templates/spec-template.md` | Template for new domain specs |
 | **Design template** | `docs/templates/design-template.md` | Template for design documents |
-| **ADR template** | `docs/templates/adr-template.md` | Template for architectural decision records |
+| **ADR template** | `.claude/skills/rv-doc-adr/templates/adr.md` | Template for architectural decision records (via `/rv-doc-adr` skill) |
 
 ### 11.9 Validating Our Workflow Against SDD Best Practices
 

@@ -335,8 +335,9 @@ flowchart LR
 **What to do**:
 1. Run `/rv-analyze-module <module>` on the primary affected module
 2. Run `/rv-impact-analyzer <target>` to assess change impact across modules
-3. Run `/opsx:explore` to think through the approach and document findings
-4. If the change is smaller than expected, consider downgrading to Fast-Forward or Quick Path
+3. Run `/rv-analyze-dependencies <module>` when the change affects cross-module interfaces — maps the dependency graph to inform the proposal
+4. Run `/opsx:explore` to think through the approach and document findings
+5. If the change is smaller than expected, consider downgrading to Fast-Forward or Quick Path
 
 #### Phase 2: Propose
 
@@ -362,7 +363,7 @@ flowchart LR
 | Aspect | Detail |
 |--------|--------|
 | **OpenSpec skill** | `/opsx:continue` (x2 for design + tasks) |
-| **RV skills** | `/rv-doc-adr` (if architectural decision needs recording) |
+| **RV skills** | `/rv-doc-adr` (if architectural decision needs recording), `/rv-risk` (if risks need assessment) |
 | **Outputs** | `design.md` with implementation plan; `tasks.md` with ordered task list |
 | **Exit criteria** | Design reviewed, tasks are clear and scoped for single sessions |
 
@@ -370,7 +371,8 @@ flowchart LR
 1. Run `/opsx:continue` to generate the design document
 2. Run `/opsx:continue` again to generate the task list
 3. If making an architectural decision, run `/rv-doc-adr` to record it
-4. Review: each task should be completable in one Claude Code session
+4. Run `/rv-risk <change-name>` when the design involves new dependencies, external APIs, or multi-module coordination — produces a risk register with mitigation strategies
+5. Review: each task should be completable in one Claude Code session
 
 #### Phase 4: Implement
 
@@ -428,6 +430,10 @@ flowchart LR
 
 **Subagent orchestration** (see Section 5): When documentation updates touch 5+ files (specs, CLAUDE.md, README, skills), delegate the doc sync to a subagent. The main window handles `/opsx:sync` and `/opsx:archive` (lightweight), while the subagent handles the bulk file edits.
 
+**Optional**: Run `/rv-retrospective` to capture process learnings from this change cycle. Particularly valuable for changes that required deviation from the planned approach or encountered unexpected blockers.
+
+**Closing protocol** (details in Section 2): Commit with `closes #N` in the final commit message (or close the issue via MCP if already committed with `refs #N`). Move the Kanban card to Done. For changes submitted as PRs, include `Closes #N` in the PR body and move the card to In Review until merged.
+
 ---
 
 ## 7. Fast-Forward SDD Workflow
@@ -482,6 +488,10 @@ flowchart LR
 | **Skills** | `/rv-verify` + `/opsx:verify` + `/opsx:archive` |
 | **Outputs** | Verification report, updated specs, archived change |
 | **Exit criteria** | All checks pass, specs synced, change archived |
+
+**Optional**: Run `/rv-retrospective` to capture process learnings, especially if the fast-forward artifacts needed significant revision during implementation.
+
+**Closing protocol** (details in Section 2): Commit with `closes #N` in the final commit message (or close the issue via MCP if already committed with `refs #N`). Move the Kanban card to Done. For changes submitted as PRs, include `Closes #N` in the PR body and move the card to In Review until merged.
 
 ---
 
@@ -551,6 +561,10 @@ flowchart LR
 | **Exit criteria** | All checks pass, acceptance criteria from `plan.md` met |
 
 After verification, archive the change by moving the change directory to `openspec/archive/` and closing the GitHub Issue.
+
+**Optional**: Run `/rv-retrospective` for changes that revealed workflow improvements or recurring patterns worth documenting.
+
+**Closing protocol** (details in Section 2): Commit with `closes #N` in the final commit message (or close the issue via MCP if already committed with `refs #N`). Move the Kanban card to Done.
 
 ---
 

@@ -31,7 +31,7 @@ context: |
   Reference project: agente-documentador uses SDD/OpenSpec as a model
   (path: /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/agente-documentador)
 
-  Templates: docs/templates/spec-template.md, docs/templates/design-template.md, docs/templates/adr-template.md
+  Templates: docs/templates/spec-template.md, docs/templates/design-template.md, .claude/skills/rv-doc-adr/templates/adr.md
   PRD: docs/PRD.md
   Plan: docs/20260209_plano_spec_driven.md
 
@@ -60,7 +60,7 @@ rules:
     - Include Pydantic schemas when applicable
     - Include Mapping table: Spec -> Implementation -> Test
   adr:
-    - Follow template structure from docs/templates/adr-template.md
+    - Follow template structure from .claude/skills/rv-doc-adr/templates/adr.md
     - English language throughout
     - Include alternatives considered with specific trade-offs
   tasks:

@@ -13,6 +13,13 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 
 # Simplify Code: $ARGUMENTS
 
+## Supporting Files
+
+Read these reference files before simplifying:
+
+- `checklists/simplification-patterns.md` — 10 over-engineering patterns with before/after examples and false-positive warnings
+- `checklists/complexity-reduction.md` — 8 measurable techniques with expected impact on cyclomatic/cognitive complexity
+
 ## Guiding Principles
 
 When simplifying code, you must be guided by fundamental software design principles that improve its quality and maintainability. Your goal is not just to make code shorter, but to make it better.

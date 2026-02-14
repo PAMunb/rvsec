@@ -12,6 +12,13 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash, Skill
 
 # Add Tests: $ARGUMENTS
 
+## Supporting Files
+
+Read these reference files before designing tests:
+
+- `checklists/test-design-techniques.md` — Systematic test design: equivalence partitioning, boundary value, decision tables, state transition, error guessing
+- `checklists/coverage-strategy.md` — Coverage targets by module type, must-test/should-test/skip criteria, mock guidelines
+
 ## TDD Workflow Integration
 
 This skill follows **Test-Driven Development** principles from superpowers:

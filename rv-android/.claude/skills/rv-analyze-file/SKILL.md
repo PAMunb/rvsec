@@ -14,8 +14,11 @@ allowed-tools: Read, Grep, Glob
 
 ## Supporting Files
 
-Reference these files from this skill directory:
-- **Templates**: `templates/report.md`
+Read these reference files before starting analysis:
+
+- `checklists/file-analysis-dimensions.md` — 8 analysis dimensions (structure, responsibilities, dependencies, complexity, error handling, API, config, testing)
+- `checklists/code-smell-catalog.md` — Code smell catalog by category with severity and suggested refactoring
+- `templates/report.md` — Output report format
 
 ---
 
