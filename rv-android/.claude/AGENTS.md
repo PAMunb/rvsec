@@ -524,10 +524,11 @@ poetry run bandit -r src/ --severity-level medium
 
 ---
 
-### Impact & Debugging Skills
+### Planning, Impact & Debugging Skills
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
+| `rv-planning` | `/rv-planning [task-description]` | Create implementation plans with task breakdown and risk assessment |
 | `rv-impact-analyzer` | `/rv-impact-analyzer [file or module]` | Analyze change impact before refactoring |
 | `rv-debug-regression` | `/rv-debug-regression [test-name]` | Investigate regression bugs via git history |
 
@@ -555,6 +556,25 @@ poetry run bandit -r src/ --severity-level medium
 - Templates: `retrospective-report.md`
 
 **Workflow Integration**: Optional post-Archive step in all three tracks (Full SDD, FF SDD, Quick Path) — captures process learnings after each change cycle.
+
+---
+
+### Security & Release Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-security` | `/rv-security [target]` | Security vulnerability review and threat analysis |
+| `rv-release` | `/rv-release [major\|minor\|patch] [module]` | Poetry workspace release management and PyPI publishing |
+
+**rv-security** — Reviews code for security vulnerabilities (OWASP Top 10, injection, secrets exposure), plans security architecture, and conducts threat analysis.
+
+**Supporting Files**: `.claude/skills/rv-security/`
+- Checklists: security analysis checklists
+
+**rv-release** — Coordinates multi-module releases in the Poetry workspace: version bumping, changelog generation, dependency synchronization, and PyPI publishing.
+
+**Supporting Files**: `.claude/skills/rv-release/`
+- Checklists: release process checklists
 
 ---
 
@@ -987,14 +1007,20 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     │   └── templates/
     ├── rv-analyze-dependencies/
     │   ├── SKILL.md
-    │   └── checklists/
+    │   ├── checklists/
+    │   └── templates/
     ├── rv-analyze-dead-code/
     │   ├── SKILL.md
-    │   └── checklists/
+    │   ├── checklists/
+    │   └── templates/
     ├── rv-analyze-file/
     │   ├── SKILL.md
-    │   └── checklists/
-    ├── rv-analyze-module/SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    ├── rv-analyze-module/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
     ├── rv-impact-analyzer/
     │   ├── SKILL.md
     │   └── templates/
@@ -1003,7 +1029,9 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     ├── rv-refactor-simplify/
     │   ├── SKILL.md
     │   └── checklists/
-    ├── rv-refactor-extract/SKILL.md
+    ├── rv-refactor-extract/
+    │   ├── SKILL.md
+    │   └── checklists/
     ├── rv-refactor-cleanup/SKILL.md
     ├── rv-refactor-constants/SKILL.md
     │
@@ -1023,6 +1051,7 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     ├── rv-qa-lint-fix/SKILL.md
     ├── rv-verify/
     │   ├── SKILL.md
+    │   ├── checklists/
     │   └── templates/
     │
     │   # Documentation Skills
@@ -1033,7 +1062,9 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     │   ├── SKILL.md
     │   ├── checklists/
     │   └── templates/
-    ├── rv-doc-architecture/SKILL.md
+    ├── rv-doc-architecture/
+    │   ├── SKILL.md
+    │   └── checklists/
     ├── rv-doc-adr/
     │   ├── SKILL.md
     │   ├── checklists/
@@ -1042,15 +1073,26 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
     │   ├── SKILL.md
     │   └── templates/
     │
-    │   # Risk & Process Skills
+    │   # Planning, Risk & Process Skills
+    ├── rv-planning/
+    │   ├── SKILL.md
+    │   └── checklists/
     ├── rv-risk/
     │   ├── SKILL.md
     │   ├── checklists/
     │   └── templates/
-    └── rv-retrospective/
+    ├── rv-retrospective/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    │
+    │   # Security & Release Skills
+    ├── rv-security/
+    │   ├── SKILL.md
+    │   └── checklists/
+    └── rv-release/
         ├── SKILL.md
-        ├── checklists/
-        └── templates/
+        └── checklists/
 ```
 
 ---
@@ -1074,7 +1116,6 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 - `/rv-analyze-dead-code [module]`
 - `/rv-analyze-file [path]`
 - `/rv-analyze-module [module]`
-- `/rv-impact-analyzer [file or module]`
 
 **Refactoring**:
 - `/rv-refactor-simplify [path]`
@@ -1082,10 +1123,14 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 - `/rv-refactor-cleanup [module]`
 - `/rv-refactor-constants [path]`
 
-**Testing & Debugging**:
+**Planning & Debugging**:
+- `/rv-planning [task-description]`
+- `/rv-impact-analyzer [file or module]`
+- `/rv-debug-regression [test-name]`
+
+**Testing**:
 - `/rv-test-add [path] [function]`
 - `/rv-test-run [module]`
-- `/rv-debug-regression [test-name]`
 
 **Quality & Verification**:
 - `/rv-qa-lint [module]`
@@ -1102,6 +1147,10 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/ -v
 **Risk & Process**:
 - `/rv-risk [target]`
 - `/rv-retrospective [scope]`
+
+**Security & Release**:
+- `/rv-security [target]`
+- `/rv-release [major|minor|patch] [module]`
 
 ### MCP Tools
 - `mcp__sequential-thinking__sequentialthinking`
