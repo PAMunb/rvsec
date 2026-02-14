@@ -11,7 +11,7 @@ rv-experiment is the experiment orchestration module for the RV-Android framewor
 | Application Type | CLI tool with orchestration | Primary entry point for experiment execution |
 | Structuring | Layered/Modular | Clear separation between CLI, configuration, and workflow phases |
 | Primary Pattern | Three-Phase Workflow | Sequential processing with distinct pre-processing, execution, and post-processing phases |
-| Control Strategy | Event-driven coordination | EventBus for workflow coordination between layers |
+| Control Strategy | Direct method calls | Explicit coordination between workflow phases |
 | Configuration | Just-in-Time (JIT) | Sub-module configs created only when needed |
 | Data Transfer | None | rv-platform handles all results; rv-experiment provides coordination only |
 
@@ -51,23 +51,6 @@ rv-experiment is the experiment orchestration module for the RV-Android framewor
 **Disadvantages**:
 - Configuration errors discovered late
 - Harder to validate complete configuration upfront
-
-### Pattern: Event-Driven Coordination
-
-**Description**: Components communicate through an event bus for loose coupling.
-
-**Application**: EventBus publishes workflow events (WORKFLOW_COMPLETED, EXPERIMENT_COMPLETED, EXPERIMENT_FAILED) for coordination between layers.
-
-**When Used**: When components need to be notified of state changes without direct coupling.
-
-**Advantages**:
-- Loose coupling between components
-- Easy to add observers without modifying producers
-- Supports monitoring and logging
-
-**Disadvantages**:
-- Implicit control flow harder to trace
-- Event ordering can be complex
 
 ---
 
@@ -294,24 +277,21 @@ sequenceDiagram
     participant Exec as ExecutionController
     participant Post as PostProcessor
     participant Platform as rv-platform
-    participant EventBus as EventBus
 
     User->>CLI: rv-experiment run --tools monkey
     CLI->>EC: ExperimentController(config)
-    EC->>EventBus: subscribe(events)
 
     Note over EC,Post: Phase 1: Pre-processing
     EC->>Pre: process(generate, instrument, analyze)
     Pre->>Pre: _generate_monitors()
     Pre->>Pre: _instrument_apks()
     Pre->>Pre: _run_static_analysis()
-    Pre->>EventBus: publish(WORKFLOW_COMPLETED)
     Pre-->>EC: return
 
     Note over EC,Platform: Phase 2: Execution
     EC->>Exec: setup(apks, tools, timeouts)
     Exec->>Exec: _create_platform_config()
-    Exec->>Platform: Platform(config, event_bus)
+    Exec->>Platform: Platform(config)
     EC->>Exec: run()
     Exec->>Platform: run()
     Platform-->>Exec: results
@@ -321,10 +301,8 @@ sequenceDiagram
     EC->>Post: process()
     Post->>Post: _generate_instrumentation_errors()
     Post->>Post: _generate_completion_diagnostics()
-    Post->>EventBus: publish(EXPERIMENT_COMPLETED)
     Post-->>EC: return
 
-    EC->>EventBus: publish(EXPERIMENT_COMPLETED)
     EC-->>CLI: success/failure
     CLI-->>User: Exit code
 ```
@@ -398,7 +376,7 @@ stateDiagram-v2
 - `_get_configured_tools()`: Create tool instances from configuration
 
 **Dependencies**:
-- Internal: rv-android-core (EventBus, ErrorHandler), rv-tools (ToolFactory)
+- Internal: rv-android-core (ErrorHandler, LoggingManager), rv-tools (ToolFactory)
 - Workflow: PreProcessor, ExecutionController, PostProcessor
 
 ### PreProcessor
@@ -481,10 +459,9 @@ How the architecture supports non-functional requirements.
 - Three-phase workflow isolates concerns
 - No data transfer between rv-experiment and rv-platform
 - JIT configuration reduces coupling
-- Event-driven coordination enables loose coupling
+- Direct coordination between workflow phases
 
 **Trade-offs**:
-- Additional indirection through event bus
 - Sequential phase execution limits optimization opportunities
 
 ### NFR: Extensibility
@@ -697,15 +674,13 @@ The entrypoint also supports interactive mode: passing `bash` or `shell` as the 
 - **New Tools**: Register via ExperimentToolRegistry in `experiment_tools.py`
 - **New Pre-processing Phases**: Add methods to PreProcessor with configuration flags
 - **Configuration Templates**: Add factory methods to ConfigurationFactory
-- **Event Handlers**: Subscribe to EventBus for experiment lifecycle events
-
 ## Dependencies
 
 ### Internal (rv-android modules)
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Foundation services (EventBus, ErrorHandler, logging, domain models) |
+| rv-android-core | Foundation services (ErrorHandler, logging, domain models) |
 | rv-platform | Central execution engine for task execution and result processing |
 | rv-monitor-generator | JavaMOP/RV-Monitor monitor generation |
 | rv-instrumentation | APK instrumentation with monitors |

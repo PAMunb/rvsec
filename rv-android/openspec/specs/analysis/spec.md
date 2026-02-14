@@ -36,7 +36,7 @@ Execution Phase:
 - rv-agent (to guide exploration via WTG transitions and MOP reachability)
 - rv-platform (to load static data as a TaskExecutor component)
 
-**rv-coverage** runs during the execution phase, in parallel with tool execution. The `CoverageTracker` monitors a logcat file in a background thread, parsing each line for `RVSEC-COV` (coverage) and `RVSEC` (RV error) tags. It updates a `LogcatRepository` with method calls and violations, publishes `COVERAGE_UPDATED` and `MOP_ERROR_DETECTED` events to the EventBus, and provides real-time coverage metrics. The `CoverageAnalyzer` provides batch (offline) analysis of logcat files with fallback modes when static analysis data is unavailable.
+**rv-coverage** runs during the execution phase, in parallel with tool execution. The `CoverageTracker` monitors a logcat file in a background thread, parsing each line for `RVSEC-COV` (coverage) and `RVSEC` (RV error) tags. It updates a `LogcatRepository` with method calls and violations, and provides real-time coverage metrics via logging. The `CoverageAnalyzer` provides batch (offline) analysis of logcat files with fallback modes when static analysis data is unavailable.
 
 **rv-screen-parser** runs on demand during test execution. When the rv-agent or any UI-aware tool needs to understand the current screen state, it captures a UIAutomator2 XML hierarchy dump and passes it through a parser (UIAutomator2Parser or DroidBotParser) combined with a visitor (BasicTextVisitor, DefaultTextVisitor, or EnhancedTextVisitor). The visitor traverses the UI tree and produces a `ScreenDescription` containing `ScreenItem` objects with `ItemAction` objects. The BasicTextVisitor achieves approximately 69% token reduction compared to raw XML, which is critical for LLM prompt efficiency. The module also provides screenshot analysis via OpenCV and Tesseract for detecting visual elements not present in the UI hierarchy.
 
@@ -206,7 +206,7 @@ rv-static-analysis:
                rv-coverage (repository initialization), rv-experiment (pre-processing phase)
 
 rv-coverage:
-  Depends on: rv-android-core (LogcatRepository, RvErrorLog, RvCoverageLog, EventBus)
+  Depends on: rv-android-core (LogcatRepository, RvErrorLog, RvCoverageLog)
   Consumed by: rv-platform (CoverageComponent), rv-experiment (post-processing)
 
 rv-screen-parser:
@@ -234,7 +234,7 @@ rv-screen-parser:
 
 - `StaticAnalysisData` -- Unified static analysis results containing Classes, Windows, and WTG (destination: rv-platform StaticAnalysisComponent, rv-agent, rv-coverage)
 - `StaticAnalysisResult` -- Analysis pipeline status with file paths, execution times, and errors (destination: rv-experiment pre-processing)
-- `Dict[str, float]` -- Coverage metrics dictionary with method_coverage, activity_coverage, mop_method_coverage, called_methods, total_errors (destination: rv-platform CoverageComponent, EventBus COVERAGE_UPDATED events)
+- `Dict[str, float]` -- Coverage metrics dictionary with method_coverage, activity_coverage, mop_method_coverage, called_methods, total_errors (destination: rv-platform CoverageComponent)
 - `ScreenDescription` -- Complete screen state with items, actions, and coordinates (destination: rv-agent ScreenProcessor, LLM prompt generation)
 - `ScreenshotAnalysisResult` -- Visual analysis results with detected texts, buttons, errors, and interactive elements (destination: rv-agent screenshot analysis)
 - `PackageDetectionResult` -- Package detection result with code_package, confidence, and detection method (destination: App.code_package property)
@@ -245,8 +245,6 @@ rv-screen-parser:
 - **File System (GATOR)**: Creates `{app_name}.wtg` JSON file in output directory containing window transition graph
 - **File System (REACH)**: Creates `{app_name}.reach` CSV file in output directory containing method reachability data
 - **File System (logcat)**: CoverageTracker creates empty logcat file if it does not exist
-- **EventBus (COVERAGE_UPDATED)**: Published when coverage metrics change, carrying method_coverage, activity_coverage, mop_method_coverage, called_methods, total_activities, unique_errors
-- **EventBus (MOP_ERROR_DETECTED)**: Published immediately when an RV error is detected, carrying spec, error_type, class_full_name, method, message, time_since_task_start
 - **Background Thread**: CoverageTracker starts a daemon thread for continuous logcat monitoring; thread terminates on stop() or context manager exit
 
 ### Error
@@ -264,7 +262,7 @@ rv-screen-parser:
 
 - **INV-ANA-03**: Static analysis parsers MUST receive `code_package` (from `App.code_package`, detected by `PackageDetector`) for class filtering, NOT `package_name` (from AndroidManifest.xml). This ensures correct behavior for APKs where the manifest package differs from the implementation package.
 
-- **INV-ANA-04**: The `CoverageTracker` MUST publish a `COVERAGE_UPDATED` event to the EventBus whenever coverage metrics change. It MUST publish a `MOP_ERROR_DETECTED` event immediately when an RV error is detected. Events MUST include the `task_id` if one was provided during initialization.
+- **INV-ANA-04**: The `CoverageTracker` MUST log coverage metric updates whenever coverage metrics change. It MUST log MOP error detections immediately when an RV error is detected. Log entries MUST include the `task_id` if one was provided during initialization.
 
 - **INV-ANA-05**: The `CoverageTracker` MUST be thread-safe. All shared state access MUST be protected by the `_reader_lock` (RLock). The background monitoring thread MUST be a daemon thread that terminates when stop() is called or the context manager exits.
 
@@ -426,7 +424,7 @@ Two types of coverage are tracked:
 - **Overall method coverage**: Percentage of all reachable application methods exercised during testing. Best observed: 26.77% (Humanoid at 300s) in the ICST study.
 - **MOP method coverage**: Percentage of methods with paths to monitored API methods exercised during testing. Best observed: 17.16% (Humanoid at 300s).
 
-The `CoverageTracker` publishes `COVERAGE_UPDATED` events to the EventBus when metrics change, including method_coverage, activity_coverage, mop_method_coverage, called_methods, total_activities, and unique_errors. It uses change detection to avoid redundant metric calculations and event publishing.
+The `CoverageTracker` logs coverage metric updates when metrics change, including method_coverage, activity_coverage, mop_method_coverage, called_methods, total_activities, and unique_errors. It uses change detection to avoid redundant metric calculations and logging.
 
 The `CoverageAnalyzer` provides offline analysis with four calculation modes: FULL_STATIC_ANALYSIS (complete static data), PARTIAL_STATIC_ANALYSIS (limited data, < 10 methods), RUNTIME_ONLY (no static data), and FALLBACK_MODE (minimal functionality). It can process logcat files, individual RvCoverageLog entries, RvErrorLog entries, or lists thereof.
 
@@ -450,13 +448,6 @@ The `CoverageAnalyzer` provides offline analysis with four calculation modes: FU
 - **WHEN** a logcat line contains `RVSEC-COV: com.example.App:::doEncrypt:::javax.crypto.Cipher`
 - **THEN** parse_logcat_line() MUST return a RvCoverageLog with clazz=`com.example.App`, method=`doEncrypt`, params=`javax.crypto.Cipher`
 
-#### Scenario: Coverage metrics publication via EventBus
-
-- **WHEN** CoverageTracker detects that metrics have changed since last update
-- **THEN** it MUST publish a COVERAGE_UPDATED event via EventBus
-- **AND** the event MUST include task_id (if provided), method_coverage, activity_coverage, mop_method_coverage, called_methods, total_activities, unique_errors
-- **AND** if no task_id was provided, a generic Event MUST be published instead
-
 #### Scenario: CoverageTracker context manager lifecycle
 
 - **WHEN** CoverageTracker is used as a context manager (`with tracker.track_coverage() as t:`)
@@ -473,7 +464,7 @@ The `CoverageAnalyzer` provides offline analysis with four calculation modes: FU
 
 ### Requirement: Specification Violation Detection (FR13)
 
-The system MUST detect and record violations of MOP specifications (RV errors) reported via logcat during test execution. Violations are logged by the runtime monitors woven into the instrumented APK, using the `RVSEC` logcat tag. The `CoverageTracker` detects these violations in real-time and immediately publishes `MOP_ERROR_DETECTED` events to the EventBus.
+The system MUST detect and record violations of MOP specifications (RV errors) reported via logcat during test execution. Violations are logged by the runtime monitors woven into the instrumented APK, using the `RVSEC` logcat tag. The `CoverageTracker` detects these violations in real-time and logs them immediately.
 
 Three error message formats are supported by the `LogcatParser`:
 
@@ -502,19 +493,18 @@ In the ICST study, the top 4 violation classes (SSLContextSpec, MessageDigestSpe
 - **WHEN** a logcat line contains `RVSEC: com.example.IO.read(IO.java:42) ::: InputStream_ManipulateAfterClose went into an error state.`
 - **THEN** parse_logcat_line() MUST return an RvErrorLog with spec=`InputStream_ManipulateAfterClose`, class_full_name=`com.example.IO`, method=`read`, source=`IO.java`
 
-#### Scenario: MOP error event publication
+#### Scenario: MOP error detection and registration
 
 - **WHEN** CoverageTracker processes a logcat line that yields an RvErrorLog
 - **THEN** the error MUST be registered in LogcatRepository via register_rv_error()
-- **AND** a MOP_ERROR_DETECTED event MUST be published to the EventBus with HIGH priority
-- **AND** the event MUST include spec, error_type, class_full_name, method, message, and time_since_task_start
+- **AND** a log entry MUST be emitted with spec, error_type, class_full_name, method, message, and time_since_task_start
 
 #### Scenario: Malformed error message handling
 
 - **WHEN** a logcat line contains `RVSEC: some malformed message that does not match any format`
 - **THEN** _parse_error_message() MUST log a warning
 - **AND** MUST return None (not a malformed RvErrorLog)
-- **AND** CoverageTracker MUST NOT register any error or publish any event
+- **AND** CoverageTracker MUST NOT register any error
 
 #### Scenario: Logcat timestamp to datetime conversion with year handling
 

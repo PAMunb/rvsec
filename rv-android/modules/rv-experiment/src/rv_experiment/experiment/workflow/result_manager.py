@@ -8,7 +8,7 @@ on experiment metadata and instrumentation error tracking.
 
 import json
 import os
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import (
@@ -17,7 +17,6 @@ from rv_android_core.util.logging.constants import (
     LOG_COMPLETE
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event import EventBus
 from rv_android_core.domain.task import TaskState
 from rv_platform.storage.task_storage import TaskStorage
 
@@ -42,26 +41,23 @@ class ResultManager:
     - Create basic experiment metadata for logging and tracking
     - Integrate with experiment workflow for error reporting
     - Provide simple result summary for experiment completion
-    
+
     ### Integration Points:
     - Uses ErrorHandler decorator for error processing
     - Uses LoggingManager for consistent logging with context support
     - Works with TaskStorage for accessing completed experiment tasks
-    - Publishes basic experiment events through EventBus
     """
 
-    def __init__(self, results_dir: str, task_storage: TaskStorage, event_bus: Optional[EventBus] = None):
+    def __init__(self, results_dir: str, task_storage: TaskStorage):
         """
         Initialize the simplified result manager.
 
         Args:
             results_dir: Directory for storing experiment results
             task_storage: Task storage containing completed tasks
-            event_bus: Optional event bus for publishing events
         """
         self.results_dir = results_dir
         self.task_storage = task_storage
-        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
 
         # Initialize logging with context

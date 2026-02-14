@@ -32,7 +32,7 @@ rv-experiment (orchestration)
   |       |       Cleanup all components
   |       +---> Result Processing (CSV/JSON generation)
   |
-  |  Phase 3: Post-processing (diagnostics, events)
+  |  Phase 3: Post-processing (diagnostics)
 ```
 
 rv-experiment creates a `PlatformConfig` and delegates execution to `Platform.run()`. rv-platform generates tasks, executes them, and writes results to disk. rv-experiment does not receive data back programmatically -- results stay on disk in the results directory.
@@ -109,7 +109,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 ### Relationships with Other Domains
 
 **Upstream (consumed by rv-platform)**:
-- **rv-android-core**: Domain models (`Task`, `TaskConfiguration`, `TaskFactory`, `TaskState`, `App`, `ToolConfig`), `EventBus`, `ErrorHandler`, `LoggingManager`, `PerformanceMonitor`, `EmulatorManager`, `LogcatManager`, `BaseValidatedModel`, `AbstractTool`
+- **rv-android-core**: Domain models (`Task`, `TaskConfiguration`, `TaskFactory`, `TaskState`, `App`, `ToolConfig`), `ErrorHandler`, `LoggingManager`, `PerformanceMonitor`, `EmulatorManager`, `LogcatManager`, `BaseValidatedModel`, `AbstractTool`
 - **rv-tools**: `ToolFactory` and `ToolRegistry` for resolving tool names/variants to configured tool instances
 - **rv-coverage**: `CoverageTracker` for real-time logcat-based method coverage tracking, `logcat_parser` for parsing existing logcat files
 - **rv-static-analysis**: `static_analysis_parser` for loading GATOR/GESDA/REACH data files
@@ -129,7 +129,6 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - `PlatformConfig` -- Complete platform configuration (from rv-experiment via `PlatformConfig` construction, or from CLI arguments, or from JSON file)
 - `APK files: List[Path]` -- APK files discovered in `config.apks_dir` via `glob("*.apk")`, sorted alphabetically
 - `Static analysis files: *.reach, *.wtg, *.gesda` -- Optional files co-located with APKs or in `apks_dir`, copied to task results directory before loading (source: rv-static-analysis pre-processing)
-- `EventBus: Optional[EventBus]` -- Shared event bus instance for inter-module communication (defaults to singleton)
 
 ### Output
 
@@ -146,7 +145,6 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **Android Emulator**: Starts and stops Android emulator instances via `EmulatorManager`; installs APK on the emulator; clears logcat buffer
 - **Logcat Capture**: Starts a background logcat capture process writing to a file on disk; stopped after tool execution
 - **File System**: Creates results directory, writes CSV/JSON output files, copies static analysis files from APK directory to task results directory, creates temporary files during atomic save (`.tmp` suffix)
-- **EventBus**: Publishes events to `LIFECYCLE`, `ERROR`, `ANALYSIS`, and `METRICS` channels: `TASK_STARTED`, `TASK_COMPLETED`, `TASK_FAILED`, `TOOL_STARTED`, `TOOL_STOPPED`, `EMULATOR_STARTED`, `APP_INSTALLED`, `STATIC_ANALYSIS_COMPLETED`, `COVERAGE_TRACKING_STARTED`, `COVERAGE_TRACKING_STOPPED`, `COVERAGE_UPDATED`
 - **PerformanceMonitor**: Records timing metrics for task execution, component execution, and environment setup
 
 ### Error
@@ -203,8 +201,6 @@ The emulator is started using the `EmulatorManager.start_emulator()` context man
 - **WHEN** a task is being executed with `apk_name="cryptoapp.apk"` and `no_window=True`
 - **THEN** `EmulatorComponent.start_emulator("RVSec")` MUST start the emulator in headless mode on the default port 5554
 - **AND** `EmulatorComponent.install_app()` MUST install the APK on the emulator
-- **AND** an `EMULATOR_STARTED` event MUST be published to the EventBus with the task's `device_id`
-- **AND** an `APP_INSTALLED` event MUST be published with the app name
 
 #### Scenario: APK Installation Failure
 
@@ -277,7 +273,7 @@ This design exists because task execution involves multiple orthogonal concerns 
 
 Components are identified by string matching on their `name` property (`"StaticAnalysis"`, `"Coverage"`, `"Emulator"`, `"Logcat"`, `"ToolExecution"`). The executor iterates registered components and assigns them to the appropriate phase based on name containment.
 
-The executor publishes lifecycle events to the EventBus: `TASK_STARTED` when execution begins, `TASK_COMPLETED` when execution succeeds, `TASK_FAILED` when execution fails, and `TOOL_STARTED` when the testing tool begins execution (for accurate timing coordination).
+The executor logs lifecycle transitions: task started, task completed, task failed, and tool started (for accurate timing coordination).
 
 #### Scenario: Successful Three-Phase Execution
 
@@ -287,12 +283,11 @@ The executor publishes lifecycle events to the EventBus: `TASK_STARTED` when exe
 - **AND** Phase 3 MUST start the emulator via `EmulatorComponent.start_emulator("RVSec")`
 - **AND** inside the emulator session, the execution order MUST be: install app -> start logcat -> start coverage -> mark tool execution start -> execute tool -> stop coverage -> process coverage results -> stop logcat
 - **AND** the task state MUST transition from `RUNNING` to `COMPLETED`
-- **AND** `TASK_STARTED`, `TOOL_STARTED`, and `TASK_COMPLETED` events MUST be published
 
 #### Scenario: Component Execution Failure
 
 - **WHEN** `StaticAnalysisComponent.execute()` or `CoverageComponent.execute()` returns `False` and raises `TaskExecutionError`
-- **THEN** the executor MUST catch the exception, update task state to `ERROR`, and publish a `TASK_FAILED` event
+- **THEN** the executor MUST catch the exception and update task state to `ERROR`
 - **AND** `_cleanup_resources()` MUST be called to clean up all registered components
 
 #### Scenario: Missing Emulator or Tool Component
@@ -306,7 +301,6 @@ The executor publishes lifecycle events to the EventBus: `TASK_STARTED` when exe
 - **WHEN** `TaskExecutor.execute()` is called and `task.app` is `None`
 - **THEN** the method MUST return `False` immediately without executing any components
 - **AND** the task state MUST be set to `ERROR` with message "Task has no app instance set"
-- **AND** a `TASK_FAILED` event MUST be published
 
 #### Scenario: Cleanup After Exception
 

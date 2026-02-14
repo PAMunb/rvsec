@@ -45,7 +45,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 ### Integration Points
 
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, and domain models
 - **rv-tools**: Integration with tool registry for tool discovery, creation, and execution coordination
 - **rv-static-analysis**: Loads pre-generated static analysis files for coverage calculation
 - **rv-coverage**: Integration for coverage tracking, metrics calculation, and result reporting
@@ -196,26 +196,6 @@ config = PlatformConfig.from_file("platform_config.json")
 # Validate and execute
 config.validate_dependencies()
 platform = Platform(config)
-results = platform.run()
-```
-
-#### EventBus Integration
-
-```python
-from rv_platform.platform import Platform
-from rv_android_core.event import EventBus
-
-# Create platform with custom event bus
-event_bus = EventBus.get_instance()
-platform = Platform(config, event_bus)
-
-# Subscribe to events for real-time monitoring
-def on_task_started(event):
-    print(f"Task started: {event.task_id}")
-
-event_bus.subscribe('TASK_STARTED', on_task_started)
-
-# Execute with event monitoring
 results = platform.run()
 ```
 
@@ -402,7 +382,6 @@ results = platform.run()
 
 - Use TaskExecutor for centralized execution coordination
 - Implement components with clear initialize/execute/cleanup lifecycle
-- Support EventBus integration for real-time progress reporting
 - Follow error handling patterns with rv-android-core infrastructure
 
 ### Configuration Best Practices

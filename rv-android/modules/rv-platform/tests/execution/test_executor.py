@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rv_android_core.domain.app import App
-from rv_android_core.event import EventBus
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState
@@ -52,11 +51,6 @@ class TestTaskExecutor:
         return tool
 
     @pytest.fixture
-    def mock_event_bus(self):
-        """Fixture providing a mock event bus"""
-        return MagicMock(spec=EventBus)
-
-    @pytest.fixture
     def mock_error_handler(self):
         """Fixture providing a mock error handler"""
         return MagicMock(spec=ErrorHandler)
@@ -68,14 +62,12 @@ class TestTaskExecutor:
         task.set_app(mock_app)
         return task
 
-    def test_executor_initialization(self, task_with_app, mock_tool, mock_event_bus, mock_error_handler):
+    def test_executor_initialization(self, task_with_app, mock_tool, mock_error_handler):
         """Test that TaskExecutor initializes correctly"""
-        # Updated signature: task, tool, event_bus, task_storage, error_handler
-        executor = TaskExecutor(task_with_app, mock_tool, mock_event_bus, None, mock_error_handler)
+        executor = TaskExecutor(task_with_app, mock_tool, None, mock_error_handler)
 
         assert executor.task == task_with_app
         assert executor.tool == mock_tool
-        assert executor.event_bus == mock_event_bus
         assert executor.error_handler == mock_error_handler
         assert isinstance(executor.components, list)
         assert len(executor.components) == 0

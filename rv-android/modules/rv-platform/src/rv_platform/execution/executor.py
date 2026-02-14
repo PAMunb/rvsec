@@ -3,7 +3,7 @@
 Task executor for RV-Platform.
 
 Manages individual task execution through a component-based architecture
-with proper lifecycle management and event-driven communication.
+with proper lifecycle management.
 """
 
 from typing import Optional, Dict, Any, List, Callable
@@ -21,8 +21,6 @@ from rv_android_core.util.logging.constants import (
     LOG_COMPLETE
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.domain.task import Task, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_platform.components.static_analysis import StaticAnalysisComponent
@@ -55,7 +53,6 @@ class TaskExecutor:
     def __init__(self,
                  task: Task,
                  tool: AbstractTool,
-                 event_bus: Optional[EventBus] = None,
                  task_storage: Optional[TaskStorage] = None,
                  error_handler: Optional[ErrorHandler] = None):
         """
@@ -64,13 +61,11 @@ class TaskExecutor:
         Args:
             task: Task to execute
             tool: Tool implementation to use
-            event_bus: Optional event bus for notifications
             task_storage: Optional task storage for persistence
             error_handler: Optional error handler
         """
         self.task = task
         self.tool = tool
-        self.event_bus = event_bus or EventBus.get_instance()
         self.task_storage = task_storage
         self.error_handler = error_handler or ErrorHandler.get_instance()
 
@@ -375,79 +370,20 @@ class TaskExecutor:
                     error=str(e)
                 ))
 
-    # Event publication methods
+    # Task lifecycle logging methods
 
     def _publish_task_started_event(self) -> None:
-        """Publish task started event using the event system."""
-        self.event_bus.publish_task_event(
-            event_type=EventType.TASK_STARTED,
-            task_id=self.task.id,
-            task_config={
-                "apk_name": self.task.config.apk_name,
-                "repetition": self.task.config.repetition,
-                "timeout": self.task.config.timeout,
-                "tool_name": self.task.config.tool_config.get_full_tool_name()
-            },
-            source="TaskExecutor",
-            channel=EventChannel.LIFECYCLE
-        )
+        """Log task started."""
+        self.logger.info(f"Task started: {self.task.id} tool={self.tool.name} apk={self.task.config.apk_name}")
 
     def _publish_task_completed_event(self) -> None:
-        """Publish task completed event using the event system."""
-        self.event_bus.publish_task_event(
-            event_type=EventType.TASK_COMPLETED,
-            task_id=self.task.id,
-            task_config={
-                "apk_name": self.task.config.apk_name,
-                "repetition": self.task.config.repetition,
-                "timeout": self.task.config.timeout,
-                "tool_name": self.task.config.tool_config.get_full_tool_name()
-            },
-            source="TaskExecutor",
-            channel=EventChannel.LIFECYCLE
-        )
+        """Log task completed."""
+        self.logger.info(f"Task completed: {self.task.id}")
 
     def _publish_task_failed_event(self, error_message: str) -> None:
-        """
-        Publish task failed event using the event system.
-        
-        Args:
-            error_message: Error message to include in the event
-        """
-        self.event_bus.publish_task_event(
-            event_type=EventType.TASK_FAILED,
-            task_id=self.task.id,
-            task_config={
-                "apk_name": self.task.config.apk_name,
-                "repetition": self.task.config.repetition,
-                "timeout": self.task.config.timeout,
-                "tool_name": self.task.config.tool_config.get_full_tool_name()
-            },
-            details={
-                "error": error_message
-            },
-            source="TaskExecutor",
-            channel=EventChannel.ERROR
-        )
-    
+        """Log task failed."""
+        self.logger.error(f"Task failed: {self.task.id} error={error_message}")
+
     def _publish_tool_execution_started_event(self) -> None:
-        """
-        Publish tool execution started event for timing coordination.
-        
-        This event provides accurate timing information for coverage analysis
-        where time_since_task_start should reflect tool execution duration.
-        """
-        self.event_bus.publish_task_event(
-            event_type=EventType.TOOL_STARTED,
-            task_id=self.task.id,
-            task_config={
-                "apk_name": self.task.config.apk_name,
-                "tool_name": self.task.config.tool_config.get_full_tool_name()
-            },
-            details={
-                "tool_execution_start": self.task.result.tool_execution_start.isoformat() if self.task.result.tool_execution_start else None,
-                "timing_context": "precise_tool_execution"
-            },
-            source="TaskExecutor",
-            channel=EventChannel.LIFECYCLE
-        )
+        """Log tool execution started for timing coordination."""
+        self.logger.info(f"Tool execution started: {self.tool.name} for task {self.task.id}")

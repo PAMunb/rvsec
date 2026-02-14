@@ -7,7 +7,6 @@ rv-platform is the central execution engine for Android testing experiments in t
 ## Design Principles
 
 - **Component-Based Execution**: TaskExecutor uses pluggable components with standardized lifecycle (initialize/execute/cleanup)
-- **Event-Driven Communication**: EventBus integration for publishing task lifecycle events and enabling external monitoring
 - **Coordinated Execution Phases**: Components execute in specific phases to ensure proper resource management
 - **Persistent Storage**: Atomic file operations with transaction support for experiment continuation
 - **Configuration Validation**: Pydantic models with comprehensive field validators for configuration integrity
@@ -96,7 +95,7 @@ flowchart TB
 
 **Dependencies**:
 - Internal: TaskExecutor, TaskStorage, all component classes
-- External: rv-android-core (domain models, EventBus), rv-tools (ToolFactory)
+- External: rv-android-core (domain models, ErrorHandler, LoggingManager), rv-tools (ToolFactory)
 
 ### TaskExecutor
 
@@ -116,7 +115,7 @@ flowchart TB
 
 **Dependencies**:
 - Internal: All ITaskComponent implementations
-- External: rv-android-core (EventBus, ErrorHandler)
+- External: rv-android-core (ErrorHandler, LoggingManager)
 
 ### TaskStorage
 
@@ -488,15 +487,13 @@ The reconstruction is used in three result-generation methods:
 - **Tool Integration**: Implement AbstractTool from rv-tools to add new testing tools
 - **Storage Backends**: Implement ITaskStorage for alternative storage mechanisms
 - **Pre/Post Hooks**: Register callbacks via TaskExecutor.add_pre_execution_hook() and add_post_execution_hook()
-- **Event Handlers**: Subscribe to EventBus channels for custom monitoring and integration
-
 ## Dependencies
 
 ### Internal (rv-android modules)
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Domain models (Task, App), EventBus, ErrorHandler, LoggingManager |
+| rv-android-core | Domain models (Task, App), ErrorHandler, LoggingManager |
 | rv-tools | ToolFactory, ToolRegistry for tool creation and discovery |
 | rv-coverage | CoverageTracker, logcat_parser for coverage analysis |
 | rv-static-analysis | static_analysis_parser for loading GATOR/GESDA/REACH data |

@@ -9,7 +9,6 @@ post-processing) is correctly invoked.
 - Mock all external dependencies (PreProcessor, ExecutionController, PostProcessor, etc.).
 - Verify that the `run` method calls the workflow components in the correct order.
 - Test both successful and failed experiment scenarios.
-- Ensure that events are published correctly.
 - Validate the behavior of the `execute_with_config` function.
 """
 
@@ -17,7 +16,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rv_android_core.event import EventType
 from rv_experiment.config import ExperimentConfig, ToolConfig
 from rv_experiment.experiment.experiment_controller import ExperimentController, execute_with_config
 
@@ -46,9 +44,8 @@ def mock_config():
 @patch('rv_experiment.experiment.experiment_controller.PostProcessor')
 @patch('rv_experiment.experiment.experiment_controller.LoggingManager')
 @patch('rv_experiment.experiment.experiment_controller.ErrorHandler')
-@patch('rv_experiment.experiment.experiment_controller.EventBus')
 @patch('os.makedirs')
-def test_run_exception(mock_makedirs, mock_event_bus, mock_error_handler, mock_logging_manager, mock_post_processor,
+def test_run_exception(mock_makedirs, mock_error_handler, mock_logging_manager, mock_post_processor,
                        mock_execution_controller, mock_pre_processor, mock_config):
     """Test a run that raises an exception."""
     # Arrange
@@ -62,10 +59,6 @@ def test_run_exception(mock_makedirs, mock_event_bus, mock_error_handler, mock_l
 
     # Assert
     assert success is False
-    mock_event_bus.get_instance.return_value.publish_experiment_event.assert_called_with(
-        EventType.EXPERIMENT_FAILED, experiment_id=controller.experiment_id,
-        message='Experiment execution failed: Test Exception', source='ExperimentController'
-    )
 
 
 @patch('rv_experiment.experiment.experiment_controller.ExperimentController')

@@ -6,7 +6,7 @@ Manages emulator lifecycle operations including startup, app installation,
 and cleanup during task execution.
 """
 
-from typing import Any, Optional, Dict
+from typing import Any, Dict
 
 from rv_android_core.domain.app import App
 from rv_android_core.util.android.emulator_manager import EmulatorManager
@@ -19,7 +19,6 @@ from rv_android_core.util.logging.constants import (
     LOG_SKIPPED, 
     LOG_COMPLETE
 )
-from rv_android_core.event import EventBus, EventType
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -38,14 +37,13 @@ class EmulatorComponent:
     ### Role in the System:
     - Manages emulator lifecycle during task execution
     - Handles app installation and setup
-    - Reports emulator events to the event system
+    - Reports emulator lifecycle via logging
     """
 
-    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
-        """Initialize with task and optional event bus."""
+    def __init__(self, task: Task):
+        """Initialize with task."""
         self.name = "EmulatorComponent"
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
         self.emulator_manager = EmulatorManager()
 
@@ -126,14 +124,7 @@ class EmulatorComponent:
                     device_port  # Unique port for this parallel task
                 )
 
-                # Publish event
-                if self.event_bus:
-                    self.event_bus.publish_task_event(
-                        EventType.EMULATOR_STARTED,
-                        task_id=self.task.id,
-                        details={"device_id": self.task.config.device_id},
-                        source="EmulatorComponent"
-                    )
+                self.logger.info(f"Emulator started for task {self.task.id} device={self.task.config.device_id}")
 
                 return emulator_context
 
@@ -180,14 +171,7 @@ class EmulatorComponent:
                     raise EmulatorError(f"Failed to install app {app.name} on {device_serial}")
                 self.logger.info(LOG_COMPLETE.format(phase=f"installing app {app.name}"))
 
-                # Publish event
-                if self.event_bus:
-                    self.event_bus.publish_task_event(
-                        EventType.APP_INSTALLED,
-                        task_id=self.task.id,
-                        details={"app_name": app.name},
-                        source="EmulatorComponent"
-                    )
+                self.logger.info(f"App installed for task {self.task.id}")
 
                 return True
 

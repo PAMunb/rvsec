@@ -12,7 +12,6 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.exceptions import RVExperimentExecutionError
-from rv_android_core.event import EventBus
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 # Import rv-platform components
@@ -34,7 +33,6 @@ class ExecutionController:
     ### Architectural Role:
     - Translates experiment configurations to platform configurations
     - Coordinates experiment execution through rv-platform
-    - Maintains event coordination between layers
     - Provides execution statistics without data transfer
 
     ### Key Principles:
@@ -48,16 +46,14 @@ class ExecutionController:
         component="ExecutionController",
         phase="initialization"
     )
-    def __init__(self, config: ExperimentConfig, event_bus: EventBus):
+    def __init__(self, config: ExperimentConfig):
         """
         Initialize the execution controller with clean platform integration.
 
         Args:
             config: Experiment configuration with orchestration parameters
-            event_bus: Event bus for coordinated event publishing across layers
         """
         self.config = config
-        self.event_bus = event_bus
 
         # Configure logging and error handling using unified rv-android-core infrastructure
         # Ensures consistent logging context across experiment and platform layers
@@ -110,8 +106,8 @@ class ExecutionController:
                 apks, repetitions, timeouts, tools, tool_configs, no_window, results_dir
             )
 
-            # Initialize platform with event bus coordination
-            self.platform = Platform(self.platform_config, self.event_bus)
+            # Initialize platform
+            self.platform = Platform(self.platform_config)
 
             self.logger.info(LOG_COMPLETE.format(phase="execution setup"))
 

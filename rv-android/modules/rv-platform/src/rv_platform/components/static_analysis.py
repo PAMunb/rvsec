@@ -7,7 +7,7 @@ Handles static analysis data loading during task execution.
 
 import os
 import shutil
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
@@ -19,8 +19,6 @@ from rv_android_core.util.logging.constants import (
     LOG_ERROR
 )
 from rv_android_core.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
-from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -39,16 +37,15 @@ class StaticAnalysisComponent:
 
     ### Role in the System:
     - Manages static analysis data loading for tasks
-    - Reports analysis events to the event system
+    - Reports analysis lifecycle via logging
     - Provides a clean interface for static data operations
     """
 
-    def __init__(self, task: Task, apks_dir: str, event_bus: Optional[EventBus] = None):
-        """Initialize with task, APKs directory, and optional event bus."""
+    def __init__(self, task: Task, apks_dir: str):
+        """Initialize with task and APKs directory."""
         self.name = "StaticAnalysisComponent"
         self.task = task
         self.apks_dir = apks_dir
-        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
 
         # Initialize logging with task context
@@ -135,17 +132,9 @@ class StaticAnalysisComponent:
                 self.task.static_data = static_data
 
                 if static_data:
+                    app_name = self.task.app.name if self.task.app else self.task.config.apk_name
                     self.logger.info(LOG_COMPLETE.format(phase="loading static analysis data"))
-
-                    # Publish event
-                    if self.event_bus:
-                        self.event_bus.publish_task_event(
-                            EventType.STATIC_ANALYSIS_COMPLETED,
-                            task_id=self.task.id,
-                            details={"app_name": self.task.app.name if self.task.app else self.task.config.apk_name},
-                            source="StaticAnalysisComponent",
-                            channel=EventChannel.ANALYSIS
-                        )
+                    self.logger.info(f"Static analysis completed for {app_name}")
                     return True
                 else:
                     self.logger.warning(LOG_SKIPPED.format(

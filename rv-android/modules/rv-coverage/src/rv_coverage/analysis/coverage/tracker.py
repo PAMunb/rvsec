@@ -11,8 +11,6 @@ from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
-from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import Event, EventType, EventChannel
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
@@ -29,8 +27,6 @@ class CoverageTracker:
       providing immediate coverage feedback during test execution
     - **Direct Repository Integration**: Uses LogcatRepository directly without wrapper
       layers for optimal performance and minimal latency
-    - **Event-Driven Architecture**: Publishes coverage and error events through EventBus
-      for real-time system integration and monitoring
     - **Thread-Safe Operation**: Implements proper threading patterns for concurrent
       logcat processing without blocking test execution
     - **Performance Optimization**: Uses change detection to minimize unnecessary
@@ -40,15 +36,12 @@ class CoverageTracker:
 
     ### Role in the System:
     - **Real-Time Monitor**: Primary component for live coverage monitoring during tests
-    - **Event Publisher**: Publishes coverage updates and MOP error events for system
-      integration and real-time dashboards
     - **Data Collector**: Extracts and processes coverage information from logcat streams
     - **Metric Provider**: Calculates and maintains up-to-date coverage metrics
     - **Error Detector**: Identifies and reports formal property violations as they occur
     - **State Manager**: Maintains consistent coverage state throughout test lifecycle
 
     ### Integration Points:
-    - **EventBus**: Publishes COVERAGE_UPDATED and COVERAGE_ERROR_DETECTED events
     - **LogcatRepository**: Direct repository access for immediate data storage
     - **LoggingManager**: Standardized logging with contextual information
     - **ErrorHandler**: Robust error handling for logcat parsing failures
@@ -60,12 +53,6 @@ class CoverageTracker:
     - **Memory Management**: Processes logcat entries incrementally without accumulation
     - **CPU Optimization**: Minimizes redundant calculations through caching strategies
     - **I/O Efficiency**: Uses file positioning to avoid re-reading processed data
-
-    ### Event Publishing Strategy:
-    - **Coverage Events**: Published when method coverage metrics change significantly
-    - **Error Events**: Immediate publication when MOP violations are detected
-    - **Contextual Data**: All events include timing and contextual information
-    - **Decoupled Design**: Event consumers can subscribe without affecting tracking performance
 
     ### Usage Patterns:
     ```python
@@ -102,7 +89,7 @@ class CoverageTracker:
             static_data: Optional static analysis data
             task_start_time: When tool execution started (for calculating accurate relative timing)
                             Note: This should be tool_execution_start, not task creation time
-            task_id: Optional task identifier for event correlation
+            task_id: Optional task identifier for log correlation
         """
         self.logcat_file = logcat_file
         self.static_data = static_data
@@ -120,9 +107,6 @@ class CoverageTracker:
         # Initialize LogcatRepository directly for optimal performance
         # Direct repository usage provides better performance and simpler data flow
         self.repository = LogcatRepository()
-
-        # Event bus for publishing coverage and MOP error events
-        self.event_bus = EventBus.get_instance()
 
         # Initialize running state
         self.is_running = False
@@ -329,32 +313,9 @@ class CoverageTracker:
                 self.total_errors += 1
                 self._data_changed_since_last_update = True  # Mark data as changed
                 
-                # Publish MOP error event for real-time monitoring
-                if self.task_id:
-                    self.event_bus.publish_mop_error_event(
-                        EventType.MOP_ERROR_DETECTED,
-                        task_id=self.task_id,
-                        error_log={
-                            "spec": error_log.spec,
-                            "error_type": error_log.error_type,
-                            "class_full_name": error_log.class_full_name,
-                            "method": error_log.method,
-                            "message": error_log.message,
-                            "time_since_task_start": time_since_start
-                        },
-                        source="CoverageTracker",
-                        channel=EventChannel.LIFECYCLE
-                    )
-                else:
-                    # Fallback to generic event if no task_id
-                    self.event_bus.publish(
-                        Event(
-                            type=EventType.MOP_ERROR_DETECTED,
-                            source="CoverageTracker"
-                        ),
-                        channel=EventChannel.LIFECYCLE
-                    )
-                
+                self.logger.warning(
+                    f"MOP violation detected: {error_log.spec} in {error_log.class_full_name}.{error_log.method}"
+                )
                 self.logger.info(
                     f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}: {error_log.message}"
                 )
@@ -381,8 +342,8 @@ class CoverageTracker:
 
     def _update_coverage_metrics(self) -> None:
         """
-        Update coverage metrics and publish events only when data has changed.
-        
+        Update coverage metrics and log changes when data has changed.
+
         ### Performance Optimization:
         Uses data change tracking to avoid unnecessary metric calculations and
         only processes metrics when new data has been added since the last update.
@@ -416,29 +377,12 @@ class CoverageTracker:
                     changed = True
                     break
 
-            # Only log and publish events if metrics have changed
+            # Only log if metrics have changed
             if changed:
                 # Update previous metrics
                 self._previous_metrics = current_metrics.copy()
 
-                # Publish metrics update event
-                if self.task_id:
-                    self.event_bus.publish_coverage_event(
-                        EventType.COVERAGE_UPDATED,
-                        task_id=self.task_id,
-                        coverage_metrics=current_metrics,
-                        source="CoverageTracker",
-                        channel=EventChannel.LIFECYCLE
-                    )
-                else:
-                    # Fallback to generic event if no task_id
-                    self.event_bus.publish(
-                        Event(
-                            type=EventType.COVERAGE_UPDATED,
-                            source="CoverageTracker"
-                        ),
-                        channel=EventChannel.LIFECYCLE
-                    )
+                self.logger.debug(f"Coverage updated: {current_metrics}")
 
                 # Log update since changes occurred
                 self.logger.info(

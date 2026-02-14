@@ -10,7 +10,6 @@ import os
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event import EventBus, EventType
 from rv_platform.storage.task_storage import TaskStorage
 from rv_experiment.experiment.workflow.result_manager import ResultManager
 
@@ -26,26 +25,23 @@ class PostProcessor:
     ### Architectural Role:
     - Provides basic experiment completion diagnostics
     - Generates simple experiment metadata
-    - Publishes experiment completion events
     - No data processing or result generation
 
     ### Key Principles:
     - No result processing (delegated to rv-platform)
     - No data access from tasks or storage
-    - Only basic diagnostics and event coordination
+    - Only basic diagnostics
     - Clean separation from data processing concerns
     """
 
-    def __init__(self, results_dir: str, event_bus: EventBus):
+    def __init__(self, results_dir: str):
         """
         Initialize the clean post-processor.
 
         Args:
             results_dir: Directory containing experiment results
-            event_bus: Event bus for publishing events
         """
         self.results_dir = results_dir
-        self.event_bus = event_bus
         self.error_handler = ErrorHandler.get_instance()
         
         # Initialize TaskStorage to access tasks for ResultManager
@@ -79,14 +75,7 @@ class PostProcessor:
             self._generate_completion_diagnostics()
 
             self.logger.info(LOG_COMPLETE.format(phase="experiment post-processing"))
-
-            # Notify that post-processing is complete
-            self.event_bus.publish_experiment_event(
-                EventType.EXPERIMENT_COMPLETED,
-                experiment_id="post_processing",
-                message="Experiment post-processing completed",
-                source="PostProcessor"
-            )
+            self.logger.info("Post-processing completed")
 
     def _generate_instrumentation_errors(self):
         """
@@ -97,7 +86,7 @@ class PostProcessor:
 
             try:
                 # Create ResultManager and generate instrumentation errors
-                result_manager = ResultManager(self.results_dir, self.task_storage, self.event_bus)
+                result_manager = ResultManager(self.results_dir, self.task_storage)
                 result_manager.generate_reports()
                 
                 self.logger.info(LOG_COMPLETE.format(phase="instrumentation errors JSON generation"))

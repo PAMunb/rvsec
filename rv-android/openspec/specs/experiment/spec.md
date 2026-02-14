@@ -48,7 +48,6 @@ ExperimentController.run()
               |
               +---> ResultManager (instrumentation errors JSON)
               +---> Completion diagnostics (experiment_completion.json)
-              +---> EventBus: EXPERIMENT_COMPLETED
 ```
 
 ### Key Design Decisions and Constraints
@@ -59,7 +58,7 @@ ExperimentController.run()
 
 3. **Skip flags for artifact reuse.** The CLI provides `--skip-monitors`, `--skip-instrument`, and `--skip-static` flags. When skip flags are used, the corresponding pre-processing step is not executed, and the `--apks-dir` MUST point to a directory containing previously instrumented APKs. If skip flags are used with non-instrumented APKs, the experiment will run but coverage will be 0% because the APKs lack runtime verification monitors.
 
-4. **Clean separation: orchestration vs. execution.** rv-experiment handles only orchestration (phase sequencing, configuration assembly, event publishing). rv-platform handles execution (task generation, emulator management, tool execution, coverage tracking, result processing). rv-experiment never manages emulators, tasks, or results directly.
+4. **Clean separation: orchestration vs. execution.** rv-experiment handles only orchestration (phase sequencing, configuration assembly). rv-platform handles execution (task generation, emulator management, tool execution, coverage tracking, result processing). rv-experiment never manages emulators, tasks, or results directly.
 
 5. **Tool specification DSL.** The CLI uses a compact DSL (`tool:variant@param=value`) instead of verbose JSON for tool configuration. The DSL is parsed by `CLIContext.parse_tool_specification()` and converted to `ToolConfig` objects (from rv-platform). This makes the CLI ergonomic for interactive use while maintaining structured configuration internally.
 
@@ -123,10 +122,9 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `instrument_errors.json` -- instrumentation error records per APK
 - `experiment_completion.json` -- basic completion diagnostics with timestamp
 - `experiment_config.json` -- serialized experiment configuration (optional, via `save_experiment_config()`)
-- EventBus events: `EXPERIMENT_STARTED`, `EXPERIMENT_COMPLETED`, `EXPERIMENT_FAILED`, `WORKFLOW_COMPLETED`, `MONITOR_GENERATED`, `INSTRUMENTATION_COMPLETED`, `STATIC_ANALYSIS_COMPLETED`
 
 **Dependencies:**
-- rv-android-core: ErrorHandler, EventBus, LoggingManager, BaseValidatedModel, App, constants
+- rv-android-core: ErrorHandler, LoggingManager, BaseValidatedModel, App, constants
 - rv-platform: Platform, PlatformConfig, ToolConfig, TaskStorage
 - rv-tools: ToolRegistry, ToolFactory
 - rv-monitor-generator: RuntimeVerificationGenerator, RVGeneratorConfig (optional import)
@@ -154,7 +152,6 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `instrument_errors.json: Dict[str, Any]` -- Keyed by APK name, containing instrumentation error details per APK (destination: results directory, consumed by researchers for debugging)
 - `experiment_completion.json: Dict[str, Any]` -- Contains `results_directory`, `completion_timestamp`, `post_processing_completed` (destination: results directory)
 - `experiment_config.json: str` -- Serialized ExperimentConfig in JSON format (destination: results directory, optional)
-- `EventBus events` -- Published to `LIFECYCLE_CHANNEL` and `ANALYSIS` channels (destination: EventBus subscribers)
 
 ### Side-Effects
 
@@ -196,8 +193,6 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 
 - **INV-EXP-09**: The tool specification DSL parsing MUST handle commas inside parameter sections correctly. A comma followed by a parameter-like token (containing `=`) MUST be treated as a parameter separator within the same tool spec, not as a tool separator.
 
-- **INV-EXP-10**: The `ExperimentController` MUST publish an `EXPERIMENT_COMPLETED` or `EXPERIMENT_FAILED` event via EventBus at the end of every experiment run, regardless of success or failure.
-
 - **INV-EXP-11**: The `PostProcessor` MUST generate an `instrument_errors.json` file in the results directory, even if no instrumentation errors occurred (in which case the file contains an empty JSON object `{}`).
 
 - **INV-EXP-12**: `ExperimentConfig.model_post_init()` MUST set default values for `name` (timestamp-based), `output_dir` ("out"), `results_dir` ("results"), and `created_at` (ISO timestamp) when these fields are empty or None.
@@ -227,7 +222,6 @@ Phase 3 (post-processing) MUST generate instrumentation errors JSON and completi
 - **AND** Phase 1 MUST produce files in `out/monitors/`, `out/instrumented_apks/`, and static analysis files alongside instrumented APKs
 - **AND** Phase 2 (ExecutionController) MUST create a PlatformConfig with `apks_dir` pointing to `out/instrumented_apks/`
 - **AND** Phase 3 (PostProcessor) MUST create `instrument_errors.json` and `experiment_completion.json` in the results directory
-- **AND** an `EXPERIMENT_COMPLETED` event MUST be published to the EventBus
 
 #### Scenario: Experiment With All Pre-Processing Skipped
 
@@ -257,7 +251,7 @@ Phase 3 (post-processing) MUST generate instrumentation errors JSON and completi
 
 - **WHEN** `Platform.run()` raises an exception during Phase 2
 - **THEN** `ExecutionController.run()` MUST catch the exception, set `has_errors=True`, and raise `RVExperimentExecutionError`
-- **AND** `ExperimentController.run()` MUST catch the error, log it, publish an `EXPERIMENT_FAILED` event, and return `False`
+- **AND** `ExperimentController.run()` MUST catch the error, log it, and return `False`
 
 #### Scenario: No APKs Available for Execution
 

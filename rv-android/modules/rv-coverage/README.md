@@ -4,14 +4,13 @@ Coverage tracking and analysis system for Android monitored operations testing w
 
 ## Overview
 
-The RV-Coverage module provides coverage tracking capabilities for Android applications during monitored operations testing. It implements real-time method execution monitoring, formal property violation detection, and coverage metrics calculation through event-driven design and error handling integration.
+The RV-Coverage module provides coverage tracking capabilities for Android applications during monitored operations testing. It implements real-time method execution monitoring, formal property violation detection, and coverage metrics calculation with error handling integration.
 
 ### Key Features
 
 - **Real-time Coverage Tracking**: Logcat monitoring with parallel processing and event publishing
 - **Monitored Operations Detection**: Identification and reporting of both JCA cryptography and generic programming pattern violations
 - **Metrics System**: Multi-dimensional coverage calculation including method, activity, and specification-specific coverage
-- **Event Architecture**: EventBus integration with typed events for system-wide coordination
 - **Processing**: Direct repository integration with concurrent, non-blocking operation
 - **Error Handling Integration**: Error handling with rv-android-core decorators and recovery strategies
 
@@ -21,7 +20,7 @@ The RV-Coverage module provides coverage tracking capabilities for Android appli
 
 #### Coverage Analysis Infrastructure
 - **CoverageAnalyzer**: Centralized analyzer with batch processing, multi-source data integration, and metrics calculation
-- **CoverageTracker**: Real-time monitoring system with concurrent logcat processing and event-driven architecture
+- **CoverageTracker**: Real-time monitoring system with concurrent logcat processing
 - **MetricsCalculator**: Metrics engine with support for method, activity, and specification-specific coverage calculation
 
 #### Monitoring Operations Support
@@ -36,7 +35,7 @@ The RV-Coverage module provides coverage tracking capabilities for Android appli
 
 ### Integration Points
 
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, EventBus, and domain models for infrastructure
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, and domain models for infrastructure
 - **rv-experiment**: Provides coverage tracking components for experiment orchestration and real-time monitoring
 - **rv-static-analysis**: Integrates static analysis data for coverage calculation and baseline establishment
 - **rv-monitor-generator**: Coordinates with monitor specifications for monitored operations detection
@@ -102,19 +101,6 @@ if metrics:
 
 ```python
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
-from rv_android_core.event.bus import EventBus, EventType
-
-# Setup event handling for real-time updates
-event_bus = EventBus.get_instance()
-
-def on_coverage_update(event):
-    print(f"Coverage update: {event.metrics}")
-
-def on_violation_detected(event):
-    print(f"Monitored operation violation: {event.violation_type} - {event.details}")
-
-event_bus.subscribe(EventType.COVERAGE_UPDATED, on_coverage_update)
-event_bus.subscribe(EventType.VIOLATION_DETECTED, on_violation_detected)
 
 # Context manager usage with configuration
 tracker_config = {
@@ -180,32 +166,6 @@ if coverage_log:
     
 if error_log:
     analyzer.add_error(error_log)
-```
-
-## Event System Integration
-
-The module publishes events through the EventBus system:
-
-### Coverage Update Events
-
-```python
-# Subscribe to coverage updates
-def on_coverage_update(event):
-    data = event.data
-    print(f"Coverage: {data['method_coverage']}%")
-
-event_bus.subscribe(EventType.COVERAGE_UPDATED, on_coverage_update)
-```
-
-### Error Detection Events
-
-```python
-# Subscribe to MOP error detection
-def on_error_detected(event):
-    error_data = event.data
-    print(f"Property violation in {error_data['class_name']}.{error_data['method']}")
-
-event_bus.subscribe(EventType.COVERAGE_ERROR_DETECTED, on_error_detected)
 ```
 
 ## Configuration
@@ -281,7 +241,7 @@ poetry run pytest tests/parser/
 
 - `tests/analysis/coverage/`: Tests for analyzer and tracker components
 - `tests/parser/log/`: Tests for logcat parsing functionality
-- Integration tests with mock EventBus and repository components
+- Integration tests with mock repository components
 
 ## Performance Characteristics
 
@@ -343,7 +303,6 @@ class CoverageExperimentComponent:
 ### Architecture Guidelines
 
 - Extend BaseAnalyzer for new analyzer components
-- Use EventBus for decoupled component communication
 - Implement proper error handling with ErrorHandler integration
 - Follow direct repository access patterns for performance
 - Maintain thread safety for concurrent operations

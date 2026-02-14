@@ -6,13 +6,12 @@ This component handles tool invocation and result processing in a simplified,
 standalone manner suitable for the platform architecture.
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, \
     LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.event import EventBus, EventType
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 
@@ -29,16 +28,15 @@ class ToolExecutionComponent:
 
     ### Role in the System:
     - Manages testing tool execution during tasks
-    - Reports tool events to the event system
+    - Reports tool lifecycle via logging
     - Ensures proper process cleanup after execution
     """
 
-    def __init__(self, task: Task, tool: AbstractTool, event_bus: Optional[EventBus] = None):
-        """Initialize with task, tool and optional event bus."""
+    def __init__(self, task: Task, tool: AbstractTool):
+        """Initialize with task and tool."""
         self.name = "ToolExecutionComponent"
         self.task = task
         self.tool = tool
-        self.event_bus = event_bus or EventBus.get_instance()
         
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
@@ -97,26 +95,12 @@ class ToolExecutionComponent:
         """
         try:
             self.logger.info(LOG_START.format(phase=f"tool: {self.tool.name}"))
-
-            # Publish tool started event
-            self.event_bus.publish_task_event(
-                EventType.TOOL_STARTED,
-                task_id=self.task.id,
-                details={"tool_name": self.tool.name},
-                source="ToolExecutionComponent"
-            )
+            self.logger.info(f"Tool started: {self.tool.name} for task {self.task.id}")
 
             # Execute the tool
             self.tool.execute(self.task, self.task.app)
             self.logger.info(LOG_COMPLETE.format(phase=f"tool: {self.tool.name}"))
-
-            # Publish tool stopped event
-            self.event_bus.publish_task_event(
-                EventType.TOOL_STOPPED,
-                task_id=self.task.id,
-                details={"tool_name": self.tool.name},
-                source="ToolExecutionComponent"
-            )
+            self.logger.info(f"Tool stopped: {self.tool.name} for task {self.task.id}")
 
             return True
 
@@ -127,15 +111,8 @@ class ToolExecutionComponent:
             if isinstance(e, RVToolTimeoutError):
                 # Timeout is expected, don't log as error
                 self.logger.info(LOG_COMPLETE.format(phase=f"tool: {self.tool.name} (timeout)"))
-                
-                # Publish tool completed event for timeouts
-                self.event_bus.publish_task_event(
-                    EventType.TOOL_STOPPED,
-                    task_id=self.task.id,
-                    details={"tool_name": self.tool.name, "reason": "timeout"},
-                    source="ToolExecutionComponent"
-                )
-                
+                self.logger.info(f"Tool stopped: {self.tool.name} for task {self.task.id} (timeout)")
+
                 return True  # Timeout is considered successful completion
             else:
                 # Actual failure - reduced logging (tool already logged the details)
@@ -144,17 +121,7 @@ class ToolExecutionComponent:
                     error=str(e)
                 ))
                 
-                # Don't handle the error here - let it propagate with original context
-                # Publish tool failed event
-                self.event_bus.publish_task_event(
-                    EventType.TASK_FAILED,
-                    task_id=self.task.id,
-                    details={
-                        "tool_name": self.tool.name,
-                        "error": str(e)
-                    },
-                    source="ToolExecutionComponent"
-                )
+                self.logger.error(f"Task failed: {self.task.id}")
 
                 return False
 

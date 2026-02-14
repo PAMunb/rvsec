@@ -3,7 +3,6 @@
 Factory for creating experiment workflow components.
 Enables centralized component creation and configuration.
 """
-from rv_android_core.event import EventBus
 from rv_platform.storage.task_storage import TaskStorage
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 from rv_experiment.experiment.workflow.post_processor import PostProcessor
@@ -31,17 +30,15 @@ class WorkflowFactory:
     - Facilitates component testing and reuse
     """
 
-    def __init__(self, storage: TaskStorage, event_bus: EventBus, config: 'ExperimentConfig'):
+    def __init__(self, storage: TaskStorage, config: 'ExperimentConfig'):
         """
         Initialize the workflow factory.
 
         Args:
             storage: Task storage for the experiment
-            event_bus: Event bus for component communication
             config: Experiment configuration for component coordination
         """
         self.storage = storage
-        self.event_bus = event_bus
         self.config = config
 
     def create_pre_processor(self, results_dir: str) -> PreProcessor:
@@ -55,7 +52,7 @@ class WorkflowFactory:
             Configured PreProcessor instance
         """
         # Create PreProcessor with direct implementation
-        return PreProcessor(self.config, self.event_bus)
+        return PreProcessor(self.config)
 
     def create_execution_controller(self) -> ExecutionController:
         """
@@ -64,7 +61,7 @@ class WorkflowFactory:
         Returns:
             Configured ExecutionController instance
         """
-        return ExecutionController(self.storage, self.config, self.event_bus)
+        return ExecutionController(self.config)
 
     def create_post_processor(self, results_dir: str) -> PostProcessor:
         """
@@ -76,9 +73,7 @@ class WorkflowFactory:
         Returns:
             Configured PostProcessor instance
         """
-        execution_controller = self.create_execution_controller()
-        result_manager = self.create_result_manager(results_dir)
-        return PostProcessor(self.config.output_dir, self.event_bus, execution_controller, result_manager)
+        return PostProcessor(self.config.output_dir)
 
     def create_result_manager(self, results_dir: str) -> ResultManager:
         """
@@ -90,4 +85,4 @@ class WorkflowFactory:
         Returns:
             Configured ResultManager instance
         """
-        return ResultManager(self.config.output_dir, self.storage, self.event_bus)
+        return ResultManager(self.config.output_dir, self.storage)

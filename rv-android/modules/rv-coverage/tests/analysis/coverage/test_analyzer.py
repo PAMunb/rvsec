@@ -1,5 +1,5 @@
 # tests/analysis/coverage/test_analyzer.py
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -66,12 +66,9 @@ class TestCoverageAnalyzer:
             wtg=WindowTransitionGraph()
         )
 
-    @patch('rv_android_core.event.bus.EventBus')
-    def test_initialization_with_static_data(self, mock_event_bus, mock_static_data):
+    def test_initialization_with_static_data(self, mock_static_data):
         """Test analyzer initialization with realistic static data."""
         from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
-
-        mock_event_bus.get_instance.return_value = MagicMock()
 
         analyzer = CoverageAnalyzer(static_data=mock_static_data)
 
@@ -80,12 +77,9 @@ class TestCoverageAnalyzer:
         assert "br.unb.cic.cryptoapp.MainActivity" in analyzer.repository.classes
         assert "br.unb.cic.cryptoapp.generated.CryptographyActivity" in analyzer.repository.classes
 
-    @patch('rv_android_core.event.bus.EventBus')
-    def test_add_method_call(self, mock_event_bus, mock_static_data):
+    def test_add_method_call(self, mock_static_data):
         """Test adding a method call to the repository with realistic data."""
         from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
-
-        mock_event_bus.get_instance.return_value = MagicMock()
 
         analyzer = CoverageAnalyzer(static_data=mock_static_data)
 
@@ -107,12 +101,9 @@ class TestCoverageAnalyzer:
         )
         assert method_found
 
-    @patch('rv_android_core.event.bus.EventBus')
-    def test_add_error(self, mock_event_bus, mock_static_data):
+    def test_add_error(self, mock_static_data):
         """Test adding an error to the repository with realistic data."""
         from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
-
-        mock_event_bus.get_instance.return_value = MagicMock()
 
         analyzer = CoverageAnalyzer(static_data=mock_static_data)
 
@@ -131,12 +122,9 @@ class TestCoverageAnalyzer:
         assert len(analyzer.repository.errors) == 1
         assert error_log in analyzer.repository.errors
 
-    @patch('rv_android_core.event.bus.EventBus')
-    def test_get_coverage_metrics(self, mock_event_bus, mock_static_data):
+    def test_get_coverage_metrics(self, mock_static_data):
         """Test getting coverage metrics with realistic method calls and errors."""
         from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
-
-        mock_event_bus.get_instance.return_value = MagicMock()
 
         analyzer = CoverageAnalyzer(static_data=mock_static_data)
 

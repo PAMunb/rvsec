@@ -5,7 +5,7 @@ Logcat component for RV-Platform.
 Manages logcat capture and filtering during task execution.
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.android.logcat_manager import LogcatManager
@@ -16,7 +16,6 @@ from rv_android_core.util.logging.constants import (
     LOG_COMPLETE, 
     LOG_ERROR
 )
-from rv_android_core.event import EventBus
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -38,11 +37,10 @@ class LogcatComponent:
     - Provides a clean interface for logcat operations
     """
 
-    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
-        """Initialize with task and optional event bus."""
+    def __init__(self, task: Task):
+        """Initialize with task."""
         self.name = "LogcatComponent"
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
         
         # Get device_serial from task configuration for parallel execution

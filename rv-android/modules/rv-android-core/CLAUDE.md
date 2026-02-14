@@ -2,14 +2,13 @@
 
 ## Purpose
 
-rv-android-core is the foundational infrastructure module for the RV-Android framework, providing shared domain models, event-driven communication system, error handling, logging, and utility components used across all other modules. It establishes the architectural patterns and core abstractions that enable modular design, type-safe validation through Pydantic, and consistent behavior across the runtime verification system for Android applications.
+rv-android-core is the foundational infrastructure module for the RV-Android framework, providing shared domain models, error handling, logging, and utility components used across all other modules. It establishes the architectural patterns and core abstractions that enable modular design, type-safe validation through Pydantic, and consistent behavior across the runtime verification system for Android applications.
 
 ## Architecture
 
 ### Key Patterns and Design Decisions
 
-- **Singleton Pattern**: Core services (EventBus, ErrorHandler, LoggingManager) use thread-safe singletons for global access
-- **Event-Driven Communication**: Synchronous publish-subscribe EventBus enables decoupled component communication with typed events and channels
+- **Singleton Pattern**: Core services (ErrorHandler, LoggingManager) use thread-safe singletons for global access
 - **Pydantic Validation**: All domain models inherit from `BaseValidatedModel` for comprehensive validation and serialization
 - **Decorator-Based Error Handling**: `@ErrorHandler.handle_errors()` provides Spring-like automatic error management
 - **Template Method Pattern**: `AbstractTool` defines execution workflow for all testing tools
@@ -18,7 +17,6 @@ rv-android-core is the foundational infrastructure module for the RV-Android fra
 
 | Component | Purpose |
 |-----------|---------|
-| `EventBus` | Central pub/sub system for decoupled event communication across modules |
 | `ErrorHandler` | Unified error management with type-specific handlers and decorators |
 | `LoggingManager` | Centralized logging with context injection and structured formatting |
 | `BaseValidatedModel` | Pydantic base class for all validated domain models |
@@ -52,7 +50,6 @@ src/rv_android_core/
 │   └── wtg.py                    # Window Transition Graph models
 ├── event/
 │   ├── __init__.py
-│   ├── bus.py                    # Synchronous EventBus implementation
 │   ├── handler.py                # Event handler with callback and optional filter
 │   └── models.py                 # Event types, channels, and event classes
 ├── tools/
@@ -98,7 +95,6 @@ src/rv_android_core/
 | `domain/task.py` | Task, TaskConfiguration, TaskResult models | ~920 |
 | `event/models.py` | Event types (17), channels, and event classes | ~330 |
 | `util/error/error_handler.py` | ErrorHandler with 16 builtin handlers (absorbed/propagated) | ~370 |
-| `event/bus.py` | Synchronous EventBus with channels | ~250 |
 | `util/error/exceptions.py` | Exception hierarchy (23 types) | ~195 |
 | `util/logging/manager.py` | LoggingManager with context support | ~415 |
 | `tools/abstract_tool.py` | AbstractTool base class | ~410 |
@@ -146,29 +142,6 @@ poetry run pytest tests/commands/ -v    # Command execution tests
 ```
 
 ## Common Tasks
-
-### Using the Event System
-```python
-from rv_android_core.event import EventBus, EventType, EventChannel
-
-# Get singleton instance
-event_bus = EventBus.get_instance()
-
-# Subscribe to events
-event_bus.subscribe(
-    event_type=EventType.TASK_COMPLETED,
-    callback=lambda e: print(f"Task {e.task_id} completed"),
-    channel=EventChannel.LIFECYCLE
-)
-
-# Publish task events
-event_bus.publish_task_event(
-    event_type=EventType.TASK_STARTED,
-    task_id="uuid-string",
-    task_config={"tool": "rvagent"},
-    source="TaskExecutor"
-)
-```
 
 ### Using the Error Handler
 ```python

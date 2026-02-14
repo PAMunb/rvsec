@@ -1,6 +1,6 @@
 # tests/analysis/coverage/test_tracker.py
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -72,8 +72,7 @@ class TestCoverageTracker:
         logcat_path.write_text(logcat_content)
         return str(logcat_path)
 
-    @patch('rv_android_core.event.bus.EventBus')
-    def test_parse_real_logcat_entries(self, mock_event_bus, sample_logcat_file):
+    def test_parse_real_logcat_entries(self, sample_logcat_file):
         """Test parsing real logcat entries."""
         with open(sample_logcat_file, 'r') as f:
             lines = f.readlines()
@@ -92,12 +91,8 @@ class TestCoverageTracker:
                     assert error_log.class_full_name is not None
                     assert error_log.method is not None
 
-    @patch('rv_android_core.event.bus.EventBus')
-    def test_process_real_logcat_file(self, mock_event_bus, mock_static_data, sample_logcat_file):
+    def test_process_real_logcat_file(self, mock_static_data, sample_logcat_file):
         """Test processing a real logcat file."""
-        mock_bus_instance = MagicMock()
-        mock_event_bus.get_instance.return_value = mock_bus_instance
-
         tracker = CoverageTracker(sample_logcat_file, mock_static_data, task_id="test_task")
 
         # Simulate tracking

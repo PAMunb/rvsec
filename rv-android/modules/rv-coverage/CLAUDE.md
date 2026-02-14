@@ -12,7 +12,7 @@ The rv-coverage module provides coverage analysis and tracking capabilities for 
 - Track method execution coverage in real-time during test execution
 - Detect and report formal property violations (MOP errors)
 - Calculate multi-dimensional coverage metrics (method, activity, MOP-specific)
-- Publish events for system-wide coordination through EventBus
+- Log coverage and error events via structured logging
 
 ## Architecture
 
@@ -60,7 +60,7 @@ Coverage message formats:
 
 Real-time coverage monitoring during test execution:
 - Monitors logcat files for new entries in a background thread
-- Publishes coverage events and MOP error events through EventBus
+- Logs coverage and MOP error detections via structured logging
 - Calculates metrics incrementally with change detection optimization
 - Supports context manager usage for lifecycle management
 
@@ -84,12 +84,6 @@ Extends BaseAnalyzer from rv-android-core with coverage-specific implementation.
 - **RvErrorLog**: Formal property violation with spec, class, method, source, message
 - **RvCoverageLog**: Method call record with class, method, params, signature
 - **LogcatRepository**: Repository for storing and querying coverage data
-
-### Event Types
-
-Published through EventBus:
-- **COVERAGE_UPDATED**: Coverage metrics changed
-- **MOP_ERROR_DETECTED**: Formal property violation detected
 
 ## Dependencies
 
@@ -225,17 +219,6 @@ CoverageAnalyzer processes results post-experiment:
 analyzer = CoverageAnalyzer(static_data=experiment.static_data)
 for logcat_file in experiment.logcat_files:
     metrics = analyzer.analyze(logcat_file)
-```
-
-### With EventBus
-
-Subscribe to coverage events:
-```python
-from rv_android_core.event.bus import EventBus, EventType
-
-event_bus = EventBus.get_instance()
-event_bus.subscribe(EventType.COVERAGE_UPDATED, on_coverage_update)
-event_bus.subscribe(EventType.MOP_ERROR_DETECTED, on_error_detected)
 ```
 
 ## Performance Characteristics

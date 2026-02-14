@@ -8,12 +8,11 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 
 ### Key Features
 
-- **Infrastructure**: ErrorHandler with decorators, LoggingManager, EventBus for modular architecture
+- **Infrastructure**: ErrorHandler with decorators, LoggingManager for modular architecture
 - **Domain Models**: Domain objects for Android applications, coverage, static analysis, and UI elements
 - **Tool Abstractions**: Base classes for testing tool implementations with centralized error handling and circuit breaker protection
 - **Resilience Patterns**: Circuit breaker implementation preventing cascading failures in command execution
 - **Utility Libraries**: Configuration management, performance monitoring, diagnostics, and JAR resolution
-- **Event System**: Event-driven architecture for component communication and system integration
 - **Type Safety**: Type annotations and validation throughout with Pydantic v2
 - **Data Validation**: Environment-controlled validation with strong typing and backward compatibility
 - **Monitored Operations**: Support for both JCA cryptography and generic programming pattern specifications
@@ -33,12 +32,6 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **ContextAdapter**: Contextual logging with automatic metadata injection
 - **Formatters**: Consistent log formatting with structured output
 - **Performance Integration**: Built-in performance monitoring and metrics
-
-#### Event System
-- **EventBus**: High-performance event distribution with channel management
-- **EventProcessor**: Asynchronous event processing with guaranteed delivery
-- **Event Models**: Type-safe event definitions for all system operations
-- **Decorators**: Declarative event handling patterns
 
 #### Domain Models
 - **App**: Android application metadata and instrumentation tracking
@@ -67,7 +60,7 @@ The RV-Android-Core module serves as the fundamental infrastructure layer for th
 - **All RV-Android Modules**: Provides foundation infrastructure used by every module
 - **External Tools**: Base classes for tool integration (Monkey, DroidBot, etc.)
 - **Analysis Pipeline**: Domain models consumed by coverage and static analysis modules
-- **Experiment Framework**: Event system and configuration used by rv-experiment
+- **Experiment Framework**: Configuration used by rv-experiment
 - **LLM Testing**: Base infrastructure used by rv-agent for error handling and logging
 
 ## Installation
@@ -173,38 +166,6 @@ with logger.with_context(task_id="task_123", app_name="test.apk"):
     logger.error("Tool execution failed")
 ```
 
-### Event System
-
-```python
-from rv_android_core.event import EventBus, EventType, get_event_bus
-from rv_android_core.event.models import TaskEvent
-
-# Get event bus instance
-event_bus = get_event_bus()
-
-# Subscribe to events
-def on_task_started(event: TaskEvent):
-    print(f"Task {event.task_id} started")
-
-event_bus.subscribe(EventType.TASK_STARTED, on_task_started)
-
-# Publish events
-event_bus.publish_task_event(
-    EventType.TASK_STARTED,
-    task_id="task_123",
-    details={"tool": "monkey", "app": "test.apk"},
-    source="TaskExecutor"
-)
-
-# Using event decorators
-from rv_android_core.event.decorators import publish_event
-
-@publish_event(EventType.TOOL_COMPLETED)
-def execute_tool(self, task):
-    # Tool execution logic
-    return {"result": "success"}
-```
-
 ### Domain Models
 
 ```python
@@ -249,14 +210,6 @@ print(f"Output: {result.get_stdout_text()}")
 
 ```python
 from rv_android_core.util.validation import BaseValidatedModel, validated_model
-from rv_android_core.event.models import TaskEvent, EventType
-
-# Using validated models with automatic validation
-task_event = TaskEvent(
-    type=EventType.TASK_STARTED,
-    task_id="123",
-    task_config={"timeout": 60}
-)
 
 # Using @validated_model decorator for backward compatibility
 @validated_model
@@ -469,40 +422,34 @@ The module includes comprehensive tests covering:
 # Module initialization pattern
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.event import get_event_bus
 
 class ModuleComponent:
     """Pattern for module components."""
-    
+
     def __init__(self, config):
         # Infrastructure integration
         self.error_handler = ErrorHandler.get_instance()
         self.logging_manager = LoggingManager.get_instance()
-        self.event_bus = get_event_bus()
-        
+
         # Component-specific logging
         self.logger = self.logging_manager.get_logger(
             'module.component',
             {'component': self.__class__.__name__}
         )
-        
+
         self.config = config
-    
+
     @ErrorHandler.handle_errors(component="ModuleComponent", phase="execute")
     def execute_operation(self):
         """Operation pattern with infrastructure support."""
         with self.logger.with_context(operation="execute"):
             self.logger.info("Starting operation")
-            
+
             # Operation logic
             result = self._perform_operation()
-            
-            # Publish success event
-            self.event_bus.publish_event(
-                EventType.OPERATION_COMPLETED,
-                details={"result": result}
-            )
-            
+
+            self.logger.info("Operation completed", extra={"result": result})
+
             return result
 ```
 
@@ -521,13 +468,6 @@ class ModuleComponent:
 - Include relevant context in all log messages
 - Follow structured logging patterns for tool integration
 - Implement performance logging for critical operations
-
-### Event System Usage
-
-- Use EventBus for loose coupling between components
-- Define clear event schemas with typed models
-- Implement idempotent event handlers
-- Use appropriate channels for event categorization
 
 ### Domain Model Guidelines
 
@@ -557,7 +497,6 @@ class ModuleComponent:
 - Maintain separation of concerns between components
 - Use composition over inheritance where appropriate
 - Implement consistent error handling patterns
-- Follow event-driven architecture for component communication
 
 ## License
 

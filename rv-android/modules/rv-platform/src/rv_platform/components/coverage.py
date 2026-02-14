@@ -5,7 +5,7 @@ Coverage component for RV-Platform.
 Manages coverage tracking and analysis during task execution.
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Any, Optional
 
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.util.error.exceptions import AnalysisError
@@ -17,8 +17,6 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
-from rv_android_core.event.bus import EventBus
-from rv_android_core.event.models import EventType, EventChannel
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -42,17 +40,15 @@ class CoverageComponent:
     - Formats coverage results for the standardized result system
     """
 
-    def __init__(self, task: Task, event_bus: Optional[EventBus] = None):
+    def __init__(self, task: Task):
         """
         Initialize the coverage component.
 
         Args:
             task: Task being executed
-            event_bus: Optional event bus for publishing events
         """
         self.name = "CoverageComponent"
         self.task = task
-        self.event_bus = event_bus or EventBus.get_instance()
         self.error_handler = ErrorHandler.get_instance()
 
         # Coverage tracking
@@ -203,16 +199,7 @@ class CoverageComponent:
                     self.coverage_tracker.tool_execution_start_time = self.task.result.tool_execution_start
 
                 self.coverage_tracker.start()
-
-                # Publish event
-                if self.event_bus:
-                    self.event_bus.publish_task_event(
-                        EventType.COVERAGE_TRACKING_STARTED,
-                        task_id=self.task.id,
-                        details={"logcat_file": self.task.result.logcat_file},
-                        source="CoverageComponent",
-                        channel=EventChannel.LIFECYCLE
-                    )
+                self.logger.info(f"Coverage tracking started for task {self.task.id}")
                 return True
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
@@ -243,16 +230,7 @@ class CoverageComponent:
             try:
                 self.logger.info("Stopping coverage tracking")
                 self.coverage_tracker.stop()
-                self.logger.info("Coverage tracking stopped")
-
-                # Publish event
-                if self.event_bus:
-                    self.event_bus.publish_task_event(
-                        EventType.COVERAGE_TRACKING_STOPPED,
-                        task_id=self.task.id,
-                        source="CoverageComponent",
-                        channel=EventChannel.LIFECYCLE
-                    )
+                self.logger.info(f"Coverage tracking stopped for task {self.task.id}")
                 return True
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
@@ -315,16 +293,7 @@ class CoverageComponent:
                     f"Errors: {metrics_dict['unique_errors']}"
                 )
 
-                # Publish coverage updated event
-                if self.event_bus:
-                    self.event_bus.publish_coverage_event(
-                        EventType.COVERAGE_UPDATED,
-                        task_id=self.task.id,
-                        coverage_metrics=self.task.result.coverage_metrics,
-                        source="CoverageComponent",
-                        channel=EventChannel.LIFECYCLE
-                    )
-
+                self.logger.info(f"Coverage updated for task {self.task.id}: {self.task.result.coverage_metrics}")
                 self.logger.info("Coverage data processing completed")
                 return True
 

@@ -467,7 +467,7 @@ VisitorFactory.register_visitor("specialized", SpecializedVisitor)
 
 ### Development Guidelines
 
-1. **Architecture Compliance**: Follow established patterns from EventBus, ExecutionManager, TaskExecutor
+1. **Architecture Compliance**: Follow established patterns from ExecutionManager, TaskExecutor
 2. **Error Handling**: Use ErrorHandler for all error management
 3. **Logging**: Use LoggingManager with appropriate context
 4. **Documentation**: Include detailed architectural comments in English

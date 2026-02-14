@@ -4,29 +4,20 @@
 
 The rv-android-core module is the foundational infrastructure layer for the entire RV-Android framework. It provides the shared abstractions, domain models, communication primitives, and utility services that every other module depends on. rv-android-core has zero internal dependencies -- it is the root of the dependency graph -- and all 13 remaining modules import from it.
 
-The module solves five interconnected problems:
+The module solves four interconnected problems:
 
-1. **Decoupled communication**: Components across modules (rv-platform, rv-experiment, rv-coverage, rv-agent) need to exchange lifecycle events, coverage updates, and error notifications without direct imports. The EventBus implements a publish-subscribe pattern with typed channels, priority-based processing, and asynchronous delivery via a background worker thread.
+1. **Consistent error management**: The framework spans multiple execution contexts -- emulator management, tool execution, static analysis, LLM inference -- each with distinct failure modes. The ErrorHandler provides centralized error classification with 30+ type-specific handlers, a decorator pattern (`@ErrorHandler.handle_errors`) for automatic error capture, and a callback system for higher-level modules to react to errors without creating circular dependencies.
 
-2. **Consistent error management**: The framework spans multiple execution contexts -- emulator management, tool execution, static analysis, LLM inference -- each with distinct failure modes. The ErrorHandler provides centralized error classification with 30+ type-specific handlers, a decorator pattern (`@ErrorHandler.handle_errors`) for automatic error capture, and a callback system for higher-level modules to react to errors without creating circular dependencies.
+2. **Validated domain models**: Configuration objects, task state, coverage data, and log entries all require structural validation, serialization, and backwards-compatible construction. BaseValidatedModel (Pydantic v2) with the `@validated_model` decorator provides environment-aware validation (controlled by `RV_PYDANTIC` env var), positional-argument compatibility, and consistent serialization across all models.
 
-3. **Validated domain models**: Configuration objects, event payloads, task state, coverage data, and log entries all require structural validation, serialization, and backwards-compatible construction. BaseValidatedModel (Pydantic v2) with the `@validated_model` decorator provides environment-aware validation (controlled by `RV_PYDANTIC` env var), positional-argument compatibility, and consistent serialization across all models.
+3. **System command execution**: The framework invokes external tools (adb, dex2jar, ajc, d8, jarsigner, JavaMOP, RV-Monitor, GATOR, GESDA, REACH) through a validated Command model with timeout enforcement, process tree management, and a circuit breaker pattern to prevent cascading failures from repeatedly failing commands.
 
-4. **System command execution**: The framework invokes external tools (adb, dex2jar, ajc, d8, jarsigner, JavaMOP, RV-Monitor, GATOR, GESDA, REACH) through a validated Command model with timeout enforcement, process tree management, and a circuit breaker pattern to prevent cascading failures from repeatedly failing commands.
-
-5. **Observability**: Centralized logging (LoggingManager), performance metrics (PerformanceMonitor), and structured context injection (ContextAdapter) provide consistent observability across all modules.
+4. **Observability**: Centralized logging (LoggingManager), performance metrics (PerformanceMonitor), and structured context injection (ContextAdapter) provide consistent observability across all modules.
 
 ### Component Architecture
 
 ```
 rv-android-core
-|
-+-- event/                 EventBus, Event models, decorators, utils
-|   |-- bus.py             Singleton EventBus with channels + async queue
-|   |-- models.py          Event, TaskEvent, ExperimentEvent, CoverageEvent, MOPErrorEvent
-|   |-- handler.py         EventHandler with priority + filter
-|   |-- decorators.py      @publish_event, @subscribe_to
-|   +-- utils.py           Filter/group utilities
 |
 +-- util/
 |   +-- error/
@@ -89,28 +80,6 @@ rv-android-core
 ### Key Data Models
 
 ```
-Event (BaseValidatedModel):
-  type: EventType                # Enum (auto()) -- ~30 event types
-  timestamp: datetime            # default_factory=datetime.now
-  source: Optional[str]          # Component that generated the event
-
-TaskEvent(Event):
-  task_id: str                   # UUID string
-  task_config: Dict[str, Any]    # Task configuration snapshot
-  details: Dict[str, Any]        # Additional context
-
-ExperimentEvent(Event):
-  experiment_id: str             # Experiment UUID
-  affected_tasks: List[str]      # Task IDs affected
-  message: str                   # Human-readable message
-
-CoverageEvent(TaskEvent):
-  coverage_entry: Optional[Dict] # Individual method call data
-  coverage_metrics: Optional[Dict] # Aggregate coverage metrics
-
-MOPErrorEvent(TaskEvent):
-  error_log: Optional[Dict]      # MOP violation data
-
 Task:                            # NOT a Pydantic model (plain class)
   id: str                        # UUID string
   config: TaskConfiguration      # Pydantic model
@@ -176,10 +145,10 @@ RvErrorLog(BaseValidatedModel):
 
 **Consumed by all modules**: Every module in the framework imports from rv-android-core. The primary consumers are:
 
-- **rv-platform**: Uses Task, TaskConfiguration, TaskResult, EventBus (publishes TASK_STARTED/COMPLETED/FAILED, COVERAGE_UPDATED, MOP_ERROR_DETECTED), ErrorHandler, Command, LogcatRepository, and PerformanceMonitor.
-- **rv-experiment**: Uses EventBus (publishes EXPERIMENT_STARTED/COMPLETED/FAILED), ExperimentEvent, ErrorHandler, Command, and all domain models for configuration.
+- **rv-platform**: Uses Task, TaskConfiguration, TaskResult, ErrorHandler, Command, LogcatRepository, and PerformanceMonitor.
+- **rv-experiment**: Uses ErrorHandler, Command, and all domain models for configuration.
 - **rv-agent**: Uses AbstractTool (via rvagent-tool wrapper), ErrorHandler, LoggingManager, PerformanceMonitor, ScreenDescription models, StaticAnalysisData, and App.
-- **rv-coverage**: Uses RvCoverageLog, RvErrorLog, LogcatRepository, CoverageMetrics, EventBus (publishes COVERAGE_UPDATED and MOP_ERROR_DETECTED).
+- **rv-coverage**: Uses RvCoverageLog, RvErrorLog, LogcatRepository, CoverageMetrics.
 - **rv-tools**: Uses AbstractTool as base class for all 8 built-in tools, ToolSpec, Command, CommandResult, and ErrorHandler.
 - **rv-static-analysis**: Uses Command for running GATOR/GESDA/REACH, StaticAnalysisData, Classes, Windows, WindowTransitionGraph.
 - **rv-instrumentation**: Uses Command for dex2jar/ajc/d8/jarsigner execution, ErrorHandler.
@@ -187,7 +156,7 @@ RvErrorLog(BaseValidatedModel):
 - **rv-screen-parser**: Uses BaseValidatedModel for UI models, ErrorHandler.
 - **rv-uiautomator**: Uses Command for ADB operations, ErrorHandler, PerformanceMonitor.
 
-**Produced by rv-android-core**: Domain models (Task, App, StaticAnalysisData, coverage models), infrastructure services (EventBus, ErrorHandler, LoggingManager, PerformanceMonitor), and the AbstractTool contract.
+**Produced by rv-android-core**: Domain models (Task, App, StaticAnalysisData, coverage models), infrastructure services (ErrorHandler, LoggingManager, PerformanceMonitor), and the AbstractTool contract.
 
 **External dependencies**: pydantic ^2.9.0, androguard 3.4.0a1, psutil ^7.0.0, networkx ^3.5.
 
@@ -200,11 +169,9 @@ RvErrorLog(BaseValidatedModel):
 - `RV_PYDANTIC_LOG: str` -- Environment variable for validation event logging. Source: system environment.
 - `app_path: str` -- Absolute path to an Android APK file. Source: rv-experiment CLI or rv-platform task generation.
 - `command: str` -- System command name to execute. Source: all modules that invoke external tools.
-- `EventType: Enum` -- Event type from the EventType enumeration. Source: any module publishing events.
 
 ### Output
 
-- `Event` subclass instances -- Published to EventBus subscribers via callbacks. Destination: all subscribed handlers.
 - `CommandResult(code, stdout, stderr)` -- Result of system command execution. Destination: calling module.
 - `App` instance -- Android APK metadata extracted via Androguard. Destination: rv-platform tasks, rv-agent.
 - `Task` instance -- Task with configuration, result, and coverage repository. Destination: rv-platform executor.
@@ -216,7 +183,6 @@ RvErrorLog(BaseValidatedModel):
 - **Process creation**: Command.invoke() spawns OS processes via `subprocess.Popen`. Command.invoke_as_deamon() and invoke_as_process() create background processes.
 - **Process termination**: `kill_process_tree()` recursively kills process trees via `psutil` and `os.kill(SIGKILL)`.
 - **File system**: Task.initialize() creates results directories via `os.makedirs()`. LoggingManager.setup_file_logging() creates log files.
-- **Thread creation**: EventBus creates a daemon thread (`EventBus-QueueProcessor`) and a ThreadPoolExecutor (`EventBus-Worker-*`) for asynchronous event processing.
 - **APK analysis**: App model_post_init() loads APK via Androguard (I/O operation reading APK file).
 
 ### Error
@@ -225,22 +191,11 @@ RvErrorLog(BaseValidatedModel):
 - `CommandValidationError` -- Empty command string, invalid timeout, or invalid arguments.
 - `RVCommandTimeoutError` -- Command execution exceeded timeout. Contains `timeout_seconds` and `command`.
 - `CircuitBreakerOpenError` -- Command blocked by circuit breaker after repeated failures. Contains `command_signature` and `failure_count`.
-- `EventProcessingError` -- Invalid event object or event queue full.
 - `RVAndroidError` -- Base exception for all framework-specific errors. Contains `message` and `cause`.
 - `CommandNotFoundError` -- OS command not found (OSError wrapper).
 - Pydantic `ValidationError` -- Raised by BaseValidatedModel when field validation fails (not caught by ErrorHandler).
 
 ## Invariants
-
-- **INV-CORE-01**: The EventBus MUST be a thread-safe singleton. Concurrent calls to `EventBus.get_instance()` from different threads MUST return the same instance. The `_lock` field MUST be a `threading.Lock`.
-
-- **INV-CORE-02**: Every Event instance MUST have a non-None `type` field of type `EventType` and a non-None `timestamp` field of type `datetime`. Events without a `type` MUST raise `EventProcessingError` when published.
-
-- **INV-CORE-03**: The EventBus MUST initialize subscriber lists for all `EventChannel` values crossed with all `EventType` values at construction time. Publishing to an unknown channel MUST NOT raise an exception; it MUST log a warning and return 0.
-
-- **INV-CORE-04**: EventHandler priority sorting MUST process higher-priority handlers first. `HandlerPriority.CRITICAL` (20) handlers MUST execute before `HandlerPriority.NORMAL` (5) handlers for the same event.
-
-- **INV-CORE-05**: EventHistoryManager MUST NOT grow beyond `max_size` events (default: 1000). When the limit is exceeded, the oldest events MUST be discarded (FIFO eviction).
 
 - **INV-CORE-06**: The ErrorHandler MUST be a thread-safe singleton using double-checked locking. Concurrent calls to `ErrorHandler.get_instance()` MUST return the same instance.
 
@@ -282,70 +237,17 @@ RvErrorLog(BaseValidatedModel):
 
 - **INV-CORE-25**: RvErrorLog.unique_msg MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"`. Two RvErrorLog instances with the same unique_msg MUST be considered equal.
 
-- **INV-CORE-26**: EventPriority for async publishing MUST follow PriorityQueue convention: lower values are processed first. CRITICAL (0) < HIGH (10) < NORMAL (50) < LOW (90) < BACKGROUND (100).
-
 ## Requirements
-
-### Requirement: Event-Driven Communication (FR33, NFR06)
-
-The rv-android-core module MUST provide an EventBus for decoupled component communication across the framework. The EventBus serves as the central communication backbone, enabling loose coupling between modules that would otherwise require direct imports. Components publish events (e.g., "task started", "coverage updated", "MOP error detected") and other components subscribe to receive those events without knowing the publisher's identity.
-
-The EventBus MUST support four channels: DEFAULT (general events), LIFECYCLE (task and experiment lifecycle events including coverage and MOP events), ANALYSIS (static analysis results), and ERROR (error notifications). Each channel MUST support all EventType values independently.
-
-The EventBus MUST support synchronous publishing (blocking until all handlers execute), asynchronous publishing (via a priority queue processed by a background thread), and callback-based publishing (handler count returned via callback). Async publishing MUST use EventPriority constants for ordering.
-
-The EventBus MUST provide type-safe helper methods for common event patterns: `publish_task_event()`, `publish_experiment_event()`, `publish_coverage_event()`, and `publish_mop_error_event()`. These methods MUST construct the appropriate event subclass and publish it.
-
-The EventBus MUST maintain an event history via EventHistoryManager for debugging and audit purposes. The history MUST support filtering by event type, timestamp, source, and task ID.
-
-#### Scenario: Synchronous event publication with subscriber
-
-- **WHEN** a handler subscribes to `EventType.TASK_COMPLETED` on `EventChannel.LIFECYCLE` and a `TaskEvent` with `type=EventType.TASK_COMPLETED` and `task_id="abc-123"` is published synchronously on `EventChannel.LIFECYCLE`
-- **THEN** the handler callback MUST be invoked exactly once with the published TaskEvent
-- **AND** the `publish()` method MUST return 1 (one handler processed the event)
-- **AND** the event MUST be recorded in the EventHistoryManager
-
-#### Scenario: Asynchronous event publication with priority ordering
-
-- **WHEN** two events are published asynchronously -- one with `priority=EventPriority.CRITICAL` (0) and one with `priority=EventPriority.LOW` (90) -- and a handler is subscribed to both event types
-- **THEN** the CRITICAL event MUST be processed before the LOW event by the background worker thread
-- **AND** both events MUST be added to the event history
-
-#### Scenario: Publishing to an unknown channel
-
-- **WHEN** `_process_event_in_channel()` is called with a channel string not in `channel_subscribers`
-- **THEN** the method MUST log a warning message containing the unknown channel name
-- **AND** the method MUST return 0 (no handlers processed)
-- **AND** no exception MUST be raised
-
-#### Scenario: Event handler with filter function
-
-- **WHEN** a handler subscribes with `filter_fn=lambda e: e.task_id == "target-task"` and events are published for task IDs "target-task" and "other-task"
-- **THEN** the handler callback MUST be invoked only for the event with `task_id="target-task"`
-- **AND** the handler MUST return True for the matching event and False for the non-matching event
-
-#### Scenario: EventHistoryManager size limit enforcement
-
-- **WHEN** 1001 events are added to an EventHistoryManager with `max_size=1000`
-- **THEN** the history MUST contain exactly 1000 events
-- **AND** the first (oldest) event MUST have been evicted
-- **AND** the most recent 1000 events MUST be retained
-
-#### Scenario: Unsubscribe by handler ID
-
-- **WHEN** a handler subscribes to `EventType.TASK_STARTED` and receives a handler_id, then `unsubscribe_by_handler()` is called with that handler_id, and an event is subsequently published
-- **THEN** the handler MUST NOT be invoked for the subsequent event
-- **AND** `unsubscribe_by_handler()` MUST return True
 
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
 
 The rv-android-core module MUST provide centralized error handling through the ErrorHandler singleton. The ErrorHandler serves as the framework's unified error management facility, providing consistent error classification, logging, tracking, and optional recovery. It uses a registry-based approach where each exception type has a dedicated handler.
 
-The ErrorHandler MUST register 27+ type-specific handlers at initialization covering the entire exception hierarchy: RVTaskError, RVToolError (and subclasses: ToolNotFoundError, ToolRegistrationError, ToolVariantError, PluginError, RVToolTimeoutError, RVToolExecutionError), RVExperimentError, RVParsingError, RVPromptError, RVLLMError (and subclasses: RVLLMConnectionError, RVLLMModelError, RVLLMProviderError, RVLLMConfigurationError, RVLLMTemplateError), RVValidationError (and subclasses: CommandValidationError, LogcatValidationError), EventProcessingError, RVCommandTimeoutError, JarNotFoundError, CircuitBreakerOpenError, FileNotFoundError, and generic fallbacks (RVAndroidError, Exception).
+The ErrorHandler MUST register 27+ type-specific handlers at initialization covering the entire exception hierarchy: RVTaskError, RVToolError (and subclasses: ToolNotFoundError, ToolRegistrationError, ToolVariantError, PluginError, RVToolTimeoutError, RVToolExecutionError), RVExperimentError, RVParsingError, RVPromptError, RVLLMError (and subclasses: RVLLMConnectionError, RVLLMModelError, RVLLMProviderError, RVLLMConfigurationError, RVLLMTemplateError), RVValidationError (and subclasses: CommandValidationError, LogcatValidationError), RVCommandTimeoutError, JarNotFoundError, CircuitBreakerOpenError, FileNotFoundError, and generic fallbacks (RVAndroidError, Exception).
 
 Handler lookup MUST use exact type matching to ensure the most specific handler is selected. The `@ErrorHandler.handle_errors(component, phase, reraise)` decorator MUST provide Spring-like automatic error management for decorated methods.
 
-The ErrorHandler MUST NOT publish events directly to maintain module independence. Instead, it MUST support a callback system (`register_error_callback` / `unregister_error_callback`) for higher-level modules to integrate with the event system.
+The ErrorHandler MUST support a callback system (`register_error_callback` / `unregister_error_callback`) for higher-level modules to react to errors.
 
 #### Scenario: Decorator with reraise=False suppresses handled exception
 
@@ -404,7 +306,7 @@ All configuration classes (PlatformConfig, ExperimentConfig, RVAgentConfig, and 
 
 #### Scenario: Extra fields are rejected
 
-- **WHEN** `Event(type=EventType.CUSTOM, unexpected_field="value")` is constructed
+- **WHEN** a BaseValidatedModel subclass is constructed with an unexpected field (e.g., `CommandResult(code=0, stdout=b"", stderr=b"", unexpected_field="value")`)
 - **THEN** Pydantic MUST raise a ValidationError because `extra='forbid'` is set in model_config
 - **AND** the error message MUST indicate the unexpected field
 
@@ -488,7 +390,7 @@ PerformanceMonitor MUST be configurable via PerformanceMonitorConfig. When `enab
 - **WHEN** three metrics named "latency" are recorded with values 1.0, 2.0, and 3.0
 - **THEN** `get_metrics_stats("latency")` MUST return `{"count": 3, "min": 1.0, "max": 3.0, "avg": 2.0, "median": 2.0}`
 
-### Requirement: System Command Execution (implied by FR33-FR37 infrastructure)
+### Requirement: System Command Execution (implied by FR34-FR37 infrastructure)
 
 The rv-android-core module MUST provide validated system command execution through the Command model. Command is a Pydantic model that validates command name, arguments, and timeout before execution. The Command class is used by all modules that invoke external tools (adb, dex2jar, ajc, d8, jarsigner, JavaMOP, RV-Monitor, GATOR, GESDA, REACH).
 
@@ -530,7 +432,7 @@ The CommandCircuitBreaker MUST provide resilience against repeatedly failing com
 - **AND** `is_execution_allowed()` MUST return True (allowing a test execution)
 - **AND** if the test execution succeeds (via `record_success()`), the circuit MUST transition to CLOSED
 
-### Requirement: AbstractTool Contract (implied by FR33-FR37 infrastructure, FR18-FR20, NFR01, NFR02)
+### Requirement: AbstractTool Contract (implied by FR34-FR37 infrastructure, FR18-FR20, NFR01, NFR02)
 
 The rv-android-core module MUST define the AbstractTool base class that establishes the contract for all testing tools in the framework. AbstractTool implements the template method pattern: `execute()` is the template method that delegates to `execute_tool_specific_logic()` (the abstract extension point).
 
@@ -558,7 +460,7 @@ AbstractTool MUST integrate the CommandCircuitBreaker via `_execute_and_check_co
 - **THEN** `kill_related_processes(self.process_pattern)` MUST be called
 - **AND** any processes matching the pattern on the device MUST be terminated via ADB
 
-### Requirement: Domain Models (implied by FR33-FR37 infrastructure)
+### Requirement: Domain Models (implied by FR34-FR37 infrastructure)
 
 The rv-android-core module MUST provide the core domain models used across all modules. These models define the data contracts for tasks, applications, static analysis results, coverage tracking, and log entries.
 

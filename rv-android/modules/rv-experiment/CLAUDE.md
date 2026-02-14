@@ -19,7 +19,7 @@ This file provides guidance for working with the rv-experiment module.
 - **Clean Separation**: rv-experiment handles orchestration only; rv-platform handles execution
 - **No Data Transfer**: Results stay in rv-platform; rv-experiment provides coordination
 - **Just-in-Time Configuration**: Sub-module configurations created only when needed
-- **Event-Driven**: Uses EventBus for workflow coordination
+
 
 ## Directory Structure
 
@@ -230,7 +230,7 @@ platform_config = PlatformConfig(
 )
 
 # Platform handles execution and results
-platform = Platform(platform_config, event_bus)
+platform = Platform(platform_config)
 results = platform.run()
 ```
 
@@ -394,11 +394,6 @@ The entrypoint supports interactive mode: pass `bash` or `shell` as the first ar
 - rv-experiment provides orchestration only
 - rv-platform handles all task execution and result processing
 - Results stay in platform layer; experiment layer only tracks metadata
-
-### Event-Driven Coordination
-- Uses EventBus for workflow state transitions
-- Publishes events: `WORKFLOW_COMPLETED`, `EXPERIMENT_COMPLETED`, `EXPERIMENT_FAILED`
-- Events used for monitoring and logging, not data transfer
 
 ### Just-in-Time Configuration
 - Sub-module configurations created only when accessed

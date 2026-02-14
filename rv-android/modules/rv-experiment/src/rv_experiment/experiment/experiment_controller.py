@@ -12,7 +12,6 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.exceptions import RVExperimentExecutionError
-from rv_android_core.event import EventBus, EventType
 from rv_android_core.tools.abstract_tool import AbstractTool
 
 from rv_experiment.config import ExperimentConfig
@@ -71,25 +70,12 @@ class ExperimentController:
             {CONTEXT_COMPONENT: 'ExperimentController'}
         )
 
-        # Initialize event bus
-        self.event_bus = EventBus.get_instance()
-
         # Initialize clean workflow components
-        self.pre_processor = PreProcessor(config, self.event_bus)
-        self.execution_controller = ExecutionController(config, self.event_bus)
-        self.post_processor = PostProcessor(self.results_dir, self.event_bus)
-
-        # Register event handlers
-        self._setup_event_handlers()
+        self.pre_processor = PreProcessor(config)
+        self.execution_controller = ExecutionController(config)
+        self.post_processor = PostProcessor(self.results_dir)
 
         self.logger.info(f"Experiment '{self.config.name}' initialized: {self.results_dir}")
-
-    def _setup_event_handlers(self):
-        """
-        Set up event handlers for experiment coordination.
-        """
-        # Basic event handling for coordination only
-        pass
 
     @ErrorHandler.handle_errors(
         component="ExperimentController",
@@ -130,14 +116,7 @@ class ExperimentController:
                 self.logger.info("Starting post-processing phase")
                 self.post_processor.process()
 
-                # Publish experiment completed event
-                self.event_bus.publish_experiment_event(
-                    EventType.EXPERIMENT_COMPLETED,
-                    experiment_id=self.experiment_id,
-                    message="Experiment completed successfully" if success else "Experiment completed with issues",
-                    source="ExperimentController"
-                )
-
+                self.logger.info(f"Experiment completed: {self.experiment_id}")
                 self.logger.info(LOG_COMPLETE.format(phase=f"experiment {self.experiment_id}"))
                 return success
 
@@ -146,15 +125,8 @@ class ExperimentController:
                     phase=f"experiment {self.experiment_id}",
                     error=str(e)
                 ))
-                
-                # Publish experiment failed event
-                self.event_bus.publish_experiment_event(
-                    EventType.EXPERIMENT_FAILED,
-                    experiment_id=self.experiment_id,
-                    message=f"Experiment execution failed: {str(e)}",
-                    source="ExperimentController"
-                )
-                
+                self.logger.error(f"Experiment failed: {self.experiment_id}")
+
                 return False
 
     def _run_pre_processing(self):

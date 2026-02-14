@@ -11,11 +11,10 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskFactory
-from rv_android_core.event import EventBus
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -39,25 +38,21 @@ class Platform:
     - Provides simple, clean interface for standalone usage
     - Manages task generation and execution coordination
     - Integrates with existing rv-android-core infrastructure
-    - Supports event-driven communication with external systems
-    
     ### Role in the System:
     - Discovers APKs and generates tasks based on configuration
     - Orchestrates task execution with proper resource management
     - Collects and aggregates basic task-level results
-    - Provides progress reporting through events and logging
+    - Provides progress reporting through logging
     """
 
-    def __init__(self, config: PlatformConfig, event_bus: Optional[EventBus] = None):
+    def __init__(self, config: PlatformConfig):
         """
         Initialize the platform with configuration.
-        
+
         Args:
             config: Platform configuration
-            event_bus: Optional event bus for communication
         """
         self.config = config
-        self.event_bus = event_bus or EventBus.get_instance()
 
         # Validate configuration
         self.config.validate_dependencies()
@@ -271,15 +266,15 @@ class Platform:
                 tool = self._load_tool(task.config.tool_config)
 
                 # Create task executor with TaskStorage
-                executor = TaskExecutor(task, tool, self.event_bus, self.task_storage)
+                executor = TaskExecutor(task, tool, task_storage=self.task_storage)
 
                 # Register all essential components in execution order
                 components = [
-                    StaticAnalysisComponent(task, self.config.apks_dir, self.event_bus),
-                    EmulatorComponent(task, self.event_bus),
-                    LogcatComponent(task, self.event_bus),
-                    CoverageComponent(task, self.event_bus),
-                    ToolExecutionComponent(task, tool, self.event_bus)
+                    StaticAnalysisComponent(task, self.config.apks_dir),
+                    EmulatorComponent(task),
+                    LogcatComponent(task),
+                    CoverageComponent(task),
+                    ToolExecutionComponent(task, tool)
                 ]
 
                 for component in components:

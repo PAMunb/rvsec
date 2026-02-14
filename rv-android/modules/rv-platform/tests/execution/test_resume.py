@@ -20,7 +20,6 @@ from rv_android_core.domain.task import (
     Task, TaskConfiguration, TaskFactory, TaskState,
     ToolConfig as TaskToolConfig,
 )
-from rv_android_core.event import EventBus
 from rv_platform.components.result_processor import ResultProcessorComponent
 from rv_platform.config.platform_config import PlatformConfig, ToolConfig
 from rv_platform.platform import Platform

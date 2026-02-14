@@ -8,7 +8,6 @@ Provides real-time coverage tracking and formal property violation detection.
 - Parses logcat output for coverage and error information
 - Tracks method execution coverage in real-time
 - Detects and reports formal property violations (MOP errors)
-- Publishes events for real-time monitoring integration
 - Calculates comprehensive coverage metrics
 
 ### Key Components:
@@ -17,7 +16,6 @@ Provides real-time coverage tracking and formal property violation detection.
 - LogcatParser: Parsing logcat entries for coverage information
 
 ### Integration Points:
-- EventBus: Publishes coverage and error events
 - LoggingManager: Standardized logging infrastructure
 - ErrorHandler: Centralized error handling patterns
 """

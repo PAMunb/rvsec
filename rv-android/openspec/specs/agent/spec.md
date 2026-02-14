@@ -210,7 +210,6 @@ Unified Action Format (dict):
 - `ScreenDescription`, `ItemAction` from rv-screen-parser (UI parsing with visitor patterns)
 - `DeviceInterface` wraps rv-uiautomator for device interaction
 - `BaseValidatedModel` from rv-android-core (Pydantic configuration base)
-- `EventBus` from rv-android-core (lifecycle events)
 
 **Produces:**
 - Exploration metrics dictionary (iterations, unique states, transitions, LLM token usage, decision proportions)

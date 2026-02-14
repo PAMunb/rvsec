@@ -9,7 +9,6 @@ rv-platform is the central execution engine for Android testing experiments in t
 ### Key Patterns and Design Decisions
 
 - **Component-Based Execution**: TaskExecutor uses pluggable components (EmulatorComponent, CoverageComponent, etc.) for different execution phases with initialize/execute/cleanup lifecycle
-- **Event-Driven Communication**: Integrates with rv-android-core's EventBus for publishing task lifecycle events (started, completed, failed)
 - **Coordinated Component Execution**: Components execute in specific phases - static analysis and coverage initialization outside emulator session, tool execution inside emulator context
 - **Persistent Task Storage**: TaskStorage provides atomic file operations with transaction support for robust task state persistence
 - **Pydantic Configuration**: PlatformConfig uses Pydantic for validation with comprehensive field validators
@@ -96,7 +95,7 @@ src/rv_platform/
 
 ### Internal (rv-android modules)
 
-- **rv-android-core**: Domain models (Task, App), EventBus, ErrorHandler, LoggingManager
+- **rv-android-core**: Domain models (Task, App), ErrorHandler, LoggingManager
 - **rv-tools**: ToolFactory, ToolRegistry for tool creation and discovery
 - **rv-coverage**: CoverageTracker, logcat_parser for coverage analysis
 - **rv-static-analysis**: static_analysis_parser for loading GATOR/GESDA/REACH data

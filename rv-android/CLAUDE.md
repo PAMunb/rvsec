@@ -9,7 +9,6 @@ RV-Android is a modular framework for runtime verification of Android applicatio
 ### Core Architecture Principles
 
 - **Modular Design**: Independent Poetry modules with clear dependencies and interfaces
-- **Event-Driven Communication**: EventBus system for coordinated interaction between components
 - **Component-Based Execution**: TaskExecutor uses pluggable components for different execution phases
 - **Configuration Management**: Unified configuration across all modules using Pydantic models
 - **Error Handling**: Error handling with proper context and recovery strategies
@@ -19,7 +18,7 @@ RV-Android is a modular framework for runtime verification of Android applicatio
 The system consists of the following modules:
 
 **Core Infrastructure:**
-1. **rv-android-core**: Foundation infrastructure with domain models, event system, error handling, and logging
+1. **rv-android-core**: Foundation infrastructure with domain models, error handling, and logging
 2. **rv-platform**: Central execution platform coordinating task execution and result processing
 3. **rv-tools**: Testing tool plugin system with registry and factory patterns
 4. **rv-uiautomator**: Shared UIAutomator components for direct device interaction
@@ -97,7 +96,7 @@ See `.claude/project-info.md` for Docker commands, monitor generation, and full 
 ## Module Dependencies and Relationships
 
 ### Core Infrastructure Modules
-- **rv-android-core**: Provides foundation services (EventBus, ErrorHandler, LoggingManager, domain models)
+- **rv-android-core**: Provides foundation services (ErrorHandler, LoggingManager, domain models)
 - **rv-tools**: Tool registry and plugin system used by all testing components
 - **rv-uiautomator**: Shared UIAutomator components for device interaction
 
@@ -140,11 +139,6 @@ Key directories: `out/` (temporary artifacts — monitors, instrumented APKs, st
 See `.claude/project-info.md` for full directory tree and pre-processed artifact locations.
 
 ## Key Architectural Patterns
-
-### Event-Driven Architecture
-- EventBus system (`rv_android_core.event.bus`) coordinates communication
-- Components publish lifecycle, task, and error events
-- Event handlers provide system monitoring and coordination
 
 ### Component-Based Execution
 - TaskExecutor uses pluggable components for different execution phases
@@ -191,7 +185,7 @@ Comments describe what the code does *now*. No migration history ("migrated from
 - Use English for all code and comments
 - When writing in Portuguese (Brazilian), always use correct accentuation (acentos, cedilha, til, etc.). The user may omit accents in their messages (non-ABNT keyboard), but Claude must always write Portuguese correctly.
 - Include detailed comments at critical architectural points — explain *why*, not just *what*
-- Follow the comment template in: `EventBus`, `ExecutionManager`, `TaskExecutor`
+- Follow the comment template in: `ExecutionManager`, `TaskExecutor`
 
 ### Constants
 - Use constants instead of magic values whenever possible
