@@ -14,8 +14,9 @@ from rv_android_core.constants import EXTENSION_APK
 from rv_android_core.util.error.exceptions import RVAndroidError
 from rv_android_core.util.logging.manager import LoggingManager
 
-# Get the singleton logging manager
+# Module-level logger
 logging_manager = LoggingManager.get_instance()
+logger = logging_manager.get_logger("rv_android_core.util.utils")
 
 
 def execute_command(cmd: Command, tag: str, skip_stderr: bool = False, stdout=None):
@@ -34,8 +35,6 @@ def execute_command(cmd: Command, tag: str, skip_stderr: bool = False, stdout=No
     Raises:
         CommandException: If command execution fails
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.execute_command", {"command": tag})
-
     logger.debug(f"Executing command: {cmd.command} {' '.join(cmd.args)}")
     cmd_result = cmd.invoke(stdout=stdout)
 
@@ -70,8 +69,6 @@ def file_hash(file_path: str):
     Returns:
         Hexadecimal hash string
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.file_hash")
-
     try:
         sha256_hash = hashlib.sha256()
         with open(file_path, "rb") as f:
@@ -94,8 +91,6 @@ def create_folder_if_not_exists(path: str):
     Raises:
         OSError: If folder creation fails
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.create_folder_if_not_exists")
-
     if not os.path.exists(path):
         try:
             logger.debug(f"Creating folder: {path}")
@@ -113,7 +108,6 @@ def reset_folder(path: str):
     Args:
         path: Folder path to reset
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.reset_folder")
     logger.debug(f"Resetting folder: {path}")
 
     shutil.rmtree(path, ignore_errors=True)
@@ -132,8 +126,6 @@ def move_files_by_extension(extension: str, in_folder: str, destination_folder: 
     Raises:
         Exception: If file moving fails
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.move_files_by_extension")
-
     try:
         check_folder_exists([in_folder, destination_folder])
         logger.debug(f"Moving files with extension {extension} from {in_folder} to {destination_folder}")
@@ -166,8 +158,6 @@ def copy_files_by_extension(extension: str, in_folder: str, destination_folder: 
     Raises:
         Exception: If file copying fails
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.copy_files_by_extension")
-
     try:
         check_folder_exists([in_folder, destination_folder])
         logger.debug(f"Copying files with extension {extension} from {in_folder} to {destination_folder}")
@@ -203,8 +193,6 @@ def copy_files(in_folder: str, destination_folder: str):
     Raises:
         Exception: If file copying fails
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.copy_files")
-
     try:
         check_folder_exists([in_folder, destination_folder])
         logger.debug(f"Copying files from {in_folder} to {destination_folder}")
@@ -235,8 +223,6 @@ def delete_files_by_extension(extension: str, in_folder: str):
     Raises:
         Exception: If file deletion fails
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.delete_files_by_extension")
-
     try:
         check_folder_exists([in_folder])
         logger.debug(f"Deleting files with extension {extension} from {in_folder}")
@@ -263,8 +249,6 @@ def delete_file(file_path: str):
     Args:
         file_path: Path to the file
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.delete_file")
-
     if os.path.exists(file_path):
         try:
             os.remove(file_path)
@@ -280,8 +264,6 @@ def delete_dir(dir_path: str):
     Args:
         dir_path: Path to the directory
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.delete_dir")
-
     if os.path.exists(dir_path) and os.path.isdir(dir_path):
         try:
             shutil.rmtree(dir_path)
@@ -300,8 +282,6 @@ def check_folder_exists(folders: list):
     Raises:
         Exception: If any folder doesn't exist
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.check_folder_exists")
-
     for folder in folders:
         if not os.path.exists(folder):
             logger.error(f"Folder does not exist: {folder}")
@@ -318,8 +298,6 @@ def get_apks(apks_dir: str) -> list[App]:
     Returns:
         List of App objects
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.get_apks")
-
     apks: list[App] = []
     if os.path.exists(apks_dir) and os.path.isdir(apks_dir):
         for file in os.listdir(apks_dir):
@@ -343,8 +321,6 @@ def unzip(zip_file: str, out_dir: str):
         zip_file: Path to the ZIP file
         out_dir: Output directory
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.unzip")
-
     try:
         logger.debug(f"Extracting {zip_file} to {out_dir}")
         with ZipFile(zip_file, 'r') as zObject:
@@ -363,8 +339,6 @@ def zip_dir_content(zip_file: str, in_dir: str):
         zip_file: Output ZIP file path
         in_dir: Input directory
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.zip_dir_content")
-
     try:
         logger.debug(f"Compressing contents of {in_dir} to {zip_file}")
         with ZipFile(zip_file, 'w', ZIP_DEFLATED) as zipf:
@@ -459,8 +433,6 @@ def get_env_or_default(env_var: str, default_value: Union[str, int, bool, List],
     Returns:
         Value from environment or default
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.get_env_or_default")
-
     value = os.getenv(env_var)
     if value is None:
         return default_value
@@ -505,8 +477,6 @@ def read_json(file_path: str):
     Returns:
         Parsed JSON data or empty dict if failed
     """
-    logger = logging_manager.get_logger("rv_android_core.util.utils.read_json")
-
     try:
         logger.debug(f"Reading JSON file: {file_path}")
         with open(file_path, 'r') as file:

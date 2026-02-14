@@ -105,7 +105,7 @@ class Window(BaseValidatedModel):
     def model_post_init(self, __context) -> None:
         """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        object.__setattr__(self, 'logger', logging_manager.get_logger("rvandroid_core.domain.window.Window", {"window": self.name}))
+        object.__setattr__(self, 'logger', logging_manager.get_logger("rv_android_core.domain.window", {"window": self.name}))
         self.logger.debug(f"Window created: {self.name}")
 
     def add_widget(self, widget: Widget) -> bool:
@@ -259,7 +259,7 @@ class Windows(BaseValidatedModel):
     def model_post_init(self, __context) -> None:
         """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        object.__setattr__(self, 'logger', logging_manager.get_logger("rvandroid_core.domain.window.Windows"))
+        object.__setattr__(self, 'logger', logging_manager.get_logger("rv_android_core.domain.window"))
         self.logger.debug("Windows container initialized")
 
     def add_window(self, window: Window) -> bool:

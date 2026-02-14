@@ -45,6 +45,7 @@ def mock_logging_manager(monkeypatch):
     mock_logger_instance = MagicMock()
     mock_manager.get_logger.return_value = mock_logger_instance
     monkeypatch.setattr("rv_android_core.util.utils.logging_manager", mock_manager)
+    monkeypatch.setattr("rv_android_core.util.utils.logger", mock_logger_instance)
     yield mock_manager
 
 

@@ -167,30 +167,22 @@ class TestStructuredFormatter:
         )
         assert formatter.max_context_length == 80
 
-    def test_format_includes_brackets(self, structured_formatter, log_record):
-        """Test that formatted output includes context brackets"""
+    def test_format_no_brackets_without_custom_attrs(self, structured_formatter, log_record):
+        """Test that a record without custom attributes has no context brackets"""
         formatted = structured_formatter.format(log_record)
 
-        # Should contain the message and context brackets
+        # Should contain the message but NO context brackets (standard attrs are excluded)
+        assert "Test message" in formatted
+        assert "[" not in formatted
+
+    def test_format_includes_brackets_with_custom_attrs(self, structured_formatter, log_record):
+        """Test that a record with custom attributes gets context brackets"""
+        log_record.app_name = "test_app"
+        formatted = structured_formatter.format(log_record)
+
         assert "Test message" in formatted
         assert "[" in formatted
-        assert "]" in formatted
-
-    def test_format_includes_standard_fields(self, structured_formatter, log_record):
-        """Test that formatting includes standard system fields"""
-        formatted = structured_formatter.format(log_record)
-
-        # Should include at least some standard context
-        context_section = formatted.split("[")[1].split("]")[0] if "[" in formatted else ""
-
-        # Check for common standard fields
-        has_standard_fields = (
-                "thread" in context_section or
-                "process" in context_section or
-                "threadName" in context_section or
-                "processName" in context_section
-        )
-        assert has_standard_fields
+        assert "app_name=test_app" in formatted
 
     def test_format_with_custom_format(self, custom_formatter, log_record):
         """Test formatting with custom format string"""
@@ -249,3 +241,42 @@ class TestStructuredFormatter:
 
         # Test passes if execution reaches here
         assert True
+
+    def test_structured_formatter_excludes_all_standard_attrs(self):
+        """Test that standard LogRecord attributes do not appear as spurious context."""
+        formatter = StructuredFormatter(fmt="%(levelname)s - %(message)s")
+
+        record = logging.LogRecord(
+            name="test_logger",
+            level=logging.INFO,
+            pathname="test_path.py",
+            lineno=42,
+            msg="Test message",
+            args=(),
+            exc_info=None
+        )
+        # Add a custom attribute that SHOULD appear in context
+        record.my_custom_key = "custom_value"
+
+        formatted = formatter.format(record)
+
+        # Standard attributes should NOT appear in the context brackets
+        standard_attrs = [
+            'args', 'msg', 'message', 'pathname', 'filename',
+            'module', 'exc_info', 'exc_text', 'lineno',
+            'funcName', 'created', 'msecs', 'relativeCreated',
+            'levelname', 'levelno', 'name',
+            'stack_info', 'taskName', 'thread', 'threadName',
+            'process', 'processName', 'asctime'
+        ]
+
+        # Extract context section from formatted output
+        if '[' in formatted and ']' in formatted:
+            context_section = formatted.split('[', 1)[1].rsplit(']', 1)[0]
+            context_keys = [item.split('=')[0].strip() for item in context_section.split('|')]
+
+            for attr in standard_attrs:
+                assert attr not in context_keys, f"Standard attr '{attr}' should not appear in context"
+
+            # Custom attribute SHOULD appear
+            assert 'my_custom_key' in context_section

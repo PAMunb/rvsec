@@ -274,30 +274,43 @@ class TestErrorHandlerComprehensive:
         assert kwargs.get("exc_info") == cause
 
     def test_log_error_with_timeout_error(self, error_handler, mock_logging_manager):
-        """Test logging timeout errors is less verbose (no stacktrace)."""
+        """Test logging timeout errors uses WARNING level (no stacktrace)."""
         _, _, mock_logger = mock_logging_manager
 
         error = RVToolTimeoutError("Tool timeout", "test_tool", 30)
 
         error_handler._log_error(error, {})
 
-        mock_logger.error.assert_called_once()
-        args, kwargs = mock_logger.error.call_args
-        assert "Error:" in args[0]
+        mock_logger.warning.assert_called_once()
+        args, kwargs = mock_logger.warning.call_args
+        assert "Timeout:" in args[0]
         assert "exc_info" not in kwargs
 
     def test_log_error_with_command_timeout_error(self, error_handler, mock_logging_manager):
-        """Test logging command timeout errors is less verbose (no stacktrace)."""
+        """Test logging command timeout errors uses WARNING level (no stacktrace)."""
         _, _, mock_logger = mock_logging_manager
 
         error = RVCommandTimeoutError("Command timeout", 30, "adb shell")
 
         error_handler._log_error(error, {})
 
+        mock_logger.warning.assert_called_once()
+        args, kwargs = mock_logger.warning.call_args
+        assert "Timeout:" in args[0]
+        assert "exc_info" not in kwargs
+
+    def test_log_error_non_timeout_still_uses_error_level(self, error_handler, mock_logging_manager):
+        """Test that non-timeout errors still log at ERROR level with exc_info."""
+        _, _, mock_logger = mock_logging_manager
+
+        error = RVToolExecutionError("Execution failed", "test_tool")
+
+        error_handler._log_error(error, {})
+
         mock_logger.error.assert_called_once()
         args, kwargs = mock_logger.error.call_args
         assert "Error:" in args[0]
-        assert "exc_info" not in kwargs
+        assert kwargs.get("exc_info") is not None
 
     def test_context_manager_with_unhandled_error(self, error_handler):
         """Test error_context instance method with unhandled error."""

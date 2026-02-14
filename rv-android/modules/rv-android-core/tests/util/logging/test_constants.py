@@ -4,8 +4,7 @@ import logging
 import pytest
 
 from rv_android_core.util.logging.constants import (
-    # Custom log levels
-    EXPERIMENT_START, EXPERIMENT_END, TASK_START, TASK_END, ERROR,
+    ERROR,
     # Standard context keys
     CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT, CONTEXT_PHASE,
     # Common log message patterns
@@ -15,21 +14,6 @@ from rv_android_core.util.logging.constants import (
 
 class TestLoggingConstants:
     """Tests for logging constants module"""
-
-    def test_custom_log_levels_values(self):
-        """Test that custom log levels have the expected values"""
-        assert EXPERIMENT_START == 25
-        assert EXPERIMENT_END == 26
-        assert TASK_START == 27
-        assert TASK_END == 28
-        assert ERROR == 40  # Same as logging.ERROR
-
-    def test_custom_log_levels_registered(self):
-        """Test that custom log levels are registered with the logging module"""
-        assert logging.getLevelName(EXPERIMENT_START) == "EXPERIMENT_START"
-        assert logging.getLevelName(EXPERIMENT_END) == "EXPERIMENT_END"
-        assert logging.getLevelName(TASK_START) == "TASK_START"
-        assert logging.getLevelName(TASK_END) == "TASK_END"
 
     def test_error_level_matches_standard_error(self):
         """Test that ERROR level matches Python's standard logging.ERROR"""
@@ -86,20 +70,6 @@ class TestLoggingConstants:
         formatted = LOG_SKIPPED.format(phase="test operation", reason="test reason")
         assert "test operation" in formatted
         assert "test reason" in formatted
-
-    def test_log_levels_ordering(self):
-        """Test that custom log levels maintain the expected ordering"""
-        # Standard Python log levels for reference
-        # DEBUG = 10, INFO = 20, WARNING = 30, ERROR = 40, CRITICAL = 50
-
-        # Our custom levels should be between INFO and WARNING
-        assert logging.INFO < EXPERIMENT_START < logging.WARNING
-        assert logging.INFO < EXPERIMENT_END < logging.WARNING
-        assert logging.INFO < TASK_START < logging.WARNING
-        assert logging.INFO < TASK_END < logging.WARNING
-
-        # ERROR should be the same as logging.ERROR
-        assert ERROR == logging.ERROR
 
 
 if __name__ == "__main__":

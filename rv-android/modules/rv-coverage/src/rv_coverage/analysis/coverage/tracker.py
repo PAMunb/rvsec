@@ -113,7 +113,7 @@ class CoverageTracker:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'analysis.coverage.tracker',
+            'rv_coverage.analysis.coverage.tracker',
             {CONTEXT_COMPONENT: 'CoverageTracker'}
         )
 

@@ -934,7 +934,6 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Returns:
             ScreenDescription object with detailed information
         """
-        print("*************************** get_screen_description")
         # Add screen structure overview as the first item
         structure_desc = (
             f"Screen Overview: Activity {self.activity} with "

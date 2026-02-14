@@ -385,22 +385,21 @@ class ExperimentConfig(BaseValidatedModel):
         # Convert the string path to a Path object
         path = Path(directory_path_str)
 
+        logging_manager = LoggingManager.get_instance()
+        logger = logging_manager.get_logger("rv_experiment.config")
+
         # 1. Validate if it's an existing directory
         if not path.is_dir():
-            print(f"'{directory_path_str}' is not a valid directory or does not exist.")
+            logger.info(f"'{directory_path_str}' is not a valid directory or does not exist.")
             return False
 
-        # 2. Iterate over files in the directory and check the extension
-        # The .iterdir() method yields Path objects for all items in the directory.
+        # 2. Iterate over files in the directory and check for .mop files
         for item in path.iterdir():
-            # Check if the item is a file and if its suffix (extension) is '.mop'
-            # .suffix returns the file extension (e.g., '.txt', '.mop').
-            # .lower() is used for case-insensitive comparison.
             if item.is_file() and item.suffix.lower() == EXTENSION_MOP:
-                print(f"{EXTENSION_MOP} file found: '{item.name}' in '{directory_path_str}'")
-                return True  # Found one, so we can stop and return True
+                logger.debug(f"{EXTENSION_MOP} file found: '{item.name}' in '{directory_path_str}'")
+                return True
 
-        print(f"No {EXTENSION_MOP} files found in '{directory_path_str}'.")
+        logger.info(f"No {EXTENSION_MOP} files found in '{directory_path_str}'.")
         return False
 
     def get_monitored_operations_config(self) -> RVGeneratorConfig:

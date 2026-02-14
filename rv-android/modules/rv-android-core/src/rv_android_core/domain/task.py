@@ -486,7 +486,7 @@ class TaskResult(BaseValidatedModel):
             # Use LoggingManager for consistent logging
             if LoggingManager:
                 logging_manager = LoggingManager.get_instance()
-                logger = logging_manager.get_logger('platform.task.task_result')
+                logger = logging_manager.get_logger('rv_android_core.domain.task')
                 logger.error(f"Error deserializing TaskResult: {e}")
             else:
                 logging.getLogger(__name__).error(f"Error deserializing TaskResult: {e}")
@@ -529,7 +529,7 @@ class Task:
         if LoggingManager:
             logging_manager = LoggingManager.get_instance()
             self.logger = logging_manager.get_logger(
-                'platform.task',
+                'rv_android_core.domain.task',
                 {
                     'task_id': self.id,
                     'apk_name': self.config.apk_name,
@@ -538,7 +538,7 @@ class Task:
             )
         else:
             # Fallback to standard logging
-            self.logger = logging.getLogger('platform.task')
+            self.logger = logging.getLogger('rv_android_core.domain.task')
 
         # Runtime data
         self.app: Optional[App] = None
@@ -829,7 +829,7 @@ class Task:
             # Use LoggingManager for consistent logging
             if LoggingManager:
                 logging_manager = LoggingManager.get_instance()
-                logger = logging_manager.get_logger('platform.task.task_factory')
+                logger = logging_manager.get_logger('rv_android_core.domain.task')
                 logger.error(f"Error creating task from dictionary: {e}")
             else:
                 logging.getLogger(__name__).error(f"Error creating task from dictionary: {e}")

@@ -81,10 +81,7 @@ class StaticAnalysisParser:
         Returns:
             StaticAnalysisData with parsed information
         """
-        logger = self.logging_manager.get_logger("rv_static_analysis.parser.static.static_analysis_parser.read_static_analysis_files", {
-            "apk": apk,
-            "package": package
-        })
+        logger = self.logger
 
         logger.info(f"Reading static analysis files for {apk}")
 

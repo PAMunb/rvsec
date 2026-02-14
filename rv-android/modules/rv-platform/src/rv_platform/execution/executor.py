@@ -33,7 +33,7 @@ from rv_platform.components.tool_execution import ToolExecutionComponent
 from rv_platform.storage.task_storage import TaskStorage
 
 
-@log_execution(logger_prefix="platform.task_executor", component_name="TaskExecutor")
+@log_execution(logger_prefix="rv_platform.execution.executor", component_name="TaskExecutor")
 class TaskExecutor:
     """
     Manages the execution of individual tasks within a platform workflow
@@ -77,7 +77,7 @@ class TaskExecutor:
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'platform.task_executor',
+            'rv_platform.execution.executor',
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name,
@@ -218,12 +218,8 @@ class TaskExecutor:
             # Let the error handler process the error
             self.error_handler.handle_error(e, self.get_task_context())
 
-            # Still need to update task status
+            # Update task status (error_handler.handle_error above already logged)
             error_message = str(e)
-            self.logger.error(LOG_ERROR.format(
-                phase=f"execution of task {self.task.id}",
-                error=error_message
-            ))
             self.task.update_state(TaskState.ERROR, error_message)
 
             # Publish failed event
@@ -319,7 +315,6 @@ class TaskExecutor:
 
             # Set up logcat and coverage tracking
             if logcat_component:
-                self.logger.info("Starting logcat capture")
                 logcat_component.start_capture()
 
             # Mark precise tool execution start for accurate timing measurement
@@ -327,7 +322,6 @@ class TaskExecutor:
             self._publish_tool_execution_started_event()
 
             if coverage_component:
-                self.logger.info("Starting coverage tracking")
                 coverage_component.start_tracking()
 
             # Execute the tool
@@ -337,13 +331,10 @@ class TaskExecutor:
 
             # Stop tracking and process results
             if coverage_component:
-                self.logger.info("Stopping coverage tracking")
                 coverage_component.stop_tracking()
-                self.logger.info("Processing coverage results")
                 coverage_component.process_results()
 
             if logcat_component:
-                self.logger.info("Stopping logcat capture")
                 logcat_component.stop_capture()
 
     def _cleanup_components(self, context: Dict[str, Any]) -> None:

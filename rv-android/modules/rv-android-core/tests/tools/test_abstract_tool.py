@@ -571,7 +571,7 @@ class TestAbstractToolLoggingAndErrorHandling:
         """Test that errors are properly propagated"""
         tool = ConcreteTestTool()
         tool.configure({"mode": "test"})
-        
+
         tool_config = ToolConfig(tool_name="testtool")
         task_config = TaskConfiguration(
             apk_name="test.apk",
@@ -581,18 +581,52 @@ class TestAbstractToolLoggingAndErrorHandling:
         )
         task = Task(config=task_config)
         app = MagicMock(spec=App)
-        
+
         # Mock execute_tool_specific_logic to raise an error
         def failing_execute(task, app):
             raise RVToolExecutionError("Simulated failure", tool_name=tool.name)
-        
+
         tool.execute_tool_specific_logic = failing_execute
-        
+
         with pytest.raises(RVToolExecutionError) as exc_info:
             tool.execute(task, app)
-        
+
         assert "Simulated failure" in str(exc_info.value)
         assert exc_info.value.tool_name == "testtool"
+
+    def test_execute_exception_no_duplicate_logging(self):
+        """Test that execute() does not duplicate error logging.
+
+        When execute_tool_specific_logic raises, execute() must re-raise
+        without calling error_handler.handle_error() or logger.error(),
+        because the caller (ToolExecutionComponent) handles logging.
+        """
+        tool = ConcreteTestTool()
+        tool.configure({"mode": "test"})
+
+        tool_config = ToolConfig(tool_name="testtool")
+        task_config = TaskConfiguration(
+            apk_name="test.apk",
+            repetition=1,
+            timeout=60,
+            tool_config=tool_config
+        )
+        task = Task(config=task_config)
+        app = MagicMock(spec=App)
+
+        def failing_execute(task, app):
+            raise RuntimeError("something broke")
+
+        tool.execute_tool_specific_logic = failing_execute
+
+        with patch.object(tool.error_handler, 'handle_error') as mock_handle, \
+             patch.object(tool.logger, 'error') as mock_log_error:
+            with pytest.raises(RuntimeError):
+                tool.execute(task, app)
+
+            # execute() must NOT call error_handler or logger.error
+            mock_handle.assert_not_called()
+            mock_log_error.assert_not_called()
 
     def test_logging_during_execution(self):
         """Test that logging works during execution"""

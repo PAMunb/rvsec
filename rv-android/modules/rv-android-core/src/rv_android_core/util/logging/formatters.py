@@ -77,7 +77,9 @@ class StructuredFormatter(logging.Formatter):
                 'args', 'msg', 'message', 'pathname', 'filename',
                 'module', 'exc_info', 'exc_text', 'lineno',
                 'funcName', 'created', 'msecs', 'relativeCreated',
-                'levelname', 'levelno', 'name'
+                'levelname', 'levelno', 'name',
+                'stack_info', 'taskName', 'thread', 'threadName',
+                'process', 'processName', 'asctime'
             }:
                 context[key] = value
 

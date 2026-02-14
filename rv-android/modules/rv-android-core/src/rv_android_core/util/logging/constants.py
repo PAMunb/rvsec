@@ -1,25 +1,14 @@
-# rvandroid/util/logging/constants.py
+# rv_android_core/util/logging/constants.py
 import logging
 
-# Define custom log levels for experiment-specific events
-EXPERIMENT_START = 25
-EXPERIMENT_END = 26
-TASK_START = 27
-TASK_END = 28
 ERROR = 40  # Same as logging.ERROR
 
 # Standard log level names (strings)
 LOG_LEVEL_DEBUG = "DEBUG"
-LOG_LEVEL_INFO = "INFO" 
+LOG_LEVEL_INFO = "INFO"
 LOG_LEVEL_WARNING = "WARNING"
 LOG_LEVEL_ERROR = "ERROR"
 LOG_LEVEL_CRITICAL = "CRITICAL"
-
-# Register custom log levels with logging module
-logging.addLevelName(EXPERIMENT_START, "EXPERIMENT_START")
-logging.addLevelName(EXPERIMENT_END, "EXPERIMENT_END")
-logging.addLevelName(TASK_START, "TASK_START")
-logging.addLevelName(TASK_END, "TASK_END")
 
 # Standard context keys that should be used consistently
 CONTEXT_TASK_ID = "task_id"

@@ -4,9 +4,6 @@ import threading
 from datetime import datetime
 from typing import Dict, Any, List
 
-from rv_android_core.util.logging.constants import EXPERIMENT_START, EXPERIMENT_END, TASK_START, TASK_END
-
-
 class ContextAdapter(logging.LoggerAdapter):
     """
     A logging adapter that adds contextual information to log records.
@@ -102,15 +99,3 @@ class ContextAdapter(logging.LoggerAdapter):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.pop_context()
 
-    # Add methods for custom log levels
-    def experiment_start(self, msg, *args, **kwargs):
-        self.log(EXPERIMENT_START, msg, *args, **kwargs)
-
-    def experiment_end(self, msg, *args, **kwargs):
-        self.log(EXPERIMENT_END, msg, *args, **kwargs)
-
-    def task_start(self, msg, *args, **kwargs):
-        self.log(TASK_START, msg, *args, **kwargs)
-
-    def task_end(self, msg, *args, **kwargs):
-        self.log(TASK_END, msg, *args, **kwargs)

@@ -104,34 +104,29 @@ class CLIContext:
         component="CLIContext",
         phase="configure_logging"
     )
-    def configure_logging(self, debug: bool = False):
+    def configure_logging(self, debug: bool = False, log_level: str = 'INFO',
+                          show_context: bool = False):
         """
         Configure logging for CLI operations with comprehensive setup.
-        
-        ### Logging Strategy:
-        - Console output with appropriate log levels based on debug flag
-        - Silences noisy third-party libraries for clean output
-        - Maintains consistent logging format across all operations
-        - Prepares for experiment-specific file logging during execution
-        
+
         Args:
-            debug: Enable debug level logging for development and troubleshooting
+            debug: Enable debug level logging (shortcut for log_level=DEBUG)
+            log_level: Log verbosity level (DEBUG, INFO, WARNING, ERROR)
+            show_context: Show structured context [key=value] in console log messages
         """
         import logging
 
-        logging.basicConfig(
-            level=logging.DEBUG if debug else logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            stream=sys.stdout
-        )
-        
-        # Configure logging manager for CLI usage
+        # --debug flag overrides --log-level
+        level = logging.DEBUG if debug else getattr(logging, log_level)
+
+        # Configure logging manager for CLI usage (replaces any basicConfig handlers)
         self.logging_manager.configure_output(
             console=True,
             file=False,  # File logging enabled during experiment execution
-            console_level=logging.DEBUG if debug else logging.INFO,
+            console_level=level,
             file_level=logging.DEBUG,
-            console_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            console_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            console_context=show_context
         )
 
         # Silence noisy third-party loggers
@@ -242,8 +237,11 @@ pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 
 @click.group()
 @click.option('--debug', is_flag=True, help='Enable debug logging for development')
+@click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']),
+              default='INFO', help='Log verbosity level (default: INFO)')
+@click.option('--show-context', is_flag=True, help='Show structured context [key=value] in log messages')
 @pass_context
-def cli(ctx: CLIContext, debug: bool):
+def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     """
     RV-Experiment - Android Testing Orchestrator for Monitored Operations
     
@@ -287,7 +285,7 @@ def cli(ctx: CLIContext, debug: bool):
     ```
     """
     # Configure CLI context with clean patterns
-    ctx.configure_logging(debug)
+    ctx.configure_logging(debug, log_level, show_context)
 
 
 @cli.command()

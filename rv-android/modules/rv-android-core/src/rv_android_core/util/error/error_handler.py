@@ -156,9 +156,9 @@ class ErrorHandler:
 
     def _log_error(self, error: Exception, context: Optional[Dict[str, Any]]):
         """Log an error with appropriate detail level based on error type."""
-        # For timeout errors, log without stacktrace
+        # Timeouts are expected behavior — log as WARNING without stacktrace
         if isinstance(error, (RVToolTimeoutError, RVCommandTimeoutError)):
-            self._logger.error(f"Error: {error}")
+            self._logger.warning(f"Timeout: {error}")
             return
 
         if isinstance(error, RVAndroidError) and error.cause:

@@ -234,17 +234,8 @@ class AbstractTool(ABC):
             )
 
         except Exception as e:
-            self.logger.error(f"Error executing tool {self.name}: {str(e)}", exc_info=True)
-
-            # Handle error using centralized error handler
-            self.error_handler.handle_error(
-                e,
-                context={
-                    "tool_name": self.name,
-                    "app_name": app.name if app else "unknown",
-                    "task_id": getattr(task, 'id', 'unknown')
-                }
-            )
+            # Re-raise to caller (ToolExecutionComponent) — @handle_errors on
+            # execute_tool_specific_logic already logged the first entry
             raise
 
     def _execute_and_check_command(self, command: Command, stdout=None, stderr=None, stdin=None) -> CommandResult:

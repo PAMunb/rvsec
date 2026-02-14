@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch, ANY
 
 import pytest
 
-from rv_android_core.util.logging.constants import EXPERIMENT_START, EXPERIMENT_END, TASK_START, TASK_END
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 
 
@@ -153,27 +152,6 @@ class TestContextAdapter:
 
         # After outer context
         assert context_adapter.context == {"test_key": "test_value"}
-
-    def test_custom_log_methods(self, context_adapter, mock_logger):
-        """Test custom log level methods"""
-        # Setup mock
-        mock_logger.log = MagicMock()
-
-        # Test experiment_start
-        context_adapter.experiment_start("Experiment started")
-        mock_logger.log.assert_called_with(EXPERIMENT_START, "Experiment started", extra=ANY)
-
-        # Test experiment_end
-        context_adapter.experiment_end("Experiment ended")
-        mock_logger.log.assert_called_with(EXPERIMENT_END, "Experiment ended", extra=ANY)
-
-        # Test task_start
-        context_adapter.task_start("Task started")
-        mock_logger.log.assert_called_with(TASK_START, "Task started", extra=ANY)
-
-        # Test task_end
-        context_adapter.task_end("Task ended")
-        mock_logger.log.assert_called_with(TASK_END, "Task ended", extra=ANY)
 
     def test_thread_id_added_to_extra(self, context_adapter):
         """Test that thread ID is added to extra"""

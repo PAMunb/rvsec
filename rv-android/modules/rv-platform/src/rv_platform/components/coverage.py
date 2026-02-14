@@ -10,11 +10,9 @@ from typing import Optional, Dict, Any
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
-    CONTEXT_TASK_ID, 
-    CONTEXT_APP_NAME, 
-    LOG_START,
-    LOG_COMPLETE, 
-    LOG_ERROR, 
+    CONTEXT_TASK_ID,
+    CONTEXT_APP_NAME,
+    LOG_ERROR,
     LOG_SKIPPED
 )
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
@@ -156,21 +154,19 @@ class CoverageComponent:
         """
         with self.logger.with_context(phase="initialize_tracker"):
             try:
-                self.logger.info(LOG_START.format(phase="initializing coverage tracker"))
-                
+                self.logger.info("Initializing coverage tracker")
+
                 # Use task start_time as initial timing reference during tracker initialization.
                 # The accurate tool_execution_start timestamp is set later in start_tracking(),
                 # after mark_tool_execution_start() has been called in the executor.
                 timing_reference = self.task.result.start_time
-                
+
                 self.coverage_tracker = CoverageTracker(
                     logcat_file=self.task.result.logcat_file,
                     static_data=getattr(self.task, 'static_data', None),
                     task_start_time=timing_reference,
                     task_id=self.task.id
                 )
-
-                self.logger.info(LOG_COMPLETE.format(phase="initializing coverage tracker"))
                 return True
             except Exception as e:
                 self.logger.error(LOG_ERROR.format(
@@ -200,7 +196,7 @@ class CoverageComponent:
                 return False
 
             try:
-                self.logger.info(LOG_START.format(phase="coverage tracking"))
+                self.logger.info("Starting coverage tracking")
 
                 # Update timing reference now that tool_execution_start is available
                 if self.task.result.tool_execution_start:
@@ -245,9 +241,9 @@ class CoverageComponent:
                 return True
 
             try:
-                self.logger.info(LOG_START.format(phase="stopping coverage tracking"))
+                self.logger.info("Stopping coverage tracking")
                 self.coverage_tracker.stop()
-                self.logger.info(LOG_COMPLETE.format(phase="stopping coverage tracking"))
+                self.logger.info("Coverage tracking stopped")
 
                 # Publish event
                 if self.event_bus:
@@ -290,7 +286,7 @@ class CoverageComponent:
                 return False
 
             try:
-                self.logger.info(LOG_START.format(phase="processing coverage data"))
+                self.logger.info("Processing coverage data")
 
                 # Get repository from coverage tracker
                 repository = self.coverage_tracker.repository
@@ -329,7 +325,7 @@ class CoverageComponent:
                         channel=EventChannel.LIFECYCLE
                     )
 
-                self.logger.info(LOG_COMPLETE.format(phase="processing coverage data"))
+                self.logger.info("Coverage data processing completed")
                 return True
 
             except Exception as e:

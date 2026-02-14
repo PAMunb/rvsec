@@ -116,6 +116,23 @@ def create_parser() -> argparse.ArgumentParser:
         help="Process existing experiment results directory (standalone mode)"
     )
     
+    run_parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Log verbosity level (default: INFO)"
+    )
+    run_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Shortcut for --log-level DEBUG"
+    )
+    run_parser.add_argument(
+        "--show-context",
+        action="store_true",
+        help="Show structured context [key=value] in log messages"
+    )
+
     # Performance monitoring arguments
     add_performance_arguments(run_parser)
     
@@ -153,10 +170,16 @@ def create_parser() -> argparse.ArgumentParser:
 def cmd_run(args) -> int:
     """Execute the run command."""
     try:
-        # Setup logging
+        import logging
+
+        # Setup logging with CLI-specified level
         logging_manager = LoggingManager.get_instance()
+        log_level = logging.DEBUG if args.debug else getattr(logging, args.log_level)
+        show_context = getattr(args, 'show_context', False)
+        logging_manager.configure_output(console=True, file=False, console_level=log_level,
+                                         console_context=show_context)
         logger = logging_manager.get_logger('rv_platform.cli')
-        
+
         # Check for standalone result processing mode
         if args.process_results:
             return _process_results_standalone(args.process_results)
