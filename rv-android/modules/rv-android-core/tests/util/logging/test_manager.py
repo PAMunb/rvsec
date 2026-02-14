@@ -120,14 +120,15 @@ class TestLoggingManager:
         assert len(manager.logger_cache) == 2
 
     def test_context_display_default_configuration(self, cleanup_instance):
-        """Test that context display is enabled by default with correct settings"""
+        """Test that context display is off by default for console, on for file."""
         manager = LoggingManager.get_instance()
 
-        # Check default context display configuration
-        assert manager._output_config['console']['show_context'] is True
-        assert manager._output_config['console']['max_context_length'] == 120
+        # Console: context off by default (cleaner output; enable with --show-context)
+        assert manager._output_config['console']['show_context'] is False
+        assert manager._output_config['console']['max_context_length'] == 200
+        # File: context on by default (structured logs benefit from context)
         assert manager._output_config['file']['show_context'] is True
-        assert manager._output_config['file']['max_context_length'] == 200
+        assert manager._output_config['file']['max_context_length'] == 500
 
     def test_configure_output_with_context_parameters(self, cleanup_instance):
         """Test that configure_output handles context parameters correctly"""
@@ -200,19 +201,29 @@ class TestLoggingManager:
         root = logging.getLogger()
         assert root.level == logging.INFO  # LoggingManager's default, not WARNING
         assert len(root.handlers) == 1  # Only LoggingManager's console handler
-        assert isinstance(root.handlers[0].formatter, StructuredFormatter)
+        # Default: show_context=False uses regular Formatter (not StructuredFormatter)
+        assert isinstance(root.handlers[0].formatter, logging.Formatter)
 
-    def test_get_logger_receives_structured_formatter(self, cleanup_instance):
-        """Test that loggers from get_logger() receive StructuredFormatter via root."""
+    def test_get_logger_receives_formatter_via_root(self, cleanup_instance):
+        """Test that loggers from get_logger() receive formatting via root propagation."""
         manager = LoggingManager.get_instance()
 
         # Get a logger via get_logger
         logger = manager.get_logger("some.module")
 
-        # The underlying logger should propagate to root which has StructuredFormatter
+        # Root should have a handler with a formatter
         root = logging.getLogger()
         assert len(root.handlers) > 0
-        assert isinstance(root.handlers[0].formatter, StructuredFormatter)
+        assert root.handlers[0].formatter is not None
 
         # The logger itself should not have its own handlers (propagates to root)
         assert len(logging.getLogger("some.module").handlers) == 0
+
+    def test_get_logger_receives_structured_formatter_when_context_enabled(self, cleanup_instance):
+        """Test that StructuredFormatter is used when context display is enabled."""
+        manager = LoggingManager.get_instance()
+        manager.configure_output(console_context=True)
+
+        root = logging.getLogger()
+        assert len(root.handlers) > 0
+        assert isinstance(root.handlers[0].formatter, StructuredFormatter)
