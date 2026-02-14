@@ -19,10 +19,7 @@ dependencies = [
     "rv-agent-validation",
     "rvagent-tool",
     "rv-experiment",
-    # External path dependency
-    "droidbot",
     # Shared third-party
-    "setuptools<81",  # required by droidbot (import pkg_resources, removed in 81+)
     "requests>=2.32.0",
     "pyyaml>=6.0",
     "faker>=29.0.0",
@@ -68,4 +65,3 @@ rv-agent = { workspace = true }
 rv-agent-validation = { workspace = true }
 rvagent-tool = { workspace = true }
 rv-experiment = { workspace = true }
-droidbot = { path = "droidbot" }

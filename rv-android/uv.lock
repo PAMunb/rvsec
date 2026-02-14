@@ -648,29 +648,6 @@ wheels = [
 ]
 
 [[package]]
-name = "droidbot"
-version = "1.0.2b4"
-source = { directory = "droidbot" }
-dependencies = [
-    { name = "androguard" },
-    { name = "networkx" },
-    { name = "pillow" },
-    { name = "requests" },
-    { name = "setuptools" },
-    { name = "telnetlib3" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "androguard", specifier = "==3.4.0a1" },
-    { name = "networkx" },
-    { name = "pillow" },
-    { name = "requests" },
-    { name = "setuptools" },
-    { name = "telnetlib3" },
-]
-
-[[package]]
 name = "executing"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2630,7 +2607,6 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "androguard" },
-    { name = "droidbot" },
     { name = "faker" },
     { name = "langchain-openai" },
     { name = "matplotlib" },
@@ -2652,7 +2628,6 @@ dependencies = [
     { name = "rv-uiautomator" },
     { name = "rvagent-tool" },
     { name = "seaborn" },
-    { name = "setuptools" },
 ]
 
 [package.dev-dependencies]
@@ -2672,7 +2647,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "androguard", specifier = "==3.4.0a1" },
-    { name = "droidbot", directory = "droidbot" },
     { name = "faker", specifier = ">=29.0.0" },
     { name = "langchain-openai", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.5" },
@@ -2694,7 +2668,6 @@ requires-dist = [
     { name = "rv-uiautomator", editable = "modules/rv-uiautomator" },
     { name = "rvagent-tool", editable = "modules/rvagent-tool" },
     { name = "seaborn", specifier = ">=0.13.2" },
-    { name = "setuptools", specifier = "<81" },
 ]
 
 [package.metadata.requires-dev]
@@ -3192,15 +3165,6 @@ wheels = [
 ]
 
 [[package]]
-name = "setuptools"
-version = "80.10.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/76/95/faf61eb8363f26aa7e1d762267a8d602a1b26d4f3a1e758e92cb3cb8b054/setuptools-80.10.2.tar.gz", hash = "sha256:8b0e9d10c784bf7d262c4e5ec5d4ec94127ce206e8738f29a437945fbc219b70", size = 1200343, upload-time = "2026-01-25T22:38:17.252Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/b8/f1f62a5e3c0ad2ff1d189590bfa4c46b4f3b6e49cef6f26c6ee4e575394d/setuptools-80.10.2-py3-none-any.whl", hash = "sha256:95b30ddfb717250edb492926c92b5221f7ef3fbcc2b07579bcd4a27da21d0173", size = 1064234, upload-time = "2026-01-25T22:38:15.216Z" },
-]
-
-[[package]]
 name = "shellingham"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -3320,18 +3284,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/96/5b/496f8abebd10c3301129abba7ddafd46c71d799a70c44ab080323987c4c9/stevedore-5.6.0.tar.gz", hash = "sha256:f22d15c6ead40c5bbfa9ca54aa7e7b4a07d59b36ae03ed12ced1a54cf0b51945", size = 516074, upload-time = "2025-11-20T10:06:07.264Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f4/40/8561ce06dc46fd17242c7724ab25b257a2ac1b35f4ebf551b40ce6105cfa/stevedore-5.6.0-py3-none-any.whl", hash = "sha256:4a36dccefd7aeea0c70135526cecb7766c4c84c473b1af68db23d541b6dc1820", size = 54428, upload-time = "2025-11-20T10:06:05.946Z" },
-]
-
-[[package]]
-name = "telnetlib3"
-version = "2.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "wcwidth" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/ed/2525a2041eb2b999b845f41e92dd88ff1487ea753ebaf26a08da829974b3/telnetlib3-2.4.0.tar.gz", hash = "sha256:b0dfb66529f1f98250906ed90798273384f62e8c67392c40554224aadb2077cf", size = 269294, upload-time = "2026-02-09T23:44:23.967Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/d8/22dfb23c2d3d1bc09b71a8b46153b9559af77a2c3808685d078e3f523989/telnetlib3-2.4.0-py3-none-any.whl", hash = "sha256:f5559fb367c92db1403b5e6a1e99cc0368896601ee91035a97d8cf96fd425cf7", size = 276815, upload-time = "2026-02-09T23:44:22.765Z" },
 ]
 
 [[package]]
