@@ -104,8 +104,8 @@ fi
 ### 2. Run Unit Tests
 
 ```bash
-cd modules/$ARGUMENTS
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v --tb=short
+# From project root
+poetry run pytest modules/$ARGUMENTS/tests/unit/ -v --tb=short
 ```
 
 **Expected**: All tests pass (exit code 0)
@@ -113,8 +113,8 @@ PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v --tb=shor
 ### 3. Run Integration Tests (if exist)
 
 ```bash
-if [ -d "tests/integration" ]; then
-    PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/integration/ -v --tb=short
+if [ -d "modules/$ARGUMENTS/tests/integration" ]; then
+    poetry run pytest modules/$ARGUMENTS/tests/integration/ -v --tb=short
 fi
 ```
 

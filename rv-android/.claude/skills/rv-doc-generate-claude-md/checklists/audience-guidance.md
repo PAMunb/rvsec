@@ -45,13 +45,13 @@ the config
 
 **Do**: Include full command with working directory context.
 ```bash
-# From module root: modules/rv-agent/
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+# From project root
+poetry run pytest modules/rv-agent/tests/unit/ -v
 ```
 
 **Don't**: Assume context.
 ```bash
-pytest tests/ -v  # Which module? What PYTHONPATH?
+pytest tests/ -v  # Which module? From which directory?
 ```
 
 ### Descriptions

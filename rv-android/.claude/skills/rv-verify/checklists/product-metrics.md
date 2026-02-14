@@ -183,18 +183,17 @@ Test Coverage            ───► Reliability
 ## Quick Reference
 
 ```bash
-# Full metrics analysis
-cd modules/$MODULE
+# Full metrics analysis (from project root)
 
 # Complexity
-poetry run radon cc src/ -a -s --total-average
+poetry run radon cc modules/$MODULE/src/ -a -s --total-average
 
 # Maintainability
-poetry run radon mi src/ -s
+poetry run radon mi modules/$MODULE/src/ -s
 
 # Coverage (if tests exist)
-PYTHONPATH=../rv-android-core/src:src poetry run pytest --cov=src --cov-report=term-missing
+poetry run pytest modules/$MODULE/tests/ --cov=modules/$MODULE/src --cov-report=term-missing
 
 # Security
-poetry run bandit -r src/ -f txt
+poetry run bandit -r modules/$MODULE/src/ -f txt
 ```

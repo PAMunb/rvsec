@@ -38,9 +38,8 @@ No issues found.
 
 {{#if NEEDS_FORMAT_FIX}}
 ```bash
-# Fix formatting
-cd modules/{{MODULE_NAME}}
-poetry run black src/ && poetry run isort src/
+# Fix formatting (from project root)
+poetry run black modules/{{MODULE_NAME}}/src/ && poetry run isort modules/{{MODULE_NAME}}/src/
 ```
 {{/if}}
 

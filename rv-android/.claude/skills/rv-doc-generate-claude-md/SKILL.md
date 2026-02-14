@@ -109,12 +109,11 @@ Preserve custom sections if they existed.
 ## Quick Start
 
 ```bash
-# Install
-cd modules && ./install.sh [module-name]
+# Install (from project root)
+poetry install
 
-# Run tests
-cd modules/[module-name]
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+# Run tests (from project root)
+poetry run pytest modules/[module-name]/tests/ -v
 ```
 
 ## Architecture

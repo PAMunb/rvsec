@@ -72,15 +72,14 @@ result = instance.run()
 ### Commands
 
 ```bash
-# Install (from repo root)
+# Install (from project root)
 poetry install
 
-# Run tests
-cd modules/[module-name]
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/ -v
+# Run tests (from project root)
+poetry run pytest modules/[module-name]/tests/ -v
 
 # Run specific test
-PYTHONPATH=../rv-android-core/src:src poetry run pytest tests/unit/test_[file].py -v -k "test_name"
+poetry run pytest modules/[module-name]/tests/unit/test_[file].py -v -k "test_name"
 ```
 
 ### Testing
