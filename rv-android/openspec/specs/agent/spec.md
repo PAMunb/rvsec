@@ -4,6 +4,8 @@
 
 The LLM Agent domain encompasses rv-agent, implementing an autonomous Android application exploration agent that combines vision-language model (VLM) intelligence with algorithmic graph traversal strategies. The agent explores Android applications running on an emulator, generating test inputs to maximize code coverage -- specifically coverage of methods monitored by runtime verification specifications (MOP methods).
 
+For the complete methodology and results of the VLM evaluation that led to the Qwen3-VL selection, see `docs/VISION.md`.
+
 ### Problem Context
 
 Traditional automated Android test generation tools achieve limited method coverage. The best observed overall coverage in the ICST study was 26.77% (Humanoid at 300 seconds), and the best MOP method coverage was 17.16%. This means over 80% of methods that directly use monitored APIs are never exercised. The LLM Agent addresses this gap by using a vision-language model (Qwen3-VL) to understand screen content and make semantically informed exploration decisions, combined with algorithmic strategies that provide systematic coverage guarantees.
