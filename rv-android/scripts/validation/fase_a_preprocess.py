@@ -380,13 +380,13 @@ def main():
     args.apks_dir = os.path.abspath(args.apks_dir)
     args.apks_filter = os.path.abspath(args.apks_filter)
 
-    # Resolve RVSEC_HOME
-    rvsec_root = os.environ.get(
-        "RVSEC_HOME",
-        "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec",
-    )
+    # Resolve RVSEC_HOME (required — no hardcoded fallback)
+    rvsec_root = os.environ.get("RVSEC_HOME")
+    if not rvsec_root:
+        log.error("RVSEC_HOME environment variable is not set")
+        sys.exit(1)
     if not os.path.isdir(rvsec_root):
-        log.error("RVSEC_HOME not found: %s", rvsec_root)
+        log.error("RVSEC_HOME directory not found: %s", rvsec_root)
         sys.exit(1)
 
     log.info("RVSEC_HOME: %s", rvsec_root)

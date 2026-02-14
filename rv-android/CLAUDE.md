@@ -189,6 +189,7 @@ Comments describe what the code does *now*. No migration history ("migrated from
 
 ### Code Structure
 - Use English for all code and comments
+- When writing in Portuguese (Brazilian), always use correct accentuation (acentos, cedilha, til, etc.). The user may omit accents in their messages (non-ABNT keyboard), but Claude must always write Portuguese correctly.
 - Include detailed comments at critical architectural points — explain *why*, not just *what*
 - Follow the comment template in: `EventBus`, `ExecutionManager`, `TaskExecutor`
 

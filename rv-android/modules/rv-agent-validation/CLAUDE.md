@@ -416,8 +416,14 @@ Enables experiment resume capability:
 | `gradual_decay_rate` | 0.7 | 0.5-0.9 |
 | `component_high_priority` | 50.0 | 30-80 |
 | `component_medium_priority` | 40.0 | 20-60 |
-| `llm_probability` | 0.7 | 0.0-1.0 |
-| `llm_temperature` | 0.01 | 0.001-0.3 |
+| `gradual_decay_base` | 200.0 | 100-300 |
+| `gradual_decay_min_visits` | 5 | 3-10 |
+| `llm_probability` | 0.7 | 0.1-0.9 |
+| `llm_temperature` | 0.01 | 0.001-0.9 |
+| `max_short_term_iterations` | 10 | 5-20 |
+| `llm_max_retries` | 2 | 0-5 |
+| `llm_top_p` | 0.6 | 0.1-0.99 |
+| `llm_top_k` | 50 | 10-100 |
 
 ## Testing
 

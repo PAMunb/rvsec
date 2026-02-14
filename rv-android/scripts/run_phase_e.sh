@@ -5,12 +5,12 @@
 # Runs same tools as baseline for direct statistical comparison.
 #
 # Usage:
-#   ./scripts/run_phase_e.sh              # First run
-#   ./scripts/run_phase_e.sh --resume     # Resume after interruption
+#   ./scripts/run_phase_e.sh              # First run (resume is automatic)
 #   ./scripts/run_phase_e.sh --generate-only  # Inspect compose
 #
 # Prerequisites:
 #   - Phase D completed with param_string.txt
+#   - SGLang server running at localhost:30000 (calibrated RVAgent uses multimode)
 
 set -euo pipefail
 
@@ -22,6 +22,7 @@ DATA_DIR="modules/rv-agent-validation/data/calibration_dataset_v2"
 FILTER_FILE="modules/rv-agent-validation/data/holdout_set_v2.txt"
 OUTPUT_DIR="./results/validation_v2"
 PARAM_STRING_FILE="./results/calibration_micro_v2/param_string.txt"
+SGLANG_URL="http://host.docker.internal:30000/v1"
 N_CONTAINERS=6
 TIMEOUT=300
 REPETITIONS=3
@@ -30,7 +31,6 @@ REPETITIONS=3
 EXTRA_FLAGS=""
 for arg in "$@"; do
     case "$arg" in
-        --resume)        EXTRA_FLAGS="$EXTRA_FLAGS --resume" ;;
         --generate-only) EXTRA_FLAGS="$EXTRA_FLAGS --generate-only" ;;
     esac
 done
@@ -41,6 +41,14 @@ if [[ ! -f "$PARAM_STRING_FILE" ]]; then
     echo "Run Phase D first: ./scripts/run_phase_d.sh"
     exit 1
 fi
+
+# Pre-flight: SGLang server must be reachable (calibrated RVAgent uses multimode)
+if ! curl -s --max-time 5 "http://localhost:30000/v1/models" > /dev/null 2>&1; then
+    echo "ERROR: SGLang server not reachable at localhost:30000"
+    echo "Start the SGLang server before running validation (multimode needs it)."
+    exit 1
+fi
+echo "SGLang: OK (localhost:30000)"
 
 PARAMS=$(cat "$PARAM_STRING_FILE")
 TOOLS="ape,fastbot,rvagent:multimode@${PARAMS}"
@@ -63,6 +71,7 @@ poetry run python scripts/baseline_docker.py \
     --n-containers "$N_CONTAINERS" \
     --timeout "$TIMEOUT" \
     --repetitions "$REPETITIONS" \
+    --sglang-url "$SGLANG_URL" \
     $EXTRA_FLAGS
 
 if [[ "$EXTRA_FLAGS" != *"--generate-only"* ]]; then

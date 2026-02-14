@@ -10,7 +10,9 @@
 #
 # Prerequisites:
 #   - Phase C completed with optimal_params.json
-#   - SGLang server running at 192.168.0.36:30000
+#   - SGLang server running at localhost:30000
+#
+# Keep SGLang running after Phase D — Phase E also needs it.
 
 set -euo pipefail
 
@@ -28,7 +30,8 @@ N_CONTAINERS=6
 TIMEOUT=300
 AGENT_MODE="multimode"
 SEED=42
-SGLANG_URL="http://192.168.0.36:30000"
+# Container-accessible URL (resolved via extra_hosts: host.docker.internal:host-gateway)
+SGLANG_URL="http://host.docker.internal:30000/v1"
 
 # Parse flags
 EXTRA_FLAGS=""
@@ -52,13 +55,13 @@ if [[ ! -f "$BASELINE_DIR/summary.csv" ]]; then
     exit 1
 fi
 
-# Pre-flight: SGLang server must be reachable
-if ! curl -s --max-time 5 "$SGLANG_URL/v1/models" > /dev/null 2>&1; then
-    echo "ERROR: SGLang server not reachable at $SGLANG_URL"
+# Pre-flight: SGLang server must be reachable (check from host via localhost)
+if ! curl -s --max-time 5 "http://localhost:30000/v1/models" > /dev/null 2>&1; then
+    echo "ERROR: SGLang server not reachable at localhost:30000"
     echo "Start the SGLang server before running multimode calibration."
     exit 1
 fi
-echo "SGLang: OK ($SGLANG_URL)"
+echo "SGLang: OK (localhost:30000)"
 
 echo "=== Phase D — Micro Calibration ==="
 echo "Trials:      $N_TRIALS (batches of $N_CONTAINERS)"
@@ -83,9 +86,11 @@ poetry run python scripts/calibration_orchestrator.py \
     --seed "$SEED" \
     --best-macro "$BEST_MACRO" \
     --baseline-dir "$BASELINE_DIR" \
+    --sglang-url "$SGLANG_URL" \
     $EXTRA_FLAGS
 
 echo ""
 echo "=== Phase D Complete ==="
+echo "Keep SGLang running for Phase E."
 echo "Run verification:"
 echo "  poetry run python scripts/verify_phase.py d --results-dir $OUTPUT_DIR --macro-dir ./results/calibration_macro_v2"

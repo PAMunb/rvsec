@@ -1,8 +1,8 @@
 """
-Tests for docker-compose YAML generation (T1-T8).
+Tests for docker-compose YAML generation (T1-T22).
 
-Validates the pure-function compose generators in both
-calibration_orchestrator.py and baseline_docker.py.
+Validates the pure-function compose generators in
+calibration_orchestrator.py, baseline_docker.py, and preprocess_docker.py.
 """
 
 import sys
@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "scripts"))
 
 from calibration_orchestrator import generate_calibration_compose
 from baseline_docker import generate_baseline_compose
+from preprocess_docker import generate_preprocess_compose
 
 
 # ---------------------------------------------------------------------------
@@ -152,3 +153,211 @@ def test_baseline_compose_repetitions():
     for i in range(2):
         env = compose["services"][f"batch_{i}"]["environment"]
         assert env["RV_REPETITIONS"] == "3"
+
+
+# ---------------------------------------------------------------------------
+# extra_hosts and --sglang-url (T9-T14)
+# ---------------------------------------------------------------------------
+
+
+def test_calibration_compose_extra_hosts_present():
+    """T9: extra_hosts appears in compose when provided."""
+    batch = [(0, "rvagent:multimode@llm_base_url=http://host.docker.internal:30000/v1")]
+    compose = generate_calibration_compose(
+        batch=batch,
+        data_dir="/data/apks",
+        filter_file="/data/filter.txt",
+        output_dir="/output",
+        image="phtcosta/rvandroid:0.8.0",
+        cpus=10,
+        memory="20g",
+        timeout=300,
+        extra_hosts=["host.docker.internal:host-gateway"],
+    )
+
+    svc = compose["services"]["trial_0"]
+    assert "extra_hosts" in svc
+    assert "host.docker.internal:host-gateway" in svc["extra_hosts"]
+
+
+def test_calibration_compose_extra_hosts_absent():
+    """T10: extra_hosts does NOT appear when not provided."""
+    compose = _make_calibration_compose(n_trials=2)
+
+    for name, svc in compose["services"].items():
+        assert "extra_hosts" not in svc, f"{name} should not have extra_hosts"
+
+
+def test_baseline_compose_extra_hosts_present():
+    """T11: extra_hosts appears in baseline compose when provided."""
+    compose = generate_baseline_compose(
+        n_batches=2,
+        tools="ape,fastbot,rvagent:multimode@llm_base_url=http://host.docker.internal:30000/v1",
+        data_dir="/data/apks",
+        output_dir="/output",
+        image="phtcosta/rvandroid:0.8.0",
+        cpus=10,
+        memory="20g",
+        timeout=300,
+        repetitions=3,
+        extra_hosts=["host.docker.internal:host-gateway"],
+    )
+
+    for i in range(2):
+        svc = compose["services"][f"batch_{i}"]
+        assert "extra_hosts" in svc
+        assert "host.docker.internal:host-gateway" in svc["extra_hosts"]
+
+
+def test_baseline_compose_extra_hosts_absent():
+    """T12: extra_hosts does NOT appear in baseline compose when not provided."""
+    compose = _make_baseline_compose(n_batches=2)
+
+    for i in range(2):
+        svc = compose["services"][f"batch_{i}"]
+        assert "extra_hosts" not in svc
+
+
+def test_calibration_compose_extra_hosts_is_copy():
+    """T13: extra_hosts is a copy, not a reference to the original list."""
+    original = ["host.docker.internal:host-gateway"]
+    batch = [(0, "rvagent:multimode@x=1"), (1, "rvagent:multimode@x=2")]
+    compose = generate_calibration_compose(
+        batch=batch,
+        data_dir="/data/apks",
+        filter_file="/data/filter.txt",
+        output_dir="/output",
+        image="phtcosta/rvandroid:0.8.0",
+        cpus=10,
+        memory="20g",
+        timeout=300,
+        extra_hosts=original,
+    )
+
+    # Mutating one service's extra_hosts should not affect the other
+    compose["services"]["trial_0"]["extra_hosts"].append("extra:127.0.0.1")
+    assert len(compose["services"]["trial_1"]["extra_hosts"]) == 1
+
+
+def test_baseline_compose_extra_hosts_is_copy():
+    """T14: baseline extra_hosts is a copy per service."""
+    original = ["host.docker.internal:host-gateway"]
+    compose = generate_baseline_compose(
+        n_batches=2,
+        tools="ape,rvagent:multimode",
+        data_dir="/data/apks",
+        output_dir="/output",
+        image="phtcosta/rvandroid:0.8.0",
+        cpus=10,
+        memory="20g",
+        timeout=300,
+        repetitions=1,
+        extra_hosts=original,
+    )
+
+    compose["services"]["batch_0"]["extra_hosts"].append("extra:127.0.0.1")
+    assert len(compose["services"]["batch_1"]["extra_hosts"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Preprocess compose (T15-T22)
+# ---------------------------------------------------------------------------
+
+
+def _make_preprocess_compose(n_containers=3):
+    """Helper: generate a preprocess compose with n_containers services."""
+    return generate_preprocess_compose(
+        n_containers=n_containers,
+        data_dir="/data/original_apks",
+        output_dir="/output",
+        image="phtcosta/rvandroid:0.8.0",
+        cpus=10,
+        memory="20g",
+    )
+
+
+def test_preprocess_compose_structure():
+    """T15: N services with correct image, cpus, memory, devices."""
+    compose = _make_preprocess_compose(n_containers=4)
+
+    assert "services" in compose
+    assert len(compose["services"]) == 4
+
+    svc = compose["services"]["preprocess_0"]
+    assert svc["image"] == "phtcosta/rvandroid:0.8.0"
+    assert svc["deploy"]["resources"]["limits"]["cpus"] == "10"
+    assert svc["deploy"]["resources"]["limits"]["memory"] == "20g"
+    assert "/dev/kvm:/dev/kvm" in svc["devices"]
+
+
+def test_preprocess_compose_entrypoint_override():
+    """T16: Entrypoint is overridden to bash -c with --skip-execution."""
+    compose = _make_preprocess_compose(n_containers=1)
+    svc = compose["services"]["preprocess_0"]
+
+    assert svc["entrypoint"] == ["bash", "-c"]
+    cmd = svc["command"][0]
+    assert "--skip-execution" in cmd
+    assert "--tools monkey" in cmd
+    assert "--specification-set jca" in cmd
+    assert "--no-window" in cmd
+
+
+def test_preprocess_compose_no_skip_flags():
+    """T17: No RV_SKIP_MONITORS, RV_SKIP_INSTRUMENT, or RV_SKIP_STATIC_ANALYSIS."""
+    compose = _make_preprocess_compose(n_containers=2)
+
+    for i in range(2):
+        svc = compose["services"][f"preprocess_{i}"]
+        env = svc.get("environment", {})
+        assert "RV_SKIP_MONITORS" not in env, "preprocessing must not skip monitors"
+        assert "RV_SKIP_INSTRUMENT" not in env, "preprocessing must not skip instrumentation"
+        assert "RV_SKIP_STATIC_ANALYSIS" not in env, "preprocessing must not skip SA"
+
+
+def test_preprocess_compose_volumes():
+    """T18: APK dir (ro), filter file (ro), and out/ volume (writable)."""
+    compose = _make_preprocess_compose(n_containers=1)
+    volumes = compose["services"]["preprocess_0"]["volumes"]
+
+    assert "/data/original_apks:/opt/rvsec/rv-android/apks:ro" in volumes
+    assert "/output/preprocess_0_filter.txt:/opt/rvsec/rv-android/filters/filter.txt:ro" in volumes
+    assert "/output/preprocess_0:/opt/rvsec/rv-android/out" in volumes
+
+
+def test_preprocess_compose_out_volume_not_results():
+    """T19: Volume mounts to /opt/rvsec/rv-android/out, NOT /results."""
+    compose = _make_preprocess_compose(n_containers=3)
+
+    for i in range(3):
+        volumes = compose["services"][f"preprocess_{i}"]["volumes"]
+        out_mounts = [v for v in volumes if v.endswith("/opt/rvsec/rv-android/out")]
+        results_mounts = [v for v in volumes if "/opt/rvsec/rv-android/results" in v]
+        assert len(out_mounts) == 1, f"preprocess_{i} must mount out/"
+        assert len(results_mounts) == 0, f"preprocess_{i} must not mount results/"
+
+
+def test_preprocess_compose_staggered_delay():
+    """T20: Sleep delay increases by 10s per container in the command."""
+    compose = _make_preprocess_compose(n_containers=4)
+
+    for i in range(4):
+        cmd = compose["services"][f"preprocess_{i}"]["command"][0]
+        assert f"sleep {i * 10}" in cmd, f"preprocess_{i} should sleep {i * 10}s"
+
+
+def test_preprocess_compose_no_extra_hosts():
+    """T21: Preprocessing does not need extra_hosts (no SGLang)."""
+    compose = _make_preprocess_compose(n_containers=2)
+
+    for name, svc in compose["services"].items():
+        assert "extra_hosts" not in svc, f"{name} should not have extra_hosts"
+
+
+def test_preprocess_compose_no_depends_on():
+    """T22: No depends_on or humanoid services."""
+    compose = _make_preprocess_compose(n_containers=3)
+
+    assert "humanoid" not in compose["services"]
+    for name, svc in compose["services"].items():
+        assert "depends_on" not in svc, f"{name} should not have depends_on"

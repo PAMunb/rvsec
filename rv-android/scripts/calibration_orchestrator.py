@@ -71,6 +71,7 @@ def generate_calibration_compose(
     cpus: int,
     memory: str,
     timeout: int,
+    extra_hosts: Optional[List[str]] = None,
 ) -> dict:
     """
     Build a docker-compose dict for one round of calibration trials.
@@ -88,6 +89,9 @@ def generate_calibration_compose(
         cpus: CPU limit per container.
         memory: Memory limit per container (e.g. ``"20g"``).
         timeout: Per-APK timeout in seconds passed to rv-experiment.
+        extra_hosts: Docker extra_hosts entries for container-to-host networking.
+            Use ``["host.docker.internal:host-gateway"]`` when containers need to
+            reach services on the host (e.g. SGLang for multimode).
 
     Returns:
         YAML-serializable dict with a ``services`` key.
@@ -95,7 +99,7 @@ def generate_calibration_compose(
     services = {}
     for index, (trial_num, tool_spec) in enumerate(batch):
         service_name = f"trial_{trial_num}"
-        services[service_name] = {
+        service: dict = {
             "image": image,
             "environment": {
                 "RV_TOOLS": tool_spec,
@@ -123,6 +127,9 @@ def generate_calibration_compose(
                 }
             },
         }
+        if extra_hosts:
+            service["extra_hosts"] = list(extra_hosts)
+        services[service_name] = service
 
     return {"services": services}
 
@@ -382,6 +389,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default="20g",
         help="Memory limit per container (default: 20g).",
     )
+    parser.add_argument(
+        "--sglang-url",
+        type=str,
+        default=None,
+        help="SGLang server URL reachable from containers (e.g. http://host.docker.internal:30000/v1). "
+             "Injects llm_base_url into the tool spec for multimode agents.",
+    )
     return parser
 
 
@@ -495,11 +509,15 @@ def main() -> None:
             else:
                 merged = params
 
-            tool_spec = f"rvagent:{args.agent_mode}@{params_to_tool_spec(merged)}"
+            param_str = params_to_tool_spec(merged)
+            if args.sglang_url:
+                param_str += f",llm_base_url={args.sglang_url}"
+            tool_spec = f"rvagent:{args.agent_mode}@{param_str}"
             batch.append((trial.number, tool_spec))
             logger.info(f"  Trial {trial.number}: {tool_spec[:120]}...")
 
         # Generate docker-compose file for this round
+        extra_hosts = ["host.docker.internal:host-gateway"] if args.sglang_url else None
         compose_dict = generate_calibration_compose(
             batch=batch,
             data_dir=str(Path(args.data_dir).resolve()),
@@ -509,6 +527,7 @@ def main() -> None:
             cpus=args.cpus,
             memory=args.memory,
             timeout=args.timeout,
+            extra_hosts=extra_hosts,
         )
 
         compose_path = output_dir / f"docker-compose.round-{round_number:02d}.yml"

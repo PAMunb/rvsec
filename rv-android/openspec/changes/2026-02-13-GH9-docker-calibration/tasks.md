@@ -1,8 +1,10 @@
-# Tasks: Docker-Based Calibration — Infrastructure and Execution Campaign
+# Tasks: Docker-Based Calibration — Full Lifecycle
 
 ## Execution Order
 
-Tasks 1-11 cover infrastructure development (COMPLETED). Tasks 12-24 cover the execution campaign lifecycle. When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 15a) to preserve numbering.
+Tasks 1-12 cover infrastructure development (COMPLETED — 84 tests passing). Tasks 13-14 handle commit and desktop transfer. Tasks 15-16 cover Docker preprocessing (Phase A). Tasks 17-24 cover the calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
+
+When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
 ### Infrastructure (COMPLETED)
 
@@ -18,21 +20,36 @@ Tasks 1-11 cover infrastructure development (COMPLETED). Tasks 12-24 cover the e
 10. Task 10: Run unit tests — 39/39 passed (2.01s)
 11. Task 11: Update GitHub Issue #9 (label + body for Full SDD)
 
+### Bug Fixes and Preprocessing Script (COMPLETED)
+
+12. Task 12: Fix infrastructure bugs + create `preprocess_docker.py`
+
+### Commit and Transfer (PENDING)
+
+13. Task 13: Commit all code + rewritten artifacts (refs #9)
+14. Task 14: Transfer and verify on desktop (smoke tests)
+
+### Docker Preprocessing (PENDING)
+
+15. Task 15: Phase A — Execute Docker preprocessing
+16. Task 16: Phase A — Verify results + assemble dataset
+
 ### Execution Campaign (PENDING)
 
-12. Task 12: Commit infrastructure + rewritten artifacts, run tests, update GH#9
-13. Task 13: Transfer and verify infrastructure on desktop (smoke tests S1-S3)
-14. Task 14: Phase B — Execute baseline (~18.4h)
-15. Task 15: Phase B — Verify results + compute BASELINE_MAX_ERRORS
-16. Task 16: Phase C — Execute macro calibration (~122h)
-17. Task 17: Phase C — Verify results + analyze convergence
-18. Task 18: Phase D — Execute micro calibration (~160h, requires SGLang)
-19. Task 19: Phase D — Verify results + compare modes
-20. Task 20: Phase E — Execute validation (~5.6h)
-21. Task 21: Phase E — Verify results + statistical comparison
-22. Task 22: Apply optimal parameters to code
-23. Task 23: Update agent spec (FF SDD delta spec)
-24. Task 24: Archive change and close issue (closes #9)
+17. Task 17: Phase B — Execute baseline (~18.4h)
+18. Task 18: Phase B — Verify results + compute BASELINE_MAX_ERRORS
+19. Task 19: Phase C — Execute macro calibration (~122h)
+20. Task 20: Phase C — Verify results + analyze convergence
+21. Task 21: Phase D — Execute micro calibration (~160h, requires SGLang)
+22. Task 22: Phase D — Verify results + compare modes
+23. Task 23: Phase E — Execute validation (~5.6h, requires SGLang)
+24. Task 24: Phase E — Verify results + statistical comparison
+
+### Post-Execution (PENDING)
+
+25. Task 25: Apply optimal parameters to code
+26. Task 26: Update agent spec (FF SDD delta spec)
+27. Task 27: Archive change and close issue (closes #9)
 
 ---
 
@@ -80,124 +97,188 @@ Tasks 1-11 cover infrastructure development (COMPLETED). Tasks 12-24 cover the e
 
 ---
 
-## Execution Campaign Tasks
+## Bug Fixes and Preprocessing Script
 
-### 12. Commit Infrastructure + Rewritten Artifacts
+### 12. Fix Infrastructure Bugs + Create `preprocess_docker.py`
 
-Commit all infrastructure code and the rewritten SDD artifacts (proposal.md expanded, design.md as runbook, tasks.md with execution campaign). Update GH#9 title/body. Use `refs #9` (not `closes` — the issue stays open for execution).
+Code fixes for risks identified during deep analysis, plus the new preprocessing script that replaces host-side Phase 0/A scripts with Docker-based preprocessing.
 
-- [ ] 12.1 Run unit tests: `poetry run pytest modules/rv-agent-validation/tests/calibration/ -v` — all 39 must pass.
-- [ ] 12.2 Update GH#9 title to reflect expanded scope (infrastructure + execution campaign).
-- [ ] 12.3 Update GH#9 body with execution campaign acceptance criteria.
-- [ ] 12.4 Stage all files: scripts, tests, dead code removals, docs, OpenSpec artifacts, poetry.lock.
-- [ ] 12.5 Commit with `refs #9`.
+#### Completed
 
-### 13. Transfer and Verify on Desktop
+- [x] 12.1 **R3: SGLang networking** — Add `extra_hosts: ["host.docker.internal:host-gateway"]` to `generate_calibration_compose()` in `calibration_orchestrator.py`. Conditional: only when `--sglang-url` is provided.
+- [x] 12.2 **R3: SGLang networking** — Add `extra_hosts` to `generate_baseline_compose()` in `baseline_docker.py`. Conditional: only when `--sglang-url` is provided.
+- [x] 12.3 **R4: llm_base_url injection** — Add `--sglang-url` CLI parameter to `calibration_orchestrator.py`. When provided, append `llm_base_url=<url>` to the tool spec in the Optuna loop.
+- [x] 12.4 **R4: llm_base_url injection** — Add `--sglang-url` CLI parameter to `baseline_docker.py`. When provided and tools contain `multimode`, inject `llm_base_url` into the tool spec.
+- [x] 12.5 **R1: Naming mismatch** — Fix `filter_apks_static_analysis.py` to output `passed_apks.txt` instead of `valid_apks.txt`.
+- [x] 12.5a **Wrapper script fixes** — Fix `run_phase_d.sh`: use `host.docker.internal:30000/v1` (not hardcoded desktop IP), separate host-side preflight from container URL, add `--sglang-url` to orchestrator command. Fix `run_phase_e.sh`: add `--sglang-url`, SGLang preflight check. Remove broken `--resume` flag from `run_phase_b.sh` and `run_phase_e.sh` (baseline_docker.py does not accept it).
 
-Transfer code to the desktop machine and run smoke tests S1-S3 to validate the Docker infrastructure end-to-end before committing to the ~306-hour campaign.
+- [x] 12.6 **Create `scripts/preprocess_docker.py`** — Dedicated compose generator for Phase A (Docker preprocessing). Pure functions: `generate_preprocess_compose()` (entrypoint override with `--skip-execution`), `collect_preprocessed_artifacts()` (merge per-container `out/` into single dataset), `filter_by_sa_completeness()` (check for .gesda, .wtg, .reach). See design.md Section 1 for compose structure.
+- [x] 12.7 **Unit tests for `preprocess_docker.py`** — 8 compose tests (T15-T22) in `test_compose_generation.py`, 8 collection/filter tests (T23-T30) in `test_preprocess.py`.
+- [x] 12.8 **Unit tests for `extra_hosts` and `--sglang-url`** — 6 tests (T9-T14) in `test_compose_generation.py`.
+- [x] 12.9 Run all tests: 84/84 passed (3.11s).
 
-- [ ] 13.1 `git pull` on desktop.
-- [ ] 13.2 `poetry install` on desktop.
-- [ ] 13.3 **S1: Calibration orchestrator smoke** — `--phase macro --n-trials 2 --n-containers 2 --timeout 60 --seed 42` with 3 APKs.
+---
+
+## Commit and Transfer
+
+### 13. Commit All Code + Rewritten Artifacts
+
+Commit all infrastructure code, bug fixes, preprocessing script, and the rewritten SDD artifacts. Update GH#9 title/body. Use `refs #9` (not `closes` — the issue stays open for execution).
+
+- [ ] 13.1 Run unit tests: all must pass.
+- [ ] 13.2 Update GH#9 title to: "Docker-based calibration: infrastructure + full execution campaign (Phases A-E)"
+- [ ] 13.3 Update GH#9 body with full lifecycle acceptance criteria.
+- [ ] 13.4 Stage all files: scripts, tests, dead code removals, docs, OpenSpec artifacts, poetry.lock.
+- [ ] 13.5 Commit with `refs #9`.
+
+### 14. Transfer and Verify on Desktop
+
+Transfer code to the desktop machine and run smoke tests to validate end-to-end before committing to the ~308-hour campaign.
+
+- [ ] 14.1 `git pull` on desktop.
+- [ ] 14.2 `poetry install` on desktop.
+- [ ] 14.3 Verify environment: Docker image, KVM, disk space. (RVSEC_HOME and Java 8 NOT needed on host.)
+- [ ] 14.4 Copy `apks_complete.csv` to `modules/rv-agent-validation/data/`.
+- [ ] 14.5 Verify APK source directory: flat structure, 188+ APKs.
+- [ ] 14.6 **S1: Preprocessing smoke** — `preprocess_docker.py` with 3 APKs, 2 containers.
+  - Verify: compose has entrypoint override with `--skip-execution`, `out/` volume mounted, instrumented APKs and SA files collected.
+- [ ] 14.7 **S2: Calibration orchestrator smoke** — `--phase macro --n-trials 2 --n-containers 2 --timeout 60 --seed 42` with 3 APKs.
   - Verify: `optuna_study.db` exists, `trial_0/trial_0/summary.csv` exists, `optimal_params.json` saved.
-- [ ] 13.4 **S2: Baseline docker smoke** — `--tools rvagent:pure_algorithm --n-containers 2 --timeout 60 --repetitions 1` with 3 APKs.
+- [ ] 14.8 **S3: Baseline docker smoke** — `--tools rvagent:pure_algorithm --n-containers 2 --timeout 60 --repetitions 1` with 3 APKs.
   - Verify: `batch_0/batch_0/summary.csv` exists, `summary.csv` aggregated, `aggregated_summary.csv` symlink.
-- [ ] 13.5 **S3: Generate-only smoke** — `--tools ape,fastbot,rvagent:pure_algorithm --n-containers 6 --generate-only`.
+- [ ] 14.9 **S4: Generate-only smoke** — `--tools ape,fastbot,rvagent:pure_algorithm --n-containers 6 --generate-only`.
   - Verify: `docker-compose.yml` has 6 services, no containers launched, batch filter files created.
 
-### 14. Phase B — Execute Baseline
+---
+
+## Docker Preprocessing Tasks
+
+### 15. Phase A — Execute Docker Preprocessing
 
 *Runbook reference: design.md Section 1*
 
-- [ ] 14.1 Run baseline command from design.md Section 1 "Execution".
-- [ ] 14.2 Monitor progress: check batch directories for `tasks.json` growth.
-- [ ] 14.3 If interrupted: re-run same command (rv-experiment auto-resumes via tasks.json).
+- [ ] 15.1 Extract 188 APK names from `apks_complete.csv` (`exp01_jca=True`).
+- [ ] 15.2 Run `preprocess_docker.py` with `--n-containers 6`.
+- [ ] 15.3 Monitor progress (~2h expected). Each container runs monitors + instrumentation + SA independently.
 
-### 15. Phase B — Verify Results
+### 16. Phase A — Verify Results + Assemble Dataset
 
 *Runbook reference: design.md Section 1 "Verification"*
 
-- [ ] 15.1 All 6 batch summaries exist.
-- [ ] 15.2 Aggregated `summary.csv` has 945 data rows.
-- [ ] 15.3 All 3 tools present in summary.
-- [ ] 15.4 Compute and record `BASELINE_MAX_ERRORS` value.
-- [ ] 15.5 Symlink `aggregated_summary.csv` intact.
+- [ ] 16.1 `passed_apks.txt` exists with ≥100 APKs.
+- [ ] 16.2 All passing APKs have `.gesda`, `.wtg`, `.reach` files in assembled dataset.
+- [ ] 16.3 Run `select_dataset.py` to create 75 cal + 30 holdout split.
+- [ ] 16.4 Verify `calibration_set_v2.txt` (75), `holdout_set_v2.txt` (30), `all_valid_apks.txt` (~105).
+- [ ] 16.5 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
 
-**Gate**: All 5 checks pass before proceeding to Phase C.
+**Gate**: All 5 checks pass before proceeding to Phase B.
 
-### 16. Phase C — Execute Macro Calibration
+---
+
+## Execution Campaign Tasks
+
+### 17. Phase B — Execute Baseline
 
 *Runbook reference: design.md Section 2*
 
-- [ ] 16.1 Run calibration orchestrator command from design.md Section 2 "Execution".
-- [ ] 16.2 Monitor progress: check `trial_history.json` growth, `orchestrator.log` for errors.
-- [ ] 16.3 If interrupted: re-run with `--resume` flag.
+- [ ] 17.1 Run `./scripts/run_phase_b.sh` (or `baseline_docker.py` manually).
+- [ ] 17.2 Monitor progress: check batch directories for `tasks.json` growth.
+- [ ] 17.3 If interrupted: re-run same command (resume is automatic via `RV_EXPERIMENT_NAME`).
 
-### 17. Phase C — Verify Results
+### 18. Phase B — Verify Results
 
 *Runbook reference: design.md Section 2 "Verification"*
 
-- [ ] 17.1 All 80 trials completed (check `trial_history.json`).
-- [ ] 17.2 Best score > 0.0.
-- [ ] 17.3 Convergence visible: last 20 trials score higher than first 20 on average.
-- [ ] 17.4 `optimal_params.json` and `param_string.txt` exist and are valid.
+- [ ] 18.1 All 6 batch summaries exist.
+- [ ] 18.2 Aggregated `summary.csv` has 945 data rows.
+- [ ] 18.3 All 3 tools present in summary.
+- [ ] 18.4 Compute and record `BASELINE_MAX_ERRORS` value.
+- [ ] 18.5 Symlink `aggregated_summary.csv` intact.
 
-**Gate**: All 4 checks pass before proceeding to Phase D.
+**Gate**: All 5 checks pass before proceeding to Phase C.
 
-### 18. Phase D — Execute Micro Calibration
+### 19. Phase C — Execute Macro Calibration
 
 *Runbook reference: design.md Section 3*
 
-**Prerequisite**: SGLang server running at `192.168.0.36:30000`.
+- [ ] 19.1 Run `./scripts/run_phase_c.sh` (or `calibration_orchestrator.py` manually).
+- [ ] 19.2 Monitor progress: check `trial_history.json` growth, `orchestrator.log` for errors.
+- [ ] 19.3 If interrupted: re-run with `--resume`.
 
-- [ ] 18.1 Verify SGLang server: `curl -s http://192.168.0.36:30000/v1/models`.
-- [ ] 18.2 Run calibration orchestrator command from design.md Section 3 "Execution".
-- [ ] 18.3 Monitor progress: check `trial_history.json` growth, SGLang server health.
-- [ ] 18.4 If interrupted: re-run with `--resume` flag.
-
-### 19. Phase D — Verify Results
+### 20. Phase C — Verify Results
 
 *Runbook reference: design.md Section 3 "Verification"*
 
-- [ ] 19.1 All 100 trials completed.
-- [ ] 19.2 Best score > 0.0.
-- [ ] 19.3 `optimal_params.json` contains all 24 parameters (8 macro + 16 micro).
-- [ ] 19.4 Compare micro best score vs macro best score (improvement expected).
+- [ ] 20.1 All 80 trials completed (check `trial_history.json`).
+- [ ] 20.2 Best score > 0.0.
+- [ ] 20.3 Convergence visible: last 20 trials score higher than first 20 on average.
+- [ ] 20.4 `optimal_params.json` and `param_string.txt` exist and are valid.
 
-**Gate**: All 4 checks pass before proceeding to Phase E.
+**Gate**: All 4 checks pass before proceeding to Phase D.
 
-### 20. Phase E — Execute Validation
+### 21. Phase D — Execute Micro Calibration
 
 *Runbook reference: design.md Section 4*
 
-- [ ] 20.1 Run baseline command from design.md Section 4 "Execution" (uses `param_string.txt` from Phase D).
-- [ ] 20.2 Monitor progress.
+**Prerequisite**: SGLang server running at `localhost:30000`.
 
-### 21. Phase E — Verify Results
+- [ ] 21.1 Start SGLang server: `cd rvsec-vision-llm && docker compose up -d`.
+- [ ] 21.2 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
+- [ ] 21.3 Run `./scripts/run_phase_d.sh` (or `calibration_orchestrator.py` manually with `--sglang-url`).
+- [ ] 21.4 Monitor progress: check `trial_history.json` growth, SGLang server health.
+- [ ] 21.5 If interrupted: re-run with `--resume`.
+
+### 22. Phase D — Verify Results
 
 *Runbook reference: design.md Section 4 "Verification"*
 
-- [ ] 21.1 `summary.csv` has 270 data rows, 3 tools present.
-- [ ] 21.2 Run statistical comparison (Wilcoxon) between calibrated and baseline RVAgent.
-- [ ] 21.3 Document results: coverage improvement, error reduction, p-values.
+- [ ] 22.1 All 100 trials completed.
+- [ ] 22.2 Best score > 0.0.
+- [ ] 22.3 `optimal_params.json` contains all 24 parameters (8 macro + 16 micro).
+- [ ] 22.4 Compare micro best score vs macro best score (improvement expected).
 
-**Gate**: 270 rows present. Calibrated RVAgent shows improvement over baseline on at least one metric.
+**Gate**: All 4 checks pass before proceeding to Phase E.
 
-### 22. Apply Optimal Parameters to Code
+### 23. Phase E — Execute Validation
 
 *Runbook reference: design.md Section 5*
 
-- [ ] 22.1 Update default values in `parameter_space.py` (`MACRO_PARAMETERS` and `MICRO_PARAMETERS`).
-- [ ] 22.2 Update any unit tests that assert default parameter values.
-- [ ] 22.3 Run `poetry run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
+**Prerequisite**: SGLang server still running (calibrated RVAgent uses multimode).
 
-### 23. Update Agent Spec
+- [ ] 23.1 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
+- [ ] 23.2 Run `./scripts/run_phase_e.sh` (or `baseline_docker.py` manually with `--sglang-url`).
+- [ ] 23.3 Monitor progress.
 
-- [ ] 23.1 Create FF SDD delta spec for `openspec/specs/agent/spec.md` with calibrated default values.
-- [ ] 23.2 Sync delta spec to main spec.
+### 24. Phase E — Verify Results
 
-### 24. Archive and Close
+*Runbook reference: design.md Section 5 "Verification"*
 
-- [ ] 24.1 Archive change directory to `openspec/changes/archive/2026-02-13-GH9-docker-calibration/`.
-- [ ] 24.2 Commit with `closes #9`.
-- [ ] 24.3 Verify issue closed on GitHub.
+- [ ] 24.1 `summary.csv` has 270 data rows, 3 tools present.
+- [ ] 24.2 Run statistical comparison (Wilcoxon) between calibrated and baseline RVAgent.
+- [ ] 24.3 Document results: coverage improvement, error reduction, p-values.
+- [ ] 24.4 Stop SGLang server: `cd rvsec-vision-llm && docker compose down`.
+
+**Gate**: 270 rows present. Calibrated RVAgent shows improvement over baseline on at least one metric.
+
+---
+
+## Post-Execution Tasks
+
+### 25. Apply Optimal Parameters to Code
+
+*Runbook reference: design.md Section 6*
+
+- [ ] 25.1 Update default values in `parameter_space.py` (`MACRO_PARAMETERS` and `MICRO_PARAMETERS`).
+- [ ] 25.2 Update any unit tests that assert default parameter values.
+- [ ] 25.3 Run `poetry run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
+
+### 26. Update Agent Spec
+
+- [ ] 26.1 Create FF SDD delta spec for `openspec/specs/agent/spec.md` with calibrated default values.
+- [ ] 26.2 Sync delta spec to main spec.
+
+### 27. Archive and Close
+
+- [ ] 27.1 Archive change directory to `openspec/changes/archive/2026-02-13-GH9-docker-calibration/`.
+- [ ] 27.2 Commit with `closes #9`.
+- [ ] 27.3 Verify issue closed on GitHub.

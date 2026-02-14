@@ -5,11 +5,11 @@
 # Key output: BASELINE_MAX_ERRORS (needed by Phases C and D).
 #
 # Usage:
-#   ./scripts/run_phase_b.sh              # First run
-#   ./scripts/run_phase_b.sh --resume     # Resume after interruption
+#   ./scripts/run_phase_b.sh              # First run (resume is automatic)
 #   ./scripts/run_phase_b.sh --generate-only  # Inspect compose without launching
 #
-# Resume works via rv-experiment's tasks.json — completed tasks are skipped.
+# Resume is automatic: each container uses RV_EXPERIMENT_NAME, so rv-experiment
+# skips completed tasks on re-run. Just re-run the same command.
 
 set -euo pipefail
 
@@ -29,7 +29,6 @@ REPETITIONS=3
 EXTRA_FLAGS=""
 for arg in "$@"; do
     case "$arg" in
-        --resume)        EXTRA_FLAGS="$EXTRA_FLAGS --resume" ;;
         --generate-only) EXTRA_FLAGS="$EXTRA_FLAGS --generate-only" ;;
     esac
 done

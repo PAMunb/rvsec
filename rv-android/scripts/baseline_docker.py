@@ -58,6 +58,7 @@ def generate_baseline_compose(
     memory: str,
     timeout: int,
     repetitions: int,
+    extra_hosts: Optional[list[str]] = None,
 ) -> dict:
     """Generate a docker-compose dict for baseline/validation experiments.
 
@@ -74,7 +75,7 @@ def generate_baseline_compose(
 
     services = {}
     for i in range(n_batches):
-        services[f"batch_{i}"] = {
+        service: dict = {
             "image": image,
             "container_name": f"batch_{i}",
             "environment": {
@@ -104,6 +105,9 @@ def generate_baseline_compose(
                 }
             },
         }
+        if extra_hosts:
+            service["extra_hosts"] = list(extra_hosts)
+        services[f"batch_{i}"] = service
 
     return {"services": services}
 
@@ -263,6 +267,13 @@ def main():
         action="store_true",
         help="Generate compose file and batch filters, then exit without launching containers",
     )
+    parser.add_argument(
+        "--sglang-url",
+        type=str,
+        default=None,
+        help="SGLang server URL reachable from containers (e.g. http://host.docker.internal:30000/v1). "
+             "Injects llm_base_url into multimode tool spec and adds extra_hosts to compose.",
+    )
 
     args = parser.parse_args()
 
@@ -301,10 +312,20 @@ def main():
         filter_path.write_text("\n".join(batch) + "\n")
         logger.info(f"Wrote {len(batch)} APKs to {filter_path}")
 
+    # Inject llm_base_url into multimode tool spec when --sglang-url is provided
+    tools = args.tools
+    if args.sglang_url and "multimode" in tools:
+        if "@" in tools:
+            tools = tools.rstrip(",") + f",llm_base_url={args.sglang_url}"
+        else:
+            # No params yet — add the @ separator before the param
+            tools = tools.replace("multimode", f"multimode@llm_base_url={args.sglang_url}", 1)
+
     # Generate and write compose file
+    extra_hosts = ["host.docker.internal:host-gateway"] if args.sglang_url else None
     compose = generate_baseline_compose(
         n_batches=n_batches,
-        tools=args.tools,
+        tools=tools,
         data_dir=args.data_dir,
         output_dir=args.output_dir,
         image=args.image,
@@ -312,6 +333,7 @@ def main():
         memory=args.memory,
         timeout=args.timeout,
         repetitions=args.repetitions,
+        extra_hosts=extra_hosts,
     )
 
     compose_path = output_path / "docker-compose.yml"

@@ -14,7 +14,7 @@ Usage:
 
 Output:
     - Analysis results in output_dir/<apk_name>/
-    - valid_apks.txt: List of APKs that passed all analyses
+    - passed_apks.txt: List of APKs that passed all analyses
     - failed_apks.txt: List of APKs that failed (with reasons)
     - analysis_report.json: Detailed report with timing info
 """
@@ -598,12 +598,12 @@ Examples:
     if num_workers > 1:
         print(f"Speedup: ~{len(apks) * args.timeout * 3 / total_time:.1f}x theoretical max")
 
-    # Write valid APKs list
-    valid_file = os.path.join(args.output_dir, "valid_apks.txt")
+    # Write passed APKs list (consumed by select_dataset.py --passed-apks)
+    valid_file = os.path.join(args.output_dir, "passed_apks.txt")
     with open(valid_file, 'w') as f:
         for apk in valid_apks:
             f.write(f"{apk}\n")
-    print(f"\nValid APKs list: {valid_file}")
+    print(f"\nPassed APKs list: {valid_file}")
 
     # Write failed APKs list
     failed_file = os.path.join(args.output_dir, "failed_apks.txt")
