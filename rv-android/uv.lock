@@ -2652,6 +2652,7 @@ dependencies = [
     { name = "rv-uiautomator" },
     { name = "rvagent-tool" },
     { name = "seaborn" },
+    { name = "setuptools" },
 ]
 
 [package.dev-dependencies]
@@ -2693,6 +2694,7 @@ requires-dist = [
     { name = "rv-uiautomator", editable = "modules/rv-uiautomator" },
     { name = "rvagent-tool", editable = "modules/rvagent-tool" },
     { name = "seaborn", specifier = ">=0.13.2" },
+    { name = "setuptools" },
 ]
 
 [package.metadata.requires-dev]
