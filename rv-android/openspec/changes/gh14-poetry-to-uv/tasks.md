@@ -161,25 +161,36 @@ Skills with poetry references (each task covers all .md files within the skill f
 
 - [x] 15.1 `modules/test.sh --continue-on-error` — 9/13 pass, 4 failures are pre-existing (not migration-related). Fix: `.venv` path in test.sh updated from `../.venv` to `../../.venv` for uv workspace root
 
-## 16. Verification — Docker Images (AC3)
+## 16. Verification — E2E rv-experiment (AC4a)
 
-- [ ] 16.1 Commit all changes (required for production image COPY)
-- [ ] 16.2 `docker build -f docker/base/Dockerfile -t phtcosta/rvandroid-base:uv-test .` — exits 0, uv binary available
-- [ ] 16.3 `docker build -f docker/rvandroid/Dockerfile -t phtcosta/rvandroid:uv-test .` — exits 0, `uv run rv-experiment --help` works inside container
-- [ ] 16.4 `docker build -f docker/rvandroid_dev/Dockerfile -t phtcosta/rvandroid-dev:uv-test .` — exits 0
+Full end-to-end test via rv-experiment: monitor generation → APK instrumentation → static analysis → tool execution → result verification.
 
-## 17. Verification — E2E Pipeline (AC4)
+- [x] 16.1 Run rv-experiment full pipeline: `uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60 --specification-set jca` — completed successfully
+- [x] 16.2 Verify monitors generated: `Coverage.aj`, `MultiSpec_1MonitorAspect.aj`, `MultiSpec_1RuntimeMonitor.java` in `results/.../monitors/`
+- [x] 16.3 Verify instrumented APK: `cryptoapp.apk` in `results/.../instrumented_apks/`
+- [x] 16.4 Verify static analysis output: `.gesda`, `.wtg`, `.reach` files generated for cryptoapp.apk
+- [x] 16.5 Verify result files: `coverage.csv` (8 methods), `errors.csv` (0 errors), `summary.csv` (50% act, 6.78% method, 14% MOP), `results.json`, `tasks.json`, `performance.csv`, `experiment_completion.json`
+- [x] 16.6 Analyze results: coverage data collected incrementally over time, errors properly logged (empty), summary has all expected fields, tasks.json shows COMPLETED state with state transitions
 
-Full end-to-end test: monitor generation → APK instrumentation → static analysis → tool execution → result verification.
+## 17. Verification — E2E rv-platform (AC4b)
 
-- [ ] 17.1 Run rv-experiment with full pipeline: `uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 60 --specification-set jca`
-- [ ] 17.2 Verify monitors generated in `out/monitors/` (*.aj and *.java files present)
-- [ ] 17.3 Verify instrumented APKs in results directory (`instrumented_apks/` contains instrumented APK files)
-- [ ] 17.4 Verify static analysis output (*.wtg, *.gesda, *.reach files generated)
-- [ ] 17.5 Verify result files generated: `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `tasks.json`
+Direct rv-platform execution test: uses instrumented APKs from rv-experiment run.
 
-## 18. Verification — No Dangling Poetry References (AC5)
+- [x] 17.1 Run rv-platform: `uv run rv-platform run --tools monkey --apks-dir ./results/cli_experiment_20260214_154121_bc16641d/instrumented_apks --timeout 60 --no-window` — completed successfully (112s)
+- [x] 17.2 Tool execution completed: monkey ran against instrumented APK on emulator, 75% activities, 11.02% methods, 26% MOP coverage
+- [x] 17.3 Result files generated: `coverage.csv` (13 methods), `errors.csv`, `summary.csv`, `results.json`, `tasks.json`, `performance.csv` in `results/platform_20260214_155613/`
 
-- [x] 18.1 `grep -ri "poetry" modules/ docs/ .claude/ openspec/ scripts/ docker/ --include="*.md" --include="*.toml" --include="*.sh" --include="*.py" --include="Dockerfile" --include="*.yaml"` — zero matches (excluding `backup/`, `docs/vision/`, `openspec/changes/archive/`)
-- [x] 18.2 No `poetry.lock` in active dirs (`find . -name "poetry.lock" -not -path "./backup/*"`)
-- [x] 18.3 No `[tool.poetry` sections (`grep -r "\[tool\.poetry" --include="*.toml" -not -path "./backup/*"`)
+## 18. Verification — Docker Images (AC3)
+
+Docker builds are the final verification step — after local E2E passes.
+
+- [x] 18.1 Commit all changes (8ed63d58, required for production image COPY)
+- [ ] 18.2 `docker build -f docker/base/Dockerfile -t phtcosta/rvandroid-base:uv-test .` — exits 0, uv binary available
+- [ ] 18.3 `docker build -f docker/rvandroid/Dockerfile -t phtcosta/rvandroid:uv-test .` — exits 0, `uv run rv-experiment --help` works inside container
+- [ ] 18.4 `docker build -f docker/rvandroid_dev/Dockerfile -t phtcosta/rvandroid-dev:uv-test .` — exits 0
+
+## 19. Verification — No Dangling Poetry References (AC5)
+
+- [x] 19.1 `grep -ri "poetry" modules/ docs/ .claude/ openspec/ scripts/ docker/ --include="*.md" --include="*.toml" --include="*.sh" --include="*.py" --include="Dockerfile" --include="*.yaml"` — zero matches (excluding `backup/`, `docs/vision/`, `openspec/changes/archive/`)
+- [x] 19.2 No `poetry.lock` in active dirs (`find . -name "poetry.lock" -not -path "./backup/*"`)
+- [x] 19.3 No `[tool.poetry` sections (`grep -r "\[tool\.poetry" --include="*.toml" -not -path "./backup/*"`)
