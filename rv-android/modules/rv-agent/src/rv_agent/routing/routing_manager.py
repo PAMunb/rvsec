@@ -1,8 +1,28 @@
 """
 Decision routing management for multi-mode agent operation.
 
-Routes exploration decisions between LLM-guided and algorithmic modes
-based on configuration.
+Route exploration decisions between LLM-guided and algorithmic modes
+based on configuration. Support three execution modes (pure_algorithm,
+llm_only, multimode) with probabilistic routing and validation-based
+action filtering.
+
+### Architectural Decisions:
+
+- Probabilistic routing: multimode uses random threshold against llm_probability
+- No fallback loops: invalid actions become BACK, never re-route to LLM
+- Stuck detection delegated to learn_node for evidence-based detection
+
+### Role in the System:
+
+- Called by decision_router_node during workflow execution
+- Validates actions before execution in validate_action_node
+- Tracks execution counters for 70/30 proportion monitoring
+
+### Integration Points:
+
+- Input: RVAgentConfig for mode and probability settings
+- Output: Decision path ("llm", "algorithm", "end") and validation results
+- Dependencies: FallbackManager, ExplorationStrategy
 """
 
 import logging
@@ -18,7 +38,7 @@ class RoutingManager:
     """
     Routes decisions between LLM and algorithmic strategies.
 
-    Key Design Decisions:
+    ### Architectural Decisions:
 
     1. THREE EXECUTION MODES
        - pure_algorithm: Only algorithmic exploration (DFS/BFS), no LLM calls
@@ -64,6 +84,12 @@ class RoutingManager:
             config: Agent configuration
             fallback_manager: Fallback management component
             exploration_strategy: Strategy for pure_algorithm/multimode
+
+        State:
+            self.llm_executed: Count of LLM actions that passed validation.
+            self.algorithm_chosen: Count of algorithm path selections.
+            self.forced_back_count: Count of BACK actions from stuck detection.
+            self.llm_validation_failed: Count of LLM actions that failed validation.
         """
         self.config = config
         self.fallback_manager = fallback_manager
@@ -186,11 +212,18 @@ class RoutingManager:
         }
 
     def get_decision_counters(self) -> Dict[str, Any]:
-        """
-        Get all decision counter values.
+        """Get all decision counter values.
 
         Returns:
-            Dictionary with counters and proportions
+            Dictionary with keys:
+            - "llm_executed" (int): LLM actions executed successfully.
+            - "algorithm_chosen" (int): Algorithm path chosen count.
+            - "llm_percentage" (float): LLM proportion of primary actions.
+            - "algorithm_percentage" (float): Algorithm proportion of primary actions.
+            - "forced_back" (int): BACK actions from stuck detection.
+            - "llm_validation_failed" (int): LLM actions that failed validation.
+            - "primary_total" (int): Sum of llm_executed and algorithm_chosen.
+            - "total_actions" (int): All actions including forced and failed.
         """
         primary_total = self.llm_executed + self.algorithm_chosen
         llm_percentage = (self.llm_executed / primary_total * 100) if primary_total > 0 else 0

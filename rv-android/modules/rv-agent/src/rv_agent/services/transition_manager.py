@@ -1,8 +1,28 @@
 """
 Transition manager integrating WTG (static) with DynamicStateGraph (runtime).
 
-Combines static analysis navigation knowledge with dynamic exploration history
-to provide intelligent navigation guidance for the exploration agent.
+Combine static analysis navigation knowledge with dynamic exploration history
+to provide navigation guidance for the exploration agent. Map runtime activity
+names to static Window IDs from GATOR analysis, track visited activities, and
+suggest unvisited targets prioritized by MOP reachability.
+
+### Architectural Decisions:
+
+- Multi-strategy matching: exact, name, and partial match for activity-to-window mapping
+- Graceful degradation: functions return empty results when static data unavailable
+- Priority scoring: unvisited targets +100, MOP-reaching +50, direct MOP +25
+
+### Role in the System:
+
+- Used by NavigationGuidance for unified exploration context
+- Used by RVAgentStrategy via WtgScorer for action prioritization
+- Consumes WTG and window data from StaticAnalysisData
+
+### Integration Points:
+
+- Input: StaticAnalysisData (WTG, windows), DynamicStateGraph (runtime states)
+- Output: Navigation targets, suggested actions, exploration progress metrics
+- Dependencies: rv-android-core (StaticAnalysisData, WindowTransitionGraph)
 """
 
 import logging
@@ -50,6 +70,12 @@ class TransitionManager:
         Args:
             static_data: Static analysis data (optional).
             dynamic_graph: Dynamic state graph for runtime tracking.
+
+        State:
+            self.wtg: WindowTransitionGraph extracted from static data, or None.
+            self._activity_to_window_id: Cache mapping runtime activity names
+                to static Window IDs. Populated lazily on first lookup.
+            self._visited_activities: Set of activity names visited during exploration.
         """
         self.static_data = static_data
         self.dynamic_graph = dynamic_graph
@@ -462,11 +488,17 @@ class TransitionManager:
         return None
 
     def get_exploration_summary(self) -> Dict[str, Any]:
-        """
-        Get summary of exploration progress.
+        """Get summary of exploration progress.
 
         Returns:
-            Dict with exploration metrics.
+            Dictionary with keys:
+            - "visited_activities" (list): List of visited activity names.
+            - "visited_count" (int): Number of visited activities.
+            - "dynamic_states" (int): Total states in dynamic graph.
+            - "dynamic_transitions" (int): Total transitions recorded.
+            - "avg_coverage" (float): Average action coverage across states.
+            - "total_static_windows" (int): Total WTG windows (if available).
+            - "static_coverage_percent" (float): Visited/total windows percentage.
         """
         summary = {
             "visited_activities": list(self._visited_activities),

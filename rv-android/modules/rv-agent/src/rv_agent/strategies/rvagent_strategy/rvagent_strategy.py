@@ -59,7 +59,7 @@ class RVAgentStrategy(ExplorationStrategy):
     """
     Depth-first exploration with successor state tracking.
 
-    Key Design Decisions:
+    ### Architectural Decisions:
 
     1. SUCCESSOR TRACKING (SuccessorTracker)
        Problem: Standard DFS marks actions as "done" after one execution, but some
@@ -141,6 +141,18 @@ class RVAgentStrategy(ExplorationStrategy):
             transition_manager: Optional TransitionManager for WTG-guided navigation
             coordinate_converter: CoordinateConverter for device/optimized space
             device_dimensions: Device screen size (width, height) - overrides config if provided
+
+        State:
+            self.successor_tracker: Tracks action-to-state mappings for re-enabling.
+            self.plateau_detector: Detects exploration stagnation over sliding window.
+            self.value_generator: Generates test values for input fields.
+            self.coverage_metrics: Tracks MOP method execution coverage.
+            self.action_ranker: Composite scorer with 8 registered scorers.
+            self.state_stack: DFS stack of RVAgentState entries.
+            self.visited_states: Set of visited screen hashes.
+            self.current_depth: Current DFS depth. Incremented on action selection.
+            self.previous_hash: Last state hash for transition tracking.
+            self.scrolled_positions: Tracks scroll positions to avoid loops.
         """
         self.graph = graph
         self.ui_coverage = ui_coverage
@@ -891,11 +903,19 @@ class RVAgentStrategy(ExplorationStrategy):
         logger.info("RVAgentStrategy state reset")
 
     def get_statistics(self):
-        """
-        Get comprehensive strategy statistics.
+        """Get comprehensive strategy statistics.
 
         Returns:
-            Dictionary with all component statistics
+            Dictionary with keys:
+            - "strategy" (str): Strategy name ("rvagent").
+            - "depth" (int): Current DFS depth.
+            - "states_visited" (int): Number of unique states visited.
+            - "stack_size" (int): Current DFS stack size.
+            - "coverage" (dict): MOP coverage metrics from CoverageMetrics.
+            - "plateau" (dict): Plateau detection metrics from PlateauDetector.
+            - "successor_tracking" (dict): Successor tracker statistics.
+            - "input_generation" (dict): Input value generator statistics.
+            - "wtg_guidance" (dict): TransitionManager stats (if available).
         """
         stats = {
             "strategy": "rvagent",

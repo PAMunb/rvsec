@@ -1,7 +1,29 @@
 """
 LLM client for vision-based action generation.
 
-Handles multimodal LLM communication using LangChain with SGLang backend.
+Handle multimodal LLM communication using LangChain with SGLang backend.
+Build fresh message context each iteration from summaries (~2500 tokens),
+invoke Qwen3-VL via OpenAI-compatible API, and extract tool calls using
+hybrid parsing (native + XML/JSON fallback).
+
+### Architectural Decisions:
+
+- Stateless context: fresh messages each iteration to prevent context overflow
+- Hybrid tool call parsing: native tool_calls first, fallback to XML/JSON
+- Separation of concerns: LLMClient handles LLM interaction only,
+  ActionNormalizer handles coordinate conversion separately
+
+### Role in the System:
+
+- Called by llm_node during LLM workflow path
+- Receives configuration via RVAgentConfig
+- Returns raw tool calls for ActionNormalizer to process
+
+### Integration Points:
+
+- Input: ScreenDescription, screenshot, UI elements text, navigation hints
+- Output: AIMessage with tool calls, token usage, latency metrics
+- Dependencies: LangChain ChatOpenAI, SGLang server, prompt module
 """
 
 import base64
@@ -34,7 +56,7 @@ class LLMClient:
     Wraps LangChain ChatOpenAI for multimodal inference with tool calling.
     Handles message construction, tool binding, and response parsing.
 
-    ### Key Design Decisions:
+    ### Architectural Decisions:
 
     1. HYBRID TOOL CALL PARSING
        Problem: SGLang doesn't have official tool calling support for Qwen3-VL.
@@ -70,6 +92,15 @@ class LLMClient:
         Args:
             config: RVAgent configuration with SGLang settings.
             prompt_module: Prompt module with SYSTEM_PROMPT and build_user_message.
+
+        State:
+            self.llm: ChatOpenAI instance configured for SGLang server.
+            self.llm_with_tools: LLM with bound Android action tools.
+            self.tools: Android tool definitions for tool calling.
+            self.total_input_tokens: Cumulative input tokens across all calls.
+            self.total_output_tokens: Cumulative output tokens across all calls.
+            self.total_calls: Number of LLM invocations made.
+            self.total_latency_ms: Cumulative LLM latency in milliseconds.
         """
         self.config = config
         self.prompt_module = prompt_module
@@ -347,7 +378,14 @@ class LLMClient:
         """Get client statistics.
 
         Returns:
-            Dictionary with token usage and call statistics.
+            Dictionary with keys:
+            - "total_calls" (int): Number of LLM invocations.
+            - "total_input_tokens" (int): Cumulative input tokens.
+            - "total_output_tokens" (int): Cumulative output tokens.
+            - "total_tokens" (int): Sum of input and output tokens.
+            - "total_latency_ms" (float): Cumulative inference latency.
+            - "avg_latency_ms" (float): Average latency per call.
+            - "parser_stats" (dict): Tool call parser strategy statistics.
         """
         return {
             "total_calls": self.total_calls,

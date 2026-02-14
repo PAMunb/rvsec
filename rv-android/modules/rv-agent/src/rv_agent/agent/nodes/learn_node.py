@@ -304,10 +304,10 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
     Success Definition: An action is considered successful if it caused
     a state transition (screen hash changed after execution).
 
-    TODO: This heuristic has limitations:
-    - Actions that change internal state without changing UI are marked as failures
-    - Actions that open transient dialogs may give false positives
-    Future improvements could use additional signals (activity change, new elements).
+    TODO(learn-node): This heuristic has limitations — actions that change
+    internal state without changing UI are marked as failures, and actions
+    that open transient dialogs may give false positives. Future improvements
+    could use additional signals (activity change, new elements).
 
     Args:
         agent: RVAgent instance with strategy and graph

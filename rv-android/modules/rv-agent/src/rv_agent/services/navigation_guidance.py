@@ -1,9 +1,28 @@
 """
 Unified navigation guidance for algorithm and LLM.
 
-Provides a consistent interface for exploration guidance based on
-Window Transition Graph (WTG) analysis, usable by both algorithmic
-strategies and LLM-based decision making.
+Provide a consistent interface for exploration guidance based on Window
+Transition Graph (WTG) analysis, usable by both algorithmic strategies and
+LLM-based decision making. Wrap TransitionManager output into format-agnostic
+ExplorationContext and format it for LLM prompts.
+
+### Architectural Decisions:
+
+- Format-agnostic context: ExplorationContext works for algorithm and LLM
+- Separate formatting: format_for_llm() and format_for_llm_compact() for prompts
+- Graceful degradation: returns empty context when no TransitionManager
+
+### Role in the System:
+
+- Used by parse_node and llm_node for navigation hints in LLM prompts
+- Wraps TransitionManager into a unified interface
+- Provides ExplorationContext dataclass consumed by strategy and nodes
+
+### Integration Points:
+
+- Input: ScreenDescription from UI parsing, TransitionManager for WTG data
+- Output: ExplorationContext dataclass, formatted strings for LLM prompts
+- Dependencies: TransitionManager (optional)
 """
 
 import logging
@@ -21,25 +40,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ExplorationContext:
-    """
-    Exploration context for current screen state.
+    """Exploration context for current screen state.
 
-    Contains guidance information that can be used by both
-    algorithmic strategies and LLM prompts.
+    Attributes:
+        unvisited_screens: Activity names reachable from current position
+            that have not been visited yet.
+        suggested_actions: Actions suggested by WTG analysis that lead to
+            unvisited screens. Each dict contains target_activity, widget_id,
+            action_id, coordinates.
+        exploration_progress: Exploration metrics dict with total_windows,
+            visited_activities, coverage_percent.
+        has_guidance: Whether static WTG guidance is available.
+        priority_targets: Activity names of MOP-reaching screens
+            (priority > 100 from TransitionManager).
     """
-    # Screens reachable from current position that haven't been visited
     unvisited_screens: List[str] = field(default_factory=list)
-
-    # Actions suggested by WTG analysis (lead to unvisited screens)
     suggested_actions: List[Dict[str, Any]] = field(default_factory=list)
-
-    # Current exploration progress metrics
     exploration_progress: Dict[str, Any] = field(default_factory=dict)
-
-    # Whether static guidance is available
     has_guidance: bool = False
-
-    # Priority targets (MOP-reaching screens)
     priority_targets: List[str] = field(default_factory=list)
 
     @property

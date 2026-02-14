@@ -1,9 +1,29 @@
 """
 Graph-based state tracking using structural hashes and coordinate-based action identification.
 
-Implements a dynamic graph that tracks UI states and transitions during autonomous exploration,
-using structural hashing for state identification and coordinate-based action tracking to handle
-non-deterministic action IDs across parsing sessions.
+Implement a dynamic graph that tracks UI states and transitions during autonomous
+exploration, using structural hashing for state identification and coordinate-based
+action tracking to handle non-deterministic action IDs across parsing sessions.
+
+### Architectural Decisions:
+
+- Structural hashing: uses UI capabilities (clickable, scrollable) not content (text)
+  to identify states, ignoring volatile attributes
+- Coordinate-based tracking: actions tracked by (x, y) coordinates instead of volatile
+  sequential IDs to ensure stable matching across parsing sessions
+- 12-char hex hash: SHA-256 truncated to 12 chars for readability in logs
+
+### Role in the System:
+
+- Central state tracking for RVAgent exploration
+- Used by RVAgentStrategy for action selection and coverage computation
+- Updated by execute_node and learn_node during workflow execution
+
+### Integration Points:
+
+- Input: ScreenDescription from UI parsing, action signatures from strategy
+- Output: ScreenNode with coverage data, transition history, coverage reports
+- Dependencies: ScreenNode and Transition from rv_agent.domain.screen_node
 """
 
 import xml.etree.ElementTree as ET
@@ -50,9 +70,6 @@ def compute_screen_hash_from_description(screen_desc: ScreenDescription) -> str:
     Returns:
         12-character hex hash of structural representation
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     # Build structural representation
     structural_items = []
 
@@ -92,22 +109,6 @@ def compute_screen_hash_from_description(screen_desc: ScreenDescription) -> str:
     screen_hash = hashlib.sha256(canonical.encode()).hexdigest()[:12]
 
     logger.debug(f"Computed structural hash: {screen_hash} for {len(structural_items)} items")
-
-    # DEBUG: Log canonical representation for ALL screens (debugging enabled)
-    if True:  # Always log for debugging
-        import os
-        debug_dir = '/tmp/screendesc_debug'
-        os.makedirs(debug_dir, exist_ok=True)
-
-        canonical_file = f'{debug_dir}/{screen_hash}_canonical.json'
-        with open(canonical_file, 'w') as f:
-            f.write(canonical)
-
-        logger.info(f"🔍 SCREENDESC DEBUG: Saved CryptoApp canonical JSON")
-        logger.info(f"   Hash: {screen_hash}")
-        logger.info(f"   Activity: {screen_desc.activity}")
-        logger.info(f"   Items: {len(structural_items)}")
-        logger.info(f"   File: {canonical_file}")
 
     return screen_hash
 
@@ -203,9 +204,6 @@ class DynamicStateGraph:
             screen_hash: Hash of current screen
             action_signature: ((x, y), action_type) tuple identifying the action
         """
-        import logging
-        logger = logging.getLogger(__name__)
-
         if screen_hash in self.states:
             node = self.states[screen_hash]
             logger.info(f"🔒 GRAPH: Recording action signature={action_signature} on state {screen_hash[:8]}")
@@ -392,14 +390,20 @@ class DynamicStateGraph:
         return (total_coverage / len(self.states)) * 100
 
     def get_transition_graph_report(self) -> Dict[str, Any]:
-        """
-        Generate comprehensive transition graph report.
+        """Generate comprehensive transition graph report.
 
-        Includes complete action sequences for each transition,
+        Include complete action sequences for each transition,
         enabling workflow analysis and debugging.
 
         Returns:
-            Dictionary with states and transitions with full sequences
+            Dictionary with keys:
+            - "total_states" (int): Number of unique UI states discovered.
+            - "total_transitions" (int): Number of state transitions recorded.
+            - "avg_coverage" (float): Average action coverage percentage.
+            - "states" (list): Per-state details with screen_hash, activity,
+                visit_count, total_actions, executed_count, coverage.
+            - "transitions" (list): Per-transition details with from, to,
+                action_count, actions sequence, timestamp.
         """
         return {
             "total_states": len(self.states),

@@ -1,8 +1,27 @@
 """
 Agent factory for simplified RVAgent instantiation.
 
-Provides centralized component creation with proper dependency injection
-to simplify agent instantiation and testing.
+Provide centralized component creation with proper dependency injection
+to simplify agent instantiation and testing. Create all required components
+in correct dependency order and wire them into a fully configured RVAgent.
+
+### Architectural Decisions:
+
+- Static factory method: single create_agent() entry point, no instance state
+- Dependency order: components created in order that satisfies their dependencies
+- Optional injection: device and static_data can be injected for testing
+
+### Role in the System:
+
+- Called by rv-platform ToolExecutionComponent and standalone CLI
+- Creates all RVAgent dependencies (strategy, LLM client, memory, routing)
+- Returns fully configured RVAgent ready for execution
+
+### Integration Points:
+
+- Input: RVAgentConfig, optional StaticAnalysisData and DeviceInterface
+- Output: Fully configured RVAgent instance
+- Dependencies: All rv-agent component modules
 """
 
 import logging
