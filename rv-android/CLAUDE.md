@@ -277,7 +277,7 @@ SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid 
 - `/rv-verify` - Run all checks (tests + lint + type)
 - `/rv-impact-analyzer` - Change impact analysis
 - `/rv-debug-regression` - Regression bug investigation
-- `/rv-doc-*` - Documentation (generate-claude-md, docs-sync)
+- `/rv-doc-*` - Documentation (code, readme, generate-claude-md, architecture, adr, docs-sync)
 
 **Agents** (auto-delegated by Claude):
 - `rv-refactor` - Code restructuring workflow

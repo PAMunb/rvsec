@@ -88,7 +88,7 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-qa-*, verify  │  │ rv-doc-*, sync   │  │ rv-debug-*       │  │
-│  │ (3 skills)       │  │ (5 skills)       │  │ (1 skill)        │  │
+│  │ (3 skills)       │  │ (6 skills)       │  │ (1 skill)        │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
                                   │
@@ -488,6 +488,7 @@ uv run bandit -r src/ --severity-level medium
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
+| `rv-doc-code` | `/rv-doc-code [module or file] [--audit]` | Generate/audit code documentation (docstrings + inline comments) |
 | `rv-doc-readme` | `/rv-doc-readme [module]` | Generate README.md for GitHub/GitLab |
 | `rv-doc-generate-claude-md` | `/rv-doc-generate-claude-md [module]` | Generate CLAUDE.md (with auto-analysis) |
 | `rv-doc-architecture` | `/rv-doc-architecture [module]` | Generate architecture.md (Mermaid diagrams) |
@@ -1069,6 +1070,17 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
     │   ├── SKILL.md
     │   ├── checklists/
     │   └── templates/
+    ├── rv-doc-code/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   │   ├── depth-assessment.md
+    │   │   └── quality-criteria.md
+    │   └── templates/
+    │       ├── module-docstring.md
+    │       ├── class-docstring.md
+    │       ├── function-docstring.md
+    │       ├── inline-comments.md
+    │       └── audit-report.md
     ├── rv-docs-sync/
     │   ├── SKILL.md
     │   └── templates/
@@ -1138,6 +1150,7 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 - `/rv-verify [module]`
 
 **Documentation**:
+- `/rv-doc-code [module or file] [--audit]`
 - `/rv-doc-readme [module]`
 - `/rv-doc-generate-claude-md [module]`
 - `/rv-doc-architecture [module]`
