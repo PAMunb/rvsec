@@ -22,7 +22,7 @@ dependencies = [
     # External path dependency
     "droidbot",
     # Shared third-party
-    "setuptools",  # required by droidbot (import pkg_resources)
+    "setuptools<81",  # required by droidbot (import pkg_resources, removed in 81+)
     "requests>=2.32.0",
     "pyyaml>=6.0",
     "faker>=29.0.0",
