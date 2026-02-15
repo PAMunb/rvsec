@@ -86,11 +86,10 @@ class TestUIElementFormatting:
 
         formatted = screen_processor.format_ui_elements(screen_desc)
 
-        # Should have categorized sections
-        assert "CLICKABLE ELEMENTS" in formatted
+        # Should have scored elements with position info
+        assert "Button" in formatted
         assert "position" in formatted
-        # Should have action info
-        assert "CLICK" in formatted or "Actions" in formatted
+        assert "score:" in formatted
 
     def test_format_includes_coordinates(self, screen_processor, parser):
         """Formatted output includes element coordinates."""
@@ -127,8 +126,10 @@ class TestUIElementFormatting:
 
         formatted = screen_processor.format_ui_elements(screen_desc)
 
-        # Should mention coordinate range or usage instructions
-        assert "normalized" in formatted.lower() or "coordinates" in formatted.lower()
+        # Should have position coordinates in the format (x, y)
+        import re
+        position_pattern = r"position \(\d+, \d+\)"
+        assert re.search(position_pattern, formatted), "Should have position coordinates"
 
     def test_format_empty_screen(self, screen_processor):
         """Format empty screen description."""

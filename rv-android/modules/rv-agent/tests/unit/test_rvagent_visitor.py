@@ -80,8 +80,8 @@ class TestRVAgentVisitorInit:
 
         assert visitor.static_info is static_data
         assert visitor.wtg is not None
-        assert visitor.static_window is not None
-        assert "MainActivity" in visitor.static_window.name
+        assert visitor.window is not None
+        assert "MainActivity" in visitor.window.name
 
     def test_init_without_static_data(self):
         """Visitor initializes gracefully without static data."""
@@ -89,7 +89,7 @@ class TestRVAgentVisitorInit:
 
         assert visitor.static_info is None
         assert visitor.wtg is None
-        assert visitor.static_window is None
+        assert visitor.window is None
 
     def test_init_with_partial_activity_match(self, static_data):
         """Visitor finds window with partial activity match."""
@@ -97,7 +97,7 @@ class TestRVAgentVisitorInit:
         visitor = RVAgentVisitor(static_data, "MainActivity")
 
         # Should still find the window via partial match
-        assert visitor.static_window is not None
+        assert visitor.window is not None
 
     def test_mop_stats_initialized(self, static_data):
         """MOP stats are initialized to zero."""
@@ -121,28 +121,28 @@ class TestWindowMatching:
         """Exact match on MainActivity."""
         visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.MainActivity")
 
-        assert visitor.static_window is not None
-        assert "MainActivity" in visitor.static_window.name
+        assert visitor.window is not None
+        assert "MainActivity" in visitor.window.name
 
     def test_exact_match_cipher_activity(self, static_data):
         """Exact match on CipherActivity."""
         visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.cipher.CipherActivity")
 
-        assert visitor.static_window is not None
-        assert "CipherActivity" in visitor.static_window.name
+        assert visitor.window is not None
+        assert "CipherActivity" in visitor.window.name
 
     def test_exact_match_message_digest_activity(self, static_data):
         """Exact match on MessageDigestActivity."""
         visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity")
 
-        assert visitor.static_window is not None
-        assert "MessageDigestActivity" in visitor.static_window.name
+        assert visitor.window is not None
+        assert "MessageDigestActivity" in visitor.window.name
 
     def test_no_match_unknown_activity(self, static_data):
         """No match for unknown activity."""
         visitor = RVAgentVisitor(static_data, "com.unknown.UnknownActivity")
 
-        assert visitor.static_window is None
+        assert visitor.window is None
 
 
 # =============================================================================
@@ -156,11 +156,11 @@ class TestWidgetMatching:
         """Static window contains expected widgets."""
         visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.MainActivity")
 
-        assert visitor.static_window is not None
-        assert len(visitor.static_window.widgets) > 0
+        assert visitor.window is not None
+        assert len(visitor.window.widgets) > 0
 
         # Check for expected button widgets by name
-        button_names = [w.name for w in visitor.static_window.widgets.values()]
+        button_names = [w.name for w in visitor.window.widgets.values()]
         assert "buttonMessageDigest" in button_names
         assert "buttonCipher" in button_names
         assert "buttonGenerated" in button_names
@@ -169,7 +169,7 @@ class TestWidgetMatching:
         """Window.get_widget_by_name finds widgets correctly."""
         visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.MainActivity")
 
-        widget = visitor.static_window.get_widget_by_name("buttonMessageDigest")
+        widget = visitor.window.get_widget_by_name("buttonMessageDigest")
 
         assert widget is not None
         assert widget.name == "buttonMessageDigest"
@@ -178,7 +178,7 @@ class TestWidgetMatching:
         """Widgets have associated events."""
         visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.MainActivity")
 
-        widget = visitor.static_window.get_widget_by_name("buttonMessageDigest")
+        widget = visitor.window.get_widget_by_name("buttonMessageDigest")
 
         assert widget is not None
         # Widgets should have events defined from GESDA

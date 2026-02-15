@@ -150,8 +150,7 @@ class TestXmlExtractionHypothesis:
             assert f'"{text}"' in description
         if desc:
             assert f'desc:"{desc}"' in description
-        if res_id:
-            assert f"id:{res_id.split('/')[-1]}" in description
+        # resource_id is no longer included in description (LLM uses coordinates)
         if cls:
             assert cls.split('.')[-1] in description
             

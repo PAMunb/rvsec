@@ -1,7 +1,7 @@
 """
 Unit tests for ScreenProcessor.
 
-Tests UI element formatting, coordinate transformation, and categorization.
+Tests UI element formatting, coordinate transformation, and scored output.
 """
 
 import pytest
@@ -42,6 +42,28 @@ class TestScreenProcessorInit:
         assert processor.device_dimensions == (1440, 2560)
 
 
+def _make_interactive_item(class_name, text='', bounds=None, resource_id='',
+                           content_desc='', reaches_mop=False, directly_reaches_mop=False):
+    """Helper to create a mock interactive item with actions (required by current format_ui_elements)."""
+    item = MagicMock()
+    item.view = {
+        'class': class_name,
+        'text': text,
+        'bounds': bounds or [(100, 200), (300, 400)],
+        'resource_id': resource_id,
+        'content_description': content_desc,
+    }
+
+    action = MagicMock(spec=ItemAction)
+    action.text = "click"
+    action.directly_reaches_mop = directly_reaches_mop
+    action.reaches_mop = reaches_mop
+    action.event = "click"
+    item.actions = [action]
+
+    return item
+
+
 class TestFormatUIElements:
     """Test format_ui_elements method."""
 
@@ -66,8 +88,8 @@ class TestFormatUIElements:
 
         assert result == "No interactive elements found."
 
-    def test_non_clickable_elements_filtered(self, processor):
-        """Non-clickable elements are filtered out."""
+    def test_non_interactive_elements_filtered(self, processor):
+        """Items without actions are filtered out."""
         screen_desc = MagicMock(spec=ScreenDescription)
 
         item = MagicMock()
@@ -76,120 +98,98 @@ class TestFormatUIElements:
             'clickable': False,
             'bounds': [(100, 200), (300, 400)]
         }
+        item.actions = []  # No actions = not interactive
         screen_desc.items = [item]
 
         result = processor.format_ui_elements(screen_desc)
 
         assert result == "No interactive elements found."
 
-    def test_edittext_categorized(self, processor):
-        """EditText elements are categorized as text inputs."""
+    def test_edittext_included_with_type(self, processor):
+        """EditText elements are included with type name in output."""
         screen_desc = MagicMock(spec=ScreenDescription)
 
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.EditText',
-            'clickable': True,
-            'bounds': [(100, 200), (300, 400)],
-            'text': 'Email',
-            'resource_id': 'com.example/email_input'
-        }
-        item.actions = []
+        item = _make_interactive_item(
+            'android.widget.EditText',
+            text='Email',
+            resource_id='com.example/email_input'
+        )
         screen_desc.items = [item]
 
         result = processor.format_ui_elements(screen_desc)
 
-        assert "TEXT INPUT FIELDS" in result
-        assert "TEXT INPUT" in result
         assert "EditText" in result
+        assert "'Email'" in result
+        assert "score:" in result
 
-    def test_spinner_categorized(self, processor):
-        """Spinner elements are categorized as dropdowns."""
+    def test_spinner_included_with_type(self, processor):
+        """Spinner elements are included with type name in output."""
         screen_desc = MagicMock(spec=ScreenDescription)
 
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Spinner',
-            'clickable': True,
-            'bounds': [(100, 200), (300, 400)],
-            'text': 'Select country',
-            'resource_id': 'com.example/country_spinner'
-        }
-        item.actions = []
+        item = _make_interactive_item(
+            'android.widget.Spinner',
+            text='Select country',
+            resource_id='com.example/country_spinner'
+        )
         screen_desc.items = [item]
 
         result = processor.format_ui_elements(screen_desc)
 
-        assert "DROPDOWN SELECTORS" in result
-        assert "DROPDOWN" in result
         assert "Spinner" in result
+        assert "'Select country'" in result
+        assert "score:" in result
 
-    def test_button_categorized_as_clickable(self, processor):
-        """Button elements are categorized as clickable."""
+    def test_button_included_with_type(self, processor):
+        """Button elements are included with type name in output."""
         screen_desc = MagicMock(spec=ScreenDescription)
 
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Button',
-            'clickable': True,
-            'bounds': [(100, 200), (300, 400)],
-            'text': 'Submit',
-            'resource_id': 'com.example/submit_button'
-        }
-        item.actions = []
+        item = _make_interactive_item(
+            'android.widget.Button',
+            text='Submit',
+            resource_id='com.example/submit_button'
+        )
         screen_desc.items = [item]
 
         result = processor.format_ui_elements(screen_desc)
 
-        assert "CLICKABLE ELEMENTS" in result
         assert "Button" in result
         assert "'Submit'" in result
+        assert "score:" in result
 
-    def test_mixed_elements_categorized(self, processor):
-        """Mixed elements are properly categorized."""
+    def test_mixed_elements_formatted(self, processor):
+        """Mixed elements are formatted with scores and sorted."""
         screen_desc = MagicMock(spec=ScreenDescription)
 
-        edittext_item = MagicMock()
-        edittext_item.view = {
-            'class': 'android.widget.EditText',
-            'clickable': True,
-            'bounds': [(100, 200), (300, 400)],
-            'text': '',
-            'resource_id': ''
-        }
-        edittext_item.actions = []
+        edittext_item = _make_interactive_item(
+            'android.widget.EditText',
+            bounds=[(100, 200), (300, 400)]
+        )
 
-        spinner_item = MagicMock()
-        spinner_item.view = {
-            'class': 'android.widget.Spinner',
-            'clickable': True,
-            'bounds': [(100, 500), (300, 600)],
-            'text': '',
-            'resource_id': ''
-        }
-        spinner_item.actions = []
+        spinner_item = _make_interactive_item(
+            'android.widget.Spinner',
+            bounds=[(100, 500), (300, 600)]
+        )
 
-        button_item = MagicMock()
-        button_item.view = {
-            'class': 'android.widget.Button',
-            'clickable': True,
-            'bounds': [(100, 700), (300, 800)],
-            'text': 'OK',
-            'resource_id': ''
-        }
-        button_item.actions = []
+        button_item = _make_interactive_item(
+            'android.widget.Button',
+            text='OK',
+            bounds=[(100, 700), (300, 800)]
+        )
 
         screen_desc.items = [edittext_item, spinner_item, button_item]
 
         result = processor.format_ui_elements(screen_desc)
 
-        assert "TEXT INPUT FIELDS" in result
-        assert "DROPDOWN SELECTORS" in result
-        assert "CLICKABLE ELEMENTS" in result
+        # All elements should be present with scored format
+        assert "EditText" in result
+        assert "Spinner" in result
+        assert "Button" in result
+        assert "score:" in result
+        assert "position" in result
 
 
-class TestFormatElement:
-    """Test _format_element method."""
+class TestProcessElement:
+    """Test _process_element method."""
 
     @pytest.fixture
     def processor(self):
@@ -197,129 +197,97 @@ class TestFormatElement:
         graph = DynamicStateGraph()
         return ScreenProcessor(device=device, dynamic_graph=graph)
 
-    def test_format_basic_element(self, processor):
-        """Format basic element with text and resource_id."""
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Button',
-            'text': 'Submit',
-            'resource_id': 'com.example/submit_btn',
-            'bounds': [(100, 200), (300, 400)]
-        }
-        item.actions = []
+    def test_process_basic_element(self, processor):
+        """Process basic element returns dict with expected keys."""
+        item = _make_interactive_item(
+            'android.widget.Button',
+            text='Submit',
+            resource_id='com.example/submit_btn',
+            bounds=[(100, 200), (300, 400)]
+        )
 
-        result = processor._format_element(1, item, None)
+        result = processor._process_element(item, "screen_hash")
 
-        assert "1." in result
-        assert "Button" in result
-        assert "'Submit'" in result
-        assert "(submit_btn)" in result
-        assert "position" in result
+        assert result is not None
+        assert "Button" in result['description']
+        assert "'Submit'" in result['description']
+        assert result['tag'] == "[UNTESTED]"
+        assert result['score'] == 200  # Base score for untested
+        assert 'x' in result
+        assert 'y' in result
 
-    def test_format_element_with_category_label(self, processor):
-        """Format element with category label."""
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.EditText',
-            'text': '',
-            'resource_id': 'email',
-            'bounds': [(100, 200), (300, 400)]
-        }
-        item.actions = []
-
-        result = processor._format_element(1, item, "TEXT INPUT")
-
-        assert "[TEXT INPUT]" in result
-        assert "EditText" in result
-
-    def test_format_element_invalid_bounds(self, processor):
-        """Element with invalid bounds returns empty string."""
+    def test_process_element_invalid_bounds(self, processor):
+        """Element with invalid bounds returns None."""
         item = MagicMock()
         item.view = {
             'class': 'android.widget.Button',
             'text': 'Submit',
             'bounds': None
         }
+        item.actions = [MagicMock()]
 
-        result = processor._format_element(1, item, None)
+        result = processor._process_element(item, "screen_hash")
 
-        assert result == ""
+        assert result is None
 
-    def test_format_element_incomplete_bounds(self, processor):
-        """Element with incomplete bounds returns empty string."""
+    def test_process_element_incomplete_bounds(self, processor):
+        """Element with incomplete bounds returns None."""
         item = MagicMock()
         item.view = {
             'class': 'android.widget.Button',
             'text': 'Submit',
             'bounds': [(100, 200)]  # Missing second point
         }
+        item.actions = [MagicMock()]
 
-        result = processor._format_element(1, item, None)
+        result = processor._process_element(item, "screen_hash")
 
-        assert result == ""
+        assert result is None
 
-    def test_format_element_with_mop_direct(self, processor):
-        """Element with direct MOP marker."""
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Button',
-            'text': 'Encrypt',
-            'resource_id': '',
-            'bounds': [(100, 200), (300, 400)]
-        }
+    def test_process_element_with_mop_direct(self, processor):
+        """Element with direct MOP marker gets [DM] and bonus score."""
+        item = _make_interactive_item(
+            'android.widget.Button',
+            text='Encrypt',
+            directly_reaches_mop=True
+        )
 
-        action = MagicMock(spec=ItemAction)
-        action.text = "click"
-        action.directly_reaches_mop = True
-        action.reaches_mop = False
-        item.actions = [action]
+        result = processor._process_element(item, "screen_hash")
 
-        result = processor._format_element(1, item, None)
+        assert result is not None
+        assert "[DM]" in result['description']
+        assert result['score'] == 300  # 200 base + 100 DM bonus
 
-        assert "[DM]" in result
+    def test_process_element_with_mop_transitive(self, processor):
+        """Element with transitive MOP marker gets [M] and bonus score."""
+        item = _make_interactive_item(
+            'android.widget.Button',
+            text='Settings',
+            reaches_mop=True
+        )
 
-    def test_format_element_with_mop_transitive(self, processor):
-        """Element with transitive MOP marker."""
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Button',
-            'text': 'Settings',
-            'resource_id': '',
-            'bounds': [(100, 200), (300, 400)]
-        }
+        result = processor._process_element(item, "screen_hash")
 
-        action = MagicMock(spec=ItemAction)
-        action.text = "click"
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
-        item.actions = [action]
+        assert result is not None
+        assert "[M]" in result['description']
+        assert result['score'] == 250  # 200 base + 50 M bonus
 
-        result = processor._format_element(1, item, None)
+    def test_process_element_with_mop_both(self, processor):
+        """Element with both MOP flags prioritizes [DM]."""
+        item = _make_interactive_item(
+            'android.widget.Button',
+            text='Submit',
+            directly_reaches_mop=True,
+            reaches_mop=True
+        )
 
-        assert "[M]" in result
+        result = processor._process_element(item, "screen_hash")
 
-    def test_format_element_with_mop_action(self, processor):
-        """Element with MOP action shows [DM] marker."""
-        item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Button',
-            'text': 'Submit',
-            'resource_id': '',
-            'bounds': [(100, 200), (300, 400)]
-        }
-
-        action = MagicMock(spec=ItemAction)
-        action.text = "click"
-        action.directly_reaches_mop = True
-        action.reaches_mop = True
-        item.actions = [action]
-
-        result = processor._format_element(1, item, None)
-
-        # Current format: "1. Button 'Submit' at position (x, y) [DM]"
-        assert "Button" in result
-        assert "'Submit'" in result
-        assert "[DM]" in result
+        assert result is not None
+        assert "Button" in result['description']
+        assert "'Submit'" in result['description']
+        assert "[DM]" in result['description']
+        assert result['score'] == 300  # 200 base + 100 DM bonus (DM takes precedence)
 
 
 class TestRestartApp:
@@ -466,7 +434,7 @@ class TestParseCurrentScreen:
         assert result["external_navigation_count"] == 0
 
     def test_parse_with_ui_coverage(self):
-        """Parse applies UI coverage annotations."""
+        """Parse generates ui_elements_text using format_ui_elements (coverage integrated)."""
         device = MagicMock()
         device.get_current_ui_state.return_value = {
             'xml': '<hierarchy></hierarchy>',
@@ -480,7 +448,6 @@ class TestParseCurrentScreen:
         screen_desc.activity = 'MainActivity'
 
         ui_coverage = MagicMock()
-        ui_coverage.annotate_screen_elements.return_value = "Annotated elements"
 
         with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
             mock_parser = MagicMock()
@@ -497,5 +464,7 @@ class TestParseCurrentScreen:
                 external_navigation_count=0
             )
 
-        ui_coverage.annotate_screen_elements.assert_called_once()
-        assert result["ui_elements_text"] == "Annotated elements"
+        # ui_elements_text is generated via format_ui_elements (not annotate_screen_elements)
+        assert "ui_elements_text" in result
+        # With empty items, it should be the "no interactive elements" message
+        assert result["ui_elements_text"] == "No interactive elements found."

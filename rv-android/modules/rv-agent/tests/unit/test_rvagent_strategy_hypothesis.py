@@ -6,6 +6,7 @@ from hypothesis import given, strategies as st, settings, HealthCheck
 from unittest.mock import MagicMock, patch
 
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction, WidgetEventType
 
 # --- Strategies for generating strategy components ---
@@ -31,9 +32,12 @@ class TestRVAgentStrategyHypothesis:
 
     def _create_strategy(self):
         """Helper method to create a fresh RVAgentStrategy instance."""
-        graph = MagicMock()
-        ui_coverage = MagicMock()
-        return RVAgentStrategy(graph, ui_coverage, target_package="com.example.app")
+        from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+        from rv_agent.memory.ui_coverage import UICoverageTracker
+        graph = DynamicStateGraph()
+        ui_coverage = UICoverageTracker()
+        config = RVAgentConfig.create_default(package_name="com.example.app")
+        return RVAgentStrategy(graph, ui_coverage, config=config)
 
     @given(actions=st.lists(item_action_strategy, min_size=1, max_size=10))
     @settings(deadline=500, max_examples=20)
@@ -85,10 +89,15 @@ class TestRVAgentStrategyHypothesis:
 
         action = MagicMock(spec=ItemAction)
         action.coordinates = (x, y)
+        action.target_view = {}
 
         is_system = strategy._is_system_action(action)
 
-        if y > 1800 or y < 100:
+        # Thresholds: NAVBAR_Y_PERCENT=0.94 (1920*0.94=1804.8), STATUSBAR_Y_PERCENT=0.05 (1920*0.05=96)
+        navbar_threshold = 1920 * RVAgentStrategy.NAVBAR_Y_PERCENT
+        statusbar_threshold = 1920 * RVAgentStrategy.STATUSBAR_Y_PERCENT
+
+        if y > navbar_threshold or y < statusbar_threshold:
             assert is_system is True
         else:
             assert is_system is False

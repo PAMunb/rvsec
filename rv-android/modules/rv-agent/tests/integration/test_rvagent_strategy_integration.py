@@ -21,6 +21,7 @@ from typing import List
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy, RVAgentState
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.config.agent_config import RVAgentConfig
 
 from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
 
@@ -43,9 +44,11 @@ class TestRVAgentStrategyInitialization:
 
     def test_initialization_with_defaults(self, dynamic_graph, ui_coverage):
         """Strategy initializes with default parameters."""
+        config = RVAgentConfig.create_default(package_name="com.test.app")
         strategy = RVAgentStrategy(
             graph=dynamic_graph,
-            ui_coverage=ui_coverage
+            ui_coverage=ui_coverage,
+            config=config,
         )
 
         assert strategy.graph is dynamic_graph
@@ -56,11 +59,15 @@ class TestRVAgentStrategyInitialization:
 
     def test_initialization_with_custom_params(self, dynamic_graph, ui_coverage):
         """Strategy accepts custom parameters."""
+        config = RVAgentConfig(
+            package_name="com.test.app",
+            plateau_window=20,
+            max_input_variations=5
+        )
         strategy = RVAgentStrategy(
             graph=dynamic_graph,
             ui_coverage=ui_coverage,
-            plateau_window=20,
-            max_input_variations=5
+            config=config,
         )
 
         assert strategy.plateau_detector.window_size == 20
@@ -108,13 +115,16 @@ class TestActionSelection:
         assert len(node.executed_actions) == 1
 
     def test_select_action_updates_ui_coverage(self, rvagent_strategy, simple_screen):
-        """Selected action updates UI coverage tracker."""
+        """Selected action is pre-marked in the graph (UI coverage tracking moved to execute_node)."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
         action = rvagent_strategy.select_next_action(screen_hash, simple_screen)
 
-        element_id = action.widget_id or f"coords:{action.coordinates}"
-        assert not rvagent_strategy.ui_coverage.is_element_untested(element_id)
+        # UI coverage tracking was moved to execute_node.py (post-execution).
+        # The strategy pre-marks the action in the graph instead.
+        node = rvagent_strategy.graph.states.get(screen_hash)
+        assert node is not None
+        assert len(node.executed_actions) == 1
 
     def test_select_different_actions_each_call(self, rvagent_strategy, simple_screen):
         """Each call selects a different untested action."""
@@ -395,8 +405,8 @@ class TestPlateauDetection:
         )
         screen_hash = compute_test_hash("StuckActivity", 2)
 
-        # Fill plateau window with no-progress iterations
-        for _ in range(6):
+        # Fill plateau window with no-progress iterations (default window_size=10)
+        for _ in range(11):
             rvagent_strategy.plateau_detector.record_iteration(
                 discovered_new_state=False,
                 new_mop_method=None

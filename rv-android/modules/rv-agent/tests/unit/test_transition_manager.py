@@ -231,6 +231,7 @@ class TestNavigationGuidance:
         # Create mock screen description
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
+        screen_desc.events_by_id = {}
 
         guidance = transition_manager.get_navigation_guidance(
             "br.unb.cic.cryptoapp.MainActivity",
@@ -246,6 +247,7 @@ class TestNavigationGuidance:
         """Getting guidance marks activity as visited."""
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
+        screen_desc.events_by_id = {}
 
         activity = "br.unb.cic.cryptoapp.MainActivity"
 
@@ -257,6 +259,7 @@ class TestNavigationGuidance:
         """Exploration progress includes coverage metrics."""
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
+        screen_desc.events_by_id = {}
 
         guidance = transition_manager.get_navigation_guidance(
             "br.unb.cic.cryptoapp.MainActivity",

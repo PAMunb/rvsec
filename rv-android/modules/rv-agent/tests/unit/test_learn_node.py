@@ -46,7 +46,8 @@ class TestLearnNodeIntegration:
         mock_agent.memory_coordinator = mock_memory_coordinator
         mock_agent.stuck_screen_count = 0
         mock_agent.last_screen_hash = "prev_hash"
-        mock_agent.STUCK_THRESHOLD = 3
+        mock_agent.BASE_STUCK_THRESHOLD = 8
+        mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
 
         # Create mock screen description with element
@@ -100,7 +101,8 @@ class TestLearnNodeIntegration:
         mock_agent.memory_coordinator = mock_memory_coordinator
         mock_agent.stuck_screen_count = 0
         mock_agent.last_screen_hash = "prev_hash"
-        mock_agent.STUCK_THRESHOLD = 3
+        mock_agent.BASE_STUCK_THRESHOLD = 8
+        mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
 
         state = {
@@ -140,7 +142,8 @@ class TestLearnNodeStuckDetection:
         mock_agent.memory_coordinator = mock_memory_coordinator
         mock_agent.stuck_screen_count = 0
         mock_agent.last_screen_hash = "same_hash"
-        mock_agent.STUCK_THRESHOLD = 3
+        mock_agent.BASE_STUCK_THRESHOLD = 8
+        mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
 
         state = {"current_screen_hash": "same_hash", "iteration": 1}
@@ -170,7 +173,8 @@ class TestLearnNodeStuckDetection:
         mock_agent.memory_coordinator = mock_memory_coordinator
         mock_agent.stuck_screen_count = 2
         mock_agent.last_screen_hash = "old_hash"
-        mock_agent.STUCK_THRESHOLD = 3
+        mock_agent.BASE_STUCK_THRESHOLD = 8
+        mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
 
         state = {"current_screen_hash": "new_hash", "iteration": 1}
@@ -198,9 +202,10 @@ class TestLearnNodeStuckDetection:
         mock_agent = MagicMock()
         mock_agent.screen_processor = mock_screen_processor
         mock_agent.memory_coordinator = mock_memory_coordinator
-        mock_agent.stuck_screen_count = 2  # One below threshold
+        mock_agent.stuck_screen_count = 7  # One below threshold (BASE_STUCK_THRESHOLD=8)
         mock_agent.last_screen_hash = "stuck_hash"
-        mock_agent.STUCK_THRESHOLD = 3
+        mock_agent.BASE_STUCK_THRESHOLD = 8
+        mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
 
         state = {"current_screen_hash": "stuck_hash", "iteration": 1}

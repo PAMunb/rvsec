@@ -431,8 +431,12 @@ class TestDecisionMakerSource:
         counters = routing_manager_multimode.get_decision_counters()
         assert counters["llm_executed"] == initial + 1
 
-    def test_algorithm_decision_maker_counts_chosen(self, routing_manager_multimode):
-        """Algorithm decision maker increments algorithm_chosen counter."""
+    def test_algorithm_decision_maker_does_not_increment_chosen(self, routing_manager_multimode):
+        """Algorithm decision maker does not increment algorithm_chosen in validate_action.
+
+        algorithm_chosen is only incremented in route_decision(), not validate_action().
+        validate_action() only increments llm_executed for decision_maker="llm".
+        """
         action = {"action_type": "CLICK", "x": 100, "y": 200}
 
         initial = routing_manager_multimode.get_decision_counters()["algorithm_chosen"]
@@ -440,4 +444,4 @@ class TestDecisionMakerSource:
         routing_manager_multimode.validate_action(action, [], decision_maker="algorithm")
 
         counters = routing_manager_multimode.get_decision_counters()
-        assert counters["algorithm_chosen"] == initial + 1
+        assert counters["algorithm_chosen"] == initial

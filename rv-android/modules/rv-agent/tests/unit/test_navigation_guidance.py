@@ -69,6 +69,7 @@ def mock_screen_description():
     screen_desc = MagicMock(spec=ScreenDescription)
     screen_desc.activity = "br.unb.cic.cryptoapp.MainActivity"
     screen_desc.items = []
+    screen_desc.events_by_id = {}
     return screen_desc
 
 
@@ -194,6 +195,7 @@ class TestGetContext:
         bad_screen = MagicMock(spec=ScreenDescription)
         bad_screen.activity = None  # Invalid activity
         bad_screen.items = []
+        bad_screen.events_by_id = {}
 
         context = guidance.get_context(bad_screen)
 

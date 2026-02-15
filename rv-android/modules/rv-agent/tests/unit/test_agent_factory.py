@@ -182,8 +182,7 @@ class TestAgentFactoryCreateAgent:
         mock_registry.get_strategy.assert_called_once()
         call_kwargs = mock_registry.get_strategy.call_args[1]
         assert call_kwargs['name'] == 'dfs'
-        assert call_kwargs['plateau_window'] == 5
-        assert call_kwargs['max_input_variations'] == 3
+        assert call_kwargs['config'] == base_config
 
     @patch('rv_agent.agent.agent_factory.DeviceInterface')
     @patch('rv_agent.agent.agent_factory.DynamicStateGraph')

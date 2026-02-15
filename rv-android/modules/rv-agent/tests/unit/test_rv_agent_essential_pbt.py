@@ -124,7 +124,8 @@ class TestRVAgentCoreProperties:
         assert agent.config.timeout == timeout
         
         # Verify that detection thresholds are properly initialized
-        assert agent.STUCK_THRESHOLD == 3
+        assert agent.BASE_STUCK_THRESHOLD == 8
+        assert agent.STUCK_THRESHOLD_FACTOR == 1.5
         assert agent.NO_ACTION_THRESHOLD == 3
         assert agent.stuck_screen_count == 0
         assert agent.consecutive_no_action == 0

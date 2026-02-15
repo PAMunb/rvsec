@@ -144,7 +144,6 @@ class TestUpdateMemories:
         assert result["success"] is True
         coordinator.dynamic_graph.get_or_create_state.assert_called_once()
         coordinator.short_term.record_iteration.assert_called_once()
-        coordinator.ui_coverage.record_interaction.assert_called()
 
     def test_update_memories_with_action(self, coordinator, screen_desc):
         """update_memories records action in graph."""
@@ -263,7 +262,7 @@ class TestUpdateMemories:
                 f"Expected {expected_type} for {raw_type}"
 
     def test_update_memories_ui_coverage_per_element(self, coordinator, screen_desc):
-        """update_memories records UI coverage for each element."""
+        """update_memories no longer records UI coverage per element (moved to execute_node/parse_node)."""
         # Add more items
         for i in range(3):
             item = MagicMock()
@@ -280,8 +279,9 @@ class TestUpdateMemories:
             recent_action_window=[]
         )
 
-        # Should call record_interaction for each element
-        assert coordinator.ui_coverage.record_interaction.call_count == 4
+        # record_interaction is no longer called from MemoryCoordinator
+        # (visibility tracked via parse_node, interactions via execute_node)
+        coordinator.ui_coverage.record_interaction.assert_not_called()
 
     def test_update_memories_long_term_optional(self, mock_graph, mock_short_term, mock_ui_coverage, mock_agent_memory, screen_desc):
         """update_memories works when long_term is None."""

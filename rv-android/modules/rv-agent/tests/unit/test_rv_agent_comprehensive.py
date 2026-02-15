@@ -139,7 +139,7 @@ class TestRVAgentInitialization:
         )
         
         # Verify thresholds are set (these values come from the actual implementation)
-        assert hasattr(agent, 'STUCK_THRESHOLD')
+        assert hasattr(agent, 'BASE_STUCK_THRESHOLD')
         assert hasattr(agent, 'NO_ACTION_THRESHOLD')
         assert agent.stuck_screen_count == 0
         assert agent.consecutive_no_action == 0

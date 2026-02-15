@@ -46,6 +46,7 @@ def agent_config():
     config.package_name = "com.example.app"
     config.strategy = "dfs"
     config.timeout = 100
+    config.metrics_output_dir = None
     return config
 
 
@@ -119,7 +120,8 @@ class TestRVAgentInitialization:
         """Agent initializes stuck and deadlock detection thresholds."""
         agent = RVAgent(config=agent_config, **mock_dependencies)
 
-        assert agent.STUCK_THRESHOLD == 8
+        assert agent.BASE_STUCK_THRESHOLD == 8
+        assert agent.STUCK_THRESHOLD_FACTOR == 1.5
         assert agent.NO_ACTION_THRESHOLD == 3
         assert agent.stuck_screen_count == 0
         assert agent.consecutive_no_action == 0
@@ -453,13 +455,16 @@ class TestValidateActionNode:
     def test_validates_llm_action(self, agent, mock_dependencies):
         """Validates LLM action through routing manager."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
-            "current_action": {"action_type": "CLICK", "x": 100},
+            "current_action": {"action_type": "CLICK", "x": 100, "y": 500},
             "loop_detected": False
         }
 
+        # Set device_dimensions so boundary check uses real values
+        mock_dependencies["screen_processor"].device_dimensions = (1080, 1920)
+
         state = {
             "decision_maker": "llm",
-            "llm_action": {"action_type": "CLICK", "x": 100},
+            "llm_action": {"action_type": "CLICK", "x": 100, "y": 500},
             "recent_action_window": []
         }
         result = validate_action_node(agent, state)
@@ -634,7 +639,7 @@ class TestLearnNode:
         """Stuck threshold sets force_back_action flag."""
         self._setup_memory_mocks(mock_dependencies)
         agent.last_screen_hash = "hash1"
-        agent.stuck_screen_count = 2  # Will become 3 (threshold)
+        agent.stuck_screen_count = 7  # Will become 8 (BASE_STUCK_THRESHOLD)
 
         state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
         result = learn_node(agent, state)

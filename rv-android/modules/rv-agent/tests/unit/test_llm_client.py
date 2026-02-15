@@ -37,10 +37,10 @@ class TestLLMClientInit:
             assert client.config == config
             assert client.prompt_module == prompt_module
             assert client.total_calls == 0
-            assert len(client.tools) == 7
+            assert len(client.tools) == 8
 
     def test_tools_bound(self):
-        """All 7 Android tools are bound to LLM."""
+        """All 8 Android tools are bound to LLM."""
         from rv_agent.llm.llm_client import LLMClient, get_android_tools
         from rv_agent.config.agent_config import RVAgentConfig
 
@@ -57,18 +57,18 @@ class TestLLMClientInit:
 
             mock_llm.bind_tools.assert_called_once()
             tools = get_android_tools()
-            assert len(tools) == 7
+            assert len(tools) == 8
 
 
 class TestGetAndroidTools:
     """Test get_android_tools function."""
 
-    def test_returns_7_tools(self):
-        """get_android_tools returns 7 Android tools."""
+    def test_returns_8_tools(self):
+        """get_android_tools returns 8 Android tools."""
         from rv_agent.llm.llm_client import get_android_tools
 
         tools = get_android_tools()
-        assert len(tools) == 7
+        assert len(tools) == 8
 
     def test_tool_names(self):
         """All expected tool names are present."""
@@ -82,6 +82,7 @@ class TestGetAndroidTools:
             "android_type_text",
             "android_long_click",
             "android_swipe",
+            "android_drag",
             "android_scroll",
             "android_back",
             "android_home",

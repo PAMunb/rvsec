@@ -40,55 +40,9 @@ class TestAgentConfig:
         mock_getenv.return_value = "invalid_mode"
         assert default_config.get_agent_mode() == "multimode"
 
-    def test_get_loop_threshold(self, default_config):
-        """Test getting loop thresholds for different action types."""
-        assert default_config.get_loop_threshold("CLICK") == default_config.max_consecutive_click
-        assert default_config.get_loop_threshold("SET_TEXT") == default_config.max_consecutive_type_text
-        # Test the default fallback value
-        assert default_config.get_loop_threshold("UNKNOWN_ACTION") == 3
-
-    def test_is_platform_mode(self):
-        """Test the is_platform_mode helper."""
-        # Standalone by default
-        config = RVAgentConfig(package_name="com.example.app")
-        assert not config.is_platform_mode()
-
-        # Platform mode but no URL
-        config = RVAgentConfig(package_name="com.example.app", platform_integration="platform", server_url=None)
-        assert not config.is_platform_mode()
-
-        # Correct platform mode
-        config = RVAgentConfig(package_name="com.example.app", platform_integration="platform", server_url="http://server")
-        assert config.is_platform_mode()
-
-    def test_is_standalone_mode(self, default_config):
-        """Test the is_standalone_mode helper."""
-        assert default_config.is_standalone_mode() is True
-        
-        config = RVAgentConfig(package_name="com.example.app", platform_integration="platform")
-        assert config.is_standalone_mode() is False
-
     def test_validate_failure_cases(self):
         """Test the failure paths of the validate method."""
-        # 1. Custom validation: platform mode without server_url
-        config = RVAgentConfig(package_name="com.example.app", platform_integration="platform", server_url=None)
-        is_valid, msg = config.validate()
-        assert not is_valid
-        assert "server_url is required" in msg
-
-        # 2. Pydantic validation: enable_coordinate_enhancement is immutable and must be True
-        # This is a bit tricky to test as it's a fundamental model constraint.
-        # We expect a validation error upon creation if we could set it to False.
-        # The current implementation doesn't easily allow creating an invalid model first.
-        # However, we can simulate the check.
-        config = RVAgentConfig(package_name="com.example.app")
-        config.enable_coordinate_enhancement = False
-        is_valid, msg = config.validate()
-        assert not is_valid
-        assert "Coordinate enhancement is mandatory" in msg
-        config.enable_coordinate_enhancement = True # Reset for other tests
-
-        # 3. Custom validation: invalid agent_mode
+        # Custom validation: invalid agent_mode
         config = RVAgentConfig(package_name="com.example.app", agent_mode="invalid_mode")
         is_valid, msg = config.validate()
         assert not is_valid

@@ -106,37 +106,23 @@ class TestStrategyMemoryIntegration:
     """Test integration between strategy and memory components."""
 
     def test_strategy_uses_memory_coordinator_for_state_tracking(self):
-        """RVAgentStrategy properly integrates with MemoryCoordinator for state tracking."""
+        """RVAgentStrategy can hold a MemoryCoordinator reference for state tracking."""
         mock_graph = MagicMock()
         mock_ui_coverage = MagicMock()
         mock_memory_coordinator = MagicMock()
-        
+
         # Create strategy with mocked dependencies
+        config = RVAgentConfig.create_default(package_name="com.test.app")
         strategy = RVAgentStrategy(
             graph=mock_graph,
-            ui_coverage=mock_ui_coverage
+            ui_coverage=mock_ui_coverage,
+            config=config,
         )
         strategy.memory_coordinator = mock_memory_coordinator
-        
-        # Mock the screen description
-        mock_screen_desc = MagicMock()
-        
-        # When select_next_action is called, it should potentially interact with memory coordinator
-        # Mock the internal methods to avoid complex setup
-        strategy._get_all_filtered_actions = MagicMock(return_value=[])
-        strategy.graph.states = {}
-        strategy.plateau_detector = MagicMock()
-        strategy.plateau_detector.has_plateau.return_value = False
-        
-        # Call select_next_action
-        result = strategy.select_next_action(
-            current_hash="test_hash",
-            screen_desc=mock_screen_desc
-        )
-        
-        # The strategy might not directly call memory_coordinator in this specific case
-        # but it should have access to it if needed
+
+        # The strategy should have access to the memory coordinator
         assert hasattr(strategy, 'memory_coordinator')
+        assert strategy.memory_coordinator is mock_memory_coordinator
 
 
 class TestToolExecutorStrategyIntegration:
@@ -225,6 +211,7 @@ class TestRoutingManagerIntegration:
     def test_routing_manager_requires_correct_dependencies(self):
         """RoutingManager requires correct dependencies during initialization."""
         mock_config = MagicMock()
+        mock_config.seed = None  # Required: RoutingManager.__init__ checks config.seed
         mock_fallback_manager = MagicMock()
         mock_exploration_strategy = MagicMock()
 

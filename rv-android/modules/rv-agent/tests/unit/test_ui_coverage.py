@@ -184,137 +184,111 @@ class TestGetElementPriority:
         assert tracker.get_element_priority("element1") == "low"
 
 
-class TestAnnotateScreenElements:
-    """Test annotate_screen_elements method."""
+class TestRegisterScreenElements:
+    """Test register_screen_elements method."""
 
-    def test_annotate_untested_element(self):
-        """Untested elements get [UNTESTED] annotation."""
+    def test_register_elements_from_screen_desc(self):
+        """Registers elements from a ScreenDescription with their types."""
         tracker = UICoverageTracker()
 
-        description = "1. Button 'Submit' at position (100, 200) - bounds[[50, 100], [150, 300]]"
-        result = tracker.annotate_screen_elements(description, "screen1")
+        screen_desc = MagicMock()
+        item1 = MagicMock()
+        item1.view = {
+            'class': 'android.widget.Button',
+            'bounds': [[50, 100], [150, 300]]
+        }
+        item2 = MagicMock()
+        item2.view = {
+            'class': 'android.widget.EditText',
+            'bounds': [[50, 400], [150, 600]]
+        }
+        screen_desc.items = [item1, item2]
 
-        assert "[UNTESTED]" in result
+        tracker.register_screen_elements("screen1", screen_desc)
 
-    def test_annotate_tested_element(self):
-        """Tested elements get [TESTED] annotation."""
+        assert "screen1" in tracker.screen_elements
+        assert len(tracker.screen_elements["screen1"]) == 2
+        assert len(tracker.element_types) == 2
+
+    def test_register_elements_stores_component_type(self):
+        """Registered elements have correct component type."""
         tracker = UICoverageTracker()
 
-        description = "1. Button 'Submit' at position (100, 200) - bounds[[50, 100], [150, 300]]"
-        # First annotate to generate element_id
-        tracker.annotate_screen_elements(description, "screen1")
-        # Get the element_id that was generated
-        element_id = list(tracker.screen_elements["screen1"])[0]
-        # Record interaction
-        tracker.record_interaction(element_id, "click", "screen1")
+        screen_desc = MagicMock()
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.Button',
+            'bounds': [[100, 200], [300, 400]]
+        }
+        screen_desc.items = [item]
 
-        result = tracker.annotate_screen_elements(description, "screen1")
+        tracker.register_screen_elements("screen1", screen_desc)
 
-        assert "[TESTED" in result
+        # Element type should be the simple class name
+        for elem_id, comp_type in tracker.element_types.items():
+            assert comp_type == "Button"
 
-    def test_annotate_no_position_line(self):
-        """Lines without position are unchanged."""
+    def test_register_empty_screen(self):
+        """Registering empty screen creates entry with no elements."""
         tracker = UICoverageTracker()
 
-        description = "=== CLICKABLE ELEMENTS ==="
-        result = tracker.annotate_screen_elements(description, "screen1")
+        screen_desc = MagicMock()
+        screen_desc.items = []
 
-        assert result == description
+        tracker.register_screen_elements("screen1", screen_desc)
 
-    def test_annotate_multiple_elements(self):
-        """Multiple elements are annotated."""
+        assert "screen1" in tracker.screen_elements
+        assert len(tracker.screen_elements["screen1"]) == 0
+
+    def test_register_idempotent(self):
+        """Re-registering same screen does not duplicate elements."""
         tracker = UICoverageTracker()
 
-        description = """1. Button 'Submit' at position (100, 200)
-2. EditText 'Email' at position (100, 300)"""
-        result = tracker.annotate_screen_elements(description, "screen1")
+        screen_desc = MagicMock()
+        item = MagicMock()
+        item.view = {
+            'class': 'android.widget.Button',
+            'bounds': [[100, 200], [300, 400]]
+        }
+        screen_desc.items = [item]
 
-        # Both lines should have annotations
-        lines = result.split('\n')
-        assert "[UNTESTED]" in lines[0] or "[TESTED" in lines[0]
-        assert "[UNTESTED]" in lines[1] or "[TESTED" in lines[1]
+        tracker.register_screen_elements("screen1", screen_desc)
+        tracker.register_screen_elements("screen1", screen_desc)
+
+        assert len(tracker.screen_elements["screen1"]) == 1
 
 
-class TestGenerateElementId:
-    """Test _generate_element_id method."""
+class TestGetElementTestCountAndPriority:
+    """Test element test count and priority logic (replaces removed annotation methods)."""
 
-    def test_id_extraction(self):
-        """Extracts id: from description."""
+    def test_untested_count_zero(self):
+        """Untested element returns count 0."""
         tracker = UICoverageTracker()
 
-        result = tracker._generate_element_id("1. Button id:submit_button")
+        assert tracker.get_element_test_count("unknown") == 0
 
-        assert result == "id:submit_button"
-
-    def test_text_extraction(self):
-        """Extracts quoted text from description."""
-        tracker = UICoverageTracker()
-
-        result = tracker._generate_element_id('1. Button "Submit"')
-
-        assert result == 'text:"Submit"'
-
-    def test_desc_extraction(self):
-        """Extracts desc: from description when no id or text."""
-        tracker = UICoverageTracker()
-
-        # desc: pattern requires no other quoted text to be matched first
-        result = tracker._generate_element_id('1. Button content desc:"Submit button" extra')
-
-        # Note: if there's quoted text, it will match text first
-        # So we test that desc: is in the logic by providing no other quotes
-        # Actually the code matches text:"..." first if present
-        # So this test verifies the fallback logic
-        assert "desc:" in result or "text:" in result
-
-    def test_fallback_hash(self):
-        """Falls back to hash for unknown format."""
-        tracker = UICoverageTracker()
-
-        result = tracker._generate_element_id("1. SomeRandomText")
-
-        assert result.startswith("hash:")
-
-
-class TestGetElementAnnotation:
-    """Test _get_element_annotation method."""
-
-    def test_untested_annotation(self):
-        """Untested returns [UNTESTED]."""
-        tracker = UICoverageTracker()
-
-        result = tracker._get_element_annotation("unknown")
-
-        assert result == "[UNTESTED]"
-
-    def test_tested_once_annotation(self):
-        """Tested once returns [TESTED-1x]."""
+    def test_tested_once_count(self):
+        """Tested once returns count 1."""
         tracker = UICoverageTracker()
         tracker.record_interaction("element1", "click")
 
-        result = tracker._get_element_annotation("element1")
+        assert tracker.get_element_test_count("element1") == 1
 
-        assert result == "[TESTED-1x]"
-
-    def test_tested_multiple_annotation(self):
-        """Tested multiple times returns [TESTED-Nx]."""
+    def test_tested_multiple_count(self):
+        """Tested multiple times returns correct count."""
         tracker = UICoverageTracker()
         for _ in range(3):
             tracker.record_interaction("element1", "click")
 
-        result = tracker._get_element_annotation("element1")
+        assert tracker.get_element_test_count("element1") == 3
 
-        assert result == "[TESTED-3x]"
-
-    def test_well_tested_annotation(self):
-        """Well tested returns [WELL-TESTED]."""
+    def test_well_tested_low_priority(self):
+        """Well tested element gets low priority."""
         tracker = UICoverageTracker()
         for _ in range(10):
             tracker.record_interaction("element1", "click")
 
-        result = tracker._get_element_annotation("element1")
-
-        assert result == "[WELL-TESTED]"
+        assert tracker.get_element_priority("element1") == "low"
 
 
 class TestGetScreenCoverageStats:

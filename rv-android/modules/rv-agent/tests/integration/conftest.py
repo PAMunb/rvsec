@@ -9,6 +9,7 @@ from dataclasses import dataclass, field, replace
 from typing import List, Optional, Tuple, Any
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
@@ -29,6 +30,7 @@ class MockItemAction:
     reaches_mop: bool = False
     callback_signature: Optional[str] = None
     text_input: Optional[str] = None
+    target_view: Optional[dict] = field(default_factory=dict)
 
     @property
     def coords_for_matching(self) -> Tuple[Tuple[int, int], str]:
@@ -134,11 +136,11 @@ def ui_coverage():
 @pytest.fixture
 def rvagent_strategy(dynamic_graph, ui_coverage):
     """Provide configured RVAgentStrategy instance."""
+    config = RVAgentConfig.create_default(package_name="com.test.app")
     return RVAgentStrategy(
         graph=dynamic_graph,
         ui_coverage=ui_coverage,
-        plateau_window=5,
-        max_input_variations=3
+        config=config,
     )
 
 

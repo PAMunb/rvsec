@@ -172,14 +172,19 @@ class TestExecuteNode:
         mock_tool_executor = MagicMock()
         mock_agent.tool_executor = mock_tool_executor
         mock_agent.ui_coverage = MagicMock()
-        
+        mock_agent.ui_coverage.find_nearest_element.return_value = ("elem_100_200", "Button", 5.0)
+        mock_agent.screen_processor = MagicMock()
+        mock_agent.screen_processor.device_dimensions = (1080, 1920)
+        mock_agent.dynamic_graph = MagicMock()
+        mock_agent.strategy = MagicMock()
+
         # Mock successful execution result
         execution_result = {
             "success": True,
             "action_executed": {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"}
         }
         mock_tool_executor.execute_action.return_value = execution_result
-        
+
         # Create state with action
         state = AgentState(
             current_activity="MainActivity",
@@ -195,26 +200,28 @@ class TestExecuteNode:
             },
             previous_screen_hash="prev_hash"
         )
-        
+
         result = execute_node(mock_agent, state)
-        
+
         # Verify UI coverage was recorded
         assert mock_agent.ui_coverage.record_interaction.called
 
-    def test_execute_node_does_not_record_ui_coverage_for_algorithm_action(self):
-        """execute_node does not record UI coverage for algorithm actions."""
+    def test_execute_node_records_ui_coverage_for_algorithm_action(self):
+        """execute_node records UI coverage for algorithm actions (unified tracking)."""
         mock_agent = MagicMock()
         mock_tool_executor = MagicMock()
         mock_agent.tool_executor = mock_tool_executor
         mock_agent.ui_coverage = MagicMock()
-        
+        mock_agent.screen_processor = MagicMock()
+        mock_agent.screen_processor.device_dimensions = (1080, 1920)
+
         # Mock successful execution result
         execution_result = {
             "success": True,
             "action_executed": {"action_type": "CLICK", "x": 100, "y": 200, "source": "algorithm"}
         }
         mock_tool_executor.execute_action.return_value = execution_result
-        
+
         # Create state with algorithm action
         state = AgentState(
             current_activity="MainActivity",
@@ -230,9 +237,9 @@ class TestExecuteNode:
             },
             previous_screen_hash="prev_hash"
         )
-        
+
         result = execute_node(mock_agent, state)
-        
-        # Verify UI coverage was NOT recorded for algorithm action
-        # The record_interaction should not be called since algorithm actions are recorded elsewhere
-        assert not mock_agent.ui_coverage.record_interaction.called
+
+        # Verify UI coverage WAS recorded for algorithm action
+        # execute_node now records for ALL sources (unified tracking point)
+        assert mock_agent.ui_coverage.record_interaction.called

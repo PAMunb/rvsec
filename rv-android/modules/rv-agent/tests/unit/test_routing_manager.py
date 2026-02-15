@@ -19,6 +19,7 @@ def mock_config():
     config = MagicMock(spec=RVAgentConfig)
     config.get_agent_mode.return_value = "multimode"
     config.llm_probability = 0.7
+    config.seed = None
     return config
 
 
@@ -121,14 +122,17 @@ class TestRoutingManager:
         assert routing_manager.llm_validation_failed == 0
 
     def test_validate_action_valid_algorithm_action_passes(self, routing_manager, mock_config):
-        """Test that a valid algorithm action passes and increments algorithm_chosen."""
+        """Test that a valid algorithm action passes validation.
+
+        Note: algorithm_chosen is incremented in route_decision(), not validate_action().
+        """
         action = {"action_type": "CLICK", "x": 100, "y": 200}
         result = routing_manager.validate_action(action, recent_actions=[], decision_maker="algorithm")
         assert result["validation_path"] == "execute"
         assert not result["loop_detected"]
         assert result["current_action"] == action
         assert routing_manager.llm_executed == 0
-        assert routing_manager.algorithm_chosen == 1
+        assert routing_manager.algorithm_chosen == 0
 
     def test_validate_action_invalid_action_dict_returns_back(self, routing_manager, mock_config):
         """Test that an invalid action dict returns BACK."""
