@@ -311,7 +311,9 @@ The system is documented via Spec-Driven Development. Specs document current beh
 |----------|------|-------------|
 | **PRD** | `docs/PRD.md` | Product Requirements Document (37 FRs, 8 NFRs) |
 | **Plan** | `docs/20260209_plano_spec_driven.md` | SDD adoption plan |
-| **Config** | `openspec/config.yaml` | OpenSpec rules and conventions |
+| **Config** | `openspec/config.yaml` | OpenSpec configuration (default schema, context, rules) |
+| **Schema: rv-sdd** | `openspec/schemas/rv-sdd/schema.yaml` | Full/FF SDD (proposal → specs → design → tasks) |
+| **Schema: quick-path** | `openspec/schemas/quick-path/schema.yaml` | Quick Path (plan → tasks) |
 
 ### Domain Specifications (7)
 
@@ -349,21 +351,23 @@ All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for
 
 Select track by whether the change requires **design decisions** (not by file count — file count determines subagent use, not track):
 
-| Track | When | Phases |
-|-------|------|--------|
-| **Full SDD** | Design decisions + multi-module/architectural | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
-| **FF SDD** | Design decisions + single module, clear requirements | Explore -> FF -> Implement -> Close |
-| **Quick Path** | No design decisions, mechanical/clear plan | Analyze -> Fix -> Verify |
+| Track | When | Schema | Phases |
+|-------|------|--------|--------|
+| **Full SDD** | Design decisions + multi-module/architectural | `rv-sdd` | Explore -> Propose -> Design -> Implement -> Verify -> Archive |
+| **FF SDD** | Design decisions + single module, clear requirements | `rv-sdd` | Explore -> FF -> Implement -> Close |
+| **Quick Path** | No design decisions, mechanical/clear plan | `quick-path` | Analyze -> Plan -> Execute+Verify |
 
 ### Common Scenarios
 
+Sequences below are abbreviated. See `docs/WORKFLOW.md` Sections 6-8 for full phase detail.
+
 | Scenario | Track | Skill Sequence |
 |----------|-------|----------------|
-| New feature in rv-agent | Full | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
-| Add config option | FF | `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
-| Refactor internals | Quick | `rv-analyze-module` -> `rv-refactor` -> `rv-verify` |
-| Fix a bug | Quick | `rv-debug-regression` -> `rv-tdd` -> `rv-verify` |
-| Remove dead code | Quick | `rv-analyze-dead-code` -> `rv-cleanup` -> `rv-verify` |
+| New feature in rv-agent | Full | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Add config option | FF | `rv-analyze-file` -> `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Refactor internals | Quick | plan.md -> tasks.md -> `rv-refactor` -> `rv-verify` -> `archive --skip-specs` |
+| Fix a bug | Quick | plan.md -> tasks.md -> `rv-tdd` -> `rv-verify` -> `archive --skip-specs` |
+| Remove dead code | Quick | plan.md -> tasks.md -> `rv-cleanup` -> `rv-verify` -> `archive --skip-specs` |
 
 ### Subagent Orchestration
 

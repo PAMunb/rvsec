@@ -1,4 +1,4 @@
-schema: spec-driven
+schema: rv-sdd
 
 context: |
   Project: RV-Android
@@ -13,7 +13,7 @@ context: |
   Future changes use the OpenSpec workflow (proposal -> specs -> design -> tasks).
   Do not create aspirational specs — only what is implemented.
 
-  DEVELOPMENT PRINCIPLES (see docs/WORKFLOW.md Section 3 and CLAUDE.md "Development Principles"):
+  DEVELOPMENT PRINCIPLES (see docs/WORKFLOW.md Section 4 and CLAUDE.md "Development Principles"):
   P1 Simplicity — minimal complexity, no premature abstractions
   P2 Human-readable — deep narrative docs, self-contained for implementers
   P3 No backward compatibility — delete dead code, no adapters/shims, backup to backup/
@@ -28,43 +28,16 @@ context: |
   - analysis: rv-static-analysis + rv-coverage + rv-screen-parser
   - tools: rv-tools + rv-uiautomator (tool infrastructure, device interaction)
 
-  Reference project: agente-documentador uses SDD/OpenSpec as a model
-  (path: /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/agente-documentador)
+  Schemas:
+  - rv-sdd: Full/FF SDD workflow (proposal -> specs -> design -> tasks). Default.
+  - quick-path: Mechanical changes (plan -> tasks). Use with --schema quick-path.
 
   Templates: docs/templates/spec-template.md, docs/templates/design-template.md, .claude/skills/rv-doc-adr/templates/adr.md
   PRD: docs/PRD.md
-  Plan: docs/20260209_plano_spec_driven.md
+  Workflow: docs/WORKFLOW.md
 
 rules:
-  proposal:
-    - English language throughout
-    - Reference FRs/NFRs from PRD
-    - List affected specs and impacted modules
-    - Include impact section with dependencies
-  specs:
-    - Follow template structure from docs/templates/spec-template.md
-    - English language throughout
-    - RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
-    - WHEN/THEN/AND format for scenarios
-    - Include Data Contracts (Input/Output/Side-Effects/Error)
-    - Include testable Invariants (INV-XX-NN)
-    - Reference specific Python modules and files
-    - Include inline data models with field descriptions
-    - Detailed narrative Purpose section (multi-paragraph, self-contained — P2 principle)
-    - REMOVED sections must specify complete deletion, no backward-compatibility shims (P3 principle)
-    - No promotional language or bias terms in descriptions (P4 principle)
-  design:
-    - Follow template structure from docs/templates/design-template.md
-    - English language throughout
-    - Reference existing module files
-    - Include Pydantic schemas when applicable
-    - Include Mapping table: Spec -> Implementation -> Test
   adr:
     - Follow template structure from .claude/skills/rv-doc-adr/templates/adr.md
     - English language throughout
     - Include alternatives considered with specific trade-offs
-  tasks:
-    - English language throughout
-    - Completable in one Claude Code session
-    - Include test tasks
-    - Order: models -> utils -> core -> integration

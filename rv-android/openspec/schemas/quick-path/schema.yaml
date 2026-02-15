@@ -1,0 +1,117 @@
+name: quick-path
+version: 1
+description: Quick Path workflow — plan → tasks → execute. No spec ceremony.
+
+artifacts:
+  - id: plan
+    generates: plan.md
+    description: Analysis document with context, scope, file inventory, and acceptance criteria
+    template: plan.md
+    instruction: |
+      Create the plan document for a mechanical change that needs no design decisions.
+
+      This is a Quick Path change — the task is clear, the plan is mechanical, and the
+      only question is execution. No proposal, specs, or design artifacts are needed.
+
+      Sections:
+      - **Header**: Change name, date, track (Quick Path), priority, GitHub Issue link,
+        PRD reference (if applicable), affected domains
+      - **Context**: Why this change is needed. Provide enough background that someone
+        reading only this document understands the motivation. Reference the GitHub Issue
+        for additional context.
+      - **Scope**: What modules/files are affected. For large changes, organize into
+        groups (Group A, Group B, etc.) with clear descriptions of what each group does.
+      - **File Inventory**: Exact files and line numbers when possible. For each file,
+        describe the specific change needed (remove lines X-Y, update constant, etc.).
+        This is the core of the plan — be precise enough that implementation is mechanical.
+      - **Execution Order**: Which groups depend on which. Identify which groups can run
+        in parallel via subagent dispatch (see docs/WORKFLOW.md Section 5).
+      - **Acceptance Criteria**: How to verify the change is complete. Use checkboxes
+        (`- [ ]`) for each criterion. These are verification steps, not execution tasks —
+        execution tasks go in tasks.md.
+
+      Rules:
+      - English language throughout
+      - Reference the GitHub Issue number in the header (GitHub Issue: #N)
+      - Reference FRs/NFRs from docs/PRD.md when applicable
+      - For changes touching 20+ files: organize into groups suitable for subagent dispatch
+      - File inventory must be exhaustive — every file that will be touched must be listed
+      - No promotional language — P4 principle
+    requires: []
+
+  - id: tasks
+    generates: tasks.md
+    description: Execution checklist with trackable tasks extracted from the plan
+    template: tasks.md
+    instruction: |
+      Create the task list that breaks down the execution work from plan.md.
+
+      **IMPORTANT: Follow the template exactly.** The apply phase parses checkbox format
+      to track progress. Tasks not using `- [ ]` won't be tracked.
+
+      Guidelines:
+      - Extract execution items from the plan's file inventory and execution order
+      - Group related tasks under ## numbered headings (match plan groups when applicable)
+      - Each task MUST be a checkbox: `- [ ] X.Y Task description`
+      - Tasks should be small enough to complete in one Claude Code session
+      - Order tasks by dependency (prerequisite groups first)
+      - For trivial changes (typo fix, single-file edit): 2-3 checkboxes suffice
+      - For large changes (20+ files): organize into independent groups for subagent dispatch,
+        with a final verification group
+
+      Example for a large change:
+      ```
+      ## 1. Prerequisites (sequential)
+
+      - [ ] 1.1 Move discontinued module dirs to backup/
+      - [ ] 1.2 Clean pyproject.toml dependencies
+      - [ ] 1.3 Run uv sync to verify dependency resolution
+
+      ## 2. Source Cleanup (parallel — subagent)
+
+      - [ ] 2.1 Clean rv-experiment Python source (7 files)
+      - [ ] 2.2 Update shell script MODULES arrays (3 files)
+
+      ## 3. Verification
+
+      - [ ] 3.1 Run pytest on affected modules
+      - [ ] 3.2 Grep for dangling references
+      ```
+
+      Example for a trivial change:
+      ```
+      ## 1. Fix
+
+      - [ ] 1.1 Fix the coverage tracking bug in tracker.py
+      - [ ] 1.2 Add regression test
+
+      ## 2. Verify
+
+      - [ ] 2.1 Run rv-coverage tests
+      ```
+
+      Rules:
+      - English language throughout
+      - Reference plan.md for what needs to be done
+      - Each task should be verifiable — you know when it's done
+    requires:
+      - plan
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    Read the plan document (plan.md) for full context, then work through pending tasks
+    in tasks.md. Mark each task complete (`- [x]`) as you go.
+
+    For each task, choose the appropriate approach:
+    - /rv-tdd — when adding tests or fixing bugs (test-first)
+    - /rv-refactor — when restructuring existing code
+    - /rv-cleanup — when removing dead code
+    - Direct edit — for simple, mechanical changes
+
+    For changes with 3+ independent task groups touching 20+ files, use subagent
+    orchestration (see docs/WORKFLOW.md Section 5).
+
+    After all tasks are complete, verify acceptance criteria from plan.md.
+    Pause if you hit blockers or need clarification.

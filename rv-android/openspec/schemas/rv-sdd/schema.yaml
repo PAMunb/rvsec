@@ -1,0 +1,166 @@
+name: rv-sdd
+version: 1
+description: RV-Android Full/FF SDD workflow — proposal → specs → design → tasks
+
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Change proposal establishing WHY this change is needed and WHAT specs are affected
+    template: proposal.md
+    instruction: |
+      Create the proposal document for this RV-Android change.
+
+      Sections:
+      - **Why**: 1-2 sentences on the problem or opportunity. Reference the GitHub Issue if one exists.
+      - **What Changes**: Bullet list of changes. Be specific about new capabilities, modifications, or removals. Mark breaking changes with **BREAKING**.
+      - **Capabilities**: Identify which specs will be created or modified:
+        - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<name>/spec.md`. Use kebab-case names matching the 7 RV-Android domains (core, platform, experiment, agent, instrumentation, analysis, tools).
+        - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Only include if spec-level behavior changes (not just implementation details). Each needs a delta spec file. Check `openspec/specs/` for existing spec names. Leave empty if no requirement changes.
+      - **Impact**: Affected modules (from the 14-module uv workspace), APIs, dependencies, or systems.
+
+      IMPORTANT: The Capabilities section creates the contract between proposal and specs phases.
+      Research existing specs in openspec/specs/ before filling this in.
+
+      Rules:
+      - English language throughout
+      - Reference FRs/NFRs from docs/PRD.md (FR01-FR37, NFR01-NFR08)
+      - List affected specs and impacted modules explicitly
+      - Include impact section with cross-module dependencies
+      - Keep it concise (1-2 pages). Focus on the "why" not the "how" — implementation details belong in design.md.
+      - No promotional language ("modern", "elegant", "advanced") — P4 principle
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: Delta specifications defining WHAT the system should do after the change
+    template: spec.md
+    instruction: |
+      Create delta specification files for the capabilities listed in the proposal.
+
+      Create one spec file per capability:
+      - New capabilities: specs/<capability>/spec.md (kebab-case name from proposal)
+      - Modified capabilities: specs/<capability>/spec.md (existing name from openspec/specs/)
+
+      Delta operations (use ## headers):
+      - **ADDED Requirements**: New capabilities
+      - **MODIFIED Requirements**: Changed behavior — MUST include full updated content
+      - **REMOVED Requirements**: Deprecated features — MUST include **Reason** (P3: complete deletion, no backward-compatibility shims)
+      - **RENAMED Requirements**: Name changes only — use FROM:/TO: format
+
+      Format requirements (RV-Android conventions):
+      - Each requirement: `### Requirement: <name>` followed by narrative description
+      - Use RFC 2119 keywords: SHALL/MUST for normative requirements
+      - Each scenario: `#### Scenario: <name>` with WHEN/THEN/AND format using concrete values
+      - **CRITICAL**: Scenarios MUST use exactly 4 hashtags (`####`). Using 3 hashtags or bullets will fail silently.
+      - Every requirement MUST have at least one scenario
+      - Include Data Contracts (Input/Output/Side-Effects/Error) when the requirement involves I/O
+      - Include testable Invariants (INV-XX-NN format) for rules that MUST always hold
+      - Reference specific Python modules and files in modules/
+
+      MODIFIED requirements workflow:
+      1. Locate the existing requirement in openspec/specs/<capability>/spec.md
+      2. Copy the ENTIRE requirement block (from `### Requirement:` through all scenarios)
+      3. Paste under `## MODIFIED Requirements` and edit to reflect new behavior
+      4. Ensure header text matches exactly (whitespace-insensitive)
+
+      Pitfall: Using MODIFIED with partial content loses detail at archive time.
+      If adding new concerns without changing existing behavior, use ADDED instead.
+
+      Rules:
+      - English language throughout
+      - Detailed narrative Purpose section (multi-paragraph, self-contained — P2 principle)
+      - REMOVED sections must specify complete deletion, no backward-compatibility shims (P3 principle)
+      - No promotional language or bias terms in descriptions (P4 principle)
+      - Specs should be testable — each scenario is a potential test case
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Technical design explaining HOW to implement the change
+    template: design.md
+    instruction: |
+      Create the design document for implementing this RV-Android change.
+
+      When to include design.md (create only if any apply):
+      - Cross-cutting change (multiple modules in the uv workspace)
+      - New external dependency or significant Pydantic model changes
+      - Security, performance, or migration complexity
+      - Ambiguity that benefits from technical decisions before coding
+
+      Sections:
+      - **Context**: Background, current state, constraints. Reference the proposal and relevant FRs/NFRs.
+      - **Architecture**: Component diagram showing how modules interact. Include Key Components table.
+      - **Mapping: Spec -> Implementation -> Test**: Table linking each requirement/invariant to its implementation file and test.
+      - **Goals / Non-Goals**: What this design achieves and explicitly excludes.
+      - **Decisions**: Key technical choices with rationale (why X over Y?). Include alternatives considered.
+      - **API Design**: Function signatures with preconditions, postconditions, error behavior. Include Pydantic schemas when applicable.
+      - **Data Flow**: How data moves through the components.
+      - **Error Handling**: Error table (Error, Source, Strategy, Recovery).
+      - **Risks / Trade-offs**: Known limitations. Format: [Risk] -> Mitigation.
+      - **Testing Strategy**: Test layers table (Unit, Integration, PBT).
+      - **Open Questions**: Outstanding decisions or unknowns.
+
+      Rules:
+      - English language throughout
+      - Reference existing module files in modules/ with full paths
+      - Include Pydantic schemas when applicable
+      - Focus on architecture and approach, not line-by-line implementation
+      - No promotional language — P4 principle
+    requires:
+      - proposal
+
+  - id: tasks
+    generates: tasks.md
+    description: Implementation checklist with trackable tasks
+    template: tasks.md
+    instruction: |
+      Create the task list that breaks down the implementation work.
+
+      **IMPORTANT: Follow the template exactly.** The apply phase parses checkbox format to track progress. Tasks not using `- [ ]` won't be tracked.
+
+      Guidelines:
+      - Group related tasks under ## numbered headings
+      - Each task MUST be a checkbox: `- [ ] X.Y Task description`
+      - Tasks should be small enough to complete in one Claude Code session
+      - Order: models -> utils -> core -> integration (dependency order)
+      - Include test tasks for each functional group
+      - For changes touching 20+ files: organize tasks into independent groups suitable for subagent dispatch (see docs/WORKFLOW.md Section 5)
+
+      Example:
+      ```
+      ## 1. Domain Models
+
+      - [ ] 1.1 Add TaskState Pydantic model
+      - [ ] 1.2 Add unit tests for TaskState
+
+      ## 2. Core Implementation
+
+      - [ ] 2.1 Implement task executor component
+      - [ ] 2.2 Add integration tests
+      ```
+
+      Rules:
+      - English language throughout
+      - Reference specs for what needs to be built, design for how to build it
+      - Each task should be verifiable — you know when it's done
+    requires:
+      - specs
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    Read context files (proposal, specs, design), work through pending tasks in tasks.md.
+    Mark each task complete (`- [x]`) as you go.
+
+    For each task, choose the appropriate rv-* orchestrator:
+    - /rv-tdd — when adding new functionality (test-first)
+    - /rv-refactor — when restructuring existing code
+    - /rv-feature — when implementing a new capability
+
+    For changes with 3+ independent task groups touching 20+ files, use subagent orchestration
+    (see docs/WORKFLOW.md Section 5).
+
+    Pause if you hit blockers or need clarification.
