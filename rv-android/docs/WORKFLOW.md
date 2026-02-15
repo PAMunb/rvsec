@@ -75,20 +75,17 @@ Templates are located at `/rvsec/.github/ISSUE_TEMPLATE/` (repo root level).
 
 ### Kanban Board
 
-The project board has four columns that map to the SDD workflow phases:
+The project board has five columns. New issues always land in "No Status" and must be manually triaged to "Backlog" before work begins:
 
 | Column | Meaning | When to Move Here |
 |--------|---------|-------------------|
-| **Backlog** | Issue created, not yet started | Automatically when issue is created |
-| **In Progress** | Any SDD phase is active (explore through implement) | When starting Phase 0 or Phase 1 of any track |
+| **No Status** | Issue just created, not yet triaged | Automatically when issue is created (GitHub default) |
+| **Backlog** | Triaged, ready to be picked up | Manually after triage — move from "No Status" via board UI or `gh project item-edit` |
+| **In Progress** | Any SDD phase is active (explore through implement) | When starting Phase 0 (ideation, before track selection) or Phase 1 of any track |
 | **In Review** | Verification or PR review in progress | When entering Verify phase or when a PR is open |
 | **Done** | Change archived and issue closed | When `/opsx:archive` completes or Quick Path verify passes |
 
-**Automation rules** (configured in project workflow settings):
-- New issues from `PAMunb/rvsec` are automatically added to the Backlog column
-- Issues that are closed are automatically moved to Done
-
-**Known limitation (2026-02-14)**: GitHub Projects automation is not working as expected. New issues are added to the **"No Status"** column instead of "Backlog", and closing issues does not reliably move cards to "Done". This means column state must be managed manually by the researcher through the GitHub Projects web UI. Claude Code manages issue **state** (open/closed) via MCP `issue_write`, but cannot move cards between columns programmatically (requires GraphQL project item mutations not exposed by the GitHub MCP server).
+**Important**: GitHub Projects automation does not reliably move cards between columns. New issues from `PAMunb/rvsec` are added to the board but land in **"No Status"**, not "Backlog". Closing issues does not automatically move cards to "Done" either. All column transitions must be managed manually by the researcher through the GitHub Projects web UI or via `gh project item-edit`.
 
 ### Cross-Referencing Convention
 
@@ -97,7 +94,7 @@ Bidirectional traceability links all artifacts to their originating issue:
 | From | To | Mechanism |
 |------|----|-----------|
 | Issue -> Change directory | Active: `openspec/changes/gh<N>-<short-name>/`. Archived: `openspec/changes/archive/YYYY-MM-DD-gh<N>-<short-name>/` (date added by `openspec archive`) |
-| Change -> Issue | Full/FF SDD: `proposal.md` header. Quick Path: `plan.md` header. Both include `GitHub Issue: #N` |
+| Change -> Issue | Full/FF SDD: `proposal.md` header. Quick Path: `plan.md` header. Each includes `GitHub Issue: #N` |
 | Issue -> Commits | Use `refs #N` during work, `closes #N` in the final commit |
 | Issue -> PR | Include `Closes #N` in PR body |
 | Issue -> Specs | Affected specs are listed in the issue body (domains checkboxes) |
@@ -111,7 +108,8 @@ Claude Code manages issue **state** (open/closed) via MCP `issue_write`, and **b
 
 | Moment | Action | Mechanism |
 |--------|--------|-----------|
-| Issue created | Appears in board as "No Status" | Automatic add (automation broken — see Known limitation) |
+| Issue created | Appears in board as "No Status" | Automatic (GitHub Projects default behavior) |
+| Triage | Move card from "No Status" to Backlog | `gh project item-edit` with Status → Backlog |
 | Work starting | Move card to In Progress | `gh project item-edit` with Status → In Progress |
 | Work in progress | Commits reference the issue | `refs #N` in commit messages |
 | Work complete (single commit) | Close the issue via commit | `closes #N` in the final commit message |
@@ -159,22 +157,22 @@ flowchart TD
     P0 -->|"Clear task"| ASSESS
 
     IDEATE --> ASSESS{Design decisions?}
-    ASSESS -->|"Yes: multi-module\nor architectural"| FULL[Full SDD]
-    ASSESS -->|"Yes: single module\nclear requirements"| FAST[Fast-Forward SDD]
-    ASSESS -->|"No: mechanical task\nclear what to do"| QUICK[Quick Path]
+    ASSESS -->|"Yes: multi-module\nor architectural"| FULL["Full SDD\n(schema: rv-sdd)"]
+    ASSESS -->|"Yes: single module\nclear requirements"| FAST["Fast-Forward SDD\n(schema: rv-sdd)"]
+    ASSESS -->|"No: mechanical task\nclear what to do"| QUICK["Quick Path\n(schema: quick-path)"]
 
-    FULL --> F_FLOW["6 phases\n(all artifacts step-by-step)"]
-    FAST --> FF_FLOW["4 phases\n(artifacts auto-generated)"]
-    QUICK --> Q_FLOW["3 phases\n(plan.md only)"]
+    FULL --> F_FLOW["6 phases, 4 artifacts\nproposal → specs → design → tasks"]
+    FAST --> FF_FLOW["4 phases, 4 artifacts\nproposal → specs → design → tasks\n(auto-generated)"]
+    QUICK --> Q_FLOW["3 phases, 2 artifacts\nplan → tasks"]
 ```
 
 ### Selection Criteria
 
-| Track | When to Use | Artifacts Created | Change Directory | Phases |
-|-------|-------------|-------------------|------------------|--------|
-| **Full SDD** | Design decisions needed + multi-module or architectural | proposal, delta specs, design, tasks (step by step) | `openspec/changes/` (full) | 6 |
-| **Fast-Forward SDD** | Design decisions needed + single module, clear requirements | All artifacts (auto-generated via `/opsx:ff`) | `openspec/changes/` (full) | 4 |
-| **Quick Path** | No design decisions — mechanical task with clear plan | `plan.md` only | `openspec/changes/` (minimal) | 3 |
+| Track | When to Use | Schema | Artifacts | Phases |
+|-------|-------------|--------|-----------|--------|
+| **Full SDD** | Design decisions needed + multi-module or architectural | `rv-sdd` | proposal → specs → design → tasks (step by step) | 6 |
+| **Fast-Forward SDD** | Design decisions needed + single module, clear requirements | `rv-sdd` | proposal → specs → design → tasks (auto-generated via `/opsx:ff`) | 4 |
+| **Quick Path** | No design decisions — mechanical task with clear plan | `quick-path` | plan → tasks | 3 |
 
 ### Decision Guide
 
@@ -192,6 +190,41 @@ The key question is whether the change requires **design decisions** — choices
 **Anti-pattern warning**: Do not select FF SDD or Full SDD based on **file count alone**. A change that touches 45 files but is purely mechanical (remove dead module references, update MODULES arrays, clean documentation) is Quick Path — the plan document captures everything needed. Creating proposal/delta-spec/design/tasks artifacts for such a change wastes time and produces specs that describe removal rather than design. The number of files determines whether to use **subagent orchestration** (Section 5), not which **workflow track** to follow.
 
 When in doubt, start with Quick Path. You can escalate to a higher track if the change turns out to need design decisions.
+
+### Schema Architecture
+
+Each workflow track maps to an OpenSpec schema that defines which artifacts exist, their dependency graph, templates, and AI instructions. Schemas are project-local (version-controlled in `openspec/schemas/`) and override the built-in `spec-driven` schema from the OpenSpec package.
+
+```
+openspec/schemas/
+├── rv-sdd/                          # Full/FF SDD: proposal → specs → design → tasks
+│   ├── schema.yaml                  # Artifact definitions, dependencies, instructions
+│   └── templates/
+│       ├── proposal.md              # Proposal template (GitHub Issue ref, FR/NFR refs, impact)
+│       ├── spec.md                  # Delta spec template (Purpose, Data Contracts, Invariants, Requirements)
+│       ├── design.md                # Design template (Architecture, Mapping table, API Design, Error Handling)
+│       └── tasks.md                 # Task list template (numbered groups, checkboxes)
+└── quick-path/                      # Quick Path: plan → tasks
+    ├── schema.yaml                  # Two artifacts only, no spec ceremony
+    └── templates/
+        ├── plan.md                  # Plan template (Context, Scope, File Inventory, Acceptance Criteria)
+        └── tasks.md                 # Task list template (numbered groups, checkboxes, verification group)
+```
+
+**How schemas relate to `config.yaml`**: The project configuration (`openspec/config.yaml`) defines three layers of customization. The `context` field provides project-wide information (tech stack, principles, domains) injected into all artifacts regardless of schema. The `rules` field provides per-artifact constraints for artifacts not covered by schemas (e.g., ADRs). The `schema` field sets the default schema (`rv-sdd`). Artifact-specific rules for proposal, specs, design, and tasks are embedded in the schema instructions — not duplicated in `config.yaml`.
+
+**Schema precedence** (highest to lowest):
+1. CLI flag: `openspec new change "name" --schema quick-path`
+2. Change metadata: `.openspec.yaml` in the change directory
+3. Project config: `schema: rv-sdd` in `openspec/config.yaml`
+4. Package default: `spec-driven` (built-in, not used by RV-Android)
+
+**How it works in practice**:
+- Full/FF SDD changes use the default `rv-sdd` schema — no flag needed: `openspec new change "gh<N>-name"`
+- Quick Path changes specify the schema explicitly: `openspec new change "gh<N>-name" --schema quick-path`
+- Once created, the `.openspec.yaml` in the change directory records the schema, so subsequent commands (`openspec status`, `openspec instructions`, `openspec archive`) resolve it automatically
+
+**Customizing schemas**: Fork or edit the schema files directly. Validate with `openspec schema validate rv-sdd`. Templates use HTML comments (`<!-- ... -->`) as AI guidance. Instructions use YAML block scalars (`|`) with RV-Android conventions (P1-P4 principles, INV-XX-NN format, WHEN/THEN/AND scenarios, FR/NFR references). See `openspec/schemas/*/schema.yaml` for the full instruction text.
 
 ---
 
@@ -217,7 +250,7 @@ This principle is the reason why delta specs in Full SDD use multi-paragraph nar
 
 RV-Android evolves through **complete replacements**, never through backward-compatible adaptations. When code is dead, abandoned, or superseded, it is deleted entirely. No adapters, wrappers, shims, deprecation annotations, compatibility re-exports, commented-out blocks, or `# removed` comments are created.
 
-When implementing changes during Phase 4 (Implement):
+During the implementation phase (Phase 4 in Full SDD, Phase 3 in FF SDD/Quick Path):
 - Dead code identified in REMOVED sections of delta specs must be **deleted**, not deprecated or commented out
 - Old files must be backed up to `backup/` before replacement (safety net, not compatibility mechanism)
 - All imports and references must be updated — grep the codebase to confirm zero dangling references
@@ -418,17 +451,18 @@ flowchart LR
 
 | Aspect | Detail |
 |--------|--------|
-| **OpenSpec skill** | `/opsx:sync` + `/opsx:archive` |
+| **OpenSpec skill** | `/opsx:archive` (or `/opsx:sync` + `/opsx:archive --skip-specs` for manual review) |
 | **RV skills** | `/rv-docs-sync` |
 | **Outputs** | Updated main specs, archived change, synced documentation |
 | **Exit criteria** | Specs up to date, change archived, docs consistent |
 
 **What to do**:
-1. Run `/opsx:sync` to merge delta specs into main specs
-2. Run `/opsx:archive` to archive the completed change
-3. Run `/rv-docs-sync` if CLAUDE.md or other docs need updating
+1. Run `/opsx:archive` to sync delta specs to main specs AND archive the completed change in a single step
+2. Run `/rv-docs-sync` if CLAUDE.md or other docs need updating
 
-**Subagent orchestration** (see Section 5): When documentation updates touch 5+ files (specs, CLAUDE.md, README, skills), delegate the doc sync to a subagent. The main window handles `/opsx:sync` and `/opsx:archive` (lightweight), while the subagent handles the bulk file edits.
+**Alternative** (for manual review of the spec merge): Run `/opsx:sync` first to merge delta specs — review the result — then run `/opsx:archive --skip-specs` to archive without re-syncing. Use this when the delta-to-main merge is complex and you want to inspect the merged specs before archiving.
+
+**Subagent orchestration** (see Section 5): When documentation updates touch 5+ files (specs, CLAUDE.md, README, skills), delegate the doc sync to a subagent. The main window handles `/opsx:archive` (lightweight), while the subagent handles the bulk file edits.
 
 **Optional**: Run `/rv-retrospective` to capture process learnings from this change cycle. Particularly valuable for changes that required deviation from the planned approach or encountered unexpected blockers.
 
@@ -501,22 +535,28 @@ For changes that do not require design decisions — the task is clear, the plan
 
 **Important**: Quick Path is not limited to small changes. A 45-file dead module removal is Quick Path if the plan is clear and no design decisions are needed. File count determines whether to use **subagent orchestration** (Section 5), not which workflow track to follow.
 
+**Schema**: Quick Path uses the `quick-path` schema, which defines two artifacts: `plan` and `tasks`. This separates analysis (understanding the problem) from execution (doing the work), and gives OpenSpec a `tasks.md` to track progress — the same mechanism used by Full/FF SDD.
+
 ### Change Directory
 
-All Quick Path changes get a change directory in `openspec/changes/` with a single `plan.md` artifact. This provides traceability (linked to GitHub Issue) and a consistent archive location across all tracks.
+Quick Path changes get a change directory in `openspec/changes/` with two artifacts: `plan.md` (analysis) and `tasks.md` (execution). This provides traceability (linked to GitHub Issue), progress tracking via checkboxes, and a consistent archive location across all tracks.
 
 ```
 openspec/changes/gh<N>-short-name/
-└── plan.md          # Analysis + file inventory + acceptance criteria
+├── .openspec.yaml   # schema: quick-path
+├── plan.md          # Analysis: context, scope, file inventory, acceptance criteria
+└── tasks.md         # Execution: trackable checkboxes, grouped for subagent dispatch
 ```
 
-The `plan.md` is created during the Analyze phase. For trivial changes (typo fix, single-line edit), the plan can be a few lines. For larger mechanical changes, it includes a complete file inventory with line numbers (e.g., `docs/20260213_remover_modulos.md`).
+The `plan.md` is created during the Analyze phase. For trivial changes (typo fix, single-line edit), the plan can be a few lines. For larger mechanical changes, it includes a complete file inventory with line numbers (e.g., the 310-line plan from `gh2-remove-llm-modules`). The `tasks.md` is created during the Plan phase — it extracts execution items from the plan into trackable checkboxes. For trivial changes, tasks.md can be 2-3 checkboxes. For large changes, it organizes tasks into groups for subagent dispatch.
 
 **Cross-referencing**: The directory name includes the GitHub Issue number (`gh<N>`). The `plan.md` header includes `GitHub Issue: #N`. Commits use `refs #N` during work and `closes #N` in the final commit.
 
+**Creating the change**: Use `openspec new change "gh<N>-short-name" --schema quick-path` to create the directory with the `quick-path` schema. The `.openspec.yaml` will contain `schema: quick-path`, and `openspec status` / `openspec instructions` will understand the plan → tasks workflow.
+
 ```mermaid
 flowchart LR
-    A["1. Analyze\n(create plan.md)"] --> F["2. Fix"] --> V["3. Verify"]
+    A["1. Analyze\n(create plan.md)"] --> P["2. Plan\n(create tasks.md)"] --> F["3. Execute + Verify"]
 ```
 
 ### Phase Details
@@ -528,39 +568,59 @@ flowchart LR
 | Aspect | Detail |
 |--------|--------|
 | **Skills** | `/rv-analyze-module`, `/rv-analyze-file`, `/rv-debug-regression`, `/rv-analyze-dead-code`, or direct code reading |
-| **Outputs** | `plan.md` in `openspec/changes/` with scope, file inventory, and acceptance criteria |
+| **OpenSpec** | `openspec new change "gh<N>-name" --schema quick-path`, then `openspec instructions plan --change "gh<N>-name"` |
+| **Outputs** | `plan.md` in `openspec/changes/` with context, scope, file inventory, and acceptance criteria |
 | **Exit criteria** | Clear path to the fix, all affected files identified |
 
 **What to include in `plan.md`**:
+- Header: change name, date, track (Quick Path), priority, GitHub Issue link, affected domains
 - Context: why this change is needed
 - Scope: what modules/files are affected
 - File inventory: exact files and line numbers when possible
-- Acceptance criteria: how to verify the change is complete
-- For large changes: task groups for subagent dispatch (see Section 5)
+- Execution order: which groups depend on which, which can run in parallel
+- Acceptance criteria: how to verify the change is complete (verification steps, not execution tasks)
 
-#### Phase 2: Fix
+#### Phase 2: Plan
 
-**Goal**: Implement the change.
+**Goal**: Extract execution tasks from the plan into a trackable checklist.
 
 | Aspect | Detail |
 |--------|--------|
+| **OpenSpec** | `openspec instructions tasks --change "gh<N>-name"` |
+| **Outputs** | `tasks.md` with grouped, numbered checkboxes |
+| **Exit criteria** | Every file/action from the plan inventory is covered by a task |
+
+**What to include in `tasks.md`**:
+- Numbered groups matching plan sections (e.g., "1. Prerequisites", "2. Source Cleanup")
+- Each task as a checkbox: `- [ ] X.Y Task description`
+- Tasks ordered by dependency (prerequisite groups first)
+- For large changes (20+ files): groups annotated for subagent dispatch (e.g., "parallel — subagent")
+- A final "Verification" group with test and acceptance criteria checks
+
+For trivial changes (typo fix, single-file edit), tasks.md can be as short as:
+```
+## 1. Fix
+- [ ] 1.1 Fix the typo in README.md
+
+## 2. Verify
+- [ ] 2.1 Check formatting
+```
+
+#### Phase 3: Execute + Verify
+
+**Goal**: Implement the change and confirm it works.
+
+| Aspect | Detail |
+|--------|--------|
+| **OpenSpec** | `openspec instructions apply --change "gh<N>-name"` |
 | **Skills** | `/rv-tdd` (test-first), `/rv-refactor`, `/rv-cleanup`, or direct edit |
-| **Outputs** | Code changes, tests |
-| **Exit criteria** | Fix implemented |
+| **Verification** | `/rv-verify` or `/rv-test-run` |
+| **Outputs** | Code changes, tests passing, acceptance criteria met |
+| **Exit criteria** | All tasks checked off, all acceptance criteria from `plan.md` met |
 
-**Subagent orchestration** (see Section 5): When the plan has 3+ independent task groups or touches 20+ files, dispatch each group to a subagent. The main window reads the plan, dispatches, collects summaries, and runs final verification.
+**Subagent orchestration** (see Section 5): When tasks.md has 3+ independent groups or touches 20+ files, dispatch each group to a subagent. The main window reads the plan, dispatches, collects summaries, and runs final verification.
 
-#### Phase 3: Verify
-
-**Goal**: Confirm the fix works.
-
-| Aspect | Detail |
-|--------|--------|
-| **Skills** | `/rv-verify` or `/rv-test-run` |
-| **Outputs** | Tests passing, quality checks clean |
-| **Exit criteria** | All checks pass, acceptance criteria from `plan.md` met |
-
-After verification, archive the change by moving the change directory to `openspec/archive/` and closing the GitHub Issue.
+After verification, archive the change with `openspec archive "gh<N>-name" --skip-specs` (Quick Path changes have no delta specs to sync) and close the GitHub Issue.
 
 **Optional**: Run `/rv-retrospective` for changes that revealed workflow improvements or recurring patterns worth documenting.
 
@@ -676,11 +736,12 @@ These are architectural principles for the skill system itself. For the developm
 | `/rv-refactor-cleanup` | Remove dead code, clean imports |
 | `/rv-refactor-constants` | Extract magic values to constants |
 
-#### Execution Layer: Components — Documentation (5)
+#### Execution Layer: Components — Documentation (6)
 
 | Skill | Purpose |
 |-------|---------|
 | `/rv-doc-generate-claude-md` | Generate or update CLAUDE.md |
+| `/rv-doc-code` | Generate/audit code documentation (docstrings + inline comments) |
 | `/rv-docs-sync` | Sync documentation with code changes |
 | `/rv-doc-adr` | Record architectural decision |
 | `/rv-doc-architecture` | Generate architecture documentation |
@@ -709,26 +770,28 @@ These are architectural principles for the skill system itself. For the developm
 |-------|---------|
 | `rv-code-reviewer` | Automatic code review at the end of orchestrator workflows |
 
-**Total**: 10 OpenSpec + 4 orchestrators + 26 components + 1 agent = **41 skills + 1 agent**
+**Total**: 10 OpenSpec + 4 orchestrators + 27 components + 1 agent = **42 skills + 1 agent**
 
 ---
 
 ## 10. Quick Reference: Common Scenarios
 
-| Scenario | Track | Skill Sequence |
-|----------|-------|----------------|
-| New feature in rv-agent | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-tdd`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
-| Add config option to module | FF SDD | `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
-| Refactor module internals | Quick | `rv-analyze-module` -> `rv-refactor` -> `rv-verify` |
-| Fix a bug | Quick | `rv-debug-regression` or analysis -> `rv-tdd` -> `rv-verify` |
-| Add tests to existing code | Quick | `rv-test-add` -> `rv-test-run` |
-| Remove dead code / modules | Quick | `rv-analyze-dead-code` -> plan.md -> `rv-cleanup` (w/ subagents if 20+ files) -> `rv-verify` |
-| Architectural change | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `rv-doc-adr` -> `opsx:apply` -> `rv-verify` -> `opsx:archive` |
-| Add a new module | Full SDD | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-feature`) -> `rv-verify` -> `opsx:archive` |
-| Optimize performance | FF SDD | `rv-analyze-complexity` -> `opsx:ff` -> `opsx:apply` (w/ `rv-refactor`) -> `rv-verify` -> `opsx:archive` |
-| Fix lint issues | Quick | `rv-qa-lint` -> `rv-qa-lint-fix` -> `rv-test-run` |
-| Large mechanical cleanup (45 files) | Quick | plan.md -> subagent dispatch -> `rv-verify` |
-| Update docs across modules | Quick | plan.md -> subagent dispatch -> verify |
+Sequences below show the key skills for each scenario. All tracks start with change creation (`openspec new change` for rv-sdd, `openspec new change --schema quick-path` for Quick Path) and end with verification + archive. See Sections 6-8 for complete phase-by-phase detail.
+
+| Scenario | Track | Schema | Key Skills |
+|----------|-------|--------|------------|
+| New feature in rv-agent | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-tdd`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Add config option to module | FF SDD | `rv-sdd` | `rv-analyze-file` -> `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Refactor module internals | Quick | `quick-path` | `rv-analyze-module` -> plan.md -> tasks.md -> `rv-refactor` -> `rv-verify` -> `archive --skip-specs` |
+| Fix a bug | Quick | `quick-path` | `rv-debug-regression` -> plan.md -> tasks.md -> `rv-tdd` -> `rv-verify` -> `archive --skip-specs` |
+| Add tests to existing code | Quick | `quick-path` | plan.md -> tasks.md -> `rv-test-add` -> `rv-test-run` -> `archive --skip-specs` |
+| Remove dead code / modules | Quick | `quick-path` | `rv-analyze-dead-code` -> plan.md -> tasks.md -> `rv-cleanup` (w/ subagents if 20+ files) -> `rv-verify` -> `archive --skip-specs` |
+| Architectural change | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `rv-doc-adr` -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Add a new module | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-feature`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Optimize performance | FF SDD | `rv-sdd` | `rv-analyze-complexity` -> `opsx:ff` -> `opsx:apply` (w/ `rv-refactor`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Fix lint issues | Quick | `quick-path` | plan.md -> tasks.md -> `rv-qa-lint-fix` -> `rv-test-run` -> `archive --skip-specs` |
+| Large mechanical cleanup (45 files) | Quick | `quick-path` | plan.md -> tasks.md -> subagent dispatch -> `rv-verify` -> `archive --skip-specs` |
+| Update docs across modules | Quick | `quick-path` | plan.md -> tasks.md -> subagent dispatch -> `rv-verify` -> `archive --skip-specs` |
 
 ---
 
@@ -794,15 +857,25 @@ Single module, clear requirements: add `max_scroll_attempts` to RVAgentConfig.
 ### Example 3: Quick Path — Fix a bug in coverage tracking
 
 ```
-# Phase 1: Analyze
+# Create change with quick-path schema
+openspec new change "gh42-fix-coverage" --schema quick-path
+
+# Phase 1: Analyze (create plan.md)
 /rv-debug-regression test_coverage_tracking  # Investigate via git history
-# or: /rv-analyze-file modules/rv-coverage/src/rv_coverage/tracker.py
+# Write plan.md with context, file inventory, acceptance criteria
 
-# Phase 2: Fix
+# Phase 2: Plan (create tasks.md)
+# Extract execution items from plan into checkboxes:
+#   ## 1. Fix
+#   - [ ] 1.1 Fix the off-by-one in tracker.py:142
+#   - [ ] 1.2 Add regression test
+#   ## 2. Verify
+#   - [ ] 2.1 Run rv-coverage tests
+
+# Phase 3: Execute + Verify
 /rv-tdd                                # Write failing test first, then fix
-
-# Phase 3: Verify
 /rv-verify rv-coverage                 # Tests + lint + types
+openspec archive "gh42-fix-coverage" --skip-specs  # Archive (no delta specs)
 ```
 
 ---
@@ -833,7 +906,8 @@ The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal co
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `openspec new change "<name>"` | Create change directory with schema scaffold | `openspec new change "resume-docker"` |
+| `openspec new change "<name>"` | Create change directory with rv-sdd schema (default) | `openspec new change "gh20-scroll-detection"` |
+| `openspec new change "<name>" --schema quick-path` | Create change directory with quick-path schema | `openspec new change "gh42-fix-coverage" --schema quick-path` |
 | `openspec status --change "<name>"` | Show artifact completion status (done/ready/blocked) | `openspec status --change "resume-docker"` |
 | `openspec instructions <artifact> --change "<name>"` | Get template + context for creating an artifact | `openspec instructions specs --change "resume-docker"` |
 | `openspec instructions apply --change "<name>"` | Get task implementation instructions | `openspec instructions apply --change "resume-docker"` |
@@ -855,8 +929,10 @@ The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal co
 | Command | Description | Example |
 |---------|-------------|---------|
 | `openspec schemas` | List available workflow schemas | `openspec schemas` |
-| `openspec schema which "<name>"` | Show where a schema resolves from | `openspec schema which "spec-driven"` |
-| `openspec templates --schema "<name>"` | Show template paths for a schema | `openspec templates` |
+| `openspec schema which "<name>"` | Show where a schema resolves from | `openspec schema which "rv-sdd"` |
+| `openspec schema validate "<name>"` | Validate schema structure and templates | `openspec schema validate "quick-path"` |
+| `openspec schema fork <source> <name>` | Fork a schema for customization | `openspec schema fork rv-sdd my-workflow` |
+| `openspec templates --schema "<name>"` | Show template paths for a schema | `openspec templates --schema quick-path` |
 
 ### Setup and Maintenance
 
@@ -870,11 +946,20 @@ The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal co
 
 OpenSpec detects artifact completion by **file existence** — no explicit "mark complete" command is needed:
 
+**rv-sdd schema** (Full/FF SDD):
+
 | Artifact | Detected by |
 |----------|-------------|
 | `proposal` | `proposal.md` exists in change directory |
 | `specs` | `specs/` directory exists with at least one `.md` file |
 | `design` | `design.md` exists in change directory |
+| `tasks` | `tasks.md` exists in change directory |
+
+**quick-path schema** (Quick Path):
+
+| Artifact | Detected by |
+|----------|-------------|
+| `plan` | `plan.md` exists in change directory |
 | `tasks` | `tasks.md` exists in change directory |
 
 ### JSON Output
@@ -890,15 +975,26 @@ openspec validate --all --json
 
 ### Mapping: Skills to CLI Commands
 
+**Full/FF SDD** (schema: `rv-sdd`):
+
 | Skill | CLI Commands Used |
 |-------|-------------------|
-| `/opsx:new` | `openspec new change` → `openspec status` → `openspec instructions` |
+| `/opsx:new` | `openspec new change "<name>"` → `openspec status` → `openspec instructions` |
 | `/opsx:continue` | `openspec status` → `openspec instructions` → write file |
-| `/opsx:ff` | `openspec new change` → repeated `openspec instructions` → write all files |
+| `/opsx:ff` | `openspec new change "<name>"` → repeated `openspec instructions` → write all files |
 | `/opsx:apply` | `openspec instructions apply` → implement tasks |
 | `/opsx:verify` | `openspec validate` + codebase inspection |
-| `/opsx:sync` | Read delta specs → merge into `openspec/specs/` |
-| `/opsx:archive` | `openspec archive` (syncs + moves to `archive/`) |
+| `/opsx:sync` | Read delta specs → merge into `openspec/specs/` (manual review before archive) |
+| `/opsx:archive` | `openspec archive` (syncs specs + moves to `archive/`). Use `--skip-specs` after manual `/opsx:sync` or for Quick Path |
+
+**Quick Path** (schema: `quick-path`):
+
+| Phase | CLI Commands Used |
+|-------|-------------------|
+| Analyze | `openspec new change "<name>" --schema quick-path` → `openspec instructions plan` → write `plan.md` |
+| Plan | `openspec instructions tasks` → write `tasks.md` |
+| Execute | `openspec instructions apply` → implement tasks |
+| Archive | `openspec archive "<name>" --skip-specs` (no delta specs to sync) |
 
 ---
 
@@ -909,5 +1005,7 @@ openspec validate --all --json
 | `docs/20260209_plano_spec_driven.md` | SDD adoption plan (Phase 5 references this workflow) |
 | `docs/PRD.md` | Product Requirements Document |
 | `.claude/AGENTS.md` | Full skill and agent documentation |
-| `openspec/config.yaml` | OpenSpec configuration for RV-Android |
+| `openspec/config.yaml` | OpenSpec configuration (default schema, context, rules) |
+| `openspec/schemas/rv-sdd/schema.yaml` | Full/FF SDD schema (artifacts, dependencies, instructions, templates) |
+| `openspec/schemas/quick-path/schema.yaml` | Quick Path schema (plan + tasks, no spec ceremony) |
 | `CLAUDE.md` | Root project guide (condensed workflow section) |
