@@ -36,9 +36,10 @@ uv run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --
 from rv_tools import ToolFactory
 from rv_android_core.domain.task import ToolConfig
 
-# Get registry with rvagent registered
-from rv_experiment.tools import ExperimentToolRegistry
-registry = ExperimentToolRegistry.get_instance()
+# rvagent is auto-registered when rv-platform is imported
+import rv_platform  # noqa: F401 - triggers tool registration
+from rv_tools import ToolRegistry
+registry = ToolRegistry.get_instance()
 
 # Create tool configuration
 tool_config = ToolConfig(

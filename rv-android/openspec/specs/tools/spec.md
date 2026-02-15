@@ -10,11 +10,11 @@ RV-Android evaluates multiple Android test-generation tools (Monkey, DroidBot, A
 
 ### Design Decisions
 
-1. **Singleton Registry**: `ToolRegistry` uses a class-level singleton (`_instance`) to ensure a single source of truth for registered tools. All modules that need tools -- rv-platform's `ToolExecutionComponent`, rv-experiment's `ExperimentToolRegistry`, CLI's `list-tools` command -- access the same instance via `ToolRegistry.get_instance()`. The registry provides `reset_instance()` for test isolation.
+1. **Singleton Registry**: `ToolRegistry` uses a class-level singleton (`_instance`) to ensure a single source of truth for registered tools. All modules that need tools -- rv-platform's `ToolExecutionComponent`, rv-experiment's CLI, CLI's `list-tools` command -- access the same instance via `ToolRegistry.get_instance()`. The registry provides `reset_instance()` for test isolation.
 
 2. **Auto-Registration at Import**: When `rv_tools` is imported, `_register_builtin_tools()` iterates over `BUILTIN_TOOLS` (a list of 8 tool classes from `rv_tools.builtin`) and calls `registry.register_tool_class(tool_class)` for each. This means the 8 built-in tools are available immediately after `import rv_tools`. Registration failures are logged as warnings but do not block module import.
 
-3. **External Tool Registration via rv-experiment**: Tools that live outside rv-tools (rvagent in `rvagent-tool`) are registered by `ExperimentToolRegistry` in rv-experiment. This respects the module dependency hierarchy: rv-tools depends only on rv-android-core, while rvagent-tool depends on rv-agent + rv-tools. The `ExperimentToolRegistry` is a singleton that registers external tools on first initialization and is idempotent.
+3. **External Tool Registration via rv-platform**: Tools that live outside rv-tools (rvagent in `rvagent-tool`) are registered by `_register_external_tools()` in rv-platform's `__init__.py` when that module is imported. The function checks `is_tool_registered("rvagent")` before attempting registration to ensure idempotency. This respects the module dependency hierarchy: rv-tools depends only on rv-android-core, while rvagent-tool depends on rv-agent + rv-tools.
 
 4. **AbstractTool Contract**: All tools extend `AbstractTool` (defined in rv-android-core), which enforces a template method pattern: `execute()` calls `execute_tool_specific_logic()`, handles `RVCommandTimeoutError` (converting it to `RVToolTimeoutError` -- timeouts are expected behavior), performs process cleanup via `kill_related_processes()`, and delegates to `ErrorHandler` for other exceptions. This gives every tool consistent timeout handling and cleanup.
 
@@ -80,9 +80,12 @@ ToolRegistry.get_instance() <-- register_tool_class(tool_class)
      |                              |
      |                     register_variant() for each variant
      v
-ExperimentToolRegistry (rv-experiment)
-     |
-     +-- _register_rvagent_tool()   --> import RVAgentTool from rvagent_tool
+rv_platform.__init__ --> _register_external_tools()
+     |                          |
+     |                 is_tool_registered("rvagent")? --> skip if True
+     |                          |
+     |                 import RVAgentTool from rvagent_tool
+     |                 register_tool_class(RVAgentTool)
      v
 ToolFactory.create_tool(tool_config)
      |
@@ -122,7 +125,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 **Consumers:**
 - **rv-platform**: `ToolFactory.create_tool()` in `ToolExecutionComponent` to instantiate tools for task execution. Uses `ToolRegistry` for tool validation and discovery.
-- **rv-experiment**: `ExperimentToolRegistry` extends the registry with external tools. CLI parses tool specification DSL and generates `ToolConfig` objects.
+- **rv-experiment**: Uses `ToolRegistry.get_instance()` from rv-tools directly. CLI parses tool specification DSL and generates `ToolConfig` objects.
 - **rv-agent**: Uses `UIAutomator2Adapter` (via rv-uiautomator) for device interaction. `UIAutomatorActionExecutor` executes generated actions. `RVAgentTool` (in rvagent-tool module) wraps rv-agent as an `AbstractTool`.
 
 **Dependencies:**
@@ -188,7 +191,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **INV-TOOL-11**: `StateConverter.uiautomator_to_droidbot()` MUST map `xml` to both `view_tree` and `hierarchy`, `current_activity` to `activity`, and `current_package` to `package_name`. The converted state MUST include `_conversion_metadata` with source and target format identifiers.
 
-- **INV-TOOL-12**: The `ExperimentToolRegistry` MUST be idempotent. Calling `register_external_tools()` multiple times MUST NOT produce duplicate registrations. The `_external_tools_registered` flag MUST prevent re-registration.
+- **INV-TOOL-12**: External tool registration in rv-platform MUST be idempotent. The `_register_external_tools()` function MUST check `is_tool_registered("rvagent")` before calling `register_tool_class()`. Multiple imports of `rv_platform` MUST NOT produce duplicate registrations.
 
 - **INV-TOOL-13**: Variant configuration returned by `get_variant_config()` MUST be a copy of the stored configuration, not a reference. Modifications to the returned dictionary MUST NOT affect the registry's internal state.
 
@@ -202,7 +205,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 The tool infrastructure MUST provide a centralized registry and factory system that enables dynamic tool registration, discovery, and instantiation. The registry follows a singleton pattern to ensure a single source of truth. Tools self-register at module import time, making them immediately available for experiment configuration and execution.
 
-The registration flow has two phases: (1) built-in tools are registered automatically when the `rv_tools` package is imported -- `_register_builtin_tools()` iterates over the `BUILTIN_TOOLS` list and calls `registry.register_tool_class()` for each; (2) external tools (rvagent, rvandroid, rvdroid) are registered by `ExperimentToolRegistry` in rv-experiment when that module initializes.
+The registration flow has two phases: (1) built-in tools are registered automatically when the `rv_tools` package is imported -- `_register_builtin_tools()` iterates over the `BUILTIN_TOOLS` list and calls `registry.register_tool_class()` for each; (2) external tools (rvagent) are registered by `_register_external_tools()` in rv-platform's `__init__.py` when that module is imported. The function checks `is_tool_registered("rvagent")` before attempting registration to ensure idempotency.
 
 `register_tool_class()` performs complete registration in a single call: it invokes `get_tool_spec()` to obtain the `ToolSpec`, registers the class and spec, then calls `get_variants()` and registers each variant individually. This means a tool author only needs to implement `get_tool_spec()` and `get_variants()` for their tool to be fully registered.
 
@@ -215,12 +218,13 @@ The `ToolFactory` creates configured instances by: (1) resolving the tool class 
 - **AND** each tool MUST have at least a `"default"` variant registered
 - **AND** `registry.get_tool_names()` MUST return a list of length >= 8
 
-#### Scenario: External tool registration via ExperimentToolRegistry
+#### Scenario: External tool registration via rv-platform import
 
-- **WHEN** `ExperimentToolRegistry.get_instance()` is called for the first time
-- **THEN** `register_external_tools()` MUST be called automatically
+- **WHEN** a Python module executes `import rv_platform`
+- **THEN** `_register_external_tools()` in `rv_platform/__init__.py` MUST be called automatically
 - **AND** if the `rvagent_tool` package is importable, the `"rvagent"` tool MUST be registered with variants `default`, `multimode`, `pure_algorithm`, `llm_only`, `thorough`
 - **AND** if the `rvagent_tool` package is not importable, the failure MUST be logged as a warning
+- **AND** if `is_tool_registered("rvagent")` returns `True`, the registration MUST be skipped (idempotency)
 
 #### Scenario: Factory creates configured tool from ToolConfig
 
@@ -271,7 +275,7 @@ The 8 built-in tools and their invocation mechanisms are:
 | Humanoid | `builtin/humanoid/` | DroidBot + Humanoid inference | `humanoid` |
 | QTesting | `builtin/qtesting/` | Docker-based | `qtesting` |
 
-The LLM-driven tool (`rvagent`) lives in a separate module (`rvagent-tool`) and is registered via `ExperimentToolRegistry`, not as a built-in. Its `RVAgentTool` wraps `rv-agent`'s `AgentFactory` and `RVAgent`, mapping platform `Task`/`App` objects to `RVAgentConfig`.
+The LLM-driven tool (`rvagent`) lives in a separate module (`rvagent-tool`) and is registered via rv-platform's `_register_external_tools()` on import, not as a built-in. Its `RVAgentTool` wraps `rv-agent`'s `AgentFactory` and `RVAgent`, mapping platform `Task`/`App` objects to `RVAgentConfig`.
 
 ARES and QTesting are Docker-based tools that execute via `docker run` commands built by `_build_ares_command()` and `_build_qtesting_command()` respectively. Unlike other tools (Monkey, DroidBot, APE) that run via ADB shell commands or local scripts, these tools spawn a separate Docker container for each execution.
 

@@ -38,7 +38,7 @@ class RVAgentTool(AbstractTool):
     - Supports static analysis data from platform context
 
     ### Integration Points:
-    - Registered via rv-experiment ExperimentToolRegistry
+    - Registered via rv-platform on import
     - Uses rv-android-core error handling and logging
     - Connects with rv-agent for LLM-driven testing
     - Receives static_data from platform StaticAnalysisComponent

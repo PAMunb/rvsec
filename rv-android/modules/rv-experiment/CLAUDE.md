@@ -11,7 +11,6 @@ This file provides guidance for working with the rv-experiment module.
 - **CLI Interface**: Primary entry point for experiment execution (`rv-experiment` command)
 - **Experiment Orchestration**: Three-phase workflow (pre-processing, execution, post-processing)
 - **Configuration Management**: Type-safe experiment configuration with Pydantic validation
-- **Tool Registration**: External tool registration for rvagent tool
 - **Module Coordination**: Delegates execution to rv-platform while managing pre/post processing
 
 ### Architectural Principles
@@ -36,10 +35,8 @@ modules/rv-experiment/
 │   │       ├── execution_controller.py # rv-platform coordination
 │   │       ├── post_processor.py       # Basic diagnostics only
 │   │       └── result_manager.py       # Instrumentation error tracking
-│   ├── factories/
-│   │   └── configuration_factory.py    # Factory pattern for configurations
-│   └── tools/
-│       └── experiment_tools.py         # External tool registration (rvagent)
+│   └── factories/
+│       └── configuration_factory.py    # Factory pattern for configurations
 └── tests/
     ├── experiment/
     │   └── test_experiment_controller.py
@@ -196,23 +193,17 @@ DEFAULT_REPETITIONS = 1
 DEFAULT_SPEC_SET = "jca"
 ```
 
-## External Tool Registration
+## Tool Registration
 
-rv-experiment registers external tools that depend on rv-tools:
+External tools (e.g., rvagent) are registered by rv-platform on import. rv-experiment uses the standard `ToolRegistry` from rv-tools to access all available tools:
 
 ```python
-from rv_experiment.tools import ExperimentToolRegistry
+from rv_tools import ToolRegistry
 
-# Get singleton instance (auto-registers external tools)
-registry = ExperimentToolRegistry.get_instance()
-
-# Access registered tools
+registry = ToolRegistry.get_instance()
 tools = registry.get_all_tools()
 variants = registry.get_tool_variants("rvagent")
 ```
-
-Registered external tools:
-- `rvagent` - LLM-driven Android testing tool (via rv-agent)
 
 ## Integration with rv-platform
 
@@ -258,16 +249,8 @@ uv run pytest --cov=src --cov-report=html
 
 ### Adding a New Tool
 1. Create tool class in appropriate module (e.g., rvagent-tool)
-2. Register in `experiment_tools.py`:
-```python
-def _register_new_tool(self) -> None:
-    try:
-        from new_tool.tools.tool import NewTool
-        self.registry.register_tool_class(NewTool)
-        self.logger.info("Successfully registered new_tool")
-    except ImportError as e:
-        self.logger.warning(f"new_tool not available: {e}")
-```
+2. Add the module dependency to `rv-platform/pyproject.toml`
+3. Register in `rv-platform/src/rv_platform/__init__.py` via `_register_external_tools()`
 
 ### Creating Custom Configuration
 ```python

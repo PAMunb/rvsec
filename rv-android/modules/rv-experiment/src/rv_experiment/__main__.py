@@ -53,7 +53,7 @@ from rv_experiment.constants import (
     DEFAULT_SPEC_SET, RESULTS_DIR
 )
 from rv_experiment.experiment.experiment_controller import execute_with_config
-from rv_experiment.tools.experiment_tools import ExperimentToolRegistry
+from rv_tools import ToolRegistry
 from rv_platform.config.platform_config import ToolConfig
 
 
@@ -93,11 +93,11 @@ class CLIContext:
         
         # CLI state management
         self.debug = False
-        
-        # Initialize tool registry for specification parsing
-        self.tool_registry = ExperimentToolRegistry.get_instance()
-        self._register_available_tools()
-        
+
+        # Tool registry is populated by rv-platform on import (external tools)
+        # and rv-tools on import (builtin tools)
+        self.tool_registry = ToolRegistry.get_instance()
+
         self.logger.info("CLI context initialized successfully")
     
     @ErrorHandler.handle_errors(
@@ -135,35 +135,6 @@ class CLIContext:
         
         self.debug = debug
         self.logger.info("CLI logging configured successfully")
-    
-    def _register_available_tools(self):
-        """
-        Register available tools for experiment execution.
-        
-        ### Tool Registration Strategy:
-        - Auto-registers builtin tools available through rv-tools
-        - Manual registration for specialized tools when needed
-        - Provides clear documentation for missing tool dependencies
-        - Validates tool availability during registration
-        
-        ### Current Tool Support:
-        - Builtin tools: monkey, droidbot, ape, fastbot (auto-registered via rv-tools)
-        - External tools: rvagent (LLM-driven agentic testing via rvagent-tool)
-        """
-        try:
-            # Builtin tools are auto-registered through rv-tools import
-            # This includes: monkey, droidbot, ape, fastbot, etc.
-            
-            #RVAndroid tool registration
-            self.tool_registry.register_external_tools()
-            
-            # Log successful tool registration
-            registered_tools = self.tool_registry.get_all_tools()
-            tool_names = [tool.name for tool in registered_tools]
-            self.logger.info(f"Registered {len(tool_names)} tools: {', '.join(tool_names)}")
-            
-        except Exception as e:
-            self.logger.warning(f"Tool registration encountered issues: {e}")
     
     def parse_tool_specification(self, tool_spec: str) -> Dict[str, Any]:
         """

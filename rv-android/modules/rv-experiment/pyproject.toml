@@ -17,7 +17,6 @@ dependencies = [
     "rv-screen-parser",
     "rv-coverage",
     "rv-tools",
-    "rvagent-tool",
 ]
 
 [project.scripts]
@@ -38,7 +37,6 @@ rv-static-analysis = { workspace = true }
 rv-screen-parser = { workspace = true }
 rv-coverage = { workspace = true }
 rv-tools = { workspace = true }
-rvagent-tool = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"

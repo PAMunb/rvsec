@@ -2763,7 +2763,6 @@ dependencies = [
     { name = "rv-screen-parser" },
     { name = "rv-static-analysis" },
     { name = "rv-tools" },
-    { name = "rvagent-tool" },
 ]
 
 [package.dev-dependencies]
@@ -2784,7 +2783,6 @@ requires-dist = [
     { name = "rv-screen-parser", editable = "modules/rv-screen-parser" },
     { name = "rv-static-analysis", editable = "modules/rv-static-analysis" },
     { name = "rv-tools", editable = "modules/rv-tools" },
-    { name = "rvagent-tool", editable = "modules/rvagent-tool" },
 ]
 
 [package.metadata.requires-dev]
@@ -2858,6 +2856,7 @@ dependencies = [
     { name = "rv-coverage" },
     { name = "rv-static-analysis" },
     { name = "rv-tools" },
+    { name = "rvagent-tool" },
 ]
 
 [package.dev-dependencies]
@@ -2875,6 +2874,7 @@ requires-dist = [
     { name = "rv-coverage", editable = "modules/rv-coverage" },
     { name = "rv-static-analysis", editable = "modules/rv-static-analysis" },
     { name = "rv-tools", editable = "modules/rv-tools" },
+    { name = "rvagent-tool", editable = "modules/rvagent-tool" },
 ]
 
 [package.metadata.requires-dev]

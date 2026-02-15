@@ -47,7 +47,7 @@ rv-platform is the central execution engine for Android testing experiments in t
 
 ```
 src/rv_platform/
-    __init__.py
+    __init__.py              # External tool registration (rvagent)
     __main__.py              # CLI entry point with subcommands
     platform.py              # Main Platform class
     config/
@@ -99,6 +99,7 @@ src/rv_platform/
 - **rv-tools**: ToolFactory, ToolRegistry for tool creation and discovery
 - **rv-coverage**: CoverageTracker, logcat_parser for coverage analysis
 - **rv-static-analysis**: static_analysis_parser for loading GATOR/GESDA/REACH data
+- **rvagent-tool**: RVAgentTool for LLM-driven testing (registered on import)
 
 ### External
 

@@ -295,10 +295,8 @@ modules/rv-experiment/
 │   │       ├── execution_controller.py # rv-platform coordination
 │   │       ├── post_processor.py       # Diagnostics
 │   │       └── result_manager.py       # Error tracking
-│   ├── factories/
-│   │   └── configuration_factory.py    # Config creation
-│   └── tools/
-│       └── experiment_tools.py         # External tool registration
+│   └── factories/
+│       └── configuration_factory.py    # Config creation
 └── tests/
 ```
 

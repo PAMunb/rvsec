@@ -10,6 +10,7 @@ dependencies = [
     "rv-tools",
     "rv-coverage",
     "rv-static-analysis",
+    "rvagent-tool",
     "pydantic>=2.9.0",
     "pandas>=2.3.1",
 ]
@@ -29,6 +30,7 @@ rv-android-core = { workspace = true }
 rv-tools = { workspace = true }
 rv-coverage = { workspace = true }
 rv-static-analysis = { workspace = true }
+rvagent-tool = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rv_platform"]

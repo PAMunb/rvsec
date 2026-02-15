@@ -266,19 +266,9 @@ class ExperimentConfig(BaseValidatedModel):
             logger.warning("rv-tools not available - skipping tool variant validation")
             return
         
-        # Get tool registry instance with external tools registered
-        try:
-            from rv_experiment.tools import ExperimentToolRegistry
-            experiment_registry = ExperimentToolRegistry.get_instance()
-            experiment_registry.register_external_tools()
-            tool_registry = experiment_registry.registry
-        except Exception as e:
-            # If registry is not initialized, skip validation
-            logging_manager = LoggingManager.get_instance()
-            logger = logging_manager.get_logger("rv_experiment.config", {CONTEXT_COMPONENT: "ExperimentConfig"})
-            logger.warning(f"Tool registry not available - skipping validation: {e}")
-            return
-        
+        # External tools are registered by rv-platform on import
+        tool_registry = ToolRegistry.get_instance()
+
         for tool_config in self.tool_configs:
             tool_name = tool_config.name
             

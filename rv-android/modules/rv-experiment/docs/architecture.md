@@ -193,12 +193,9 @@ modules/rv-experiment/
 │       │       ├── post_processor.py       # Phase 3: Post-processing
 │       │       ├── result_manager.py       # Instrumentation error tracking
 │       │       └── workflow_factory.py     # Workflow component factory
-│       ├── factories/
-│       │   ├── __init__.py
-│       │   └── configuration_factory.py    # Configuration factory
-│       └── tools/
+│       └── factories/
 │           ├── __init__.py
-│           └── experiment_tools.py         # External tool registration
+│           └── configuration_factory.py    # Configuration factory
 ├── tests/
 │   └── experiment/
 │       └── test_experiment_controller.py
@@ -228,10 +225,6 @@ flowchart TB
     subgraph Configuration["Configuration"]
         Config["config.py"]
         Constants["constants.py"]
-    end
-
-    subgraph Tools["Tool Integration"]
-        ExpTools["experiment_tools.py"]
     end
 
     MainCLI --> ExpCtrl
@@ -671,7 +664,7 @@ The entrypoint also supports interactive mode: passing `bash` or `shell` as the 
 
 ## Extension Points
 
-- **New Tools**: Register via ExperimentToolRegistry in `experiment_tools.py`
+- **New Tools**: Register via `_register_external_tools()` in `rv-platform/__init__.py`
 - **New Pre-processing Phases**: Add methods to PreProcessor with configuration flags
 - **Configuration Templates**: Add factory methods to ConfigurationFactory
 ## Dependencies

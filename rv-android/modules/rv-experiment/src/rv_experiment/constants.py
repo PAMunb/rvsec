@@ -60,14 +60,6 @@ SPEC_SET_GENERIC = "generic"
 SPEC_SET_CUSTOM = "custom"
 DEFAULT_SPEC_SET = SPEC_SET_JCA
 
-# External tool names for registration
-EXTERNAL_TOOL_RVAGENT = "rvagent"
-
-# Tool registration messages
-TOOL_REGISTRATION_SUCCESS = "Successfully registered {} tool in tools registry"
-TOOL_REGISTRATION_FAILED = "Failed to register {} tool: {}"
-TOOL_REGISTRATION_IMPORT_ERROR = "{} tool not available: {}"
-
 def get_absolute_path(relative_path: str) -> str:
     """
     Convert relative path to absolute path from working directory.
