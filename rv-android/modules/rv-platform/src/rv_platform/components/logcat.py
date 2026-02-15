@@ -10,11 +10,11 @@ from typing import Dict, Any
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.android.logcat_manager import LogcatManager
 from rv_android_core.util.logging.constants import (
-    CONTEXT_TASK_ID, 
-    CONTEXT_APP_NAME, 
+    CONTEXT_TASK_ID,
+    CONTEXT_APP_NAME,
     LOG_START,
-    LOG_COMPLETE, 
-    LOG_ERROR
+    LOG_COMPLETE,
+    LOG_ERROR,
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -42,28 +42,29 @@ class LogcatComponent:
         self.name = "LogcatComponent"
         self.task = task
         self.error_handler = ErrorHandler.get_instance()
-        
+
         # Get device_serial from task configuration for parallel execution
-        device_serial = getattr(task.config, 'device_id', 'emulator-5554')
-        if hasattr(task.config, 'tool_config') and hasattr(task.config.tool_config, 'additional_params'):
-            device_serial = task.config.tool_config.additional_params.get('device_serial', device_serial)
-        
+        device_serial = getattr(task.config, "device_id", "emulator-5554")
+        if hasattr(task.config, "tool_config") and hasattr(
+            task.config.tool_config, "parameters"
+        ):
+            device_serial = task.config.tool_config.parameters.get(
+                "device_serial", device_serial
+            )
+
         self.logcat_manager = LogcatManager(device_serial=device_serial)
 
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.components.logcat',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name
-            }
+            "rv_platform.components.logcat",
+            {CONTEXT_TASK_ID: task.id, CONTEXT_APP_NAME: task.config.apk_name},
         )
 
     def initialize(self, context: Dict[str, Any]) -> None:
         """
         Initialize the logcat component.
-        
+
         Args:
             context: Task execution context
         """
@@ -73,10 +74,10 @@ class LogcatComponent:
         """
         Execute logcat setup for the task.
         This method is called during preparation phase, not during emulator session.
-        
+
         Args:
             context: Task execution context
-            
+
         Returns:
             True if logcat component is ready
         """
@@ -88,7 +89,7 @@ class LogcatComponent:
     def cleanup(self, context: Dict[str, Any]) -> None:
         """
         Clean up logcat resources.
-        
+
         Args:
             context: Task execution context
         """
@@ -106,37 +107,40 @@ class LogcatComponent:
             Success status
         """
         with self.logger.with_context(
-                output_file=self.task.result.logcat_file,
-                clear_buffer=self.task.config.clean_logcat,
-                phase="start_capture"
+            output_file=self.task.result.logcat_file,
+            clear_buffer=self.task.config.clean_logcat,
+            phase="start_capture",
         ):
             try:
-                self.logger.info(LOG_START.format(
-                    phase=f"logcat capture to {self.task.result.logcat_file}"
-                ))
+                self.logger.info(
+                    LOG_START.format(
+                        phase=f"logcat capture to {self.task.result.logcat_file}"
+                    )
+                )
 
                 result = self.logcat_manager.start_capture(
                     self.task.result.logcat_file,
-                    clear_buffer=self.task.config.clean_logcat
+                    clear_buffer=self.task.config.clean_logcat,
                 )
 
                 if result:
-                    self.logger.info(LOG_COMPLETE.format(
-                        phase=f"starting logcat capture to {self.task.result.logcat_file}"
-                    ))
+                    self.logger.info(
+                        LOG_COMPLETE.format(
+                            phase=f"starting logcat capture to {self.task.result.logcat_file}"
+                        )
+                    )
                 else:
                     self.logger.warning("Failed to start logcat capture")
 
                 return result
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="starting logcat capture",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase="starting logcat capture", error=str(e))
+                )
                 self.error_handler.handle_error(
                     AnalysisError("Failed to start logcat capture", e),
-                    {"task_id": self.task.id}
+                    {"task_id": self.task.id},
                 )
                 return False
 
@@ -153,15 +157,16 @@ class LogcatComponent:
                 result = self.logcat_manager.stop_capture()
 
                 if result:
-                    self.logger.info(LOG_COMPLETE.format(phase="stopping logcat capture"))
+                    self.logger.info(
+                        LOG_COMPLETE.format(phase="stopping logcat capture")
+                    )
                 else:
                     self.logger.warning("Issues stopping logcat capture")
 
                 return result
 
             except Exception as e:
-                self.logger.warning(LOG_ERROR.format(
-                    phase="stopping logcat capture",
-                    error=str(e)
-                ))
+                self.logger.warning(
+                    LOG_ERROR.format(phase="stopping logcat capture", error=str(e))
+                )
                 return False

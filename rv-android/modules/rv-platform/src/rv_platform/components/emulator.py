@@ -12,12 +12,12 @@ from rv_android_core.domain.app import App
 from rv_android_core.util.android.emulator_manager import EmulatorManager
 from rv_android_core.util.error.exceptions import EmulatorError
 from rv_android_core.util.logging.constants import (
-    CONTEXT_TASK_ID, 
-    CONTEXT_APP_NAME, 
-    LOG_START, 
+    CONTEXT_TASK_ID,
+    CONTEXT_APP_NAME,
+    LOG_START,
     LOG_ERROR,
-    LOG_SKIPPED, 
-    LOG_COMPLETE
+    LOG_SKIPPED,
+    LOG_COMPLETE,
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
@@ -50,17 +50,14 @@ class EmulatorComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.components.emulator',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name
-            }
+            "rv_platform.components.emulator",
+            {CONTEXT_TASK_ID: task.id, CONTEXT_APP_NAME: task.config.apk_name},
         )
 
     def initialize(self, context: Dict[str, Any]) -> None:
         """
         Initialize the emulator component.
-        
+
         Args:
             context: Task execution context
         """
@@ -70,10 +67,10 @@ class EmulatorComponent:
         """
         Execute emulator setup for the task.
         This method is called during preparation phase, not during emulator session.
-        
+
         Args:
             context: Task execution context
-            
+
         Returns:
             True if emulator component is ready
         """
@@ -85,7 +82,7 @@ class EmulatorComponent:
     def cleanup(self, context: Dict[str, Any]) -> None:
         """
         Clean up emulator resources.
-        
+
         Args:
             context: Task execution context
         """
@@ -106,14 +103,22 @@ class EmulatorComponent:
         # Each parallel task gets unique emulator port (5554, 5556, 5558, etc.)
         # Set by ParallelManager during task distribution to prevent port conflicts
         device_port = 5554  # default fallback port
-        if (hasattr(self.task.config, 'tool_config') and 
-            hasattr(self.task.config.tool_config, 'additional_params') and 
-            self.task.config.tool_config.additional_params):
-            device_port = self.task.config.tool_config.additional_params.get('device_port', 5554)
-            
-        with self.logger.with_context(avd_name=avd_name, device_port=device_port, phase="start_emulator"):
+        if (
+            hasattr(self.task.config, "tool_config")
+            and hasattr(self.task.config.tool_config, "parameters")
+            and self.task.config.tool_config.parameters
+        ):
+            device_port = self.task.config.tool_config.parameters.get(
+                "device_port", 5554
+            )
+
+        with self.logger.with_context(
+            avd_name=avd_name, device_port=device_port, phase="start_emulator"
+        ):
             try:
-                self.logger.info(LOG_START.format(phase=f"emulator {avd_name} (port {device_port})"))
+                self.logger.info(
+                    LOG_START.format(phase=f"emulator {avd_name} (port {device_port})")
+                )
 
                 # Start emulator with dynamic port for true parallel execution
                 # EmulatorManager creates isolated emulator instance on specified port
@@ -121,21 +126,24 @@ class EmulatorComponent:
                 emulator_context = self.emulator_manager.start_emulator(
                     avd_name,
                     self.task.config.no_window,
-                    device_port  # Unique port for this parallel task
+                    device_port,  # Unique port for this parallel task
                 )
 
-                self.logger.info(f"Emulator started for task {self.task.id} device={self.task.config.device_id}")
+                self.logger.info(
+                    f"Emulator started for task {self.task.id} device={self.task.config.device_id}"
+                )
 
                 return emulator_context
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"starting emulator {avd_name}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(
+                        phase=f"starting emulator {avd_name}", error=str(e)
+                    )
+                )
                 self.error_handler.handle_error(
                     EmulatorError(f"Failed to start emulator {avd_name}", e),
-                    {"task_id": self.task.id}
+                    {"task_id": self.task.id},
                 )
                 raise
 
@@ -152,37 +160,52 @@ class EmulatorComponent:
         """
         with self.logger.with_context(phase="install_app"):
             if self.task.config.skip_installation:
-                self.logger.info(LOG_SKIPPED.format(
-                    phase="app installation",
-                    reason="skipped as requested in configuration"
-                ))
+                self.logger.info(
+                    LOG_SKIPPED.format(
+                        phase="app installation",
+                        reason="skipped as requested in configuration",
+                    )
+                )
                 return True
 
             try:
-                # Get device_serial from additional_params for installation
+                # Get device_serial from parameters for installation
                 device_serial = "emulator-5554"  # default
-                if (hasattr(self.task.config, 'tool_config') and 
-                    hasattr(self.task.config.tool_config, 'additional_params') and 
-                    self.task.config.tool_config.additional_params):
-                    device_serial = self.task.config.tool_config.additional_params.get('device_serial', device_serial)
-                
-                self.logger.info(LOG_START.format(phase=f"installing app {app.name} on {device_serial}"))
-                if not self.emulator_manager.install_app(app, device_serial=device_serial):
-                    raise EmulatorError(f"Failed to install app {app.name} on {device_serial}")
-                self.logger.info(LOG_COMPLETE.format(phase=f"installing app {app.name}"))
+                if (
+                    hasattr(self.task.config, "tool_config")
+                    and hasattr(self.task.config.tool_config, "parameters")
+                    and self.task.config.tool_config.parameters
+                ):
+                    device_serial = self.task.config.tool_config.parameters.get(
+                        "device_serial", device_serial
+                    )
+
+                self.logger.info(
+                    LOG_START.format(
+                        phase=f"installing app {app.name} on {device_serial}"
+                    )
+                )
+                if not self.emulator_manager.install_app(
+                    app, device_serial=device_serial
+                ):
+                    raise EmulatorError(
+                        f"Failed to install app {app.name} on {device_serial}"
+                    )
+                self.logger.info(
+                    LOG_COMPLETE.format(phase=f"installing app {app.name}")
+                )
 
                 self.logger.info(f"App installed for task {self.task.id}")
 
                 return True
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"installing app {app.name}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase=f"installing app {app.name}", error=str(e))
+                )
                 self.error_handler.handle_error(
                     EmulatorError(f"Failed to install app {app.name}", e),
-                    {"task_id": self.task.id, "app_name": app.name}
+                    {"task_id": self.task.id, "app_name": app.name},
                 )
                 return False
 
@@ -198,12 +221,13 @@ class EmulatorComponent:
                 self.logger.debug(LOG_START.format(phase="cleaning logcat buffer"))
                 result = self.emulator_manager.clear_logcat()
                 if result:
-                    self.logger.debug(LOG_COMPLETE.format(phase="cleaning logcat buffer"))
+                    self.logger.debug(
+                        LOG_COMPLETE.format(phase="cleaning logcat buffer")
+                    )
                 return result
             except Exception as e:
-                self.logger.warning(LOG_ERROR.format(
-                    phase="clearing logcat",
-                    error=str(e)
-                ))
+                self.logger.warning(
+                    LOG_ERROR.format(phase="clearing logcat", error=str(e))
+                )
                 # Non-critical error, just log and continue
                 return False

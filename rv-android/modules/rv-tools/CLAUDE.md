@@ -115,8 +115,7 @@ rv-tools/
 **`src/rv_tools/registry/factory.py`** - Tool factory
 - `ToolFactory.create_tool(tool_config)` - Create tool from ToolConfig
 - Resolves variants from registry
-- Merges variant config with additional params
-- Special handling for RVAndroid typed configuration
+- Merges variant config with tool parameters
 
 ### Tool Implementation Pattern
 
@@ -221,9 +220,9 @@ from rv_tools import ToolFactory
 from rv_android_core.domain.task import ToolConfig
 
 tool_config = ToolConfig(
-    tool_name="droidbot",
+    name="droidbot",
     variant="dfs_greedy",
-    additional_params={"count": 2000}
+    parameters={"count": 2000}
 )
 
 factory = ToolFactory()

@@ -17,33 +17,38 @@ import pytest
 
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import (
-    Task, TaskConfiguration, TaskFactory, TaskState,
-    ToolConfig as TaskToolConfig,
+    Task,
+    TaskConfiguration,
+    TaskFactory,
+    TaskState,
+    ToolConfig,
 )
 from rv_platform.components.result_processor import ResultProcessorComponent
-from rv_platform.config.platform_config import PlatformConfig, ToolConfig
+from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform
 from rv_platform.storage.task_storage import ExperimentMetadata, TaskStorage
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_task_config(apk="test.apk", tool="monkey", variant="default",
-                      rep=1, timeout=60):
+
+def _make_task_config(
+    apk="test.apk", tool="monkey", variant="default", rep=1, timeout=60
+):
     """Create a TaskConfiguration with the given identity fields."""
-    tool_config = TaskToolConfig(
-        tool_name=tool, variant=variant, additional_params={}
-    )
+    tool_config = ToolConfig(name=tool, variant=variant, parameters={})
     return TaskConfiguration(
-        apk_name=apk, repetition=rep, timeout=timeout,
+        apk_name=apk,
+        repetition=rep,
+        timeout=timeout,
         tool_config=tool_config,
     )
 
 
-def _make_completed_task(apk="test.apk", tool="monkey", variant="default",
-                         rep=1, timeout=60):
+def _make_completed_task(
+    apk="test.apk", tool="monkey", variant="default", rep=1, timeout=60
+):
     """Create a Task in COMPLETED state with coverage_metrics populated."""
     config = _make_task_config(apk, tool, variant, rep, timeout)
     task = Task(config)
@@ -65,8 +70,9 @@ def _make_completed_task(apk="test.apk", tool="monkey", variant="default",
     return task
 
 
-def _make_error_task(apk="test.apk", tool="monkey", variant="default",
-                     rep=1, timeout=60):
+def _make_error_task(
+    apk="test.apk", tool="monkey", variant="default", rep=1, timeout=60
+):
     """Create a Task in ERROR state."""
     config = _make_task_config(apk, tool, variant, rep, timeout)
     task = Task(config)
@@ -83,6 +89,7 @@ def _make_error_task(apk="test.apk", tool="monkey", variant="default",
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def apks_dir(tmp_path):
@@ -105,7 +112,7 @@ def platform_config(apks_dir, results_dir):
     """Create a minimal PlatformConfig for testing."""
     return PlatformConfig(
         apks_dir=apks_dir,
-        tools=[ToolConfig(name="monkey", variants=[], parameters={})],
+        tools=[ToolConfig(name="monkey")],
         repetitions=5,
         timeouts=[60],
         results_dir=results_dir,
@@ -117,7 +124,7 @@ def platform_config(apks_dir, results_dir):
 @pytest.fixture
 def platform(platform_config):
     """Create a Platform instance with mocked external dependencies."""
-    with patch.object(Platform, '_discover_apks') as mock_discover:
+    with patch.object(Platform, "_discover_apks") as mock_discover:
         # Return a fake APK path so _generate_tasks works
         mock_discover.return_value = []
         p = Platform(platform_config)
@@ -127,6 +134,7 @@ def platform(platform_config):
 # ---------------------------------------------------------------------------
 # U1: _skip_completed_tasks filters by identity
 # ---------------------------------------------------------------------------
+
 
 class TestSkipCompletedTasks:
 
@@ -145,7 +153,9 @@ class TestSkipCompletedTasks:
             _make_completed_task(rep=2),
         ]
         platform.task_storage.get_completed_tasks = MagicMock(return_value=completed)
-        platform.task_storage.check_continuation_compatibility = MagicMock(return_value=True)
+        platform.task_storage.check_continuation_compatibility = MagicMock(
+            return_value=True
+        )
 
         platform._skip_completed_tasks()
 
@@ -168,13 +178,16 @@ class TestSkipCompletedTasks:
             _make_completed_task(rep=3),
         ]
         platform.task_storage.get_completed_tasks = MagicMock(return_value=completed)
-        platform.task_storage.check_continuation_compatibility = MagicMock(return_value=True)
+        platform.task_storage.check_continuation_compatibility = MagicMock(
+            return_value=True
+        )
 
         platform._skip_completed_tasks()
 
         # _skipped_count should exist and be 3
-        assert hasattr(platform, '_skipped_count'), \
-            "Platform must have _skipped_count attribute after _skip_completed_tasks()"
+        assert hasattr(
+            platform, "_skipped_count"
+        ), "Platform must have _skipped_count attribute after _skip_completed_tasks()"
         assert platform._skipped_count == 3
 
     def test_skip_completed_tasks_does_not_skip_error_tasks(self, platform):
@@ -204,9 +217,11 @@ class TestSkipCompletedTasks:
 
         completed = [_make_completed_task(rep=1)]
         platform.task_storage.get_completed_tasks = MagicMock(return_value=completed)
-        platform.task_storage.check_continuation_compatibility = MagicMock(return_value=False)
+        platform.task_storage.check_continuation_compatibility = MagicMock(
+            return_value=False
+        )
 
-        with patch.object(platform.logger, 'warning') as mock_warn:
+        with patch.object(platform.logger, "warning") as mock_warn:
             platform._skip_completed_tasks()
 
         # Task was still skipped despite mismatch
@@ -228,9 +243,11 @@ class TestSkipCompletedTasks:
 
         completed = [_make_completed_task(rep=1)]
         platform.task_storage.get_completed_tasks = MagicMock(return_value=completed)
-        platform.task_storage.check_continuation_compatibility = MagicMock(return_value=True)
+        platform.task_storage.check_continuation_compatibility = MagicMock(
+            return_value=True
+        )
 
-        with patch.object(platform.logger, 'warning') as mock_warn:
+        with patch.object(platform.logger, "warning") as mock_warn:
             platform._skip_completed_tasks()
 
         # No config mismatch warning (resume info log is fine, but not a warning)
@@ -242,6 +259,7 @@ class TestSkipCompletedTasks:
 # ---------------------------------------------------------------------------
 # U6: ExperimentMetadata creation
 # ---------------------------------------------------------------------------
+
 
 class TestMetadataCreation:
 
@@ -271,6 +289,7 @@ class TestMetadataCreation:
 # U7-U9: Result consolidation (EXPECTED TO FAIL before fix)
 # ---------------------------------------------------------------------------
 
+
 class TestResultConsolidation:
 
     def test_process_results_uses_all_completed_tasks(self, platform):
@@ -289,9 +308,11 @@ class TestResultConsolidation:
             session_task,
             _make_completed_task(rep=3),
         ]
-        platform.task_storage.get_completed_tasks = MagicMock(return_value=all_completed)
+        platform.task_storage.get_completed_tasks = MagicMock(
+            return_value=all_completed
+        )
 
-        with patch('rv_platform.platform.ResultProcessorComponent') as MockProcessor:
+        with patch("rv_platform.platform.ResultProcessorComponent") as MockProcessor:
             mock_instance = MagicMock()
             MockProcessor.return_value = mock_instance
 
@@ -300,8 +321,9 @@ class TestResultConsolidation:
             # ResultProcessorComponent should receive ALL 3 completed tasks
             MockProcessor.assert_called_once()
             tasks_passed = MockProcessor.call_args[0][0]
-            assert len(tasks_passed) == 3, \
-                f"Expected 3 tasks passed to ResultProcessorComponent, got {len(tasks_passed)}"
+            assert (
+                len(tasks_passed) == 3
+            ), f"Expected 3 tasks passed to ResultProcessorComponent, got {len(tasks_passed)}"
 
     def test_generate_summary_includes_skipped_count(self, platform):
         """U8: _generate_summary() includes skipped_tasks in the summary dict.
@@ -309,15 +331,24 @@ class TestResultConsolidation:
         EXPECTED TO FAIL before the result consolidation fix (task 7.4).
         """
         results = [
-            {"task_id": "1", "success": True, "execution_time": 60, "error_message": None},
-            {"task_id": "2", "success": True, "execution_time": 55, "error_message": None},
+            {
+                "task_id": "1",
+                "success": True,
+                "execution_time": 60,
+                "error_message": None,
+            },
+            {
+                "task_id": "2",
+                "success": True,
+                "execution_time": 55,
+                "error_message": None,
+            },
         ]
 
         # After fix, _generate_summary accepts skipped_count parameter
         summary = platform._generate_summary(results, skipped_count=3)
 
-        assert "skipped_tasks" in summary, \
-            "Summary must include 'skipped_tasks' field"
+        assert "skipped_tasks" in summary, "Summary must include 'skipped_tasks' field"
         assert summary["skipped_tasks"] == 3
 
     def test_generate_summary_total_includes_skipped(self, platform):
@@ -326,7 +357,12 @@ class TestResultConsolidation:
         EXPECTED TO FAIL before the result consolidation fix (task 7.4).
         """
         results = [
-            {"task_id": "1", "success": True, "execution_time": 60, "error_message": None},
+            {
+                "task_id": "1",
+                "success": True,
+                "execution_time": 60,
+                "error_message": None,
+            },
         ]
 
         summary = platform._generate_summary(results, skipped_count=2)
@@ -340,6 +376,7 @@ class TestResultConsolidation:
 # ---------------------------------------------------------------------------
 # U10: No resume scenario
 # ---------------------------------------------------------------------------
+
 
 class TestNoResume:
 
@@ -360,7 +397,7 @@ class TestNoResume:
         assert len(platform.tasks) == 3
 
         # skipped_count should be 0 (or not set, depending on implementation)
-        skipped = getattr(platform, '_skipped_count', 0)
+        skipped = getattr(platform, "_skipped_count", 0)
         assert skipped == 0
 
 
@@ -384,8 +421,9 @@ SAMPLE_LOGCAT_NO_RVSEC = """\
 """
 
 
-def _make_loaded_task_with_logcat(logcat_path, apk="test.apk", tool="monkey",
-                                   variant="default", rep=1, timeout=60):
+def _make_loaded_task_with_logcat(
+    logcat_path, apk="test.apk", tool="monkey", variant="default", rep=1, timeout=60
+):
     """Create a task that simulates being loaded from tasks.json on resume.
 
     Key characteristics:
@@ -424,6 +462,7 @@ def _make_loaded_task_with_logcat(logcat_path, apk="test.apk", tool="monkey",
 # U15-U17: MOP violation reconstruction from logcat
 # ---------------------------------------------------------------------------
 
+
 class TestLogcatReconstruction:
 
     def test_result_processor_reconstructs_violations_from_logcat(self, tmp_path):
@@ -451,12 +490,13 @@ class TestLogcatReconstruction:
         errors_file = os.path.join(results_dir, "errors.csv")
         assert os.path.exists(errors_file), "errors.csv must be generated"
 
-        with open(errors_file, 'r') as f:
+        with open(errors_file, "r") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-        assert len(rows) >= 2, \
-            f"errors.csv must have at least 2 MOP violation rows (from RVSEC entries), got {len(rows)}"
+        assert (
+            len(rows) >= 2
+        ), f"errors.csv must have at least 2 MOP violation rows (from RVSEC entries), got {len(rows)}"
 
         # Verify the violations have expected fields
         first_row = rows[0]
@@ -480,28 +520,33 @@ class TestLogcatReconstruction:
         os.makedirs(results_dir, exist_ok=True)
         processor = ResultProcessorComponent([task], results_dir)
 
-        with patch.object(processor.logger, 'warning') as mock_warn:
+        with patch.object(processor.logger, "warning") as mock_warn:
             processor.execute({})
 
         # Read errors.csv — should have header only (no data rows)
         errors_file = os.path.join(results_dir, "errors.csv")
         assert os.path.exists(errors_file), "errors.csv must be generated"
 
-        with open(errors_file, 'r') as f:
+        with open(errors_file, "r") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-        assert len(rows) == 0, \
-            f"errors.csv must have no rows for task with missing logcat, got {len(rows)}"
+        assert (
+            len(rows) == 0
+        ), f"errors.csv must have no rows for task with missing logcat, got {len(rows)}"
 
         # Verify warning was logged about missing logcat
         warning_messages = [c[0][0] for c in mock_warn.call_args_list]
-        logcat_warning = any("logcat" in msg.lower() or "No logcat" in msg
-                            for msg in warning_messages)
-        assert logcat_warning, \
-            f"Warning about missing logcat must be logged. Warnings: {warning_messages}"
+        logcat_warning = any(
+            "logcat" in msg.lower() or "No logcat" in msg for msg in warning_messages
+        )
+        assert (
+            logcat_warning
+        ), f"Warning about missing logcat must be logged. Warnings: {warning_messages}"
 
-    def test_result_processor_json_includes_violation_details_from_logcat(self, tmp_path):
+    def test_result_processor_json_includes_violation_details_from_logcat(
+        self, tmp_path
+    ):
         """U17: results.json contains MOP violation details reconstructed
         from logcat when task.repository is None.
 
@@ -522,20 +567,25 @@ class TestLogcatReconstruction:
         results_file = os.path.join(results_dir, "results.json")
         assert os.path.exists(results_file), "results.json must be generated"
 
-        with open(results_file, 'r') as f:
+        with open(results_file, "r") as f:
             results_data = json.load(f)
 
         # Navigate the hierarchical structure to find the task data
-        assert "test.apk" in results_data, \
-            f"results.json must have test.apk entry. Keys: {list(results_data.keys())}"
+        assert (
+            "test.apk" in results_data
+        ), f"results.json must have test.apk entry. Keys: {list(results_data.keys())}"
 
-        tool_data = (results_data["test.apk"]["repetitions"]["1"]
-                     ["timeouts"]["60"]["tools"]["monkey"])
+        tool_data = results_data["test.apk"]["repetitions"]["1"]["timeouts"]["60"][
+            "tools"
+        ]["monkey"]
 
         mop_errors = tool_data["monitored_operations_errors"]
-        assert mop_errors["total"] >= 2, \
-            f"monitored_operations_errors.total must be >= 2, got {mop_errors['total']}"
-        assert len(mop_errors["messages"]) >= 2, \
-            f"monitored_operations_errors.messages must have >= 2 entries"
-        assert len(mop_errors["details"]) >= 2, \
-            f"monitored_operations_errors.details must have >= 2 entries"
+        assert (
+            mop_errors["total"] >= 2
+        ), f"monitored_operations_errors.total must be >= 2, got {mop_errors['total']}"
+        assert (
+            len(mop_errors["messages"]) >= 2
+        ), f"monitored_operations_errors.messages must have >= 2 entries"
+        assert (
+            len(mop_errors["details"]) >= 2
+        ), f"monitored_operations_errors.details must have >= 2 entries"

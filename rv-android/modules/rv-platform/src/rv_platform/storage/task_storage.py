@@ -28,33 +28,40 @@ from rv_platform.interfaces.task_interfaces import ITaskStorage
 class ExperimentMetadata(BaseValidatedModel):
     """
     Minimal experiment metadata for storage and continuation support.
-    
+
     ### Architectural Decisions:
     - Stores only essential runtime data to avoid duplication with ExperimentConfig
     - Uses config_checksum to detect configuration changes for continuation validation
     - Maintains minimal footprint for performance and storage efficiency
     - Provides experiment lifecycle tracking without config redundancy
-    
+
     ### Role in the System:
     - Tracks experiment execution status and lifecycle
     - Enables experiment continuation detection and validation
     - Provides runtime statistics without duplicating configuration data
     - Supports experiment recovery and status reporting
     """
+
     experiment_id: str = Field(description="Unique experiment identifier")
     start_time: datetime = Field(description="Experiment start timestamp")
-    config_checksum: str = Field(description="SHA-256 checksum of experiment configuration")
-    current_status: str = Field(default="running", description="Current experiment status")
+    config_checksum: str = Field(
+        description="SHA-256 checksum of experiment configuration"
+    )
+    current_status: str = Field(
+        default="running", description="Current experiment status"
+    )
 
     @classmethod
-    def create_from_config(cls, experiment_id: str, config_dict: Dict) -> 'ExperimentMetadata':
+    def create_from_config(
+        cls, experiment_id: str, config_dict: Dict
+    ) -> "ExperimentMetadata":
         """
         Create metadata from experiment configuration.
-        
+
         Args:
             experiment_id: Unique experiment identifier
             config_dict: Experiment configuration dictionary
-            
+
         Returns:
             ExperimentMetadata instance
         """
@@ -66,29 +73,36 @@ class ExperimentMetadata(BaseValidatedModel):
             experiment_id=experiment_id,
             start_time=datetime.now(),
             config_checksum=config_checksum,
-            current_status="running"
+            current_status="running",
         )
 
 
 class StorageConfig(BaseValidatedModel):
     """
     Configuration for task storage behavior and metadata management.
-    
+
     ### Architectural Decisions:
     - Separates storage behavior configuration from experiment configuration
     - Provides fine-grained control over storage features and performance
     - Enables storage optimization strategies for different experiment types
     - Maintains backwards compatibility through sensible defaults
-    
+
     ### Role in the System:
     - Controls storage feature enablement and behavior
     - Provides storage performance tuning capabilities
     - Enables experiment-specific storage optimization
     - Supports different storage strategies for various use cases
     """
-    enable_metadata: bool = Field(default=True, description="Enable experiment metadata storage")
-    enable_statistics: bool = Field(default=True, description="Enable statistics calculation")
-    auto_save: bool = Field(default=True, description="Automatically save after task updates")
+
+    enable_metadata: bool = Field(
+        default=True, description="Enable experiment metadata storage"
+    )
+    enable_statistics: bool = Field(
+        default=True, description="Enable statistics calculation"
+    )
+    auto_save: bool = Field(
+        default=True, description="Automatically save after task updates"
+    )
     compression: bool = Field(default=False, description="Enable storage compression")
     backup_count: int = Field(default=3, description="Number of backup files to keep")
 
@@ -96,40 +110,49 @@ class StorageConfig(BaseValidatedModel):
 class ExperimentStatistics(BaseValidatedModel):
     """
     Runtime experiment statistics calculated from task data.
-    
+
     ### Architectural Decisions:
     - Calculates statistics from task data rather than storing redundant information
     - Provides comprehensive experiment progress and performance metrics
     - Updates dynamically based on current task states
     - Optimized for frequent recalculation without performance impact
-    
+
     ### Role in the System:
     - Provides real-time experiment progress information
     - Enables experiment monitoring and reporting
     - Supports experiment continuation decision making
     - Facilitates experiment performance analysis
     """
+
     total_tasks: int = Field(default=0, description="Total number of tasks")
     completed_tasks: int = Field(default=0, description="Number of completed tasks")
     failed_tasks: int = Field(default=0, description="Number of failed tasks")
     pending_tasks: int = Field(default=0, description="Number of pending tasks")
-    completion_percentage: float = Field(default=0.0, description="Completion percentage")
-    average_execution_time: float = Field(default=0.0, description="Average task execution time in seconds")
-    total_execution_time: float = Field(default=0.0, description="Total execution time in seconds")
-    last_updated: datetime = Field(default_factory=datetime.now, description="Last statistics update timestamp")
+    completion_percentage: float = Field(
+        default=0.0, description="Completion percentage"
+    )
+    average_execution_time: float = Field(
+        default=0.0, description="Average task execution time in seconds"
+    )
+    total_execution_time: float = Field(
+        default=0.0, description="Total execution time in seconds"
+    )
+    last_updated: datetime = Field(
+        default_factory=datetime.now, description="Last statistics update timestamp"
+    )
 
 
 class TaskStorage(ITaskStorage):
     """
     Manages task persistence with atomic operations, transaction support, and experiment metadata.
-    
+
     ### Architectural Decisions:
     - Implements atomic file operations to prevent data corruption
     - Uses a thread-safe design for concurrent access
     - Provides transaction support for multi-step operations
     - Includes minimal experiment metadata for continuation support
     - Enables flexible task querying and filtering with enhanced statistics
-    
+
     ### Role in the System:
     - Persists task information to disk with experiment metadata
     - Retrieves task information from storage with continuation support
@@ -138,9 +161,13 @@ class TaskStorage(ITaskStorage):
     - Provides experiment continuation and recovery capabilities
     """
 
-    def __init__(self, storage_file: str, task_factory: Optional[TaskFactory] = None,
-                 storage_config: Optional[StorageConfig] = None,
-                 experiment_metadata: Optional[ExperimentMetadata] = None):
+    def __init__(
+        self,
+        storage_file: str,
+        task_factory: Optional[TaskFactory] = None,
+        storage_config: Optional[StorageConfig] = None,
+        experiment_metadata: Optional[ExperimentMetadata] = None,
+    ):
         """
         Initialize storage with file path and enhanced metadata support.
 
@@ -158,8 +185,7 @@ class TaskStorage(ITaskStorage):
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.storage.task_storage',
-            {CONTEXT_COMPONENT: 'TaskStorage'}
+            "rv_platform.storage.task_storage", {CONTEXT_COMPONENT: "TaskStorage"}
         )
 
         # Task storage
@@ -186,13 +212,15 @@ class TaskStorage(ITaskStorage):
         """
         with self.lock:
             if not os.path.exists(self.storage_file):
-                self.logger.info(f"Storage file {self.storage_file} does not exist, starting with empty storage")
+                self.logger.info(
+                    f"Storage file {self.storage_file} does not exist, starting with empty storage"
+                )
                 self.loaded = True
                 return True
 
             try:
                 self.logger.info(f"Loading tasks from {self.storage_file}")
-                with open(self.storage_file, 'r') as f:
+                with open(self.storage_file, "r") as f:
                     data = json.load(f)
 
                     # Process tasks
@@ -205,7 +233,9 @@ class TaskStorage(ITaskStorage):
                     if self.storage_config.enable_metadata and "experiment" in data:
                         experiment_data = data["experiment"]
                         self.experiment_metadata = ExperimentMetadata(**experiment_data)
-                        self.logger.info(f"Loaded experiment metadata for {self.experiment_metadata.experiment_id}")
+                        self.logger.info(
+                            f"Loaded experiment metadata for {self.experiment_metadata.experiment_id}"
+                        )
 
                     # Log statistics if available
                     if "statistics" in data:
@@ -226,7 +256,7 @@ class TaskStorage(ITaskStorage):
                 error_context = {
                     "component": "TaskStorage",
                     "operation": "load_tasks",
-                    "storage_file": self.storage_file
+                    "storage_file": self.storage_file,
                 }
                 error_handler.handle_error(e, error_context)
                 return False
@@ -250,14 +280,16 @@ class TaskStorage(ITaskStorage):
                 data = {
                     "version": 3,  # Version 3 includes experiment metadata
                     "timestamp": datetime.now().isoformat(),
-                    "tasks": [task.to_dict() for task in self.tasks.values()]
+                    "tasks": [task.to_dict() for task in self.tasks.values()],
                 }
 
                 # Add experiment metadata if enabled and available
                 if self.storage_config.enable_metadata and self.experiment_metadata:
                     # Serialize datetime objects to ISO format for JSON compatibility
                     metadata_dict = self.experiment_metadata.model_dump()
-                    metadata_dict["start_time"] = self.experiment_metadata.start_time.isoformat()
+                    metadata_dict["start_time"] = (
+                        self.experiment_metadata.start_time.isoformat()
+                    )
                     data["experiment"] = metadata_dict
 
                 # Add statistics if enabled
@@ -272,7 +304,7 @@ class TaskStorage(ITaskStorage):
                 temp_file = f"{self.storage_file}.tmp"
 
                 # Write to the temporary file first
-                with open(temp_file, 'w') as f:
+                with open(temp_file, "w") as f:
                     json.dump(data, f, indent=2)
 
                     # Ensure data is written to disk
@@ -282,7 +314,9 @@ class TaskStorage(ITaskStorage):
                 # Atomic rename to avoid partial writes
                 shutil.move(temp_file, self.storage_file)
 
-                self.logger.info(f"Saved {len(self.tasks)} tasks to {self.storage_file}")
+                self.logger.info(
+                    f"Saved {len(self.tasks)} tasks to {self.storage_file}"
+                )
                 return True
 
             except Exception as e:
@@ -292,7 +326,7 @@ class TaskStorage(ITaskStorage):
                     "component": "TaskStorage",
                     "operation": "save_tasks",
                     "storage_file": self.storage_file,
-                    "task_count": len(self.tasks)
+                    "task_count": len(self.tasks),
                 }
                 error_handler.handle_error(e, error_context)
 
@@ -301,19 +335,24 @@ class TaskStorage(ITaskStorage):
                     try:
                         os.remove(temp_file)
                     except Exception as cleanup_error:
-                        self.logger.warning(f"Failed to remove temporary file: {cleanup_error}")
-                        error_handler.handle_error(cleanup_error, {
-                            "component": "TaskStorage",
-                            "operation": "cleanup_temp_file",
-                            "temp_file": temp_file
-                        })
+                        self.logger.warning(
+                            f"Failed to remove temporary file: {cleanup_error}"
+                        )
+                        error_handler.handle_error(
+                            cleanup_error,
+                            {
+                                "component": "TaskStorage",
+                                "operation": "cleanup_temp_file",
+                                "temp_file": temp_file,
+                            },
+                        )
 
                 return False
 
     def add_task(self, task: Task) -> None:
         """
         Add a task to storage.
-        
+
         If a transaction is in progress, the task is added to the transaction
         buffer instead of being immediately stored.
 
@@ -332,7 +371,7 @@ class TaskStorage(ITaskStorage):
     def update_task(self, task: Task) -> None:
         """
         Update a task in storage and save changes if auto_save is enabled.
-        
+
         If a transaction is in progress, the task is updated in the transaction
         buffer instead of being immediately stored.
 
@@ -353,7 +392,7 @@ class TaskStorage(ITaskStorage):
     def get_task(self, task_id: str) -> Optional[Task]:
         """
         Get a task by ID.
-        
+
         If a transaction is in progress and the task has been modified in the
         transaction, the transactional version is returned.
 
@@ -373,7 +412,7 @@ class TaskStorage(ITaskStorage):
     def get_tasks(self) -> List[Task]:
         """
         Get all tasks.
-        
+
         If a transaction is in progress, the returned list includes all tasks
         with any modifications from the transaction buffer.
 
@@ -392,7 +431,7 @@ class TaskStorage(ITaskStorage):
     def get_tasks_by_state(self, state: TaskState) -> List[Task]:
         """
         Get tasks with specified state.
-        
+
         If a transaction is in progress, the returned list includes all tasks
         with any modifications from the transaction buffer.
 
@@ -407,7 +446,7 @@ class TaskStorage(ITaskStorage):
     def get_completed_tasks(self) -> List[Task]:
         """
         Get tasks that are completed.
-        
+
         If a transaction is in progress, the returned list includes all tasks
         with any modifications from the transaction buffer.
 
@@ -419,20 +458,29 @@ class TaskStorage(ITaskStorage):
     def get_pending_tasks(self) -> List[Task]:
         """
         Get tasks that are not yet completed, failed, or canceled.
-        
+
         If a transaction is in progress, the returned list includes all tasks
         with any modifications from the transaction buffer.
 
         Returns:
             List of pending tasks
         """
-        excluded_states = [TaskState.COMPLETED, TaskState.ERROR, TaskState.CANCELED, TaskState.ARCHIVED]
-        return [task for task in self.get_tasks() if task.result.state not in excluded_states]
+        excluded_states = [
+            TaskState.COMPLETED,
+            TaskState.ERROR,
+            TaskState.CANCELED,
+            TaskState.ARCHIVED,
+        ]
+        return [
+            task
+            for task in self.get_tasks()
+            if task.result.state not in excluded_states
+        ]
 
     def begin_transaction(self) -> None:
         """
         Begin a transaction for batching task updates.
-        
+
         Transactions allow multiple task updates to be performed as a single
         atomic operation, ensuring consistency in the task storage.
         """
@@ -448,7 +496,7 @@ class TaskStorage(ITaskStorage):
     def commit_transaction(self) -> bool:
         """
         Commit the current transaction, applying all changes.
-        
+
         Returns:
             True if commit succeeded, False otherwise
         """
@@ -468,7 +516,9 @@ class TaskStorage(ITaskStorage):
                 self.in_transaction = False
                 self.transaction_tasks = {}
 
-                self.logger.debug(f"Transaction committed with {len(self.transaction_tasks)} changes")
+                self.logger.debug(
+                    f"Transaction committed with {len(self.transaction_tasks)} changes"
+                )
                 return result
 
             except Exception as e:
@@ -477,7 +527,7 @@ class TaskStorage(ITaskStorage):
                 error_context = {
                     "component": "TaskStorage",
                     "operation": "commit_transaction",
-                    "transaction_task_count": len(self.transaction_tasks)
+                    "transaction_task_count": len(self.transaction_tasks),
                 }
                 error_handler.handle_error(e, error_context)
                 return False
@@ -501,13 +551,13 @@ class TaskStorage(ITaskStorage):
     def delete_task(self, task_id: str) -> bool:
         """
         Delete a task from storage.
-        
+
         If a transaction is in progress, the task is marked for deletion in the
         transaction buffer instead of being immediately removed.
 
         Args:
             task_id: ID of task to delete
-            
+
         Returns:
             True if task was deleted, False if not found
         """
@@ -516,7 +566,9 @@ class TaskStorage(ITaskStorage):
                 if task_id in self.tasks or task_id in self.transaction_tasks:
                     # Use None as a marker for deletion
                     self.transaction_tasks[task_id] = None  # type: ignore
-                    self.logger.debug(f"Marked task {task_id} for deletion in transaction")
+                    self.logger.debug(
+                        f"Marked task {task_id} for deletion in transaction"
+                    )
                     return True
                 return False
 
@@ -530,7 +582,7 @@ class TaskStorage(ITaskStorage):
     def clear(self) -> bool:
         """
         Clear all tasks from storage.
-        
+
         Returns:
             True if clear succeeded, False otherwise
         """
@@ -547,10 +599,10 @@ class TaskStorage(ITaskStorage):
     def get_tasks_by_apk(self, apk_name: str) -> List[Task]:
         """
         Get tasks for a specific APK.
-        
+
         Args:
             apk_name: APK name to filter by
-            
+
         Returns:
             List of matching tasks
         """
@@ -559,19 +611,23 @@ class TaskStorage(ITaskStorage):
     def get_tasks_by_tool(self, tool_name: str) -> List[Task]:
         """
         Get tasks for a specific tool.
-        
+
         Args:
             tool_name: Tool name to filter by
-            
+
         Returns:
             List of matching tasks
         """
-        return [task for task in self.get_tasks() if task.config.tool_config.tool_name == tool_name]
+        return [
+            task
+            for task in self.get_tasks()
+            if task.config.tool_config.name == tool_name
+        ]
 
     def count_tasks_by_state(self) -> Dict[str, int]:
         """
         Count tasks by state.
-        
+
         Returns:
             Dictionary mapping state names to counts
         """
@@ -583,10 +639,10 @@ class TaskStorage(ITaskStorage):
     def bulk_update(self, tasks: List[Task]) -> bool:
         """
         Update multiple tasks in a single transaction.
-        
+
         Args:
             tasks: List of tasks to update
-            
+
         Returns:
             True if all updates succeeded, False otherwise
         """
@@ -605,7 +661,7 @@ class TaskStorage(ITaskStorage):
                 error_context = {
                     "component": "TaskStorage",
                     "operation": "bulk_update",
-                    "task_count": len(tasks)
+                    "task_count": len(tasks),
                 }
                 error_handler.handle_error(e, error_context)
                 self.rollback_transaction()
@@ -615,7 +671,7 @@ class TaskStorage(ITaskStorage):
     def _calculate_statistics(self) -> ExperimentStatistics:
         """
         Calculate experiment statistics from current task data.
-        
+
         Returns:
             ExperimentStatistics with current metrics
         """
@@ -626,13 +682,23 @@ class TaskStorage(ITaskStorage):
             return ExperimentStatistics()
 
         # Count tasks by state
-        completed_tasks = len([t for t in tasks if t.result.state == TaskState.COMPLETED])
+        completed_tasks = len(
+            [t for t in tasks if t.result.state == TaskState.COMPLETED]
+        )
         failed_tasks = len([t for t in tasks if t.result.state == TaskState.ERROR])
         pending_tasks = len(
-            [t for t in tasks if t.result.state not in [TaskState.COMPLETED, TaskState.ERROR, TaskState.CANCELED]])
+            [
+                t
+                for t in tasks
+                if t.result.state
+                not in [TaskState.COMPLETED, TaskState.ERROR, TaskState.CANCELED]
+            ]
+        )
 
         # Calculate percentages
-        completion_percentage = (completed_tasks / total_tasks) * 100.0 if total_tasks > 0 else 0.0
+        completion_percentage = (
+            (completed_tasks / total_tasks) * 100.0 if total_tasks > 0 else 0.0
+        )
 
         # Calculate execution times
         execution_times = [
@@ -642,7 +708,9 @@ class TaskStorage(ITaskStorage):
         ]
 
         total_execution_time = sum(execution_times)
-        average_execution_time = total_execution_time / len(execution_times) if execution_times else 0.0
+        average_execution_time = (
+            total_execution_time / len(execution_times) if execution_times else 0.0
+        )
 
         return ExperimentStatistics(
             total_tasks=total_tasks,
@@ -652,13 +720,13 @@ class TaskStorage(ITaskStorage):
             completion_percentage=completion_percentage,
             average_execution_time=average_execution_time,
             total_execution_time=total_execution_time,
-            last_updated=datetime.now()
+            last_updated=datetime.now(),
         )
 
     def get_statistics(self) -> ExperimentStatistics:
         """
         Get current experiment statistics with caching.
-        
+
         Returns:
             ExperimentStatistics with current metrics
         """
@@ -666,8 +734,11 @@ class TaskStorage(ITaskStorage):
             now = datetime.now()
 
             # Use cache if recent (within 10 seconds)
-            if (self._statistics_cache and self._statistics_cache_time and
-                    (now - self._statistics_cache_time).total_seconds() < 10):
+            if (
+                self._statistics_cache
+                and self._statistics_cache_time
+                and (now - self._statistics_cache_time).total_seconds() < 10
+            ):
                 return self._statistics_cache
 
             # Calculate fresh statistics
@@ -679,7 +750,7 @@ class TaskStorage(ITaskStorage):
     def set_experiment_metadata(self, metadata: ExperimentMetadata) -> None:
         """
         Set experiment metadata for the storage.
-        
+
         Args:
             metadata: ExperimentMetadata to set
         """
@@ -690,7 +761,7 @@ class TaskStorage(ITaskStorage):
     def get_experiment_metadata(self) -> Optional[ExperimentMetadata]:
         """
         Get current experiment metadata.
-        
+
         Returns:
             ExperimentMetadata if available, None otherwise
         """
@@ -699,7 +770,7 @@ class TaskStorage(ITaskStorage):
     def update_experiment_status(self, status: str) -> None:
         """
         Update experiment status in metadata.
-        
+
         Args:
             status: New experiment status
         """
@@ -713,10 +784,10 @@ class TaskStorage(ITaskStorage):
     def check_continuation_compatibility(self, config_dict: Dict) -> bool:
         """
         Check if experiment can be continued with given configuration.
-        
+
         Args:
             config_dict: New experiment configuration
-            
+
         Returns:
             True if continuation is compatible, False otherwise
         """

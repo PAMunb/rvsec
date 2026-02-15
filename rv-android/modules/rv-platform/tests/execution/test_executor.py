@@ -19,19 +19,12 @@ class TestTaskExecutor:
     @pytest.fixture
     def basic_config(self):
         """Fixture providing a basic task configuration"""
-        from rv_android_core.domain.task import ToolConfig as TaskToolConfig
-        
-        tool_config = TaskToolConfig(
-            tool_name="monkey",
-            variant="default",
-            additional_params={}
-        )
-        
+        from rv_android_core.domain.task import ToolConfig
+
+        tool_config = ToolConfig(name="monkey", variant="default", parameters={})
+
         return TaskConfiguration(
-            apk_name="test.apk",
-            repetition=1,
-            timeout=60,
-            tool_config=tool_config
+            apk_name="test.apk", repetition=1, timeout=60, tool_config=tool_config
         )
 
     @pytest.fixture
@@ -62,7 +55,9 @@ class TestTaskExecutor:
         task.set_app(mock_app)
         return task
 
-    def test_executor_initialization(self, task_with_app, mock_tool, mock_error_handler):
+    def test_executor_initialization(
+        self, task_with_app, mock_tool, mock_error_handler
+    ):
         """Test that TaskExecutor initializes correctly"""
         executor = TaskExecutor(task_with_app, mock_tool, None, mock_error_handler)
 
@@ -75,12 +70,14 @@ class TestTaskExecutor:
     def test_get_task_context(self, task_with_app, mock_tool):
         """Test getting task context"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
+
         context = executor.get_task_context()
-        
+
         assert context["task_id"] == task_with_app.id
         assert context["apk_name"] == "test.apk"
-        assert context["tool_name"] == "monkey"  # This gets the full tool name from tool_config
+        assert (
+            context["tool_name"] == "monkey"
+        )  # This gets the full tool name from tool_config
         assert context["repetition"] == 1
         assert context["timeout"] == 60
 
@@ -89,25 +86,25 @@ class TestTaskExecutor:
         executor = TaskExecutor(task_with_app, mock_tool)
         mock_component = MagicMock()
         mock_component.name = "TestComponent"
-        
+
         executor.register_component(mock_component)
-        
+
         assert len(executor.components) == 1
         assert mock_component in executor.components
 
     def test_add_hooks(self, task_with_app, mock_tool):
         """Test adding pre and post execution hooks"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
+
         def pre_hook(task):
             pass
-        
+
         def post_hook(task, success):
             pass
-        
+
         executor.add_pre_execution_hook(pre_hook)
         executor.add_post_execution_hook(post_hook)
-        
+
         assert pre_hook in executor.pre_execution_hooks
         assert post_hook in executor.post_execution_hooks
 
@@ -115,9 +112,9 @@ class TestTaskExecutor:
         """Test execution failure when task has no app"""
         task = Task(basic_config)  # No app set
         executor = TaskExecutor(task, mock_tool)
-        
+
         result = executor.execute()
-        
+
         assert result is False
         assert task.result.state == TaskState.ERROR
         assert "no app instance" in task.result.error_message.lower()
@@ -153,7 +150,9 @@ class TestTaskExecutor:
 
         # Verify emulator lifecycle methods were called
         mock_emulator.start_emulator.assert_called_once_with("RVSec")
-        mock_emulator.install_app.assert_called_once_with(mock_android, task_with_app.app)
+        mock_emulator.install_app.assert_called_once_with(
+            mock_android, task_with_app.app
+        )
         mock_tool_execution.execute.assert_called_once()
 
     def test_execute_failure_component_error(self, task_with_app, mock_tool):
@@ -178,32 +177,32 @@ class TestTaskExecutor:
         mock_tool_execution.name = "ToolExecutionComponent"
         mock_tool_execution.execute.return_value = False  # This one fails
         executor.register_component(mock_tool_execution)
-        
+
         result = executor.execute()
-        
+
         assert result is False
         assert task_with_app.result.state == TaskState.ERROR
 
     def test_execute_with_hooks(self, task_with_app, mock_tool):
         """Test execution with pre and post hooks"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
+
         pre_hook_called = []
         post_hook_called = []
-        
+
         def pre_hook(task):
             pre_hook_called.append(task)
-        
+
         def post_hook(task, success):
             post_hook_called.append((task, success))
-        
+
         executor.add_pre_execution_hook(pre_hook)
         executor.add_post_execution_hook(post_hook)
-        
+
         result = executor.execute()
-        
+
         assert result is True
-        
+
         # Verify hooks were called
         assert len(pre_hook_called) == 1
         assert pre_hook_called[0] == task_with_app
@@ -230,11 +229,13 @@ class TestTaskExecutor:
 
         mock_tool_execution = MagicMock(spec=ToolExecutionComponent)
         mock_tool_execution.name = "ToolExecutionComponent"
-        mock_tool_execution.execute.side_effect = Exception("Test exception")  # This one fails
+        mock_tool_execution.execute.side_effect = Exception(
+            "Test exception"
+        )  # This one fails
         executor.register_component(mock_tool_execution)
-        
+
         result = executor.execute()
-        
+
         assert result is False
         assert task_with_app.result.state == TaskState.ERROR
         # The error message might contain the TaskExecutionError message
@@ -243,17 +244,17 @@ class TestTaskExecutor:
     def test_cleanup_components(self, task_with_app, mock_tool):
         """Test component cleanup"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
+
         # Add mock components with cleanup methods
         mock_component1 = MagicMock()
         mock_component2 = MagicMock()
-        
+
         executor.register_component(mock_component1)
         executor.register_component(mock_component2)
-        
+
         context = executor.get_task_context()
         executor._cleanup_components(context)
-        
+
         # Verify cleanup was called for both components
         mock_component1.cleanup.assert_called_once_with(context)
         mock_component2.cleanup.assert_called_once_with(context)
@@ -261,20 +262,20 @@ class TestTaskExecutor:
     def test_cleanup_components_with_error(self, task_with_app, mock_tool):
         """Test component cleanup when one component raises an error"""
         executor = TaskExecutor(task_with_app, mock_tool)
-        
+
         # Add mock components - one that fails cleanup
         mock_component1 = MagicMock()
         mock_component1.cleanup.side_effect = Exception("Cleanup failed")
         mock_component2 = MagicMock()
-        
+
         executor.register_component(mock_component1)
         executor.register_component(mock_component2)
-        
+
         context = executor.get_task_context()
-        
+
         # Should not raise exception, just log warning
         executor._cleanup_components(context)
-        
+
         # Both should be called even if first fails
         mock_component1.cleanup.assert_called_once_with(context)
         mock_component2.cleanup.assert_called_once_with(context)
@@ -311,7 +312,9 @@ class TestTaskExecutor:
         mock_coverage = MagicMock(spec=CoverageComponent)
         mock_coverage.name = "CoverageComponent"
         mock_coverage.execute.return_value = True
-        mock_coverage.start_tracking.side_effect = lambda: call_order.append("start_tracking")
+        mock_coverage.start_tracking.side_effect = lambda: call_order.append(
+            "start_tracking"
+        )
         mock_coverage.stop_tracking.return_value = True
         mock_coverage.process_results.return_value = True
         executor.register_component(mock_coverage)
@@ -324,9 +327,11 @@ class TestTaskExecutor:
 
         # Patch mark_tool_execution_start to record call order
         original_mark = task_with_app.mark_tool_execution_start
+
         def tracked_mark():
             call_order.append("mark_tool_execution_start")
             original_mark()
+
         task_with_app.mark_tool_execution_start = tracked_mark
 
         executor.execute()

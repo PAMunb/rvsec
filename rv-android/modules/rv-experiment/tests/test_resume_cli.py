@@ -13,32 +13,34 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from rv_android_core.domain.task import ToolConfig
 from rv_experiment.__main__ import _create_experiment_config_from_cli, CLIContext
 from rv_experiment.constants import RESULTS_DIR
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_cli_context():
     """Create a minimal CLIContext mock with a working logger.
 
-    The mock must configure parse_tool_specification to return a proper dict
-    because _create_experiment_config_from_cli uses it to create ToolConfig
-    instances via Pydantic, which requires real strings and dicts.
+    The mock must configure parse_tool_specification to return a list of
+    ToolConfig instances because _create_experiment_config_from_cli uses
+    tool_configs.extend(ctx.parse_tool_specification(...)).
     """
     ctx = MagicMock(spec=CLIContext)
     ctx.logger = MagicMock()
     ctx.tool_registry = MagicMock()
-    ctx.parse_tool_specification = MagicMock(return_value={
-        "name": "monkey", "variants": [], "parameters": {}
-    })
+    ctx.parse_tool_specification = MagicMock(
+        return_value=[ToolConfig(name="monkey", variant="default", parameters={})]
+    )
     return ctx
 
 
-def _call_create_config(ctx, tmp_path, name=None, resume_dir=None,
-                        tools="monkey", apks_dir=None):
+def _call_create_config(
+    ctx, tmp_path, name=None, resume_dir=None, tools="monkey", apks_dir=None
+):
     """Call _create_experiment_config_from_cli with sensible defaults.
 
     The function has many parameters; this helper provides defaults for all
@@ -77,6 +79,7 @@ def _call_create_config(ctx, tmp_path, name=None, resume_dir=None,
 # U11: --resume-dir sets skip flags
 # ---------------------------------------------------------------------------
 
+
 class TestResumeDir:
 
     def test_cli_resume_dir_sets_skip_flags(self, tmp_path, monkeypatch):
@@ -87,14 +90,12 @@ class TestResumeDir:
         resume_path = tmp_path / "results" / "old_experiment"
         resume_path.mkdir(parents=True)
         # Write a tasks.json so it looks like a real results dir
-        (resume_path / "tasks.json").write_text(json.dumps({
-            "version": 3, "tasks": [], "experiment": {}, "statistics": {}
-        }))
+        (resume_path / "tasks.json").write_text(
+            json.dumps({"version": 3, "tasks": [], "experiment": {}, "statistics": {}})
+        )
 
         ctx = _make_cli_context()
-        config = _call_create_config(
-            ctx, tmp_path, resume_dir=str(resume_path)
-        )
+        config = _call_create_config(ctx, tmp_path, resume_dir=str(resume_path))
 
         assert config.resume_mode is True
         assert config.generate_monitors is False
@@ -106,6 +107,7 @@ class TestResumeDir:
 # U12: --name detects existing results
 # ---------------------------------------------------------------------------
 
+
 class TestResumeName:
 
     def test_cli_name_detects_existing_results(self, tmp_path, monkeypatch):
@@ -115,9 +117,9 @@ class TestResumeName:
         # Create the results directory that --name would look for
         results_path = tmp_path / RESULTS_DIR / "my_experiment"
         results_path.mkdir(parents=True)
-        (results_path / "tasks.json").write_text(json.dumps({
-            "version": 3, "tasks": [], "experiment": {}, "statistics": {}
-        }))
+        (results_path / "tasks.json").write_text(
+            json.dumps({"version": 3, "tasks": [], "experiment": {}, "statistics": {}})
+        )
 
         ctx = _make_cli_context()
         config = _call_create_config(ctx, tmp_path, name="my_experiment")
@@ -136,6 +138,7 @@ class TestResumeName:
 # ---------------------------------------------------------------------------
 # U13: --name first run (no existing results)
 # ---------------------------------------------------------------------------
+
 
 class TestNameFirstRun:
 
@@ -158,6 +161,7 @@ class TestNameFirstRun:
 # U14: --resume-dir overrides --name
 # ---------------------------------------------------------------------------
 
+
 class TestResumeDirOverridesName:
 
     def test_cli_resume_dir_overrides_name(self, tmp_path, monkeypatch):
@@ -167,13 +171,14 @@ class TestResumeDirOverridesName:
         # Create a resume directory
         resume_path = tmp_path / "results" / "old_experiment"
         resume_path.mkdir(parents=True)
-        (resume_path / "tasks.json").write_text(json.dumps({
-            "version": 3, "tasks": [], "experiment": {}, "statistics": {}
-        }))
+        (resume_path / "tasks.json").write_text(
+            json.dumps({"version": 3, "tasks": [], "experiment": {}, "statistics": {}})
+        )
 
         ctx = _make_cli_context()
         config = _call_create_config(
-            ctx, tmp_path,
+            ctx,
+            tmp_path,
             name="new_experiment",
             resume_dir=str(resume_path),
         )

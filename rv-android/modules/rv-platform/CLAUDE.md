@@ -18,7 +18,7 @@ rv-platform is the central execution engine for Android testing experiments in t
 
 1. **Task Generation**: Platform discovers APKs, generates tasks for each APK/tool/variant/repetition/timeout combination
 2. **ExperimentMetadata Creation**: Creates `ExperimentMetadata` from config, including a SHA-256 `config_checksum`
-3. **Resume Check**: `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by `(apk_name, tool_name, variant, repetition, timeout)` identity, removes matches from the execution list, and stores `_skipped_count`. If the config checksum differs from a previous run, a WARNING is logged with the first 8 hex chars of each checksum
+3. **Resume Check**: `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by `(apk_name, name, variant, repetition, timeout)` identity, removes matches from the execution list, and stores `_skipped_count`. If the config checksum differs from a previous run, a WARNING is logged with the first 8 hex chars of each checksum
 4. **Component Registration**: TaskExecutor registers essential components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution)
 5. **Coordinated Execution** (for each remaining task):
    - Phase 1: Static analysis data loading (outside emulator)
@@ -52,7 +52,7 @@ src/rv_platform/
     platform.py              # Main Platform class
     config/
         __init__.py
-        platform_config.py   # PlatformConfig and ToolConfig models
+        platform_config.py   # PlatformConfig model (ToolConfig imported from rv-android-core)
     execution/
         __init__.py
         executor.py          # TaskExecutor with component-based architecture
@@ -150,7 +150,7 @@ uv run rv-platform run --tools monkey --apks-dir ./apks_examples
 uv run rv-platform run --tools monkey,droidbot --apks-dir ./apks_examples --repetitions 3
 
 # With custom timeout and headless mode
-uv run rv-platform run --tools rvandroid:vision --apks-dir ./apks --timeout 600 --no-window
+uv run rv-platform run --tools rvagent:pure_algorithm --apks-dir ./apks --timeout 600 --no-window
 
 # Skip result processing (for debugging)
 uv run rv-platform run --tools monkey --apks-dir ./apks --skip-result-processing
@@ -189,13 +189,14 @@ uv run rv-platform validate-config my_config.json
 
 ```python
 from rv_platform.platform import Platform
-from rv_platform.config.platform_config import PlatformConfig, ToolConfig
+from rv_platform.config.platform_config import PlatformConfig
+from rv_android_core.domain.task import ToolConfig
 
 # Create configuration
 config = PlatformConfig(
     apks_dir="./apks_examples",
     tools=[
-        ToolConfig(name="monkey", variants=[], parameters={"event_count": 1000})
+        ToolConfig(name="monkey", variant="default", parameters={"event_count": 1000})
     ],
     repetitions=1,
     timeouts=[300],
@@ -231,7 +232,7 @@ The platform supports resuming interrupted or expanding completed experiments th
 
 ### Resume Forms
 
-**Expand Experiment**: Run with more repetitions than the first run. The platform detects completed tasks by matching `(apk_name, tool_name, variant, repetition, timeout)` identity and skips them. Only new tasks are executed.
+**Expand Experiment**: Run with more repetitions than the first run. The platform detects completed tasks by matching `(apk_name, name, variant, repetition, timeout)` identity and skips them. Only new tasks are executed.
 
 **Crash Recovery**: Re-run the same command after an interruption. Completed tasks (persisted atomically to `tasks.json` after each task) are skipped. The interrupted task is re-executed from scratch.
 
@@ -239,7 +240,7 @@ The platform supports resuming interrupted or expanding completed experiments th
 
 1. `_generate_tasks()` creates all tasks for the current configuration
 2. `ExperimentMetadata` is created with a SHA-256 `config_checksum` from `PlatformConfig`
-3. `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by `(apk_name, tool_name, variant, repetition, timeout)` identity tuple, and removes matches from the execution list. The `_skipped_count` is stored for summary reporting
+3. `_skip_completed_tasks()` loads completed tasks from `TaskStorage`, matches by `(apk_name, name, variant, repetition, timeout)` identity tuple, and removes matches from the execution list. The `_skipped_count` is stored for summary reporting
 4. If the config checksum differs from the previous run, a WARNING is logged in `platform.py` with the first 8 hex chars of each checksum (stored checksum vs current). `TaskStorage` logs at DEBUG level
 5. Only remaining tasks are executed
 6. `_process_results()` uses `task_storage.get_completed_tasks()` which returns ALL tasks with COMPLETED state from all sessions (previous + current). These are passed to ResultProcessorComponent for unified CSV/JSON generation

@@ -33,7 +33,7 @@ from rv_tools import ToolFactory
 class Platform:
     """
     Main entry point for rv-platform execution.
-    
+
     ### Architectural Decisions:
     - Provides simple, clean interface for standalone usage
     - Manages task generation and execution coordination
@@ -60,8 +60,7 @@ class Platform:
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.platform',
-            {CONTEXT_COMPONENT: 'Platform'}
+            "rv_platform.platform", {CONTEXT_COMPONENT: "Platform"}
         )
 
         # Error handler
@@ -87,7 +86,7 @@ class Platform:
     def run(self) -> Dict[str, Any]:
         """
         Execute the platform workflow.
-        
+
         Returns:
             Summary of execution results
         """
@@ -100,8 +99,7 @@ class Platform:
             # Store experiment metadata for continuation support
             config_dict = self.config.model_dump(mode="json")
             metadata = ExperimentMetadata.create_from_config(
-                experiment_id=str(self.config.results_dir),
-                config_dict=config_dict
+                experiment_id=str(self.config.results_dir), config_dict=config_dict
             )
             self.task_storage.set_experiment_metadata(metadata)
 
@@ -112,7 +110,7 @@ class Platform:
             results = self._execute_tasks()
 
             # Process experiment results (unless skipped)
-            if not getattr(self.config, 'skip_result_processing', False):
+            if not getattr(self.config, "skip_result_processing", False):
                 self._process_results()
 
             # Generate summary
@@ -143,50 +141,31 @@ class Platform:
             app = App(str(apk_path))
 
             for tool_config in self.config.tools:
-                # tool_config is rv_platform.ToolConfig with name="rvandroid", variants=["vision"]
-                tool_name = tool_config.name  # Extract tool name (e.g., "rvandroid")
-                tool_variants = tool_config.variants if tool_config.variants else ["default"]
-                
+                for repetition in range(1, self.config.repetitions + 1):
+                    for timeout in self.config.timeouts:
+                        # Set device_id from parameters for parallel execution
+                        device_id = tool_config.parameters.get(
+                            "device_serial", "emulator-5554"
+                        )
 
-                for variant_name in tool_variants:  # variant_name is "vision", not a tool specification
-                    for repetition in range(1, self.config.repetitions + 1):
-                        for timeout in self.config.timeouts:
-                            # Create task configuration with ToolConfig
-                            from rv_android_core.domain.task import ToolConfig as TaskToolConfig
-                            
-                            # Create TaskToolConfig correctly:
-                            # - tool_name from tool_config.name (e.g., "rvandroid")
-                            # - variant_name from variants list (e.g., "vision")
-                            task_tool_config = TaskToolConfig(
-                                tool_name=tool_name,
-                                variant=variant_name,
-                                additional_params=tool_config.parameters
-                            )
-                            
-                            
-                            # Set device_id from additional_params for parallel execution
-                            device_id = tool_config.parameters.get(
-                                'device_serial', 'emulator-5554'
-                            )
+                        task_config = TaskConfiguration(
+                            apk_name=apk_name,
+                            repetition=repetition,
+                            timeout=timeout,
+                            tool_config=tool_config,
+                            no_window=self.config.no_window,
+                            device_id=device_id,
+                        )
 
-                            task_config = TaskConfiguration(
-                                apk_name=apk_name,
-                                repetition=repetition,
-                                timeout=timeout,
-                                tool_config=task_tool_config,
-                                no_window=self.config.no_window,
-                                device_id=device_id
-                            )
+                        # Create task
+                        task = self.task_factory.create_task(task_config)
+                        task.set_app(app)
 
-                            # Create task
-                            task = self.task_factory.create_task(task_config)
-                            task.set_app(app)
+                        # Initialize task
+                        task.initialize(self.config.results_dir)
 
-                            # Initialize task
-                            task.initialize(self.config.results_dir)
-
-                            self.tasks.append(task)
-                            task_count += 1
+                        self.tasks.append(task)
+                        task_count += 1
 
         self.logger.info(f"Generated {task_count} tasks")
 
@@ -199,16 +178,27 @@ class Platform:
         # Validate configuration consistency via checksum
         config_dict = self.config.model_dump(mode="json")
         if not self.task_storage.check_continuation_compatibility(config_dict):
-            stored = self.task_storage.experiment_metadata.config_checksum[:8] if self.task_storage.experiment_metadata else "unknown"
-            current = hashlib.sha256(json.dumps(config_dict, sort_keys=True).encode()).hexdigest()[:8]
+            stored = (
+                self.task_storage.experiment_metadata.config_checksum[:8]
+                if self.task_storage.experiment_metadata
+                else "unknown"
+            )
+            current = hashlib.sha256(
+                json.dumps(config_dict, sort_keys=True).encode()
+            ).hexdigest()[:8]
             self.logger.warning(
                 f"Config changed since last run (stored: {stored}, current: {current}) — resuming anyway"
             )
 
         def task_identity(task):
             tc = task.config
-            return (tc.apk_name, tc.tool_config.tool_name, tc.tool_config.variant,
-                    tc.repetition, tc.timeout)
+            return (
+                tc.apk_name,
+                tc.tool_config.name,
+                tc.tool_config.variant,
+                tc.repetition,
+                tc.timeout,
+            )
 
         completed_ids = {task_identity(t) for t in completed_tasks}
 
@@ -240,10 +230,14 @@ class Platform:
             raise ValueError(f"No APK files found in directory: {self.config.apks_dir}")
 
         if self.config.apks_filter_file:
-            allowed = set(Path(self.config.apks_filter_file).read_text().strip().splitlines())
+            allowed = set(
+                Path(self.config.apks_filter_file).read_text().strip().splitlines()
+            )
             apk_files = [f for f in apk_files if f.name in allowed]
             if not apk_files:
-                raise ValueError(f"No APKs match filter: {self.config.apks_filter_file}")
+                raise ValueError(
+                    f"No APKs match filter: {self.config.apks_filter_file}"
+                )
             self.logger.info(f"Filtered to {len(apk_files)} APKs from filter file")
 
         return sorted(apk_files)
@@ -251,7 +245,7 @@ class Platform:
     def _execute_tasks(self) -> List[Dict[str, Any]]:
         """
         Execute all generated tasks.
-        
+
         Returns:
             List of task execution results
         """
@@ -274,7 +268,7 @@ class Platform:
                     EmulatorComponent(task),
                     LogcatComponent(task),
                     CoverageComponent(task),
-                    ToolExecutionComponent(task, tool)
+                    ToolExecutionComponent(task, tool),
                 ]
 
                 for component in components:
@@ -295,7 +289,7 @@ class Platform:
                     "timeout": task.config.timeout,
                     "success": success,
                     "execution_time": task.result.execution_time_seconds,
-                    "error_message": task.result.error_message
+                    "error_message": task.result.error_message,
                 }
                 results.append(result)
 
@@ -318,9 +312,12 @@ class Platform:
                     "repetition": task.config.repetition,
                     "timeout": task.config.timeout,
                     "success": False,
-                    "execution_time": task.result.execution_time_seconds if hasattr(task.result,
-                                                                                    'execution_time_seconds') else 0,
-                    "error_message": error_message
+                    "execution_time": (
+                        task.result.execution_time_seconds
+                        if hasattr(task.result, "execution_time_seconds")
+                        else 0
+                    ),
+                    "error_message": error_message,
                 }
                 results.append(result)
 
@@ -329,22 +326,25 @@ class Platform:
     def _extract_meaningful_error_message(self, exception: Exception) -> str:
         """
         Extract a meaningful error message from an exception chain.
-        
+
         Args:
             exception: The exception to extract message from
-            
+
         Returns:
             A clear, user-friendly error message
         """
-        from rv_android_core.util.error.exceptions import RVToolTimeoutError, RVToolExecutionError
+        from rv_android_core.util.error.exceptions import (
+            RVToolTimeoutError,
+            RVToolExecutionError,
+        )
 
         # Walk through the exception chain to find the root cause
         current = exception
         while current:
             # Check for timeout scenarios
             if isinstance(current, RVToolTimeoutError):
-                tool_name = getattr(current, 'tool_name', 'unknown tool')
-                timeout_seconds = getattr(current, 'timeout_seconds', None)
+                tool_name = getattr(current, "tool_name", "unknown tool")
+                timeout_seconds = getattr(current, "timeout_seconds", None)
                 if timeout_seconds:
                     return f"{tool_name} execution timed out after {timeout_seconds} seconds (expected behavior)"
                 else:
@@ -352,15 +352,17 @@ class Platform:
 
             # Check for tool execution errors
             if isinstance(current, RVToolExecutionError):
-                tool_name = getattr(current, 'tool_name', 'unknown tool')
+                tool_name = getattr(current, "tool_name", "unknown tool")
                 return f"{tool_name}: {current.message}"
 
             # Check for other specific RV exceptions with meaningful messages
-            if hasattr(current, 'message') and current.message:
+            if hasattr(current, "message") and current.message:
                 return current.message
 
             # Move to the cause of the current exception
-            current = getattr(current, 'cause', None) or getattr(current, '__cause__', None)
+            current = getattr(current, "cause", None) or getattr(
+                current, "__cause__", None
+            )
 
         # Fallback to the original exception message
         return str(exception)
@@ -368,47 +370,38 @@ class Platform:
     def _load_tool(self, tool_config):
         """
         Load and configure a tool using ToolConfig specification.
-        
-        ### Breaking Change - Variant System Integration:
-        This method now accepts ToolConfig instead of tool_name string to enable
-        proper variant resolution and tool configuration with parameter overrides.
-        
-        ### Architecture Overview:
-        - Accepts ToolConfig with tool_name, variant, and additional_params
-        - Uses ToolFactory.create_tool() with resolved tool configuration
-        - Eliminates platform-level tool configuration duplication
-        - Enables clean configuration flow from experiment to tool execution
-        
+
+        Uses ToolFactory.create_tool() with the unified ToolConfig that contains
+        name, variant, and parameters. The factory handles variant resolution,
+        parameter merging, and tool configuration.
+
         Args:
             tool_config: ToolConfig instance with tool name, variant, and parameters
-            
+
         Returns:
             Configured tool instance with variant-specific parameters
-            
+
         Raises:
             ValueError: If tool loading or configuration fails
         """
         from rv_android_core.domain.task import ToolConfig
-        
-        try:
-            # Ensure we have a ToolConfig instance
-            if isinstance(tool_config, str):
-                # Legacy string format - convert to ToolConfig for backward compatibility
-                tool_config = ToolConfig.from_tool_specification(tool_config)
-            elif not isinstance(tool_config, ToolConfig):
-                raise ValueError(f"Expected ToolConfig instance, got {type(tool_config)}")
-            
-            # Use ToolFactory with new variant-based approach
-            # The factory handles variant resolution, parameter merging, and tool configuration
-            return self.tool_factory.create_tool(tool_config)
-            
-        except Exception as e:
-            tool_name = getattr(tool_config, 'tool_name', str(tool_config))
-            variant = getattr(tool_config, 'variant', 'unknown')
-            raise ValueError(f"Failed to load tool '{tool_name}:{variant}': {e}")
 
-    def _generate_summary(self, results: List[Dict[str, Any]],
-                          skipped_count: int = 0) -> Dict[str, Any]:
+        try:
+            if not isinstance(tool_config, ToolConfig):
+                raise ValueError(
+                    f"Expected ToolConfig instance, got {type(tool_config)}"
+                )
+
+            return self.tool_factory.create_tool(tool_config)
+
+        except Exception as e:
+            name = getattr(tool_config, "name", str(tool_config))
+            variant = getattr(tool_config, "variant", "unknown")
+            raise ValueError(f"Failed to load tool '{name}:{variant}': {e}")
+
+    def _generate_summary(
+        self, results: List[Dict[str, Any]], skipped_count: int = 0
+    ) -> Dict[str, Any]:
         """
         Generate execution summary.
 
@@ -432,8 +425,10 @@ class Platform:
             "skipped_tasks": skipped_count,
             "success_rate": successful_tasks / total_tasks if total_tasks > 0 else 0,
             "total_execution_time": total_time,
-            "average_execution_time": total_time / total_tasks if total_tasks > 0 else 0,
-            "results": results
+            "average_execution_time": (
+                total_time / total_tasks if total_tasks > 0 else 0
+            ),
+            "results": results,
         }
 
         self.logger.info(
@@ -445,7 +440,7 @@ class Platform:
     def get_tasks(self) -> List:
         """
         Get all task objects directly (no serialization).
-        
+
         Returns:
             List of Task objects with static_data preserved
         """
@@ -454,7 +449,7 @@ class Platform:
     def get_tasks_summary(self) -> List[Dict[str, Any]]:
         """
         Get summary of all tasks (serialized format).
-        
+
         Returns:
             List of task summaries
         """
@@ -464,7 +459,7 @@ class Platform:
     def _process_results(self) -> None:
         """
         Generate CSV/JSON files from completed experiment tasks.
-        
+
         This method processes completed tasks to generate standardized output
         files for analysis and research purposes.
         """

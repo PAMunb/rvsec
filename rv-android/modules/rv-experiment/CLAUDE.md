@@ -141,7 +141,7 @@ ExperimentConfig(
     # Tool configuration
     tool_configs=[
         ToolConfig(name="monkey"),
-        ToolConfig(name="droidbot", variants=["dfs_greedy"]),
+        ToolConfig(name="droidbot", variant="dfs_greedy"),
     ],
 
     # Execution parameters
@@ -255,13 +255,13 @@ uv run pytest --cov=src --cov-report=html
 ### Creating Custom Configuration
 ```python
 from rv_experiment.config import ExperimentConfig
-from rv_platform.config.platform_config import ToolConfig
+from rv_android_core.domain.task import ToolConfig
 
 config = ExperimentConfig(
     name="custom_experiment",
     tool_configs=[
         ToolConfig(name="monkey", parameters={"seed": 42}),
-        ToolConfig(name="droidbot", variants=["dfs_greedy"]),
+        ToolConfig(name="droidbot", variant="dfs_greedy"),
     ],
     specification_set="jca",
     apks_dir="./my_apks/",

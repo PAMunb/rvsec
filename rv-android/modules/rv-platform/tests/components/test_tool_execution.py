@@ -15,19 +15,12 @@ class TestToolExecutionComponent:
     @pytest.fixture
     def basic_config(self):
         """Fixture providing a basic task configuration"""
-        from rv_android_core.domain.task import ToolConfig as TaskToolConfig
-        
-        tool_config = TaskToolConfig(
-            tool_name="monkey",
-            variant="default",
-            additional_params={}
-        )
-        
+        from rv_android_core.domain.task import ToolConfig
+
+        tool_config = ToolConfig(name="monkey", variant="default", parameters={})
+
         return TaskConfiguration(
-            apk_name="test.apk",
-            repetition=1,
-            timeout=60,
-            tool_config=tool_config
+            apk_name="test.apk", repetition=1, timeout=60, tool_config=tool_config
         )
 
     @pytest.fixture
@@ -75,7 +68,7 @@ class TestToolExecutionComponent:
         component = ToolExecutionComponent(task_with_app, mock_tool)
         context = {"test": "context"}
 
-        with patch.object(component, 'run_tool', return_value=True) as mock_run_tool:
+        with patch.object(component, "run_tool", return_value=True) as mock_run_tool:
             result = component.execute(context)
 
             assert result is True
@@ -111,7 +104,7 @@ class TestToolExecutionComponent:
         component = ToolExecutionComponent(task_with_app, mock_tool)
         context = {"test": "context"}
 
-        with patch.object(component, 'cleanup_processes') as mock_cleanup:
+        with patch.object(component, "cleanup_processes") as mock_cleanup:
             component.cleanup(context)
 
             mock_cleanup.assert_called_once()

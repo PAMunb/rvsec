@@ -3,13 +3,14 @@
 Tests for CoverageComponent, specifically verifying that coverage timing
 uses tool_execution_start (not task creation time) for accurate relative timestamps.
 """
+
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rv_android_core.domain.app import App
-from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig as TaskToolConfig
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_platform.components.coverage import CoverageComponent
 
 
@@ -18,16 +19,9 @@ class TestCoverageComponentTiming:
 
     @pytest.fixture
     def basic_config(self):
-        tool_config = TaskToolConfig(
-            tool_name="monkey",
-            variant="default",
-            additional_params={}
-        )
+        tool_config = ToolConfig(name="monkey", variant="default", parameters={})
         return TaskConfiguration(
-            apk_name="test.apk",
-            repetition=1,
-            timeout=60,
-            tool_config=tool_config
+            apk_name="test.apk", repetition=1, timeout=60, tool_config=tool_config
         )
 
     @pytest.fixture
@@ -89,7 +83,9 @@ class TestCoverageComponentTiming:
         # Should keep original reference (start_time from initialization)
         assert component.coverage_tracker.tool_execution_start_time == original_time
 
-    def test_timing_difference_between_start_time_and_tool_execution_start(self, task_with_app):
+    def test_timing_difference_between_start_time_and_tool_execution_start(
+        self, task_with_app
+    ):
         """
         Verify that tool_execution_start differs from start_time by the expected
         pre-processing overhead. This is the symptom the fix addresses: without it,

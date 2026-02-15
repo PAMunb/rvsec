@@ -16,8 +16,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rv_experiment.config import ExperimentConfig, ToolConfig
-from rv_experiment.experiment.experiment_controller import ExperimentController, execute_with_config
+from rv_android_core.domain.task import ToolConfig
+from rv_experiment.config import ExperimentConfig
+from rv_experiment.experiment.experiment_controller import (
+    ExperimentController,
+    execute_with_config,
+)
 
 
 @pytest.fixture
@@ -33,20 +37,27 @@ def mock_config():
     config.timeouts = 300
     tool_config = Mock(spec=ToolConfig)
     tool_config.name = "test_tool"
-    tool_config.variants = []
+    tool_config.variant = "default"
     tool_config.parameters = {}
     config.tool_configs = [tool_config]
     return config
 
 
-@patch('rv_experiment.experiment.experiment_controller.PreProcessor')
-@patch('rv_experiment.experiment.experiment_controller.ExecutionController')
-@patch('rv_experiment.experiment.experiment_controller.PostProcessor')
-@patch('rv_experiment.experiment.experiment_controller.LoggingManager')
-@patch('rv_experiment.experiment.experiment_controller.ErrorHandler')
-@patch('os.makedirs')
-def test_run_exception(mock_makedirs, mock_error_handler, mock_logging_manager, mock_post_processor,
-                       mock_execution_controller, mock_pre_processor, mock_config):
+@patch("rv_experiment.experiment.experiment_controller.PreProcessor")
+@patch("rv_experiment.experiment.experiment_controller.ExecutionController")
+@patch("rv_experiment.experiment.experiment_controller.PostProcessor")
+@patch("rv_experiment.experiment.experiment_controller.LoggingManager")
+@patch("rv_experiment.experiment.experiment_controller.ErrorHandler")
+@patch("os.makedirs")
+def test_run_exception(
+    mock_makedirs,
+    mock_error_handler,
+    mock_logging_manager,
+    mock_post_processor,
+    mock_execution_controller,
+    mock_pre_processor,
+    mock_config,
+):
     """Test a run that raises an exception."""
     # Arrange
     mock_pre_processor_instance = mock_pre_processor.return_value
@@ -61,7 +72,7 @@ def test_run_exception(mock_makedirs, mock_error_handler, mock_logging_manager, 
     assert success is False
 
 
-@patch('rv_experiment.experiment.experiment_controller.ExperimentController')
+@patch("rv_experiment.experiment.experiment_controller.ExperimentController")
 def test_execute_with_config(mock_controller, mock_config):
     """Test the execute_with_config function."""
     # Arrange

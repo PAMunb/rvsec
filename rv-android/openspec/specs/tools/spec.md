@@ -36,10 +36,10 @@ ToolSpec (BaseValidatedModel):
   version: str            # Version string (default "1.0.0")
   process_pattern: str?   # Pattern for kill_related_processes() cleanup (nullable)
 
-ToolConfig (BaseValidatedModel, defined in rv-platform):
+ToolConfig (BaseValidatedModel, defined in rv-android-core):
   name: str               # Tool identifier (must match registry key)
-  variants: List[str]     # Variant names to execute (empty = default)
-  parameters: Dict        # Additional parameter overrides
+  variant: str            # Variant name (singular, default "default")
+  parameters: Dict        # Parameter overrides
 
 AbstractTool (ABC):
   name: str               # Tool identifier (from ToolSpec.name)
@@ -91,7 +91,7 @@ ToolFactory.create_tool(tool_config)
      |
      +-- Resolve tool_class from registry
      +-- Get variant_config from registry
-     +-- Merge with tool_config.additional_params
+     +-- Merge with tool_config.parameters
      +-- Create tool_class() instance
      +-- Call tool.configure(merged_config)
      v
@@ -138,7 +138,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 ### Input
 
-- `tool_config: ToolConfig` -- Tool name, variant list, and parameter overrides. Provided by rv-platform from `PlatformConfig.tools` or by rv-experiment's CLI DSL parser.
+- `tool_config: ToolConfig` -- Tool name, variant, and parameter overrides. Provided by rv-platform from `PlatformConfig.tools` or by rv-experiment's CLI DSL parser.
 - `task: Task` -- Task context containing execution timeout, device serial, result paths, and static analysis data. Provided by rv-platform's `TaskExecutor`.
 - `app: App` -- Application under test with `package_name`, `path` (APK file), and metadata. Provided by rv-platform's APK discovery.
 - `device_id: str` -- Android device identifier (default `"emulator-5554"`). Provided by emulator management or user.
@@ -201,60 +201,32 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 ## Requirements
 
-### Requirement: Plugin System with Registry and Factory Patterns (FR18, NFR02)
+### Requirement: Tool Registration and Factory System (FR18, NFR02)
 
-The tool infrastructure MUST provide a centralized registry and factory system that enables dynamic tool registration, discovery, and instantiation. The registry follows a singleton pattern to ensure a single source of truth. Tools self-register at module import time, making them immediately available for experiment configuration and execution.
+The tool system MUST provide a centralized registry and factory for all Android testing tools. `ToolRegistry` maintains a singleton registry of tool classes and their variant configurations. `ToolFactory` creates configured tool instances from `ToolConfig` objects.
 
-The registration flow has two phases: (1) built-in tools are registered automatically when the `rv_tools` package is imported -- `_register_builtin_tools()` iterates over the `BUILTIN_TOOLS` list and calls `registry.register_tool_class()` for each; (2) external tools (rvagent) are registered by `_register_external_tools()` in rv-platform's `__init__.py` when that module is imported. The function checks `is_tool_registered("rvagent")` before attempting registration to ensure idempotency.
-
-`register_tool_class()` performs complete registration in a single call: it invokes `get_tool_spec()` to obtain the `ToolSpec`, registers the class and spec, then calls `get_variants()` and registers each variant individually. This means a tool author only needs to implement `get_tool_spec()` and `get_variants()` for their tool to be fully registered.
-
-The `ToolFactory` creates configured instances by: (1) resolving the tool class from the registry, (2) getting variant configuration, (3) merging with additional parameters from the experiment config (overrides take precedence), and (4) calling `tool.configure()` on the instance. For standard tools, configuration is a flat dictionary.
-
-#### Scenario: Built-in tools are registered at import time
-
-- **WHEN** a Python module executes `import rv_tools`
-- **THEN** the `ToolRegistry` singleton MUST contain all 8 built-in tools: monkey, droidbot, ape, fastbot, ares, droidmate, humanoid, qtesting
-- **AND** each tool MUST have at least a `"default"` variant registered
-- **AND** `registry.get_tool_names()` MUST return a list of length >= 8
-
-#### Scenario: External tool registration via rv-platform import
-
-- **WHEN** a Python module executes `import rv_platform`
-- **THEN** `_register_external_tools()` in `rv_platform/__init__.py` MUST be called automatically
-- **AND** if the `rvagent_tool` package is importable, the `"rvagent"` tool MUST be registered with variants `default`, `multimode`, `pure_algorithm`, `llm_only`, `thorough`
-- **AND** if the `rvagent_tool` package is not importable, the failure MUST be logged as a warning
-- **AND** if `is_tool_registered("rvagent")` returns `True`, the registration MUST be skipped (idempotency)
+The factory resolution flow in `ToolFactory.create_tool()` is:
+1. Resolve `tool_class` from registry using `tool_config.name`.
+2. Get `variant_config` from registry using `tool_config.name` and `tool_config.variant`.
+3. Merge variant_config with `tool_config.parameters` (parameters override variant values).
+4. Create `tool_class()` instance and call `tool.configure(merged_config)`.
 
 #### Scenario: Factory creates configured tool from ToolConfig
 
-- **WHEN** `ToolFactory.create_tool(tool_config)` is called with `tool_config.tool_name="droidbot"`, `tool_config.variant="dfs_greedy"`, `tool_config.additional_params={"count": 5000}`
+- **WHEN** `ToolFactory.create_tool(tool_config)` is called with `tool_config.name="droidbot"`, `tool_config.variant="dfs_greedy"`, `tool_config.parameters={"count": 5000}`
 - **THEN** the factory MUST return a `DroidBotTool` instance
 - **AND** the instance MUST have `config["policy"] == "dfs_greedy"` (from variant)
-- **AND** the instance MUST have `config["count"] == 5000` (from additional_params override)
+- **AND** the instance MUST have `config["count"] == 5000` (from parameters override)
 - **AND** the instance MUST have `config["ignore_ad"] == True` (from variant defaults)
 
 #### Scenario: Factory rejects invalid tool or variant
 
-- **WHEN** `ToolFactory.create_tool(tool_config)` is called with `tool_config.tool_name="nonexistent_tool"`
+- **WHEN** `ToolFactory.create_tool(tool_config)` is called with `tool_config.name="nonexistent_tool"`
 - **THEN** the factory MUST raise `ConfigurationError` with a message indicating the tool is not found
 - **AND** no tool instance MUST be created
 
-- **WHEN** `ToolFactory.create_tool(tool_config)` is called with `tool_config.tool_name="droidbot"`, `tool_config.variant="invalid_variant"`
+- **WHEN** `ToolFactory.create_tool(tool_config)` is called with `tool_config.name="droidbot"`, `tool_config.variant="invalid_variant"`
 - **THEN** the factory MUST raise `ConfigurationError` with a message indicating the variant is invalid
-
-#### Scenario: Registry provides complete tool information
-
-- **WHEN** `registry.get_registry_info()` is called after built-in registration
-- **THEN** the returned dictionary MUST contain `"total_tools"` >= 8
-- **AND** `"total_variants"` MUST be the sum of all registered variants
-- **AND** `"variants_by_tool"` MUST map each tool name to its variant name list
-
-#### Scenario: Variant configuration is isolated
-
-- **WHEN** `registry.get_variant_config("monkey", "default")` is called
-- **THEN** the returned dictionary MUST be a copy of the stored configuration
-- **AND** modifying the returned dictionary MUST NOT affect the value returned by a subsequent call to `get_variant_config("monkey", "default")`
 
 ### Requirement: External Tool Support (FR19, NFR02)
 
@@ -365,7 +337,7 @@ Variants are defined by each tool's `get_variants()` classmethod, which returns 
 The variant resolution flow in `ToolFactory.create_tool()` is:
 1. If `variant_name` is provided and not `"default"`, validate it exists via `registry.validate_tool_variant()`.
 2. Get the variant configuration via `registry.get_variant_config()` (returns a copy).
-3. Merge with `tool_config.additional_params` (additional params override variant values).
+3. Merge with `tool_config.parameters` (parameters override variant values).
 4. Call `tool.configure(merged_config)` on the new instance.
 
 The following tools and their variants are registered in the current system:
@@ -396,7 +368,7 @@ The following tools and their variants are registered in the current system:
 
 #### Scenario: Additional parameters override variant values
 
-- **WHEN** `ToolFactory.create_tool()` is called with variant `"dfs_greedy"` (which has `count=10000000000`) and `additional_params={"count": 500}`
+- **WHEN** `ToolFactory.create_tool()` is called with variant `"dfs_greedy"` (which has `count=10000000000`) and `parameters={"count": 500}`
 - **THEN** the final configuration passed to `configure()` MUST have `count=500`
 - **AND** all other variant parameters MUST be preserved (e.g., `policy="dfs_greedy"`, `interval=3`)
 
@@ -420,7 +392,7 @@ The following tools and their variants are registered in the current system:
 #### Scenario: Tool specification DSL parsing
 
 - **WHEN** the CLI receives the tool specification string `"droidbot:dfs_greedy@count=5000"`
-- **THEN** the parser MUST extract `tool_name="droidbot"`, `variant="dfs_greedy"`, `additional_params={"count": "5000"}`
+- **THEN** the parser MUST extract `name="droidbot"`, `variant="dfs_greedy"`, `parameters={"count": "5000"}`
 - **AND** the resulting `ToolConfig` MUST be usable by `ToolFactory.create_tool()`
 
 - **WHEN** the CLI receives `"monkey,droidbot:bfs_greedy,rvagent:pure_algorithm"`

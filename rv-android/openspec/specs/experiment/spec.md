@@ -60,7 +60,7 @@ ExperimentController.run()
 
 4. **Clean separation: orchestration vs. execution.** rv-experiment handles only orchestration (phase sequencing, configuration assembly). rv-platform handles execution (task generation, emulator management, tool execution, coverage tracking, result processing). rv-experiment never manages emulators, tasks, or results directly.
 
-5. **Tool specification DSL.** The CLI uses a compact DSL (`tool:variant@param=value`) instead of verbose JSON for tool configuration. The DSL is parsed by `CLIContext.parse_tool_specification()` and converted to `ToolConfig` objects (from rv-platform). This makes the CLI ergonomic for interactive use while maintaining structured configuration internally.
+5. **Tool specification DSL.** The CLI uses a compact DSL (`tool:variant@param=value`) instead of verbose JSON for tool configuration. The DSL is parsed by `CLIContext.parse_tool_specification()` and converted to `ToolConfig` objects (from rv-android-core). This makes the CLI ergonomic for interactive use while maintaining structured configuration internally.
 
 6. **RVSEC_HOME resolution hierarchy.** The `ExperimentConfig` resolves RVSEC_HOME through a three-level priority: (1) explicit `rvsec_root` field in configuration, (2) `RVSEC_HOME` environment variable, (3) error if neither is defined. This path is required for monitor generation and instrumentation because it points to the parent RVSEC project containing JavaMOP, RV-Monitor, and MOP specification files.
 
@@ -77,7 +77,7 @@ ExperimentConfig (Pydantic BaseValidatedModel):
   output_dir: str                     # Pre-processing artifacts directory (default: "out")
   results_dir: Optional[str]          # Results base directory (default: "results")
   rvsec_root: Optional[str]           # Override for RVSEC_HOME environment variable
-  tool_configs: List[ToolConfig]      # Tool configurations with name, variants, parameters
+  tool_configs: List[ToolConfig]      # Tool configurations with name, variant (singular), parameters
   repetitions: int                    # Number of repetitions per task (gt=0)
   timeouts: List[int]                 # Timeout values in seconds
   no_window: bool                     # Run emulator headless (default: True)
@@ -93,10 +93,10 @@ ExperimentConfig (Pydantic BaseValidatedModel):
   resume_mode: bool                   # Enable experiment continuation (default: False)
   status_file: Optional[str]          # Path to status file for continuation
 
-ToolConfig (from rv-platform):
+ToolConfig (from rv-android-core):
   name: str                           # Tool name (e.g., "monkey", "droidbot", "rvagent")
-  variants: List[str]                 # Variant identifiers (e.g., ["dfs_greedy"])
-  parameters: Dict[str, Any]          # Additional tool parameters (e.g., {"seed": 42})
+  variant: str                        # Variant identifier (e.g., "dfs_greedy", default "default")
+  parameters: Dict[str, Any]          # Tool parameters (e.g., {"seed": 42})
 
 PlatformConfig (from rv-platform, created by ExecutionController):
   apks_dir: str                       # Path to instrumented APKs directory
@@ -114,7 +114,8 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `RVGeneratorConfig` from rv-monitor-generator (created JIT by `get_monitored_operations_config()`)
 - `RVInstrumentationConfig` from rv-instrumentation (created JIT by `get_rv_instrumentation_config()`)
 - `RVStaticAnalysisConfig` from rv-static-analysis (created JIT by `get_static_analysis_config()`)
-- `PlatformConfig` and `ToolConfig` from rv-platform (created by `ExecutionController._create_platform_config()`)
+- `PlatformConfig` from rv-platform (created by `ExecutionController._create_platform_config()`)
+- `ToolConfig` from rv-android-core (unified across all modules)
 - `AbstractTool` instances from rv-tools via `ToolFactory`
 - `App` domain model from rv-android-core
 
@@ -124,8 +125,8 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `experiment_config.json` -- serialized experiment configuration (optional, via `save_experiment_config()`)
 
 **Dependencies:**
-- rv-android-core: ErrorHandler, LoggingManager, BaseValidatedModel, App, constants
-- rv-platform: Platform, PlatformConfig, ToolConfig, TaskStorage
+- rv-android-core: ErrorHandler, LoggingManager, BaseValidatedModel, App, ToolConfig, constants
+- rv-platform: Platform, PlatformConfig, TaskStorage
 - rv-tools: ToolRegistry, ToolFactory
 - rv-monitor-generator: RuntimeVerificationGenerator, RVGeneratorConfig (optional import)
 - rv-instrumentation: RVInstrumentation, RVInstrumentationConfig (optional import)
@@ -260,6 +261,33 @@ Phase 3 (post-processing) MUST generate instrumentation errors JSON and completi
 - **AND** Phase 2 MUST NOT create a Platform instance or attempt execution
 - **AND** Phase 3 MUST still execute to produce diagnostics
 
+### Requirement: Experiment Configuration (FR15)
+
+The experiment layer MUST provide a validated `ExperimentConfig` (Pydantic model) that aggregates all parameters needed for a complete experiment run. This config is built from CLI arguments or loaded from a JSON file via `--config`.
+
+`ExperimentConfig` stores `tool_configs` as a list of `ToolConfig` objects imported from `rv_android_core.domain.task`. Each ToolConfig has `variant: str` (singular) representing one tool+variant pair. When the CLI receives a multi-variant specification like `droidbot:dfs_greedy:bfs_greedy`, the CLI parser expands it into two separate ToolConfig instances before constructing ExperimentConfig.
+
+`ExperimentConfig.from_dict()` deserializes JSON using the current field names only. Per P3 (No Backward Compatibility), old JSON configs using `"variants": [...]` (plural list) are not supported — users must update their JSON files to use the new format with `"variant": "..."` (singular string) and one entry per tool+variant pair.
+
+#### Scenario: CLI variant expansion at parse time
+
+- **WHEN** the CLI receives `--tools droidbot:dfs_greedy:bfs_greedy`
+- **THEN** the parser MUST create 2 ToolConfig instances: `ToolConfig(name="droidbot", variant="dfs_greedy")` and `ToolConfig(name="droidbot", variant="bfs_greedy")`
+- **AND** both instances MUST be stored in `ExperimentConfig.tool_configs`
+
+#### Scenario: JSON config auto-save on experiment run
+
+- **WHEN** `ExperimentController.run()` is invoked
+- **THEN** `save_experiment_config()` MUST be called to save the full configuration as `experiment_config.json` in the experiment results directory
+- **AND** the saved JSON MUST use the unified ToolConfig format (with `variant: str`, not `variants: List[str]`)
+- **AND** the saved config MUST be loadable via `rv-experiment run --config <path>`
+
+#### Scenario: JSON config round-trip
+
+- **WHEN** an experiment is run via CLI, producing `results/<name>/experiment_config.json`
+- **AND** that JSON file is used with `rv-experiment run --config results/<name>/experiment_config.json`
+- **THEN** the loaded ExperimentConfig MUST produce the same task set as the original CLI run
+
 ### Requirement: CLI with Tool Specification DSL (FR16, NFR05)
 
 The Experiment Orchestration domain MUST provide a Click-based CLI with four commands (`run`, `config`, `list-tools`, `validate`) and a tool specification DSL that allows compact, composable tool configuration from the command line. This design exists because experiments often involve comparing multiple tools with different configurations, and a verbose JSON-only interface would be impractical for iterative experimentation.
@@ -277,7 +305,7 @@ The CLI MUST provide `--no-window/--window` flag to control emulator visibility,
 #### Scenario: Single Tool With Default Configuration
 
 - **WHEN** the user runs `rv-experiment run --tools monkey`
-- **THEN** the CLI MUST parse the tool specification into `ToolConfig(name="monkey", variants=[], parameters={})`
+- **THEN** the CLI MUST parse the tool specification into `ToolConfig(name="monkey", variant="default", parameters={})`
 - **AND** an `ExperimentConfig` MUST be created with `tool_configs` containing that single ToolConfig
 - **AND** the experiment MUST execute with default timeout (300s), default repetitions (1), and default specification set (jca)
 
@@ -285,9 +313,9 @@ The CLI MUST provide `--no-window/--window` flag to control emulator visibility,
 
 - **WHEN** the user runs `rv-experiment run --tools monkey,droidbot:dfs_greedy,rvagent:multimode@temperature=0.3`
 - **THEN** the CLI MUST parse three ToolConfig objects:
-  - `ToolConfig(name="monkey", variants=[], parameters={})`
-  - `ToolConfig(name="droidbot", variants=["dfs_greedy"], parameters={})`
-  - `ToolConfig(name="rvagent", variants=["multimode"], parameters={"temperature": "0.3"})`
+  - `ToolConfig(name="monkey", variant="default", parameters={})`
+  - `ToolConfig(name="droidbot", variant="dfs_greedy", parameters={})`
+  - `ToolConfig(name="rvagent", variant="multimode", parameters={"temperature": "0.3"})`
 - **AND** `ExperimentConfig.tool_configs` MUST contain all three in order
 
 #### Scenario: Parameters With Commas Inside Tool Specification

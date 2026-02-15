@@ -51,7 +51,7 @@ rv-platform can also be used standalone via its own CLI (`rv-platform run`), byp
 
 5. **Non-Critical Static Analysis**: Static analysis data loading is treated as non-critical. If static analysis files are not found or parsing fails, execution continues without static data. Coverage tracking will be limited (no MOP method classification, no REACH-based universe), but the experiment still runs. This is logged as a warning, not an error.
 
-6. **Dynamic Port Allocation**: `EmulatorComponent` supports dynamic emulator port allocation (default port 5554, configurable via `additional_params.device_port`). This enables parallel task execution where each task gets a unique emulator port to avoid conflicts.
+6. **Dynamic Port Allocation**: `EmulatorComponent` supports dynamic emulator port allocation (default port 5554, configurable via `tool_config.parameters["device_port"]`). This enables parallel task execution where each task gets a unique emulator port to avoid conflicts.
 
 ### Data Models
 
@@ -67,11 +67,6 @@ PlatformConfig (Pydantic BaseValidatedModel):
   task_storage_file: str       # Persistence file name, default "tasks.json"
   log_level: str               # DEBUG|INFO|WARNING|ERROR|CRITICAL, default "INFO"
   skip_result_processing: bool # Skip CSV/JSON generation, default False
-
-ToolConfig (Pydantic BaseValidatedModel) [rv_platform]:
-  name: str                    # Tool identifier (non-empty, trimmed)
-  variants: List[str]          # Tool variants to execute (empty list = ["default"])
-  parameters: Dict[str, Any]   # Tool-specific parameters
 
 TaskState (Enum) [rv_android_core]:
   CREATED                      # Task has been created
@@ -158,7 +153,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 ## Invariants
 
-- **INV-PLT-01**: The system MUST generate exactly `|APKs| x |tools| x |variants_per_tool| x repetitions x |timeouts|` tasks during task generation. If `variants` is empty for a tool, the system MUST use `["default"]` as the variant list, yielding exactly one variant per such tool.
+- **INV-PLT-01**: The system MUST generate exactly `|APKs| x |tool_configs| x repetitions x |timeouts|` tasks during task generation. Each ToolConfig represents one tool+variant pair; variant expansion is handled at the CLI parser layer before reaching the platform.
 
 - **INV-PLT-02**: Every task MUST transition through states in a valid sequence. The only valid terminal states are `COMPLETED` and `ERROR`. A task in state `RUNNING` MUST transition to either `COMPLETED` or `ERROR`. A task MUST NOT transition from a terminal state to any other state.
 
@@ -192,7 +187,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 The platform MUST manage the full lifecycle of Android emulator instances during task execution. This includes starting the emulator with a named AVD, allocating a unique device port, installing the APK under test, and stopping the emulator after task completion. Emulator management is encapsulated in `EmulatorComponent`, which operates within the Phase 3 context manager in `TaskExecutor._run_emulator_session()`.
 
-Dynamic port allocation is necessary because the ICST study runs multiple tool configurations across 188 applications, and future parallel execution requires isolated emulator instances. Each task can specify a unique `device_port` (default 5554) and `device_serial` (default `emulator-5554`) via `tool_config.additional_params`, enabling multiple concurrent emulator sessions without port conflicts.
+Dynamic port allocation is necessary because the ICST study runs multiple tool configurations across 188 applications, and future parallel execution requires isolated emulator instances. Each task can specify a unique `device_port` (default 5554) and `device_serial` (default `emulator-5554`) via `tool_config.parameters`, enabling multiple concurrent emulator sessions without port conflicts.
 
 The emulator is started using the `EmulatorManager.start_emulator()` context manager, which ensures proper cleanup on both normal and exceptional exits. App installation is verified via `CommandResult.is_failure()` -- if installation fails, `EmulatorError` is raised and the task transitions to `ERROR` state.
 
@@ -211,7 +206,7 @@ The emulator is started using the `EmulatorManager.start_emulator()` context man
 
 #### Scenario: Dynamic Port Allocation for Parallel Execution
 
-- **WHEN** a task has `tool_config.additional_params = {"device_port": 5558, "device_serial": "emulator-5558"}`
+- **WHEN** a task has `tool_config.parameters = {"device_port": 5558, "device_serial": "emulator-5558"}`
 - **THEN** `EmulatorComponent.start_emulator()` MUST pass port `5558` to `EmulatorManager.start_emulator()`
 - **AND** `EmulatorComponent.install_app()` MUST pass `device_serial="emulator-5558"` to `EmulatorManager.install_app()`
 
@@ -229,41 +224,31 @@ The emulator is started using the `EmulatorManager.start_emulator()` context man
 
 ### Requirement: Task Generation (FR08)
 
-The platform MUST generate tasks as the Cartesian product of discovered APKs, configured tools, tool variants, repetitions, and timeouts. Each unique combination produces exactly one `Task` object with a `TaskConfiguration` containing the APK name, tool configuration (name, variant, additional parameters), repetition number, and timeout value.
+The platform MUST generate tasks as the Cartesian product of discovered APKs, configured tools (each ToolConfig representing one tool+variant pair), repetitions, and timeouts. Each unique combination produces exactly one `Task` object with a `TaskConfiguration` containing the APK name, tool configuration (name, variant, parameters), repetition number, and timeout value.
 
-Task generation is the first step of `Platform.run()`. The platform discovers APK files by globbing `*.apk` in the configured `apks_dir` (sorted alphabetically). If no APK files are found, `Platform._discover_apks()` raises `ValueError`. For each APK, the platform iterates over all tools, their variants (defaulting to `["default"]` if the variants list is empty), repetition numbers (1 to `config.repetitions` inclusive), and timeout values. For each combination, a `Task` is created via `TaskFactory.create_task()`, associated with an `App` instance, and initialized with the results directory.
+Task generation is the first step of `Platform.run()`. The platform discovers APK files by globbing `*.apk` in the configured `apks_dir` (sorted alphabetically). If no APK files are found, `Platform._discover_apks()` raises `ValueError`. For each APK, the platform iterates over all tool configs, repetition numbers (1 to `config.repetitions` inclusive), and timeout values. For each combination, a `Task` is created via `TaskFactory.create_task()`, associated with an `App` instance, and initialized with the results directory.
+
+Variant expansion is handled at the CLI parser layer, not inside Platform. When the CLI receives `droidbot:dfs_greedy:bfs_greedy`, the parser creates two separate ToolConfig instances — `ToolConfig(name="droidbot", variant="dfs_greedy")` and `ToolConfig(name="droidbot", variant="bfs_greedy")`. Platform receives a flat list of ToolConfig objects with singular variants.
 
 Tasks follow a lifecycle: `CREATED` (initial) -> `RUNNING` (when executor begins) -> `COMPLETED` (success, including timeout) or `ERROR` (failure). The `INITIALIZING`, `READY`, and `CANCELED` states are defined in `TaskState` but are not actively used by `TaskExecutor.execute()` in the current implementation.
 
 #### Scenario: Basic Task Generation
 
-- **WHEN** `apks_dir` contains 2 APK files, `tools` has 1 tool with no variants, `repetitions=1`, and `timeouts=[300]`
-- **THEN** `Platform._generate_tasks()` MUST produce exactly 2 tasks (2 APKs x 1 tool x 1 variant x 1 rep x 1 timeout)
+- **WHEN** `apks_dir` contains 2 APK files, `tools` has 1 ToolConfig with `variant="default"`, `repetitions=1`, and `timeouts=[300]`
+- **THEN** `Platform._generate_tasks()` MUST produce exactly 2 tasks (2 APKs x 1 tool_config x 1 rep x 1 timeout)
 - **AND** each task MUST have an `App` instance set via `task.set_app()`
 - **AND** each task MUST be initialized with the results directory via `task.initialize()`
 
 #### Scenario: Multi-Variant Task Generation
 
-- **WHEN** `tools` has 1 tool with `variants=["dfs_greedy", "bfs_greedy"]`, `repetitions=3`, and `timeouts=[60, 300]`
-- **THEN** the number of tasks per APK MUST be `1 x 2 x 3 x 2 = 12`
+- **WHEN** `tools` has 2 ToolConfig instances `[ToolConfig(name="droidbot", variant="dfs_greedy"), ToolConfig(name="droidbot", variant="bfs_greedy")]`, `repetitions=3`, and `timeouts=[60, 300]`
+- **THEN** the number of tasks per APK MUST be `2 x 3 x 2 = 12`
 - **AND** each task's `TaskConfiguration.tool_config.variant` MUST match the corresponding variant name
-
-#### Scenario: Default Variant Fallback
-
-- **WHEN** a `ToolConfig` has `variants=[]` (empty list)
-- **THEN** the platform MUST use `["default"]` as the variant list, producing exactly one variant per tool
 
 #### Scenario: No APKs Found
 
 - **WHEN** `apks_dir` exists but contains no `.apk` files
 - **THEN** `Platform._discover_apks()` MUST raise `ValueError` with a message including the directory path
-- **AND** no tasks MUST be generated
-
-#### Scenario: Task Storage Integration
-
-- **WHEN** tasks are generated
-- **THEN** each task MUST be appended to the in-memory `Platform.tasks` list
-- **AND** after execution, each task MUST be persisted to `TaskStorage` via `update_task()`
 
 ### Requirement: Component-Based Task Execution (FR09, NFR02)
 
@@ -489,7 +474,7 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 
 The platform MUST capture Android logcat output during task execution via `LogcatComponent`. Logcat capture runs as a background process that writes raw logcat output to a file on disk. The captured output contains two categories of data relevant to the framework: method coverage events (tagged `RVSEC-COV`) and specification violation events (tagged `RVSEC`). Parsing of this data is handled by `CoverageComponent` via rv-coverage's `CoverageTracker`.
 
-`LogcatComponent` delegates to `LogcatManager` (from rv-android-core) for starting and stopping the capture process. The component supports device-specific capture through `device_serial`, which is extracted from `task.config.tool_config.additional_params` to support parallel execution on different emulator instances.
+`LogcatComponent` delegates to `LogcatManager` (from rv-android-core) for starting and stopping the capture process. The component supports device-specific capture through `device_serial`, which is extracted from `task.config.tool_config.parameters` to support parallel execution on different emulator instances.
 
 Logcat capture starts after the emulator is running and the APK is installed, and stops after the testing tool completes. The captured file is stored at `task.result.logcat_file`. If `task.config.clean_logcat` is `True`, the logcat buffer is cleared before capture begins to avoid contamination from previous runs.
 
@@ -508,7 +493,7 @@ Logcat capture starts after the emulator is running and the APK is installed, an
 
 #### Scenario: Parallel Execution Device Serial
 
-- **WHEN** `task.config.tool_config.additional_params` contains `device_serial: "emulator-5558"`
+- **WHEN** `task.config.tool_config.parameters` contains `device_serial: "emulator-5558"`
 - **THEN** `LogcatComponent` MUST initialize `LogcatManager` with `device_serial="emulator-5558"`
 - **AND** logcat capture MUST be scoped to that specific emulator instance
 
