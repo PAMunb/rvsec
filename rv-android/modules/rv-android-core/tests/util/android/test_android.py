@@ -104,16 +104,18 @@ class TestAndroid:
             MagicMock(stderr=b'error'),    # remount not ready
             MagicMock(stderr=b''),         # remount ready
         ]
-        
-        with patch('time.time', side_effect=[0, 10]): # Simulate 10 seconds boot time
+
+        # time.time() is called 5 times: start, bootanim timeout check, root timeout check,
+        # remount timeout check, elapsed calculation
+        with patch('time.time', side_effect=[0, 10, 20, 30, 40]):
             Android._wait_for_boot("emulator-5554")
             mock_logging.info.assert_has_calls([
-                call('Waiting for emulator-5554 to boot'),
+                call('Waiting for emulator-5554 to boot (timeout=180s)'),
                 call('Waiting for emulator-5554 to boot'),
                 call('emulator-5554 booted!'),
                 call('emulator-5554 took 0m 0s to boot')
             ])
-            assert mock_time_sleep.call_count == 3 # 5s for bootanim, 5s for root, 5s for remount
+            assert mock_time_sleep.call_count == 3  # 5s for bootanim, 5s for root, 5s for remount
 
     def test_simulate_reboot(self, mock_command_class, mock_logging, mock_time_sleep):
         with patch.object(Android, '_wait_for_boot') as mock_wait_for_boot:
@@ -147,7 +149,11 @@ class TestAndroid:
             mock_install_cmd_instance
         ]
         mock_readlink_cmd_instance.invoke.return_value = MagicMock(stdout=b'/real/path/to/app.apk\n')
-        
+        # install_apk checks is_failure() on the result
+        mock_install_result = MagicMock()
+        mock_install_result.is_failure.return_value = False
+        mock_install_cmd_instance.invoke.return_value = mock_install_result
+
         Android.install_apk(mock_app, "emulator-5554")
         mock_logging.info.assert_called_with("Installing APK: test_app on emulator-5554")
         mock_command_class.assert_has_calls([

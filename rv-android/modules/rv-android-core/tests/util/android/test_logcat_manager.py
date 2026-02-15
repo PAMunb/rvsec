@@ -66,9 +66,10 @@ class TestLogcatManager:
         mock_makedirs.assert_called_once_with("/test", exist_ok=True)
 
         # Verify commands were created correctly with device serial
+        # Tags get :V (Verbose) suffix for proper logcat filtering
         assert mock_command_class.call_count == 2
         mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-c"])
-        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
+        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC:V", "RVSEC-COV:V"])
 
         # Verify commands were executed
         mock_clear_command.invoke.assert_called_once()
@@ -104,7 +105,8 @@ class TestLogcatManager:
         result = logcat_manager.start_capture("/test/output.log", tags=["CUSTOM", "DEBUG"])
 
         # Verify correct command arguments with device serial
-        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "CUSTOM", "DEBUG"])
+        # Tags get :V (Verbose) suffix for proper logcat filtering
+        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "CUSTOM:V", "DEBUG:V"])
         assert result is True
 
     @patch('rv_android_core.util.android.logcat_manager.Command')
@@ -126,7 +128,8 @@ class TestLogcatManager:
         result = logcat_manager.start_capture("/test/output.log", clear_buffer=False)
 
         # Verify command creation and execution with device serial
-        mock_command_class.assert_called_once_with("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC", "RVSEC-COV"])
+        # Tags get :V (Verbose) suffix for proper logcat filtering
+        mock_command_class.assert_called_once_with("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC:V", "RVSEC-COV:V"])
         mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
 
         assert result is True

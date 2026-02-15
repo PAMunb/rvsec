@@ -4,6 +4,7 @@ import os
 import shutil
 import hashlib
 import json
+import time
 from datetime import datetime, timezone
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -144,15 +145,16 @@ class TestUtils:
     def test_execute_command_failure_without_stderr_check(
         self, mock_command_class, mock_logging_manager
     ):
+        # With skip_stderr=True and code=0, stderr should be ignored
         mock_cmd_instance = MagicMock()
         mock_cmd_instance.invoke.return_value = MagicMock(
-            code=1, stdout=b"", stderr=b"error"
+            code=0, stdout=b"output", stderr=b"error"
         )
         mock_command_class.return_value = mock_cmd_instance
 
         result = execute_command(mock_cmd_instance, "test_tag", skip_stderr=True)
         mock_cmd_instance.invoke.assert_called_once()
-        assert result.code == 1
+        assert result.code == 0
         mock_logging_manager.get_logger.return_value.debug.assert_called_with(
             "Command executed successfully"
         )
@@ -415,7 +417,7 @@ class TestUtils:
     # Tests for unzip
     def test_unzip_success(self, mock_logging_manager):
         mock_zip_file_instance = MagicMock()
-        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+        with patch("rv_android_core.util.utils.ZipFile") as mock_zipfile_class:
             mock_zipfile_class.return_value.__enter__.return_value = (
                 mock_zip_file_instance
             )
@@ -427,7 +429,7 @@ class TestUtils:
             )
 
     def test_unzip_failure(self, mock_logging_manager):
-        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+        with patch("rv_android_core.util.utils.ZipFile") as mock_zipfile_class:
             mock_zipfile_class.side_effect = Exception("Corrupt zip")
             with pytest.raises(Exception) as excinfo:
                 unzip("corrupt.zip", "/out")
@@ -441,7 +443,7 @@ class TestUtils:
             st_size=100, st_mtime=time.time()
         )
         mock_zip_file_instance = MagicMock()
-        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+        with patch("rv_android_core.util.utils.ZipFile") as mock_zipfile_class:
             mock_zipfile_class.return_value.__enter__.return_value = (
                 mock_zip_file_instance
             )
@@ -458,10 +460,9 @@ class TestUtils:
             st_size=100, st_mtime=time.time()
         )
         mock_zip_file_instance = MagicMock()
-        mock_zip_file_instance.__enter__.return_value.write.side_effect = Exception(
-            "Disk full"
-        )
-        with patch("zipfile.ZipFile", autospec=True) as mock_zipfile_class:
+        # Set write side_effect directly - this is what zipf.write() calls
+        mock_zip_file_instance.write.side_effect = Exception("Disk full")
+        with patch("rv_android_core.util.utils.ZipFile") as mock_zipfile_class:
             mock_zipfile_class.return_value.__enter__.return_value = (
                 mock_zip_file_instance
             )

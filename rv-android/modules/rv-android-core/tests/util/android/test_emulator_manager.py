@@ -158,8 +158,8 @@ class TestEmulatorManager:
         # Call the method
         result = emulator_manager.clear_logcat()
 
-        # Verify command was executed
-        mock_command_class.assert_called_once_with("adb", ["logcat", "-c"])
+        # Verify command was executed with device serial
+        mock_command_class.assert_called_once_with("adb", ["-s", "emulator-5554", "logcat", "-c"])
         mock_command.invoke.assert_called_once()
         assert result is True
 
