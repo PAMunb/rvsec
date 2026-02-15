@@ -208,7 +208,7 @@ class ExperimentConfig(BaseValidatedModel):
         - Tool configuration validation
         - APK source validation with pattern matching
         - Monitored operations specification validation
-        - Directory structure validation # TODO
+        - Directory structure validation
 
         Raises:
             ValueError: If configuration is invalid
@@ -803,19 +803,6 @@ class ExperimentConfig(BaseValidatedModel):
             return self.get_static_analysis_config()
         else:
             return {}
-
-    def get_rv_instrumentation_config(self) -> RVInstrumentationConfig:
-        """
-        Get configuration for rv-instrumentation module.
-
-        ### Configuration Class Integration:
-        This method now returns a properly typed RVInstrumentationConfig instance
-        instead of a dictionary, providing better type safety and validation.
-
-        Returns:
-            RVInstrumentationConfig instance with instrumentation configuration
-        """
-        return self.get_instrumentation_config()
 
     def get_instrumented_dir(self) -> str:
         """

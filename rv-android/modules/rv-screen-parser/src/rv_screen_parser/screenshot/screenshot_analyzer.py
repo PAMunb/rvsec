@@ -151,7 +151,6 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
         """
         if self.static_data and hasattr(self.static_data, 'windows'):
             self.logger.info(f"Initialized with static data containing {len(self.static_data.windows.windows)} windows")
-            # TODO
 
     @ErrorHandler.handle_errors(component="ScreenshotAnalyzer", phase="analysis", reraise=True)
     def analyze(self, image_path: str) -> ScreenshotAnalysisResult:

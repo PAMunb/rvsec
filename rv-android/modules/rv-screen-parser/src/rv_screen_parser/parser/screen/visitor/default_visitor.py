@@ -128,7 +128,6 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 for action in actions:
                     for event in widget.events:
                         if event.type == action.event:
-                            # TODO rever
                             action.reaches_mop = self._check_method_reaches_mop(event.signature)
                             action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
         else:
@@ -621,7 +620,6 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         Returns:
             True if action type already exists in screen actions
         """
-        # TODO
         for item in self.items:
             for action in item.actions:
                 if (hasattr(action, 'target_view') and 

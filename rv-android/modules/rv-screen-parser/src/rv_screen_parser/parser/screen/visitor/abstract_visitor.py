@@ -69,7 +69,7 @@ class AbstractScreenVisitor(ABC):
         self.system_navigation_bounds = {}
 
         # Device info
-        self.device_info = {} # TODO deprecated
+        self.device_info = {}
 
         # Initialize window info if static info is available
         if static_info and static_info.windows:

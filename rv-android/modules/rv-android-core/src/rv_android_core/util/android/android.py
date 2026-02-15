@@ -7,7 +7,6 @@ from rv_android_core.commands.command import Command
 from rv_android_core.util import utils
 
 
-# TODO logging manager
 logging = logging_api.getLogger(__name__)
 
 

@@ -380,7 +380,6 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             execution_time = time.time() - start_time
 
             # Store execution performance metrics
-            # TODO usar performance monitor
             self.execution_times[name] = execution_time
 
             # Validate execution results

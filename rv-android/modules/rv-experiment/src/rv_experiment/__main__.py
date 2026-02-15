@@ -1020,7 +1020,6 @@ def _create_experiment_config_from_cli(
         )
 
 
-# TODO remover esses "templates'
 def _create_template_configuration(template_type: str) -> ExperimentConfig:
     """
     Create template configuration for different experiment scenarios.

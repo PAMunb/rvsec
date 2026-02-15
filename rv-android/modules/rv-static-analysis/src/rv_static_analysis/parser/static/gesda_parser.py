@@ -158,7 +158,7 @@ class GesdaParser(BaseStaticAnalysisParser):
             widget = Widget(
                 str(widget_dict["widgetId"]),
                 widget_dict["name"] if "name" in widget_dict else "",
-                widget_type  # TODO rever tipo ...........................
+                widget_type
             )
             # print(f"window ({type(window)})={window}")
             windows.add_widget(window, widget)
