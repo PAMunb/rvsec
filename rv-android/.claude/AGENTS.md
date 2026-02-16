@@ -84,7 +84,7 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
 │                     COMPONENT SKILLS                                │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-analyze-*     │  │ rv-refactor-*    │  │ rv-test-*        │  │
-│  │ (6 skills)       │  │ (4 skills)       │  │ (2 skills)       │  │
+│  │ (5 skills)       │  │ (4 skills)       │  │ (2 skills)       │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-qa-*, verify  │  │ rv-doc-*, sync   │  │ rv-debug-*       │  │
