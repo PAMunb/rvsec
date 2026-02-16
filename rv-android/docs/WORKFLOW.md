@@ -405,7 +405,8 @@ flowchart LR
 2. Run `/opsx:continue` again to generate the task list
 3. If making an architectural decision, run `/rv-doc-adr` to record it
 4. Run `/rv-risk <change-name>` when the design involves new dependencies, external APIs, or multi-module coordination — produces a risk register with mitigation strategies
-5. Review: each task should be completable in one Claude Code session
+5. Annotate tasks with explicit `/rv-*` skill invocations where relevant (see Section 9: Skill Annotations in tasks.md)
+6. Review: each task should be completable in one Claude Code session
 
 #### Phase 4: Implement
 
@@ -414,18 +415,22 @@ flowchart LR
 | Aspect | Detail |
 |--------|--------|
 | **OpenSpec skill** | `/opsx:apply` |
-| **RV skills (orchestrators)** | `/rv-tdd`, `/rv-refactor`, `/rv-feature` |
-| **RV skills (components)** | `/rv-test-add`, `/rv-test-run`, `/rv-qa-lint-fix` |
+| **RV skills** | `/rv-test-run`, `/rv-test-add`, `/rv-doc-code`, `/rv-qa-lint-fix`, `/rv-verify` |
+| **Quality gate** | `rv-code-reviewer` (via Task tool) |
 | **Outputs** | Implemented code changes, tests |
-| **Exit criteria** | All tasks complete, tests passing |
+| **Exit criteria** | All tasks complete, tests passing, code review passed |
 
 **What to do**:
 1. Run `/opsx:apply` to begin executing tasks
-2. For each task, choose the appropriate orchestrator:
-   - `/rv-tdd` — when adding new functionality (test-first)
-   - `/rv-refactor` — when restructuring existing code
-   - `/rv-feature` — when implementing a new capability
-3. The orchestrator chains to `rv-code-reviewer` automatically at the end
+2. For each task group, use component skills directly — OpenSpec artifacts already cover the analysis, planning, and design that orchestrators would redo:
+   - Write tests first, then implementation (TDD discipline from tasks.md test cases)
+   - Use `/rv-test-run` after each group to verify
+   - Use `/rv-doc-code` for new modules/classes (as annotated in tasks.md)
+   - Use `/rv-verify` for final verification
+3. After all task groups, invoke `rv-code-reviewer` for code review via the Task tool:
+   ```
+   Task tool: subagent_type=rv-code-reviewer, prompt="Review [change-name] implementation"
+   ```
 
 **Subagent orchestration** (see Section 5): When `tasks.md` has 3+ independent task groups touching 20+ files total, dispatch each group to a subagent. The main window reads the plan, dispatches subagents (parallel when independent, sequential when dependent), collects summaries, and runs final verification. This prevents context compaction mid-implementation.
 
@@ -507,9 +512,9 @@ flowchart LR
 
 | Aspect | Detail |
 |--------|--------|
-| **Skills** | `/opsx:apply` + orchestrators (`/rv-tdd`, `/rv-refactor`, `/rv-feature`) |
+| **Skills** | `/opsx:apply` + component skills (`/rv-test-run`, `/rv-doc-code`, `/rv-verify`) + `rv-code-reviewer` |
 | **Outputs** | Implemented code changes, tests |
-| **Exit criteria** | All tasks complete, tests passing |
+| **Exit criteria** | All tasks complete, tests passing, code review passed |
 
 **Subagent orchestration** (see Section 5): Same pattern as Full SDD Phase 4. For changes with multiple independent task groups, dispatch each to a subagent from the main window.
 
@@ -595,6 +600,7 @@ flowchart LR
 - Each task as a checkbox: `- [ ] X.Y Task description`
 - Tasks ordered by dependency (prerequisite groups first)
 - For large changes (20+ files): groups annotated for subagent dispatch (e.g., "parallel — subagent")
+- Explicit `/rv-*` skill invocations as tasks where relevant (see Section 9: Skill Annotations in tasks.md)
 - A final "Verification" group with test and acceptance criteria checks
 
 For trivial changes (typo fix, single-file edit), tasks.md can be as short as:
@@ -772,6 +778,65 @@ These are architectural principles for the skill system itself. For the developm
 
 **Total**: 10 OpenSpec + 4 orchestrators + 27 components + 1 agent = **42 skills + 1 agent**
 
+### Skill Annotations in tasks.md
+
+Task lists (`tasks.md`) SHOULD include explicit `/rv-*` skill invocations as trackable checkbox items. This makes the implementation workflow reproducible — any developer or AI session can follow the tasks and know exactly which skills to invoke at each step, with what arguments, following the skill's templates and checklists.
+
+All rv-* skills have `context: fork` — they run as subagents with isolated context. Invoking them from tasks does not consume main window context.
+
+#### Convention
+
+Add skill invocation tasks at the end of each group where a skill adds value. Format:
+
+```
+- [ ] X.N Run `/rv-doc-code modules/rv-agent/src/rv_agent/services/new_service.py`
+```
+
+#### Common Patterns
+
+| When | Skill | Purpose |
+|------|-------|---------|
+| After creating a new Python module or class | `/rv-doc-code <file-path>` | Generate docstrings + inline comments following templates |
+| After adding complex functions to existing file | `/rv-doc-code <file-path>` | Audit and complete documentation |
+| After completing a test group | `/rv-test-run <module>` | Verify tests pass |
+| Final verification (all groups done) | `/rv-verify <module>` | Tests + lint + type checks |
+| After modifying many files | `/rv-qa-lint-fix <module>` | Auto-fix formatting and imports |
+
+#### When NOT to Annotate
+
+- **Trivial groups**: Single-line config change, simple field addition — no skill needed
+- **Test-only groups**: Test files don't need `/rv-doc-code` (test names are self-documenting)
+- **Orchestrator skills per group**: Do not annotate `/rv-tdd`, `/rv-feature`, `/rv-refactor`, `/rv-cleanup` per task group — their analysis/planning phases duplicate what OpenSpec artifacts already cover (see "Orchestrators vs Component Skills" below). Use component skills in tasks.md instead.
+- **Redundant verification**: If the group already has "Run `uv run pytest ...`" as a task, don't add `/rv-test-run` — the explicit command is equivalent
+
+### Orchestrators vs Component Skills in OpenSpec Workflows
+
+Orchestrators (`/rv-tdd`, `/rv-feature`, `/rv-refactor`, `/rv-cleanup`) have multi-phase workflows that include analysis, planning, and user checkpoints. These phases overlap with OpenSpec's proposal → specs → design → tasks workflow. No orchestrator supports a `--skip-analysis` or `--from-plan` flag.
+
+**Phase overlap:**
+
+| Orchestrator | Phases that duplicate OpenSpec | Unique value |
+|-------------|-------------------------------|--------------|
+| `/rv-tdd` | Analysis, Test Planning, Checkpoint | RED→GREEN→REFACTOR discipline, code review chain |
+| `/rv-feature` | Discovery, Design, Approach Selection, Planning, Checkpoint | TDD implementation, code review chain |
+| `/rv-refactor` | Analysis, Planning, Checkpoint | Backup→refactor→test loop, code review chain |
+| `/rv-cleanup` | Analysis, Planning, Checkpoint | Backup→remove→verify→rollback loop, code review chain |
+
+**Guidelines by context:**
+
+| Context | Use Orchestrators? | Use Component Skills? | Code Review |
+|---------|--------------------|-----------------------|-------------|
+| Full SDD Phase 4 | No — duplicates OpenSpec | Yes — tasks.md annotations | `rv-code-reviewer` via Task tool |
+| FF SDD Phase 3 | No — duplicates OpenSpec | Yes — tasks.md annotations | `rv-code-reviewer` via Task tool |
+| Quick Path Phase 3 | Optional — adds structure | Yes — for specific tasks | Chained by orchestrator, or `rv-code-reviewer` via Task tool |
+| No OpenSpec (ad-hoc) | Yes — provides full workflow | Used within orchestrator | Chained by orchestrator |
+
+**In Full SDD and FF SDD changes**: Use component skills directly in tasks.md. The OpenSpec artifacts have already completed the analysis (proposal.md), design (design.md), and planning (tasks.md) that orchestrators would redo. TDD discipline comes from following the test cases in tasks.md. Code review comes from invoking `rv-code-reviewer` independently after all task groups.
+
+**In Quick Path changes**: Orchestrators are appropriate when the change benefits from their structured workflow — especially `/rv-tdd` for bug fixes (ensures tests-first discipline) and `/rv-cleanup` for dead code removal (ensures backup-verify-rollback safety). Quick Path's `plan.md` is lightweight compared to Full SDD's 4 artifacts, so the orchestrator's analysis phase adds value rather than duplicating existing work.
+
+**Standalone use (no OpenSpec)**: Orchestrators are designed for ad-hoc development without OpenSpec pre-planning. When invoked directly (e.g., `/rv-tdd some-feature`), they provide the full analysis → planning → implementation → review workflow.
+
 ---
 
 ## 10. Quick Reference: Common Scenarios
@@ -780,15 +845,15 @@ Sequences below show the key skills for each scenario. All tracks start with cha
 
 | Scenario | Track | Schema | Key Skills |
 |----------|-------|--------|------------|
-| New feature in rv-agent | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-tdd`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
-| Add config option to module | FF SDD | `rv-sdd` | `rv-analyze-file` -> `opsx:ff` -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| New feature in rv-agent | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ component skills) -> `rv-verify` -> `rv-code-reviewer` -> `opsx:verify` -> `opsx:archive` |
+| Add config option to module | FF SDD | `rv-sdd` | `rv-analyze-file` -> `opsx:ff` -> `opsx:apply` (w/ component skills) -> `rv-verify` -> `rv-code-reviewer` -> `opsx:verify` -> `opsx:archive` |
 | Refactor module internals | Quick | `quick-path` | `rv-analyze-module` -> plan.md -> tasks.md -> `rv-refactor` -> `rv-verify` -> `archive --skip-specs` |
 | Fix a bug | Quick | `quick-path` | `rv-debug-regression` -> plan.md -> tasks.md -> `rv-tdd` -> `rv-verify` -> `archive --skip-specs` |
 | Add tests to existing code | Quick | `quick-path` | plan.md -> tasks.md -> `rv-test-add` -> `rv-test-run` -> `archive --skip-specs` |
 | Remove dead code / modules | Quick | `quick-path` | `rv-analyze-dead-code` -> plan.md -> tasks.md -> `rv-cleanup` (w/ subagents if 20+ files) -> `rv-verify` -> `archive --skip-specs` |
-| Architectural change | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `rv-doc-adr` -> `opsx:apply` -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
-| Add a new module | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ `rv-feature`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
-| Optimize performance | FF SDD | `rv-sdd` | `rv-analyze-complexity` -> `opsx:ff` -> `opsx:apply` (w/ `rv-refactor`) -> `rv-verify` -> `opsx:verify` -> `opsx:archive` |
+| Architectural change | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `rv-doc-adr` -> `opsx:apply` (w/ component skills) -> `rv-verify` -> `rv-code-reviewer` -> `opsx:verify` -> `opsx:archive` |
+| Add a new module | Full SDD | `rv-sdd` | `opsx:explore` -> `opsx:new` -> `opsx:continue` (x4) -> `opsx:apply` (w/ component skills) -> `rv-verify` -> `rv-code-reviewer` -> `opsx:verify` -> `opsx:archive` |
+| Optimize performance | FF SDD | `rv-sdd` | `rv-analyze-complexity` -> `opsx:ff` -> `opsx:apply` (w/ component skills) -> `rv-verify` -> `rv-code-reviewer` -> `opsx:verify` -> `opsx:archive` |
 | Fix lint issues | Quick | `quick-path` | plan.md -> tasks.md -> `rv-qa-lint-fix` -> `rv-test-run` -> `archive --skip-specs` |
 | Large mechanical cleanup (45 files) | Quick | `quick-path` | plan.md -> tasks.md -> subagent dispatch -> `rv-verify` -> `archive --skip-specs` |
 | Update docs across modules | Quick | `quick-path` | plan.md -> tasks.md -> subagent dispatch -> `rv-verify` -> `archive --skip-specs` |
@@ -819,9 +884,10 @@ This is a multi-module change (rv-agent + rv-screen-parser) introducing new capa
 
 # Phase 4: Implement
 /opsx:apply                            # Execute tasks
-  # For each task, Claude picks appropriate orchestrator:
-  # /rv-tdd for new scroll detector class
-  # /rv-feature for integration with existing nodes
+  # Use component skills directly (OpenSpec already did analysis/design):
+  # Write tests first, then implementation (TDD discipline from tasks.md)
+  # /rv-test-run, /rv-doc-code, /rv-verify as annotated in tasks.md
+  # Chain rv-code-reviewer at the end via Task tool
 
 # Phase 5: Verify
 /rv-verify rv-agent                    # Tests + lint + types

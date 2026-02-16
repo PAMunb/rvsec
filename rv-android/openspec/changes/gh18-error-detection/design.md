@@ -83,7 +83,7 @@ execute_node (action) -> learn_node:
         - Log via track.error()
      d. Screenshot exists AND no error detected: reset error_recovery_count = 0
   4. Stuck detection (existing, runs normally — but stuck_screen_count was reset in case 3c, so it won't trigger)
-  6. Normal learn flow continues
+  5. Normal learn flow continues
 
 decision_node:
   [NEW] Check force_fill_input -> route to algorithm
@@ -137,7 +137,7 @@ Iteration N+1: parse_ui(S_{N+1}) → if hash(S_{N+1}) == hash(S_N): take screens
 | INV-AG-21: Stuck Counter Suppression | `learn_node()`: `agent.stuck_screen_count = 0` when error detected | `test_learn_node_error_detection::test_stuck_counter_reset` |
 | INV-AG-22: Input Filling Guidance via Flag | `algorithm_node()`: `force_fill_input` check → `_find_associated_input_action()` | `test_algorithm_node_error_recovery.py` |
 | INV-AG-23: No Action Penalization | Enforced by omission — gh18 does not call `record_action_failure()` | Grep verification (task 9.6) |
-| INV-AG-24: Error Recovery Loop Protection | `learn_node._detect_validation_error()`: `error_recovery_count >= MAX_ERROR_RECOVERY` guard | `test_learn_node_error_detection::test_max_recovery` |
+| INV-AG-24: Error Recovery Loop Protection | `learn_node()` 3-way branching: `error_recovery_count >= MAX_ERROR_RECOVERY` guard before calling `_detect_validation_error()` | `test_learn_node_error_detection::test_max_recovery` |
 | INV-AG-25: Conditional Screenshot Capture | `parse_node.py`: `screen_hash == previous_screen_hash` → `take_screenshot()` | `test_parse_node_screenshot.py` |
 | INV-AG-26: Spatial Association | `algorithm_node._find_associated_input_action()`, `_calculate_association_score()` | `test_find_associated_input.py` |
 | INV-AG-27: System Region Masking | `VisualErrorDetector.detect()`: region filter stage (top 5%, bottom 6%) | `test_visual_error_detector::test_region_filter_*` |
@@ -347,7 +347,7 @@ if error_result:
 ```python
 # After computing screen_hash (line 55), check if hash repeats:
 error_detection_screenshot = None
-if (getattr(agent, 'error_detection_enabled', False)
+if (getattr(agent, 'error_detection_enabled', True)
     and screen_hash
     and screen_hash == state.get("previous_screen_hash")):
     try:
