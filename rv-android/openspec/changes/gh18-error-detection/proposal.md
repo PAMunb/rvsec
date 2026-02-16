@@ -1,44 +1,48 @@
-# Proposal: Integrate Error Detection into rv-agent
+# Proposal: Validation Error Detection in rv-agent
 
 **Date**: 2026-02-15
 **Author**: Pedro Henrique Teixeira Costa (with Claude Code assistance)
 **GitHub Issue**: [#18](https://github.com/PAMunb/rvsec/issues/18)
-**Domains**: agent (consumer), analysis (provider — no changes)
+**Domains**: agent
 
 ## 1. Problem Statement
 
-rv-agent explores Android applications using DFS-based algorithmic strategies (pure_algorithm mode) or LLM-guided exploration (llm_only, multimode). During exploration, the agent encounters application errors — crashes, ANR dialogs, permission denials, network errors, validation errors — but has **no mechanism to detect or react to them**.
+rv-agent explores Android applications using DFS-based algorithmic strategies and LLM-guided exploration. During exploration, the agent triggers actions that produce validation errors — "Field required", "Invalid format", "Please enter a valid email" — but has no mechanism to detect or react to them.
 
-The consequences are:
-- The agent repeats actions that consistently cause errors, wasting exploration budget
-- Stuck detection is purely hash-based (same screen = stuck), missing error screens that are visually different each time
-- `FailedActionScorer` exists with -9999 penalty but receives no data — it always returns 0
-- `ScreenNode.record_action_failure()` exists but is never called
-- Error recovery infrastructure (`StuckRecovery` with backtrack BFS) exists but is never triggered by error conditions
+The consequence is that the agent gets stuck in unproductive loops:
 
-Meanwhile, rv-screen-parser already has a complete `ErrorDetector` (790 lines, 3 strategies: color HSV, text regex, visual patterns) that could provide this capability.
+1. Agent clicks a submit button (e.g., "GENERATE HASH") with empty input fields
+2. The app shows a validation error on the input field
+3. The agent sees a different screen hash (error indicator changed the UI), so stuck detection does not trigger
+4. The agent selects the same button again, or moves on without ever filling the input
+5. The crypto operation behind the button is never triggered
+
+This is particularly harmful because submit buttons often trigger the monitored operations (MOP) that rv-agent is designed to reach. An unfilled input field prevents the agent from exercising the primary functionality of the app.
+
+### Distinction: Validation Errors vs. App Crashes
+
+Validation errors (precondition not met) and app crashes (action breaks the app) require opposite responses:
+
+| Error Type | Example | Correct Response |
+|------------|---------|-----------------|
+| Validation error | "Field required" on empty input | Fill the input field, retry the action |
+| App crash | ANR dialog, force-close | Avoid the action, backtrack |
+
+This change addresses **validation errors only**. Crash detection is a separate concern (tracked by the TODO at `screen_node.py:120`).
 
 ## 2. Proposed Solution
 
-Connect the existing error detection infrastructure to create a reactive error handling loop in rv-agent:
+Detect validation errors on screen and guide the agent to fill input fields before retrying. The approach uses a state flag (`force_fill_input`) following the same pattern as `force_back_action` and `force_restart_app` for learn_node-to-algorithm_node communication.
 
-1. **Detect**: After each action, check for error indicators on screen
-2. **Record**: Call `record_action_failure()` on the current ScreenNode
-3. **Penalize**: `FailedActionScorer` assigns -9999, preventing the action from being selected again
-4. **Recover**: Execute BACK action to exit the error state
+1. **Detect**: After each action, scan UI element texts for validation error patterns (regex on UIAutomator dump)
+2. **Suppress stuck counter**: Reset `stuck_screen_count` so the agent stays on the current screen instead of backing out
+3. **Signal**: Set `force_fill_input = True` in agent state
+4. **Fill**: algorithm_node finds the next unfilled input field and generates a SET_TEXT action with a test value
+5. **Resume**: On the next iteration, if no error is detected, normal exploration flow resumes
 
-### Detection Approach Decision
+### Detection Approach: Text-Based (Zero Dependencies)
 
-The `ErrorDetector` in rv-screen-parser depends on OpenCV (`cv2`) and Tesseract OCR (`pytesseract`). These system packages are **not installed** in the Docker images (base, tools, rvandroid). Four alternatives were analyzed:
-
-| Alternative | Dependencies | Detection Scope | Latency | Docker Impact |
-|-------------|-------------|-----------------|---------|---------------|
-| **A. Full ScreenshotAnalyzer** | OpenCV + Tesseract | Color + text + visual patterns | ~300ms/frame | Rebuild all images (+150-300MB) |
-| **B. Color-only** | OpenCV only | Color patterns (red banners, etc.) | ~50ms/frame | Rebuild all images (+50MB) |
-| **C. Text-based via UI hierarchy** | None | Text regex on UIAutomator dump | ~5ms | None |
-| **D. Conditional** | Depends on A/B/C | Only when hash unchanged | Amortized | Depends on base |
-
-**Recommended approach**: Start with **Alternative C** (text-based). Apply the same regex patterns from `ErrorDetector` to texts already extracted by UIAutomator dump. Zero new dependencies, ~5ms latency. Handles ~80% of cases (textual errors like "permission denied", "connection failed", "invalid format"). If insufficient, escalate to B then A.
+Scan `ScreenDescription.items` for error text patterns via regex. The patterns are derived from `ErrorDetector._detect_text_errors()` in rv-screen-parser. This approach runs in ~5ms, requires no new dependencies (no OpenCV, no Tesseract), and handles the most common validation error cases (textual errors displayed in input fields, snackbars, and toasts).
 
 ## 3. Impact Assessment
 
@@ -46,31 +50,24 @@ The `ErrorDetector` in rv-screen-parser depends on OpenCV (`cv2`) and Tesseract 
 
 | Module | Impact | Changes |
 |--------|--------|---------|
-| rv-agent | Primary | New error detection logic, integration with FailedActionScorer and StuckRecovery |
-| rv-screen-parser | None | Provider of ErrorDetector — no changes needed, regex patterns extracted for reuse |
+| rv-agent | Primary | New `ErrorPatternMatcher` service, modifications to `learn_node`, `algorithm_node`, `AgentState`, `RVAgentConfig`, `tracking` |
 
 ### Risk Assessment
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| False positives (normal text matched as error) | Medium | Low | Tunable confidence threshold, conservative regex patterns |
-| Performance overhead in hot loop | Low | Medium | Alt C is ~5ms; only runs after action execution |
-| Interference with calibration campaign (gh9) | High if Alt A/B | High | Decision D7: implement after gh9. Alt C has zero Docker impact |
-
-### Existing Infrastructure (90% ready)
-
-- `ScreenNode.record_action_failure()` — exists, never called
-- `FailedActionScorer` — scorer with -9999 penalty, but failure set always empty
-- `StuckRecovery` — backtrack BFS already implemented
-- `ErrorDetector` — complete in rv-screen-parser (790 lines, 3 strategies)
-- Error regex patterns in `ErrorDetector._detect_text_errors()` — extractable for Alt C
-
-### Historical Reference
-
-The discontinued tool `rvsmart` (archived in `backup/rvsmart-tool/`) had a working ErrorDetector integration via a 6-stage pipeline: Screenshot → ScreenshotAnalyzer → ErrorDetector → ScreenshotActionComplementor → StateEnricher → LLM Prompt. However, rvsmart used error detection passively (informing the LLM) without reactive recovery or action blacklisting. rv-agent can do more because it has algorithmic infrastructure (FailedActionScorer, StuckRecovery) that rvsmart lacked.
+| False positives (normal text matched as error) | Medium | Low | Configurable confidence threshold, exclusion patterns for common false positives ("Error Log", "Report Error") |
+| No input field available on error screen | Low | Low | Clear flag and fall through to normal flow |
+| Performance overhead in hot loop | Low | Low | ~5ms text matching, only on parsed UI elements |
 
 ## 4. Pre-conditions
 
 - gh17-refactoring-cleanup completed (cleans up related TODOs in the same files)
-- gh9-docker-calibration completed (Decision D7: frozen Docker image `phtcosta/rvandroid:0.8.0` during ~308h calibration campaign)
-- Alternative C (text-based) is strongly preferred to avoid Docker image changes during or after calibration
+
+## 5. What This Change Does NOT Do
+
+- Does NOT call `record_action_failure()` — validation errors are not action failures
+- Does NOT use `FailedActionScorer` — the -9999 penalty blacklists actions permanently, which is wrong for validation errors (the action should be retried after filling inputs)
+- Does NOT force BACK — the agent should stay on the current screen and fill inputs
+- Does NOT modify `screen_node.py` — the TODO at line 120 documents a separate concern (crash detection)
+- Does NOT add OpenCV or Tesseract dependencies

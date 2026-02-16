@@ -1,4 +1,4 @@
-# Design: Error Detection Integration
+# Design: Validation Error Detection
 
 **Change**: gh18-error-detection
 **GitHub Issue**: [#18](https://github.com/PAMunb/rvsec/issues/18)
@@ -6,161 +6,277 @@
 
 ## 1. Architecture
 
-### Detection Strategy: Text-Based (Alternative C)
+### Detection Strategy: Text-Based (Zero Dependencies)
 
-Error detection is implemented as a lightweight text analysis pass on the UIAutomator XML dump, which is already parsed in `parse_node`. No new system dependencies (OpenCV, Tesseract) are required.
+Error detection scans UI element text from the UIAutomator dump (already parsed in `parse_node`) for validation error patterns using regex. No image processing, no new system dependencies.
 
-The detection works by:
-1. Extracting all `text` and `content-desc` attributes from the UI hierarchy (already available from UIAutomator parsing)
-2. Matching against regex patterns derived from `ErrorDetector._detect_text_errors()` in rv-screen-parser
-3. Returning a list of detected error indicators with type and confidence
+The detection:
+1. Extracts `text` and `content-desc` attributes from `ScreenDescription.items` (available from UIAutomator parsing)
+2. Matches against validation error patterns (regex derived from `ErrorDetector._detect_text_errors()` in rv-screen-parser)
+3. Returns a result with detected error texts and a confidence score
 
 ### Integration Point: learn_node
 
-Error detection runs in `learn_node` after action execution and screen capture, as part of the "learn from action result" phase. This is the natural location because:
-- The new screen state is already captured and parsed
-- The previous action is known (needed for `record_action_failure()`)
-- `learn_node` already handles stuck detection — error detection is a complementary signal
+Error detection runs in `learn_node` before stuck detection. learn_node already handles post-execution analysis (stuck detection, action success recording). Error detection is the same category of post-execution analysis.
+
+When a validation error is detected:
+- `stuck_screen_count` is reset to 0 (suppress false stuck — the screen may be unchanged, but backing out is wrong)
+- `force_fill_input = True` is set in the result state
+
+### Response: Guidance via `force_fill_input` State Flag
+
+The `force_fill_input` flag follows the same pattern as `force_back_action` and `force_restart_app` for learn_node-to-algorithm_node communication. When `algorithm_node` sees this flag, it finds the next unfilled TEXT_CHANGE action on the current screen and generates a SET_TEXT action using `InputValueGenerator`.
+
+This is guidance, not punishment: the agent stays on the screen, fills inputs, and retries the submit action on the next iteration.
 
 ### Data Flow
 
 ```
-execute_node (action) → learn_node:
-  1. Capture new screen (existing)
-  2. Parse UI hierarchy (existing)
-  3. [NEW] Run error detection on parsed elements
-  4. If error detected:
-     a. Call screen_node.record_action_failure(action, error_type)
-     b. Set recovery_action = BACK
-     c. Skip normal stuck detection (error takes priority)
+execute_node (action) -> learn_node:
+  1. Update memories (existing)
+  2. [NEW] Detect validation errors via ErrorPatternMatcher
+  3. If error detected:
+     a. Reset stuck_screen_count = 0
+     b. Set force_fill_input = True
+     c. Log via track.error()
+  4. Stuck detection (existing, runs normally — but stuck_screen_count was reset, so it won't trigger)
   5. Normal learn flow continues
+
+decision_node:
+  [NEW] Check force_fill_input -> route to algorithm
+
+algorithm_node:
+  [NEW] Check force_fill_input flag (after force_restart_app and force_back_action checks)
+  1. Find TEXT_CHANGE actions on current screen
+  2. Use InputValueGenerator to get next test value
+  3. Return SET_TEXT action with decision_maker="error_recovery"
+  4. If no input found: clear flag, fall through to normal flow
 ```
 
 ## 2. Key Components
 
-| Component | Location | Responsibility |
-|-----------|----------|----------------|
-| `ErrorPatternMatcher` | `rv_agent/services/error_detection.py` (new) | Regex matching on UI element texts, returns error indicators |
-| `learn_node` | `rv_agent/agent/nodes/learn_node.py` (modified) | Calls ErrorPatternMatcher after action, triggers failure recording |
-| `ScreenNode` | `rv_agent/domain/screen_node.py` (existing) | `record_action_failure()` — already implemented, currently uncalled |
-| `FailedActionScorer` | `rv_agent/strategies/rvagent_strategy/ranking/scorers.py` (existing) | Returns -9999 for recorded failures — already implemented |
+| Component | Location | Action |
+|-----------|----------|--------|
+| `ErrorPatternMatcher` | `rv_agent/services/error_detection.py` (new) | Regex matching on ScreenDescription item texts |
+| `learn_node` | `rv_agent/agent/nodes/learn_node.py` (modify) | Add `_detect_validation_error()`, set `force_fill_input`, suppress stuck counter |
+| `decision_node` | `rv_agent/agent/nodes/decision_node.py` (modify) | Route `force_fill_input` to algorithm |
+| `algorithm_node` | `rv_agent/agent/nodes/algorithm_node.py` (modify) | Handle `force_fill_input`, find input action, generate SET_TEXT |
+| `AgentState` | `rv_agent/domain/state.py` (modify) | Add `force_fill_input: bool` field |
+| `RVAgentConfig` | `rv_agent/config/agent_config.py` (modify) | Add `error_detection_enabled`, `error_detection_confidence` |
+| `RVAgent` | `rv_agent/agent/rv_agent.py` (modify) | Wire config, init `force_fill_input` in state, store `error_confidence` |
+| `tracking` | `rv_agent/tracking.py` (modify) | Add `track.error()`, update `track.learn()` with `error_detected` param |
 
-## 3. Spec-to-Implementation Mapping
-
-| Spec (INV/Scenario) | Implementation | Test |
-|---------------------|----------------|------|
-| INV-AG-20 (error detection) | `ErrorPatternMatcher.detect()` | `test_error_pattern_matcher.py` |
-| INV-AG-21 (failure recording) | `learn_node._check_for_errors()` → `screen_node.record_action_failure()` | `test_learn_node_error_detection.py` |
-| INV-AG-22 (failed action penalty) | `FailedActionScorer.score()` (existing) | `test_failed_action_scorer.py` (verify with real data) |
-| INV-AG-23 (error recovery) | `learn_node._check_for_errors()` sets recovery action | `test_learn_node_error_recovery.py` |
-| Scenario: no false positive | `ErrorPatternMatcher` confidence threshold + context check | `test_error_pattern_matcher_false_positives.py` |
-
-## 4. API Design
+## 3. API Design
 
 ### ErrorPatternMatcher
 
 ```python
 @dataclass
-class ErrorIndicator:
-    error_type: str        # "permission_error", "network_error", "crash", "validation_error", "system_error"
-    matched_text: str      # The text that triggered the match
-    confidence: float      # 0.0 to 1.0
-    element_id: str | None # UIAutomator resource-id if available
+class ValidationErrorResult:
+    detected: bool           # True if confidence >= threshold
+    error_texts: list[str]   # Matched error text strings
+    confidence: float        # 0.0 to 1.0
 
 class ErrorPatternMatcher:
-    """Text-based error detection using regex patterns on UI hierarchy elements.
+    """Text-based validation error detection on UI hierarchy elements.
 
-    Patterns are derived from ErrorDetector._detect_text_errors() in rv-screen-parser.
-    Operates on already-parsed UI elements — no image processing, no new dependencies.
+    Scans item.view['text'] and item.view['content-desc'] from ScreenDescription
+    against regex patterns for common validation error messages.
+
+    Patterns derived from ErrorDetector._detect_text_errors() in rv-screen-parser.
     """
 
-    CONFIDENCE_THRESHOLD: float = 0.7
+    VALIDATION_PATTERNS = [
+        r'\b(required|mandatory)\b',
+        r'\b(invalid|incorrect)\s+(format|input|data|value)\b',
+        r'\b(cannot|can.t)\s+be\s+(empty|blank)\b',
+        r'\b(please|must)\s+(enter|provide|fill)\b',
+        r'\bfield\s+(is\s+)?required\b',
+        r'\benter\s+a\s+valid\b',
+    ]
 
-    def detect(self, ui_elements: list[dict]) -> list[ErrorIndicator]:
-        """Check all UI element texts against error patterns.
+    EXCLUSION_PATTERNS = [
+        r'error\s*log',
+        r'report\s*error',
+        r'error\s*code',
+    ]
+
+    def detect(
+        self,
+        screen_desc: ScreenDescription,
+        confidence_threshold: float = 0.7,
+    ) -> ValidationErrorResult:
+        """Scan UI element texts for validation error patterns.
 
         Args:
-            ui_elements: List of parsed UI elements with 'text' and 'content_desc' fields.
-                         These come from the UIAutomator dump already parsed in parse_node.
+            screen_desc: Parsed screen state from state["screen_description"].
+            confidence_threshold: Minimum confidence to consider error detected.
 
         Returns:
-            List of ErrorIndicator for elements matching error patterns above confidence threshold.
-            Empty list if no errors detected.
+            ValidationErrorResult with detection status, matched texts, and confidence.
         """
 ```
 
 ### learn_node Integration
 
 ```python
-# In learn_node.py, after capturing new screen:
+def _detect_validation_error(agent: "RVAgent", state: AgentState) -> bool:
+    """Detect validation errors on current screen.
 
-def _check_for_errors(self, state: AgentState) -> tuple[bool, str | None]:
-    """Check current screen for error indicators.
+    Called before stuck detection. When a validation error is detected,
+    resets stuck_screen_count to prevent false stuck detection and
+    signals algorithm_node to prioritize input filling.
+
+    Args:
+        agent: RVAgent with error_confidence from config.
+        state: Current agent state with screen_description.
 
     Returns:
-        Tuple of (error_detected: bool, error_type: str | None)
+        True if validation error detected (above confidence threshold).
     """
+    if not getattr(agent, 'error_detection_enabled', True):
+        return False
+
+    screen_desc = state.get("screen_description")
+    if not screen_desc:
+        return False
+
     matcher = ErrorPatternMatcher()
-    indicators = matcher.detect(state["current_ui_elements"])
+    result = matcher.detect(screen_desc, confidence_threshold=agent.error_confidence)
 
-    if not indicators:
-        return False, None
+    if result.detected:
+        logger.info(f"Validation error detected: {result.error_texts[:3]}")
 
-    # Use highest-confidence indicator
-    best = max(indicators, key=lambda i: i.confidence)
-
-    # Record failure on current screen node
-    current_node = state["current_screen_node"]
-    current_node.record_action_failure(
-        action=state["last_action"],
-        error_type=best.error_type
-    )
-
-    return True, best.error_type
+    return result.detected
 ```
 
-## 5. Error Handling
+Integration in `learn_node()`:
+```python
+# Before stuck detection (line ~125 in current code):
+error_detected = _detect_validation_error(agent, state)
+if error_detected:
+    agent.stuck_screen_count = 0  # Suppress false stuck
 
-| Error Condition | Handling | Recovery |
-|----------------|----------|----------|
-| UIAutomator dump unavailable | Skip error detection, continue normally | Log warning, rely on hash-based stuck detection |
-| All actions on a screen are failed | Backtrack via StuckRecovery (existing) | DFS backtracks to parent screen |
-| BACK doesn't dismiss error dialog | Hash-based stuck detection triggers after N same-screen iterations | StuckRecovery escalates (HOME, restart) |
-| False positive (normal text matched) | Confidence threshold filters low-confidence matches | Action penalty is per-screen-node, so same action on different screen is unaffected |
+# ... existing stuck detection runs (but won't trigger because count was reset) ...
+
+# In result dict construction:
+if error_detected:
+    result["force_fill_input"] = True
+```
+
+### algorithm_node Handling
+
+```python
+# After force_back_action check (line ~75), before deadlock detection:
+if state.get("force_fill_input", False):
+    input_action = _find_next_input_action(agent, state)
+    if input_action:
+        logger.info(f"Error recovery: filling input at ({input_action.x}, {input_action.y})")
+        # Return SET_TEXT action
+        return {
+            "current_action": {
+                "action_type": "SET_TEXT",
+                "x": input_action.x,
+                "y": input_action.y,
+                "text": input_action.text_input,
+                "source": "algorithm",
+                "reason": "error_recovery_fill_input",
+            },
+            "current_item_action": input_action,
+            "decision_maker": "error_recovery",
+            "force_fill_input": False,
+        }
+    else:
+        # No input field found — clear flag, fall through to normal flow
+        logger.info("Error recovery: no input field found, resuming normal flow")
+```
+
+`_find_next_input_action()` iterates TEXT_CHANGE actions on the current screen, uses `agent.strategy._prepare_input_action()` to find one with remaining test values from `InputValueGenerator`.
+
+### decision_node Handling
+
+```python
+# After force_back_action check:
+if state.get("force_fill_input", False):
+    track.route(iter=iteration, mode=mode, path="algorithm(fill_input)")
+    return {"decision_path": "algorithm", "decision_maker": "error_recovery"}
+```
+
+### Tracking
+
+```python
+# New function in tracking.py:
+def error(iter: int, error_texts: list[str], confidence: float) -> None:
+    """Log validation error detection."""
+    texts_str = "; ".join(error_texts[:3])
+    logger.info(_fmt("ERROR", iter=iter, texts=f'"{texts_str}"',
+                     confidence=f"{confidence:.2f}"))
+
+# Updated learn() signature:
+def learn(iter: int, stuck: bool, memory_updated: bool,
+          stuck_reason: Optional[str] = None,
+          error_detected: bool = False) -> None:
+```
+
+## 4. Error Handling
+
+| Condition | Handling | Recovery |
+|-----------|----------|----------|
+| `screen_description` is None | Skip detection, continue normally | Normal stuck detection handles screen issues |
+| No TEXT_CHANGE actions on screen | Clear `force_fill_input`, fall through to normal algorithm flow | Agent continues exploring normally |
+| All input values exhausted for a field | `_prepare_input_action()` returns None, try next field | If all fields exhausted, clear flag |
+| False positive (normal text matched) | Confidence threshold filters low-confidence matches | Agent fills one input (low cost), resumes next iteration |
+
+## 5. Decisions
+
+### D1: Detection in learn_node (not parse_node)
+
+**Context**: Error detection could run in parse_node (during screen parsing) or learn_node (after action evaluation).
+**Decision**: learn_node, before stuck detection.
+**Rationale**: learn_node handles post-execution analysis. The previous action's result is available. Placing detection before stuck detection allows resetting `stuck_screen_count` to prevent false positives.
+
+### D2: Guidance via `force_fill_input` flag (not scorer modification)
+
+**Context**: Could use FailedActionScorer (-9999 penalty) or a state flag.
+**Decision**: State flag following the `force_back_action` / `force_restart_app` pattern.
+**Rationale**: A -9999 penalty permanently blacklists the action on that screen. For validation errors, the action (e.g., "GENERATE HASH" button) should be retried after filling inputs. The flag pattern is simpler and already proven for learn_node-to-algorithm_node communication.
+
+### D3: Text-based detection (zero dependencies)
+
+**Context**: Four alternatives analyzed (full ScreenshotAnalyzer, color-only OpenCV, text-based UIAutomator, conditional).
+**Decision**: Text-based on UIAutomator dump.
+**Rationale**: Zero new dependencies, ~5ms latency, no Docker image changes. Handles common validation errors (textual messages in input fields, snackbars, toasts). If insufficient for non-textual error indicators, can be extended in a future change.
+
+### D4: Do NOT use FailedActionScorer or record_action_failure()
+
+**Context**: `record_action_failure()` and `FailedActionScorer` exist but are unused. Could be activated for error detection.
+**Decision**: Do not activate them for validation errors.
+**Rationale**: These are designed for **permanent action failures** (crashes, ANR). Validation errors are temporary precondition failures — the action works correctly once inputs are filled. Blacklisting the action would prevent the agent from reaching monitored operations behind submit buttons. The TODO at `screen_node.py:120` remains for future crash detection work.
 
 ## 6. Testing Strategy
 
 | Test Type | Scope | What It Verifies |
 |-----------|-------|-----------------|
-| Unit | `ErrorPatternMatcher` | Regex patterns match known error strings, reject normal strings |
-| Unit | `ErrorPatternMatcher` false positives | "Error Log", "Report Error" etc. do NOT trigger detection |
-| Unit | `learn_node._check_for_errors()` | Integration with ScreenNode.record_action_failure() |
-| Unit | `FailedActionScorer` with real data | Scorer returns -9999 when failure data is populated |
-| Integration | learn_node → ScreenNode → FailedActionScorer | Full chain from error detection to scoring penalty |
-| Smoke | Manual with known-error APK | App with permission dialog triggers detection + recovery |
+| Unit | `ErrorPatternMatcher` | Known error texts match, normal texts don't, exclusion patterns work, confidence threshold filters |
+| Unit | `learn_node._detect_validation_error()` | Error detected -> stuck suppressed + flag set; no error -> unchanged; disabled via config -> skipped |
+| Unit | `algorithm_node` force_fill_input | Flag + inputs -> SET_TEXT selected; flag + no inputs -> normal flow; flag off -> unchanged |
+| Integration | learn_node -> algorithm_node | Error screen -> detection -> flag -> input filled -> flag cleared |
+| Integration | Full cycle | Fill input -> retry button -> no error -> normal flow |
 
-## 7. Decisions
+## 7. Scenario Walkthrough: Crypto App
 
-### D1: Text-based detection first (Alternative C)
-
-**Context**: Four alternatives were analyzed (see proposal.md Section 2).
-**Decision**: Start with Alternative C (text-based on UIAutomator dump).
-**Rationale**: Zero new dependencies, ~5ms latency, no Docker image changes. Covers ~80% of error cases (textual errors). If insufficient, escalate to Alternative B (OpenCV) or A (full ScreenshotAnalyzer) in a future change.
-
-### D2: Integration in learn_node (not parse_node)
-
-**Context**: Error detection could run in parse_node (during screen parsing) or learn_node (after action evaluation).
-**Decision**: learn_node, after action execution and screen capture.
-**Rationale**: learn_node has access to the previous action (needed for `record_action_failure()`), already handles stuck detection, and is the "evaluate action result" phase. parse_node is about understanding screen structure, not evaluating action outcomes.
-
-### D3: Single ErrorPatternMatcher class (not extending ErrorDetector)
-
-**Context**: Could subclass or wrap rv-screen-parser's `ErrorDetector`.
-**Decision**: New standalone `ErrorPatternMatcher` in rv-agent that extracts only the regex patterns.
-**Rationale**: P1 — avoid pulling in OpenCV/Tesseract dependency chain. The text patterns are simple regex strings that can be copied. If later escalating to Alt A/B, the class can be replaced with an ErrorDetector wrapper.
-
-### D4: Confidence threshold at 0.7
-
-**Context**: Need to balance detection sensitivity vs. false positives.
-**Decision**: Default threshold at 0.7, configurable in agent_config.
-**Rationale**: Conservative default reduces false positives. Can be tuned during calibration. Values below 0.5 risk matching partial text fragments.
+1. Agent clicks "GENERATE HASH" with empty input field
+2. App shows "Field required" validation error on the EditText
+3. **learn_node**: `ErrorPatternMatcher.detect()` matches "Field required" (confidence 0.9)
+   - `agent.stuck_screen_count = 0` (suppress false stuck)
+   - `result["force_fill_input"] = True`
+   - `track.error(iter=5, error_texts=["Field required"], confidence=0.9)`
+4. **decision_node**: sees `force_fill_input` -> routes to algorithm
+5. **algorithm_node**: sees `force_fill_input` flag
+   - `_find_next_input_action()` finds the EditText with TEXT_CHANGE event
+   - `InputValueGenerator.get_next_value()` returns "test123"
+   - Returns SET_TEXT at EditText coordinates, `decision_maker="error_recovery"`
+   - Clears `force_fill_input = False`
+6. **execute_node**: types "test123" into the EditText
+7. **Next iteration**: learn_node detects no error -> normal flow
+8. Agent clicks "GENERATE HASH" again -> crypto operation triggered -> MOP detected
