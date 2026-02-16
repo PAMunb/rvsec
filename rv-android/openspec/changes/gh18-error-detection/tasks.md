@@ -1,68 +1,127 @@
-## 1. ErrorPatternMatcher (TDD)
+## 0. Dependency Fix
 
-- [ ] 1.1 Create `modules/rv-agent/tests/unit/services/test_error_pattern_matcher.py` with test cases: known error strings match ("Field required", "Invalid format", "Please enter a valid email"), normal strings don't match ("Submit", "Email", "Password"), exclusion patterns ("Error Log", "Report Error"), confidence threshold filtering, strong pattern minimum confidence (0.8), empty screen handling, `content_description` attribute access
-- [ ] 1.2 Create `modules/rv-agent/src/rv_agent/services/error_detection.py` with `ValidationErrorResult` dataclass and `ErrorPatternMatcher` class — regex patterns derived from rv-screen-parser's `ErrorDetector._detect_text_errors()`, confidence calculation with STRONG_PATTERNS minimum, reads `item.view['text']` and `item.view['content_description']`
-- [ ] 1.3 Verify all unit tests pass for ErrorPatternMatcher
+- [ ] 0.1 Change `opencv-python>=4.10.0` to `opencv-python-headless>=4.10.0` in `modules/rv-screen-parser/pyproject.toml`
+- [ ] 0.2 Run `uv sync` and verify: `uv run python -c "import cv2; print(cv2.__version__)"`
+- [ ] 0.3 Run `uv run pytest modules/rv-screen-parser/tests/ -v` to confirm no regressions
 
-## 2. learn_node Integration (TDD)
+## 1. ErrorDetector Integration Tests — rv-screen-parser (TDD)
 
-- [ ] 2.1 Create `modules/rv-agent/tests/unit/agent/nodes/test_learn_node_error_detection.py` with test cases: error detected -> stuck_screen_count reset + force_fill_input set + error_recovery_count incremented; no error -> error_recovery_count reset to 0; detection disabled via config -> no detection; screen_description missing -> no detection; error_recovery_count >= MAX_ERROR_RECOVERY -> detection skipped
-- [ ] 2.2 Add `_detect_validation_error()` to `learn_node.py` — calls `ErrorPatternMatcher.detect()` with agent's confidence threshold, checks MAX_ERROR_RECOVERY limit
-- [ ] 2.3 Integrate `_detect_validation_error()` into learn_node flow: call before stuck detection (before Level 1 check at line ~148), reset `stuck_screen_count` and increment `error_recovery_count` if error detected, reset `error_recovery_count` if no error, set `force_fill_input` in result dict, update `track.learn()` with `error_detected` param
-- [ ] 2.4 Verify all learn_node tests pass (new + existing)
+Detection accuracy testing belongs in rv-screen-parser where ErrorDetector lives. Tests use real screenshots from `tests/images/` and characterize current behavior. These serve as a baseline — if ErrorDetector is improved later, false-positive tests become regression tests.
 
-## 3. algorithm_node and decision_node Handling (TDD)
+Test screenshots (already in `modules/rv-screen-parser/tests/images/`):
+- `cryptoapp_009_errors.png` — true positive (2 error indicators, ~52x51 px, conf=0.80)
+- `cryptoapp_005_normal.png` — true negative (0 indicators)
+- `cryptoapp_001_initial.png` — true negative (0 indicators)
+- `hourlyreminder_003_settings.png` — known false positive (15+ indicators, pink theme)
+- `dnshero_002_main.png` — known false positive (5 indicators, red mascot, >100 px)
+- `hex_003_gameplay.png` — known false positive (2+ indicators, red header/icons)
 
-- [ ] 3.1 Create `modules/rv-agent/tests/unit/agent/nodes/test_algorithm_node_error_recovery.py` with test cases: flag set + inputs available -> SET_TEXT action with decision_maker="error_recovery"; flag set + no inputs -> flag cleared, normal flow; flag not set -> unchanged behavior
-- [ ] 3.2 Create `modules/rv-agent/tests/unit/agent/nodes/test_find_next_input_action.py` with test cases: screen with TEXT_CHANGE actions -> prepared ItemAction returned; no TEXT_CHANGE actions -> None; all values exhausted -> None; screen_description missing -> None
-- [ ] 3.3 Add `_find_next_input_action()` helper to `algorithm_node.py` — iterates `screen_desc.items` for TEXT_CHANGE actions, uses `agent.strategy._prepare_input_action()` to get ItemAction with remaining test values
-- [ ] 3.4 Add `force_fill_input` check block in `algorithm_node()` after the `force_back_action` return (line 75), before deadlock detection (line 78)
-- [ ] 3.5 Add `force_fill_input` routing in `decision_node.py` after the `force_back_action` check (line 47)
-- [ ] 3.6 Verify all algorithm_node and decision_node tests pass (new + existing)
+- [ ] 1.1 Create `modules/rv-screen-parser/tests/test_error_detector_integration.py` with test cases using real screenshots:
+  - `test_cryptoapp_errors_detected`: 009 → 2 indicators, all COLOR method, conf >= 0.7, size <= 60px
+  - `test_cryptoapp_normal_no_errors`: 005 → 0 indicators
+  - `test_cryptoapp_initial_no_errors`: 001 → 0 indicators
+  - `test_hourlyreminder_known_false_positives`: 003 → documents indicator count and sizes (>= 10 indicators, many > 80px)
+  - `test_dnshero_known_false_positives`: 002 → documents indicator count and sizes (>= 3 indicators, some > 100px)
+  - `test_hex_known_false_positives`: 003 → documents indicator count (>= 1 indicator)
+- [ ] 1.2 Run `uv run pytest modules/rv-screen-parser/tests/test_error_detector_integration.py -v` — all pass
 
-## 4. State and Configuration
+## 2. VisualErrorDetector (TDD)
 
-- [ ] 4.1 Add `force_fill_input: bool` to `AgentState` in `domain/state.py`
-- [ ] 4.2 Init `"force_fill_input": False` in `rv_agent.py` initial state dict (next to `force_back_action`)
-- [ ] 4.3 Init `error_recovery_count = 0` on RVAgent instance (next to `stuck_screen_count`)
-- [ ] 4.4 Add `error_detection_enabled: bool = True` and `error_detection_confidence: float = 0.7` to `RVAgentConfig`
-- [ ] 4.5 Wire config values to RVAgent: `agent.error_detection_enabled`, `agent.error_confidence`
+rv-agent wrapper with false-positive filtering. Tests use mocks — detection accuracy is rv-screen-parser's responsibility.
 
-## 5. Tracking
+- [ ] 2.1 Create `modules/rv-agent/tests/unit/services/test_visual_error_detector.py` with test cases:
+  - error detected (mock ErrorDetector returns 2 ErrorIndicators with conf=0.80, size=52x51)
+  - no error (mock ErrorDetector returns empty list)
+  - missing image returns `detected=False` (cv2.imread returns None)
+  - cv2 import failure returns `detected=False`
+  - confidence filter (mock returns indicator with conf=0.4 → rejected)
+  - size filter (mock returns indicator 150x150 px → rejected by max_indicator_size=80)
+  - region filter top (mock returns indicator at y=30 on 1920-height image → rejected, top 5% = y<96)
+  - region filter bottom (mock returns indicator at y=1870 on 1920-height image → rejected, bottom 6% = y>1805)
+  - region filter pass (mock returns indicator at y=500 → accepted, within content area)
+  - count filter (mock returns 8 indicators → rejected by max_indicator_count=5)
+  - mixed (mock returns 3 small + 2 large → large rejected, 3 small pass)
+- [ ] 2.2 Create `modules/rv-agent/src/rv_agent/services/error_detection.py` with `ValidationErrorResult` dataclass (`detected: bool`, `error_indicators: list[ErrorIndicator]`, `confidence: float` = max across indicators, `detection_method: str`) and `VisualErrorDetector` class — wraps `get_error_detector().detect_errors(image, [])` from rv-screen-parser, applies 4-stage filtering (confidence → size → region → count), graceful fallback on import/load failure. Region filter uses percentage thresholds (SYSTEM_BAR_TOP_PERCENT=0.05, SYSTEM_BAR_BOTTOM_PERCENT=0.06) matching `RVAgentStrategy` system action thresholds, requires image height from cv2.imread shape.
+- [ ] 2.3 Verify all unit tests pass for VisualErrorDetector
 
-- [ ] 5.1 Add `track.error()` function: `error(iter, error_texts, confidence)` with category `ERROR`
-- [ ] 5.2 Update `track.learn()` signature: add `error_detected: bool = False` parameter
-- [ ] 5.3 Update categories documentation in module docstring (add ERROR category)
+## 3. parse_ui_node Screenshot Capture (TDD)
 
-## 6. Integration Test
+- [ ] 3.1 Create `modules/rv-agent/tests/unit/agent/nodes/test_parse_node_screenshot.py` with test cases: hash repeats + detection enabled -> screenshot taken and stored in state; hash differs -> no screenshot (state value is None); detection disabled -> no screenshot; screenshot exception caught -> warning logged, state value is None
+- [ ] 3.2 Add conditional screenshot capture to `parse_node.py`: after computing `screen_hash`, if `error_detection_enabled` and `screen_hash == state.get("previous_screen_hash")`, call `agent.device.take_screenshot()` and add `"error_detection_screenshot"` to return dict
+- [ ] 3.3 Verify all parse_node tests pass (new + existing)
 
-- [ ] 6.1 Create integration test: simulate action on error screen -> ErrorPatternMatcher detects error -> learn_node sets force_fill_input -> decision_node routes to algorithm -> algorithm_node selects SET_TEXT action
-- [ ] 6.2 Create integration test: fill input -> retry button -> no error -> normal flow resumes, error_recovery_count reset
-- [ ] 6.3 Create integration test: MAX_ERROR_RECOVERY reached -> detection disabled -> normal flow resumes
+## 4. learn_node Integration (TDD)
 
-## 7. Verification (Automated)
+- [ ] 4.1 Create `modules/rv-agent/tests/unit/agent/nodes/test_learn_node_error_detection.py` with test cases: screenshot available + error detected -> stuck_screen_count reset + force_fill_input set + error_indicators passed + error_recovery_count incremented; no screenshot available (screen changed) -> error_recovery_count reset to 0 + force_fill_input defensively cleared + error_indicators defensively cleared; detection disabled via config -> returns None; error_recovery_count >= MAX_ERROR_RECOVERY + screenshot exists -> detection skipped, counter stays at MAX (does NOT reset to 0); screen changes after MAX_ERROR_RECOVERY -> counter resets to 0; screenshot exists + detection ran + no error found -> counter reset to 0
+- [ ] 4.2 Add `_detect_validation_error()` to `learn_node.py` — returns `Optional[ValidationErrorResult]`, calls `VisualErrorDetector.detect()` with screenshot path from state and filter params from agent config, checks MAX_ERROR_RECOVERY limit
+- [ ] 4.3 Integrate error detection into learn_node flow with 3-way branching (before Level 1 stuck check at line ~148): (a) no screenshot (screen changed) → reset `error_recovery_count` to 0, defensively clear `force_fill_input=False` and `error_indicators=None` in result (prevents phantom fills if flags persisted from a previous iteration where force_restart_app took priority); (b) screenshot exists BUT `error_recovery_count >= MAX_ERROR_RECOVERY` → skip detection, do NOT reset counter (let stuck detection accumulate); (c) screenshot exists AND count < MAX → call `_detect_validation_error()`, if error detected: reset `stuck_screen_count`, increment `error_recovery_count`, set `force_fill_input` + `error_indicators` in result dict; if no error: reset `error_recovery_count` to 0. Update `track.learn()` with `error_detected` param
+- [ ] 4.4 Verify all learn_node tests pass (new + existing)
 
-- [ ] 7.1 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — all pass
-- [ ] 7.2 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — all pass
-- [ ] 7.3 Run `/rv-verify rv-agent` (tests + lint + type)
-- [ ] 7.4 Verify acceptance criteria: validation error detected, stuck counter suppressed, input prioritized, submit action NOT blacklisted, BACK NOT forced, loop protection active after MAX_ERROR_RECOVERY
+## 5. algorithm_node and decision_node Handling (TDD)
 
-## 8. Smoke Test (Manual)
+- [ ] 5.1 Create `modules/rv-agent/tests/unit/agent/nodes/test_algorithm_node_error_recovery.py` with test cases: flag set + inputs available (EditText) -> SET_TEXT with decision_maker="error_recovery"; flag set + Spinner match -> CLICK with decision_maker="error_recovery"; flag set + no inputs -> flags cleared, normal flow; flag not set -> unchanged behavior
+- [ ] 5.2a Create `modules/rv-agent/tests/unit/agent/nodes/test_find_next_input_action.py` with test cases: screen with TEXT_CHANGE actions -> prepared ItemAction returned; no TEXT_CHANGE actions -> None; all values exhausted -> None; screen_description missing -> None
+- [ ] 5.2b Create `modules/rv-agent/tests/unit/agent/nodes/test_find_associated_input.py` with test cases: overlap match with EditText -> SET_TEXT + 1.2x boost; overlap match with Spinner -> CLICK + 1.1x boost; overlap match with generic component -> CLICK + 1.0x (no boost); below-field heuristic (error 50px below EditText, horizontally aligned) -> score 0.7; no spatial match -> falls back to sequential; empty error_indicators -> None; multiple indicators -> highest-scoring match wins; item with target_view=None -> skipped gracefully
+- [ ] 5.3 Add spatial association functions to `algorithm_node.py`:
+  - Constants: `SPATIAL_EDITTEXT_BOOST = 1.2`, `SPATIAL_SPINNER_BOOST = 1.1`, `SPATIAL_BELOW_FIELD_SCORE = 0.7`, `SPATIAL_BELOW_FIELD_MAX_PX = 100`, `SPATIAL_MIN_MATCH_THRESHOLD = 0.1`
+  - `_calculate_association_score(error_bounds, item_bounds, item_class)` → overlap + widget boost + below-field heuristic
+  - `_find_associated_input_action(agent, state)` → spatial match ErrorIndicator → nearest actionable item (TEXT_CHANGE → SET_TEXT, CLICK → CLICK), skip items where `target_view` or `target_view["bounds"]` is None, fallback to `_find_next_input_action()`
+  - `_find_next_input_action(agent, state)` → sequential TEXT_CHANGE iteration (fallback)
+- [ ] 5.4 Add `force_fill_input` check block in `algorithm_node()` after the `force_back_action` return (line 75), before deadlock detection (line 78) — calls `_find_associated_input_action()`, returns SET_TEXT or CLICK, clears `force_fill_input` + `error_indicators`
+- [ ] 5.5 Add `force_fill_input` routing in `decision_node.py` after the `force_back_action` check (line 47)
+- [ ] 5.6 Verify all algorithm_node and decision_node tests pass (new + existing)
 
-Standalone rv-agent with CryptoApp, `pure_algorithm` mode. Goal: confirm error detection and input filling work on a real Android app with validation errors.
+## 6. State and Configuration
 
-- [ ] 8.1 Run: `cd modules/rv-agent && uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 120 --debug`
-- [ ] 8.2 Verify in logs: `[RVTRACK:ERROR]` appears at least once (validation error detected)
-- [ ] 8.3 Verify in logs: `decision_maker=error_recovery` appears (input filling triggered)
-- [ ] 8.4 Verify in logs: `action_type=SET_TEXT` follows the error detection (input was filled)
-- [ ] 8.5 Verify in logs: the same submit button is clicked again after input filling (action was NOT blacklisted)
-- [ ] 8.6 Verify: no `record_action_failure` in logs, no `-9999` penalty scores
+- [ ] 6.1 Add `force_fill_input: bool`, `error_detection_screenshot: Optional[str]`, and `error_indicators: Optional[List[ErrorIndicator]]` to `AgentState` in `domain/state.py`
+- [ ] 6.2 Init `"force_fill_input": False, "error_detection_screenshot": None, "error_indicators": None` in `rv_agent.py` initial state dict
+- [ ] 6.3 Init `error_recovery_count = 0` on RVAgent instance (next to `stuck_screen_count`)
+- [ ] 6.4 Add to `RVAgentConfig`:
+  - `error_detection_enabled: bool = True` — master switch
+  - `error_detection_confidence: float = 0.7` — confidence threshold [0.3, 0.95]
+  - `error_max_indicator_size: int = 80` — max px for valid indicator [30, 200]
+  - `error_max_indicator_count: int = 5` — max indicators before assuming themed UI [2, 20]
+- [ ] 6.5 Wire config values to RVAgent: `agent.error_detection_enabled`, `agent.error_confidence`, `agent.error_max_indicator_size`, `agent.error_max_indicator_count`
 
-## 9. E2E Test (via rv-experiment)
+## 7. Tracking
 
-Full pipeline via rv-experiment with instrumented CryptoApp. Goal: confirm that error detection + input filling leads to MOP coverage improvement.
+- [ ] 7.1 Add `track.error()` function: `error(iter, indicators_count, confidence, method)` with category `ERROR`
+- [ ] 7.2 Update `track.learn()` signature: add `error_detected: bool = False` parameter
+- [ ] 7.3 Update categories documentation in module docstring (add ERROR category)
 
-- [ ] 9.1 Run: `uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --specification-set jca --timeout 120`
-- [ ] 9.2 Check results: MOP coverage > 0% for MessageDigest or Cipher operations in CryptoApp
-- [ ] 9.3 Compare with baseline (run with `error_detection_enabled=False`): error detection run should have equal or higher MOP coverage
-- [ ] 9.4 Verify in experiment logs: `[RVTRACK:ERROR]` and `decision_maker=error_recovery` events present
+## 8. Integration Test
+
+- [ ] 8.1 Create integration test: screenshot with error indicators -> VisualErrorDetector detects error -> learn_node sets force_fill_input + error_indicators -> decision_node routes to algorithm -> algorithm_node spatially matches EditText -> SET_TEXT action
+- [ ] 8.2 Create integration test: Spinner error indicator -> spatial match -> CLICK action -> dropdown opens -> normal exploration selects option
+- [ ] 8.3 Create integration test: fill input -> retry button -> no screenshot (hash changed) -> no error -> normal flow resumes, error_recovery_count reset
+- [ ] 8.4 Create integration test: MAX_ERROR_RECOVERY reached -> detection disabled, counter stays at MAX (not reset), stuck_screen_count accumulates -> eventually BACK triggers; then screen changes -> counter resets to 0
+- [ ] 8.5 Create integration test: no spatial match -> falls back to sequential _find_next_input_action()
+
+## 9. Verification (Automated)
+
+- [ ] 9.1 Run `uv run pytest modules/rv-screen-parser/tests/test_error_detector_integration.py -v` — all pass
+- [ ] 9.2 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — all pass
+- [ ] 9.3 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — all pass
+- [ ] 9.4 Run `/rv-verify rv-agent` (tests + lint + type)
+- [ ] 9.5 Verify acceptance criteria: validation error detected visually, stuck counter suppressed, input prioritized via spatial association, submit action NOT blacklisted, BACK NOT forced, loop protection active after MAX_ERROR_RECOVERY, Spinner gets CLICK (not SET_TEXT)
+- [ ] 9.6 Grep for `record_action_failure` and `FailedActionScorer` in new/modified files — verify gh18 did not connect validation errors to the action failure system (D4)
+
+## 10. Smoke Test (Manual)
+
+Standalone rv-agent with CryptoApp, `pure_algorithm` mode. Goal: confirm visual error detection, spatial association, and input filling work on a real Android app with validation errors.
+
+- [ ] 10.1 Run: `cd modules/rv-agent && uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 120 --debug`
+- [ ] 10.2 Verify in logs: `[RVTRACK:ERROR]` appears at least once (validation error detected)
+- [ ] 10.3 Verify in logs: `decision_maker=error_recovery` appears (input filling triggered)
+- [ ] 10.4 Verify in logs: `action_type=SET_TEXT` or `action_type=CLICK` follows error detection (input was filled or Spinner opened)
+- [ ] 10.5 Verify in logs: the same submit button is clicked again after input filling (action was NOT blacklisted)
+- [ ] 10.6 Verify: no `record_action_failure` in logs, no `-9999` penalty scores
+
+## 11. E2E Test (via rv-experiment)
+
+Full pipeline via rv-experiment with instrumented CryptoApp. Goal: confirm that visual error detection + spatial association + input filling leads to MOP coverage improvement.
+
+- [ ] 11.1 Run: `uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --specification-set jca --timeout 120`
+- [ ] 11.2 Check results: MOP coverage > 0% for MessageDigest or Cipher operations in CryptoApp
+- [ ] 11.3 Compare with baseline (run with `error_detection_enabled=False`): error detection run should have equal or higher MOP coverage
+- [ ] 11.4 Verify in experiment logs: `[RVTRACK:ERROR]` and `decision_maker=error_recovery` events present
