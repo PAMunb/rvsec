@@ -26,6 +26,8 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
 from rv_agent.memory.element_id import make_element_id_from_action
+from rv_agent.constants import RVAgentConstants
+from rv_agent.services.coordinate_utils import device_to_optimized
 
 if TYPE_CHECKING:
     from rv_screen_parser.parser.screen.visitor.model import ItemAction
@@ -210,8 +212,11 @@ class ExecutionCountScorer(Scorer):
         if self.converter:
             optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
         else:
-            optimized_x = int(device_x * 704 / 1080)
-            optimized_y = int(device_y * 1248 / 1920)
+            optimized_x, optimized_y = device_to_optimized(
+                device_x, device_y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
 
         return ((optimized_x, optimized_y), action_type)
 
@@ -335,8 +340,11 @@ class FailedActionScorer(Scorer):
         if self.converter:
             optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
         else:
-            optimized_x = int(device_x * 704 / 1080)
-            optimized_y = int(device_y * 1248 / 1920)
+            optimized_x, optimized_y = device_to_optimized(
+                device_x, device_y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
 
         return ((optimized_x, optimized_y), action_type)
 
@@ -480,7 +488,10 @@ class StrengthScorer(Scorer):
         if self.converter:
             optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
         else:
-            optimized_x = int(device_x * 704 / 1080)
-            optimized_y = int(device_y * 1248 / 1920)
+            optimized_x, optimized_y = device_to_optimized(
+                device_x, device_y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
 
         return ((optimized_x, optimized_y), action_type)

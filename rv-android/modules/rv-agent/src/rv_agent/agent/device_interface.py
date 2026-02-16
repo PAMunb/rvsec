@@ -378,7 +378,7 @@ class DeviceInterface:
         """
         try:
             self.logger.debug(f"Pressing keycode {keycode}")
-            success = self.ui_adapter.press_keycode(keycode) # TODO: implementar
+            success = self.ui_adapter.press_keycode(keycode) # TODO(#22): implementar
             if success:
                 time.sleep(0.3)  # Allow key press to register
             return success

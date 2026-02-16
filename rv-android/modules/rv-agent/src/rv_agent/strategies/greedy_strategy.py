@@ -16,6 +16,7 @@ from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
+from rv_agent.constants import RVAgentConstants
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,7 @@ class GreedyStrategy(ExplorationStrategy):
         - Remove actions marked as system_action
         - Remove actions from packages other than target app (systemui, launcher, etc)
         - Remove actions without valid execution coordinates
-        - Remove actions in navigation bar area (y > 1794 in device space)
+        - Remove actions in navigation bar area (y > NAVBAR_THRESHOLD_Y in device space)
 
         Args:
             actions: List of all available actions
@@ -342,9 +343,9 @@ class GreedyStrategy(ExplorationStrategy):
                 logger.debug(f"Filtered action without coordinates: ID={action.id}, class={action.target_view.get('class', 'unknown')}")
                 continue
 
-            # Skip navigation bar actions (y > 1794 in device space 1080x1920)
+            # Skip navigation bar actions (above NAVBAR_THRESHOLD_Y in device space)
             x, y = coords
-            if y > 1794:
+            if y > RVAgentConstants.NAVBAR_THRESHOLD_Y:
                 logger.debug(f"Filtered nav bar action: ID={action.id} coords=({x},{y})")
                 continue
 

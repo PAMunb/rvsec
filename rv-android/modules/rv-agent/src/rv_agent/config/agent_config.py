@@ -47,7 +47,7 @@ class RVAgentConfig(BaseValidatedModel):
         ge=60,
         description="Test execution timeout in seconds"
     )
-    results_dir: str = Field( # TODO O que teremos de output?
+    results_dir: str = Field(
         default="./results",
         description="Directory for test results and artifacts"
     )
@@ -121,13 +121,10 @@ class RVAgentConfig(BaseValidatedModel):
     )
 
     # === LOGGING CONFIGURATION ===
-    log_level: str = Field( # TODO qual a diferenca para debug_mode? esta duplicado?
+    # debug_mode is a CLI shortcut (--debug flag); log_level is granular config (env: RVAGENT_LOG_LEVEL)
+    log_level: str = Field(
         default="INFO",
         description="Log level: DEBUG, INFO, WARNING, ERROR"
-    )
-    verbose_counters: bool = Field( # TODO nao entendi ... para que serve?
-        default=False,
-        description="Enable detailed counter tracking logs ([COUNTER] messages)"
     )
 
     # === COORDINATE CONFIGURATION ===
@@ -137,11 +134,6 @@ class RVAgentConfig(BaseValidatedModel):
         le=100,
         description="Pixel tolerance for coordinate validation (50px validated)"
     )
-    enable_coordinate_enhancement: bool = Field( # TODO esta sendo usado? ate onde entendo SEMPRE deve incluir as coordenadas no prompt
-        default=True,
-        description="Enable coordinate enhancement in prompts"
-    )
-
     # === DEVICE AND SCREENSHOT CONFIGURATION ===
     device_dimensions: tuple[int, int] = Field(
         default=(1080, 1920),
@@ -385,21 +377,6 @@ class RVAgentConfig(BaseValidatedModel):
         level_str = os.getenv("RVAGENT_LOG_LEVEL", self.log_level).upper()
         return getattr(logging, level_str, logging.INFO)
 
-    def get_verbose_counters(self) -> bool:
-        """
-        Get verbose_counters setting with environment variable override.
-
-        Environment variable RVAGENT_VERBOSE_COUNTERS overrides config setting.
-
-        Returns:
-            True if verbose counter logging is enabled
-        """
-        import os
-        env_val = os.getenv("RVAGENT_VERBOSE_COUNTERS", "")
-        if env_val:
-            return env_val.lower() in ("1", "true", "yes")
-        return self.verbose_counters
-
     def validate(self) -> tuple[bool, Optional[str]]:
         """
         Validate configuration consistency.
@@ -407,9 +384,6 @@ class RVAgentConfig(BaseValidatedModel):
         Returns:
             Tuple of (is_valid, error_message)
         """
-        if not self.enable_coordinate_enhancement:
-            return False, "Coordinate enhancement is mandatory for RVAgent success"
-
         valid_modes = ["pure_algorithm", "llm_only", "multimode"]
         if self.agent_mode not in valid_modes:
             return False, f"agent_mode must be one of {valid_modes}"

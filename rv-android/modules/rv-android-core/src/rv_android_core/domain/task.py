@@ -180,11 +180,11 @@ class TaskConfiguration(BaseValidatedModel):
     )
     skip_installation: bool = Field(
         default=False, description="Skip APK installation"
-    )  # TODO: Remove this
+    )  # TODO(#25): Remove this
     device_id: str = Field(default="emulator-5554", description="Target device ID")
     export_to_csv: bool = Field(
         default=True, description="Export results to CSV"
-    )  # TODO: Remove this
+    )  # TODO(#25): Remove this
 
     def __str__(self) -> str:
         """

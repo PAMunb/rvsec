@@ -38,6 +38,8 @@ from rv_agent.strategies.rvagent_strategy.ranking import (
     VisitationPenaltyScorer,
 )
 from rv_agent import tracking as track
+from rv_agent.constants import RVAgentConstants
+from rv_agent.services.coordinate_utils import device_to_optimized
 
 if TYPE_CHECKING:
     from rv_agent.services.transition_manager import TransitionManager
@@ -825,9 +827,12 @@ class RVAgentStrategy(ExplorationStrategy):
         if self.converter:
             optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
         else:
-            # Fallback: assume 1080x1920 device, convert to 704x1248 optimized
-            optimized_x = int(device_x * 704 / 1080)
-            optimized_y = int(device_y * 1248 / 1920)
+            # Fallback: use default device dimensions
+            optimized_x, optimized_y = device_to_optimized(
+                device_x, device_y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
 
         return ((optimized_x, optimized_y), action_type)
 

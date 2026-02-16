@@ -33,6 +33,11 @@ class RVAgentConstants:
     COORDINATE_TOLERANCE = 50  # 50px tolerance validated scientifically
     COORDINATE_FORMAT = "at position ({x}, {y})"  # MANDATORY format for 100% success
 
+    # === DEVICE DIMENSIONS ===
+    DEFAULT_DEVICE_WIDTH = 1080
+    DEFAULT_DEVICE_HEIGHT = 1920
+    NAVBAR_THRESHOLD_Y = 1794  # Navigation bar starts at y=1794 in 1080x1920 device space
+
     # === EXECUTION PARAMETERS ===
     DEFAULT_TIMEOUT = 300  # 5 minutes default execution timeout
     DEFAULT_MAX_ITERATIONS = 50  # Maximum test iterations before stopping

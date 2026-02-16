@@ -634,7 +634,7 @@ class RVInstrumentation:
         Returns:
             List of JAR file paths for AspectJ classpath
         """
-        # Start with Android SDK JAR (TODO: make dynamic based on app target SDK)
+        # Start with Android SDK JAR (TODO(#23): make dynamic based on app target SDK)
         classpath = [self.__get_android_jar(app)]
 
         # Add all runtime verification dependencies
@@ -791,7 +791,7 @@ class RVInstrumentation:
                 None
             )
 
-        # TODO: Implement zipalign optimization for better performance
+        # TODO(#23): Implement zipalign optimization for better performance
 
         # Sign APK for deployment readiness
         signed_apk = self.__sign_apk(app, unsigned_apk)
@@ -892,7 +892,7 @@ class RVInstrumentation:
         })
 
         # Execute d8 compiler to convert JAR to DEX
-        # TODO: Make min-api dynamic based on app.min_api when available
+        # TODO(#23): Make min-api dynamic based on app.min_api when available
         d8_cmd = Command('d8', [
             monitored_jar,
             '--release',
@@ -1024,7 +1024,7 @@ class RVInstrumentation:
         """
         Get Android SDK JAR path for compilation and classpath construction.
         
-        TODO: Implement dynamic Android JAR selection based on app target SDK
+        TODO(#23): Implement dynamic Android JAR selection based on app target SDK
         
         Args:
             app: Android application object (for future SDK targeting)

@@ -15,6 +15,8 @@ from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
+from rv_agent.constants import RVAgentConstants
+from rv_agent.services.coordinate_utils import device_to_optimized
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +327,7 @@ class DFSStrategy(ExplorationStrategy):
         - Remove actions marked as system_action (SYSTEM_BACK, RESTART_APP)
         - Remove actions from packages other than target app (systemui, launcher, etc)
         - Remove actions without valid execution coordinates
-        - Remove actions in navigation bar area (y > 1794 in device space)
+        - Remove actions in navigation bar area (y > NAVBAR_THRESHOLD_Y in device space)
         - DFS controls navigation algorithmically, does not need system actions
 
         Args:
@@ -363,9 +365,9 @@ class DFSStrategy(ExplorationStrategy):
                 logger.debug(f"Filtered action without coordinates: ID={action.id}, class={action.target_view.get('class', 'unknown')}")
                 continue
 
-            # Skip navigation bar actions (y > 1794 in device space 1080x1920)
+            # Skip navigation bar actions (above NAVBAR_THRESHOLD_Y in device space)
             x, y = coords
-            if y > 1794:
+            if y > RVAgentConstants.NAVBAR_THRESHOLD_Y:
                 logger.debug(f"Filtered nav bar action: ID={action.id} coords=({x},{y})")
                 continue
 
@@ -518,7 +520,10 @@ class DFSStrategy(ExplorationStrategy):
             optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
         else:
             # Fallback to direct conversion if converter unavailable
-            optimized_x = int(device_x * 704 / 1080)
-            optimized_y = int(device_y * 1248 / 1920)
+            optimized_x, optimized_y = device_to_optimized(
+                device_x, device_y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
 
         return ((optimized_x, optimized_y), action_type)

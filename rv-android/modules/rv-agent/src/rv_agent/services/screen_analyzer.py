@@ -268,7 +268,7 @@ class ScreenProcessor:
                 self.ui_coverage.screen_elements[screen_hash].add(element_id)
 
         # Calculate base score from test status
-        # TODO: Usar os scorers reais do rvagent_strategy (MopScorer, WtgScorer,
+        # TODO(#21): Usar os scorers reais do rvagent_strategy (MopScorer, WtgScorer,
         # GradualDecayScorer, ComponentPriorityScorer, etc.) em vez desta versao
         # simplificada. Isso requer passar os scorers como dependencia.
         if test_count == 0:

@@ -40,6 +40,8 @@ if TYPE_CHECKING:
 
 from rv_agent.domain.state import AgentState
 from rv_agent import tracking as track
+from rv_agent.constants import RVAgentConstants
+from rv_agent.services.coordinate_utils import device_to_optimized
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +306,7 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
     Success Definition: An action is considered successful if it caused
     a state transition (screen hash changed after execution).
 
-    TODO(learn-node): This heuristic has limitations — actions that change
+    TODO(#20): This heuristic has limitations — actions that change
     internal state without changing UI are marked as failures, and actions
     that open transient dialogs may give false positives. Future improvements
     could use additional signals (activity change, new elements).
@@ -335,8 +337,11 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
         if converter:
             opt_x, opt_y = converter.device_to_optimized(x, y)
         else:
-            opt_x = int(x * 704 / 1080)
-            opt_y = int(y * 1248 / 1920)
+            opt_x, opt_y = device_to_optimized(
+                x, y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
 
         action_signature = ((opt_x, opt_y), action_type)
 

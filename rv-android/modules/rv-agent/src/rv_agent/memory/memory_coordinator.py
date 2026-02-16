@@ -216,7 +216,7 @@ class MemoryCoordinator:
                 self.agent_memory.record_action(
                     action=action,
                     activity=current_activity,
-                    success=True  # TODO: Track actual action success
+                    success=True  # TODO(#18): Track actual action success via error detection
                 )
                 self.logger.debug("Recorded action in AgentMemoryManager")
 
