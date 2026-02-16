@@ -40,9 +40,9 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 - **INV-AGT-20**: N-step reward propagation MUST propagate backward through at most `reward_propagation_n` actions (default 5). Each step MUST apply the discount factor `reward_gamma` (default 0.8) multiplicatively. The propagated reward for step k MUST be `reward_value * gamma^k`.
 
-- **INV-AGT-21**: The `GradualDecayScorer` MUST be included in the active scorer list registered with `ActionRanker`. Its score formula MUST be `base_score * decay_rate^visits` where `base_score` defaults to 200 and `decay_rate` defaults to 0.7.
+- **INV-AGT-21**: The `GradualDecayScorer` MUST be included in the active scorer list registered with `ActionRanker`. Its score formula MUST be `base_score * decay_rate^visits` where `base_score` defaults to 200 and `decay_rate` defaults to 0.7. When `visits >= min_visits` (default 5), the scorer MUST return 0.0 (full decay cutoff). This existing `min_visits` behavior is preserved; gh9 calibration may adjust or remove the cutoff.
 
-- **INV-AGT-22**: When `backtrack_saturation_threshold` is configured, the strategy MUST trigger proactive backtracking when the current state's saturation rate exceeds the threshold. Saturation rate is defined as `tested_actions / total_actions` for the current `ScreenNode`.
+- **INV-AGT-22**: When `backtrack_saturation_threshold` is configured, the strategy MUST trigger proactive backtracking when the current state's saturation rate exceeds the threshold. Saturation rate is defined as `actions_executed_at_least_threshold_times / total_actions` for the current `ScreenNode`, where `threshold` defaults to 2 (matching `ScreenNode.get_saturation_rate(threshold=2)`). An action counts as "saturated" when it has been executed at least `threshold` times, not merely once.
 
 - **INV-AGT-23**: The `InputValueGenerator` MUST call `device.clear_text()` before `input_text()` for all SET_TEXT actions. Text MUST NOT be appended to existing field content.
 
@@ -522,7 +522,7 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 
 **Two Planning Strategies**: The PathBuffer is populated by two strategies, selected based on the current exploration state:
 
-**Strategy A — Backtrack to Unsaturated Ancestor**: When the current state is saturated (saturation rate exceeds `backtrack_saturation_threshold`), the PathBuffer uses `SuccessorTracker.find_nearest_unsaturated()` to locate the nearest ancestor state with untested actions. It then computes the number of BACK actions needed to reach that ancestor and buffers them. This strategy uses existing infrastructure — the `SuccessorTracker` and `state_stack` already implement the BFS search and DFS stack.
+**Strategy A — Backtrack to Unsaturated Ancestor**: When the current state is saturated (saturation rate exceeds `backtrack_saturation_threshold`), the PathBuffer uses `SuccessorTracker.find_nearest_unsaturated()` to locate the nearest ancestor state with untested actions. `find_nearest_unsaturated()` returns `Optional[Tuple[str, int]]` — the ancestor hash and BFS hop count. The hop count determines the number of BACK actions to buffer. This uses BFS hop count instead of `state_stack` depth, because `state_stack` is append-only and does not reflect actual navigation distance.
 
 **Strategy B — Navigate to MOP-Rich Activity via WTG BFS**: When `StaticAnalysisData` is available and `path_buffer_enabled` is True, the PathBuffer can request a path from `TransitionManager.plan_path_to_mop_activity()`. This performs BFS on the WTG to find the nearest MOP-rich Activity, weighted by MOP density (see WTG-Guided Navigation requirement). The resulting path is a sequence of actions that navigate through intermediate Activities toward the target. This strategy is rv-agent's unique advantage over APE and Fastbot — neither tool combines path planning with MOP targeting.
 
@@ -584,3 +584,12 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 - **AND** the current screen has 3 untested actions
 - **THEN** `select_next_action()` MUST return the next buffered action
 - **AND** the untested actions MUST NOT be evaluated until the buffer is empty
+
+#### Scenario: Buffer Priority Over Proactive Backtracking
+
+- **WHEN** the PathBuffer has 1 remaining step (from a prior plan)
+- **AND** the current state's saturation rate is 0.95 (above `backtrack_saturation_threshold` 0.8)
+- **AND** `should_backtrack()` would return True
+- **THEN** `select_next_action()` MUST return the buffered action (Tier 1)
+- **AND** `should_backtrack()` MUST NOT be evaluated (Tier 3 skipped)
+- **AND** proactive backtracking MUST NOT override an active buffer

@@ -216,8 +216,12 @@ class PathBuffer:
         """
         Plan a path to the nearest unsaturated ancestor (Strategy A).
 
-        Uses SuccessorTracker.find_nearest_unsaturated() to locate an ancestor
-        with unexplored actions, then buffers the required BACK actions.
+        Uses SuccessorTracker.find_nearest_unsaturated() which returns
+        Optional[Tuple[str, int]] — (ancestor_hash, bfs_hop_count). The
+        hop count determines the number of BACK actions to buffer. This
+        replaces using state_stack depth difference, which is unreliable
+        because state_stack is append-only and does not reflect actual
+        navigation depth.
 
         Args:
             current_hash: Current state hash.
@@ -433,7 +437,7 @@ def score(self, action, context) -> float:
     # NEW: incorporate cumulative reward from N-step propagation
     cumulative_reward = node.action_cumulative_reward.get(action_signature, 0.0)
 
-    return self.weight * strength + self.reward_weight * cumulative_reward
+    return self.weight * strength + 1.0 * cumulative_reward
 ```
 
 ### Modified: InputValueGenerator.get_next_value()
@@ -518,7 +522,7 @@ reward_propagation_n: int = Field(
    │     ├── GradualDecayScorer: 200 * 0.7^visits [NEW — activated]
    │     ├── SaturationScorer: +100 * (1 - sat_rate)
    │     ├── ComponentPriorityScorer: +50/+40
-   │     ├── StrengthScorer: weight * strength + reward_weight * cumulative_reward [NEW]
+   │     ├── StrengthScorer: weight * strength + 1.0 * cumulative_reward [NEW]
    │     ├── FailedActionScorer: -9999
    │     ├── SystemElementFilter: -5000
    │     └── VisitationPenaltyScorer: -15 * log(1 + visits)
@@ -540,11 +544,11 @@ reward_propagation_n: int = Field(
    ├── Stuck detection (Level 1 + Level 2)
    ├── _record_action_success()
    ├── [NEW] RewardPropagator.propagate()
-   │     ├── Determine reward_type from state change
+   │     ├── Determine reward_type from state change + MOP proxy signal
    │     │     ├── same_state → -0.1
    │     │     ├── new_state → 1.0
    │     │     ├── new_activity → 2.0
-   │     │     └── mop_reached → 5.0
+   │     │     └── mop_reached → 5.0 (when selected_action.callback_signature is present)
    │     └── Propagate backward: reward * gamma^distance for last N actions
    │           → Updates ScreenNode.action_cumulative_reward
    └── Memory updates (MemoryCoordinator)
@@ -579,6 +583,10 @@ Next time the agent visits S1, StrengthScorer gives Action A extra score
 proportional to its cumulative_reward (2.05), steering exploration toward
 the sequence that led to the MOP method.
 ```
+
+### MOP Detection in learn_node
+
+The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `selected_action.callback_signature` from `AgentState`. When `callback_signature` is present (non-None, non-empty), it means the selected action is associated with a monitored operation method — this is a proxy signal that "the action CAN reach MOP." This is not real-time MOP detection (which would require logcat parsing within the 300s window), but a pragmatic heuristic: actions linked to `callback_signature` have the structural potential to trigger monitored API calls. The reward values for the other types (same state, new state, new Activity) are determined by comparing `current_screen_hash` with `previous_screen_hash` and checking whether the Activity has been seen before.
 
 ## Error Handling
 
