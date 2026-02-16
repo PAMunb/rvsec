@@ -1,81 +1,111 @@
-# Delta Spec: Error Detection Integration (agent domain)
+# Delta Spec: Validation Error Detection (agent domain)
 
 **Change**: gh18-error-detection
 **Base spec**: `openspec/specs/agent/spec.md`
-**Action**: Add new capability (error detection) to existing agent domain
+**Action**: Add validation error detection and input-filling guidance to the agent
 
 ## New Invariants
 
-### INV-AG-20: Error Detection After Action
+### INV-AG-20: Validation Error Detection After Action
 
-The agent detects application error indicators on the current screen after each action execution. Error detection uses text-based pattern matching on UI hierarchy elements (UIAutomator dump), applying regex patterns derived from `ErrorDetector` in rv-screen-parser.
+The agent detects validation error indicators on the current screen after each action execution. Detection uses text-based pattern matching on `ScreenDescription.items` (UIAutomator dump), applying regex patterns for common validation messages ("Field required", "Invalid format", "Please enter a valid email"). Detection runs in `learn_node` before stuck detection.
 
-**Rationale**: Without error detection, the agent repeats actions that cause errors (crashes, permission denials, network failures), wasting exploration budget. Text-based detection covers ~80% of error cases with zero additional dependencies.
+**Rationale**: Without error detection, the agent clicks submit buttons with empty input fields, gets validation errors, and never fills the inputs. This prevents the agent from reaching monitored operations (MOP) behind form submissions.
 
-### INV-AG-21: Failed Action Recording
+### INV-AG-21: Stuck Counter Suppression on Validation Error
 
-When an error is detected after an action, the agent calls `record_action_failure()` on the current `ScreenNode`, recording which action led to the error state. This populates the failure data used by `FailedActionScorer`.
+When a validation error is detected, the agent resets `stuck_screen_count` to 0. This prevents the stuck detection system from forcing a BACK action, which would navigate away from a screen where the agent should stay and fill inputs.
 
-**Rationale**: Connects the existing (but unused) `record_action_failure()` infrastructure to actual error detection, enabling the scoring system to penalize failed actions.
+**Rationale**: Validation errors may not change the screen hash (the error indicator appears on the same screen), which would trigger stuck detection. But backing out is the wrong response — the agent should stay and fill the required inputs.
 
-### INV-AG-22: Failed Action Penalty
+### INV-AG-22: Input Filling Guidance via `force_fill_input` Flag
 
-`FailedActionScorer` assigns a score of -9999 to actions that have been recorded as failures. Once penalized, a failed action is never selected again for the same screen node.
+When a validation error is detected, `learn_node` sets `force_fill_input = True` in the agent state. `algorithm_node` responds by finding the next unfilled TEXT_CHANGE action on the current screen and generating a SET_TEXT action with a test value from `InputValueGenerator`. After the input is filled, the flag is cleared.
 
-**Rationale**: This invariant already exists in the `FailedActionScorer` implementation but is currently inactive because no failure data is ever recorded (INV-AG-21 addresses this gap).
+**Rationale**: The `force_fill_input` flag follows the same communication pattern as `force_back_action` (Level 1 stuck) and `force_restart_app` (Level 2 stuck). learn_node detects conditions, algorithm_node generates the appropriate action.
 
-### INV-AG-23: Error Recovery Action
+### INV-AG-23: Validation Errors Do NOT Penalize Actions
 
-When an error is detected, the agent executes a BACK action to exit the error state before continuing exploration. This is triggered independently of the hash-based stuck detection.
+Validation errors MUST NOT trigger `record_action_failure()` or `FailedActionScorer`. The action that caused the validation error (e.g., a "GENERATE HASH" button) is correct — it only fails because input preconditions are not met. Once inputs are filled, the same action should be retried.
 
-**Rationale**: Error screens (dialogs, toasts, crash reporters) block further exploration. A BACK action is the standard Android mechanism to dismiss such overlays. The existing `StuckRecovery` handles hash-based stuck states; error recovery handles error-specific states.
+**Rationale**: `FailedActionScorer` assigns -9999, permanently blacklisting the action on that screen. This is designed for app crashes, not validation errors. Blacklisting a submit button prevents the agent from reaching the monitored operations behind it.
+
+### INV-AG-24: Error Recovery Loop Protection
+
+The agent MUST limit consecutive error recovery attempts to `MAX_ERROR_RECOVERY` (3) per screen visit. `error_recovery_count` increments each iteration where error detection triggers and resets to 0 when no error is detected. When the limit is reached, detection is disabled and normal flow resumes.
+
+**Rationale**: Without a limit, the agent could loop indefinitely filling inputs on a screen where validation errors persist (e.g., the app requires a specific format that InputValueGenerator cannot produce). The limit allows normal stuck detection to eventually trigger backtracking.
 
 ## New Scenarios
 
-### Capability: Error Detection
+### Capability: Validation Error Detection
 
-#### Scenario: Text-based error detection on permission denial
+#### Scenario: Detect validation error and fill input
 
-WHEN the agent executes a tap action on a UI element
-AND the resulting screen contains a dialog with text matching "permission denied" (case-insensitive)
-THEN the error detection system identifies an error of type "permission_error"
-AND `record_action_failure()` is called with the action and error type
-AND `FailedActionScorer` returns -9999 for that action on that screen node
-AND the agent executes BACK to dismiss the permission dialog
+WHEN the agent clicks a submit button (e.g., "GENERATE HASH")
+AND the resulting screen shows a validation error (text matching "Field required")
+THEN `ErrorPatternMatcher.detect()` returns `detected=True` with confidence >= 0.7
+AND `learn_node` resets `stuck_screen_count` to 0
+AND `learn_node` sets `force_fill_input = True` in the result state
+AND `algorithm_node` selects a SET_TEXT action targeting an EditText field
+AND `InputValueGenerator` provides a test value (e.g., "test123")
+AND the agent fills the input field
 
-#### Scenario: Text-based error detection on network error
+#### Scenario: Normal flow resumes after input is filled
 
-WHEN the agent executes a tap action
-AND the resulting screen contains text matching "no internet|connection failed|network error" (case-insensitive)
-THEN the error detection system identifies an error of type "network_error"
-AND the agent records the failure and executes BACK
+WHEN the agent has filled an input field due to `force_fill_input`
+AND the next screen does NOT contain validation error patterns
+THEN `ErrorPatternMatcher.detect()` returns `detected=False`
+AND `force_fill_input` is NOT set
+AND the agent proceeds with normal exploration
+AND the submit button is available for selection (NOT blacklisted)
 
-#### Scenario: Text-based error detection on crash dialog
-
-WHEN the agent executes an action
-AND the resulting screen contains text matching "has stopped|keeps stopping|isn't responding" (case-insensitive)
-THEN the error detection system identifies an error of type "crash"
-AND the agent records the failure, executes BACK (or OK to dismiss ANR dialog)
-
-#### Scenario: No false positive on normal error-like text
+#### Scenario: No false positive on error-like text
 
 WHEN the agent analyzes a screen
-AND the screen contains the word "Error" as part of a label or menu item (e.g., "Error Log", "Report Error")
-AND no error dialog pattern is detected (no modal overlay, no crash indicators)
-THEN the error detection system does NOT flag the screen as an error
+AND the screen contains the word "Error" as part of a label (e.g., "Error Log", "Report Error")
+AND the text matches an exclusion pattern
+THEN `ErrorPatternMatcher.detect()` returns `detected=False`
 AND exploration continues normally
 
-#### Scenario: Failed action is never selected again
+#### Scenario: No input fields available after error detection
 
-WHEN an action on screen node S has been recorded as a failure
-AND the agent returns to screen node S in a later iteration
-THEN `FailedActionScorer` returns -9999 for that action
-AND the DFS strategy selects a different action (or backtracks if none available)
+WHEN a validation error is detected
+AND the current screen has no TEXT_CHANGE actions available
+THEN `algorithm_node` clears `force_fill_input`
+AND falls through to normal action selection
+AND the submit action is NOT penalized
 
-#### Scenario: Error detection does not trigger on successful actions
+#### Scenario: Error detection disabled via configuration
 
-WHEN the agent executes an action
-AND the resulting screen does not match any error patterns
-THEN no failure is recorded
-AND `FailedActionScorer` returns 0 for that action (neutral score)
-AND exploration continues with normal scoring
+WHEN `error_detection_enabled` is set to `False` in `RVAgentConfig`
+THEN `_detect_validation_error()` returns `False` without scanning
+AND `force_fill_input` is never set
+AND no `track.error()` events are logged
+
+#### Scenario: Confidence threshold filtering
+
+WHEN a screen element contains a weak match (e.g., single word "required" in a label among 20 elements)
+AND the match confidence is below `error_detection_confidence` (default 0.7)
+THEN `ErrorPatternMatcher.detect()` returns `detected=False`
+AND no error recovery is triggered
+
+#### Scenario: Strong pattern guarantees minimum confidence
+
+WHEN a screen element contains a multi-word validation pattern (e.g., "Field is required", "Cannot be empty")
+THEN `ErrorPatternMatcher` assigns a minimum confidence of 0.8 regardless of element ratio
+AND the error is detected (above default threshold of 0.7)
+
+Strong patterns (multi-word, high-signal for validation errors):
+- `field (is )?required`
+- `enter a valid`
+- `(cannot|can't) be (empty|blank)`
+- `(please|must) (enter|provide|fill)`
+
+#### Scenario: Error recovery loop protection
+
+WHEN validation errors are detected for 3 consecutive iterations on the same screen
+AND `error_recovery_count` reaches `MAX_ERROR_RECOVERY` (3)
+THEN `_detect_validation_error()` returns `False` without scanning
+AND `force_fill_input` is NOT set
+AND normal exploration flow resumes (stuck detection may eventually trigger backtracking)

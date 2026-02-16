@@ -50,7 +50,7 @@ Scan `ScreenDescription.items` for error text patterns via regex. The patterns a
 
 | Module | Impact | Changes |
 |--------|--------|---------|
-| rv-agent | Primary | New `ErrorPatternMatcher` service, modifications to `learn_node`, `algorithm_node`, `AgentState`, `RVAgentConfig`, `tracking` |
+| rv-agent | Primary | New `ErrorPatternMatcher` service, modifications to `learn_node`, `decision_node`, `algorithm_node`, `RVAgent`, `AgentState`, `RVAgentConfig`, `tracking` |
 
 ### Risk Assessment
 
@@ -69,5 +69,5 @@ Scan `ScreenDescription.items` for error text patterns via regex. The patterns a
 - Does NOT call `record_action_failure()` — validation errors are not action failures
 - Does NOT use `FailedActionScorer` — the -9999 penalty blacklists actions permanently, which is wrong for validation errors (the action should be retried after filling inputs)
 - Does NOT force BACK — the agent should stay on the current screen and fill inputs
-- Does NOT modify `screen_node.py` — the TODO at line 120 documents a separate concern (crash detection)
+- Does NOT modify `screen_node.py` — the TODO at line 120 (issue #19) covers crash/timeout/error detection broadly, which is a separate concern
 - Does NOT add OpenCV or Tesseract dependencies
