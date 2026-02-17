@@ -267,6 +267,16 @@ class PathBuffer:
         weighting: edges toward Activities with higher mop_methods/total_methods
         ratio are preferred. Saturation-aware: prefers paths through less-saturated states.
 
+        Conversion from WTG transitions to ItemAction: TransitionManager.
+        plan_path_to_mop_activity() returns List[Dict] where each dict has
+        'target_activity' and 'action_type'. PathBuffer converts these to
+        ItemAction objects using the same pattern as TransitionManager.
+        _map_targets_to_actions() (~line 350): for each transition dict,
+        create an ItemAction with the target coordinates and action type from
+        the WTG edge data. If a transition cannot be mapped to a concrete
+        ItemAction (no matching UI element on current screen), the path is
+        discarded and plan_mop_path returns False.
+
         Args:
             current_activity: Current Activity name.
             mop_data: Static analysis MOP data (from StaticAnalysisData).

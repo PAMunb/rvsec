@@ -12,7 +12,7 @@ This delta spec assumes gh18 (validation error detection) has already been imple
 
 ### Input
 
-- `config.backtrack_saturation_threshold: float` -- Saturation rate threshold for proactive backtracking (0.0-1.0, default 0.8). When a state's saturation rate exceeds this value, the strategy triggers a BACK action instead of entering continuous mode. (from `RVAgentConfig`)
+- `config.backtrack_saturation_threshold: float` -- Saturation rate threshold for proactive backtracking (0.5-1.0, default 0.8). When a state's saturation rate exceeds this value, the strategy triggers a BACK action instead of entering continuous mode. (from `RVAgentConfig`)
 - `config.path_buffer_enabled: bool` -- Enable/disable PathBuffer for multi-step navigation (default True). (from `RVAgentConfig`)
 - `config.mop_nav_weight: float` -- Weight of MOP density vs path length in BFS path planning (0.5-5.0, default 2.0). (from `RVAgentConfig`)
 - `config.max_backtrack_hops: int` -- Maximum BACK actions PathBuffer can buffer for Strategy A backtrack paths (3-20, default 8). If the nearest unsaturated ancestor is farther than this limit, `plan_backtrack_path` returns False and the caller falls through to the next tier. (from `RVAgentConfig`)
@@ -68,7 +68,7 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 4. **Continuous exploration**: If actions remain but all have been tested at least once, select the least-executed action. This is a fallback for cases where saturation is below the threshold but no untested actions remain.
 5. **BACK**: If no actions are available at all (e.g., all permanently failed), return a BACK action.
 
-**Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.0-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, which returns the hop count to the nearest unsaturated ancestor — not by `state_stack` depth (which is append-only and unreliable for navigation distance).
+**Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.5-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, which returns the hop count to the nearest unsaturated ancestor — not by `state_stack` depth (which is append-only and unreliable for navigation distance).
 
 **Path Buffer Integration**: When `path_buffer_enabled` is True and the `PathBuffer` has a buffered path, the strategy MUST execute buffered actions before considering untested actions. The PathBuffer is populated by two strategies defined in the Path Buffer requirement: (A) backtrack to unsaturated ancestor, and (B) navigate to MOP-rich Activity via WTG BFS. See the Path Buffer requirement for details on buffer creation, validation, and invalidation.
 
@@ -501,7 +501,7 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 
 The `InputValueGenerator` and text input execution pipeline MUST produce context-appropriate input values and handle text field interaction correctly. This requirement addresses six bugs in the current implementation that collectively waste 20-40% of text input iterations and prevent MOP-relevant edge case testing.
 
-**Unified Input Type Inference**: The duplicate `_infer_input_type()` method in `rvagent_strategy.py` MUST be deleted. Input type inference MUST use `enhanced_visitor._analyze_input_type()` from rv-screen-parser, which checks `resource_id`, `hint`, `content_description`, and `view_text` to detect 15+ input types (email, phone, search, URL, date, time, ZIP, verification code, first/last name, numeric, multi-line text, password, PIN). The strategy receives the input type through the action's metadata populated during UI parsing.
+**Unified Input Type Inference**: The duplicate `_infer_input_type()` method in `rvagent_strategy.py` MUST be deleted. Input type inference MUST use a simplified inline helper in `_prepare_input_action()` (~15 lines) that extracts input type from `hint`, `content_description`, and `resource_id` fields directly available on the `ItemAction.target_view` Node object. The helper checks fields in priority order: `hint` (most reliable, e.g. "Email", "Password"), then `content_description`, then `resource_id` pattern matching (e.g. `*_email*` → "email"). This approach has no dependency on `EnhancedTextVisitor` or rv-screen-parser internals (P1 Simplicity). The helper detects 15+ input types (email, phone, search, URL, date, time, ZIP, verification code, first/last name, numeric, multi-line text, password, PIN).
 
 **Fixed Value Ordering**: The `_get_regular_values()` method MUST return Faker-generated values first for all input types. PIN values ("1234", "0000", "123456") MUST only appear for `password` and `pin` input types. Empty string ("") MUST NOT be the first generated value for any input type. The ordering for a typical text field MUST be: `[faker.sentence(), faker.word(), faker.paragraph()[:50], ...]` — not `["1234", "0000", "123456", faker.sentence(), ...]`.
 
@@ -516,7 +516,7 @@ The `InputValueGenerator` and text input execution pipeline MUST produce context
 #### Scenario: Unified Input Type Inference
 
 - **WHEN** a SET_TEXT action targets an EditText with `hint="Enter your email address"` and `resource_id="input_email"`
-- **THEN** the input type MUST be inferred as "email" using `enhanced_visitor._analyze_input_type()`
+- **THEN** the input type MUST be inferred as "email" using the inline helper in `_prepare_input_action()` (checks `hint` → `content_description` → `resource_id`)
 - **AND** the strategy's `_infer_input_type()` method MUST NOT exist (deleted)
 
 #### Scenario: Faker Values First for Text Fields
