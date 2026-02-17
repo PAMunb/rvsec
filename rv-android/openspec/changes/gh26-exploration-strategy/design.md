@@ -75,10 +75,11 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `InputValueGenerator` | Text value generation with bug fixes | `strategies/rvagent_strategy/input_value_generator.py` | Modified |
 | `TransitionManager` | Gains BFS path planning to MOP-dense Activities | `services/transition_manager.py` | Modified |
 | `NavigationGuidance` | MOP-specific LLM prompt enrichment | `services/navigation_guidance.py` | Modified |
-| `RVAgentConfig` | 7 new calibration parameters | `config/agent_config.py` | Modified |
+| `RVAgentConfig` | 8 new calibration parameters | `config/agent_config.py` | Modified |
 | `ScreenNode` | New `action_cumulative_reward` field | `domain/screen_node.py` | Modified |
-| `RVAgent._build_agent_graph()` | Speed optimization: per-iteration node skipping | `agent/rv_agent.py` | Modified |
-| `decision_router_node` | Mode-aware routing for speed optimization | `agent/nodes/decision_node.py` | Modified |
+| `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
+| `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
+| `decision_router_node` | Mode-aware routing (existing); add tracking log for algorithm-fast-path | `agent/nodes/decision_node.py` | Modified |
 | `learn_node` | Reward propagation trigger after action success recording | `agent/nodes/learn_node.py` | Modified |
 
 ## Mapping: Spec → Implementation → Test
@@ -91,12 +92,13 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | Scorer rebalancing (new defaults) | FR27 | `agent_config.py` (default values) | `test_scorer_weights.py` |
 | GradualDecayScorer activation | FR27 | `rvagent_strategy.py` (__init__ scorer list) | `test_gradual_decay_scorer.py` |
 | N-step reward propagation | FR27 | `reward_propagator.py` (new), `learn_node.py`, `scorers.py` (StrengthScorer), `screen_node.py` | `test_reward_propagator.py`, `test_strength_scorer_reward.py` |
-| Speed optimization | FR24 | `rv_agent.py`, `decision_node.py` | `test_speed_optimization.py` |
+| Speed optimization (parse_node caching) | FR24 | `parse_node.py`, `decision_node.py` (tracking only) | `test_speed_optimization.py` |
 | LLM MOP guidance | FR24, FR30 | `navigation_guidance.py`, `prompts/v13.py` | `test_mop_guidance.py` |
 | Text input quality (6 bug fixes) | FR26 | `input_value_generator.py`, `rvagent_strategy.py`, `execution/tool_executor.py` | `test_input_value_generator.py` |
 | BFS path planning to MOP Activities | FR30 | `transition_manager.py` | `test_transition_manager_bfs.py` |
+| SuccessorTracker return type change | FR26 | `successor_tracker.py` (find_nearest_unsaturated returns Tuple[str, int]) | `test_find_nearest_unsaturated_hop_count.py` |
 | Reduced stuck trigger frequency | FR29 | (indirect -- proactive backtracking leaves saturated states earlier) | `test_stuck_detection_with_backtracking.py` |
-| New config parameters (7 fields) | -- | `agent_config.py` | `test_config_new_params.py` |
+| New config parameters (8 fields) | -- | `agent_config.py` | `test_config_new_params.py` |
 
 ## Goals / Non-Goals
 
@@ -110,7 +112,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 - Optimize speed in `pure_algorithm` iterations by skipping screenshot capture and LLM nodes (per-iteration decision, mode-aware)
 - Activate `GradualDecayScorer` for smoother action priority transitions
 - Enrich LLM prompts with MOP-specific guidance from static analysis
-- Add 7 new calibration parameters to `RVAgentConfig` for downstream gh9 tuning
+- Add 8 new calibration parameters to `RVAgentConfig` for downstream gh9 tuning (including `reward_score_weight` to control cumulative reward influence in StrengthScorer)
 
 **Non-Goals:**
 
@@ -170,7 +172,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 - Compile-time: build two separate LangGraph graphs (one with LLM nodes, one without). Simpler runtime but prevents multimode from benefiting from speed optimization on algorithm iterations.
 - Global flag at startup: set once based on `agent_mode`. Breaks multimode where each iteration may route differently.
 
-**Rationale**: In multimode (70% LLM / 30% algorithm), algorithm iterations should benefit from speed optimization (skip screenshot capture when routing to algorithm path) while LLM iterations need the full pipeline. The decision happens per-iteration in `decision_router_node`, which already decides between "llm" and "algorithm" paths. Adding speed optimization here is a natural extension of the existing routing logic: when the route is "algorithm", additionally skip `capture_screenshot_node`. This preserves gh18's conditional screenshot in `parse_node` (which fires on hash-repeat for error detection, not for LLM consumption).
+**Rationale**: In multimode (70% LLM / 30% algorithm), algorithm iterations already skip `capture_screenshot_node` and `llm_generate_node` via the existing LangGraph graph topology — the conditional edge from `decision_router_node` routes "algorithm" directly to `algorithm_node`, bypassing both nodes. No new skip logic is needed in the graph or decision_router for this behavior. The actual new speed optimization is **parse_node screen_desc caching**: when `screen_hash` is unchanged between iterations, reuse the cached `ScreenDescription` instead of re-running the visitor pipeline (~50ms saved per same-state iteration). This preserves gh18's conditional screenshot in `parse_node` (which fires on hash-repeat for error detection, independent of the LLM screenshot path).
 
 ## API Design
 
@@ -223,6 +225,14 @@ class PathBuffer:
         because state_stack is append-only and does not reflect actual
         navigation depth.
 
+        Implementation prerequisite: find_nearest_unsaturated() must be
+        modified to return Optional[Tuple[str, int]] instead of the current
+        Optional[str]. The current implementation at successor_tracker.py:329
+        returns only the ancestor hash. The hop_count (BFS depth) must be
+        tracked during the BFS traversal and returned alongside the hash.
+        Without this change, PathBuffer cannot determine how many BACK
+        actions to buffer.
+
         Args:
             current_hash: Current state hash.
 
@@ -267,6 +277,45 @@ class PathBuffer:
         """Number of actions remaining in the buffer."""
 ```
 
+### Modified: SuccessorTracker.find_nearest_unsaturated()
+
+```python
+# Modified in strategies/rvagent_strategy/successor_tracker.py
+
+def find_nearest_unsaturated(self, current_state: str) -> Optional[Tuple[str, int]]:
+    """
+    BFS to find the nearest unsaturated ancestor state.
+
+    Returns:
+        Tuple of (ancestor_hash, bfs_hop_count) or None if all saturated.
+        The hop_count determines how many BACK actions PathBuffer should buffer.
+    """
+    visited = {current_state}
+    queue = deque([(current_state, 0)])
+
+    while queue:
+        state_hash, depth = queue.popleft()
+
+        for back_target in self.back_successors.get(state_hash, []):
+            if back_target in visited:
+                continue
+
+            visited.add(back_target)
+            hop_count = depth + 1
+
+            if not self._is_saturated(back_target):
+                logger.info(
+                    f"Backtrack BFS: Found unsaturated state {back_target[:8]} "
+                    f"(distance: {hop_count} BACK actions)"
+                )
+                return (back_target, hop_count)
+
+            queue.append((back_target, hop_count))
+
+    logger.info("Backtrack BFS: All reachable states are saturated")
+    return None
+```
+
 ### RewardPropagator
 
 ```python
@@ -279,6 +328,11 @@ class RewardPropagator:
     When a high-value event occurs (new state, new Activity, MOP method reached),
     propagates reward backward through the last N actions with discount gamma.
     Updates ScreenNode.action_cumulative_reward for use by StrengthScorer.
+
+    Maintains its own internal sliding window of (state_hash, action_signature)
+    tuples, populated by learn_node via record_action(). This avoids enriching
+    the shared recent_action_window (which stores raw action dicts without
+    state_hash or optimized coordinates).
     """
 
     # Reward values
@@ -287,37 +341,61 @@ class RewardPropagator:
     REWARD_NEW_ACTIVITY: float = 2.0
     REWARD_MOP_REACHED: float = 5.0
 
+    # Cumulative reward cap: prevents score inflation from repeated MOP sequences.
+    # Max cumulative reward = MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight
+    # With default reward_mop_weight=5.0, cap = 3.0 * 5.0 = 15.0
+    MAX_CUMULATIVE_REWARD_FACTOR: float = 3.0
+
     def __init__(self, config: "RVAgentConfig"):
         """
         Args:
             config: Configuration with reward_gamma, reward_mop_weight,
                     reward_propagation_n.
+
+        Internal state:
+            _action_history: deque(maxlen=reward_propagation_n) of
+                (state_hash, action_signature) tuples. Populated by
+                record_action(), consumed by propagate().
+        """
+
+    def record_action(self, state_hash: str, action_signature: tuple) -> None:
+        """
+        Record an action for future reward propagation.
+
+        Called by learn_node after each iteration, using the same state_hash
+        (previous_screen_hash, i.e. the state where the action was executed)
+        and action_signature (optimized coordinates, as computed by
+        _record_action_success()). Maintains a deque of max
+        reward_propagation_n entries.
+
+        Args:
+            state_hash: Hash of the state where the action was executed.
+            action_signature: Tuple of ((opt_x, opt_y), action_type) in
+                optimized [0, 1000) coordinate space.
         """
 
     def propagate(
         self,
-        action_history: List[Dict],
         reward_type: str,
         graph: "DynamicStateGraph"
     ) -> None:
         """
-        Propagate reward backward through the last N actions.
+        Propagate reward backward through the internal action history.
 
         Each action in the history receives: reward * gamma^(distance_from_event).
         The reward is added to ScreenNode.action_cumulative_reward for the
         corresponding state and action signature.
 
         Args:
-            action_history: List of recent action records, each containing
-                'state_hash', 'action_signature', and 'iteration'.
-                Most recent action is last.
             reward_type: One of "same_state", "new_state", "new_activity", "mop_reached".
             graph: DynamicStateGraph for accessing ScreenNode data.
 
         Postcondition: Updates action_cumulative_reward in ScreenNode for each
-        action within the propagation window.
+        action within the propagation window. Cumulative reward is capped at
+        `MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight` (default 3.0 * 5.0
+        = 15.0) to prevent score inflation from repeated MOP-reaching sequences.
 
-        Error behavior: If action_history has fewer than N items, propagates
+        Error behavior: If the internal history has fewer than N items, propagates
         through all available items. If graph.states does not contain a state_hash,
         skips that action silently.
         """
@@ -434,10 +512,13 @@ def score(self, action, context) -> float:
     action_signature = self._convert_signature(action.coords_for_matching)
     strength = node.get_action_strength(action_signature)
 
-    # NEW: incorporate cumulative reward from N-step propagation
+    # NEW: incorporate cumulative reward from N-step propagation.
+    # Note: cumulative_reward is already capped by RewardPropagator at
+    # MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight (default 15.0),
+    # so no additional capping is needed here.
     cumulative_reward = node.action_cumulative_reward.get(action_signature, 0.0)
 
-    return self.weight * strength + 1.0 * cumulative_reward
+    return self.weight * strength + config.reward_score_weight * cumulative_reward
 ```
 
 ### Modified: InputValueGenerator.get_next_value()
@@ -488,6 +569,12 @@ reward_propagation_n: int = Field(
     default=5, ge=3, le=8,
     description="Number of steps for backward reward propagation"
 )
+reward_score_weight: float = Field(
+    default=1.0, ge=0.1, le=3.0,
+    description="Weight of cumulative_reward in StrengthScorer. Controls how much "
+                "reward propagation influences action ranking relative to historical "
+                "strength. Formula: weight * strength + reward_score_weight * cumulative_reward"
+)
 ```
 
 ## Data Flow
@@ -519,10 +606,10 @@ reward_propagation_n: int = Field(
    ├── Tier 2: _get_untested_actions() → ActionRanker with rebalanced weights
    │     ├── MopScorer: +500 (DM), +300 (M)
    │     ├── WtgScorer: +150
-   │     ├── GradualDecayScorer: 200 * 0.7^visits [NEW — activated]
+   │     ├── GradualDecayScorer: 200 * 0.7^visits [NEW — activated; visits from UICoverageTracker]
    │     ├── SaturationScorer: +100 * (1 - sat_rate)
    │     ├── ComponentPriorityScorer: +50/+40
-   │     ├── StrengthScorer: weight * strength + 1.0 * cumulative_reward [NEW]
+   │     ├── StrengthScorer: weight * strength + reward_score_weight * cumulative_reward [NEW]
    │     ├── FailedActionScorer: -9999
    │     ├── SystemElementFilter: -5000
    │     └── VisitationPenaltyScorer: -15 * log(1 + visits)
@@ -543,13 +630,16 @@ reward_propagation_n: int = Field(
    ├── [gh18] _detect_validation_error() → force_fill_input
    ├── Stuck detection (Level 1 + Level 2)
    ├── _record_action_success()
-   ├── [NEW] RewardPropagator.propagate()
+   ├── [NEW] RewardPropagator.record_action(previous_hash, action_signature)
+   │     └── Appends (state_hash, action_signature) to internal deque
+   │         (reuses same previous_hash and optimized coords from _record_action_success)
+   ├── [NEW] RewardPropagator.propagate(reward_type, graph)
    │     ├── Determine reward_type from state change + MOP proxy signal
    │     │     ├── same_state → -0.1
    │     │     ├── new_state → 1.0
    │     │     ├── new_activity → 2.0
    │     │     └── mop_reached → 5.0 (when selected_action.callback_signature is present)
-   │     └── Propagate backward: reward * gamma^distance for last N actions
+   │     └── Propagate backward through internal history: reward * gamma^distance
    │           → Updates ScreenNode.action_cumulative_reward
    └── Memory updates (MemoryCoordinator)
 ```
@@ -557,11 +647,20 @@ reward_propagation_n: int = Field(
 ### PathBuffer Invalidation Flow
 
 ```
-learn_node detects state change:
-  ├── If PathBuffer.is_active AND new_hash != expected_next_hash:
+learn_node after action execution:
+  ├── If PathBuffer.is_active AND current_hash == previous_hash:
+  │     └── Buffered action had no effect (BACK didn't navigate, click didn't transition)
   │     └── PathBuffer.invalidate() — clear buffer, log warning
-  └── PathBuffer continues if state matches expectation
+  │     └── Normal action selection resumes next iteration (Tier 2-5)
+  └── If PathBuffer.is_active AND current_hash != previous_hash:
+        └── Buffered action succeeded — PathBuffer continues with next step
 ```
+
+The invalidation check uses hash comparison (`current_hash == previous_hash`),
+not an "expected next hash" from the buffer. This is simpler (P1) and catches
+all failure cases: BACK that didn't navigate, navigation clicks that didn't
+transition, dialogs that blocked navigation. The PathBuffer does not need to
+predict what hash the next state will have — only that the state changed.
 
 ### Reward Propagation Example
 
@@ -594,7 +693,7 @@ The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `se
 |-------|--------|----------|----------|
 | PathBuffer reaches unexpected state | `learn_node` detects hash mismatch with buffer expectation | Call `PathBuffer.invalidate()`, log warning | Normal action selection resumes (Tier 2-5) |
 | PathBuffer BFS finds no path | `plan_mop_path()` or `plan_backtrack_path()` returns False | Return False, caller falls through to next tier | Strategy proceeds to continuous mode or BACK |
-| Reward propagation on short history | `action_history` has < N items | Propagate through all available items | No error; works correctly with any history length >= 1 |
+| Reward propagation on short history | Internal action history has < N items | Propagate through all available items | No error; works correctly with any history length >= 1 |
 | Missing static analysis data | `TransitionManager` has no WTG, or `StaticAnalysisData` is None | MopScorer returns 0.0, WtgScorer returns 0.0, PathBuffer Strategy B disabled, NavigationGuidance returns empty | Agent operates as generic UI structure explorer; Strategy A (backtrack to unsaturated ancestor) still works |
 | `should_backtrack()` on empty graph | State hash not in `graph.states` | Return True (backtrack from unknown state) | Agent navigates BACK, which is safe behavior for unknown states |
 | `should_backtrack()` on single-node graph | Only one state, no parent | Return based on saturation check; no infinite BACK loop because Tier 4 continuous mode catches this | Least-executed action selected |
@@ -640,7 +739,7 @@ Mitigation: `learn_node` validates that the actual next state hash matches the P
 | **Unit** | `InputValueGenerator` new types | Verify search, url, date, time, number, zip, verification_code produce valid values | ~7 tests |
 | **Unit** | `InputValueGenerator` no empty first value | Verify first value for all types is non-empty | ~2 tests |
 | **Unit** | `TransitionManager.plan_path_to_mop_activity()` BFS | Mock WTG with known structure, verify shortest path to MOP-dense Activity | ~4 tests |
-| **Unit** | Config new fields | Verify 7 new fields with defaults, ranges, and serialization | ~3 tests |
+| **Unit** | Config new fields | Verify 8 new fields with defaults, ranges, and serialization | ~3 tests |
 | **Integration** | Full strategy flow with proactive backtracking | Create graph with saturated states, verify BACK at threshold instead of continuous | ~3 tests |
 | **Integration** | PathBuffer + strategy interaction | Buffer path, execute through strategy, verify buffer exhaustion triggers normal selection | ~3 tests |
 | **Integration** | Reward propagation through learn_node | Execute 5 iterations, trigger MOP reward, verify ScreenNode cumulative_reward updated | ~3 tests |
@@ -655,9 +754,9 @@ Mitigation: `learn_node` validates that the actual next state hash matches the P
 
 ## Open Questions
 
-1. **GradualDecayScorer initial weight and decay rate**: The current defaults (base=200, rate=0.7, min_visits=5) were set when the scorer was written but never tested in production. These values may need adjustment during gh9 calibration. The design uses the existing defaults and defers optimization to gh9.
+1. **GradualDecayScorer initial weight and decay rate**: The current defaults (base=200, rate=0.7, min_visits=5) were set when the scorer was written but never tested in production. These values may need adjustment during gh9 calibration. The design uses the existing defaults and defers optimization to gh9. Note: `visits` in the formula refers to per-element visit counts from `UICoverageTracker` (accessed via `context.ui_coverage.get_element_test_count(element_id)`), not ScreenNode action counts.
 
-2. **LLM-generated text tracking**: When the LLM (in multimode) generates a SET_TEXT action with its own text, should that text be tracked in `InputValueGenerator.tested_values` to avoid repetition? Or should a separate tracking mechanism exist? The simpler approach (track in `tested_values`) risks conflating LLM creativity with algorithmic exhaustion. The separate-service approach adds a new component. Decision deferred to implementation -- start with the simpler approach and refactor if needed.
+2. **LLM-generated text tracking**: **Resolved — use `tested_values`.** When the LLM generates a SET_TEXT action, the text is recorded in `InputValueGenerator.tested_values` for the corresponding field. This prevents the algorithm path from repeating the same value when it later encounters the same field. The risk of conflating LLM creativity with algorithmic exhaustion is acceptable because: (a) the LLM rarely generates the same text twice, so collision is rare; (b) preventing repetition is more important than preserving LLM variability. See task 2.6.
 
 3. **PathBuffer Strategy B priority over Strategy A**: When both strategies can produce a path, which takes priority? The current design tries Strategy B (MOP-directed) first and Strategy A (backtrack to unsaturated ancestor) second, because MOP coverage is the primary metric. This ordering may need to be configurable if gh9 calibration reveals different optimal behavior.
 

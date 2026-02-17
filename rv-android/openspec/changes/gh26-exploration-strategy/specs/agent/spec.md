@@ -19,6 +19,7 @@ This delta spec assumes gh18 (validation error detection) has already been imple
 - `config.reward_gamma: float` -- Discount factor for N-step reward propagation (0.5-0.99, default 0.8). (from `RVAgentConfig`)
 - `config.reward_mop_weight: float` -- Reward value for reaching a MOP method (1.0-10.0, default 5.0). (from `RVAgentConfig`)
 - `config.reward_propagation_n: int` -- Number of steps for backward reward propagation (3-8, default 5). (from `RVAgentConfig`)
+- `config.reward_score_weight: float` -- Weight of cumulative_reward in StrengthScorer formula: `weight * strength + reward_score_weight * cumulative_reward` (0.1-3.0, default 1.0). Controls how much reward propagation influences action ranking relative to historical strength. (from `RVAgentConfig`)
 
 ### Output
 
@@ -36,7 +37,7 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 ## Invariants
 
-- **INV-AGT-19**: The `PathBuffer` MUST clear its buffered path when the actual post-execution state does not match the expected state for the current buffer step. This prevents executing stale navigation paths after unexpected state transitions.
+- **INV-AGT-19**: The `PathBuffer` MUST clear its buffered path when a buffered action produces no state change (post-execution hash equals pre-execution hash). A navigation action that does not change the screen state (BACK that didn't navigate, click that didn't transition, dialog that blocked navigation) indicates the buffered path is no longer valid. The invalidation check uses hash comparison, not a predicted "expected next hash" — the PathBuffer does not need to predict exact destination hashes.
 
 - **INV-AGT-20**: N-step reward propagation MUST propagate backward through at most `reward_propagation_n` actions (default 5). Each step MUST apply the discount factor `reward_gamma` (default 0.8) multiplicatively. The propagated reward for step k MUST be `reward_value * gamma^k`.
 
@@ -58,11 +59,11 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 
 1. **Path buffer**: If `PathBuffer` has a buffered path with remaining steps, execute the next buffered action. This takes highest priority because buffered paths represent multi-step navigation plans toward high-value targets (unsaturated ancestors or MOP-rich Activities).
 2. **Untested actions**: If untested actions exist on the current screen, select one using `ActionRanker` with the full scorer system.
-3. **Proactive backtracking**: If the state's saturation rate exceeds `backtrack_saturation_threshold` (default 0.8), return a BACK action immediately. The `should_backtrack()` method — previously dead code — is activated to perform this check against the `state_stack`.
+3. **Proactive backtracking**: If the state's saturation rate exceeds `backtrack_saturation_threshold` (default 0.8), return a BACK action immediately. The `should_backtrack()` method — previously dead code — is activated to perform this saturation check.
 4. **Continuous exploration**: If actions remain but all have been tested at least once, select the least-executed action. This is a fallback for cases where saturation is below the threshold but no untested actions remain.
 5. **BACK**: If no actions are available at all (e.g., all permanently failed), return a BACK action.
 
-**Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.0-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. The existing `state_stack` is used for DFS navigation — when backtracking, the strategy pops from the stack to determine the return path.
+**Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.0-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, which returns the hop count to the nearest unsaturated ancestor — not by `state_stack` depth (which is append-only and unreliable for navigation distance).
 
 **Path Buffer Integration**: When `path_buffer_enabled` is True and the `PathBuffer` has a buffered path, the strategy MUST execute buffered actions before considering untested actions. The PathBuffer is populated by two strategies defined in the Path Buffer requirement: (A) backtrack to unsaturated ancestor, and (B) navigate to MOP-rich Activity via WTG BFS. See the Path Buffer requirement for details on buffer creation, validation, and invalidation.
 
@@ -187,8 +188,9 @@ Action selection supports two modes: deterministic (always selects highest-score
 
 - **WHEN** action A in state S has `action_cumulative_reward` = 3.2 (from prior MOP-reaching sequences)
 - **AND** action A has `success_rate` = 0.8
+- **AND** `reward_score_weight` = 1.0 (default)
 - **THEN** `StrengthScorer` MUST compute base score as 50 * 0.8 = 40
-- **AND** MUST add the cumulative reward: 40 + 3.2 = 43.2
+- **AND** MUST add the weighted cumulative reward: 40 + 1.0 * 3.2 = 43.2
 
 #### Scenario: Stochastic Selection with Reduced Probability
 
@@ -391,13 +393,13 @@ The agent MUST implement backward reward propagation through action chains to le
 | Same state | `REWARD_SAME_STATE` | -0.1 | Action did not change the screen state |
 | New state | `REWARD_NEW_STATE` | 1.0 | Discovered a previously unseen screen |
 | New Activity | `REWARD_NEW_ACTIVITY` | 2.0 | Discovered a previously unseen Activity |
-| MOP reached | `REWARD_MOP_REACHED` | Configurable via `reward_mop_weight` (default 5.0) | A monitored operation method was triggered |
+| MOP reached | `REWARD_MOP_REACHED` | Configurable via `reward_mop_weight` (default 5.0) | The executed action has a non-empty `callback_signature`, indicating it is structurally associated with a monitored operation method. This is a **proxy signal** — the action CAN reach MOP, not confirmation that a MOP method was actually invoked at runtime. Real-time MOP confirmation would require logcat parsing within the iteration loop, which is not feasible within the 300s time budget. |
 
 The `REWARD_MOP_REACHED` value is the key differentiator from Fastbot's reward function, which only rewards new Activities. rv-agent's reward function specifically incentivizes reaching monitored API calls, which is the primary objective for MOP coverage.
 
 **Backward Propagation**: When a reward event occurs (any non-zero reward), the system MUST propagate the reward backward through the last `reward_propagation_n` actions (default 5) with discount factor `reward_gamma` (default 0.8). For each step k backward from the event (k=1 to N), the propagated reward is `reward_value * gamma^k`. This reward is added to the `action_cumulative_reward` dictionary in the corresponding `ScreenNode`.
 
-The propagation uses the `MemoryCoordinator`'s recent action window to trace backward through the action chain. Each entry in the window contains the state hash and action identifier, enabling the reward to be attributed to the correct `ScreenNode` and action.
+The propagation reads from `RewardPropagator`'s internal action history — a deque of `(state_hash, action_signature)` tuples maintained via `record_action()`, called by `learn_node` after each iteration. Each entry contains the state hash where the action was executed and the optimized-coordinate action signature, enabling the reward to be attributed to the correct `ScreenNode` and action. This is separate from the shared `recent_action_window` (which stores raw action dicts without state hashes or optimized coordinates).
 
 **Integration with StrengthScorer**: The `StrengthScorer` MUST read `action_cumulative_reward` from the `ScreenNode` and add the cumulative reward value to its existing success-rate-based score. This means actions that historically started productive sequences (leading to MOP methods or new states) accumulate higher scores over time, steering the strategy toward repeating successful exploration patterns.
 
@@ -445,6 +447,26 @@ The propagation uses the `MemoryCoordinator`'s recent action window to trace bac
 - **THEN** `REWARD_MOP_REACHED` events MUST NOT fire (no `callback_signature` without monitors)
 - **AND** `REWARD_NEW_STATE` and `REWARD_NEW_ACTIVITY` events MUST still fire normally
 - **AND** reward propagation MUST still operate with the remaining reward types
+
+#### Scenario: Oscillation Trap Resolution via Negative Rewards
+
+- **WHEN** the agent cycles between two states A and B (A→B→A→B) for 20+ iterations
+- **AND** both states have saturation rates below `backtrack_saturation_threshold` (so proactive backtracking does not fire)
+- **AND** the screen hash changes on each transition (so stuck detection does not fire)
+- **THEN** after the initial exploration of A→B and B→A, subsequent transitions become `REWARD_SAME_STATE` (-0.1) because the destination states are already known
+- **AND** cumulative negative rewards MUST accumulate on the cycling actions in both states
+- **AND** StrengthScorer MUST eventually assign lower scores to the cycling actions than to alternative actions (e.g., BACK or other untested actions), breaking the cycle
+
+#### Scenario: Graceful Degradation Without Static Analysis (End-to-End)
+
+- **WHEN** `StaticAnalysisData` is None (e.g., `--skip-static` flag or GATOR/GESDA failure)
+- **THEN** PathBuffer Strategy B (MOP navigation) MUST be disabled (plan_mop_path returns False)
+- **AND** PathBuffer Strategy A (backtrack to unsaturated ancestor) MUST still function
+- **AND** MopScorer MUST return 0.0 for all actions
+- **AND** WtgScorer MUST return 0.0 for all actions
+- **AND** NavigationGuidance.format_for_llm() MUST return an empty string
+- **AND** reward propagation MUST operate with non-MOP reward types only (same_state, new_state, new_activity)
+- **AND** the agent MUST NOT crash or produce errors — it operates as a generic UI structure explorer
 
 ### Requirement: Text Input Quality
 
@@ -522,7 +544,7 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 
 **Two Planning Strategies**: The PathBuffer is populated by two strategies, selected based on the current exploration state:
 
-**Strategy A — Backtrack to Unsaturated Ancestor**: When the current state is saturated (saturation rate exceeds `backtrack_saturation_threshold`), the PathBuffer uses `SuccessorTracker.find_nearest_unsaturated()` to locate the nearest ancestor state with untested actions. `find_nearest_unsaturated()` returns `Optional[Tuple[str, int]]` — the ancestor hash and BFS hop count. The hop count determines the number of BACK actions to buffer. This uses BFS hop count instead of `state_stack` depth, because `state_stack` is append-only and does not reflect actual navigation distance.
+**Strategy A — Backtrack to Unsaturated Ancestor**: When the current state is saturated (saturation rate exceeds `backtrack_saturation_threshold`), the PathBuffer uses `SuccessorTracker.find_nearest_unsaturated()` to locate the nearest ancestor state with untested actions. `find_nearest_unsaturated()` returns `Optional[Tuple[str, int]]` — the ancestor hash and BFS hop count. The hop count determines the number of BACK actions to buffer.
 
 **Strategy B — Navigate to MOP-Rich Activity via WTG BFS**: When `StaticAnalysisData` is available and `path_buffer_enabled` is True, the PathBuffer can request a path from `TransitionManager.plan_path_to_mop_activity()`. This performs BFS on the WTG to find the nearest MOP-rich Activity, weighted by MOP density (see WTG-Guided Navigation requirement). The resulting path is a sequence of actions that navigate through intermediate Activities toward the target. This strategy is rv-agent's unique advantage over APE and Fastbot — neither tool combines path planning with MOP targeting.
 
@@ -556,11 +578,11 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 - **AND** the third call MUST return BACK (step 3)
 - **AND** after the third call, the buffer MUST be empty
 
-#### Scenario: Buffer Invalidation on Unexpected State
+#### Scenario: Buffer Invalidation on Failed Navigation
 
 - **WHEN** the PathBuffer contains [action_to_settings, action_to_security]
 - **AND** `action_to_settings` is executed
-- **AND** the resulting state is NOT the expected SettingsActivity (e.g., a dialog appeared)
+- **AND** the post-execution screen hash equals the pre-execution screen hash (the action had no effect — e.g., a dialog blocked the navigation, the click didn't transition)
 - **THEN** the PathBuffer MUST clear all remaining buffered actions
 - **AND** the next `select_next_action()` call MUST proceed with normal action selection (untested -> backtrack -> continuous -> BACK)
 

@@ -14,7 +14,7 @@ rv-agent's exploration strategy wastes 20-40% of its iteration budget in saturat
 Nine improvements to the rv-agent exploration strategy, grouped by impact:
 
 **Critical impact:**
-- **7.1 Proactive backtracking**: When all untested actions in a state are exhausted, immediately return BACK instead of entering continuous mode. Use the existing (but currently dead) `should_backtrack()` method and `state_stack` for DFS navigation. Adds `backtrack_saturation_threshold` parameter.
+- **7.1 Proactive backtracking**: When all untested actions in a state are exhausted, immediately return BACK instead of entering continuous mode. Use the existing (but currently dead) `should_backtrack()` method with a configurable saturation threshold. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, not `state_stack` (which is append-only and does not reflect actual navigation depth). Adds `backtrack_saturation_threshold` parameter.
 - **7.3 Speed optimization**: In `pure_algorithm` mode, skip `capture_screenshot_node` and LLM nodes; cache `screen_desc` when screen hash is unchanged. Preserve gh18's conditional screenshot in `parse_node`. Target: <1s per iteration. Must be mode-aware (per-iteration decision in `decision_router_node`, not a global flag).
 
 **High impact:**
@@ -67,11 +67,11 @@ Additionally, the `InputValueGenerator` behavior changes (part of FR26 action ex
 - `RVAgentStrategy.select_next_action()` gains path buffer priority tier and proactive backtracking
 - `StrengthScorer.score()` incorporates cumulative reward data
 - `InputValueGenerator.get_next_value()` changes value ordering and type inference
-- `RVAgentConfig` adds 7 new configuration fields (calibration parameters)
+- `RVAgentConfig` adds 8 new configuration fields (calibration parameters, including `reward_score_weight`)
 
 **Dependencies:**
 - **Pre-condition**: gh18 must be implemented first. This change assumes gh18's `VisualErrorDetector`, `force_fill_input` spatial association, and conditional screenshot capture exist in the codebase. File conflict analysis (see `docs/20260216_rvagent_refatoracao.md` Section 9.1) shows no overlapping insertion points between gh18 and this change.
-- **Downstream**: gh9's `parameter_space.py` must be updated with 7 new parameters (+ 2 from gh18 = 9 total new params, bringing the total from 24 to 33) before the calibration execution campaign starts.
+- **Downstream**: gh9's `parameter_space.py` must be updated with 8 new parameters (+ 2 from gh18 = 10 total new params, bringing the total from 24 to 34) before the calibration execution campaign starts.
 
 **FRs/NFRs affected:**
 - **FR26** (Coverage-Optimized DFS Strategy): Proactive backtracking, path buffer, saturation threshold
