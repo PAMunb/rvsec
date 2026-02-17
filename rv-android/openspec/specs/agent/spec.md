@@ -305,6 +305,22 @@ Unified Action Format (dict):
 
 - **INV-AGT-18**: The environment variable `RVAGENT_MODE` MUST override the `agent_mode` configuration setting when set to a valid mode value.
 
+- **INV-AGT-20**: The agent detects validation error indicators on the current screen after each action execution. Detection uses visual analysis (color-based) on a screenshot via `VisualErrorDetector`, which wraps rv-screen-parser's `ErrorDetector`. Screenshots are only available when `parse_ui_node` detects that the screen hash repeats (same screen after action). Detection runs in `learn_node` before stuck detection.
+
+- **INV-AGT-21**: When a validation error is detected, the agent resets `stuck_screen_count` to 0. This prevents the stuck detection system from forcing a BACK action on a screen where the agent should stay and fill inputs.
+
+- **INV-AGT-22**: When a validation error is detected, `learn_node` sets `force_fill_input = True` and `error_indicators` in the agent state. `algorithm_node` responds by using spatial association to find the input field closest to an error indicator and generating an appropriate action: SET_TEXT for EditText fields, CLICK for Spinner/dropdown fields. If spatial association finds no match, it falls back to sequential iteration of TEXT_CHANGE actions. After the action is generated, the flag and indicators are cleared.
+
+- **INV-AGT-23**: Validation errors MUST NOT connect to `record_action_failure()` or `FailedActionScorer`. The action that caused the validation error is correct — it only fails because input preconditions are not met. Once inputs are filled, the same action should be retried.
+
+- **INV-AGT-24**: The agent MUST limit consecutive error recovery attempts to `MAX_ERROR_RECOVERY` (3) per screen visit. When the limit is reached, detection is disabled and the counter stays at MAX — it does NOT reset while the screen remains the same. The counter resets to 0 only when the screen changes (no screenshot available). This 3-way branching prevents an infinite cycle where reaching MAX → resetting counter → re-enabling detection → reaching MAX again.
+
+- **INV-AGT-25**: `parse_ui_node` captures a screenshot for error detection ONLY when the current screen hash equals the previous screen hash (same screen after action). When the screen hash differs, `error_detection_screenshot` is set to None.
+
+- **INV-AGT-26**: When `force_fill_input` is set, `algorithm_node` uses spatial association to map each `ErrorIndicator` (with coordinates in device pixel space) to the nearest actionable screen item. Widget-type boosts (1.2x for EditText, 1.1x for Spinner) serve as prioritization tiebreakers. A below-field heuristic handles error indicators positioned up to 100px below a field. The highest-scoring match above the minimum threshold (0.1) is selected. If no spatial match is found, the algorithm falls back to `_find_next_input_action()`.
+
+- **INV-AGT-27**: `VisualErrorDetector` filters out error indicators located in system bar areas: top 5% of the screenshot height (status bar) and bottom 6% (navigation bar). The percentages match the existing thresholds used by `RVAgentStrategy._is_system_action()` for consistency.
+
 ## Requirements
 
 ### Requirement: LangGraph Workflow with Externalized Nodes (FR21)
@@ -730,3 +746,114 @@ The `_fix_malformed_json()` function handles common malformations: missing leadi
 - **WHEN** tool calls are successfully parsed using any strategy
 - **THEN** `parser_stats.record_success()` MUST be called with the strategy name
 - **AND** `parser_stats.get_stats()` MUST return cumulative statistics including `success_rate`, `strategy_success_counts`, and `failure_reasons`
+
+### Requirement: Validation Error Detection and Input-Filling Recovery (FR32)
+
+rv-agent MUST detect validation error indicators on the current screen after action execution and guide the agent to fill the corresponding input fields. Detection uses `VisualErrorDetector` (wrapping rv-screen-parser's `ErrorDetector`) with a 4-stage filtering pipeline: confidence threshold, size filter, system region masking, and count filter. Error recovery uses spatial association to map error indicators to the nearest actionable input fields. The feature is controlled by `error_detection_enabled` in `RVAgentConfig`.
+
+#### Scenario: Visual error detected via color analysis
+
+- **WHEN** the agent clicks a submit button with empty input fields
+- **AND** the resulting screen shows red error indicators (e.g., `!` icon, red underline)
+- **AND** the UIAutomator dump is identical before and after (same screen hash)
+- **THEN** `parse_ui_node` takes a screenshot (hash repeats)
+- **AND** `VisualErrorDetector.detect()` returns `detected=True` with `error_indicators` containing coordinates and confidence >= 0.7
+- **AND** `learn_node` resets `stuck_screen_count` to 0
+- **AND** `learn_node` sets `force_fill_input = True` and `error_indicators` in the result state
+- **AND** `algorithm_node` uses spatial association to find the input field closest to the error indicator
+- **AND** for EditText: generates SET_TEXT action with test value from `InputValueGenerator`
+
+#### Scenario: Screenshot captured only when screen hash repeats
+
+- **WHEN** `parse_ui_node` computes the new screen hash and it equals `previous_screen_hash`
+- **THEN** `parse_ui_node` calls `agent.device.take_screenshot()` and stores the path in `state["error_detection_screenshot"]`
+
+- **WHEN** `parse_ui_node` computes the new screen hash and it differs from `previous_screen_hash`
+- **THEN** `state["error_detection_screenshot"]` is set to None
+- **AND** no screenshot overhead is incurred
+
+#### Scenario: Normal flow resumes after input is filled
+
+- **WHEN** the agent has filled an input field due to `force_fill_input`
+- **AND** the next screen has a different hash
+- **THEN** `parse_ui_node` does NOT capture a screenshot
+- **AND** `force_fill_input` is NOT set
+- **AND** the submit button is available for selection (NOT blacklisted)
+
+#### Scenario: Spinner validation error triggers CLICK
+
+- **WHEN** validation errors are detected on a Spinner field
+- **THEN** `algorithm_node` spatially associates the error indicator to the Spinner
+- **AND** generates CLICK action to open the dropdown (not SET_TEXT)
+
+#### Scenario: Spatial fallback to sequential iteration
+
+- **WHEN** a validation error is detected
+- **AND** spatial association finds no screen item above the minimum match threshold (0.1)
+- **THEN** `algorithm_node` falls back to `_find_next_input_action()` which iterates TEXT_CHANGE actions sequentially
+
+#### Scenario: No input fields available after error detection
+
+- **WHEN** a validation error is detected
+- **AND** the current screen has no TEXT_CHANGE or Spinner actions available
+- **THEN** `algorithm_node` clears `force_fill_input` and `error_indicators`
+- **AND** falls through to normal action selection
+- **AND** the submit action is NOT penalized
+
+#### Scenario: Error detection disabled via configuration
+
+- **WHEN** `error_detection_enabled` is set to `False` in `RVAgentConfig`
+- **THEN** `parse_ui_node` does NOT capture error detection screenshots
+- **AND** `_detect_validation_error()` returns `None`
+- **AND** `force_fill_input` is never set
+
+#### Scenario: Error recovery loop protection
+
+- **WHEN** validation errors are detected for 3 consecutive iterations on the same screen
+- **AND** `error_recovery_count` reaches `MAX_ERROR_RECOVERY` (3)
+- **THEN** detection is skipped (3-way branch: screenshot exists BUT count >= MAX)
+- **AND** `error_recovery_count` stays at 3 (does NOT reset to 0)
+- **AND** `stuck_screen_count` accumulates normally
+- **AND** after ~5 more iterations, Level 1 stuck detection triggers BACK
+
+- **WHEN** the agent navigates to a different screen after MAX_ERROR_RECOVERY
+- **THEN** `error_recovery_count` resets to 0
+- **AND** error detection is re-enabled for the new screen
+
+#### Scenario: False-positive filtering on themed apps
+
+- **WHEN** `ErrorDetector` returns indicators where individual width OR height exceeds `error_max_indicator_size` (default 80 px)
+- **THEN** those oversized indicators are filtered out
+
+- **WHEN** after confidence, size, and region filtering, the remaining indicator count exceeds `error_max_indicator_count` (default 5)
+- **THEN** `detect()` returns `detected=False` — the screen is assumed to have a red/pink theme
+
+#### Scenario: System region masking excludes status and navigation bar
+
+- **WHEN** `ErrorDetector` returns indicators in the top 5% (status bar) or bottom 6% (navigation bar) of the screenshot height
+- **THEN** those indicators are filtered out as system bar icons
+- **AND** they do not count toward the indicator total
+
+#### Scenario: Graceful degradation when cv2 unavailable
+
+- **WHEN** `VisualErrorDetector.detect()` is called and `cv2` cannot be imported or `cv2.imread()` returns None
+- **THEN** `detect()` returns `ValidationErrorResult(detected=False, ...)`
+- **AND** no exception is raised
+
+#### Scenario: Error recovery bypasses LLM in llm_only mode
+
+- **WHEN** `agent_mode` is `llm_only` and `force_fill_input = True`
+- **THEN** `decision_node` routes to `algorithm_node` with `decision_maker="error_recovery"`
+- **AND** the LLM is NOT called for this iteration
+
+#### Scenario: Concurrent force_fill_input and force_restart_app
+
+- **WHEN** both `force_fill_input = True` and `force_restart_app = True` are set
+- **THEN** `decision_node` routes for restart (higher priority)
+- **AND** `force_fill_input` persists until `learn_node`'s defensive clear resets it when the screen changes
+
+#### Scenario: Screenshot state always explicitly set in parse_ui_node
+
+- **WHEN** `parse_ui_node` returns its result dict
+- **THEN** `error_detection_screenshot` is ALWAYS included (either file path or None)
+- **AND** LangGraph state never retains a stale screenshot path from a previous iteration
