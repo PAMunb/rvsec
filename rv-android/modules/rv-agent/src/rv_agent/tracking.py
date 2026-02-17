@@ -15,6 +15,7 @@ Categories:
     LEARN   - Memory updates, stuck detection
     LLM     - LLM call details (tokens, time)
     NAV     - WTG navigation guidance
+    ERROR   - Validation error detection (indicators, confidence, method)
 
 Usage:
     from rv_agent.tracking import track
@@ -124,10 +125,10 @@ def state(iter: int, changed: bool, activity_from: Optional[str] = None,
 
 
 def learn(iter: int, stuck: bool, memory_updated: bool,
-          stuck_reason: Optional[str] = None) -> None:
+          stuck_reason: Optional[str] = None, error_detected: bool = False) -> None:
     """Log learning/memory update."""
     logger.info(_fmt("LEARN", iter=iter, stuck=stuck, memory_updated=memory_updated,
-                     stuck_reason=stuck_reason))
+                     stuck_reason=stuck_reason, error_detected=error_detected))
 
 
 def llm(iter: int, tokens_in: int, tokens_out: int, time_ms: int,
@@ -167,6 +168,17 @@ def backtrack(iter: int, from_state: str, to_state: str, reason: str) -> None:
     """Log backtrack trigger."""
     logger.info(_fmt("BACKTRACK", iter=iter, from_state=from_state[:8],
                      to_state=to_state[:8], reason=reason))
+
+
+def error(iter: int, indicators_count: int, confidence: float, method: str,
+          filtered_by_size: int = 0, filtered_by_region: int = 0,
+          filtered_by_count: bool = False) -> None:
+    """Log validation error detection event."""
+    logger.info(_fmt("ERROR", iter=iter, indicators=indicators_count,
+                     confidence=f"{confidence:.2f}", method=method,
+                     filtered_size=filtered_by_size,
+                     filtered_region=filtered_by_region,
+                     filtered_count=filtered_by_count))
 
 
 def score_detail(iter: int, coords: Tuple[int, int], scorer: str, score: float) -> None:

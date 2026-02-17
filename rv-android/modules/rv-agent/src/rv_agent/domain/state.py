@@ -116,7 +116,7 @@ class AgentState(TypedDict):
     # Multi-mode execution control
     decision_path: str                         # Current decision path: "llm", "dfs", or "end"
     decision_maker: str                        # Who decided action: "llm", "dfs", "strategy_fallback"
-    recent_action_window: List[Dict[str, Any]] # Last N actions for loop detection
+    recent_action_window: List[Dict[str, Any]]  # Last N actions for loop detection
     loop_detected: bool                        # Loop detected in current iteration
     used_fallback: bool                        # DFS fallback was used
     consecutive_llm_failures: int              # Consecutive LLM failures for fallback trigger
@@ -129,6 +129,11 @@ class AgentState(TypedDict):
     has_tool_calls: bool                       # Whether LLM generated tool calls
     llm_reasoning: str                         # LLM reasoning text
     validation_path: str                       # Validation routing: "execute_action", "algorithm_fallback"
+
+    # Error detection (validation errors on screen, e.g., red icons near inputs)
+    force_fill_input: bool                     # Force fill input on next iteration
+    error_detection_screenshot: Optional[str]  # Screenshot path for error detection analysis
+    error_indicators: Optional[list]           # List of ErrorIndicator objects detected on screen
 
     # Injected dependencies (not serialized, prefixed with _)
     _device: Optional[Any]                  # DeviceInterface instance

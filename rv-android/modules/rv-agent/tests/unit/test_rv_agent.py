@@ -47,6 +47,7 @@ def agent_config():
     config.strategy = "dfs"
     config.timeout = 100
     config.metrics_output_dir = None
+    config.error_detection_enabled = True
     return config
 
 

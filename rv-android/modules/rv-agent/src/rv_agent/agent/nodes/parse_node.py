@@ -59,6 +59,15 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Failed to register screen elements: {e}")
 
+    # Error detection: capture screenshot when screen hash repeats (same screen after action)
+    error_detection_screenshot = None
+    if (agent.config.error_detection_enabled
+            and screen_hash == state.get("previous_screen_hash")):
+        try:
+            error_detection_screenshot = agent.device.take_screenshot()
+        except Exception as e:
+            logger.warning(f"Screenshot capture for error detection failed: {e}")
+
     return {
         "current_screen_hash": result["screen_hash"],
         "current_activity": result["activity"],
@@ -66,5 +75,6 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "ui_elements_text": ui_elements_text,
         "is_external": result["is_external"],
         "external_navigation_count": result["external_navigation_count"],
-        "ui_xml": result.get("ui_xml", "")
+        "ui_xml": result.get("ui_xml", ""),
+        "error_detection_screenshot": error_detection_screenshot,
     }

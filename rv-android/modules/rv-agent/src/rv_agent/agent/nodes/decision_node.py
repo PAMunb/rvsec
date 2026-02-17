@@ -47,6 +47,11 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         track.route(iter=iteration, mode=mode, path="algorithm(back)")
         return {"decision_path": "algorithm", "decision_maker": "stuck_recovery"}
 
+    # Check for error recovery: bypass LLM and route to algorithm for input filling
+    if state.get("force_fill_input", False):
+        track.route(iter=iteration, mode=mode, path="algorithm(error_recovery)")
+        return {"decision_path": "algorithm", "decision_maker": "error_recovery"}
+
     decision_path = agent.routing_manager.route_decision(iteration)
     track.route(iter=iteration, mode=mode, path=decision_path)
 

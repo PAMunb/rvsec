@@ -65,7 +65,7 @@ class RVAgentConfig(BaseValidatedModel):
         default="http://192.168.0.36:30000/v1",
         description="SGLang server URL (OpenAI-compatible API)"
     )
-    prompt_version: str = Field( 
+    prompt_version: str = Field(
         default="v13",
         description="Prompt version (v13: dialog handling, v14: structured reasoning)"
     )
@@ -319,6 +319,50 @@ class RVAgentConfig(BaseValidatedModel):
         description="UI coverage threshold (executed_actions/total_actions per screen) for successor re-enablement"
     )
 
+    # === ERROR DETECTION CONFIGURATION ===
+    error_detection_enabled: bool = Field(
+        default=True,
+        description="Master switch for validation error detection on screen"
+    )
+    error_detection_confidence: float = Field(
+        default=0.7,
+        ge=0.3,
+        le=0.95,
+        description="Confidence threshold for error indicator detection [0.3, 0.95]"
+    )
+    error_max_indicator_size: int = Field(
+        default=80,
+        ge=30,
+        le=200,
+        description="Maximum pixel size for a valid error indicator [30, 200]"
+    )
+    error_max_indicator_count: int = Field(
+        default=5,
+        ge=2,
+        le=20,
+        description="Maximum indicators before assuming themed UI (not errors) [2, 20]"
+    )
+
+    # === SPATIAL ASSOCIATION (error-to-input mapping) ===
+    spatial_edittext_boost: float = Field(
+        default=1.2,
+        ge=1.0,
+        le=2.0,
+        description="EditText priority tiebreaker for spatial error-to-input association [1.0, 2.0]"
+    )
+    spatial_spinner_boost: float = Field(
+        default=1.1,
+        ge=1.0,
+        le=2.0,
+        description="Spinner priority tiebreaker for spatial error-to-input association [1.0, 2.0]"
+    )
+    spatial_min_match_threshold: float = Field(
+        default=0.1,
+        ge=0.01,
+        le=0.5,
+        description="Minimum score to accept spatial match between error and input [0.01, 0.5]"
+    )
+
     # === EXPLORATION PARAMETERS ===
     scroll_probability: float = Field(
         default=0.15,
@@ -414,4 +458,3 @@ class RVAgentConfig(BaseValidatedModel):
             config_data["device_id"] = device_id
 
         return cls(**config_data)
-

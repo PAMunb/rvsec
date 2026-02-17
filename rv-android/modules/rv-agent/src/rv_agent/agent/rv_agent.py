@@ -161,6 +161,7 @@ class RVAgent:
         # Dynamic threshold based on screen complexity (number of elements)
         self.last_screen_hash = None
         self.stuck_screen_count = 0
+        self.error_recovery_count = 0
         self.BASE_STUCK_THRESHOLD = 8  # Minimum threshold for simple screens
         self.STUCK_THRESHOLD_FACTOR = 1.5  # Multiplier: threshold = max(base, elements * factor)
 
@@ -339,7 +340,11 @@ class RVAgent:
             "has_tool_calls": False,
             "llm_reasoning": "",
             "validation_path": "",
-            "ui_xml": ""
+            "ui_xml": "",
+            # Error detection fields
+            "force_fill_input": False,
+            "error_detection_screenshot": None,
+            "error_indicators": None
         }
 
         # External execution loop

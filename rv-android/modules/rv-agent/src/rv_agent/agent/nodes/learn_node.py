@@ -5,7 +5,15 @@ Updates memory systems, detects stuck states, and manages recovery strategies.
 
 Key Design Decisions:
 
-1. STUCK STATE DETECTION (Two-Level)
+1. VALIDATION ERROR DETECTION (before stuck detection)
+   When the screen is unchanged and a screenshot is available, checks for visual
+   validation errors (red icons, error borders) before assuming the agent is stuck.
+   Uses 3-way branching:
+     (a) No screenshot (screen changed) -> reset error_recovery_count, clear state
+     (b) Screenshot exists, max recovery reached -> skip detection, let stuck logic handle it
+     (c) Screenshot exists, count < max -> run detection, set force_fill_input if error found
+
+2. STUCK STATE DETECTION (Two-Level)
    Level 1 - Screen unchanged: After dynamic threshold of unchanged screens, force BACK.
              Threshold = max(BASE_STUCK_THRESHOLD, num_elements * STUCK_THRESHOLD_FACTOR)
              Form actions (SET_TEXT, checkable elements) are excluded from counting.
@@ -13,21 +21,22 @@ Key Design Decisions:
      a) Backtrack BFS: Find nearest unsaturated ancestor state
      b) App Restart: Force stop and relaunch if BFS fails
 
-2. BACKTRACK BFS (from APE paper)
+3. BACKTRACK BFS (from APE paper)
    When Level 2 stuck is detected, uses SuccessorTracker.find_nearest_unsaturated()
    to find an ancestor state with unexplored actions. If found, navigates there
    via BACK. If no unsaturated ancestor exists, triggers app restart.
 
-3. BACK TRANSITION RECORDING
+4. BACK TRANSITION RECORDING
    Records where BACK leads from each state. This builds a navigation graph
    that Backtrack BFS uses to find paths to unsaturated ancestors.
 
-4. INTERACTION WITH ALGORITHM_NODE
+5. INTERACTION WITH ALGORITHM_NODE
    - force_back_action=True: Generates BACK action
    - force_restart_app=True: Generates RESTART_APP action
+   - force_fill_input=True: Triggers input filling for error recovery
    This maintains separation between detection (learn_node) and action generation.
 
-5. UI COVERAGE TRACKING
+6. UI COVERAGE TRACKING
    Records which elements were interacted with for coverage metrics.
    Uses proximity matching because LLM clicks may not be exactly at element centers.
 """
@@ -42,8 +51,14 @@ from rv_agent.domain.state import AgentState
 from rv_agent import tracking as track
 from rv_agent.constants import RVAgentConstants
 from rv_agent.services.coordinate_utils import device_to_optimized
+from rv_agent.services.error_detection import VisualErrorDetector, ValidationErrorResult
 
 logger = logging.getLogger(__name__)
+
+# After this many consecutive error recovery attempts on the same screen,
+# stop detecting and let the normal stuck detection handle it. Prevents
+# infinite force_fill_input loops on screens with persistent red decorations.
+MAX_ERROR_RECOVERY = 3
 
 
 def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
@@ -71,6 +86,26 @@ def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
     dynamic_threshold = max(base, int(num_elements * factor))
 
     return dynamic_threshold
+
+
+def _detect_validation_error(
+    agent: "RVAgent", screenshot_path: str
+) -> Optional[ValidationErrorResult]:
+    """Detect validation errors in a screenshot using visual analysis.
+
+    Returns ValidationErrorResult if detection ran, None if disabled.
+    Loop protection (MAX_ERROR_RECOVERY) is handled by the caller.
+    """
+    if not agent.config.error_detection_enabled:
+        return None
+
+    detector = VisualErrorDetector()
+    return detector.detect(
+        screenshot_path,
+        confidence_threshold=agent.config.error_detection_confidence,
+        max_indicator_size=agent.config.error_max_indicator_size,
+        max_indicator_count=agent.config.error_max_indicator_count,
+    )
 
 
 def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
@@ -122,11 +157,55 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Record action success for strength-based scoring
     _record_action_success(agent, state)
 
+    # --- Validation error detection (before stuck detection) ---
+    # 3-way branching based on error_detection_screenshot presence and recovery count:
+    #   (a) screenshot=None -> screen changed, reset counter and clear stale state
+    #   (b) screenshot exists, count >= MAX -> skip detection, let stuck logic handle it
+    #   (c) screenshot exists, count < MAX -> run detection, recover if error found
+    screenshot_path = state.get("error_detection_screenshot")
+    error_detected = False
+    error_result_updates = {}
+
+    if screenshot_path is None:
+        # Branch (a): Screen changed since last iteration. Reset recovery counter
+        # and defensively clear error state to avoid stale force_fill from previous iter.
+        agent.error_recovery_count = 0
+        error_result_updates["force_fill_input"] = False
+        error_result_updates["error_indicators"] = None
+    elif agent.error_recovery_count >= MAX_ERROR_RECOVERY:
+        # Branch (b): Screen is stuck with a screenshot, but we already tried
+        # MAX_ERROR_RECOVERY times. Stop detecting — let normal stuck detection
+        # (Level 1/2) take over. Counter stays at current value.
+        pass
+    else:
+        # Branch (c): Screenshot available and recovery budget remaining. Run detection.
+        validation_result = _detect_validation_error(agent, screenshot_path)
+        if validation_result and validation_result.detected:
+            error_detected = True
+            agent.error_recovery_count += 1
+            agent.stuck_screen_count = 0  # Suppress stuck detection for this iteration
+
+            error_result_updates["force_fill_input"] = True
+            error_result_updates["error_indicators"] = validation_result.error_indicators
+
+            track.error(
+                iter=iteration,
+                indicators_count=len(validation_result.error_indicators),
+                confidence=validation_result.confidence,
+                method=validation_result.detection_method,
+                filtered_by_size=validation_result.filtered_by_size,
+                filtered_by_region=validation_result.filtered_by_region,
+                filtered_by_count=validation_result.filtered_by_count,
+            )
+        elif validation_result is not None:
+            # Detection ran but found no error — the screen is unchanged for other
+            # reasons. Reset counter so future errors on new screens start fresh.
+            agent.error_recovery_count = 0
+
     # Two-level stuck state detection
     current_hash = state.get("current_screen_hash")
     force_back = False
     force_restart = False
-    stuck_count_before = agent.stuck_screen_count
 
     # Get current action info for stuck detection logic
     current_action = state.get("current_action", {})
@@ -148,7 +227,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     dynamic_threshold = _get_dynamic_stuck_threshold(agent, state)
 
     is_form_action = action_type in ("SET_TEXT", "TEXT_CHANGE") or is_checkable
-    if current_hash == agent.last_screen_hash and not is_form_action:
+    if current_hash == agent.last_screen_hash and not is_form_action and not error_detected:
         agent.stuck_screen_count += 1
         if agent.stuck_screen_count >= dynamic_threshold:
             force_back = True
@@ -183,7 +262,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                     )
                 else:
                     logger.warning(
-                        f"Level 2 stuck: No unsaturated ancestor found -> Forcing RESTART"
+                        "Level 2 stuck: No unsaturated ancestor found -> Forcing RESTART"
                     )
                     force_restart = True
                     stuck_recovery.record_restart()
@@ -196,7 +275,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                     )
             else:
                 logger.warning(
-                    f"Level 2 stuck: No successor_tracker available -> Forcing RESTART"
+                    "Level 2 stuck: No successor_tracker available -> Forcing RESTART"
                 )
                 force_restart = True
                 stuck_recovery.record_restart()
@@ -231,7 +310,8 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         iter=iteration,
         stuck=force_back or force_restart,
         memory_updated=True,
-        stuck_reason=stuck_reason
+        stuck_reason=stuck_reason,
+        error_detected=error_detected,
     )
 
     result = {
@@ -251,6 +331,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         result["force_restart_app"] = True
     elif force_back:
         result["force_back_action"] = True
+
+    # Merge error detection results into output state
+    result.update(error_result_updates)
 
     # NOTE: UI coverage interaction is recorded in execute_node.py
     # using device-space coordinates (not normalized [0,1000))
