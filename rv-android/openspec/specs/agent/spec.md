@@ -112,7 +112,7 @@ Example: raw (499, 547) on a 1080x1920 screen converts to pixel (539, 1050).
 
 ### Action Ranking System
 
-The `RVAgentStrategy` uses a composite scoring system with 8 registered scorers. Each scorer evaluates one aspect of action priority; scores are summed to determine final ranking:
+The `RVAgentStrategy` uses a composite scoring system with 7 registered scorers. Each scorer evaluates one aspect of action priority; scores are summed to determine final ranking:
 
 **Prioritization scorers:**
 - `MopScorer`: +300 (directly reaches MOP), +150 (transitively reaches MOP)
@@ -122,7 +122,6 @@ The `RVAgentStrategy` uses a composite scoring system with 8 registered scorers.
 - `StrengthScorer`: +50 * success_rate (historical state-transition success)
 
 **Penalty scorers:**
-- `FailedActionScorer`: -9999 (permanently blacklists crash-causing actions)
 - `SystemElementFilter`: -5000 (filters system UI elements like systemui)
 - `VisitationPenaltyScorer`: -10 * log(1 + visits) (logarithmic penalty for over-visited states)
 
@@ -287,8 +286,6 @@ Unified Action Format (dict):
 
 - **INV-AGT-09**: Tool call extraction MUST first attempt native `response.tool_calls`, then fall back to content parsing if empty. The combined approach MUST achieve near-100% extraction success for well-formed responses.
 
-- **INV-AGT-10**: The `FailedActionScorer` MUST assign a penalty of -9999 to permanently failed actions. This effectively blacklists them from selection, preventing repeated crashes.
-
 - **INV-AGT-11**: `ActionNormalizer.from_llm()` MUST preserve the original [0, 1000) coordinates in the `original_coords` field of the returned action dictionary for debugging purposes.
 
 - **INV-AGT-12**: The `validate_action_node` MUST check LLM action coordinates against screen boundaries (status bar top 5%, navigation bar bottom 6%). Actions outside the app boundary MUST be replaced with a BACK action.
@@ -311,7 +308,7 @@ Unified Action Format (dict):
 
 - **INV-AGT-22**: When a validation error is detected, `learn_node` sets `force_fill_input = True` and `error_indicators` in the agent state. `algorithm_node` responds by using spatial association to find the input field closest to an error indicator and generating an appropriate action: SET_TEXT for EditText fields, CLICK for Spinner/dropdown fields. If spatial association finds no match, it falls back to sequential iteration of TEXT_CHANGE actions. After the action is generated, the flag and indicators are cleared.
 
-- **INV-AGT-23**: Validation errors MUST NOT connect to `record_action_failure()` or `FailedActionScorer`. The action that caused the validation error is correct — it only fails because input preconditions are not met. Once inputs are filled, the same action should be retried.
+- **INV-AGT-23**: Validation errors MUST NOT be treated as permanent action failures. The action that caused the validation error is correct — it only fails because input preconditions are not met. Once inputs are filled, the same action should be retried.
 
 - **INV-AGT-24**: The agent MUST limit consecutive error recovery attempts to `MAX_ERROR_RECOVERY` (3) per screen visit. When the limit is reached, detection is disabled and the counter stays at MAX — it does NOT reset while the screen remains the same. The counter resets to 0 only when the screen changes (no screenshot available). This 3-way branching prevents an infinite cycle where reaching MAX → resetting counter → re-enabling detection → reaching MAX again.
 
@@ -525,7 +522,7 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 
 ### Requirement: Composite Action Ranking (FR27)
 
-The strategy MUST rank available actions using a composite scoring system with 8 registered scorers. Each scorer implements the `Scorer` abstract base class with a `score(action, context) -> float` method. Scores are summed by `ActionRanker` to determine final ranking.
+The strategy MUST rank available actions using a composite scoring system with 7 registered scorers. Each scorer implements the `Scorer` abstract base class with a `score(action, context) -> float` method. Scores are summed by `ActionRanker` to determine final ranking.
 
 Action selection supports two modes: deterministic (always selects highest-scored action) and stochastic (Gumbel-max sampling with configurable temperature). The selection mode is chosen probabilistically based on `stochastic_probability` (default 0.3 = 30% stochastic, 70% deterministic).
 
@@ -534,12 +531,6 @@ Action selection supports two modes: deterministic (always selects highest-score
 - **WHEN** action A has `directly_reaches_mop = True` and action B has `reaches_mop = False`
 - **THEN** `MopScorer` MUST assign +300 to A and 0 to B (assuming default config)
 - **AND** action A MUST rank higher than B (all other scores being equal)
-
-#### Scenario: Failed Action Blacklisting
-
-- **WHEN** an action has been marked as permanently failed in the `ScreenNode`
-- **THEN** `FailedActionScorer` MUST assign -9999 to that action
-- **AND** the action MUST NOT be selected over any non-failed action
 
 #### Scenario: WTG-Guided Navigation
 

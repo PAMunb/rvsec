@@ -150,9 +150,9 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 
 ### Requirement: Composite Action Ranking (FR27)
 
-The strategy MUST rank available actions using a composite scoring system with 10 registered scorers. Each scorer implements the `Scorer` abstract base class with a `score(action, context) -> float` method. Scores are summed by `ActionRanker` to determine final ranking.
+The strategy MUST rank available actions using a composite scoring system with 9 registered scorers. Each scorer implements the `Scorer` abstract base class with a `score(action, context) -> float` method. Scores are summed by `ActionRanker` to determine final ranking.
 
-The scorer list includes the 8 original scorers plus `GradualDecayScorer` and `CoverageDensityScorer`. `GradualDecayScorer` was previously defined but not registered (dead code); it provides smoother priority transitions using exponential decay: `base_score * decay_rate^visits` where `base_score` = 200 and `decay_rate` = 0.7. This replaces the binary untested/tested split with a gradual signal — actions visited once still have value (200 * 0.7 = 140), twice (200 * 0.49 = 98), and so on.
+The scorer list includes the 7 original scorers plus `GradualDecayScorer` and `CoverageDensityScorer`. `GradualDecayScorer` was previously defined but not registered (dead code); it provides smoother priority transitions using exponential decay: `base_score * decay_rate^visits` where `base_score` = 200 and `decay_rate` = 0.7. This replaces the binary untested/tested split with a gradual signal — actions visited once still have value (200 * 0.7 = 140), twice (200 * 0.49 = 98), and so on.
 
 `CoverageDensityScorer` provides cross-screen coverage guidance using learned transition data. While all other scorers operate on the CURRENT screen, CoverageDensityScorer answers the question "which of these actions leads to the most interesting DESTINATION?" by querying `SuccessorTracker` for action destinations and `UICoverageTracker` for destination coverage. This addresses the "small island" problem: when MOP methods represent 1-5% of app code, broad UI coverage increases the probability of reaching monitored operations, including those not mapped by static analysis. The scorer is always active (not gated on `StaticAnalysisData`), creating a dual guidance architecture where MOP targeting provides directed precision and coverage provides broad probabilistic exploration.
 
@@ -168,7 +168,6 @@ The scorer list includes the 8 original scorers plus `GradualDecayScorer` and `C
 | `StrengthScorer` | 50 | 50 | Unchanged base, but now incorporates cumulative reward from N-step propagation |
 | `GradualDecayScorer` | N/A (dead code) | 200 * 0.7^visits | Newly activated; provides smooth decay across visits |
 | `CoverageDensityScorer` | N/A (new) | 200 * coverage_gap | Always active; cross-screen coverage guidance using learned transitions |
-| `FailedActionScorer` | -9999 | -9999 | Unchanged |
 | `SystemElementFilter` | -5000 | -5000 | Unchanged |
 | `VisitationPenaltyScorer` | -10 | -15 | Stronger repulsion from over-visited states |
 
@@ -189,12 +188,6 @@ Action selection supports two modes: deterministic (always selects highest-score
 - **AND** `WtgScorer` MUST assign +150 to B
 - **AND** action A MUST rank higher than B (all other scores being equal)
 
-#### Scenario: Failed Action Blacklisting
-
-- **WHEN** an action has been marked as permanently failed in the `ScreenNode`
-- **THEN** `FailedActionScorer` MUST assign -9999 to that action
-- **AND** the action MUST NOT be selected over any non-failed action
-
 #### Scenario: WTG-Guided Navigation Scoring
 
 - **WHEN** `TransitionManager` indicates that action A leads to an unvisited screen
@@ -202,7 +195,7 @@ Action selection supports two modes: deterministic (always selects highest-score
 
 #### Scenario: GradualDecayScorer Behavior
 
-- **WHEN** action A targets a state visited 0 times and action B targets a state visited 3 times
+- **WHEN** action A targets an element visited 0 times and action B targets an element visited 3 times
 - **THEN** `GradualDecayScorer` MUST assign 200 to A (200 * 0.7^0)
 - **AND** `GradualDecayScorer` MUST assign approximately 68.6 to B (200 * 0.7^3)
 

@@ -850,6 +850,8 @@ max_coverage_hops: int = Field(
 
 The rv-agent `pyproject.toml` dependency constraints must be updated to match the actual installed versions (e.g., `langchain>=1.2`, `langgraph>=1.0`, `langchain-openai>=1.0`). The current constraints (`>=0.3`) are stale and could allow `uv` to resolve an older, incompatible version on a clean install. This is a one-line-per-dependency change with no behavioral impact — it prevents accidental downgrade.
 
+**UICoverageTracker prerequisite**: `CoverageDensityScorer` and PathBuffer Strategy C require `get_coverage_gap(state_hash) -> float` and `get_element_count(state_hash) -> int` methods on `UICoverageTracker` (in `memory/ui_coverage.py`). These methods must be added as part of Group 1 implementation before CoverageDensityScorer (task 3.5.4) and Strategy C (task 3.5.6) can query coverage data per destination screen.
+
 ## Data Flow
 
 ### Single Iteration (pure_algorithm mode, after all improvements)
@@ -884,7 +886,6 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    │     ├── SaturationScorer: +100 * (1 - sat_rate)
    │     ├── ComponentPriorityScorer: +50/+40
    │     ├── StrengthScorer: weight * strength + reward_score_weight * cumulative_reward [NEW]
-   │     ├── FailedActionScorer: -9999
    │     ├── SystemElementFilter: -5000
    │     └── VisitationPenaltyScorer: -15 * log(1 + visits)  [NEW default; current is -10]
    ├── Tier 3: should_backtrack(threshold=0.8) → plan path or BACK (C > B > A)
@@ -1022,7 +1023,7 @@ Accepted trade-off: The hash-unchanged invalidation handles the most common fail
 | **Unit** | `should_backtrack()` with saturation threshold | States at 0.7, 0.8, 0.9, 1.0 saturation with threshold=0.8 | ~3 tests |
 | **Unit** | `should_backtrack()` edge cases | Empty graph, single node, state not found, incomplete successors | ~3 tests |
 | **Unit** | Scorer weight defaults verification | Verify MopScorer=500/300, WtgScorer=150, VisitationPenalty=-15, Stochastic=0.15 | ~2 tests |
-| **Unit** | `GradualDecayScorer` in active scorer list | Verify 10 scorers registered (8 existing + GradualDecayScorer + CoverageDensityScorer) | ~1 test |
+| **Unit** | `GradualDecayScorer` in active scorer list | Verify 9 scorers registered (7 existing + GradualDecayScorer + CoverageDensityScorer) | ~1 test |
 | **Unit** | `StrengthScorer` with cumulative reward | Known strength + known cumulative_reward, verify combined score | ~3 tests |
 | **Unit** | `InputValueGenerator` value ordering fix | Verify Faker values first for "text" type, PINs only for "password"/"pin" | ~3 tests |
 | **Unit** | `InputValueGenerator` MOP limit | Verify `mop_max_input_variations=11` allows all 11 edge-case payloads | ~2 tests |
