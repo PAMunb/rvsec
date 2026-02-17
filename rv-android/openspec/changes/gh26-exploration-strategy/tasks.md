@@ -1,4 +1,5 @@
 <!-- Subagent dispatch hints:
+     - Group 0 (Baseline Experiment) must run BEFORE any code changes.
      - Group 1 (Config & Models) must complete first — all other groups depend on it.
      - Groups 2, 3, 4 are independent and can run in parallel after Group 1.
      - Group 5 depends on Group 1 only. Group 6 depends on Group 1 AND Group 5
@@ -6,8 +7,30 @@
        Run Group 5 first, then Group 6, or split task 6.7 wiring to run after both.
      - Groups 7, 8 are independent — can run in parallel with 2/3/4/5.
      - Group 9 integrates everything — must run after all other groups are done.
+     - Group 10 (Validation Experiment) must run AFTER Group 9 and rv-verify pass.
      Pre-condition: gh18 must be implemented before starting Group 5+.
      This change touches 14+ files — use subagent orchestration (3-4 parallel dispatches). -->
+
+## 0. Baseline Experiment (BEFORE implementation)
+
+Run a controlled experiment to establish baseline metrics before any gh26 code changes. Uses the 10 APKs from experiment 02 (exp02 dataset), 3 testing tools, 5-minute timeout, and 3 repetitions. Results serve as the control group for post-implementation comparison.
+
+**Experiment parameters:**
+- APKs: 10 from exp02 (see task 0.1 for list)
+- Tools: `ape`, `fastbot`, `rvagent:pure_algorithm`
+- Spec set: `jca`
+- Timeout: 300s (5 min)
+- Repetitions: 3
+- Total tasks: 10 × 3 × 3 = 90
+- Parallelism: 2 Docker containers on laptop
+- Original APKs: `/home/pedro/desenvolvimento/RV_ANDROID/apks`
+
+- [ ] 0.1 Create experiment directory `docker/data/gh26_experiment/` with filter file `exp02_apks.txt` containing the 10 exp02 APK filenames (one per line): `com.blogspot.e_kanivets.moneytracker_38.apk`, `com.gianlu.dnshero_40.apk`, `com.github.axet.hourlyreminder_476.apk`, `com.pindroid_69.apk`, `com.rafapps.simplenotes_7.apk`, `com.thibaudperso.sonycamera_24.apk`, `li.klass.fhem_141.apk`, `org.pulpdust.lesserpad_42.apk`, `org.secuso.privacyfriendlydicer_8.apk`, `org.secuso.privacyfriendlyludo_5.apk`. Create two batch filter files: `batch_0.txt` (first 5 APKs) and `batch_1.txt` (last 5 APKs).
+- [ ] 0.2 Create `docker/data/gh26_experiment/docker-compose.preprocess.yml`: single container using `phtcosta/rvandroid` image with `RV_SKIP_EXECUTION=true` to run instrumentation + static analysis only. Mount original APKs from `/home/pedro/desenvolvimento/RV_ANDROID/apks` (read-only), filter to 10 exp02 APKs. Output: instrumented APKs + `.gesda` + `.wtg` + `.reach` files in `docker/data/gh26_experiment/instrumented_apks/`. Verify all 10 APKs have complete SA files (reject if any `.reach` is missing). Follow gh9 preprocessing pattern from `docker/docker-compose.parallel.yml`.
+- [ ] 0.3 Run preprocessing: `docker compose -f docker/data/gh26_experiment/docker-compose.preprocess.yml up`. Validate output: 10 instrumented APKs, 10 `.gesda`, 10 `.wtg`, 10 `.reach` files. Expected duration: ~20-30 min.
+- [ ] 0.4 Create `docker/data/gh26_experiment/docker-compose.baseline.yml`: 2 containers (`batch_0`, `batch_1`) each running `rv-experiment` with `RV_TOOLS=ape,fastbot,rvagent:pure_algorithm`, `RV_TIMEOUTS=300`, `RV_REPETITIONS=3`, `RV_NO_WINDOW=true`. Each container gets its batch filter file (5 APKs). Use `RV_SKIP_MONITORS=true`, `RV_SKIP_INSTRUMENT=true`, `RV_SKIP_STATIC_ANALYSIS=true` (pre-processed). Mount `instrumented_apks/` as APK source. Stagger start: `RV_DELAY=0` and `RV_DELAY=10`. Resource limits: `cpus: 4, memory: 8g` per container. Results in `docker/data/gh26_experiment/results/baseline/batch_0/` and `batch_1/`.
+- [ ] 0.5 Run baseline experiment: `docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up`. Monitor progress. Each container runs 5 APKs × 3 tools × 3 reps = 45 tasks. Expected duration: ~4-5 hours with 2 containers. Resume on failure via `RV_EXPERIMENT_NAME`.
+- [ ] 0.6 Aggregate baseline metrics: merge `summary.csv` from both batches into `docker/data/gh26_experiment/baseline_metrics.csv`. Compute per (apk, tool): mean and std of `cov_method`, `cov_act`, `cov_rv_method`, `errors`. Archive rv-agent tracking JSONL logs for post-implementation comparison of UI coverage metrics.
 
 ## 1. Configuration & Models
 
@@ -98,3 +121,32 @@ Full integration tests, regression checks, and final verification. Must run afte
 - [ ] 9.5 Add tracking metrics to `tracking.py`: `backtrack_count` (proactive BACK actions), `path_buffer_hit_rate` (buffered paths reaching target Activity), `reward_propagation_events` (N-step propagation triggers). Satisfies Data Contracts output fields.
 - [ ] 9.6 Run full test suites and verification: `uv run pytest modules/rv-agent/tests/unit/ -v`, `uv run pytest modules/rv-agent/tests/integration/ -v`, then `/rv-verify rv-agent` (tests + lint + type checks).
 - [ ] 9.7 Invoke `rv-code-reviewer` via Task tool: `subagent_type=rv-code-reviewer, prompt="Review gh26-exploration-strategy implementation: PathBuffer, RewardPropagator, proactive backtracking in select_next_action(), scorer rebalancing, GradualDecayScorer activation, InputValueGenerator fixes, speed optimization in decision_router_node, MOP guidance in NavigationGuidance. Focus on: INV-AGT-19 to INV-AGT-24 compliance, P1 Simplicity, P3 completeness (no dangling references to deleted _infer_input_type), error handling for None static analysis data."`
+
+## 10. Post-Implementation Validation Experiment
+
+Run the same experiment as Group 0 but with gh26 changes applied. Compare against baseline to measure the actual impact of the 9 improvements. Must run after Group 9 passes `/rv-verify` and code review.
+
+**Comparison metrics (all 3 tools, from summary.csv):**
+- Method coverage % (`cov_method`)
+- Activity coverage % (`cov_act`)
+- MOP method coverage % (`cov_rv_method`)
+- MOP error count (`errors`)
+
+**RVAgent-specific metrics (from tracking JSONL):**
+- Unique states discovered (count of distinct `screen_hash` values)
+- Stuck event count (Level 1 BACK + Level 2 restart)
+- PathBuffer activation count (new: plan_backtrack + plan_mop)
+- Reward propagation events (new: propagate() calls)
+- Action distribution by element type (Button, EditText, CheckBox, ImageView, etc.)
+
+**Statistical analysis:**
+- Paired observations: 10 APKs × 3 reps = 30 per tool
+- Test: Wilcoxon signed-rank (non-parametric, paired, n=30)
+- Report: per-metric p-value + effect size (r = Z/√n)
+
+- [ ] 10.1 Build Docker image with gh26 changes: `docker build -t phtcosta/rvandroid:gh26-validation -f docker/rvandroid/Dockerfile .` from project root. Verify image: run `uv run pytest modules/rv-agent/tests/unit/ -v` inside container to confirm all tests pass.
+- [ ] 10.2 Create `docker/data/gh26_experiment/docker-compose.validation.yml`: identical to `docker-compose.baseline.yml` but using `phtcosta/rvandroid:gh26-validation` image. Results in `docker/data/gh26_experiment/results/validation/batch_0/` and `batch_1/`.
+- [ ] 10.3 Run validation experiment: `docker compose -f docker/data/gh26_experiment/docker-compose.validation.yml up`. Same configuration as baseline: 2 containers, 10 APKs, 3 tools, 3 reps, 300s. Expected duration: ~4-5 hours.
+- [ ] 10.4 Aggregate validation metrics: merge `summary.csv` from both batches into `docker/data/gh26_experiment/validation_metrics.csv`. Same format as `baseline_metrics.csv`.
+- [ ] 10.5 Create comparison script `docker/data/gh26_experiment/compare_results.py`: reads `baseline_metrics.csv` and `validation_metrics.csv`, computes per (apk, tool) deltas for each metric, runs Wilcoxon signed-rank test per (tool, metric) pair, generates `comparison_report.md` with: (a) per-tool summary table (mean baseline → mean validation, Δ%, p-value), (b) per-APK breakdown for rvagent:pure_algorithm, (c) RVAgent-specific tracking metrics comparison (states, stuck events, buffer activations). Script uses only stdlib + scipy (for stats).
+- [ ] 10.6 Run comparison and review: `python docker/data/gh26_experiment/compare_results.py`. Review `comparison_report.md`. Expected outcomes: rvagent:pure_algorithm should show improvement in method coverage and MOP error detection (from proactive backtracking + PathBuffer + reward propagation). Ape and fastbot should show no significant change (they are unmodified — serve as sanity check). If rvagent shows regression, investigate which improvement caused it by checking tracking logs.
