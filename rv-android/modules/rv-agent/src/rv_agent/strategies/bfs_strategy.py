@@ -437,31 +437,20 @@ class BFSStrategy(ExplorationStrategy):
         Select action with fewest executions for continuous exploration.
 
         When all actions have been tested at least once, prioritizes:
-        1. Filter out permanently failed actions (crash-causing)
-        2. Actions with fewer execution counts (least visited first)
-        3. MOP priority as tiebreaker (higher MOP = selected first)
+        1. Actions with fewer execution counts (least visited first)
+        2. MOP priority as tiebreaker (higher MOP = selected first)
 
         This enables continuous exploration until timeout, always making
-        progress on less-explored paths while avoiding repeated crashes.
+        progress on less-explored paths.
 
         Args:
             node: ScreenNode with action execution counts
             actions: List of all available actions (already tested)
 
         Returns:
-            Action with lowest execution count, or None if all actions failed
+            Action with lowest execution count, or None if no actions available
         """
-        # Filter out permanently failed actions
-        safe_actions = []
-        for action in actions:
-            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
-            if not node.is_action_failed(action_signature):
-                safe_actions.append(action)
-            else:
-                logger.debug(f"Skipping permanently failed action: {action_signature}")
-
-        if not safe_actions:
-            logger.warning(f"All actions have permanently failed on state {node.screen_hash[:8]}")
+        if not actions:
             return None
 
         def sort_key(action: ItemAction):
@@ -472,7 +461,7 @@ class BFSStrategy(ExplorationStrategy):
             # Lower exec_count first, then higher MOP priority
             return (exec_count, -mop_priority)
 
-        sorted_actions = sorted(safe_actions, key=sort_key)
+        sorted_actions = sorted(actions, key=sort_key)
         return sorted_actions[0]
 
     def _get_mop_priority(self, action: ItemAction) -> int:

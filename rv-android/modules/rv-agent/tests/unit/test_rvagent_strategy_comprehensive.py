@@ -301,7 +301,6 @@ class TestRVAgentStrategyRankingFunctionality:
         assert "MopScorer" in scorer_types
         assert "WtgScorer" in scorer_types
         assert "ComponentPriorityScorer" in scorer_types
-        assert "FailedActionScorer" in scorer_types
 
 
 class TestRVAgentStrategyEdgeCases:

@@ -33,7 +33,6 @@ from rv_agent.strategies.rvagent_strategy.ranking import (
     SaturationScorer,
     ComponentPriorityScorer,
     StrengthScorer,
-    FailedActionScorer,
     SystemElementFilter,
     VisitationPenaltyScorer,
 )
@@ -191,7 +190,6 @@ class RVAgentStrategy(ExplorationStrategy):
             ComponentPriorityScorer(config=config),
             StrengthScorer(coordinate_converter=coordinate_converter, config=config),
             # Penalty scorers
-            FailedActionScorer(coordinate_converter=coordinate_converter),
             SystemElementFilter(),
             VisitationPenaltyScorer(config=config),
         ])
@@ -384,7 +382,6 @@ class RVAgentStrategy(ExplorationStrategy):
         # 7. Pre-mark action as executed BEFORE actual execution
         # WHY: If the app crashes during execution, we won't retry the same action.
         # The action is already in executed_actions, so next iteration selects different action.
-        # Failed actions are tracked separately in node.failed_actions for permanent exclusion.
         # EXCEPTION: TEXT_CHANGE actions are marked only when all input variations are exhausted
         # (step 6), because we want to test multiple values (e.g., "test", "123", "@#$").
         if selected_action.event != WidgetEventType.TEXT_CHANGE:
@@ -573,31 +570,20 @@ class RVAgentStrategy(ExplorationStrategy):
         Select action with fewest executions for continuous exploration.
 
         When all actions have been tested at least once, prioritizes:
-        1. Filter out permanently failed actions (crash-causing)
-        2. Actions with fewer execution counts (least visited first)
-        3. MOP priority as tiebreaker (higher MOP = selected first)
+        1. Actions with fewer execution counts (least visited first)
+        2. MOP priority as tiebreaker (higher MOP = selected first)
 
         This enables continuous exploration until timeout, always making
-        progress on less-explored paths while avoiding repeated crashes.
+        progress on less-explored paths.
 
         Args:
             node: ScreenNode with action execution counts
             actions: List of all available actions (already tested)
 
         Returns:
-            Action with lowest execution count, or None if all actions failed
+            Action with lowest execution count, or None if no actions available
         """
-        # Filter out permanently failed actions
-        safe_actions = []
-        for action in actions:
-            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
-            if not node.is_action_failed(action_signature):
-                safe_actions.append(action)
-            else:
-                logger.debug(f"Skipping permanently failed action: {action_signature}")
-
-        if not safe_actions:
-            logger.warning(f"All actions have permanently failed on state {node.screen_hash[:8]}")
+        if not actions:
             return None
 
         def sort_key(action: ItemAction):
@@ -609,7 +595,7 @@ class RVAgentStrategy(ExplorationStrategy):
             # Lower exec_count first, then higher MOP priority
             return (exec_count, -mop_priority)
 
-        sorted_actions = sorted(safe_actions, key=sort_key)
+        sorted_actions = sorted(actions, key=sort_key)
         return sorted_actions[0]
 
     def _select_priority_action(
@@ -624,7 +610,7 @@ class RVAgentStrategy(ExplorationStrategy):
         and stochastic (select_stochastic with Gumbel-max) selection. Stochastic
         selection adds controlled randomness while preserving priority order.
 
-        Delegates scoring to registered Scorers (8 total):
+        Delegates scoring to registered Scorers (7 total):
         Prioritization:
         - MopScorer: +300 (direct), +150 (transitive MOP)
         - WtgScorer: +250 (WTG-guided navigation)
@@ -633,7 +619,6 @@ class RVAgentStrategy(ExplorationStrategy):
         - StrengthScorer: +50 * success_rate
 
         Penalties:
-        - FailedActionScorer: -9999 (crash-causing actions)
         - SystemElementFilter: -5000 (system UI elements)
         - VisitationPenaltyScorer: -10 * log(1 + visits)
 

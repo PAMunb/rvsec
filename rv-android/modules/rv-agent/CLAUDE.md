@@ -481,7 +481,6 @@ The `RVAgentStrategy` uses a composite scoring system for action selection:
 | WtgScorer | +100 | Prioritize WTG-guided transitions to unvisited screens |
 | ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
 | ExecutionCountScorer | 10/(1+count) | Lower count = higher score |
-| FailedActionScorer | -9999 | Blacklist failed actions |
 
 GradualDecayScorer uses exponential decay (70% retention per visit) instead of binary scoring, preventing premature abandonment of partially-tested elements.
 

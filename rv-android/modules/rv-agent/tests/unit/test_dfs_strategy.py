@@ -441,22 +441,22 @@ class TestDFSStrategySelectNextAction:
         mock_graph.get_or_create_state.assert_not_called()
 
     def test_exhausted_state_returns_back_action(self, dfs_strategy, mock_graph, mock_screen_desc, mock_screen_node):
-        """Test that exhausted state (all actions failed) returns BACK action.
+        """Test that exhausted state (no available actions) returns BACK action.
 
-        With continuous exploration mode, when all actions have permanently failed,
+        With continuous exploration mode, when no actions are available,
         the strategy returns a BACK action for navigation instead of None.
         """
-        # Mark all actions as executed
-        mock_screen_node.executed_actions = {((97, 97), "CLICK")}  # Optimized coords
-        # Mark all actions as permanently failed
-        mock_screen_node.is_action_failed = Mock(return_value=True)
+        # Empty screen — no actions at all
+        mock_screen_desc.get_all_actions.return_value = []
+        mock_screen_node.executed_actions = set()
+        mock_screen_node.total_actions = 0
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
         with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None), \
              patch.object(dfs_strategy, '_try_generate_scroll_action', return_value=None):
             result = dfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
-        # With continuous exploration, BACK is returned when all actions failed
+        # With continuous exploration, BACK is returned when no actions available
         assert result is not None
         assert result.text == "BACK"
         assert result.id == 999

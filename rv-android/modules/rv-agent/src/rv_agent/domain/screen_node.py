@@ -9,9 +9,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Set, List, Any, Tuple
 
-# Number of failures before marking action as permanently failed
-MAX_FAILURE_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,9 +54,6 @@ class ScreenNode:
     total_actions: int = 0
     executed_actions: Set[Tuple[Tuple[int, int], str]] = field(default_factory=set)
     action_execution_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
-    # Failed actions tracking: actions that caused crashes/errors
-    failed_actions: Set[Tuple[Tuple[int, int], str]] = field(default_factory=set)
-    action_failure_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
     # Success tracking for strength calculation
     action_success_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
 
@@ -108,70 +102,6 @@ class ScreenNode:
             True if action was executed, False otherwise
         """
         return action_signature in self.executed_actions
-
-    def record_action_failure(self, action_signature: Tuple[Tuple[int, int], str]):
-        """
-        Record action failure with tolerance for transient failures.
-
-        The action is marked as permanently failed only after MAX_FAILURE_ATTEMPTS
-        consecutive failures. This provides tolerance for transient network issues,
-        emulator timeouts, or temporary conditions.
-
-        TODO(#19): Esta funcao NAO esta sendo chamada em nenhum lugar do workflow.
-        Os dados de failed_actions estao sempre vazios. Verificar se devemos
-        conectar deteccao de falhas (crash, timeout, erro) a esta funcao,
-        ou remover o codigo relacionado (FailedActionScorer, is_action_failed, etc).
-
-        Args:
-            action_signature: ((x, y), action_type) tuple identifying the action
-        """
-        current_count = self.action_failure_counts.get(action_signature, 0)
-        new_count = current_count + 1
-        self.action_failure_counts[action_signature] = new_count
-
-        if new_count >= MAX_FAILURE_ATTEMPTS:
-            self.failed_actions.add(action_signature)
-            logger.warning(
-                f"Action {action_signature} marked as permanently failed "
-                f"after {new_count} failures on state {self.screen_hash[:8]}"
-            )
-
-    def reset_action_failure(self, action_signature: Tuple[Tuple[int, int], str]):
-        """
-        Reset failure counter when action succeeds.
-
-        Called when an action that previously failed now succeeds,
-        clearing its failure history.
-
-        Args:
-            action_signature: ((x, y), action_type) tuple identifying the action
-        """
-        if action_signature in self.action_failure_counts:
-            del self.action_failure_counts[action_signature]
-
-    def is_action_failed(self, action_signature: Tuple[Tuple[int, int], str]) -> bool:
-        """
-        Check if action has permanently failed.
-
-        Args:
-            action_signature: ((x, y), action_type) tuple to check
-
-        Returns:
-            True if action has failed MAX_FAILURE_ATTEMPTS times
-        """
-        return action_signature in self.failed_actions
-
-    def get_action_failure_count(self, action_signature: Tuple[Tuple[int, int], str]) -> int:
-        """
-        Get current failure count for an action.
-
-        Args:
-            action_signature: ((x, y), action_type) tuple to check
-
-        Returns:
-            Number of failures recorded (0 if none)
-        """
-        return self.action_failure_counts.get(action_signature, 0)
 
     def is_action_saturated(self, action_signature: Tuple[Tuple[int, int], str], threshold: int = 2) -> bool:
         """

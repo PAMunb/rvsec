@@ -554,23 +554,22 @@ class TestBFSStrategySelectNextAction:
         mock_graph.get_or_create_state.assert_not_called()
 
     def test_exhausted_state_returns_back_action(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
-        """Test that exhausted state (all actions failed) returns BACK action.
+        """Test that exhausted state (no available actions) returns BACK action.
 
-        With continuous exploration mode, when all actions have permanently failed,
+        With continuous exploration mode, when no actions are available,
         the strategy returns a BACK action for navigation instead of None.
         """
-        # Mark all actions as executed
-        expected_sig = ((int(540 * 704 / 1080), int(960 * 1248 / 1920)), "CLICK")
-        mock_screen_node.executed_actions = {expected_sig}
-        # Mark all actions as permanently failed
-        mock_screen_node.is_action_failed = Mock(return_value=True)
+        # Empty screen — no actions at all
+        mock_screen_desc.get_all_actions.return_value = []
+        mock_screen_node.executed_actions = set()
+        mock_screen_node.total_actions = 0
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
         with patch.object(bfs_strategy, '_try_generate_text_input', return_value=None), \
              patch.object(bfs_strategy, '_try_generate_scroll_action', return_value=None):
             selected = bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
-        # With continuous exploration, BACK is returned when all actions failed
+        # With continuous exploration, BACK is returned when no actions available
         assert selected is not None
         assert selected.text == "BACK"
         assert selected.id == 999
@@ -585,11 +584,10 @@ class TestBFSStrategySelectNextAction:
         bfs_state = BFSState("exhausted_hash", 0, None, 0)
         bfs_strategy.state_queue.append(bfs_state)
 
-        # Mark all actions as executed
-        expected_sig = ((int(540 * 704 / 1080), int(960 * 1248 / 1920)), "CLICK")
-        mock_screen_node.executed_actions = {expected_sig}
-        # Mark all actions as permanently failed
-        mock_screen_node.is_action_failed = Mock(return_value=True)
+        # Empty screen — no actions at all
+        mock_screen_desc.get_all_actions.return_value = []
+        mock_screen_node.executed_actions = set()
+        mock_screen_node.total_actions = 0
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
         with patch.object(bfs_strategy, '_try_generate_text_input', return_value=None), \

@@ -3,9 +3,9 @@ Action ranking system for RVAgent strategy.
 
 Provides a modular scoring system for action prioritization.
 
-Active Scorers (8 total):
+Active Scorers (7 total):
   Prioritization: MopScorer, WtgScorer, SaturationScorer, ComponentPriorityScorer, StrengthScorer
-  Penalties: FailedActionScorer, SystemElementFilter, VisitationPenaltyScorer
+  Penalties: SystemElementFilter, VisitationPenaltyScorer
 
 Deprecated (kept for backwards compatibility):
   GradualDecayScorer -> replaced by SaturationScorer + VisitationPenaltyScorer
@@ -20,7 +20,6 @@ from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     WtgScorer,
     GradualDecayScorer,  # Deprecated
     ExecutionCountScorer,  # Deprecated
-    FailedActionScorer,
     ComponentPriorityScorer,
     SystemElementFilter,
     SaturationScorer,
@@ -39,7 +38,6 @@ __all__ = [
     "SaturationScorer",
     "ComponentPriorityScorer",
     "StrengthScorer",
-    "FailedActionScorer",
     "SystemElementFilter",
     "VisitationPenaltyScorer",
     # Deprecated (kept for compatibility)

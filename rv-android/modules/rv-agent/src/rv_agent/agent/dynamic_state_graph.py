@@ -33,7 +33,7 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
-from rv_agent.domain.screen_node import ScreenNode, Transition, MAX_FAILURE_ATTEMPTS
+from rv_agent.domain.screen_node import ScreenNode, Transition
 
 logger = logging.getLogger(__name__)
 
@@ -305,64 +305,6 @@ class DynamicStateGraph:
             return False
 
         return self.states[screen_hash].is_action_executed(action_signature)
-
-    def record_action_failure(
-        self,
-        screen_hash: str,
-        action_signature: Tuple[Tuple[int, int], str]
-    ):
-        """
-        Record action failure on a screen.
-
-        Delegates to ScreenNode.record_action_failure() which implements
-        the tolerance logic (3 failures = permanently failed).
-
-        Args:
-            screen_hash: Hash of screen where action failed
-            action_signature: ((x, y), action_type) tuple identifying the action
-        """
-        if screen_hash in self.states:
-            self.states[screen_hash].record_action_failure(action_signature)
-        else:
-            logger.warning(
-                f"Cannot record failure for action {action_signature} - "
-                f"state {screen_hash[:8]} not found"
-            )
-
-    def reset_action_failure(
-        self,
-        screen_hash: str,
-        action_signature: Tuple[Tuple[int, int], str]
-    ):
-        """
-        Reset failure counter for an action (called on success).
-
-        Args:
-            screen_hash: Hash of screen
-            action_signature: ((x, y), action_type) tuple identifying the action
-        """
-        if screen_hash in self.states:
-            self.states[screen_hash].reset_action_failure(action_signature)
-
-    def is_action_failed(
-        self,
-        screen_hash: str,
-        action_signature: Tuple[Tuple[int, int], str]
-    ) -> bool:
-        """
-        Check if action has permanently failed on this screen.
-
-        Args:
-            screen_hash: Hash of screen
-            action_signature: ((x, y), action_type) tuple to check
-
-        Returns:
-            True if action has failed MAX_FAILURE_ATTEMPTS times
-        """
-        if screen_hash not in self.states:
-            return False
-
-        return self.states[screen_hash].is_action_failed(action_signature)
 
     def get_coverage_summary(self) -> Dict[str, float]:
         """

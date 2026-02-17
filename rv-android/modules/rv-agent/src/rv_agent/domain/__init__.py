@@ -10,7 +10,7 @@ Contains core data models for the exploration workflow:
 """
 
 from rv_agent.domain.state import AgentState
-from rv_agent.domain.screen_node import ScreenNode, Transition, MAX_FAILURE_ATTEMPTS
+from rv_agent.domain.screen_node import ScreenNode, Transition
 from rv_agent.domain.action import ActionNormalizer, TOOL_TO_ACTION
 from rv_agent.domain.exceptions import (
     RVAgentError,
@@ -23,7 +23,6 @@ __all__ = [
     "AgentState",
     "ScreenNode",
     "Transition",
-    "MAX_FAILURE_ATTEMPTS",
     "ActionNormalizer",
     "TOOL_TO_ACTION",
     "RVAgentError",

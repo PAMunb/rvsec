@@ -430,16 +430,11 @@ classDiagram
         +score(action, context) float
     }
 
-    class FailedActionScorer {
-        +score(action, context) float
-    }
-
     Scorer <|-- MopScorer
     Scorer <|-- WtgScorer
     Scorer <|-- GradualDecayScorer
     Scorer <|-- ComponentPriorityScorer
     Scorer <|-- ExecutionCountScorer
-    Scorer <|-- FailedActionScorer
 
     ActionRanker o-- Scorer
 ```
@@ -451,7 +446,6 @@ classDiagram
 | WtgScorer | +100 | Prioritize WTG-guided transitions |
 | ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
 | ExecutionCountScorer | 10/(1+count) | Lower count = higher score |
-| FailedActionScorer | -9999 | Blacklist crash-causing actions |
 
 ## Extension Points
 

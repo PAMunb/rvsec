@@ -13,7 +13,6 @@ Scorer Architecture (8 scorers total):
     - StrengthScorer: Success rate based priority
 
   Penalties:
-    - FailedActionScorer: Blacklists crash-causing actions
     - SystemElementFilter: Filters system UI elements
     - VisitationPenaltyScorer: Penalizes over-visited states
 
@@ -306,47 +305,6 @@ class ComponentPriorityScorer(Scorer):
                 return self.medium_priority
 
         return 0.0
-
-
-class FailedActionScorer(Scorer):
-    """
-    Penalizes actions that have permanently failed.
-
-    Actions that caused crashes or errors are heavily penalized to prevent
-    repeated failures.
-    """
-
-    FAILED_PENALTY = -9999.0
-
-    def __init__(self, coordinate_converter=None):
-        self.converter = coordinate_converter
-
-    def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        node = context.graph.states.get(context.current_state_hash)
-        if not node:
-            return 0.0
-
-        action_signature = self._convert_signature(action.coords_for_matching)
-
-        if node.is_action_failed(action_signature):
-            return self.FAILED_PENALTY
-
-        return 0.0
-
-    def _convert_signature(self, signature):
-        """Convert action signature to optimized space."""
-        (device_x, device_y), action_type = signature
-
-        if self.converter:
-            optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
-        else:
-            optimized_x, optimized_y = device_to_optimized(
-                device_x, device_y,
-                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
-                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
-            )
-
-        return ((optimized_x, optimized_y), action_type)
 
 
 class SystemElementFilter(Scorer):
