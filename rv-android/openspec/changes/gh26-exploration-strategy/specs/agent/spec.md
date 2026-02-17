@@ -15,6 +15,7 @@ This delta spec assumes gh18 (validation error detection) has already been imple
 - `config.backtrack_saturation_threshold: float` -- Saturation rate threshold for proactive backtracking (0.0-1.0, default 0.8). When a state's saturation rate exceeds this value, the strategy triggers a BACK action instead of entering continuous mode. (from `RVAgentConfig`)
 - `config.path_buffer_enabled: bool` -- Enable/disable PathBuffer for multi-step navigation (default True). (from `RVAgentConfig`)
 - `config.mop_nav_weight: float` -- Weight of MOP density vs path length in BFS path planning (0.5-5.0, default 2.0). (from `RVAgentConfig`)
+- `config.max_backtrack_hops: int` -- Maximum BACK actions PathBuffer can buffer for Strategy A backtrack paths (3-20, default 8). If the nearest unsaturated ancestor is farther than this limit, `plan_backtrack_path` returns False and the caller falls through to the next tier. (from `RVAgentConfig`)
 - `config.mop_max_input_variations: int` -- Maximum input variations for MOP-relevant fields (5-15, default 11). (from `RVAgentConfig`)
 - `config.reward_gamma: float` -- Discount factor for N-step reward propagation (0.5-0.99, default 0.8). (from `RVAgentConfig`)
 - `config.reward_mop_weight: float` -- Reward value for reaching a MOP method (1.0-10.0, default 5.0). (from `RVAgentConfig`)
@@ -452,6 +453,21 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 - **AND** `REWARD_NEW_STATE` and `REWARD_NEW_ACTIVITY` events MUST still fire normally
 - **AND** reward propagation MUST still operate with the remaining reward types
 
+#### Scenario: Concurrent Reward Types — Highest Wins
+
+- **WHEN** an action leads to a new Activity (REWARD_NEW_ACTIVITY = 2.0)
+- **AND** that action also has `callback_signature` present (REWARD_MOP_REACHED = 5.0)
+- **THEN** only one `propagate()` call MUST be made per iteration
+- **AND** the reward type MUST be `mop_reached` (5.0), not `new_activity` (2.0)
+- **AND** the priority order MUST be: mop_reached > new_activity > new_state > same_state
+
+#### Scenario: MOP Detection is Proxy Signal
+
+- **WHEN** an action has `callback_signature` from static analysis (REACH)
+- **THEN** `REWARD_MOP_REACHED` (5.0) MUST be assigned
+- **AND** this is a structural proxy signal ("action CAN reach MOP"), not a runtime confirmation that MOP was actually triggered
+- **AND** the reward MAY be given for actions that did not trigger a monitored API call at runtime (accepted trade-off)
+
 #### Scenario: Oscillation Trap Resolution via Negative Rewards
 
 - **WHEN** the agent cycles between two states A and B (A→B→A→B) for 20+ iterations
@@ -565,7 +581,7 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 
 **Integration in select_next_action()**: The PathBuffer is checked first in the action selection order, before untested actions. When the buffer has remaining steps, the next buffered action is returned without consulting the scorer system. When the buffer is empty, normal action selection proceeds.
 
-**Parameters**: `path_buffer_enabled` (bool, default True) controls whether the PathBuffer is active. `mop_nav_weight` (float, 0.5-5.0, default 2.0) controls MOP density influence in Strategy B's BFS (passed through to `TransitionManager`).
+**Parameters**: `path_buffer_enabled` (bool, default True) controls whether the PathBuffer is active. `mop_nav_weight` (float, 0.5-5.0, default 2.0) controls MOP density influence in Strategy B's BFS (passed through to `TransitionManager`). `max_backtrack_hops` (int, 3-20, default 8) limits the number of BACK actions Strategy A can buffer — if the nearest unsaturated ancestor is farther than this limit, `plan_backtrack_path` returns False and the caller falls through to the next tier.
 
 #### Scenario: Buffer Creation via Strategy A (Backtrack)
 
@@ -605,6 +621,15 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 - **THEN** the PathBuffer MUST NOT be populated by either Strategy A or Strategy B
 - **AND** `select_next_action()` MUST skip the buffer check and proceed directly to untested action selection
 
+#### Scenario: Backtrack Exceeds max_backtrack_hops
+
+- **WHEN** the current state has saturation rate 0.9 (above threshold 0.8)
+- **AND** `SuccessorTracker.find_nearest_unsaturated()` returns an ancestor 12 BACK actions away
+- **AND** `max_backtrack_hops` is 8
+- **THEN** `plan_backtrack_path` MUST return False (ancestor too far)
+- **AND** the PathBuffer MUST NOT be populated
+- **AND** the caller MUST fall through to the next action selection tier (plain BACK or continuous mode)
+
 #### Scenario: Strategy B Unavailable Without Static Analysis
 
 - **WHEN** `StaticAnalysisData` is None
@@ -631,4 +656,4 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 
 ## Verification Approach
 
-The changes in this delta specification will be validated through a controlled A/B experiment. The experiment uses 10 APKs from the exp02 benchmark set, comparing 3 tools (ape, fastbot, rvagent:pure_algorithm) with 3 repetitions per tool-APK pair at 300 seconds timeout. Primary metrics are method coverage, MOP errors triggered, activity coverage, and UI coverage distribution. Statistical significance is assessed via the Wilcoxon signed-rank test (n=30 per tool). Ape and fastbot serve as unmodified reference baselines for sanity checking. Full experimental design details are in `design.md`.
+The changes in this delta specification will be validated through a controlled A/B experiment. The experiment uses 10 APKs from the exp02 benchmark set, comparing 3 tools (ape, fastbot, rvagent:pure_algorithm) with 3 repetitions per tool-APK pair at 300 seconds timeout. Primary metrics are method coverage, MOP errors triggered, activity coverage, and UI coverage distribution. Statistical significance is assessed via the Wilcoxon signed-rank test (n=10 per tool — mean of 3 reps per APK; reps are pseudo-replicates). Ape and fastbot serve as unmodified reference baselines for sanity checking. Full experimental design details are in `design.md`.

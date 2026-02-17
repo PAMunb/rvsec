@@ -67,11 +67,11 @@ Additionally, the `InputValueGenerator` behavior changes (part of FR26 action ex
 - `RVAgentStrategy.select_next_action()` gains path buffer priority tier and proactive backtracking
 - `StrengthScorer.score()` incorporates cumulative reward data
 - `InputValueGenerator.get_next_value()` changes value ordering and type inference
-- `RVAgentConfig` adds 8 new configuration fields (calibration parameters, including `reward_score_weight`)
+- `RVAgentConfig` adds 9 new configuration fields (calibration parameters, including `reward_score_weight` and `max_backtrack_hops`)
 
 **Dependencies:**
 - **Pre-condition**: gh18 must be implemented first. This change assumes gh18's `VisualErrorDetector`, `force_fill_input` spatial association, and conditional screenshot capture exist in the codebase. File conflict analysis (see `docs/20260216_rvagent_refatoracao.md` Section 9.1) shows no overlapping insertion points between gh18 and this change.
-- **Downstream**: gh9's `parameter_space.py` must be updated with 8 new parameters (+ 2 from gh18 = 10 total new params, bringing the total from 24 to 34) before the calibration execution campaign starts.
+- **Downstream**: gh9's `parameter_space.py` must be updated with 9 new parameters (+ 2 from gh18 = 11 total new params, bringing the total from 24 to 35) before the calibration execution campaign starts.
 
 **FRs/NFRs affected:**
 - **FR26** (Coverage-Optimized DFS Strategy): Proactive backtracking, path buffer, saturation threshold

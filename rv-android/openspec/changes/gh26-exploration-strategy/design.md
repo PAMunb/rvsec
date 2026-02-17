@@ -75,7 +75,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `InputValueGenerator` | Text value generation with bug fixes | `strategies/rvagent_strategy/input_value_generator.py` | Modified |
 | `TransitionManager` | Gains BFS path planning to MOP-dense Activities | `services/transition_manager.py` | Modified |
 | `NavigationGuidance` | MOP-specific LLM prompt enrichment | `services/navigation_guidance.py` | Modified |
-| `RVAgentConfig` | 8 new calibration parameters | `config/agent_config.py` | Modified |
+| `RVAgentConfig` | 9 new calibration parameters | `config/agent_config.py` | Modified |
 | `ScreenNode` | New `action_cumulative_reward: Dict[Tuple[Tuple[int,int], str], float]` field (same key type as `action_execution_counts`) | `domain/screen_node.py` | Modified |
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
 | `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
@@ -99,7 +99,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | BFS path planning to MOP Activities | FR30 | `transition_manager.py` | `test_transition_manager_bfs.py` |
 | SuccessorTracker return type change | FR26 | `successor_tracker.py` (find_nearest_unsaturated returns Tuple[str, int]) | `test_find_nearest_unsaturated_hop_count.py` |
 | Reduced stuck trigger frequency | FR29 | (indirect -- proactive backtracking leaves saturated states earlier) | `test_stuck_detection_with_backtracking.py` |
-| New config parameters (8 fields) | -- | `agent_config.py` | `test_config_new_params.py` |
+| New config parameters (9 fields) | -- | `agent_config.py` | `test_config_new_params.py` |
 
 ## Goals / Non-Goals
 
@@ -113,7 +113,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 - Optimize speed in `pure_algorithm` iterations by skipping screenshot capture and LLM nodes (per-iteration decision, mode-aware)
 - Activate `GradualDecayScorer` for smoother action priority transitions
 - Enrich LLM prompts with MOP-specific guidance from static analysis
-- Add 8 new calibration parameters to `RVAgentConfig` for downstream gh9 tuning (including `reward_score_weight` to control cumulative reward influence in StrengthScorer)
+- Add 9 new calibration parameters to `RVAgentConfig` for downstream gh9 tuning (including `reward_score_weight` to control cumulative reward influence in StrengthScorer, and `max_backtrack_hops` to limit PathBuffer Strategy A backtrack depth)
 
 **Non-Goals:**
 
@@ -175,6 +175,8 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 
 **Rationale**: In multimode (70% LLM / 30% algorithm), algorithm iterations already skip `capture_screenshot_node` and `llm_generate_node` via the existing LangGraph graph topology — the conditional edge from `decision_router_node` routes "algorithm" directly to `algorithm_node`, bypassing both nodes. No new skip logic is needed in the graph or decision_router for this behavior. The actual new speed optimization is **parse_node screen_desc caching**: when `screen_hash` is unchanged between iterations, reuse the cached `ScreenDescription` instead of re-running the visitor pipeline (~50ms saved per same-state iteration). This preserves gh18's conditional screenshot in `parse_node` (which fires on hash-repeat for error detection, independent of the LLM screenshot path).
 
+**Caching lifecycle**: The cache is a single variable on the `RVAgent` instance (`self._cached_screen_desc: Optional[ScreenDescription]`). It is invalidated (set to None) when `screen_hash != previous_screen_hash`. The UIAutomator dump and hash computation ALWAYS execute every iteration — only the visitor pipeline (ScreenDescription construction from parsed XML) is cached. On app restart (`force_restart_app`), the cache is implicitly invalidated because the next iteration's hash will differ from the pre-restart hash. No explicit invalidation on restart is needed.
+
 ## API Design
 
 ### PathBuffer
@@ -201,7 +203,8 @@ class PathBuffer:
         Args:
             transition_manager: For WTG-based BFS (Strategy B). None disables Strategy B.
             successor_tracker: For ancestor navigation (Strategy A).
-            config: Configuration with path_buffer_enabled and mop_nav_weight.
+            config: Configuration with path_buffer_enabled, mop_nav_weight,
+                and max_backtrack_hops.
         """
 
     def get_next_action(self) -> Optional[ItemAction]:
@@ -237,6 +240,13 @@ class PathBuffer:
         tracked during the BFS traversal and returned alongside the hash.
         Without this change, PathBuffer cannot determine how many BACK
         actions to buffer.
+
+        The hop count is capped at config.max_backtrack_hops (default 8).
+        If the nearest unsaturated ancestor is farther than max_backtrack_hops,
+        plan_backtrack_path returns False (no path planned). This prevents
+        wasteful sequences of 15-20 consecutive BACK actions that are unlikely
+        to succeed due to intermediate dialogs, app restarts, or navigation
+        inconsistencies. The caller falls through to plan_mop_path or plain BACK.
 
         Args:
             current_hash: Current state hash.
@@ -394,6 +404,18 @@ class RewardPropagator:
         The reward is added to ScreenNode.action_cumulative_reward for the
         corresponding state and action signature.
 
+        Reward type determination: When multiple reward conditions apply
+        simultaneously (e.g., action leads to new Activity AND has
+        callback_signature), the HIGHEST reward value is used. The priority
+        order is: mop_reached (5.0) > new_activity (2.0) > new_state (1.0)
+        > same_state (-0.1). This is implemented as if/elif in learn_node,
+        not if/if — only one propagate() call per iteration.
+
+        Propagation indexing: The most recent action in the deque (index -1)
+        receives reward * gamma^0 (i.e., the full reward). The second-most-recent
+        receives reward * gamma^1, and so on. Index k=0 corresponds to the
+        action that caused/preceded the reward event.
+
         Args:
             reward_type: One of "same_state", "new_state", "new_activity", "mop_reached".
             graph: DynamicStateGraph for accessing ScreenNode data.
@@ -526,7 +548,7 @@ def score(self, action, context) -> float:
     # so no additional capping is needed here.
     cumulative_reward = node.action_cumulative_reward.get(action_signature, 0.0)
 
-    return self.weight * strength + config.reward_score_weight * cumulative_reward
+    return self.weight * strength + self.reward_score_weight * cumulative_reward
 ```
 
 ### Modified: InputValueGenerator.get_next_value()
@@ -535,7 +557,7 @@ Key changes:
 - `_get_regular_values()`: Faker values first; PINs only for password/pin type; no empty string as first value
 - `_get_mop_values()`: Uses `mop_max_input_variations` (default 11) instead of `max_variations` (default 5)
 - New input types: search, url, date, time, number, zip, verification_code with Faker generators
-- `_infer_input_type()` deleted from strategy; input type extracted from action's `text` field or `enhanced_visitor` data
+- `_infer_input_type()` deleted from strategy; input type inferred from `hint`, `content_description`, and `resource_id` fields directly available on the `ItemAction.target_view` Node object (no dependency on `EnhancedTextVisitor`). A simplified inline helper in `_prepare_input_action()` checks these fields in priority order: `hint` (most reliable), then `content_description`, then `resource_id` pattern matching. This is P1-compatible: ~15 lines replacing the duplicated 40-line method
 
 ### New RVAgentConfig fields
 
@@ -556,6 +578,12 @@ path_buffer_enabled: bool = Field(
 mop_nav_weight: float = Field(
     default=2.0, ge=0.5, le=5.0,
     description="Weight of MOP density in BFS path planning"
+)
+max_backtrack_hops: int = Field(
+    default=8, ge=3, le=20,
+    description="Maximum BACK actions PathBuffer can buffer for Strategy A. "
+                "If nearest unsaturated ancestor is farther, plan_backtrack_path "
+                "returns False and caller falls through to next tier."
 )
 
 # Text input
@@ -646,11 +674,11 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    │     └── Appends (state_hash, action_signature) to internal deque
    │         (reuses same previous_hash and optimized coords from _record_action_success)
    ├── [NEW] RewardPropagator.propagate(reward_type, graph)
-   │     ├── Determine reward_type from state change + MOP proxy signal
-   │     │     ├── same_state → -0.1
-   │     │     ├── new_state → 1.0
-   │     │     ├── new_activity → 2.0
-   │     │     └── mop_reached → 5.0 (when selected_action.callback_signature is present)
+   │     ├── Determine reward_type (mutually exclusive — highest applicable wins):
+   │     │     ├── mop_reached → 5.0 (when callback_signature present, regardless of state change)
+   │     │     ├── new_activity → 2.0 (hash changed AND activity not seen before)
+   │     │     ├── new_state → 1.0 (hash changed AND activity already seen)
+   │     │     └── same_state → -0.1 (hash unchanged)
    │     └── Propagate backward through internal history: reward * gamma^distance
    │           → Updates ScreenNode.action_cumulative_reward
    └── Memory updates (MemoryCoordinator)
@@ -697,7 +725,7 @@ the sequence that led to the MOP method.
 
 ### MOP Detection in learn_node
 
-The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `selected_action.callback_signature` from `AgentState`. When `callback_signature` is present (non-None, non-empty), it means the selected action is associated with a monitored operation method — this is a proxy signal that "the action CAN reach MOP." This is not real-time MOP detection (which would require logcat parsing within the 300s window), but a pragmatic heuristic: actions linked to `callback_signature` have the structural potential to trigger monitored API calls. The reward values for the other types (same state, new state, new Activity) are determined by comparing `current_screen_hash` with `previous_screen_hash` and checking whether the Activity has been seen before.
+The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `selected_action.callback_signature` from `AgentState`. When `callback_signature` is present (non-None, non-empty), it means the selected action is associated with a monitored operation method — this is a **proxy signal from static analysis (REACH)** that "the action CAN reach MOP," not a runtime confirmation that MOP was actually triggered. Consequently, the +5.0 reward may be given for actions that did not actually trigger a monitored API call at runtime. This is an accepted trade-off: real-time MOP detection would require logcat parsing within the 300s window (out of scope for gh26), and the proxy signal is sufficiently correlated with actual MOP triggering to steer exploration productively. The reward values for the other types (same state, new state, new Activity) are determined by comparing `current_screen_hash` with `previous_screen_hash` and checking whether the Activity has been seen before. When multiple conditions apply (e.g., new Activity AND callback_signature present), the highest reward is used (mop_reached wins over new_activity).
 
 ## Error Handling
 
@@ -730,6 +758,9 @@ Mitigation: The speed optimization is a conditional skip in `decision_router_nod
 **[PathBuffer stale path]** A buffered path may become invalid if the app's state changes unexpectedly (e.g., a notification dialog appears, app auto-navigates). The agent would execute the next buffered action on the wrong screen.
 Mitigation: `learn_node` validates that the actual next state hash matches the PathBuffer's expectation. On mismatch, `PathBuffer.invalidate()` clears the buffer and normal action selection resumes. This adds one hash comparison per iteration when the buffer is active -- negligible cost.
 
+**[PathBuffer dialog dismiss in Strategy A]** When PathBuffer plans a backtrack path of N BACK actions, an intermediate BACK may dismiss a dialog instead of popping the navigation stack. The hash changes (dialog dismissed), so the buffer does NOT invalidate, and the next BACK executes on an unexpected screen. This can waste 1-2 iterations before the buffer completes or another invalidation triggers.
+Accepted risk: The `max_backtrack_hops` limit (default 8) bounds the waste. The hash-unchanged invalidation catches complete failures (BACK had no effect). For Strategy A, a few wasted BACKs are preferable to the complexity of tracking expected-next-hash for each buffered step. Strategy B (MOP navigation with specific clicks) is more vulnerable to this, but Strategy B paths are typically shorter (2-3 steps) and go through real navigation clicks, not just BACKs.
+
 ## Testing Strategy
 
 | Layer | What to Test | How | Count |
@@ -751,7 +782,7 @@ Mitigation: `learn_node` validates that the actual next state hash matches the P
 | **Unit** | `InputValueGenerator` new types | Verify search, url, date, time, number, zip, verification_code produce valid values | ~7 tests |
 | **Unit** | `InputValueGenerator` no empty first value | Verify first value for all types is non-empty | ~2 tests |
 | **Unit** | `TransitionManager.plan_path_to_mop_activity()` BFS | Mock WTG with known structure, verify shortest path to MOP-dense Activity | ~4 tests |
-| **Unit** | Config new fields | Verify 8 new fields with defaults, ranges, and serialization | ~3 tests |
+| **Unit** | Config new fields | Verify 9 new fields with defaults, ranges, and serialization | ~3 tests |
 | **Integration** | Full strategy flow with proactive backtracking | Create graph with saturated states, verify BACK at threshold instead of continuous | ~3 tests |
 | **Integration** | PathBuffer + strategy interaction | Buffer path, execute through strategy, verify buffer exhaustion triggers normal selection | ~3 tests |
 | **Integration** | Reward propagation through learn_node | Execute 5 iterations, trigger MOP reward, verify ScreenNode cumulative_reward updated | ~3 tests |
@@ -776,7 +807,7 @@ Unit and integration tests verify correctness, but the 9 improvements interact n
 | **Spec set** | JCA (23 specs) | Thesis focus; MOP coverage is the primary quality metric |
 | **Tools** | `ape`, `fastbot`, `rvagent:pure_algorithm` | APE and Fastbot serve as unmodified reference baselines (sanity check); rvagent is the subject under test |
 | **Timeout** | 300s (5 min) | Matches the standard experiment duration used in thesis experiments and gh9 calibration |
-| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std; Wilcoxon test needs ≥5 paired observations (we have 30: 10 APKs × 3 reps) |
+| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 10 APKs (mean of 3 reps each) |
 | **Total tasks** | 90 (10 × 3 × 3) per phase | Two phases: baseline (90) + validation (90) = 180 total tasks |
 | **Parallelism** | 2 Docker containers on laptop | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
 
@@ -873,7 +904,7 @@ All docker-compose files are stored in `docker/data/gh26_experiment/`. Instrumen
 | Aspect | Choice | Rationale |
 |--------|--------|-----------|
 | **Test** | Wilcoxon signed-rank | Non-parametric, paired, does not assume normal distribution |
-| **Sample size** | n=30 per tool (10 APKs × 3 reps) | Above minimum for Wilcoxon (n≥5); 3 reps per APK reduces noise |
+| **Sample size** | n=10 per tool (10 APKs, mean of 3 reps each) | Above minimum for Wilcoxon (n≥5); 3 reps per APK averaged to reduce noise (reps are pseudo-replicates, not independent) |
 | **Effect size** | r = Z / √n | Standardized effect size for non-parametric tests |
 | **Significance** | α=0.05, two-tailed | Standard threshold; report exact p-values |
 | **Multiple comparisons** | Report per-metric, flag if Bonferroni-corrected p > 0.05 | 4 metrics × 3 tools = 12 tests; conservative correction |
@@ -885,7 +916,7 @@ All docker-compose files are stored in `docker/data/gh26_experiment/`. Instrumen
 
 ### Relationship to gh9 Calibration
 
-This experiment uses **default parameter values** (the 8 new config fields at their defaults). It does NOT optimize parameters — that is gh9's responsibility. The purpose is to verify that the gh26 code changes produce measurable improvement even with untuned defaults. gh9 will later find optimal values using Optuna on a larger APK set (75 calibration + 30 holdout).
+This experiment uses **default parameter values** (the 9 new config fields at their defaults). It does NOT optimize parameters — that is gh9's responsibility. The purpose is to verify that the gh26 code changes produce measurable improvement even with untuned defaults. gh9 will later find optimal values using Optuna on a larger APK set (75 calibration + 30 holdout).
 
 ## Open Questions
 
