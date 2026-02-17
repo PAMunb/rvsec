@@ -14,7 +14,7 @@ rv-agent's exploration strategy (`RVAgentStrategy`) selects one action per itera
 
 3. **No adaptive learning**: Scorer weights are fixed throughout the experiment. An action that consistently fails to produce new states receives the same MOP/WTG score as one that leads to productive exploration. Neither APE-style model refinement nor Fastbot-style Q-value convergence exists.
 
-4. **Text input bugs**: The `InputValueGenerator` has six bugs that waste 20-40% of text input iterations: duplicate input type inference (shallow `_infer_input_type()` in strategy ignores hint/content_description data), wrong default value ordering (PINs as first values for non-PIN fields), LLM path bypassing the generator entirely, `max_variations=5` blocking MOP edge cases (only 5 of 11 payloads tested), missing input types (search, url, date, time, number, zip, verification_code), and no clear-before-type causing text to append to existing field content.
+4. **Text input bugs**: The `InputValueGenerator` has six bugs that waste 20-40% of text input iterations: duplicate input type inference (shallow `_infer_input_type()` in strategy ignores hint/content_description data), wrong default value ordering (PINs as first values for non-PIN fields), LLM path bypassing the generator entirely, `max_variations=3` blocking MOP edge cases (config default is 3, overriding InputValueGenerator's local default of 5; only 3 of 11 payloads tested), missing input types (search, url, date, time, number, zip, verification_code), and no clear-before-type causing text to append to existing field content.
 
 5. **Speed gap**: In `pure_algorithm` mode, rv-agent executes ~150-300 iterations in 300 seconds. Skipping unnecessary screenshot capture and LLM nodes in algorithm-routed iterations can push throughput toward ~300+ iterations.
 
@@ -45,13 +45,17 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
   │    │       │                    ▼         ▼                 ▼
   │    │       │              MopScorer  WtgScorer  GradualDecayScorer
   │    │       │              (+500/+300) (+150)     (200*0.7^visits)
+  │    │       │                    │                        │
+  │    │       │                    ▼                        ▼
+  │    │       │              CoverageDensityScorer (200*coverage_gap)
+  │    │       │              [always active, queries SuccessorTracker+UICoverage]
   │    │       │                    │         │                 │
   │    │       │                    ▼         ▼                 ▼
   │    │       │              StrengthScorer (+ cumulative_reward)
   │    │       │              [reward from RewardPropagator]
   │    │       │
-  │    ├── 3. should_backtrack(saturation_threshold) ──→ BACK
-  │    ├── 4. PathBuffer.plan_mop_path() / plan_backtrack_path()
+  │    ├── 3. should_backtrack(saturation_threshold) ──→ plan path or BACK
+  │    ├── 4. PathBuffer: plan_coverage_path() > plan_mop_path() > plan_backtrack_path()
   │    ├── 5. _select_least_executed_action() (continuous fallback)
   │    └── 6. BACK (final fallback)
   │
@@ -67,7 +71,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 
 | Component | Responsibility | Location | Status |
 |-----------|---------------|----------|--------|
-| `RVAgentStrategy.select_next_action()` | New 6-tier action selection flow | `strategies/rvagent_strategy/rvagent_strategy.py` | Modified |
+| `RVAgentStrategy.select_next_action()` | New 5-tier action selection flow | `strategies/rvagent_strategy/rvagent_strategy.py` | Modified |
 | `PathBuffer` | Multi-step navigation path management | `strategies/rvagent_strategy/path_buffer.py` | New |
 | `RewardPropagator` | N-step backward reward propagation | `strategies/rvagent_strategy/reward_propagator.py` | New |
 | `ActionRanker` | Composite scoring with rebalanced weights + GradualDecayScorer | `strategies/rvagent_strategy/ranking/action_ranker.py` | Modified |
@@ -75,13 +79,44 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `InputValueGenerator` | Text value generation with bug fixes | `strategies/rvagent_strategy/input_value_generator.py` | Modified |
 | `TransitionManager` | Gains BFS path planning to MOP-dense Activities | `services/transition_manager.py` | Modified |
 | `NavigationGuidance` | MOP-specific LLM prompt enrichment | `services/navigation_guidance.py` | Modified |
-| `RVAgentConfig` | 9 new calibration parameters | `config/agent_config.py` | Modified |
+| `CoverageDensityScorer` | Cross-screen coverage guidance using learned transitions | `strategies/rvagent_strategy/ranking/scorers.py` | New |
+| `RankingContext.successor_tracker` | SuccessorTracker reference for CoverageDensityScorer destination lookups | `strategies/rvagent_strategy/ranking/context.py` | Modified |
+| `RVAgentConfig` | 11 new calibration parameters | `config/agent_config.py` | Modified |
 | `ScreenNode` | New `action_cumulative_reward: Dict[Tuple[Tuple[int,int], str], float]` field (same key type as `action_execution_counts`) | `domain/screen_node.py` | Modified |
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
 | `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
 | `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
 | `decision_router_node` | Mode-aware routing (existing); add tracking log for algorithm-fast-path | `agent/nodes/decision_node.py` | Modified |
 | `learn_node` | Reward propagation trigger after action success recording | `agent/nodes/learn_node.py` | Modified |
+
+### Navigation Component Architecture
+
+The navigation/graph system consists of five components in a layered architecture. Understanding their relationships is essential for gh26 implementation because the new features (PathBuffer, CoverageDensityScorer, RewardPropagator) interact with multiple layers.
+
+```
+                    RVAgentStrategy (orchestrator)
+                   /       |        \
+          SuccessorTracker  |  TransitionManager
+           (dynamic edges)  |   (static WTG edges)
+                   \       |        /
+                  DynamicStateGraph
+                   (state lifecycle)
+                        |
+                    ScreenNode
+                   (pure data model)
+```
+
+| Component | Core Data | Decision Role |
+|-----------|-----------|---------------|
+| **ScreenNode** | Per-action execution/success counts, failures, saturation, `action_cumulative_reward` (gh26) | Scorer inputs, saturation checks |
+| **DynamicStateGraph** | `states: Dict[hash, ScreenNode]` + `transitions: List[Transition]` | States: used for decisions. Transitions: **audit-only** (chronological log for post-run reporting, never queried for navigation) |
+| **SuccessorTracker** | `successors: Dict[(hash, action_sig) → hash]` + `back_successors: Dict[hash → Set[hash]]` | O(1) navigation lookups: re-enabling, BFS, CoverageDensityScorer destination queries |
+| **TransitionManager** | WTG static graph, `_visited_activities` (single source of truth), activity↔window_id mapping | WTG scoring, path planning (Strategy B), navigation guidance |
+| **PathBuffer** (gh26) | Transient buffered actions (consumed step-by-step, then empty) | Tier 1 action selection; no parallel graph structure |
+
+**Key distinction — DynamicStateGraph.transitions vs SuccessorTracker.successors**: Both store edge data written by `RVAgentStrategy.record_transition()`, but in different structures for different query patterns. `transitions` is a `List[Transition]` preserving chronological order and full action dicts — used only for post-run analysis/reports. `successors` is a `Dict[(from_hash, action_sig) → to_hash]` — used for all runtime navigation decisions (re-enabling, BFS pathfinding, `get_action_destination()` for CoverageDensityScorer). This dual storage is intentional: the list preserves context for analysis while the dict enables O(1) navigation lookups.
+
+**Dead code removed in gh26**: `state_stack` (append-only, never popped — navigation distance determined by SuccessorTracker BFS), `RVAgentState` dataclass (only used as state_stack entries), `parent_hash` (stored but never read), `visited_states` Set (identical to `graph.states.keys()` — redundant). Note: `ExecutionCountScorer` in `scorers.py` is also dead code (defined but never registered, similar to pre-gh26 `GradualDecayScorer`); not removed here since it has no callers and is out of scope for gh26 — can be cleaned up separately. See Decision D6.
 
 ## Mapping: Spec → Implementation → Test
 
@@ -99,7 +134,13 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | BFS path planning to MOP Activities | FR30 | `transition_manager.py` | `test_transition_manager_bfs.py` |
 | SuccessorTracker return type change | FR26 | `successor_tracker.py` (find_nearest_unsaturated returns Tuple[str, int]) | `test_find_nearest_unsaturated_hop_count.py` |
 | Reduced stuck trigger frequency | FR29 | (indirect -- proactive backtracking leaves saturated states earlier) | `test_stuck_detection_with_backtracking.py` |
-| New config parameters (9 fields) | -- | `agent_config.py` | `test_config_new_params.py` |
+| CoverageDensityScorer (cross-screen coverage) | FR27 | `scorers.py` (CoverageDensityScorer), `rvagent_strategy.py` (registration) | `test_coverage_density_scorer.py` |
+| PathBuffer Strategy C (coverage navigation) | FR26 | `path_buffer.py` (plan_coverage_path), `rvagent_strategy.py` (Tier 3) | `test_path_buffer_coverage.py` |
+| New config parameters (11 fields) | -- | `agent_config.py` | `test_config_new_params.py` |
+| Dead code removal: state_stack, RVAgentState, parent_hash, visited_states | P3 | `rvagent_strategy.py` | `test_dead_code_removal.py` |
+| Consolidate visited_activities tracking | P3 | `rvagent_strategy.py`, `transition_manager.py` | existing strategy + transition_manager tests |
+| Delegate coverage formula to ScreenNode | P1 | `successor_tracker.py` | existing successor_tracker tests |
+| Document DynamicStateGraph.transitions as audit-only | P2 | `dynamic_state_graph.py` | (documentation only) |
 
 ## Goals / Non-Goals
 
@@ -112,8 +153,11 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 - Add `RewardPropagator` for simplified N-step reward propagation through action chains, extending `StrengthScorer` with cumulative reward data
 - Optimize speed in `pure_algorithm` iterations by skipping screenshot capture and LLM nodes (per-iteration decision, mode-aware)
 - Activate `GradualDecayScorer` for smoother action priority transitions
+- Add `CoverageDensityScorer` (always-active, weight=200) for cross-screen coverage guidance using learned transitions from `SuccessorTracker` and `UICoverageTracker`, addressing the "small island" problem where MOP methods represent only 1-5% of app code
+- Add PathBuffer Strategy C for coverage-based BFS navigation on learned transitions toward screens with highest exploration potential (`coverage_gap * element_count`), positioned before Strategy B (C > B > A ordering) to prioritize broad UI coverage
 - Enrich LLM prompts with MOP-specific guidance from static analysis
-- Add 9 new calibration parameters to `RVAgentConfig` for downstream gh9 tuning (including `reward_score_weight` to control cumulative reward influence in StrengthScorer, and `max_backtrack_hops` to limit PathBuffer Strategy A backtrack depth)
+- Add 11 new calibration parameters to `RVAgentConfig` for downstream gh9 tuning (including `reward_score_weight` to control cumulative reward influence in StrengthScorer, `max_backtrack_hops` to limit PathBuffer Strategy A backtrack depth, `coverage_density_weight` for CoverageDensityScorer, and `max_coverage_hops` for Strategy C BFS depth)
+- Remove dead code before implementing new features (P3): `state_stack` (append-only, never popped), `RVAgentState` dataclass (only used as stack entries), `parent_hash` (stored but never read), `visited_states` Set (redundant with `graph.states.keys()`). Consolidate `visited_activities` tracking to a single source of truth (`TransitionManager`), delegate coverage formula in `SuccessorTracker` to `ScreenNode.get_coverage()`, and document `DynamicStateGraph.transitions` as audit-only
 
 **Non-Goals:**
 
@@ -177,6 +221,39 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 
 **Caching lifecycle**: The cache is a single variable on the `RVAgent` instance (`self._cached_screen_desc: Optional[ScreenDescription]`). It is invalidated (set to None) when `screen_hash != previous_screen_hash`. The UIAutomator dump and hash computation ALWAYS execute every iteration — only the visitor pipeline (ScreenDescription construction from parsed XML) is cached. On app restart (`force_restart_app`), the cache is implicitly invalidated because the next iteration's hash will differ from the pre-restart hash. No explicit invalidation on restart is needed.
 
+### D6: Dead code removal and consolidation during gh26
+
+**Decision**: Remove dead code and consolidate duplicate tracking as part of gh26, before implementing new features.
+
+**What is removed (per P3 — delete entirely, backup to `backup/`):**
+
+| Item | Location | Why Dead |
+|------|----------|----------|
+| `state_stack: List[RVAgentState]` | `rvagent_strategy.py:200` | Append-only (never popped). gh26's `should_backtrack()` uses SuccessorTracker BFS for navigation distance, not stack depth. |
+| `RVAgentState` dataclass | `rvagent_strategy.py:56` | Only used as `state_stack` entry. Fields: `screen_hash`, `depth`, `parent_hash`, `untested_count` — all available from `DynamicStateGraph.states` and `ScreenNode`. |
+| `parent_hash` computation | `rvagent_strategy.py:265,270` | Stored in `RVAgentState` but never read by any production code. |
+| `current_depth` | `rvagent_strategy.py:265` | Computed from `len(state_stack)`, only used for `RVAgentState` and metrics. |
+| `visited_states: Set[str]` | `rvagent_strategy.py:201` | Always identical to `graph.states.keys()` — both populated at the same point in `handle_state_entry()`. |
+
+**What is consolidated:**
+
+| Item | Before | After | Rationale |
+|------|--------|-------|-----------|
+| Visited activities tracking | Two independent sources: `TransitionManager._visited_activities` (explicit Set) and `RVAgentStrategy._get_visited_activities()` (computed from graph.states) | TransitionManager is single source of truth; strategy delegates to it | Prevents divergence between the two sources |
+| Coverage formula in SuccessorTracker | Reimplements `executed / total` inline at `successor_tracker.py:144-148` with different zero-actions semantics (1.0 vs ScreenNode's 0.0) | Delegates to `node.get_coverage()` with explicit zero-actions override (`total_actions == 0` → 1.0 for successor tracking, meaning "nothing to explore") | Eliminates subtle formula divergence risk |
+
+**What is documented:**
+
+| Item | What | Where |
+|------|------|-------|
+| `DynamicStateGraph.transitions` | Audit-only: chronological log for post-run reporting, never queried for navigation decisions | Docstring in `dynamic_state_graph.py` |
+
+**Alternatives considered**:
+- Do consolidation in a separate change after gh26: increases risk of building new features on dead infrastructure; the new `should_backtrack()` activation and PathBuffer would need to carefully avoid `state_stack` references. Cleaning up first is safer.
+- Keep `visited_states` as a performance cache: `graph.states.keys()` is O(1) for `in` checks on dict keys, and the set is only ~50-100 entries. No measurable performance benefit.
+
+**Rationale**: P3 (No Backward Compatibility) mandates removing dead code entirely. gh26 already modifies `rvagent_strategy.py` extensively — consolidating now avoids building new features on top of dead code. The removals simplify the file by ~30 lines and eliminate 3 sources of confusion for future implementers (what is state_stack for? why are there two visited_activities sources? why does coverage differ between SuccessorTracker and ScreenNode?).
+
 ## API Design
 
 ### PathBuffer
@@ -188,23 +265,27 @@ class PathBuffer:
     """
     Manages multi-step navigation paths for proactive exploration.
 
-    Two strategies:
+    Three strategies:
     A) Backtrack to nearest unsaturated ancestor via SuccessorTracker
     B) Navigate toward MOP-dense Activity via BFS on WTG
+    C) Navigate toward high-coverage-potential screen via BFS on learned transitions
     """
 
     def __init__(
         self,
         transition_manager: Optional["TransitionManager"],
         successor_tracker: "SuccessorTracker",
+        ui_coverage_tracker: "UICoverageTracker",
         config: "RVAgentConfig"
     ):
         """
         Args:
             transition_manager: For WTG-based BFS (Strategy B). None disables Strategy B.
-            successor_tracker: For ancestor navigation (Strategy A).
+            successor_tracker: For ancestor navigation (Strategy A) and learned
+                transitions (Strategy C).
+            ui_coverage_tracker: For coverage gap queries (Strategy C).
             config: Configuration with path_buffer_enabled, mop_nav_weight,
-                and max_backtrack_hops.
+                max_backtrack_hops, and max_coverage_hops.
         """
 
     def get_next_action(self) -> Optional[ItemAction]:
@@ -303,6 +384,132 @@ class PathBuffer:
     @property
     def remaining_steps(self) -> int:
         """Number of actions remaining in the buffer."""
+```
+
+### CoverageDensityScorer
+
+```python
+# strategies/rvagent_strategy/ranking/scorers.py
+
+class CoverageDensityScorer(Scorer):
+    """
+    Cross-screen coverage guidance using learned transitions.
+
+    Scores actions based on their destination screen's UI coverage gap,
+    querying SuccessorTracker for action destinations and UICoverageTracker
+    for destination coverage. Always active — not gated on StaticAnalysisData.
+
+    When MOP methods represent 1-5% of app code, broad UI coverage increases
+    the probability of reaching monitored operations. This scorer provides
+    the "broad surface" strategy that complements MopScorer's "precision
+    targeting" — together they form the dual guidance architecture.
+
+    Scoring formula:
+    - Known destination: weight * coverage_gap
+      where coverage_gap = untested_elements / total_elements
+    - Unknown destination: weight * 0.5 (exploration bonus)
+
+    The default weight (200) places this scorer below MopScorer (+500/+300)
+    but equal to GradualDecayScorer, providing meaningful guidance without
+    overshadowing MOP targeting.
+    """
+
+    def __init__(self, weight: float = 200.0):
+        self.weight = weight
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        """
+        Score action based on destination screen's coverage gap.
+
+        Requires context.successor_tracker and context.ui_coverage.
+        Returns 0.0 if either is unavailable.
+        """
+        if not context.successor_tracker or not context.ui_coverage:
+            return 0.0
+
+        action_sig = self._convert_signature(action.coords_for_matching)
+        destination = context.successor_tracker.get_action_destination(
+            context.current_state_hash, action_sig
+        )
+
+        if destination is None:
+            # Unknown destination — exploration bonus
+            return self.weight * 0.5
+
+        coverage_gap = context.ui_coverage.get_coverage_gap(destination)
+        return self.weight * coverage_gap
+```
+
+### SuccessorTracker.get_action_destination() (new method)
+
+```python
+# Added to strategies/rvagent_strategy/successor_tracker.py
+
+def get_action_destination(
+    self,
+    state_hash: str,
+    action_signature: tuple
+) -> Optional[str]:
+    """
+    Look up where an action leads based on learned transitions.
+
+    Provides clean accessor to the internal successors dictionary,
+    which records (from_hash, action_signature) -> to_hash mappings
+    from observed transitions.
+
+    Args:
+        state_hash: Hash of the state where the action is available.
+        action_signature: Tuple of ((opt_x, opt_y), action_type).
+
+    Returns:
+        Destination state hash, or None if transition not recorded.
+    """
+    return self.successors.get((state_hash, action_signature))
+```
+
+### RankingContext.successor_tracker (new field)
+
+```python
+# Modified in strategies/rvagent_strategy/ranking/context.py
+
+@dataclass
+class RankingContext:
+    # ... existing fields ...
+    successor_tracker: Optional["SuccessorTracker"] = None  # For CoverageDensityScorer
+```
+
+### PathBuffer.plan_coverage_path() (new method)
+
+```python
+# Added to strategies/rvagent_strategy/path_buffer.py
+
+def plan_coverage_path(self) -> bool:
+    """
+    Plan a path to the screen with highest exploration potential (Strategy C).
+
+    Performs BFS on SuccessorTracker's learned transitions (not the static WTG)
+    to find reachable screens with the highest exploration_potential, defined as:
+        exploration_potential = coverage_gap * element_count
+
+    This metric prefers screens with MANY untested elements, not just a high
+    untested percentage. A Settings screen with 15 elements at 50% coverage
+    (potential = 7.5) is more valuable than an About screen with 2 elements
+    at 0% coverage (potential = 2.0).
+
+    BFS depth is limited by config.max_coverage_hops (default 5). Screens
+    beyond this hop distance are not considered as navigation targets.
+
+    Strategy C is positioned before Strategy B in Tier 3 because broad UI
+    coverage addresses the "small island" problem: it increases the probability
+    surface for finding MOP methods, including those not mapped by static
+    analysis. Strategy C operates entirely on runtime data and is always
+    available, even without StaticAnalysisData.
+
+    Returns:
+        True if a path was planned and buffered, False otherwise.
+        Returns False during cold start (fewer than 3 discovered screens)
+        or when no screen with exploration_potential > 0 is reachable.
+    """
 ```
 
 ### Modified: SuccessorTracker.find_nearest_unsaturated()
@@ -475,7 +682,7 @@ def plan_path_to_mop_activity(
 
 ### Modified: RVAgentStrategy.select_next_action()
 
-New 6-tier action selection flow:
+New 5-tier action selection flow:
 
 ```python
 def select_next_action(self, current_hash, screen_desc) -> Optional[ItemAction]:
@@ -497,7 +704,9 @@ def select_next_action(self, current_hash, screen_desc) -> Optional[ItemAction]:
 
     # Tier 3: Proactive backtracking — check saturation threshold
     if self.should_backtrack(current_hash):
-        # Try to plan a path before plain BACK
+        # Try to plan a path before plain BACK (C > B > A ordering)
+        if self.path_buffer.plan_coverage_path():
+            return self.path_buffer.get_next_action()
         if self.path_buffer.plan_mop_path(screen_desc.activity, self._get_mop_data()):
             return self.path_buffer.get_next_action()
         if self.path_buffer.plan_backtrack_path(current_hash):
@@ -621,6 +830,20 @@ reward_score_weight: float = Field(
                 "reward propagation influences action ranking relative to historical "
                 "strength. Formula: weight * strength + reward_score_weight * cumulative_reward"
 )
+
+# Coverage-based guidance (Dual Guidance)
+coverage_density_weight: float = Field(
+    default=200.0, ge=50.0, le=400.0,
+    description="Weight for CoverageDensityScorer. Controls cross-screen coverage "
+                "guidance strength. Default 200 places it below MopScorer (+500) "
+                "but equal to GradualDecayScorer. Calibratable via gh9."
+)
+max_coverage_hops: int = Field(
+    default=5, ge=2, le=10,
+    description="Maximum BFS depth for PathBuffer Strategy C coverage-based "
+                "navigation on learned transitions. Screens beyond this hop "
+                "distance are not considered as navigation targets."
+)
 ```
 
 ### Implementation Prerequisites
@@ -657,13 +880,15 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    │     ├── MopScorer: +500 (DM), +300 (M)
    │     ├── WtgScorer: +150
    │     ├── GradualDecayScorer: 200 * 0.7^visits [NEW — activated; visits from UICoverageTracker]
+   │     ├── CoverageDensityScorer: 200 * coverage_gap [NEW — always active; SuccessorTracker+UICoverage]
    │     ├── SaturationScorer: +100 * (1 - sat_rate)
    │     ├── ComponentPriorityScorer: +50/+40
    │     ├── StrengthScorer: weight * strength + reward_score_weight * cumulative_reward [NEW]
    │     ├── FailedActionScorer: -9999
    │     ├── SystemElementFilter: -5000
-   │     └── VisitationPenaltyScorer: -15 * log(1 + visits)
-   ├── Tier 3: should_backtrack(threshold=0.8) → plan path or BACK
+   │     └── VisitationPenaltyScorer: -15 * log(1 + visits)  [NEW default; current is -10]
+   ├── Tier 3: should_backtrack(threshold=0.8) → plan path or BACK (C > B > A)
+   │     ├── PathBuffer.plan_coverage_path() → BFS on learned transitions to high-potential screen
    │     ├── PathBuffer.plan_mop_path() → BFS to MOP-dense Activity
    │     └── PathBuffer.plan_backtrack_path() → BACK to unsaturated ancestor
    ├── Tier 4: Continuous mode (scroll + least-executed)
@@ -748,6 +973,9 @@ The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `se
 | `should_backtrack()` on empty graph | State hash not in `graph.states` | Return True (backtrack from unknown state) | Agent navigates BACK, which is safe behavior for unknown states |
 | `should_backtrack()` on single-node graph | Only one state, no parent | Return based on saturation check; no infinite BACK loop because Tier 4 continuous mode catches this | Least-executed action selected |
 | `GradualDecayScorer` with missing element_id | Action has no `widget_id` and coordinates are None | Return 0.0 (neutral score) | Other scorers determine ranking |
+| `CoverageDensityScorer` cold start | Fewer than 3 screens discovered, SuccessorTracker has few transitions | Return exploration bonus (weight * 0.5) for unknown destinations | GradualDecayScorer provides element-level guidance during cold start |
+| Strategy C no-path found | All reachable screens within `max_coverage_hops` are well-covered (exploration_potential ≈ 0) | `plan_coverage_path()` returns False | Caller falls through to Strategy B or Strategy A |
+| Coverage as imperfect proxy | High UI coverage does not guarantee reaching MOP methods | CoverageDensityScorer increases probability surface, not certainty | MopScorer provides directed precision when SA is available; dual guidance combines both |
 | `InputValueGenerator` unknown input type | `_get_regular_values()` receives unrecognized type | Falls through to text default with Faker values (no longer PINs) | Generates sensible text input |
 | Speed optimization skip in multimode | LLM iteration needs screenshot but algorithm iteration does not | Per-iteration decision in `decision_router_node`: "llm" path includes screenshot, "algorithm" path skips it | Both paths work correctly |
 
@@ -759,8 +987,8 @@ Mitigation: The post-implementation validation experiment (see "Experimental Val
 **[should_backtrack() is untested dead code]** The method exists at `rvagent_strategy.py:447` but has never been called in production. It may contain bugs in edge cases (single-node graph, states removed from graph, successor tracker inconsistency).
 Mitigation: Write comprehensive unit tests for `should_backtrack()` BEFORE integrating it into the action selection flow. Test cases must cover: saturated state, partially-explored state, state with incomplete successors, single-node graph, state not in graph, and the new saturation threshold behavior.
 
-**[Non-independent gain estimates]** The 9 improvements interact non-linearly. Faster iterations (speed optimization) amplify better decisions (proactive backtracking, path buffer). Scorer rebalancing only matters WITH proactive backtracking since continuous mode bypasses the scorer system. The realistic combined gain is ~60-70% of the naive sum of individual estimates.
-Mitigation: The validation experiment (see "Experimental Validation" section) measures the combined effect of all 9 improvements against a pre-implementation baseline (10 APKs, 3 tools, 3 reps, 300s, Wilcoxon signed-rank test). Per-improvement ablation is deferred to gh9 calibration, which tests parameter combinations systematically via Optuna.
+**[Non-independent gain estimates]** The 10 improvements interact non-linearly. Faster iterations (speed optimization) amplify better decisions (proactive backtracking, path buffer). Scorer rebalancing only matters WITH proactive backtracking since continuous mode bypasses the scorer system. The realistic combined gain is ~60-70% of the naive sum of individual estimates.
+Mitigation: The validation experiment (see "Experimental Validation" section) measures the combined effect of all 10 improvements against a pre-implementation baseline (10 APKs, 3 tools, 3 reps, 300s, Wilcoxon signed-rank test). Per-improvement ablation is deferred to gh9 calibration, which tests parameter combinations systematically via Optuna.
 
 **[Speed optimization mode-awareness]** Skipping screenshot capture in algorithm iterations must not break multimode LLM iterations. If the routing check has a bug, LLM iterations could run without screenshots, producing invalid actions.
 Mitigation: The speed optimization is a conditional skip in `decision_router_node`, not a removal of the screenshot node from the graph. The LangGraph workflow still contains all nodes; the router simply sends algorithm iterations on the "algorithm" edge (which bypasses `capture_screenshot_node` by graph topology) while LLM iterations follow the "llm" edge (which includes `capture_screenshot_node`). This is the existing routing mechanism -- no new skip logic is needed for the LangGraph graph itself. The speed optimization focuses on caching `screen_desc` when hash is unchanged in `parse_node` and skipping unnecessary UIAutomator re-dumps.
@@ -768,8 +996,17 @@ Mitigation: The speed optimization is a conditional skip in `decision_router_nod
 **[PathBuffer stale path]** A buffered path may become invalid if the app's state changes unexpectedly (e.g., a notification dialog appears, app auto-navigates). The agent would execute the next buffered action on the wrong screen.
 Mitigation: `learn_node` validates that the actual next state hash matches the PathBuffer's expectation. On mismatch, `PathBuffer.invalidate()` clears the buffer and normal action selection resumes. This adds one hash comparison per iteration when the buffer is active -- negligible cost.
 
+**[Coverage as imperfect proxy for MOP reachability]** CoverageDensityScorer assumes that broad UI coverage increases the probability of reaching MOP methods. While this is statistically sound (more covered UI → more code paths exercised → higher chance of hitting crypto API calls), it is not guaranteed. An app might have 50 screens, all well-covered, with MOP methods only reachable via a specific deep sequence that neither static analysis nor coverage-directed exploration discovers.
+Mitigation: This is why the design is "dual" — coverage provides the broad probabilistic surface, MOP targeting provides the directed precision. Neither alone is sufficient for all apps. The validation experiment (Group 10) includes a `--skip-static` variant to measure CoverageDensityScorer + Strategy C effectiveness in isolation.
+
+**[Transition irreproducibility affects Strategy C]** SuccessorTracker records that "clicking at coordinates (x, y) in state S1 led to state S2." On revisiting S1, the same coordinates may not produce the same transition due to dynamic content, scroll position changes, or dialog interference. This affects both CoverageDensityScorer (which may attribute an action to the wrong destination) and Strategy C (which may plan a path that doesn't reproduce).
+Mitigation: PathBuffer's existing invalidation mechanism catches this — if a buffered action produces no state change (hash unchanged), the buffer is cleared. Strategy C paths are typically short (2-3 steps on learned transitions), limiting the blast radius of a stale path. The worst case is wasting 1-2 iterations.
+
 **[PathBuffer dialog dismiss in Strategy A]** When PathBuffer plans a backtrack path of N BACK actions, an intermediate BACK may dismiss a dialog instead of popping the navigation stack. The hash changes (dialog dismissed), so the buffer does NOT invalidate, and the next BACK executes on an unexpected screen. This can waste 1-2 iterations before the buffer completes or another invalidation triggers.
 Accepted risk: The `max_backtrack_hops` limit (default 8) bounds the waste. The hash-unchanged invalidation catches complete failures (BACK had no effect). For Strategy A, a few wasted BACKs are preferable to the complexity of tracking expected-next-hash for each buffered step. Strategy B (MOP navigation with specific clicks) is more vulnerable to this, but Strategy B paths are typically shorter (2-3 steps) and go through real navigation clicks, not just BACKs.
+
+**[PathBuffer uses single-action transitions, not full action sequences]** SuccessorTracker records only the **last action** that triggered a state hash change, not the full action sequence that preceded it. For example, if filling a form required 3 SET_TEXT actions followed by a "Submit" click, SuccessorTracker stores only `(form_hash, submit_click) → result_hash`. `DynamicStateGraph.transitions` stores the complete `action_sequence: List[Dict]` (all 4 actions), but PathBuffer queries SuccessorTracker, not the transition list. This means Strategy C (coverage BFS on learned transitions) may attempt to replay a transition by executing only the final action, without the prerequisite form fills.
+Accepted trade-off: The hash-unchanged invalidation handles the most common failure case — the submit click alone has no effect (e.g., form validation prevents navigation), so the hash stays the same and PathBuffer invalidates. However, there are cases where the single action produces a *different* state change than expected (e.g., submitting an empty form triggers an error screen instead of the success screen). In these cases, the hash changes (so invalidation does not trigger) but the agent is on an unexpected screen. The worst case is 1-2 wasted iterations before the buffer completes or Tier 2-5 selection takes over. Using the full `action_sequence` from `DynamicStateGraph.transitions` would require O(n) list scans (vs SuccessorTracker's O(1) dict lookup), replaying prerequisite actions that may not be valid in the current screen state, and tracking which intermediate actions apply to which UI elements — complexity disproportionate to the benefit. PathBuffer is a navigation tool (get to a target screen), not a form-filling tool (reproduce exact input sequences).
 
 ## Testing Strategy
 
@@ -785,14 +1022,23 @@ Accepted risk: The `max_backtrack_hops` limit (default 8) bounds the waste. The 
 | **Unit** | `should_backtrack()` with saturation threshold | States at 0.7, 0.8, 0.9, 1.0 saturation with threshold=0.8 | ~3 tests |
 | **Unit** | `should_backtrack()` edge cases | Empty graph, single node, state not found, incomplete successors | ~3 tests |
 | **Unit** | Scorer weight defaults verification | Verify MopScorer=500/300, WtgScorer=150, VisitationPenalty=-15, Stochastic=0.15 | ~2 tests |
-| **Unit** | `GradualDecayScorer` in active scorer list | Verify 9 scorers registered (8 existing + GradualDecayScorer) | ~1 test |
+| **Unit** | `GradualDecayScorer` in active scorer list | Verify 10 scorers registered (8 existing + GradualDecayScorer + CoverageDensityScorer) | ~1 test |
 | **Unit** | `StrengthScorer` with cumulative reward | Known strength + known cumulative_reward, verify combined score | ~3 tests |
 | **Unit** | `InputValueGenerator` value ordering fix | Verify Faker values first for "text" type, PINs only for "password"/"pin" | ~3 tests |
 | **Unit** | `InputValueGenerator` MOP limit | Verify `mop_max_input_variations=11` allows all 11 edge-case payloads | ~2 tests |
 | **Unit** | `InputValueGenerator` new types | Verify search, url, date, time, number, zip, verification_code produce valid values | ~7 tests |
 | **Unit** | `InputValueGenerator` no empty first value | Verify first value for all types is non-empty | ~2 tests |
 | **Unit** | `TransitionManager.plan_path_to_mop_activity()` BFS | Mock WTG with known structure, verify shortest path to MOP-dense Activity | ~4 tests |
-| **Unit** | Config new fields | Verify 9 new fields with defaults, ranges, and serialization | ~3 tests |
+| **Unit** | `CoverageDensityScorer.score()` known destination | Mock SuccessorTracker with known destination, verify weight * coverage_gap | ~2 tests |
+| **Unit** | `CoverageDensityScorer.score()` unknown destination | Action with no recorded transition, verify exploration bonus (weight * 0.5) | ~1 test |
+| **Unit** | `CoverageDensityScorer` synergy with MopScorer | Both scorers contribute to same action, verify combined score correct | ~1 test |
+| **Unit** | `CoverageDensityScorer` cold start | Few screens discovered, verify exploration bonuses dominate | ~1 test |
+| **Unit** | `SuccessorTracker.get_action_destination()` | Known transition returns hash, unknown returns None | ~2 tests |
+| **Unit** | `PathBuffer.plan_coverage_path()` with learned transitions | Mock SuccessorTracker with known graph, verify BFS finds highest exploration_potential target | ~2 tests |
+| **Unit** | `PathBuffer.plan_coverage_path()` cold start | Fewer than 3 screens, verify returns False | ~1 test |
+| **Unit** | `PathBuffer.plan_coverage_path()` max_hops limit | Target beyond max_coverage_hops, verify not selected | ~1 test |
+| **Integration** | Strategy C before B ordering | Both Strategy C and B available, verify C evaluated first | ~1 test |
+| **Unit** | Config new fields | Verify 11 new fields with defaults, ranges, and serialization | ~3 tests |
 | **Integration** | Full strategy flow with proactive backtracking | Create graph with saturated states, verify BACK at threshold instead of continuous | ~3 tests |
 | **Integration** | PathBuffer + strategy interaction | Buffer path, execute through strategy, verify buffer exhaustion triggers normal selection | ~3 tests |
 | **Integration** | Reward propagation through learn_node | Execute 5 iterations, trigger MOP reward, verify ScreenNode cumulative_reward updated | ~3 tests |
@@ -803,11 +1049,11 @@ Accepted risk: The `max_backtrack_hops` limit (default 8) bounds the waste. The 
 | **Regression** | Existing scorer tests | All existing scorer tests pass with new defaults | ~existing |
 | **Regression** | Existing input generator tests | All existing InputValueGenerator tests pass with fixed ordering | ~existing |
 
-**Estimated totals**: ~30 unit tests (new), ~15 integration tests (new), existing regression tests pass.
+**Estimated totals**: ~41 unit tests (new), ~16 integration tests (new), existing regression tests pass.
 
 ## Experimental Validation
 
-Unit and integration tests verify correctness, but the 9 improvements interact non-linearly and their combined effect on exploration quality can only be measured empirically. This section defines a controlled A/B experiment: a baseline run (pre-gh26) and a validation run (post-gh26) on the same APK set, tools, and configuration.
+Unit and integration tests verify correctness, but the 10 improvements interact non-linearly and their combined effect on exploration quality can only be measured empirically. This section defines a controlled A/B experiment: a baseline run (pre-gh26) and a validation run (post-gh26) on the same APK set, tools, and configuration.
 
 ### Experiment Design
 
@@ -926,7 +1172,7 @@ All docker-compose files are stored in `docker/data/gh26_experiment/`. Instrumen
 
 ### Relationship to gh9 Calibration
 
-This experiment uses **default parameter values** (the 9 new config fields at their defaults). It does NOT optimize parameters — that is gh9's responsibility. The purpose is to verify that the gh26 code changes produce measurable improvement even with untuned defaults. gh9 will later find optimal values using Optuna on a larger APK set (75 calibration + 30 holdout).
+This experiment uses **default parameter values** (the 11 new config fields at their defaults). It does NOT optimize parameters — that is gh9's responsibility. The purpose is to verify that the gh26 code changes produce measurable improvement even with untuned defaults. gh9 will later find optimal values using Optuna on a larger APK set (75 calibration + 30 holdout).
 
 ## Open Questions
 
@@ -937,3 +1183,5 @@ This experiment uses **default parameter values** (the 9 new config fields at th
 3. **PathBuffer Strategy B priority over Strategy A**: When both strategies can produce a path, which takes priority? The current design tries Strategy B (MOP-directed) first and Strategy A (backtrack to unsaturated ancestor) second, because MOP coverage is the primary metric. This ordering may need to be configurable if gh9 calibration reveals different optimal behavior.
 
 4. **Reward propagation for error recovery actions**: gh18's error recovery actions (SET_TEXT/CLICK with `decision_maker="error_recovery"`) should participate in reward propagation -- if an error recovery SET_TEXT leads to a successful MOP trigger, that reward should propagate back through the error recovery sequence. The implementation must include error recovery actions in the action history, not filter them out.
+
+5. **CoverageDensityScorer cold start transition threshold**: The scorer returns exploration bonuses (weight * 0.5) for unknown destinations during early exploration. When exactly should it transition from exploration-bonus-dominated to learned-data-dominated scoring? The current design uses "fewer than 3 screens" as the cold start threshold for Strategy C's `plan_coverage_path()`. For the scorer itself, the transition is implicit — as more destinations become known, the exploration bonus fraction decreases naturally. gh9 calibration may reveal a need for an explicit cold start threshold parameter.

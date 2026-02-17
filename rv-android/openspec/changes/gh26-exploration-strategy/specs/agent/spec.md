@@ -21,16 +21,19 @@ This delta spec assumes gh18 (validation error detection) has already been imple
 - `config.reward_mop_weight: float` -- Reward value for reaching a MOP method (1.0-10.0, default 5.0). (from `RVAgentConfig`)
 - `config.reward_propagation_n: int` -- Number of steps for backward reward propagation (3-8, default 5). (from `RVAgentConfig`)
 - `config.reward_score_weight: float` -- Weight of cumulative_reward in StrengthScorer formula: `weight * strength + reward_score_weight * cumulative_reward` (0.1-3.0, default 1.0). Controls how much reward propagation influences action ranking relative to historical strength. (from `RVAgentConfig`)
+- `config.coverage_density_weight: float` -- Weight for CoverageDensityScorer (50-400, default 200.0). Controls how strongly cross-screen coverage gap influences action ranking. Calibratable via gh9. (from `RVAgentConfig`)
+- `config.max_coverage_hops: int` -- Maximum BFS depth for PathBuffer Strategy C coverage-based navigation (2-10, default 5). Limits how far the agent will navigate through learned transitions to reach a high-potential screen. (from `RVAgentConfig`)
 
 ### Output
 
 - `results.backtrack_count: int` -- Number of proactive BACK actions triggered by `should_backtrack()` during the experiment
 - `results.path_buffer_hit_rate: float` -- Percentage of buffered paths that successfully reached their target Activity
 - `results.reward_propagation_events: int` -- Number of N-step reward propagation events during the experiment
+- `results.coverage_navigation_events: int` -- Number of PathBuffer Strategy C coverage-based navigation events during the experiment
 
 ### Side-Effects
 
-- **Tracking**: New `[RVTRACK:STRATEGY]` log entries for proactive backtracking events, path buffer hits/misses, and reward propagation triggers
+- **Tracking**: New `[RVTRACK:STRATEGY]` log entries for proactive backtracking events, path buffer hits/misses, reward propagation triggers, and `[RVTRACK:COVERAGE]` entries for coverage-based navigation events (Strategy C activations, target screen, exploration_potential score)
 
 ### Error
 
@@ -38,21 +41,23 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 ## Invariants
 
-- **INV-AGT-19**: The `PathBuffer` MUST clear its buffered path when a buffered action produces no state change (post-execution hash equals pre-execution hash). A navigation action that does not change the screen state (BACK that didn't navigate, click that didn't transition, dialog that blocked navigation) indicates the buffered path is no longer valid. The invalidation check uses hash comparison, not a predicted "expected next hash" — the PathBuffer does not need to predict exact destination hashes.
+- **INV-AGT-28**: The `PathBuffer` MUST clear its buffered path when a buffered action produces no state change (post-execution hash equals pre-execution hash). A navigation action that does not change the screen state (BACK that didn't navigate, click that didn't transition, dialog that blocked navigation) indicates the buffered path is no longer valid. The invalidation check uses hash comparison, not a predicted "expected next hash" — the PathBuffer does not need to predict exact destination hashes.
 
-- **INV-AGT-20**: N-step reward propagation MUST propagate backward through at most `reward_propagation_n` actions (default 5). Each step MUST apply the discount factor `reward_gamma` (default 0.8) multiplicatively. The propagated reward for step k MUST be `reward_value * gamma^k`.
+- **INV-AGT-29**: N-step reward propagation MUST propagate backward through at most `reward_propagation_n` actions (default 5). Each step MUST apply the discount factor `reward_gamma` (default 0.8) multiplicatively. The propagated reward for step k MUST be `reward_value * gamma^k`.
 
-- **INV-AGT-21**: The `GradualDecayScorer` MUST be included in the active scorer list registered with `ActionRanker`. Its score formula MUST be `base_score * decay_rate^visits` where `base_score` defaults to 200 and `decay_rate` defaults to 0.7. When `visits >= min_visits` (default 5), the scorer MUST return 0.0 (full decay cutoff). This existing `min_visits` behavior is preserved; gh9 calibration may adjust or remove the cutoff.
+- **INV-AGT-30**: The `GradualDecayScorer` MUST be included in the active scorer list registered with `ActionRanker`. Its score formula MUST be `base_score * decay_rate^visits` where `base_score` defaults to 200 and `decay_rate` defaults to 0.7. When `visits >= min_visits` (default 5), the scorer MUST return 0.0 (full decay cutoff). This existing `min_visits` behavior is preserved; gh9 calibration may adjust or remove the cutoff.
 
-- **INV-AGT-22**: When `backtrack_saturation_threshold` is configured, the strategy MUST trigger proactive backtracking when the current state's saturation rate exceeds the threshold. Saturation rate is defined as `actions_executed_at_least_threshold_times / total_actions` for the current `ScreenNode`, where `threshold` defaults to 2 (matching `ScreenNode.get_saturation_rate(threshold=2)`). An action counts as "saturated" when it has been executed at least `threshold` times, not merely once.
+- **INV-AGT-31**: When `backtrack_saturation_threshold` is configured, the strategy MUST trigger proactive backtracking when the current state's saturation rate exceeds the threshold. Saturation rate is defined as `actions_executed_at_least_threshold_times / total_actions` for the current `ScreenNode`, where `threshold` defaults to 2 (matching `ScreenNode.get_saturation_rate(threshold=2)`). An action counts as "saturated" when it has been executed at least `threshold` times, not merely once.
 
-- **INV-AGT-23**: The `InputValueGenerator` MUST call `device.clear_text()` before `input_text()` for all SET_TEXT actions. Text MUST NOT be appended to existing field content.
+- **INV-AGT-32**: The `InputValueGenerator` MUST call `device.clear_text()` before `input_text()` for all SET_TEXT actions. Text MUST NOT be appended to existing field content.
 
-- **INV-AGT-24**: The speed optimization for algorithm iterations operates at two levels. First, existing LangGraph graph topology: the `decision_router_node` routes to the `"algorithm"` edge, which bypasses `capture_screenshot_node` and `llm_generate_node` entirely — this is existing per-iteration routing behavior (not a compile-time flag), so multimode algorithm iterations also benefit. Second, NEW from gh26: in `parse_node`, when the current `screen_hash` equals `previous_screen_hash`, the node MUST reuse the cached `screen_desc` from the previous iteration instead of recomputing it. This screen_desc caching eliminates redundant UI parsing when the screen has not changed between iterations.
+- **INV-AGT-33**: The speed optimization for algorithm iterations operates at two levels. First, existing LangGraph graph topology: the `decision_router_node` routes to the `"algorithm"` edge, which bypasses `capture_screenshot_node` and `llm_generate_node` entirely — this is existing per-iteration routing behavior (not a compile-time flag), so multimode algorithm iterations also benefit. Second, NEW from gh26: in `parse_node`, when the current `screen_hash` equals `previous_screen_hash`, the node MUST reuse the cached `screen_desc` from the previous iteration instead of recomputing it. This screen_desc caching eliminates redundant UI parsing when the screen has not changed between iterations.
 
-- **INV-AGT-25**: `SuccessorTracker.find_nearest_unsaturated()` MUST return `Optional[Tuple[str, int]]` where the tuple contains `(state_hash, hop_count)` instead of the previous `Optional[str]`. The `hop_count` indicates the BFS distance (number of BACK actions) to reach the unsaturated ancestor. This return type is a prerequisite for `PathBuffer.plan_backtrack_path()`, which uses the hop_count to determine how many BACK actions to buffer for backtrack navigation.
+- **INV-AGT-34**: `SuccessorTracker.find_nearest_unsaturated()` MUST return `Optional[Tuple[str, int]]` where the tuple contains `(state_hash, hop_count)` instead of the previous `Optional[str]`. The `hop_count` indicates the BFS distance (number of BACK actions) to reach the unsaturated ancestor. This return type is a prerequisite for `PathBuffer.plan_backtrack_path()`, which uses the hop_count to determine how many BACK actions to buffer for backtrack navigation.
 
-- **INV-AGT-26**: `RewardPropagator` MUST cap `action_cumulative_reward` at `MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight` (default 3.0 * 5.0 = 15.0). When a cumulative reward addition would exceed this cap, the value MUST be clamped to the cap instead of growing further. Without this cap, `StrengthScorer` scores could grow unbounded over long sessions (300+ iterations), inflating the reward signal and drowning out other scorer contributions.
+- **INV-AGT-35**: `RewardPropagator` MUST cap `action_cumulative_reward` at `MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight` (default 3.0 * 5.0 = 15.0). When a cumulative reward addition would exceed this cap, the value MUST be clamped to the cap instead of growing further. Without this cap, `StrengthScorer` scores could grow unbounded over long sessions (300+ iterations), inflating the reward signal and drowning out other scorer contributions.
+
+- **INV-AGT-36**: The `CoverageDensityScorer` MUST be always active — not gated on whether `StaticAnalysisData` is present. For each candidate action, the scorer MUST query `SuccessorTracker.get_action_destination()` to determine the action's known destination state. If the destination is known, the score MUST be `coverage_density_weight * coverage_gap` where `coverage_gap = untested_elements / total_elements` for the destination screen (from `UICoverageTracker`). If the destination is unknown (action has never been executed or leads to an unrecorded state), the score MUST be `coverage_density_weight * 0.5` (exploration bonus for the unknown). The default `coverage_density_weight` is 200.0, placing CoverageDensityScorer in the same magnitude as `GradualDecayScorer` without overshadowing `MopScorer` (+500). The relative ordering is preserved: MOP-direct (500) > MOP-transitive (300) > Coverage (200) > WTG (150).
 
 ## MODIFIED Requirements
 
@@ -68,9 +73,9 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 4. **Continuous exploration**: If actions remain but all have been tested at least once, select the least-executed action. This is a fallback for cases where saturation is below the threshold but no untested actions remain.
 5. **BACK**: If no actions are available at all (e.g., all permanently failed), return a BACK action.
 
-**Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.5-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, which returns the hop count to the nearest unsaturated ancestor — not by `state_stack` depth (which is append-only and unreliable for navigation distance).
+**Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.5-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, which returns the hop count to the nearest unsaturated ancestor.
 
-**Path Buffer Integration**: When `path_buffer_enabled` is True and the `PathBuffer` has a buffered path, the strategy MUST execute buffered actions before considering untested actions. The PathBuffer is populated by two strategies defined in the Path Buffer requirement: (A) backtrack to unsaturated ancestor, and (B) navigate to MOP-rich Activity via WTG BFS. See the Path Buffer requirement for details on buffer creation, validation, and invalidation.
+**Path Buffer Integration**: When `path_buffer_enabled` is True and the `PathBuffer` has a buffered path, the strategy MUST execute buffered actions before considering untested actions. The PathBuffer is populated by three strategies defined in the Path Buffer requirement: (A) backtrack to unsaturated ancestor, (B) navigate to MOP-rich Activity via WTG BFS, and (C) navigate toward high-coverage-potential screens via BFS on learned transitions. See the Path Buffer requirement for details on buffer creation, validation, and invalidation.
 
 **Successor Tracking**: The `SuccessorTracker` records which state each action leads to. If a destination state has untested actions, the original action is re-enabled for re-execution. This prevents premature backtracking from "gateway" states (e.g., a Settings button leading to a screen with many sub-options).
 
@@ -134,11 +139,22 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 - **THEN** `_select_least_executed_action()` MUST return None
 - **AND** a BACK action MUST be generated to navigate away
 
+#### Scenario: Strategy C Coverage Navigation in Tier 3
+
+- **WHEN** the current state's saturation rate exceeds `backtrack_saturation_threshold` (0.8)
+- **AND** `should_backtrack()` returns True
+- **AND** `PathBuffer.plan_coverage_path()` finds a 2-step path to a screen with exploration_potential = 7.5 (15 elements, 50% coverage gap)
+- **THEN** the PathBuffer MUST be populated with the 2-step coverage navigation path
+- **AND** `select_next_action()` MUST return the first buffered action from Strategy C
+- **AND** Strategy B (MOP navigation) and Strategy A (backtrack) MUST NOT be evaluated
+
 ### Requirement: Composite Action Ranking (FR27)
 
-The strategy MUST rank available actions using a composite scoring system with 9 registered scorers. Each scorer implements the `Scorer` abstract base class with a `score(action, context) -> float` method. Scores are summed by `ActionRanker` to determine final ranking.
+The strategy MUST rank available actions using a composite scoring system with 10 registered scorers. Each scorer implements the `Scorer` abstract base class with a `score(action, context) -> float` method. Scores are summed by `ActionRanker` to determine final ranking.
 
-The scorer list includes the 8 original scorers plus `GradualDecayScorer`, which was previously defined but not registered (dead code). `GradualDecayScorer` provides smoother priority transitions using exponential decay: `base_score * decay_rate^visits` where `base_score` = 200 and `decay_rate` = 0.7. This replaces the binary untested/tested split with a gradual signal — actions visited once still have value (200 * 0.7 = 140), twice (200 * 0.49 = 98), and so on.
+The scorer list includes the 8 original scorers plus `GradualDecayScorer` and `CoverageDensityScorer`. `GradualDecayScorer` was previously defined but not registered (dead code); it provides smoother priority transitions using exponential decay: `base_score * decay_rate^visits` where `base_score` = 200 and `decay_rate` = 0.7. This replaces the binary untested/tested split with a gradual signal — actions visited once still have value (200 * 0.7 = 140), twice (200 * 0.49 = 98), and so on.
+
+`CoverageDensityScorer` provides cross-screen coverage guidance using learned transition data. While all other scorers operate on the CURRENT screen, CoverageDensityScorer answers the question "which of these actions leads to the most interesting DESTINATION?" by querying `SuccessorTracker` for action destinations and `UICoverageTracker` for destination coverage. This addresses the "small island" problem: when MOP methods represent 1-5% of app code, broad UI coverage increases the probability of reaching monitored operations, including those not mapped by static analysis. The scorer is always active (not gated on `StaticAnalysisData`), creating a dual guidance architecture where MOP targeting provides directed precision and coverage provides broad probabilistic exploration.
 
 **Updated default weights:**
 
@@ -151,6 +167,7 @@ The scorer list includes the 8 original scorers plus `GradualDecayScorer`, which
 | `ComponentPriorityScorer` | 50/40 | 50/40 | Unchanged |
 | `StrengthScorer` | 50 | 50 | Unchanged base, but now incorporates cumulative reward from N-step propagation |
 | `GradualDecayScorer` | N/A (dead code) | 200 * 0.7^visits | Newly activated; provides smooth decay across visits |
+| `CoverageDensityScorer` | N/A (new) | 200 * coverage_gap | Always active; cross-screen coverage guidance using learned transitions |
 | `FailedActionScorer` | -9999 | -9999 | Unchanged |
 | `SystemElementFilter` | -5000 | -5000 | Unchanged |
 | `VisitationPenaltyScorer` | -10 | -15 | Stronger repulsion from over-visited states |
@@ -207,6 +224,26 @@ Action selection supports two modes: deterministic (always selects highest-score
 
 - **WHEN** action A targets a `Button` widget and action B targets a `TextView`
 - **THEN** `ComponentPriorityScorer` MUST assign +50 to A (high priority) and 0 to B (not in priority list)
+
+#### Scenario: CoverageDensityScorer with Known Destination
+
+- **WHEN** action A leads to a known destination screen (via SuccessorTracker) with 15 total elements and 12 untested elements (coverage_gap = 0.8)
+- **AND** `coverage_density_weight` = 200
+- **THEN** `CoverageDensityScorer` MUST assign 200 * 0.8 = 160 to action A
+
+#### Scenario: CoverageDensityScorer with Unknown Destination
+
+- **WHEN** action B has never been executed (destination unknown to SuccessorTracker)
+- **AND** `coverage_density_weight` = 200
+- **THEN** `CoverageDensityScorer` MUST assign 200 * 0.5 = 100 to action B (exploration bonus)
+
+#### Scenario: CoverageDensityScorer Synergy with MopScorer
+
+- **WHEN** action A leads to a MOP-rich screen with high coverage gap (coverage_gap = 0.8)
+- **AND** `MopScorer` assigns +500 to action A (directly_reaches_mop = True)
+- **AND** `CoverageDensityScorer` assigns +160 to action A (200 * 0.8)
+- **THEN** the combined score for action A MUST include both contributions (+660 from these two scorers)
+- **AND** action A MUST rank higher than an action B with only MopScorer +500 but CoverageDensityScorer +20 (well-covered destination, coverage_gap = 0.1)
 
 ### Requirement: Stuck State Detection and Recovery (FR29, NFR04)
 
@@ -430,7 +467,7 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 
 #### Scenario: New State Reward
 
-- **WHEN** an action leads to a state whose hash is not in `visited_states`
+- **WHEN** an action leads to a state whose hash is not in `graph.states`
 - **THEN** `REWARD_NEW_STATE` = 1.0 MUST be assigned to the action
 - **AND** backward propagation MUST be triggered through the last N actions
 
@@ -482,11 +519,13 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 - **WHEN** `StaticAnalysisData` is None (e.g., `--skip-static` flag or GATOR/GESDA failure)
 - **THEN** PathBuffer Strategy B (MOP navigation) MUST be disabled (plan_mop_path returns False)
 - **AND** PathBuffer Strategy A (backtrack to unsaturated ancestor) MUST still function
+- **AND** PathBuffer Strategy C (coverage navigation) MUST still function (operates on runtime data)
+- **AND** CoverageDensityScorer MUST still function (operates on runtime data, always active)
 - **AND** MopScorer MUST return 0.0 for all actions
 - **AND** WtgScorer MUST return 0.0 for all actions
 - **AND** NavigationGuidance.format_for_llm() MUST return an empty string
 - **AND** reward propagation MUST operate with non-MOP reward types only (same_state, new_state, new_activity)
-- **AND** the agent MUST NOT crash or produce errors — it operates as a generic UI structure explorer
+- **AND** the agent MUST NOT crash or produce errors — it operates as a coverage-directed UI explorer with dual guidance (CDS + Strategy C) providing cross-screen navigation even without MOP data
 
 #### Scenario: Error Recovery Actions Participate in Reward Propagation
 
@@ -571,17 +610,19 @@ The `InputValueGenerator` and text input execution pipeline MUST produce context
 
 The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentStrategy`. It provides an execution buffer that stores a sequence of actions to be executed in order, enabling the strategy to plan and execute multi-step navigation instead of making isolated single-action decisions.
 
-**Two Planning Strategies**: The PathBuffer is populated by two strategies, selected based on the current exploration state:
+**Three Planning Strategies**: The PathBuffer is populated by three strategies, selected based on the current exploration state:
 
 **Strategy A — Backtrack to Unsaturated Ancestor**: When the current state is saturated (saturation rate exceeds `backtrack_saturation_threshold`), the PathBuffer uses `SuccessorTracker.find_nearest_unsaturated()` to locate the nearest ancestor state with untested actions. `find_nearest_unsaturated()` returns `Optional[Tuple[str, int]]` — the ancestor hash and BFS hop count. The hop count determines the number of BACK actions to buffer.
 
 **Strategy B — Navigate to MOP-Rich Activity via WTG BFS**: When `StaticAnalysisData` is available and `path_buffer_enabled` is True, the PathBuffer can request a path from `TransitionManager.plan_path_to_mop_activity()`. This performs BFS on the WTG to find the nearest MOP-rich Activity, weighted by MOP density (see WTG-Guided Navigation requirement). The resulting path is a sequence of actions that navigate through intermediate Activities toward the target. This strategy is rv-agent's unique advantage over APE and Fastbot — neither tool combines path planning with MOP targeting.
 
+**Strategy C — Navigate to High-Coverage-Potential Screen via Learned Transitions**: The PathBuffer performs BFS on `SuccessorTracker`'s learned transitions (not the static WTG) to find reachable screens with the highest exploration potential, defined as `coverage_gap * element_count`. This metric prefers screens with MANY untested elements, not just a high untested percentage: a Settings screen with 15 elements at 50% coverage (potential = 7.5) is more valuable than an About screen with 2 elements at 0% coverage (potential = 2.0). BFS depth is limited by `max_coverage_hops` (default 5). Strategy C is positioned BEFORE Strategy B in the Tier 3 evaluation order (C > B > A) because broad UI coverage addresses the "small island" problem: it increases the probability surface for finding MOP methods, including those not mapped by static analysis. Strategy C operates entirely on runtime data and is always available, even without `StaticAnalysisData`.
+
 **Buffer Validation**: After executing each buffered action, the PathBuffer MUST validate that the resulting state matches expectations. If the actual post-execution state does not match the expected state for the current buffer step (e.g., the app navigated to an unexpected screen), the buffer MUST be cleared immediately. This prevents executing stale navigation paths that are no longer valid.
 
 **Integration in select_next_action()**: The PathBuffer is checked first in the action selection order, before untested actions. When the buffer has remaining steps, the next buffered action is returned without consulting the scorer system. When the buffer is empty, normal action selection proceeds.
 
-**Parameters**: `path_buffer_enabled` (bool, default True) controls whether the PathBuffer is active. `mop_nav_weight` (float, 0.5-5.0, default 2.0) controls MOP density influence in Strategy B's BFS (passed through to `TransitionManager`). `max_backtrack_hops` (int, 3-20, default 8) limits the number of BACK actions Strategy A can buffer — if the nearest unsaturated ancestor is farther than this limit, `plan_backtrack_path` returns False and the caller falls through to the next tier.
+**Parameters**: `path_buffer_enabled` (bool, default True) controls whether the PathBuffer is active. `mop_nav_weight` (float, 0.5-5.0, default 2.0) controls MOP density influence in Strategy B's BFS (passed through to `TransitionManager`). `max_backtrack_hops` (int, 3-20, default 8) limits the number of BACK actions Strategy A can buffer — if the nearest unsaturated ancestor is farther than this limit, `plan_backtrack_path` returns False and the caller falls through to the next tier. `max_coverage_hops` (int, 2-10, default 5) limits the BFS depth for Strategy C — screens beyond this hop distance are not considered as navigation targets.
 
 #### Scenario: Buffer Creation via Strategy A (Backtrack)
 
@@ -618,8 +659,9 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 #### Scenario: Buffer Disabled
 
 - **WHEN** `path_buffer_enabled` is False
-- **THEN** the PathBuffer MUST NOT be populated by either Strategy A or Strategy B
+- **THEN** the PathBuffer MUST NOT be populated by Strategy A, Strategy B, or Strategy C
 - **AND** `select_next_action()` MUST skip the buffer check and proceed directly to untested action selection
+- **AND** proactive backtracking (`should_backtrack()`) MUST still operate independently of the buffer
 
 #### Scenario: Backtrack Exceeds max_backtrack_hops
 
@@ -630,13 +672,38 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 - **AND** the PathBuffer MUST NOT be populated
 - **AND** the caller MUST fall through to the next action selection tier (plain BACK or continuous mode)
 
+#### Scenario: Buffer Creation via Strategy C (Coverage Navigation)
+
+- **WHEN** `path_buffer_enabled` is True and the current state is saturated
+- **AND** `SuccessorTracker` has learned transitions to 5 reachable screens
+- **AND** screen S1 has 15 elements with 50% coverage (exploration_potential = 7.5)
+- **AND** screen S2 has 2 elements with 0% coverage (exploration_potential = 2.0)
+- **AND** screen S3 has 20 elements with 90% coverage (exploration_potential = 2.0)
+- **THEN** Strategy C MUST select S1 as the navigation target (highest exploration_potential)
+- **AND** the PathBuffer MUST be populated with the learned transition path to S1
+
+#### Scenario: Strategy C Before Strategy B Ordering
+
+- **WHEN** the current state is saturated (saturation rate exceeds threshold)
+- **AND** Strategy C can plan a path (learned transitions available, high-potential target exists)
+- **AND** Strategy B can also plan a path (StaticAnalysisData available, MOP-dense target exists)
+- **THEN** Strategy C MUST be evaluated first
+- **AND** if Strategy C succeeds, Strategy B MUST NOT be evaluated
+
+#### Scenario: Strategy C Cold Start
+
+- **WHEN** fewer than 3 screens have been discovered (early exploration, < ~30 iterations)
+- **AND** `SuccessorTracker` has recorded few transitions
+- **THEN** Strategy C MUST return False (insufficient learned data for meaningful navigation)
+- **AND** the caller MUST fall through to Strategy B (if available) or Strategy A
+
 #### Scenario: Strategy B Unavailable Without Static Analysis
 
 - **WHEN** `StaticAnalysisData` is None
 - **AND** `path_buffer_enabled` is True
 - **THEN** Strategy B (MOP navigation) MUST NOT be attempted
+- **AND** Strategy C (coverage navigation) MUST still be available (operates on runtime data only)
 - **AND** Strategy A (backtrack to unsaturated ancestor) MUST still be available
-- **AND** the PathBuffer MUST only be populated via Strategy A
 
 #### Scenario: Buffer Priority Over Untested Actions
 
