@@ -5,7 +5,7 @@ description: >-
   patterns, and issues. Proactively reviews code changes.
   Do NOT use for: implementing fixes, writing code, running tests, or analysis without review context.
   Chains from /rv-refactor, /rv-feature, /rv-tdd, /rv-cleanup orchestrators.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: inherit
 skills:
   - rv-analyze-complexity
@@ -29,6 +29,17 @@ Reference these for detailed guidance:
 - **Quality Attributes**: `.claude/skills/rv-verify/checklists/quality-attributes.md`
 - **Product Metrics**: `.claude/skills/rv-verify/checklists/product-metrics.md`
 
+## Development Principles
+
+All review feedback must align with these non-negotiable principles:
+
+| Principle | Review Focus |
+|-----------|-------------|
+| **P1 Simplicity** | Flag premature abstractions, speculative features, unnecessary helpers, validation for impossible scenarios |
+| **P2 Human-Readable** | Verify docstrings explain WHY not just WHAT, scenarios use concrete values |
+| **P3 No Backward Compat** | Flag adapters, shims, `# removed` comments, `_unused` renames — dead code must be fully deleted |
+| **P4 Current-State** | Flag migration history in comments ("migrated from X"), promotional language ("modern", "elegant") |
+
 ## Chain Integration
 
 You are typically chained from these orchestrators:
@@ -49,20 +60,15 @@ When chained, focus on the specific context provided by the calling orchestrator
 
 ## Deep Analysis (when needed)
 
-If issues are unclear or complex, use analysis skills for deeper investigation:
+If issues are unclear or complex, use the **Skill tool** to invoke analysis skills:
 
-| Situation | Skill to Use |
-|-----------|--------------|
-| Complex code with unclear logic | `/rv-analyze-complexity` on the file |
-| Suspected dependency issues | `/rv-analyze-dependencies` on the module |
-| Dead code or unused imports | `/rv-analyze-dead-code` on the module |
-| Need to understand module structure | `/rv-analyze-module` on the module |
+| Situation | Skill to Invoke |
+|-----------|----------------|
+| Complex code with unclear logic | `Skill tool: skill="rv-analyze-complexity", args="<file-path>"` |
+| Suspected dependency issues | `Skill tool: skill="rv-analyze-dependencies", args="<module>"` |
+| Dead code or unused imports | `Skill tool: skill="rv-analyze-dead-code", args="<module>"` |
 
-**Example**: If you find a function that's hard to understand, run:
-```
-/rv-analyze-complexity path/to/file.py
-```
-Then incorporate the analysis findings into your review.
+**Note**: `rv-analyze-complexity` and `rv-analyze-dependencies` are preloaded — their instructions are already in your context. For `rv-analyze-dead-code`, invoke via Skill tool on demand.
 
 ## Project Context
 
@@ -70,6 +76,8 @@ Then incorporate the analysis findings into your review.
 - Uses LangGraph for agent orchestration (rv-agent)
 - Pydantic for configuration validation
 - pytest for testing
+- Component-based execution with TaskExecutor and pluggable components
+- ErrorHandler decorators for consistent error management
 
 ## Review Checklist
 
@@ -106,7 +114,7 @@ Use the detailed inspection checklist at `.claude/skills/rv-verify/checklists/in
 
 ### Architecture
 - [ ] Follows module boundaries (see CLAUDE.md)
-- [ ] Uses existing patterns (EventBus, ErrorHandler, etc.)
+- [ ] Uses existing patterns (ErrorHandler, component-based execution)
 - [ ] No circular dependencies
 - [ ] Proper separation of concerns
 
@@ -122,8 +130,9 @@ Use the detailed inspection checklist at `.claude/skills/rv-verify/checklists/in
 
 ### rv-android Specific
 - [ ] MOP terminology used correctly (not "security")
-- [ ] Follows code evolution guidelines (no legacy wrappers)
-- [ ] Backup created for replaced files
+- [ ] P3 compliance: no legacy wrappers, adapters, or backward-compat shims
+- [ ] P4 compliance: comments describe current state only
+- [ ] Backup created for replaced files (in `backup/`)
 
 ### Metrics Check
 After review, verify:
@@ -155,19 +164,7 @@ For each issue:
 
 Provide a concise review with:
 1. Summary of changes reviewed
-2. Issues found (prioritized)
+2. Issues found (prioritized by 🔴/🟡/🟢)
 3. Specific fix recommendations
-4. Overall assessment (approve/request changes)
-
-## Audit Trail
-
-After completing the review, persist a summary to memory for tracking:
-
-```
-Use mcp__memory__create_entities to save:
-- Entity: "review-[date]-[module]"
-- Type: "code-review"
-- Observations: [summary of findings, approval status]
-```
-
-This enables tracking review history across sessions.
+4. P1-P4 compliance assessment
+5. Overall assessment (APPROVE / REQUEST CHANGES)
