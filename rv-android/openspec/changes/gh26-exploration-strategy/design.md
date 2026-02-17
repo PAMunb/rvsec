@@ -78,6 +78,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `RVAgentConfig` | 8 new calibration parameters | `config/agent_config.py` | Modified |
 | `ScreenNode` | New `action_cumulative_reward` field | `domain/screen_node.py` | Modified |
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
+| `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
 | `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
 | `decision_router_node` | Mode-aware routing (existing); add tracking log for algorithm-fast-path | `agent/nodes/decision_node.py` | Modified |
 | `learn_node` | Reward propagation trigger after action success recording | `agent/nodes/learn_node.py` | Modified |
@@ -105,7 +106,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 **Goals:**
 
 - Fix passive backtracking by introducing proactive BACK when saturation threshold is exceeded, recovering ~20-40% of wasted iterations
-- Rebalance scorer weights so MOP-direct (+500) > MOP-transitive (+300) > WTG (+150), ensuring the agent prioritizes monitored operation paths
+- Rebalance scorer weights so MOP-direct (+500) > MOP-transitive (+300) > WTG (+150), ensuring the agent prioritizes monitored operation paths. Also reduce the existing `stochastic_probability` config field from 0.3 to 0.15 — this parameter controls the probability that `ActionRanker` selects a random action via Gumbel-max sampling instead of the highest-scored one; reducing it makes the agent follow the scorer ranking more deterministically, which is important now that the rebalanced weights carry stronger MOP-directed signal
 - Fix six text input bugs in `InputValueGenerator` to stop wasting iterations on PINs in non-PIN fields and enable all 11 MOP edge-case payloads
 - Add `PathBuffer` for multi-step navigation paths (backtrack to unsaturated ancestor, navigate to MOP-dense Activity via BFS)
 - Add `RewardPropagator` for simplified N-step reward propagation through action chains, extending `StrengthScorer` with cumulative reward data
@@ -577,6 +578,10 @@ reward_score_weight: float = Field(
 )
 ```
 
+### Implementation Prerequisites
+
+The rv-agent `pyproject.toml` dependency constraints must be updated to match the actual installed versions (e.g., `langchain>=1.2`, `langgraph>=1.0`, `langchain-openai>=1.0`). The current constraints (`>=0.3`) are stale and could allow `uv` to resolve an older, incompatible version on a clean install. This is a one-line-per-dependency change with no behavioral impact — it prevents accidental downgrade.
+
 ## Data Flow
 
 ### Single Iteration (pure_algorithm mode, after all improvements)
@@ -722,15 +727,15 @@ Mitigation: `learn_node` validates that the actual next state hash matches the P
 
 | Layer | What to Test | How | Count |
 |-------|-------------|-----|-------|
-| **Unit** | `PathBuffer.plan_backtrack_path()` with mock SuccessorTracker | Mock SuccessorTracker returns known ancestors, verify BACK actions buffered | ~5 tests |
-| **Unit** | `PathBuffer.plan_mop_path()` with mock TransitionManager | Mock WTG with known graph, verify BFS finds correct MOP-dense target | ~5 tests |
-| **Unit** | `PathBuffer.get_next_action()` sequencing | Buffer 3 actions, verify sequential retrieval, verify empty after exhaustion | ~3 tests |
-| **Unit** | `PathBuffer.invalidate()` | Buffer actions then invalidate, verify empty state | ~2 tests |
+| **Unit** | `PathBuffer.plan_backtrack_path()` with mock SuccessorTracker | Mock SuccessorTracker returns known ancestors, verify BACK actions buffered | ~2 tests |
+| **Unit** | `PathBuffer.plan_mop_path()` with mock TransitionManager | Mock WTG with known graph, verify BFS finds correct MOP-dense target | ~2 tests |
+| **Unit** | `PathBuffer.get_next_action()` sequencing | Buffer 3 actions, verify sequential retrieval, verify empty after exhaustion | ~2 tests |
+| **Unit** | `PathBuffer.invalidate()` | Buffer actions then invalidate, verify empty state | ~1 test |
 | **Unit** | `RewardPropagator.propagate()` correctness | Known action history + reward, verify cumulative_reward values in ScreenNode | ~5 tests |
 | **Unit** | `RewardPropagator.propagate()` with short history | History < N items, verify no crash and correct partial propagation | ~2 tests |
 | **Unit** | `RewardPropagator.propagate()` discount calculation | Verify reward * gamma^distance formula for each step | ~2 tests |
-| **Unit** | `should_backtrack()` with saturation threshold | States at 0.7, 0.8, 0.9, 1.0 saturation with threshold=0.8 | ~4 tests |
-| **Unit** | `should_backtrack()` edge cases | Empty graph, single node, state not found, incomplete successors | ~4 tests |
+| **Unit** | `should_backtrack()` with saturation threshold | States at 0.7, 0.8, 0.9, 1.0 saturation with threshold=0.8 | ~3 tests |
+| **Unit** | `should_backtrack()` edge cases | Empty graph, single node, state not found, incomplete successors | ~3 tests |
 | **Unit** | Scorer weight defaults verification | Verify MopScorer=500/300, WtgScorer=150, VisitationPenalty=-15, Stochastic=0.15 | ~2 tests |
 | **Unit** | `GradualDecayScorer` in active scorer list | Verify 9 scorers registered (8 existing + GradualDecayScorer) | ~1 test |
 | **Unit** | `StrengthScorer` with cumulative reward | Known strength + known cumulative_reward, verify combined score | ~3 tests |
@@ -750,7 +755,7 @@ Mitigation: `learn_node` validates that the actual next state hash matches the P
 | **Regression** | Existing scorer tests | All existing scorer tests pass with new defaults | ~existing |
 | **Regression** | Existing input generator tests | All existing InputValueGenerator tests pass with fixed ordering | ~existing |
 
-**Estimated totals**: ~40 unit tests (new), ~15 integration tests (new), existing regression tests pass.
+**Estimated totals**: ~30 unit tests (new), ~15 integration tests (new), existing regression tests pass.
 
 ## Experimental Validation
 

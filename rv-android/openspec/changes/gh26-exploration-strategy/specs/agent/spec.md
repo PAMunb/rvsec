@@ -47,7 +47,11 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 - **INV-AGT-23**: The `InputValueGenerator` MUST call `device.clear_text()` before `input_text()` for all SET_TEXT actions. Text MUST NOT be appended to existing field content.
 
-- **INV-AGT-24**: In `pure_algorithm` mode, the `decision_router_node` MUST skip `capture_screenshot_node` and `llm_generate_node`. This MUST be a per-iteration decision, not a global compile-time flag, so that multimode algorithm iterations also benefit from the fast path.
+- **INV-AGT-24**: The speed optimization for algorithm iterations operates at two levels. First, existing LangGraph graph topology: the `decision_router_node` routes to the `"algorithm"` edge, which bypasses `capture_screenshot_node` and `llm_generate_node` entirely — this is existing per-iteration routing behavior (not a compile-time flag), so multimode algorithm iterations also benefit. Second, NEW from gh26: in `parse_node`, when the current `screen_hash` equals `previous_screen_hash`, the node MUST reuse the cached `screen_desc` from the previous iteration instead of recomputing it. This screen_desc caching eliminates redundant UI parsing when the screen has not changed between iterations.
+
+- **INV-AGT-25**: `SuccessorTracker.find_nearest_unsaturated()` MUST return `Optional[Tuple[str, int]]` where the tuple contains `(state_hash, hop_count)` instead of the previous `Optional[str]`. The `hop_count` indicates the BFS distance (number of BACK actions) to reach the unsaturated ancestor. This return type is a prerequisite for `PathBuffer.plan_backtrack_path()`, which uses the hop_count to determine how many BACK actions to buffer for backtrack navigation.
+
+- **INV-AGT-26**: `RewardPropagator` MUST cap `action_cumulative_reward` at `MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight` (default 3.0 * 5.0 = 15.0). When a cumulative reward addition would exceed this cap, the value MUST be clamped to the cap instead of growing further. Without this cap, `StrengthScorer` scores could grow unbounded over long sessions (300+ iterations), inflating the reward signal and drowning out other scorer contributions.
 
 ## MODIFIED Requirements
 
@@ -468,6 +472,15 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 - **AND** reward propagation MUST operate with non-MOP reward types only (same_state, new_state, new_activity)
 - **AND** the agent MUST NOT crash or produce errors — it operates as a generic UI structure explorer
 
+#### Scenario: Error Recovery Actions Participate in Reward Propagation
+
+- **WHEN** an error recovery action sequence (from gh18, with `decision_maker="error_recovery"`) executes a SET_TEXT on a form field
+- **AND** the SET_TEXT leads to a state transition where a subsequent action triggers a MOP method (detected via `callback_signature`)
+- **AND** `reward_mop_weight` = 5.0, `reward_gamma` = 0.8
+- **THEN** the `REWARD_MOP_REACHED` reward (5.0 * gamma^k for each step k) MUST propagate backward through the error recovery action sequence
+- **AND** the error recovery actions MUST NOT be filtered from `RewardPropagator`'s internal action history based on their `decision_maker` field
+- **AND** the cumulative reward MUST accumulate on the error recovery actions in their respective `ScreenNode` entries, making those recovery paths more attractive in future visits
+
 ### Requirement: Text Input Quality
 
 The `InputValueGenerator` and text input execution pipeline MUST produce context-appropriate input values and handle text field interaction correctly. This requirement addresses six bugs in the current implementation that collectively waste 20-40% of text input iterations and prevent MOP-relevant edge case testing.
@@ -615,3 +628,7 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 - **THEN** `select_next_action()` MUST return the buffered action (Tier 1)
 - **AND** `should_backtrack()` MUST NOT be evaluated (Tier 3 skipped)
 - **AND** proactive backtracking MUST NOT override an active buffer
+
+## Verification Approach
+
+The changes in this delta specification will be validated through a controlled A/B experiment. The experiment uses 10 APKs from the exp02 benchmark set, comparing 3 tools (ape, fastbot, rvagent:pure_algorithm) with 3 repetitions per tool-APK pair at 300 seconds timeout. Primary metrics are method coverage, MOP errors triggered, activity coverage, and UI coverage distribution. Statistical significance is assessed via the Wilcoxon signed-rank test (n=30 per tool). Ape and fastbot serve as unmodified reference baselines for sanity checking. Full experimental design details are in `design.md`.
