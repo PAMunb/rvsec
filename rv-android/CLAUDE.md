@@ -187,6 +187,9 @@ Comments describe what the code does *now*. No migration history ("migrated from
 - Include detailed comments at critical architectural points — explain *why*, not just *what*
 - Follow the comment template in: `ExecutionManager`, `TaskExecutor`
 
+### Git Commits
+- NEVER add `Co-Authored-By` or any co-author trailer to commit messages. The user is the sole author.
+
 ### Constants
 - Use constants instead of magic values whenever possible
 - Main constant files:
