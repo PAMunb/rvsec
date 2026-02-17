@@ -729,29 +729,16 @@ class TestDynamicTransitionGraph:
         # Arrange
         empty_graph.current_activity = "com.example.MainActivity"
 
-        # Act - Note: record_current_to_next calls record_transition incorrectly in the source
-        # This test documents the current broken behavior
-        with pytest.raises(TypeError):
-            empty_graph.record_current_to_next(
-                "com.example.SecondActivity",
-                "button1",
-                "click"
-            )
-
-    def test_record_current_to_next_with_proper_fix(self, empty_graph):
-        """Test record_current_to_next if it were fixed to work correctly."""
-        # Arrange
-        empty_graph.current_activity = "com.example.MainActivity"
-
-        # Act - Manually call what record_current_to_next should do
-        actions = [{"action_id": "button1", "action_type": "click"}]
-        result = empty_graph.record_transition(
-            empty_graph.current_activity,
+        # Act
+        result = empty_graph.record_current_to_next(
             "com.example.SecondActivity",
-            actions
+            "button1",
+            "click"
         )
-        empty_graph.current_activity = "com.example.SecondActivity"
 
         # Assert
         assert result is not None
+        assert result.source_activity == "com.example.MainActivity"
+        assert result.target_activity == "com.example.SecondActivity"
+        assert result.actions == [{"action_id": "button1", "action_type": "click"}]
         assert empty_graph.current_activity == "com.example.SecondActivity"

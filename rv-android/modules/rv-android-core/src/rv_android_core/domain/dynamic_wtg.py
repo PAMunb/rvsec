@@ -414,9 +414,8 @@ class DynamicTransitionGraph:
         if not self.current_activity:
             self.logger.warning(f"Cannot record transition: no current activity set")
             return None
-        # TODO(#24): Review parameter types — record_transition expects
-        # actions: List[Dict] but receives action_id: str and action_type: str.
-        transition = self.record_transition(self.current_activity, next_activity, action_id, action_type)
+        actions = [{"action_id": action_id, "action_type": action_type}]
+        transition = self.record_transition(self.current_activity, next_activity, actions)
         self.current_activity = next_activity
         return transition
 
