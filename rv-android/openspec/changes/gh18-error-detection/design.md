@@ -17,7 +17,7 @@ This design supports change gh18-error-detection, which adds validation error de
 - **NFR04** (Resilience): `VisualErrorDetector` degrades gracefully when `cv2` is unavailable or image loading fails.
 - **NFR06** (Observability): `track.error()` logs detection events with indicator count, confidence, and method.
 
-**Constraints from specs**: Detection is visual-only (color-based via ErrorDetector). Text-based detection for M3 `TextInputLayout.setError()` is documented as future work (D12). The `force_fill_input` flag follows the existing `force_back_action`/`force_restart_app` communication pattern (INV-AG-22). Validation errors MUST NOT connect to `FailedActionScorer` (INV-AG-23).
+**Constraints from specs**: Detection is visual-only (color-based via ErrorDetector). Text-based detection for M3 `TextInputLayout.setError()` is documented as future work (D12). The `force_fill_input` flag follows the existing `force_back_action`/`force_restart_app` communication pattern (INV-AGT-22). Validation errors MUST NOT connect to `FailedActionScorer` (INV-AGT-23).
 
 ## 1. Architecture
 
@@ -96,7 +96,8 @@ algorithm_node:
      c. Best match above threshold (0.1) → generate action based on matched item's events:
         - TEXT_CHANGE → SET_TEXT with test value from InputValueGenerator
         - CLICK → CLICK to interact (e.g., open dropdown for Spinner)
-  2. If no spatial match: fallback to _find_next_input_action() (sequential TEXT_CHANGE iteration)
+  2. If no spatial match: log the failure (valuable calibration data for gh9 — frequency
+     of spatial miss informs threshold tuning), fallback to _find_next_input_action() (sequential TEXT_CHANGE iteration)
   3. Return action with decision_maker="error_recovery", clear force_fill_input + error_indicators
   4. If no input found at all: clear flags, fall through to normal flow
 ```
@@ -125,7 +126,7 @@ Iteration N+1: parse_ui(S_{N+1}) → if hash(S_{N+1}) == hash(S_N): take screens
 | `decision_node` | `rv_agent/agent/nodes/decision_node.py` (modify) | Route `force_fill_input` to algorithm |
 | `algorithm_node` | `rv_agent/agent/nodes/algorithm_node.py` (modify) | Handle `force_fill_input`, spatial association (`_find_associated_input_action`), sequential fallback (`_find_next_input_action`), generate SET_TEXT or CLICK |
 | `AgentState` | `rv_agent/domain/state.py` (modify) | Add `force_fill_input: bool`, `error_detection_screenshot: Optional[str]`, `error_indicators: Optional[List]` |
-| `RVAgentConfig` | `rv_agent/config/agent_config.py` (modify) | Add `error_detection_enabled`, `error_detection_confidence`, `error_max_indicator_size`, `error_max_indicator_count` |
+| `RVAgentConfig` | `rv_agent/config/agent_config.py` (modify) | Add `error_detection_enabled`, `error_detection_confidence`, `error_max_indicator_size`, `error_max_indicator_count`, `spatial_edittext_boost`, `spatial_spinner_boost`, `spatial_min_match_threshold` |
 | `RVAgent` | `rv_agent/agent/rv_agent.py` (modify) | Wire config, init state fields, init `error_recovery_count` |
 | `tracking` | `rv_agent/tracking.py` (modify) | Add `track.error()`, update `track.learn()` with `error_detected` param |
 
@@ -133,20 +134,21 @@ Iteration N+1: parse_ui(S_{N+1}) → if hash(S_{N+1}) == hash(S_N): take screens
 
 | Requirement | Implementation | Test |
 |-------------|---------------|------|
-| INV-AG-20: Validation Error Detection After Action | `learn_node._detect_validation_error()` calls `VisualErrorDetector.detect()` | `test_learn_node_error_detection.py` |
-| INV-AG-21: Stuck Counter Suppression | `learn_node()`: `agent.stuck_screen_count = 0` when error detected | `test_learn_node_error_detection::test_stuck_counter_reset` |
-| INV-AG-22: Input Filling Guidance via Flag | `algorithm_node()`: `force_fill_input` check → `_find_associated_input_action()` | `test_algorithm_node_error_recovery.py` |
-| INV-AG-23: No Action Penalization | Enforced by omission — gh18 does not call `record_action_failure()` | Grep verification (task 9.6) |
-| INV-AG-24: Error Recovery Loop Protection | `learn_node()` 3-way branching: `error_recovery_count >= MAX_ERROR_RECOVERY` guard before calling `_detect_validation_error()` | `test_learn_node_error_detection::test_max_recovery` |
-| INV-AG-25: Conditional Screenshot Capture | `parse_node.py`: `screen_hash == previous_screen_hash` → `take_screenshot()` | `test_parse_node_screenshot.py` |
-| INV-AG-26: Spatial Association | `algorithm_node._find_associated_input_action()`, `_calculate_association_score()` | `test_find_associated_input.py` |
-| INV-AG-27: System Region Masking | `VisualErrorDetector.detect()`: region filter stage (top 5%, bottom 6%) | `test_visual_error_detector::test_region_filter_*` |
+| INV-AGT-20: Validation Error Detection After Action | `learn_node._detect_validation_error()` calls `VisualErrorDetector.detect()` | `test_learn_node_error_detection.py` |
+| INV-AGT-21: Stuck Counter Suppression | `learn_node()`: `agent.stuck_screen_count = 0` when error detected | `test_learn_node_error_detection::test_stuck_counter_reset` |
+| INV-AGT-22: Input Filling Guidance via Flag | `algorithm_node()`: `force_fill_input` check → `_find_associated_input_action()` | `test_algorithm_node_error_recovery.py` |
+| INV-AGT-23: No Action Penalization | Enforced by omission — gh18 does not call `record_action_failure()` | Grep verification (task 9.6) |
+| INV-AGT-24: Error Recovery Loop Protection | `learn_node()` 3-way branching: `error_recovery_count >= MAX_ERROR_RECOVERY` guard before calling `_detect_validation_error()` | `test_learn_node_error_detection::test_max_recovery` |
+| INV-AGT-25: Conditional Screenshot Capture | `parse_node.py`: `screen_hash == previous_screen_hash` → `take_screenshot()` | `test_parse_node_screenshot.py` |
+| INV-AGT-26: Spatial Association | `algorithm_node._find_associated_input_action()`, `_calculate_association_score()` | `test_find_associated_input.py` |
+| INV-AGT-27: System Region Masking | `VisualErrorDetector.detect()`: region filter stage (top 5%, bottom 6%) | `test_visual_error_detector::test_region_filter_*` |
 
 ## 3. API Design
 
 ### VisualErrorDetector
 
 ```python
+from rv_screen_parser.screenshot.detectors import get_error_detector
 from rv_screen_parser.screenshot.models import ErrorIndicator
 
 @dataclass
@@ -155,6 +157,9 @@ class ValidationErrorResult:
     error_indicators: list[ErrorIndicator] # ErrorIndicator objects with x, y, width, height, confidence
     confidence: float                     # max(ind.confidence) across filtered indicators, or 0.0
     detection_method: str                 # "visual_color"
+    filtered_by_size: int = 0             # Count of indicators removed by size filter
+    filtered_by_region: int = 0           # Count of indicators removed by region filter
+    filtered_by_count: bool = False       # True if count filter rejected all remaining
 
 class VisualErrorDetector:
     """Visual validation error detection using rv-screen-parser's ErrorDetector.
@@ -200,6 +205,10 @@ class VisualErrorDetector:
 
     Graceful fallback: returns detected=False if cv2 import fails or image
     cannot be loaded.
+
+    ErrorIndicator objects from ErrorDetector include `detection_method` (DetectionMethod
+    enum) and `error_type` (ErrorType enum) as required fields in addition to x, y,
+    width, height, confidence. Test mocks must include all required fields.
 
     Validated on CryptoApp:
     - Error screenshot (009.png): 2 errors detected, 52x51 px, conf=0.80 → PASS both filters
@@ -301,13 +310,21 @@ def _detect_validation_error(agent: "RVAgent", state: AgentState) -> Optional[Va
             f"Validation error detected: {len(result.error_indicators)} indicators, "
             f"confidence={result.confidence:.2f}"
         )
+    else:
+        # Structured debug logging for calibration diagnostics — helps identify
+        # why detection returned False (threshold too high? all filtered by size?)
+        logger.debug(
+            f"Error detection negative: indicators_before_filter="
+            f"{len(result.error_indicators)}, confidence={result.confidence:.2f}, "
+            f"threshold={agent.error_confidence}"
+        )
 
     return result if result.detected else None
 ```
 
 Integration in `learn_node()`:
 ```python
-# Before stuck detection (before the Level 1 check at line ~148):
+# Before stuck detection (before the Level 1 stuck check):
 # Three-way branching: separate "screen changed" from "max recovery reached"
 # to avoid resetting the counter when the limit is hit (which would create
 # an infinite 4-iteration cycle — see Claude analysis Bug #1).
@@ -337,6 +354,11 @@ else:
 # ... existing stuck detection runs (but won't trigger because count was reset) ...
 
 # In result dict construction (after the force_restart/force_back block):
+# Note: force_fill_input and force_restart_app may both be True simultaneously
+# (error detection runs BEFORE Level 2 StuckRecovery.check()). This is harmless:
+# decision_node/algorithm_node priority is restart > back > fill_input, so restart
+# wins. force_fill_input persists to the next iteration, where learn_node's
+# defensive clear resets it when the screen changes after restart.
 if error_result:
     result["force_fill_input"] = True
     result["error_indicators"] = error_result.error_indicators
@@ -345,29 +367,39 @@ if error_result:
 ### parse_ui_node Screenshot Capture
 
 ```python
-# After computing screen_hash (line 55), check if hash repeats:
+# After computing screen_hash, check if hash repeats:
 error_detection_screenshot = None
 if (getattr(agent, 'error_detection_enabled', True)
     and screen_hash
     and screen_hash == state.get("previous_screen_hash")):
     try:
+        # DeviceInterface.take_screenshot() returns a file path (str) to a PNG
+        # file on the local filesystem. VisualErrorDetector uses cv2.imread()
+        # on this path.
         error_detection_screenshot = agent.device.take_screenshot()
     except Exception as e:
         logger.warning(f"Error detection screenshot failed: {e}")
 
 # Add to return dict:
 # "error_detection_screenshot": error_detection_screenshot
+#
+# Screenshot lifecycle: take_screenshot() returns a file path on the local
+# filesystem. During long runs (100+ iterations), screenshot files may accumulate.
+# Implementation should use tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+# for deterministic cleanup, or reuse/overwrite a fixed path per agent instance.
 ```
 
 ### algorithm_node Handling
 
 ```python
 # Spatial association constants (adapted from rvandroid ErrorAssociationStrategy)
-SPATIAL_EDITTEXT_BOOST = 1.2      # EditText is the primary error target
-SPATIAL_SPINNER_BOOST = 1.1       # Spinner also shows validation errors
+# Configurable via RVAgentConfig for gh9 Optuna calibration:
+#   agent.spatial_edittext_boost    (default 1.2)
+#   agent.spatial_spinner_boost     (default 1.1)
+#   agent.spatial_min_match_threshold (default 0.1)
+# Hardcoded (physical/geometric, not empirical):
 SPATIAL_BELOW_FIELD_SCORE = 0.7   # Error positioned below a field (common validation pattern)
 SPATIAL_BELOW_FIELD_MAX_PX = 100  # Max pixels below field to consider "below"
-SPATIAL_MIN_MATCH_THRESHOLD = 0.1 # Minimum score to accept a spatial match
 
 # After force_back_action return (line 75), before deadlock detection (line 78):
 if state.get("force_fill_input", False):
@@ -411,9 +443,14 @@ if state.get("force_fill_input", False):
                 "error_indicators": None,
             }
     else:
-        # No actionable field found — clear flags, fall through to normal flow
+        # No actionable field found — clear flags explicitly before falling through.
+        # LangGraph state fields persist unless overwritten by the return dict, so
+        # force_fill_input would remain True if not cleared here. learn_node's
+        # defensive clear mitigates this on screen change, but the code should not
+        # rely on that — explicit clearing prevents one wasted iteration.
         logger.info("Error recovery: no actionable field found, resuming normal flow")
-        # Fall through with flags cleared — next line is deadlock detection
+        # Build cleared flags — merge into whatever deadlock/normal selection returns
+        error_recovery_clear = {"force_fill_input": False, "error_indicators": None}
 ```
 
 ### `_find_associated_input_action()` — Spatial Association
@@ -447,7 +484,8 @@ def _find_associated_input_action(
     4. If best score >= SPATIAL_MIN_MATCH_THRESHOLD (0.1):
        - TEXT_CHANGE action → _prepare_input_action() for SET_TEXT with test value
        - CLICK action → return the CLICK action directly
-    5. If no spatial match: fallback to _find_next_input_action() (sequential)
+    5. If no spatial match: log warning with indicator coords and best score
+       (calibration data for gh9), fallback to _find_next_input_action() (sequential)
 
     Coordinate space: ErrorIndicator coordinates and screen item bounds are both
     in device pixel space (screenshot == device resolution, no conversion needed).
@@ -538,7 +576,11 @@ def _find_next_input_action(
 ### decision_node Handling
 
 ```python
-# After force_back_action check (line 47):
+# After force_back_action check:
+# Note: do NOT increment any counter here — error recovery counting is handled
+# by error_recovery_count in learn_node. The existing force_back_action block
+# increments forced_back_count in BOTH decision_node AND algorithm_node (a
+# pre-existing double-increment bug). Do not replicate this pattern.
 if state.get("force_fill_input", False):
     track.route(iter=iteration, mode=mode, path="algorithm(fill_input)")
     return {"decision_path": "algorithm", "decision_maker": "error_recovery"}
@@ -549,10 +591,15 @@ if state.get("force_fill_input", False):
 ```python
 # New function in tracking.py:
 def error(iter: int, indicators_count: int, confidence: float,
-          method: str = "visual") -> None:
-    """Log validation error detection."""
+          method: str = "visual",
+          filtered_by_size: int = 0, filtered_by_region: int = 0,
+          filtered_by_count: bool = False) -> None:
+    """Log validation error detection with filtering stats for calibration."""
     logger.info(_fmt("ERROR", iter=iter, indicators=indicators_count,
-                     confidence=f"{confidence:.2f}", method=method))
+                     confidence=f"{confidence:.2f}", method=method,
+                     filtered_size=filtered_by_size,
+                     filtered_region=filtered_by_region,
+                     filtered_count=filtered_by_count))
 
 # Updated learn() signature:
 def learn(iter: int, stuck: bool, memory_updated: bool,
@@ -666,6 +713,9 @@ All error detection parameters are exposed via `RVAgentConfig` for gh9-docker-ca
 | `error_detection_confidence` | float | `0.7` | [0.3, 0.95] | Confidence threshold for ErrorDetector indicators |
 | `error_max_indicator_size` | int | `80` | [30, 200] | Max px (width or height) for valid error indicator |
 | `error_max_indicator_count` | int | `5` | [2, 20] | Max indicators before assuming red-themed UI |
+| `spatial_edittext_boost` | float | `1.2` | [1.0, 2.0] | Spatial association: EditText priority tiebreaker |
+| `spatial_spinner_boost` | float | `1.1` | [1.0, 2.0] | Spatial association: Spinner priority tiebreaker |
+| `spatial_min_match_threshold` | float | `0.1` | [0.01, 0.5] | Spatial association: minimum score to accept a match |
 
 Constants that remain hardcoded (promote to config only if gh9 calibration reveals sensitivity):
 
@@ -674,11 +724,8 @@ Constants that remain hardcoded (promote to config only if gh9 calibration revea
 | `MAX_ERROR_RECOVERY` | 3 | learn_node | Loop protection — unlikely to need tuning |
 | `SYSTEM_BAR_TOP_PERCENT` | 0.05 | VisualErrorDetector | Matches RVAgentStrategy.STATUSBAR_Y_PERCENT — top 5% is status bar |
 | `SYSTEM_BAR_BOTTOM_PERCENT` | 0.06 | VisualErrorDetector | Matches 1 - RVAgentStrategy.NAVBAR_Y_PERCENT (0.94) — bottom 6% is nav bar |
-| `SPATIAL_EDITTEXT_BOOST` | 1.2 | algorithm_node | Tiebreaker, not a primary scoring factor |
-| `SPATIAL_SPINNER_BOOST` | 1.1 | algorithm_node | Tiebreaker, not a primary scoring factor |
 | `SPATIAL_BELOW_FIELD_SCORE` | 0.7 | algorithm_node | Heuristic threshold — geometric, not empirical |
 | `SPATIAL_BELOW_FIELD_MAX_PX` | 100 | algorithm_node | Physical constraint — error indicators don't appear >100px below |
-| `SPATIAL_MIN_MATCH_THRESHOLD` | 0.1 | algorithm_node | Minimum noise floor — below this is no match |
 
 ## 7. Testing Strategy
 

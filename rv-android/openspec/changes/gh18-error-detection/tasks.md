@@ -41,14 +41,14 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
   - region filter pass (mock returns indicator at y=500 → accepted, within content area)
   - count filter (mock returns 8 indicators → rejected by max_indicator_count=5)
   - mixed (mock returns 3 small + 2 large → large rejected, 3 small pass)
-- [ ] 2.2 Create `modules/rv-agent/src/rv_agent/services/error_detection.py` with `ValidationErrorResult` dataclass (`detected: bool`, `error_indicators: list[ErrorIndicator]`, `confidence: float` = max across indicators, `detection_method: str`) and `VisualErrorDetector` class — wraps `get_error_detector().detect_errors(image, [])` from rv-screen-parser, applies 4-stage filtering (confidence → size → region → count), graceful fallback on import/load failure. Region filter uses percentage thresholds (SYSTEM_BAR_TOP_PERCENT=0.05, SYSTEM_BAR_BOTTOM_PERCENT=0.06) matching `RVAgentStrategy` system action thresholds, requires image height from cv2.imread shape.
+- [ ] 2.2 Create `modules/rv-agent/src/rv_agent/services/error_detection.py` with `ValidationErrorResult` dataclass (`detected: bool`, `error_indicators: list[ErrorIndicator]`, `confidence: float` = max across indicators, `detection_method: str`, `filtered_by_size: int` = count removed by size filter, `filtered_by_region: int` = count removed by region filter, `filtered_by_count: bool` = True if count filter rejected all) and `VisualErrorDetector` class — wraps `get_error_detector().detect_errors(image, [])` from rv-screen-parser, applies 4-stage filtering (confidence → size → region → count), graceful fallback on import/load failure. Region filter uses percentage thresholds (SYSTEM_BAR_TOP_PERCENT=0.05, SYSTEM_BAR_BOTTOM_PERCENT=0.06) matching `RVAgentStrategy` system action thresholds, requires image height from cv2.imread shape.
 - [ ] 2.3 Verify all unit tests pass for VisualErrorDetector
 - [ ] 2.4 Run `/rv-doc-code modules/rv-agent/src/rv_agent/services/error_detection.py`
 
 ## 3. parse_ui_node Screenshot Capture (TDD)
 
 - [ ] 3.1 Create `modules/rv-agent/tests/unit/agent/nodes/test_parse_node_screenshot.py` with test cases: hash repeats + detection enabled -> screenshot taken and stored in state; hash differs -> no screenshot (state value is None); detection disabled -> no screenshot; screenshot exception caught -> warning logged, state value is None
-- [ ] 3.2 Add conditional screenshot capture to `parse_node.py`: after computing `screen_hash`, if `error_detection_enabled` and `screen_hash == state.get("previous_screen_hash")`, call `agent.device.take_screenshot()` and add `"error_detection_screenshot"` to return dict
+- [ ] 3.2 Add conditional screenshot capture to `parse_node.py`: after computing `screen_hash`, if `error_detection_enabled` and `screen_hash == state.get("previous_screen_hash")`, call `agent.device.take_screenshot()` and add `"error_detection_screenshot"` to return dict. Screenshot lifecycle: use a fixed path per agent instance or `tempfile.NamedTemporaryFile(suffix=".png", delete=False)` to avoid file accumulation during long runs
 - [ ] 3.3 Verify all parse_node tests pass (new + existing)
 
 ## 4. learn_node Integration (TDD)
@@ -65,11 +65,11 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
 - [ ] 5.2a Create `modules/rv-agent/tests/unit/agent/nodes/test_find_next_input_action.py` with test cases: screen with TEXT_CHANGE actions -> prepared ItemAction returned; no TEXT_CHANGE actions -> None; all values exhausted -> None; screen_description missing -> None
 - [ ] 5.2b Create `modules/rv-agent/tests/unit/agent/nodes/test_find_associated_input.py` with test cases: overlap match with EditText -> SET_TEXT + 1.2x boost; overlap match with Spinner -> CLICK + 1.1x boost; overlap match with generic component -> CLICK + 1.0x (no boost); below-field heuristic (error 50px below EditText, horizontally aligned) -> score 0.7; no spatial match -> falls back to sequential; empty error_indicators -> None; multiple indicators -> highest-scoring match wins; item with target_view=None -> skipped gracefully
 - [ ] 5.3 Add spatial association functions to `algorithm_node.py`:
-  - Constants: `SPATIAL_EDITTEXT_BOOST = 1.2`, `SPATIAL_SPINNER_BOOST = 1.1`, `SPATIAL_BELOW_FIELD_SCORE = 0.7`, `SPATIAL_BELOW_FIELD_MAX_PX = 100`, `SPATIAL_MIN_MATCH_THRESHOLD = 0.1`
+  - Hardcoded constants: `SPATIAL_BELOW_FIELD_SCORE = 0.7`, `SPATIAL_BELOW_FIELD_MAX_PX = 100`. Configurable via RVAgentConfig (task 6.4): `spatial_edittext_boost` (default 1.2), `spatial_spinner_boost` (default 1.1), `spatial_min_match_threshold` (default 0.1)
   - `_calculate_association_score(error_bounds, item_bounds, item_class)` → overlap + widget boost + below-field heuristic
   - `_find_associated_input_action(agent, state)` → spatial match ErrorIndicator → nearest actionable item (TEXT_CHANGE → SET_TEXT, CLICK → CLICK), skip items where `target_view` or `target_view["bounds"]` is None, fallback to `_find_next_input_action()`
   - `_find_next_input_action(agent, state)` → sequential TEXT_CHANGE iteration (fallback)
-- [ ] 5.4 Add `force_fill_input` check block in `algorithm_node()` after the `force_back_action` return (line 75), before deadlock detection (line 78) — calls `_find_associated_input_action()`, returns SET_TEXT or CLICK, clears `force_fill_input` + `error_indicators`
+- [ ] 5.4 Add `force_fill_input` check block in `algorithm_node()` after the `force_back_action` block, before deadlock detection — calls `_find_associated_input_action()`, returns SET_TEXT or CLICK, clears `force_fill_input` + `error_indicators`. **Important**: the else branch (no actionable field found) MUST explicitly clear `force_fill_input=False` and `error_indicators=None` before falling through to deadlock detection — LangGraph state persists unless overwritten, so omitting the clear would leave the flag True for the next iteration. Build a `error_recovery_clear` dict and merge it into the return dict of whatever path follows (deadlock or normal selection). Note: do NOT increment any counter here — error recovery counting is handled by `error_recovery_count` in learn_node (avoid the `forced_back_count` double-increment anti-pattern in decision_node+algorithm_node)
 - [ ] 5.5 Add `force_fill_input` routing in `decision_node.py` after the `force_back_action` check (line 47)
 - [ ] 5.6 Verify all algorithm_node and decision_node tests pass (new + existing)
 - [ ] 5.7 Run `/rv-doc-code modules/rv-agent/src/rv_agent/agent/nodes/algorithm_node.py`
@@ -85,11 +85,14 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
   - `error_detection_confidence: float = 0.7` — confidence threshold [0.3, 0.95]
   - `error_max_indicator_size: int = 80` — max px for valid indicator [30, 200]
   - `error_max_indicator_count: int = 5` — max indicators before assuming themed UI [2, 20]
-- [ ] 6.5 Wire config values to RVAgent: `agent.error_detection_enabled`, `agent.error_confidence`, `agent.error_max_indicator_size`, `agent.error_max_indicator_count`
+  - `spatial_edittext_boost: float = 1.2` — spatial association EditText priority tiebreaker [1.0, 2.0]
+  - `spatial_spinner_boost: float = 1.1` — spatial association Spinner priority tiebreaker [1.0, 2.0]
+  - `spatial_min_match_threshold: float = 0.1` — minimum score to accept a spatial match [0.01, 0.5]
+- [ ] 6.5 Wire config values to RVAgent: `agent.error_detection_enabled`, `agent.error_confidence`, `agent.error_max_indicator_size`, `agent.error_max_indicator_count`, `agent.spatial_edittext_boost`, `agent.spatial_spinner_boost`, `agent.spatial_min_match_threshold`
 
 ## 7. Tracking
 
-- [ ] 7.1 Add `track.error()` function: `error(iter, indicators_count, confidence, method)` with category `ERROR`
+- [ ] 7.1 Add `track.error()` function: `error(iter, indicators_count, confidence, method, filtered_by_size=0, filtered_by_region=0, filtered_by_count=False)` with category `ERROR` — filtering stats provide calibration data for gh9 Optuna to tune size/region/count thresholds
 - [ ] 7.2 Update `track.learn()` signature: add `error_detected: bool = False` parameter
 - [ ] 7.3 Update categories documentation in module docstring (add ERROR category)
 
@@ -100,6 +103,10 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
 - [ ] 8.3 Create integration test: fill input -> retry button -> no screenshot (hash changed) -> no error -> normal flow resumes, error_recovery_count reset
 - [ ] 8.4 Create integration test: MAX_ERROR_RECOVERY reached -> detection disabled, counter stays at MAX (not reset), stuck_screen_count accumulates -> eventually BACK triggers; then screen changes -> counter resets to 0
 - [ ] 8.5 Create integration test: no spatial match -> falls back to sequential _find_next_input_action()
+- [ ] 8.6 Create integration test: MAX_ERROR_RECOVERY regression — mock error detection returning error for 4+ consecutive iterations → verify error_recovery_count stays at 3 (NOT reset to 0), verify stuck_screen_count accumulates normally (not suppressed), verify BACK triggers after enough iterations. This tests the 3-way branching prevents the infinite 4-iteration cycle (3 detect + 1 skip-and-reset)
+- [ ] 8.7 Create integration test: LLM mode + error recovery bypass — set `agent_mode="llm_only"`, trigger error detection → verify `decision_path="algorithm"` and `decision_maker="error_recovery"`, verify LLM is NOT called for this iteration. Ensures error recovery is mode-independent (force_fill_input check in decision_node runs before routing_manager)
+- [ ] 8.8 Create integration test: concurrent `force_fill_input` + `force_restart_app` — set both flags in learn_node result → verify decision_node routes for restart (higher priority) → verify algorithm_node processes restart (clears force_restart_app) → verify force_fill_input persists → verify learn_node defensive clear resets it when screen changes after restart
+- [ ] 8.9 Create integration test: screenshot state persistence in LangGraph — verify that `parse_ui_node` ALWAYS sets `error_detection_screenshot` in its return dict (either path or None), never omits it. If omitted, LangGraph state would retain a stale screenshot path from a previous iteration, causing phantom error detections
 
 ## 9. Verification (Automated)
 
@@ -109,7 +116,7 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
 - [ ] 9.4 Run `/rv-verify rv-agent` (tests + lint + type)
 - [ ] 9.5 Verify acceptance criteria: validation error detected visually, stuck counter suppressed, input prioritized via spatial association, submit action NOT blacklisted, BACK NOT forced, loop protection active after MAX_ERROR_RECOVERY, Spinner gets CLICK (not SET_TEXT)
 - [ ] 9.6 Grep for `record_action_failure` and `FailedActionScorer` in new/modified files — verify gh18 did not connect validation errors to the action failure system (D4)
-- [ ] 9.7 Invoke `rv-code-reviewer` via Task tool: `subagent_type=rv-code-reviewer, prompt="Review gh18-error-detection implementation: VisualErrorDetector, parse_node screenshot capture, learn_node 3-way branching, algorithm_node spatial association. Focus on: TDD adherence, error handling, state management, INV-AG-20 to INV-AG-27 compliance."`
+- [ ] 9.7 Invoke `rv-code-reviewer` via Task tool: `subagent_type=rv-code-reviewer, prompt="Review gh18-error-detection implementation: VisualErrorDetector, parse_node screenshot capture, learn_node 3-way branching, algorithm_node spatial association. Focus on: TDD adherence, error handling, state management, INV-AGT-20 to INV-AGT-27 compliance."`
 
 ## 10. Smoke Test (Manual)
 

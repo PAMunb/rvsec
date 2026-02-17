@@ -6,49 +6,49 @@
 
 ## New Invariants
 
-### INV-AG-20: Validation Error Detection After Action
+### INV-AGT-20: Validation Error Detection After Action
 
 The agent detects validation error indicators on the current screen after each action execution. Detection uses visual analysis (color-based) on a screenshot via `VisualErrorDetector`, which wraps rv-screen-parser's `ErrorDetector`. Screenshots are only available when `parse_ui_node` detects that the screen hash repeats (same screen after action), indicating the previous action did not cause a screen transition. Detection runs in `learn_node` before stuck detection.
 
 **Rationale**: Without error detection, the agent clicks submit buttons with empty input fields, gets validation errors, and never fills the inputs. This prevents the agent from reaching monitored operations (MOP) behind form submissions. rv-agent explores 188+ Android apps; some display validation errors as purely visual indicators (red icons, colored underlines) where the UIAutomator dump is identical before and after the error — CryptoApp is the validated case. For these apps, text-based detection on UI element text is insufficient, and visual detection via screenshot analysis is required. Note: apps using standard Material Design `TextInputLayout.setError()` change the UIAutomator dump (different screen hash), so gh18's hash-repeat trigger does not cover them — this is documented as future work (text-based detection).
 
-### INV-AG-21: Stuck Counter Suppression on Validation Error
+### INV-AGT-21: Stuck Counter Suppression on Validation Error
 
 When a validation error is detected, the agent resets `stuck_screen_count` to 0. This prevents the stuck detection system from forcing a BACK action, which would navigate away from a screen where the agent should stay and fill inputs.
 
 **Rationale**: Validation errors may not change the screen hash (the error indicator appears on the same screen), which would trigger stuck detection. But backing out is the wrong response — the agent should stay and fill the required inputs.
 
-### INV-AG-22: Input Filling Guidance via `force_fill_input` Flag
+### INV-AGT-22: Input Filling Guidance via `force_fill_input` Flag
 
 When a validation error is detected, `learn_node` sets `force_fill_input = True` and `error_indicators` (list of `ErrorIndicator` objects with coordinates) in the agent state. `algorithm_node` responds by using spatial association to find the input field closest to an error indicator and generating an appropriate action: SET_TEXT for EditText fields, CLICK for Spinner/dropdown fields. If spatial association finds no match, it falls back to sequential iteration of TEXT_CHANGE actions. After the input action is generated, the flag and indicators are cleared.
 
 **Rationale**: The `force_fill_input` flag follows the same communication pattern as `force_back_action` (Level 1 stuck) and `force_restart_app` (Level 2 stuck). learn_node detects conditions, algorithm_node generates the appropriate action. Spatial association ensures the right input is filled when multiple fields show errors simultaneously.
 
-### INV-AG-23: Validation Errors Do NOT Penalize Actions
+### INV-AGT-23: Validation Errors Do NOT Penalize Actions
 
 Validation errors MUST NOT connect to `record_action_failure()` or `FailedActionScorer`. These components exist in the codebase but are not called anywhere in the workflow (TODO #19). The action that caused the validation error (e.g., a "GENERATE HASH" button) is correct — it only fails because input preconditions are not met. Once inputs are filled, the same action should be retried.
 
 **Rationale**: `FailedActionScorer` assigns -9999, permanently blacklisting the action on that screen. Even though it is currently dead code (never triggered), gh18 must not connect validation errors to it. Blacklisting a submit button would prevent the agent from reaching the monitored operations behind it.
 
-### INV-AG-24: Error Recovery Loop Protection
+### INV-AGT-24: Error Recovery Loop Protection
 
 The agent MUST limit consecutive error recovery attempts to `MAX_ERROR_RECOVERY` (3) per screen visit. `error_recovery_count` increments each iteration where error detection triggers. When the limit is reached, detection is disabled and the counter stays at MAX — it does NOT reset while the screen remains the same (screenshot still available). The counter resets to 0 only when the screen changes (no screenshot available, meaning the screen hash differs from the previous iteration). This 3-way branching prevents an infinite cycle where reaching MAX → resetting counter → re-enabling detection → reaching MAX again every 4 iterations.
 
 **Rationale**: Without a limit, the agent could loop indefinitely filling inputs on a screen where validation errors persist (e.g., the app requires a specific format that InputValueGenerator cannot produce). Without the 3-way branching (separating "screen changed" from "max reached"), resetting the counter unconditionally when detection returns None would create a 4-iteration infinite cycle: 3 detection iterations + 1 skip-and-reset iteration, repeating forever. The correct behavior after MAX is reached: `stuck_screen_count` accumulates normally (3, 4, 5, ... 8) until Level 1 stuck detection triggers BACK, navigating the agent away from the screen.
 
-### INV-AG-25: Conditional Screenshot Capture for Error Detection
+### INV-AGT-25: Conditional Screenshot Capture for Error Detection
 
 `parse_ui_node` captures a screenshot for error detection ONLY when the current screen hash equals the previous screen hash (same screen after action). The screenshot path is stored in `state["error_detection_screenshot"]`. When the screen hash differs (normal screen transition), no screenshot is captured and `error_detection_screenshot` is set to None.
 
 **Rationale**: Taking a screenshot every iteration wastes ~100ms. The hash-repeat condition targets the exact scenario where validation errors occur: the agent performed an action but the screen didn't change. If the screen changed, there is no validation error to detect.
 
-### INV-AG-26: Spatial Association for Error-to-Input Mapping
+### INV-AGT-26: Spatial Association for Error-to-Input Mapping
 
 When `force_fill_input` is set, `algorithm_node` uses spatial association to map each `ErrorIndicator` (with x, y, width, height coordinates in device pixel space) to the nearest actionable screen item. Error indicators can appear near any component type — not just EditText and Spinner. The association algorithm calculates an overlap score between each error indicator's bounding box and each screen item's bounds. Widget-type boosts (1.2x for EditText, 1.1x for Spinner) serve as prioritization tiebreakers when multiple items overlap similarly, not as filters. A below-field heuristic handles error indicators positioned up to 100px below a field. The highest-scoring match above the minimum threshold (0.1) is selected. The action generated depends on the matched item's available actions: TEXT_CHANGE → SET_TEXT with test value, CLICK → CLICK to interact. If no spatial match is found, the algorithm falls back to sequential iteration of TEXT_CHANGE actions via `_find_next_input_action()`.
 
 **Rationale**: CryptoApp screenshot 009.png shows errors on both EditText AND Spinner fields simultaneously, but validation errors can appear near any interactive component. Spatial association ensures the correct field is addressed based on proximity to the error indicator, rather than arbitrarily filling the first input found. The algorithm is adapted from the rvandroid tool's `ErrorAssociationStrategy` which used geometric overlap for error→field mapping.
 
-### INV-AG-27: System Region Masking for Error Indicators
+### INV-AGT-27: System Region Masking for Error Indicators
 
 `VisualErrorDetector` filters out error indicators located in system bar areas: top 5% of the screenshot height (status bar) and bottom 6% (navigation bar). These areas contain system-drawn icons (notifications, clock, battery, back/home/recents) that the app developer does not control. The percentages match the existing thresholds used by `RVAgentStrategy._is_system_action()` (`STATUSBAR_Y_PERCENT=0.05`, `NAVBAR_Y_PERCENT=0.94`) for consistency across the system.
 
@@ -89,7 +89,7 @@ AND no screenshot overhead is incurred
 WHEN the agent has filled an input field due to `force_fill_input`
 AND the next screen has a different screen hash (input changed the UI)
 THEN `parse_ui_node` does NOT capture a screenshot (hash differs)
-AND `_detect_validation_error()` returns `False` (no screenshot available)
+AND `_detect_validation_error()` returns `None` (no screenshot available)
 AND `force_fill_input` is NOT set
 AND the agent proceeds with normal exploration
 AND the submit button is available for selection (NOT blacklisted)
@@ -124,7 +124,7 @@ AND the submit action is NOT penalized
 
 WHEN `error_detection_enabled` is set to `False` in `RVAgentConfig`
 THEN `parse_ui_node` does NOT capture error detection screenshots
-AND `_detect_validation_error()` returns `False` without analyzing
+AND `_detect_validation_error()` returns `None` without analyzing
 AND `force_fill_input` is never set
 AND no `track.error()` events are logged
 
@@ -180,3 +180,27 @@ AND `cv2` cannot be imported or `cv2.imread()` returns None
 THEN `detect()` returns `ValidationErrorResult(detected=False, error_indicators=[], confidence=0.0, detection_method="visual_color")`
 AND the agent continues without error detection
 AND no exception is raised
+
+#### Scenario: Error recovery bypasses LLM in llm_only mode
+
+WHEN `agent_mode` is `llm_only`
+AND error detection triggers `force_fill_input = True`
+THEN `decision_node` checks `force_fill_input` before routing to LLM
+AND routes to `algorithm_node` with `decision_maker="error_recovery"`
+AND the LLM is NOT called for this iteration
+AND error recovery is mode-independent
+
+#### Scenario: Concurrent force_fill_input and force_restart_app
+
+WHEN both `force_fill_input = True` and `force_restart_app = True` are set in the same iteration
+THEN `decision_node` routes for restart (higher priority: restart > back > fill_input)
+AND `algorithm_node` processes restart and clears `force_restart_app`
+AND `force_fill_input` persists in state until the next iteration
+AND after restart, `learn_node`'s defensive clear resets `force_fill_input = False` when the screen changes
+
+#### Scenario: Screenshot state always explicitly set in parse_ui_node
+
+WHEN `parse_ui_node` returns its result dict
+THEN `error_detection_screenshot` is ALWAYS included in the return dict
+AND its value is either a file path (hash repeats) or None (hash differs)
+AND LangGraph state never retains a stale screenshot path from a previous iteration
