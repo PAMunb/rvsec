@@ -91,10 +91,22 @@ def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
 def _detect_validation_error(
     agent: "RVAgent", screenshot_path: str
 ) -> Optional[ValidationErrorResult]:
-    """Detect validation errors in a screenshot using visual analysis.
+    """Detect validation errors in a screenshot using visual color analysis.
 
-    Returns ValidationErrorResult if detection ran, None if disabled.
-    Loop protection (MAX_ERROR_RECOVERY) is handled by the caller.
+    Delegate to VisualErrorDetector, which scans for red-colored indicators
+    (error icons, border highlights) that suggest form validation failures.
+    The caller is responsible for loop protection (MAX_ERROR_RECOVERY) —
+    this function only checks the enabled flag and runs detection.
+
+    Args:
+        agent: RVAgent instance. Uses agent.config for error_detection_enabled,
+            error_detection_confidence, error_max_indicator_size, and
+            error_max_indicator_count thresholds.
+        screenshot_path: Absolute path to the screenshot image file.
+
+    Returns:
+        ValidationErrorResult with detected=True/False and error_indicators
+        list if detection ran. None if error detection is disabled in config.
     """
     if not agent.config.error_detection_enabled:
         return None
@@ -158,10 +170,24 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     _record_action_success(agent, state)
 
     # --- Validation error detection (before stuck detection) ---
-    # 3-way branching based on error_detection_screenshot presence and recovery count:
-    #   (a) screenshot=None -> screen changed, reset counter and clear stale state
-    #   (b) screenshot exists, count >= MAX -> skip detection, let stuck logic handle it
-    #   (c) screenshot exists, count < MAX -> run detection, recover if error found
+    #
+    # WHY 3-way branching:
+    # The error_detection_screenshot field is set by parse_node ONLY when the
+    # screen hash is unchanged (same UI). Its presence signals "screen didn't
+    # change, maybe there's a validation error." Its absence means the screen
+    # changed normally, so any previous error state is stale.
+    #
+    # Branch (a) resets the counter because a screen change means the agent
+    # moved past the error — fresh budget for the next error screen.
+    #
+    # Branch (b) does NOT reset the counter. The screen is still unchanged
+    # and we've exhausted recovery attempts. Resetting would create an
+    # infinite loop: detect -> force_fill -> same screen -> detect again.
+    # Instead we stop detecting and let Level 1/2 stuck recovery handle it
+    # (BACK or restart), which actually changes the screen.
+    #
+    # Branch (c) runs detection while budget remains, giving force_fill_input
+    # a chance to fix the validation error (e.g., re-type a form field).
     screenshot_path = state.get("error_detection_screenshot")
     error_detected = False
     error_result_updates = {}

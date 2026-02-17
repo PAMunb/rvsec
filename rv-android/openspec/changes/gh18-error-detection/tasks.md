@@ -43,7 +43,7 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
   - mixed (mock returns 3 small + 2 large → large rejected, 3 small pass)
 - [x] 2.2 Create `modules/rv-agent/src/rv_agent/services/error_detection.py` with `ValidationErrorResult` dataclass (`detected: bool`, `error_indicators: list[ErrorIndicator]`, `confidence: float` = max across indicators, `detection_method: str`, `filtered_by_size: int` = count removed by size filter, `filtered_by_region: int` = count removed by region filter, `filtered_by_count: bool` = True if count filter rejected all) and `VisualErrorDetector` class — wraps `get_error_detector().detect_errors(image, [])` from rv-screen-parser, applies 4-stage filtering (confidence → size → region → count), graceful fallback on import/load failure. Region filter uses percentage thresholds (SYSTEM_BAR_TOP_PERCENT=0.05, SYSTEM_BAR_BOTTOM_PERCENT=0.06) matching `RVAgentStrategy` system action thresholds, requires image height from cv2.imread shape.
 - [x] 2.3 Verify all unit tests pass for VisualErrorDetector
-- [ ] 2.4 Run `/rv-doc-code modules/rv-agent/src/rv_agent/services/error_detection.py`
+- [x] 2.4 Run `/rv-doc-code modules/rv-agent/src/rv_agent/services/error_detection.py`
 
 ## 3. parse_ui_node Screenshot Capture (TDD)
 
@@ -57,7 +57,7 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
 - [x] 4.2 Add `_detect_validation_error()` to `learn_node.py` — returns `Optional[ValidationErrorResult]`, calls `VisualErrorDetector.detect()` with screenshot path from state and filter params from agent config (loop protection is handled by the 3-way branching in learn_node before this function is called)
 - [x] 4.3 Integrate error detection into learn_node flow with 3-way branching (before Level 1 stuck check at line ~148): (a) no screenshot (screen changed) → reset `error_recovery_count` to 0, defensively clear `force_fill_input=False` and `error_indicators=None` in result (prevents phantom fills if flags persisted from a previous iteration where force_restart_app took priority); (b) screenshot exists BUT `error_recovery_count >= MAX_ERROR_RECOVERY` → skip detection, do NOT reset counter (let stuck detection accumulate); (c) screenshot exists AND count < MAX → call `_detect_validation_error()`, if error detected: reset `stuck_screen_count`, increment `error_recovery_count`, set `force_fill_input` + `error_indicators` in result dict; if no error: reset `error_recovery_count` to 0. Update `track.learn()` with `error_detected` param
 - [x] 4.4 Verify all learn_node tests pass (new + existing)
-- [ ] 4.5 Run `/rv-doc-code modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` — document `_detect_validation_error` (Tier 1 docstring), add WHY block before 3-way branching explaining counter reset vs. skip vs. detect logic
+- [x] 4.5 Run `/rv-doc-code modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` — document `_detect_validation_error` (Tier 1 docstring), add WHY block before 3-way branching explaining counter reset vs. skip vs. detect logic
 
 ## 5. algorithm_node and decision_node Handling (TDD)
 
@@ -72,7 +72,7 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
 - [x] 5.4 Add `force_fill_input` check block in `algorithm_node()` after the `force_back_action` block, before deadlock detection — calls `_find_associated_input_action()`, returns SET_TEXT or CLICK, clears `force_fill_input` + `error_indicators`. **Important**: the else branch (no actionable field found) MUST explicitly clear `force_fill_input=False` and `error_indicators=None` before falling through to deadlock detection — LangGraph state persists unless overwritten, so omitting the clear would leave the flag True for the next iteration. Build a `error_recovery_clear` dict and merge it into the return dict of whatever path follows (deadlock or normal selection). Note: do NOT increment any counter here — error recovery counting is handled by `error_recovery_count` in learn_node (avoid the `forced_back_count` double-increment anti-pattern in decision_node+algorithm_node)
 - [x] 5.5 Add `force_fill_input` routing in `decision_node.py` after the `force_back_action` check (line 47)
 - [x] 5.6 Verify all algorithm_node and decision_node tests pass (new + existing)
-- [ ] 5.7 Run `/rv-doc-code modules/rv-agent/src/rv_agent/agent/nodes/algorithm_node.py`
+- [x] 5.7 Run `/rv-doc-code modules/rv-agent/src/rv_agent/agent/nodes/algorithm_node.py`
 - [x] 5.8 Run `/rv-verify rv-agent` — intermediate verification after largest group: catches complexity anomalies, formatting, type errors, unused imports before proceeding to G6-G8
 
 ## 6. State and Configuration
@@ -116,7 +116,7 @@ rv-agent wrapper with false-positive filtering. Tests use mocks — detection ac
 - [x] 9.4 Run `/rv-verify rv-agent` (tests + lint + type)
 - [x] 9.5 Verify acceptance criteria: validation error detected visually, stuck counter suppressed, input prioritized via spatial association, submit action NOT blacklisted, BACK NOT forced, loop protection active after MAX_ERROR_RECOVERY, Spinner gets CLICK (not SET_TEXT)
 - [x] 9.6 Grep for `record_action_failure` and `FailedActionScorer` in new/modified files — verify gh18 did not connect validation errors to the action failure system (D4)
-- [ ] 9.7 Invoke `rv-code-reviewer` via Task tool: `subagent_type=rv-code-reviewer, prompt="Review gh18-error-detection implementation: VisualErrorDetector, parse_node screenshot capture, learn_node 3-way branching, algorithm_node spatial association. Focus on: TDD adherence, error handling, state management, INV-AGT-20 to INV-AGT-27 compliance."`
+- [x] 9.7 Invoke `rv-code-reviewer` via Task tool: `subagent_type=rv-code-reviewer, prompt="Review gh18-error-detection implementation: VisualErrorDetector, parse_node screenshot capture, learn_node 3-way branching, algorithm_node spatial association. Focus on: TDD adherence, error handling, state management, INV-AGT-20 to INV-AGT-27 compliance."`
 
 ## 10. Smoke Test (Manual)
 

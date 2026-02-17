@@ -19,9 +19,9 @@ from rv_agent.memory.element_id import make_element_id_from_tuple
 
 logger = logging.getLogger(__name__)
 
-# Spatial association constants
-SPATIAL_BELOW_FIELD_SCORE = 0.7
-SPATIAL_BELOW_FIELD_MAX_PX = 100
+# Spatial association constants for below-field heuristic
+SPATIAL_BELOW_FIELD_SCORE = 0.7  # Score when error indicator is directly below an input field
+SPATIAL_BELOW_FIELD_MAX_PX = 100  # Max vertical distance (px) from field bottom to error center
 
 
 def _calculate_association_score(error_bbox, item_bounds, item_class, agent) -> float:
@@ -94,15 +94,17 @@ def _find_associated_input_action(agent, state) -> Optional[Tuple]:
     """Find the input field closest to an error indicator using spatial association.
 
     Iterates all error indicators and screen items, scoring each pair by
-    spatial proximity. Returns the highest-scoring (action, item) pair
-    above the minimum threshold, or None if no match.
+    spatial proximity. Returns the highest-scoring pair above the minimum
+    threshold, or None if no match.
 
     Args:
         agent: RVAgent instance with spatial config
+            (spatial_min_match_threshold, spatial_edittext_boost)
         state: Agent state with error_indicators and screen_description
 
     Returns:
-        (action, item) tuple or None if no match above threshold
+        Tuple of (ItemAction, ScreenItem) for the best-matching input field,
+        or None if no pair scores above spatial_min_match_threshold.
     """
     error_indicators = state.get("error_indicators")
     if not error_indicators:
@@ -175,7 +177,14 @@ def _build_error_recovery_action(agent, matched_action, state) -> Optional[Dict[
         state: Agent state (for context)
 
     Returns:
-        Unified action dict or None if coordinates unavailable
+        Unified action dict with keys:
+        - "action_type" (str): SET_TEXT or CLICK
+        - "x", "y" (int): Execution coordinates
+        - "text" (str): Generated value for SET_TEXT, original text for CLICK
+        - "source" (str): Always "algorithm"
+        - "reason" (str): Always "error_recovery"
+        - "id" (str): Widget identifier from matched_action
+        Returns None if matched_action has no valid coordinates.
     """
     coords = matched_action.get_execution_coordinates()
     if not coords:
