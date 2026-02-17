@@ -704,13 +704,13 @@ The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `se
 ## Risks / Trade-offs
 
 **[WTG score reduction]** Reducing WTG from 250 to 150 could hurt navigation through non-MOP intermediate screens that are necessary to reach MOP-containing Activities. For example, a "Settings" screen (no MOP methods) that leads to "Security Settings" (with MOP methods) would get lower WTG priority.
-Mitigation: The ablation study (post-implementation) will measure this. If the +7.2 configuration step shows a regression, the WTG default should stay at 200-250 and gh9 calibration will find the optimal value. Additionally, PathBuffer Strategy B navigates through intermediate screens explicitly, partially compensating for lower WTG scores on individual actions.
+Mitigation: The post-implementation validation experiment (see "Experimental Validation" section) will measure this across 10 APKs with 3 repetitions. If rvagent:pure_algorithm shows regression in method coverage, the WTG default should stay at 200-250 and gh9 calibration will find the optimal value. Additionally, PathBuffer Strategy B navigates through intermediate screens explicitly, partially compensating for lower WTG scores on individual actions.
 
 **[should_backtrack() is untested dead code]** The method exists at `rvagent_strategy.py:447` but has never been called in production. It may contain bugs in edge cases (single-node graph, states removed from graph, successor tracker inconsistency).
 Mitigation: Write comprehensive unit tests for `should_backtrack()` BEFORE integrating it into the action selection flow. Test cases must cover: saturated state, partially-explored state, state with incomplete successors, single-node graph, state not in graph, and the new saturation threshold behavior.
 
 **[Non-independent gain estimates]** The 9 improvements interact non-linearly. Faster iterations (speed optimization) amplify better decisions (proactive backtracking, path buffer). Scorer rebalancing only matters WITH proactive backtracking since continuous mode bypasses the scorer system. The realistic combined gain is ~60-70% of the naive sum of individual estimates.
-Mitigation: The ablation study quantifies actual per-improvement contribution by adding one improvement at a time to a baseline configuration (5 apps, 1 rep, 300s, 8 configurations). This provides thesis-quality evidence for each improvement's contribution.
+Mitigation: The validation experiment (see "Experimental Validation" section) measures the combined effect of all 9 improvements against a pre-implementation baseline (10 APKs, 3 tools, 3 reps, 300s, Wilcoxon signed-rank test). Per-improvement ablation is deferred to gh9 calibration, which tests parameter combinations systematically via Optuna.
 
 **[Speed optimization mode-awareness]** Skipping screenshot capture in algorithm iterations must not break multimode LLM iterations. If the routing check has a bug, LLM iterations could run without screenshots, producing invalid actions.
 Mitigation: The speed optimization is a conditional skip in `decision_router_node`, not a removal of the screenshot node from the graph. The LangGraph workflow still contains all nodes; the router simply sends algorithm iterations on the "algorithm" edge (which bypasses `capture_screenshot_node` by graph topology) while LLM iterations follow the "llm" edge (which includes `capture_screenshot_node`). This is the existing routing mechanism -- no new skip logic is needed for the LangGraph graph itself. The speed optimization focuses on caching `screen_desc` when hash is unchanged in `parse_node` and skipping unnecessary UIAutomator re-dumps.
@@ -751,6 +751,129 @@ Mitigation: `learn_node` validates that the actual next state hash matches the P
 | **Regression** | Existing input generator tests | All existing InputValueGenerator tests pass with fixed ordering | ~existing |
 
 **Estimated totals**: ~40 unit tests (new), ~15 integration tests (new), existing regression tests pass.
+
+## Experimental Validation
+
+Unit and integration tests verify correctness, but the 9 improvements interact non-linearly and their combined effect on exploration quality can only be measured empirically. This section defines a controlled A/B experiment: a baseline run (pre-gh26) and a validation run (post-gh26) on the same APK set, tools, and configuration.
+
+### Experiment Design
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| **APK set** | 10 APKs from experiment 02 (exp02 dataset) | Diverse categories (Money, Internet, Multimedia, Writing, Games), all have JCA+generic specs, previously validated in rvsec-02 |
+| **Spec set** | JCA (23 specs) | Thesis focus; MOP coverage is the primary quality metric |
+| **Tools** | `ape`, `fastbot`, `rvagent:pure_algorithm` | APE and Fastbot serve as unmodified reference baselines (sanity check); rvagent is the subject under test |
+| **Timeout** | 300s (5 min) | Matches the standard experiment duration used in thesis experiments and gh9 calibration |
+| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std; Wilcoxon test needs ≥5 paired observations (we have 30: 10 APKs × 3 reps) |
+| **Total tasks** | 90 (10 × 3 × 3) per phase | Two phases: baseline (90) + validation (90) = 180 total tasks |
+| **Parallelism** | 2 Docker containers on laptop | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
+
+### APK Set (exp02)
+
+The 10 APKs selected from `apks_complete.csv` where `exp02=True`:
+
+| APK | Package | Category | Methods |
+|-----|---------|----------|---------|
+| com.blogspot.e_kanivets.moneytracker_38.apk | com.blogspot.e_kanivets | Money | 1205 |
+| com.gianlu.dnshero_40.apk | com.gianlu | Internet | 435 |
+| com.github.axet.hourlyreminder_476.apk | com.github.axet.hourlyreminder | Multimedia | 724 |
+| com.pindroid_69.apk | com.pindroid | Internet | 640 |
+| com.rafapps.simplenotes_7.apk | com.rafapps.simplenotes | Writing | 161 |
+| com.thibaudperso.sonycamera_24.apk | com.thibaudperso.sonycamera | Multimedia | 454 |
+| li.klass.fhem_141.apk | li.klass.fhem | Internet | 2417 |
+| org.pulpdust.lesserpad_42.apk | org.pulpdust.lesserpad | Writing | 129 |
+| org.secuso.privacyfriendlydicer_8.apk | org.secuso.privacyfriendlydicer | Games | 82 |
+| org.secuso.privacyfriendlyludo_5.apk | org.secuso.privacyfriendlyludo | Games | 269 |
+
+Range: 82-2417 methods (median ~450). All 10 have `exp01_jca=True` and `exp01_generic=True`, ensuring JCA monitored operations are present.
+
+### Docker Execution Architecture
+
+Follows the container-level parallelism pattern from gh9 and rvsec-02. Each phase has its own docker-compose file.
+
+**Phase 0 — Preprocessing** (single container, ~20-30 min):
+
+```
+docker-compose.preprocess.yml
+  └── preprocess_0:
+        image: phtcosta/rvandroid
+        RV_SKIP_EXECUTION=true (instrumentation + static analysis only)
+        volumes:
+          - /home/pedro/desenvolvimento/RV_ANDROID/apks:/opt/rvsec/rv-android/apks:ro
+          - exp02_apks.txt filter
+          - output → instrumented_apks/
+        output: 10 instrumented APKs + .gesda + .wtg + .reach per APK
+```
+
+**Phase 1 — Baseline** (2 containers, ~4-5 hours):
+
+```
+docker-compose.baseline.yml
+  ├── batch_0: (5 APKs)
+  │     image: phtcosta/rvandroid (pre-gh26 codebase)
+  │     RV_TOOLS=ape,fastbot,rvagent:pure_algorithm
+  │     RV_TIMEOUTS=300, RV_REPETITIONS=3
+  │     RV_SKIP_MONITORS=true, RV_SKIP_INSTRUMENT=true, RV_SKIP_STATIC_ANALYSIS=true
+  │     RV_DELAY=0
+  │     volumes: instrumented_apks/:ro → results/baseline/batch_0/
+  └── batch_1: (5 APKs)
+        same config, RV_DELAY=10
+        volumes: → results/baseline/batch_1/
+```
+
+**Phase 2 — Validation** (2 containers, ~4-5 hours):
+
+```
+docker-compose.validation.yml
+  ├── batch_0: (5 APKs)
+  │     image: phtcosta/rvandroid:gh26-validation (post-gh26 codebase)
+  │     (identical config to baseline)
+  └── batch_1: (5 APKs)
+```
+
+All docker-compose files are stored in `docker/data/gh26_experiment/`. Instrumented APKs are reused across phases (instrumentation does not change between baseline and validation — only rv-agent code changes).
+
+### Comparison Metrics
+
+**Cross-tool metrics** (from `summary.csv`, available for all 3 tools):
+
+| Metric | Source | What it measures |
+|--------|--------|-----------------|
+| `cov_method` | summary.csv | % of reachable methods executed (REACH denominator) |
+| `cov_act` | summary.csv | % of app activities visited |
+| `cov_rv_method` | summary.csv | % of MOP-reachable methods executed |
+| `errors` | summary.csv | Count of runtime verification violations detected |
+
+**RVAgent-specific metrics** (from tracking JSONL, only for `rvagent:pure_algorithm`):
+
+| Metric | Source | What it measures |
+|--------|--------|-----------------|
+| Unique states | `[RVTRACK:STATE]` entries | Count of distinct `screen_hash` values — measures exploration breadth |
+| Stuck events | `[RVTRACK:LEARN]` with `stuck=true` | Level 1 (BACK) + Level 2 (restart) count — lower is better |
+| PathBuffer activations | `[RVTRACK:BACKTRACK]` | Buffer plan_backtrack + plan_mop count — new in gh26, expected > 0 |
+| Reward propagations | `[RVTRACK:STRENGTH]` | propagate() trigger count — new in gh26, expected > 0 |
+| Action distribution | `[RVTRACK:ACTION]` | Actions grouped by target element type (Button, EditText, CheckBox, ImageView, etc.) — measures UI coverage diversity |
+
+### Statistical Analysis
+
+**Paired comparison design**: Each (APK, tool, repetition) triple in the baseline is paired with the same triple in the validation. This controls for APK complexity and tool characteristics.
+
+| Aspect | Choice | Rationale |
+|--------|--------|-----------|
+| **Test** | Wilcoxon signed-rank | Non-parametric, paired, does not assume normal distribution |
+| **Sample size** | n=30 per tool (10 APKs × 3 reps) | Above minimum for Wilcoxon (n≥5); 3 reps per APK reduces noise |
+| **Effect size** | r = Z / √n | Standardized effect size for non-parametric tests |
+| **Significance** | α=0.05, two-tailed | Standard threshold; report exact p-values |
+| **Multiple comparisons** | Report per-metric, flag if Bonferroni-corrected p > 0.05 | 4 metrics × 3 tools = 12 tests; conservative correction |
+
+**Expected outcomes**:
+- `rvagent:pure_algorithm`: statistically significant improvement in `cov_method` and `errors` (from proactive backtracking + PathBuffer + reward propagation)
+- `ape`, `fastbot`: no significant change (unmodified tools — serve as sanity check that the experiment infrastructure is stable)
+- If rvagent shows regression in any metric, investigate per-APK breakdown and tracking logs to identify which improvement caused it
+
+### Relationship to gh9 Calibration
+
+This experiment uses **default parameter values** (the 8 new config fields at their defaults). It does NOT optimize parameters — that is gh9's responsibility. The purpose is to verify that the gh26 code changes produce measurable improvement even with untuned defaults. gh9 will later find optimal values using Optuna on a larger APK set (75 calibration + 30 holdout).
 
 ## Open Questions
 
