@@ -76,7 +76,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `TransitionManager` | Gains BFS path planning to MOP-dense Activities | `services/transition_manager.py` | Modified |
 | `NavigationGuidance` | MOP-specific LLM prompt enrichment | `services/navigation_guidance.py` | Modified |
 | `RVAgentConfig` | 8 new calibration parameters | `config/agent_config.py` | Modified |
-| `ScreenNode` | New `action_cumulative_reward` field | `domain/screen_node.py` | Modified |
+| `ScreenNode` | New `action_cumulative_reward: Dict[Tuple[Tuple[int,int], str], float]` field (same key type as `action_execution_counts`) | `domain/screen_node.py` | Modified |
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
 | `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
 | `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
@@ -211,6 +211,10 @@ class PathBuffer:
         Postcondition: Advances internal pointer. If this was the last action in the
         buffer, the buffer becomes empty.
 
+        Logs the action via [RVTRACK:BACKTRACK] with a visual path representation
+        (e.g., "[BACK] → [BACK] → [Click 'Settings']") showing current position
+        in the planned path.
+
         Returns:
             Next ItemAction from the buffered path, or None.
         """
@@ -267,6 +271,9 @@ class PathBuffer:
 
         Called when the agent reaches an unexpected state (screen hash does not
         match what the buffer expects). Safe to call when buffer is already empty.
+
+        Logs the discarded path via [RVTRACK:BACKTRACK] with remaining_steps and
+        reason="invalidated".
         """
 
     @property
