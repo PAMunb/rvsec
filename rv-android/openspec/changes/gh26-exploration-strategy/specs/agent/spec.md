@@ -59,6 +59,10 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 - **INV-AGT-36**: The `CoverageDensityScorer` MUST be always active — always registered in the scorer list, not gated on whether `StaticAnalysisData` is present. When tracking data is unavailable (`context.successor_tracker` is None or `context.ui_coverage` is None), the scorer MUST return 0.0 (neutral, does not block action selection). For each candidate action, the scorer MUST query `SuccessorTracker.get_action_destination()` to determine the action's known destination state. If the destination is known, the score MUST be `coverage_density_weight * coverage_gap` where `coverage_gap = untested_elements / total_elements` for the destination screen (from `UICoverageTracker`). If the destination is unknown (action has never been executed or leads to an unrecorded state), the score MUST be `coverage_density_weight * 0.5` (exploration bonus for the unknown). The default `coverage_density_weight` is 200.0, placing CoverageDensityScorer in the same magnitude as `GradualDecayScorer` without overshadowing `MopScorer` (+500). The relative ordering is preserved: MOP-direct (500) > MOP-transitive (300) > Coverage (200) > WTG (150).
 
+- **INV-AGT-37**: Saturation rate MUST only consider actionable (non-system) actions in both numerator and denominator. System actions (BACK, RESTART with `coordinates=None`) injected by the visitor MUST NOT inflate `total_actions` in `DynamicStateGraph.get_or_create_state()`. Without this correction, `get_saturation_rate()` returns N/(N+2) at maximum — screens with fewer than 8 real actions can never reach the 80% `backtrack_saturation_threshold`, rendering proactive backtracking (INV-AGT-31) ineffective for small screens. The visitor still injects BACK/RESTART for action selection; only the saturation denominator is affected.
+
+- **INV-AGT-38**: When all path planning strategies fail in Tier 3 (all reachable states saturated — `plan_coverage_path()`, `plan_mop_path()`, and `plan_backtrack_path()` all return False), the agent MUST fall through to Tier 4 (scored continuous mode) and MUST NOT return a plain BACK action. In Tier 4, the agent MUST use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) instead of `_select_least_executed_action()`. This ensures CoverageDensityScorer, MopScorer, GradualDecayScorer, and SaturationScorer guide re-testing priority during long runs (60-90% of 3-hour experiments operate in Tier 4). The agent MUST never stop selecting actions until timeout — the "never stop" contract is maintained by Tier 4's scored selection, not by a plain BACK fallback.
+
 ## MODIFIED Requirements
 
 ### Requirement: Coverage-Optimized DFS Strategy (FR26)
@@ -69,9 +73,9 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 
 1. **Path buffer**: If `PathBuffer` has a buffered path with remaining steps, execute the next buffered action. This takes highest priority because buffered paths represent multi-step navigation plans toward high-value targets (unsaturated ancestors or MOP-rich Activities).
 2. **Untested actions**: If untested actions exist on the current screen, select one using `ActionRanker` with the full scorer system.
-3. **Proactive backtracking**: If the state's saturation rate exceeds `backtrack_saturation_threshold` (default 0.8), return a BACK action immediately. The `should_backtrack()` method — previously dead code — is activated to perform this saturation check.
-4. **Continuous exploration**: If actions remain but all have been tested at least once, select the least-executed action. This is a fallback for cases where saturation is below the threshold but no untested actions remain.
-5. **BACK**: If no actions are available at all (e.g., all permanently failed), return a BACK action.
+3. **Proactive backtracking**: If the state's saturation rate exceeds `backtrack_saturation_threshold` (default 0.8), try path planning (Strategy C > B > A). If a plan succeeds, buffer it and return the first action. If all plans fail (all reachable states saturated), fall through to Tier 4 — do NOT return a plain BACK. The `should_backtrack()` method — previously dead code — is activated to perform this saturation check.
+4. **Scored continuous exploration**: Use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) with the full scorer system (MopScorer, CoverageDensityScorer, GradualDecayScorer, SaturationScorer, etc.). This replaces the previous `_select_least_executed_action()` to ensure scorer improvements benefit long runs where 60-90% of iterations operate in this tier.
+5. **BACK**: If no actions are available at all (e.g., all permanently failed or ranked list empty), return a BACK action.
 
 **Proactive Backtracking**: When the saturation rate of the current `ScreenNode` exceeds `backtrack_saturation_threshold`, the strategy MUST return a BACK action without entering continuous mode. The `backtrack_saturation_threshold` parameter (float, 0.5-1.0, default 0.8) controls when this triggers. A threshold of 0.8 means that once 80% of actions in a state have been tested, the strategy proactively navigates away. Navigation distance is determined by `SuccessorTracker.find_nearest_unsaturated()` BFS, which returns the hop count to the nearest unsaturated ancestor.
 
@@ -79,7 +83,7 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 
 **Successor Tracking**: The `SuccessorTracker` records which state each action leads to. If a destination state has untested actions, the original action is re-enabled for re-execution. This prevents premature backtracking from "gateway" states (e.g., a Settings button leading to a screen with many sub-options).
 
-**Continuous Exploration**: When the saturation rate is below the threshold and all actions have been tested, the strategy MUST select the least-executed action. The strategy MUST never report being "exhausted." The timeout is the only termination condition.
+**Scored Continuous Exploration**: When the saturation rate is below the threshold and all actions have been tested, the strategy MUST use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) to select the highest-scored action. This ensures CoverageDensityScorer, MopScorer, GradualDecayScorer, and SaturationScorer guide re-testing priority. The strategy MUST never report being "exhausted." The timeout is the only termination condition. When all Tier 3 path plans also fail (all reachable states saturated), the agent falls through to this tier rather than returning a plain BACK, maintaining productive exploration throughout the session.
 
 **Pre-Marking**: Actions are marked as executed in `DynamicStateGraph` BEFORE device execution. If the app crashes during execution, the action is already marked and will not be retried. Failed actions are tracked separately for permanent exclusion.
 
@@ -95,8 +99,9 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 - **AND** `backtrack_saturation_threshold` is 0.8
 - **AND** no path is buffered in `PathBuffer`
 - **THEN** `should_backtrack()` MUST return True
-- **AND** the strategy MUST return a BACK action with reason "proactive_backtrack"
-- **AND** continuous exploration MUST NOT be entered
+- **AND** the strategy MUST try path planning: `plan_coverage_path()` > `plan_mop_path()` > `plan_backtrack_path()` (C > B > A ordering)
+- **AND** if any plan succeeds, the first buffered action MUST be returned
+- **AND** if ALL plans fail (all reachable states saturated), the strategy MUST fall through to Tier 4 (scored continuous mode) — it MUST NOT return a plain BACK from Tier 3
 
 #### Scenario: Saturation Below Threshold Falls Through to Continuous
 
@@ -104,7 +109,7 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 - **AND** `backtrack_saturation_threshold` is 0.8
 - **AND** no untested actions remain after package filtering
 - **THEN** `should_backtrack()` MUST return False
-- **AND** the strategy MUST select the least-executed action (continuous mode)
+- **AND** the strategy MUST use `ActionRanker.rank_actions()` on all filtered actions to select the highest-scored action (scored continuous mode)
 
 #### Scenario: Path Buffer Takes Priority Over Untested Actions
 
@@ -114,12 +119,12 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 - **THEN** the strategy MUST execute the next buffered action
 - **AND** untested action selection MUST be skipped
 
-#### Scenario: Continuous Exploration After Exhaustion
+#### Scenario: Scored Continuous Exploration After Exhaustion
 
 - **WHEN** all actions on the current screen have been tested at least once
 - **AND** the saturation rate (e.g., 0.75) is below `backtrack_saturation_threshold` (0.8)
 - **THEN** the strategy MUST NOT return None
-- **AND** MUST select the least-executed action (sorted by execution count ascending, MOP priority descending)
+- **AND** MUST use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) to select the highest-scored action, guided by the full scorer system (MopScorer, CoverageDensityScorer, GradualDecayScorer, SaturationScorer, StrengthScorer, etc.)
 
 #### Scenario: Successor Re-enablement
 
@@ -136,8 +141,8 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 #### Scenario: All Actions Failed
 
 - **WHEN** all available actions on a screen are permanently failed (crash-causing)
-- **THEN** `_select_least_executed_action()` MUST return None
-- **AND** a BACK action MUST be generated to navigate away
+- **THEN** `ActionRanker.rank_actions()` MUST return an empty list (all actions excluded)
+- **AND** a BACK action MUST be generated to navigate away (Tier 5)
 
 #### Scenario: Strategy C Coverage Navigation in Tier 3
 
@@ -147,6 +152,20 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 - **THEN** the PathBuffer MUST be populated with the 2-step coverage navigation path
 - **AND** `select_next_action()` MUST return the first buffered action from Strategy C
 - **AND** Strategy B (MOP navigation) and Strategy A (backtrack) MUST NOT be evaluated
+
+#### Scenario: Scored Continuous Mode When All Path Plans Fail
+
+- **WHEN** all actions on the current screen are saturated (saturation rate exceeds `backtrack_saturation_threshold`)
+- **AND** `should_backtrack()` returns True
+- **AND** `PathBuffer.plan_coverage_path()` returns False (no high-potential screens reachable)
+- **AND** `PathBuffer.plan_mop_path()` returns False (no MOP-dense targets or no StaticAnalysisData)
+- **AND** `PathBuffer.plan_backtrack_path()` returns False (no unsaturated ancestors within `max_backtrack_hops`)
+- **THEN** the strategy MUST NOT return a plain BACK action from Tier 3
+- **AND** the strategy MUST fall through to Tier 4 (scored continuous mode)
+- **AND** `ActionRanker.rank_actions()` MUST be called on ALL filtered actions (tested + untested)
+- **AND** the highest-scored action MUST be selected
+- **AND** MopScorer, CoverageDensityScorer, GradualDecayScorer, and SaturationScorer MUST influence the selection
+- **AND** this ensures the agent re-tests in MOP-prioritized, coverage-guided order instead of blindly picking the least-executed action
 
 ### Requirement: Composite Action Ranking (FR27)
 
@@ -322,6 +341,7 @@ When static data is not available, all three components gracefully degrade: `Nav
 - **THEN** `format_for_llm()` MUST return a non-empty string starting with "Navigation guidance:"
 - **AND** the string MUST list up to 3 unvisited screens and priority targets
 - **AND** the string MUST include MOP-specific descriptions for elements that reach monitored API calls (e.g., "Button 'Security Settings' leads to Cipher.getInstance via 2 steps")
+- **AND** the MOP context MUST be formatted for inclusion in `prompts/v17.py` (the MOP navigation prompt template)
 
 #### Scenario: Algorithm WTG Scoring
 
@@ -361,7 +381,7 @@ rv-agent MUST support vision-based exploration using the Qwen3-VL model served v
 
 The conditional screenshot capture in `parse_node` added by gh18 (fires on hash-repeat for error detection) MUST be preserved regardless of mode. The speed optimization targets the LLM screenshot path (`capture_screenshot_node`), not the error detection screenshot path.
 
-**MOP-Enriched LLM Prompts**: When static analysis data is available and the current iteration routes to the LLM path, the `LLMClient` MUST include MOP-specific context from `NavigationGuidance.format_for_llm()` in the user message. This provides the VLM with information about which screen elements lead to monitored API calls, enabling semantically informed exploration toward MOP methods.
+**MOP-Enriched LLM Prompts**: When static analysis data is available and the current iteration routes to the LLM path, the `LLMClient` MUST include MOP-specific context from `NavigationGuidance.format_for_llm()` in the user message. This provides the VLM with information about which screen elements lead to monitored API calls, enabling semantically informed exploration toward MOP methods. The MOP context is integrated into the prompt template via `prompts/v17.py` (new — v16 already exists as "Navigation-first exploration"; v17 adds MOP-specific navigation hints).
 
 The `LLMClient` is initialized with `ChatOpenAI` from langchain-openai, configured with parameters from `RVAgentConfig.get_langchain_config()`. Tools are bound via `llm.bind_tools()` using the Android action tool definitions from `sglang_tools.py`.
 
@@ -413,7 +433,7 @@ Default configuration: `Qwen/Qwen3-VL-4B-Instruct`, temperature=0.01, top_p=0.6,
 - **WHEN** the iteration routes to the LLM path
 - **AND** `StaticAnalysisData` is available with MOP data for the current screen
 - **THEN** `NavigationGuidance.format_for_llm()` MUST return MOP-specific guidance
-- **AND** the guidance MUST be included in the user message to `llm_client.generate_action()`
+- **AND** the guidance MUST be included in the user message to `llm_client.generate_action()` via `prompts/v17.py`
 
 ## ADDED Requirements
 
@@ -663,7 +683,7 @@ The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentS
 - **AND** `max_backtrack_hops` is 8
 - **THEN** `plan_backtrack_path` MUST return False (ancestor too far)
 - **AND** the PathBuffer MUST NOT be populated
-- **AND** the caller MUST fall through to the next action selection tier (plain BACK or continuous mode)
+- **AND** the caller MUST fall through to the next action selection tier (scored continuous mode, Tier 4)
 
 #### Scenario: Buffer Creation via Strategy C (Coverage Navigation)
 

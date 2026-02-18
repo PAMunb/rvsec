@@ -54,9 +54,9 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
   │    │       │              StrengthScorer (+ cumulative_reward)
   │    │       │              [reward from RewardPropagator]
   │    │       │
-  │    ├── 3. should_backtrack(saturation_threshold) ──→ plan path or BACK
+  │    ├── 3. should_backtrack(saturation_threshold) ──→ plan path or fall through
   │    ├── 4. PathBuffer: plan_coverage_path() > plan_mop_path() > plan_backtrack_path()
-  │    ├── 5. _select_least_executed_action() (continuous fallback)
+  │    ├── 5. ActionRanker.rank_actions(all_actions) (scored continuous mode)
   │    └── 6. BACK (final fallback)
   │
   │  ──→ validation_node ──→ execute_node ──→ learn_node
@@ -129,7 +129,7 @@ The navigation/graph system consists of five components in a layered architectur
 | GradualDecayScorer activation | FR27 | `rvagent_strategy.py` (__init__ scorer list) | `test_gradual_decay_scorer.py` |
 | N-step reward propagation | FR27 | `reward_propagator.py` (new), `learn_node.py`, `scorers.py` (StrengthScorer), `screen_node.py` | `test_reward_propagator.py`, `test_strength_scorer_reward.py` |
 | Speed optimization (parse_node caching) | FR24 | `parse_node.py`, `decision_node.py` (tracking only) | `test_speed_optimization.py` |
-| LLM MOP guidance | FR24, FR30 | `navigation_guidance.py`, `prompts/v13.py` | `test_mop_guidance.py` |
+| LLM MOP guidance | FR24, FR30 | `navigation_guidance.py`, `prompts/v17.py` (new — v16 already exists) | `test_mop_guidance.py` |
 | Text input quality (6 bug fixes) | FR26 | `input_value_generator.py`, `rvagent_strategy.py`, `execution/tool_executor.py` | `test_input_value_generator.py` |
 | BFS path planning to MOP Activities | FR30 | `transition_manager.py` | `test_transition_manager_bfs.py` |
 | SuccessorTracker return type change | FR26 | `successor_tracker.py` (find_nearest_unsaturated returns Tuple[str, int]) | `test_find_nearest_unsaturated_hop_count.py` |
@@ -198,6 +198,8 @@ The navigation/graph system consists of five components in a layered architectur
 - Dynamic weight adjustment during exploration: adds complexity (when to adjust? based on what signal?) without clear benefit before calibration data exists
 
 **Rationale**: The existing `RVAgentConfig` already has fields for all scorer weights (`mop_direct_score`, `mop_transitive_score`, `wtg_guided_score`, etc.). Changing the defaults is a one-line-per-field modification. gh9's Optuna campaign will search around these defaults for optimal values. This approach is zero-risk: if the new defaults perform worse, gh9 will find better values.
+
+**Saturation calculation correction**: The `total_actions` field in `DynamicStateGraph.get_or_create_state()` currently includes system actions (BACK, RESTART) injected by the visitor with `coordinates=None`. These inflate the denominator of `get_saturation_rate()`: with 8 real actions + 2 system actions, max saturation = 8/10 = 0.8, not 1.0. This means screens with fewer than 8 real actions can never reach the 80% backtrack threshold. Fix: compute `total_actions` excluding system actions (`coordinates is None`). The visitor still injects BACK/RESTART for other consumers (action selection, fallback navigation); only the saturation denominator changes. This is a pre-condition for correct proactive backtracking behavior — without it, the scorer rebalancing and threshold-based backtracking cannot function as designed.
 
 ### D4: Text input fixes -- fix in place vs rewrite
 
@@ -327,7 +329,9 @@ class PathBuffer:
         plan_backtrack_path returns False (no path planned). This prevents
         wasteful sequences of 15-20 consecutive BACK actions that are unlikely
         to succeed due to intermediate dialogs, app restarts, or navigation
-        inconsistencies. The caller falls through to plan_mop_path or plain BACK.
+        inconsistencies. Since Strategy A is evaluated last (C > B > A
+        ordering), a failure here means all three strategies failed — the
+        caller falls through to Tier 4 (scored continuous mode).
 
         Args:
             current_hash: Current state hash.
@@ -702,30 +706,33 @@ def select_next_action(self, current_hash, screen_desc) -> Optional[ItemAction]:
         # ... existing pre-marking and input handling ...
         return selected
 
-    # Tier 3: Proactive backtracking — check saturation threshold
+    # Tier 3: Proactive backtracking — only if plan succeeds
     if self.should_backtrack(current_hash):
-        # Try to plan a path before plain BACK (C > B > A ordering)
         if self.path_buffer.plan_coverage_path():
             return self.path_buffer.get_next_action()
         if self.path_buffer.plan_mop_path(screen_desc.activity, self._get_mop_data()):
             return self.path_buffer.get_next_action()
         if self.path_buffer.plan_backtrack_path(current_hash):
             return self.path_buffer.get_next_action()
-        return self._create_back_action()
+        # All plans failed (all reachable states saturated) — fall through to Tier 4
+        # Do NOT return _create_back_action() here: preserves continuous exploration
 
-    # Tier 4: Continuous mode (least-executed) — only as last resort
+    # Tier 4: Scored continuous mode — ALL actions ranked by full scorer system
     all_filtered = self._get_all_filtered_actions(screen_desc)
     if all_filtered:
         scroll_action = self._try_generate_scroll_action(...)
         if scroll_action:
             return scroll_action
-        selected = self._select_least_executed_action(node, all_filtered)
+        ranked = self.action_ranker.rank_actions(all_filtered, ranking_context)
+        selected = ranked[0] if ranked else None
         if selected:
             return selected
 
     # Tier 5: Final BACK fallback
     return self._create_back_action()
 ```
+
+**Design rationale for Tier 4 scored selection**: In the previous design, Tier 4 used `_select_least_executed_action()` which selects purely by execution count — no scorer involvement. This means all gh26 scorer improvements (CoverageDensityScorer, rebalanced MopScorer, GradualDecayScorer) have zero effect once the agent enters continuous mode. In 3-hour experiments, 60-90% of iterations operate in Tier 4, so the majority of the run would not benefit from the new scorers. By replacing `_select_least_executed_action()` with `ActionRanker.rank_actions()` on ALL actions (tested + untested), the scorers naturally handle the transition from untested to re-testing: `GradualDecayScorer` gives exponential decay (heavily-tested actions get near-zero score), `MopScorer` gives priority regardless of test count, `CoverageDensityScorer` prefers actions leading to less-explored screens, and `SaturationScorer` gives bonus inversely proportional to saturation. This makes continuous mode "smart" — re-tests in MOP-prioritized, coverage-guided order instead of just "pick least-executed." The Tier 3 conditional change (removing the plain BACK fallback when all path plans fail) ensures that when all reachable states are saturated, the agent falls through to Tier 4's scored selection rather than entering an unproductive BACK cycling loop.
 
 ### Modified: should_backtrack()
 
@@ -888,11 +895,12 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    │     ├── StrengthScorer: weight * strength + reward_score_weight * cumulative_reward [NEW]
    │     ├── SystemElementFilter: -5000
    │     └── VisitationPenaltyScorer: -15 * log(1 + visits)  [NEW default; current is -10]
-   ├── Tier 3: should_backtrack(threshold=0.8) → plan path or BACK (C > B > A)
+   ├── Tier 3: should_backtrack(threshold=0.8) → plan path or fall through (C > B > A)
    │     ├── PathBuffer.plan_coverage_path() → BFS on learned transitions to high-potential screen
    │     ├── PathBuffer.plan_mop_path() → BFS to MOP-dense Activity
-   │     └── PathBuffer.plan_backtrack_path() → BACK to unsaturated ancestor
-   ├── Tier 4: Continuous mode (scroll + least-executed)
+   │     ├── PathBuffer.plan_backtrack_path() → BACK to unsaturated ancestor
+   │     └── All plans failed → fall through to Tier 4 (do NOT return plain BACK)
+   ├── Tier 4: Scored continuous mode (scroll + ActionRanker on ALL actions)
    └── Tier 5: BACK fallback
 
 5. validation_node → coordinate validation, loop detection
@@ -968,11 +976,11 @@ The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `se
 | Error | Source | Strategy | Recovery |
 |-------|--------|----------|----------|
 | PathBuffer reaches unexpected state | `learn_node` detects hash mismatch with buffer expectation | Call `PathBuffer.invalidate()`, log warning | Normal action selection resumes (Tier 2-5) |
-| PathBuffer BFS finds no path | `plan_mop_path()` or `plan_backtrack_path()` returns False | Return False, caller falls through to next tier | Strategy proceeds to continuous mode or BACK |
+| PathBuffer BFS finds no path | `plan_mop_path()` or `plan_backtrack_path()` returns False | Return False, caller falls through to next tier | Strategy proceeds to scored continuous mode (Tier 4) |
 | Reward propagation on short history | Internal action history has < N items | Propagate through all available items | No error; works correctly with any history length >= 1 |
 | Missing static analysis data | `TransitionManager` has no WTG, or `StaticAnalysisData` is None | MopScorer returns 0.0, WtgScorer returns 0.0, PathBuffer Strategy B disabled, NavigationGuidance returns empty | Agent operates as generic UI structure explorer; Strategy A (backtrack to unsaturated ancestor) still works |
 | `should_backtrack()` on empty graph | State hash not in `graph.states` | Return True (backtrack from unknown state) | Agent navigates BACK, which is safe behavior for unknown states |
-| `should_backtrack()` on single-node graph | Only one state, no parent | Return based on saturation check; no infinite BACK loop because Tier 4 continuous mode catches this | Least-executed action selected |
+| `should_backtrack()` on single-node graph | Only one state, no parent | Return based on saturation check; no infinite BACK loop because Tier 4 scored continuous mode catches this | Highest-scored action selected via ActionRanker |
 | `GradualDecayScorer` with missing element_id | Action has no `widget_id` and coordinates are None | Return 0.0 (neutral score) | Other scorers determine ranking |
 | `CoverageDensityScorer` cold start | Fewer than 3 screens discovered, SuccessorTracker has few transitions | Return exploration bonus (weight * 0.5) for unknown destinations | GradualDecayScorer provides element-level guidance during cold start |
 | Strategy C no-path found | All reachable screens within `max_coverage_hops` are well-covered (exploration_potential ≈ 0) | `plan_coverage_path()` returns False | Caller falls through to Strategy B or Strategy A |
@@ -988,7 +996,7 @@ Mitigation: The post-implementation validation experiment (see "Experimental Val
 **[should_backtrack() is untested dead code]** The method exists at `rvagent_strategy.py:447` but has never been called in production. It may contain bugs in edge cases (single-node graph, states removed from graph, successor tracker inconsistency).
 Mitigation: Write comprehensive unit tests for `should_backtrack()` BEFORE integrating it into the action selection flow. Test cases must cover: saturated state, partially-explored state, state with incomplete successors, single-node graph, state not in graph, and the new saturation threshold behavior.
 
-**[Non-independent gain estimates]** The 10 improvements interact non-linearly. Faster iterations (speed optimization) amplify better decisions (proactive backtracking, path buffer). Scorer rebalancing only matters WITH proactive backtracking since continuous mode bypasses the scorer system. The realistic combined gain is ~60-70% of the naive sum of individual estimates.
+**[Non-independent gain estimates]** The 10 improvements interact non-linearly. Faster iterations (speed optimization) amplify better decisions (proactive backtracking, path buffer). Scorer rebalancing now benefits BOTH untested action selection (Tier 2) AND continuous mode (Tier 4, which uses ActionRanker.rank_actions() instead of the previous least-executed selection). The realistic combined gain is ~60-70% of the naive sum of individual estimates.
 Mitigation: The validation experiment (see "Experimental Validation" section) measures the combined effect of all 10 improvements against a pre-implementation baseline (10 APKs, 3 tools, 3 reps, 300s, Wilcoxon signed-rank test). Per-improvement ablation is deferred to gh9 calibration, which tests parameter combinations systematically via Optuna.
 
 **[Speed optimization mode-awareness]** Skipping screenshot capture in algorithm iterations must not break multimode LLM iterations. If the routing check has a bug, LLM iterations could run without screenshots, producing invalid actions.
