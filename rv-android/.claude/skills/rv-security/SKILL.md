@@ -8,7 +8,8 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Bash, Task, AskUserQuestion, Skill
+allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion, Skill
+disable-model-invocation: true
 ---
 
 # Security Analysis: $ARGUMENTS

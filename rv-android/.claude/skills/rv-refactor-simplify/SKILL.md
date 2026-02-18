@@ -9,6 +9,7 @@ argument-hint: [file-path]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
+disable-model-invocation: true
 ---
 
 # Simplify Code: $ARGUMENTS

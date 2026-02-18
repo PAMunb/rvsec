@@ -9,6 +9,7 @@ argument-hint: [feature-description or task-description]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion
+disable-model-invocation: true
 ---
 
 # Technical Planning: $ARGUMENTS

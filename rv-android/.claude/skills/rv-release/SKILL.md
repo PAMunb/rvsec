@@ -8,6 +8,7 @@ argument-hint: [major|minor|patch] [module-name (optional)]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Bash, Glob, Edit, Write, AskUserQuestion
+disable-model-invocation: true
 ---
 
 # Release Management: $ARGUMENTS

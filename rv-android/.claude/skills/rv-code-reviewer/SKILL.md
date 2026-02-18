@@ -5,11 +5,10 @@ description: >-
   patterns, and issues. Proactively reviews code changes.
   Do NOT use for: implementing fixes, writing code, running tests, or analysis without review context.
   Chains from /rv-refactor, /rv-feature, /rv-tdd, /rv-cleanup orchestrators.
-tools: Read, Grep, Glob, Bash, Skill
-model: inherit
-skills:
-  - rv-analyze-complexity
-  - rv-analyze-dependencies
+allowed-tools: Read, Grep, Glob, Bash, Skill
+context: fork
+agent: general-purpose
+argument-hint: [module-name or change description]
 ---
 
 # Code Review Specialist
@@ -68,7 +67,7 @@ If issues are unclear or complex, use the **Skill tool** to invoke analysis skil
 | Suspected dependency issues | `Skill tool: skill="rv-analyze-dependencies", args="<module>"` |
 | Dead code or unused imports | `Skill tool: skill="rv-analyze-dead-code", args="<module>"` |
 
-**Note**: `rv-analyze-complexity` and `rv-analyze-dependencies` are preloaded — their instructions are already in your context. For `rv-analyze-dead-code`, invoke via Skill tool on demand.
+**Note**: For all analysis skills, invoke via Skill tool on demand.
 
 ## Project Context
 

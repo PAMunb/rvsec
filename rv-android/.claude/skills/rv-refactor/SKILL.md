@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, AskUserQuestion, Skill
 ---
 
 # Refactoring Orchestrator: $ARGUMENTS
@@ -53,7 +53,7 @@ PHASE 4: VERIFICATION ───────────────────�
     │  Run tests, lint, validate
     ▼
 PHASE 5: CODE REVIEW ─────────────────────────────────────────►
-    │  Chain to rv-code-reviewer agent
+    │  Chain to /rv-code-reviewer skill
     ▼
 CHECKPOINT #2 ◄─────────────────────────────────────── USER ──►
     │  Present results, get final approval
@@ -220,12 +220,12 @@ If any check fails, the skill provides suggested fixes.
 
 ## Phase 5: Code Review
 
-**Chain to rv-code-reviewer agent**:
+**Chain to rv-code-reviewer skill**:
 
 ```
-Use Task tool:
-- subagent_type: rv-code-reviewer
-- prompt: "Review the refactoring changes. Focus on: code quality, architecture adherence, no regressions, testing completeness."
+Use Skill tool:
+- skill: "rv-code-reviewer"
+- args: "Review the refactoring changes. Focus on: code quality, architecture adherence, no regressions, testing completeness."
 ```
 
 Incorporate review findings into final presentation.

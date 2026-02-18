@@ -16,14 +16,14 @@ This document serves as both analysis and plan. The analysis (Sections 2-8) iden
 | Phase | Status | Gate |
 |-------|--------|------|
 | **Phase 1: Empirical Validation** | **COMPLETE** (T1-T11 all pass) | Results validated — Phase 2 proceeds |
-| **Phase 2: Optimization** | **IN PROGRESS** | Implementing R1B, R2, R3, R4, R5 |
+| **Phase 2: Optimization** | **IN PROGRESS** | Implementing R1C, R2, R4 |
 | Phase 3: WORKFLOW.md update (conditional) | BLOCKED by Phase 2 | Only after validated solution is stable |
 
 **Decision matrix** (after Phase 1):
 
 | Validation Result | Action |
 |-------------------|--------|
-| **✓ SELECTED** — Skill tool works in forks AND Task nesting silently ignored | Fix only the 4 orchestrators' Task→rv-code-reviewer. Keep "bombarded" skills as-is. |
+| **✓ SELECTED** — Skill tool works in forks AND Task nesting silently ignored | Convert rv-code-reviewer agent→skill (Solution C), orchestrators use Skill tool. Keep all other forked skills as-is. |
 | Skill tool works in forks BUT Task nesting causes errors | Same fix, but more urgent (errors vs silent failure). |
 | Skill tool does NOT work in forks | Larger restructuring needed — de-fork orchestrators (agente-documentador pattern), evaluate which skills truly benefit from fork. |
 | Hooks reveal unexpected patterns (e.g., session_id reuse, tool availability varies by agent type) | Re-analyze based on empirical data before any changes. |
@@ -199,7 +199,53 @@ Validation performed in `hello-claude-code` project (11 test cases, all PASS). F
 | T10 | Context window identification | PASS | session_id same across contexts; agent_id available in PreToolUse |
 | T11 | Deep nesting (5 levels) | PASS | Fork depth unlimited, ~3-4s latency per level |
 
-**Decision**: Best-case scenario materialized (row 1 of decision matrix). Fix only the 4 orchestrators (de-fork per R1B), keep everything else as-is. Additional optimizations (R2-R5) applied opportunistically.
+**Decision**: Best-case scenario materialized (row 1 of decision matrix). Fix the 4 orchestrators' broken code review chain. All other Skill→Skill chains are valid. See Section 1.9 for the revised approach.
+
+### 1.9 Phase 2 Decision: Solution C (Agent→Skill Conversion)
+
+The initial plan proposed de-forking orchestrators (Solution B) to give them Task tool access. During Phase 2 analysis, a better solution emerged: **eliminate the need for the Task tool entirely** by converting `rv-code-reviewer` from an agent to a skill with `context: fork`.
+
+**Why not de-fork?** Fork is a context isolation feature, not overhead. Orchestrators are large (200-475 lines of SKILL.md content) and produce extensive tool call output during multi-phase workflows. Running them inline pollutes the main context window and accelerates context compaction — the exact problem fork was designed to prevent. The same applies to the 12 "simple" skills originally proposed for de-forking (R3): even a skill that "just runs pytest" produces output that pollutes the caller's context.
+
+**The micro-skills principle**: Every rv-* skill stays forked. Fork acts as a context firewall — the skill runs in its own context window, and only a summary returns to the caller. This keeps the main conversation lean, focused on orchestration, and resistant to context compaction. The deeper the nesting, the more isolated each level is from the main context.
+
+**Solution C — Convert rv-code-reviewer from agent to skill**:
+
+1. Move `rv-code-reviewer` from `.claude/agents/` to `.claude/skills/rv-code-reviewer/SKILL.md`
+2. Add `context: fork` — reviewer runs in its own isolated context (fresh for review)
+3. Orchestrators change `Task(rv-code-reviewer)` → `Skill(rv-code-reviewer)`
+4. T4 confirmed: Skill tool works in forks
+5. T9 confirmed: fork→Skill→fork creates a nested subagent (isolated context at each level)
+6. T11 confirmed: up to 5 fork levels work
+
+**Resulting depth map**:
+
+```
+Level 0: Main conversation (clean — only orchestrates)
+  Level 1: Orchestrator skills (rv-refactor, rv-feature, rv-tdd, rv-cleanup) — forked
+    Level 2: Component skills (rv-analyze-*, rv-verify, etc.) — forked
+    Level 2: rv-code-reviewer — forked (fresh context for review)
+      Level 3: rv-analyze-complexity, rv-analyze-dependencies — forked
+```
+
+Max depth: **3 levels** (T11 validated up to 5).
+
+**Trade-offs accepted**:
+- Loss of `skills:` preloading (agent feature) → reviewer uses Skill tool at runtime instead (works per T4)
+- Loss of `permissionMode: plan` (agent feature) → reviewer instructions already enforce review-only behavior; `allowed-tools` excludes Edit/Write
+- +3-4s latency per fork level → acceptable for a code review quality gate
+
+**Revised recommendation status**:
+
+| Rec | Original Plan | Revised Plan | Status |
+|-----|--------------|--------------|--------|
+| R1 | De-fork 4 orchestrators (Solution B) | Convert reviewer to skill (Solution C) | **REVISED** |
+| R2 | Adopt hook-based tracing | Unchanged | KEEP |
+| R3 | De-fork 12 simple skills | **Cancelled** — fork protects caller context | **CANCELLED** |
+| R4 | Add disable-model-invocation to 7 skills | Unchanged | KEEP |
+| R5 | Add permissionMode: plan to reviewer | **Cancelled** — skill frontmatter lacks this field; instructions + allowed-tools suffice | **CANCELLED** |
+| R6 | Add memory: project to reviewer | Skip per P1 | SKIP |
+| R7 | Verify Skill tool in forks | Resolved by Phase 1 | RESOLVED |
 
 ---
 
@@ -469,25 +515,23 @@ The v1 report characterized G1 as "ALL chaining is broken." This was **wrong**. 
 
 ## 7. Recommendations (Prioritized)
 
-### R1. Fix Task Nesting in Orchestrators (CRITICAL)
+### R1. Fix Task Nesting in Orchestrators (CRITICAL) — **REVISED to Solution C**
 
 **Problem**: 4 forked orchestrator skills attempt `Task(rv-code-reviewer)` — this silently fails.
 
-**Solution A — Fix nesting (minimum change)**: Replace the Task invocation with a post-completion chain message. When the orchestrator finishes, it outputs:
+**Solution A — Chain message**: Orchestrator outputs a chain message; main conversation picks up and spawns reviewer. *Rejected: fragile — depends on main conversation interpreting output as action request.*
 
-```
-CHAIN: rv-code-reviewer — Review [target]. Focus on: [areas].
-```
+**Solution B — De-fork orchestrators**: Remove `context: fork` from orchestrators so Task tool works. *Rejected: pollutes main context window with 200-475 lines of orchestrator content + all tool call output, accelerating context compaction.*
 
-The main conversation (which HAS the Task tool) then spawns rv-code-reviewer.
+**Solution C — Convert rv-code-reviewer from agent to skill (SELECTED)**: Convert the reviewer from `.claude/agents/` to `.claude/skills/rv-code-reviewer/SKILL.md` with `context: fork`. Orchestrators change `Task(rv-code-reviewer)` → `Skill(rv-code-reviewer)`. Fork→Skill→fork creates a nested subagent with isolated context (validated by T4 + T9 + T11). No Task tool needed.
 
-Also remove `Task` from the 4 orchestrators' `allowed-tools` (plus 3 other skills that list it without using it: rv-security, rv-docs-sync, rv-doc-generate-claude-md).
+**Why C over B**: Fork is a context isolation feature. De-forking orchestrators trades one problem (broken code review) for another (context pollution and compaction). Solution C fixes the broken chain while preserving context isolation at all levels.
 
-**Solution B — Adopt agente-documentador pattern (structural fix)**: Remove `context: fork` from the 4 orchestrator skills so they run inline. They keep full access to Task and Skill tools. This is the pattern used by the validated agente-documentador.
+**Changes**:
+- Convert `rv-code-reviewer` from agent to skill with `context: fork` (1 file)
+- Update 4 orchestrators: `Task(rv-code-reviewer)` → `Skill(rv-code-reviewer)` (4 files)
+- Remove unused `Task` from `allowed-tools` of 3 skills: rv-security, rv-docs-sync, rv-doc-generate-claude-md (3 files)
 
-**Recommended**: Solution B. It's more honest architecturally — orchestrators NEED Task/Skill access, which inline execution provides.
-
-**Files**: rv-refactor/SKILL.md, rv-feature/SKILL.md, rv-tdd/SKILL.md, rv-cleanup/SKILL.md (+ 3 others for Task removal)
 **Effort**: ~1-2h | **Risk**: Low | **ROI**: HIGH
 
 ### R2. Adopt Hook-Based Tracing (HIGH)
@@ -508,42 +552,15 @@ This enables:
 **Source**: `agente-documentador/.claude/hooks/trace_logger.py` + `.claude/settings.json`
 **Effort**: ~1h | **Risk**: Zero (hooks are non-blocking, exit 0) | **ROI**: HIGH
 
-### R3. Remove `context: fork` from Simple Skills (MEDIUM)
+### R3. Remove `context: fork` from Simple Skills — **CANCELLED**
 
-**Problem**: ALL 31 rv-* skills use `context: fork`, including trivially simple ones that gain nothing from context isolation.
+**Original proposal**: De-fork 12 "simple" skills that gain nothing from context isolation.
 
-**Skills to de-fork** (12 — simple, single-purpose, mechanical):
+**Cancelled because**: Fork IS the context isolation mechanism. Even "simple" skills produce tool call output that pollutes the caller's context window. A skill that "just runs pytest" still generates test output, failure traces, and result summaries. Running it forked means all that output stays in the skill's isolated context; only a summary returns to the caller.
 
-| Skill | Reason |
-|-------|--------|
-| rv-test-run | Just runs pytest |
-| rv-qa-lint | Just runs linters |
-| rv-qa-lint-fix | Runs linters + auto-fix |
-| rv-refactor-cleanup | Runs black + isort |
-| rv-refactor-constants | Mechanical extraction |
-| rv-doc-readme | Template-driven generation |
-| rv-doc-adr | Template-driven generation |
-| rv-doc-generate-claude-md | Template + analysis |
-| rv-docs-sync | Diff + update |
-| rv-debug-regression | Git history analysis |
-| rv-doc-architecture | Analysis + Mermaid generation |
-| rv-release | Multi-step but mechanical |
+**The micro-skills principle**: All rv-* skills stay forked. Every skill acts as a context firewall, keeping the main conversation (or parent orchestrator) lean and focused. This prevents context compaction during complex multi-skill workflows.
 
-**Skills to keep forked** (19 — benefit from isolation):
-
-| Category | Skills |
-|----------|--------|
-| Analysis (5) | rv-analyze-module, -complexity, -file, -dead-code, -dependencies |
-| Refactoring (2) | rv-refactor-simplify, rv-refactor-extract |
-| Testing (1) | rv-test-add |
-| Verification (1) | rv-verify |
-| Documentation (1) | rv-doc-code |
-| Other (5) | rv-impact-analyzer, rv-planning, rv-risk, rv-security, rv-retrospective |
-| *Orchestrators (4)* | *rv-refactor, -feature, -tdd, -cleanup* — **de-fork per R1B** |
-
-Note: If R1B is adopted (de-fork orchestrators), they move from "keep forked" to "de-forked". Total de-forked: 16 skills.
-
-**Effort**: ~1h | **Risk**: Low | **ROI**: MEDIUM
+**All 31 rv-* skills remain forked.** No changes to fork configuration.
 
 ### R4. Add `disable-model-invocation: true` to Rarely-Used Skills (MEDIUM)
 
@@ -565,13 +582,11 @@ They remain invocable via `/skill-name`.
 
 **Effort**: ~30min | **Risk**: Zero | **ROI**: MEDIUM
 
-### R5. Add `permissionMode: plan` to rv-code-reviewer (MEDIUM)
+### R5. Add `permissionMode: plan` to rv-code-reviewer — **CANCELLED**
 
-**Problem**: rv-code-reviewer should be read-only. Currently has `tools: Read, Grep, Glob, Bash, Skill`.
+**Original proposal**: Add `permissionMode: plan` to enforce read-only behavior at system level.
 
-**Solution**: Add `permissionMode: plan` to frontmatter. Enforces read-only at system level.
-
-**Effort**: 5min | **Risk**: Zero | **ROI**: MEDIUM
+**Cancelled because**: After R1 revision (Solution C), rv-code-reviewer becomes a skill, not an agent. Skill frontmatter does not support `permissionMode`. Read-only behavior is enforced by: (a) `allowed-tools: Read, Grep, Glob, Bash, Skill` — no Edit/Write, and (b) explicit review-only instructions in the skill body.
 
 ### R6. Add `memory: project` to rv-code-reviewer (LOW)
 
@@ -601,42 +616,41 @@ The v1 report correctly identified the Task tool nesting constraint but incorrec
 
 **Working fine**: OpenSpec skills (10 inline skills), direct conversation interactions, `skills:` preloading in rv-code-reviewer agent.
 
-### What is the agente-documentador teaching us?
+### What is the agente-documentador teaching us? (Revised)
 
-1. **Orchestrators should be inline** — they need Task/Skill access
-2. **Only leaf skills should fork** — they benefit from isolation
-3. **Hooks/tracing are essential** — you can't validate architecture without observability
-4. **The agent definition should NOT include Task** — if it can't spawn subagents, don't pretend it can
+1. **Hooks/tracing are essential** — you can't validate architecture without observability
+2. **Fork is a context isolation feature, not overhead** — the agente-documentador uses inline orchestrators because they need Task tool. RV-Android's Solution C eliminates this need, so ALL rv-* skills can stay forked
+3. **The agent definition should NOT include Task** — if it can't spawn subagents, don't pretend it can. Solution C goes further: eliminate the Task dependency entirely by converting the agent to a skill
 
-### Recommended implementation order
+### Recommended implementation order (Revised)
 
 ```
-Phase 1 (resolve critical issues):
-  R1B (de-fork orchestrators)     — fixes broken code review chain
-  R2  (adopt hooks/tracing)       — enables empirical validation
+Phase 2a (resolve critical issue):
+  R1C (agent→skill conversion)    — fixes broken code review chain, preserves fork isolation
+  R2  (adopt hooks/tracing)       — enables empirical validation and observability
 
-Phase 2 (validate and optimize):
-  R7  (verify Skill tool in forks) — resolves G2 uncertainty
-  R3  (de-fork simple skills)      — reduces overhead
-  R4  (disable auto-trigger)       — cleaner UX
+Phase 2b (optimize):
+  R4  (disable auto-trigger)       — cleaner UX for 7 rarely-used skills
 
-Phase 3 (enhance):
-  R5  (permissionMode: plan)       — enforces read-only reviewer
-  R6  (memory: project)            — cross-session learning
+Cancelled:
+  R3  — fork protects caller context (micro-skills principle)
+  R5  — permissionMode not available for skills; instructions + allowed-tools suffice
+  R6  — skip per P1 (simplicity)
+  R7  — resolved by Phase 1 (T4, T6)
 ```
 
 ---
 
-## 9. Verification Plan
+## 9. Verification Plan (Revised)
 
 | After | Test | Pass Criteria |
 |-------|------|---------------|
-| R1B | Invoke `/rv-feature` → verify it runs inline (no "launching agent" message) → verify it can call Task(rv-code-reviewer) from main conversation | Code review phase executes |
-| R2 | Check `.rvagent/logs/trace.log` exists after any session | JSONL entries for all event types |
-| R3 | Invoke `/rv-test-run rv-agent` → verify no forking | Faster response, no subprocess |
-| R4 | Type a generic message → check if disabled skills trigger | Only enabled skills auto-trigger |
-| R5 | Invoke rv-code-reviewer → try Write tool | Permission denied |
-| R7 | Invoke a forked skill that uses Skill tool → check trace log | PRE_TOOL_USE with tool_name: "Skill" present or absent |
+| R1C | Invoke `/rv-refactor rv-agent` → orchestrator reaches code review phase → invokes Skill(rv-code-reviewer) | Code review runs in nested fork (SubagentStart events in trace for both orchestrator and reviewer) |
+| R1C | Invoke `/rv-code-reviewer` directly as slash command | Reviewer runs as forked skill, performs review |
+| R2 | Start session, invoke any tool | `output/trace.log` created with JSONL entries |
+| R2 | Invoke a forked skill | SubagentStart + tool use events + SubagentStop in trace |
+| R4 | Type generic message mentioning "risk" or "security" | `/rv-risk` and `/rv-security` do NOT auto-trigger |
+| R4 | Invoke `/rv-risk rv-agent` explicitly | Still works via slash command |
 
 ---
 
@@ -675,7 +689,7 @@ rv-code-reviewer
 (never reached)
 ```
 
-### Proposed (After R1B + R2 + R3)
+### Proposed (After R1C + R2 + R4) — Solution C
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -686,26 +700,38 @@ rv-code-reviewer
            │                │                │
            ▼                ▼                ▼
      ┌──────────┐    ┌──────────┐    ┌──────────────┐
-     │ Inline   │    │ openspec │    │ Direct       │
+     │ rv-*     │    │ openspec │    │ Direct       │
      │ skills   │    │ skills   │    │ conversation │
-     │ (16)     │    │ (10)     │    │              │
+     │ (31+1)   │    │ (10)     │    │              │
      └─────┬────┘    └──────────┘    └──────────────┘
+           │         (inline, OK)
+   ALL use context: fork
+   (micro-skills: context isolation at every level)
            │
    ┌───────┼───────────────┐
    │       │               │
    ▼       ▼               ▼
-Orchestrators  Simple     De-forked
-(4 inline)    (12 inline)  simple
-   │                       skills
+Orchestrators  Component    Other
+(4 skills)    w/ Skill     (no nesting)
+fork level 1  calls
+   │         fork level 2
    │
-   │  ✓ Task(rv-code-reviewer)
-   │  Main conversation HAS Task tool
+   │  ✓ Skill(rv-code-reviewer)
+   │  Skill tool works in forks (T4)
+   │  Fork→Skill→fork = nested subagent (T9)
    │  → WORKS
    ▼
-rv-code-reviewer         Forked skills
-(agent, reached)         (15 remaining)
-+ permissionMode: plan   Analysis, complex
-+ memory: project        refactoring, etc.
+rv-code-reviewer         Component skills
+(skill, fork level 2)   (fork level 2)
++ fresh context          rv-analyze-*, rv-verify,
++ review-only tools      rv-doc-*, etc.
+   │
+   │  Skill(rv-analyze-complexity)
+   │  fork level 3
+   ▼
+rv-analyze-complexity
+rv-analyze-dependencies
+(fork level 3, max depth)
 ```
 
 ### Agente-documentador (Reference Pattern)

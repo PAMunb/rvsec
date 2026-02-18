@@ -1,6 +1,6 @@
 # Claude Code Configuration - RV-Android
 
-Complete documentation for agents, skills, workflows, and MCP integrations.
+Complete documentation for skills, workflows, and MCP integrations.
 
 ---
 
@@ -9,12 +9,12 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
 1. [Development Principles](#development-principles)
 2. [Architecture Overview](#architecture-overview)
 3. [Frontmatter Reference](#frontmatter-reference)
-4. [Agents](#agents)
+4. [Quality Gate Skill](#quality-gate-skill)
 5. [Orchestrator Skills](#orchestrator-skills)
 6. [Component Skills](#component-skills)
 7. [MCP Servers](#mcp-servers)
 8. [Plugins](#plugins)
-9. [Agent Chains](#agent-chains)
+9. [Skill Chains](#skill-chains)
 10. [Usage Guide](#usage-guide)
 11. [Decision Framework](#decision-framework)
 12. [Examples](#examples)
@@ -75,12 +75,6 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      rv-code-reviewer                               │
-│                   (Agent - Final quality gate)                      │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
 │                     COMPONENT SKILLS                                │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-analyze-*     │  │ rv-refactor-*    │  │ rv-test-*        │  │
@@ -90,6 +84,9 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
 │  │ rv-qa-*, verify  │  │ rv-doc-*, sync   │  │ rv-debug-*       │  │
 │  │ (3 skills)       │  │ (6 skills)       │  │ (1 skill)        │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ rv-code-reviewer (Quality Gate) — context: fork              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
                                   │
                                   ▼
@@ -106,14 +103,13 @@ Complete documentation for agents, skills, workflows, and MCP integrations.
 
 | Type | Location | Invocation | Context | Best For |
 |------|----------|------------|---------|----------|
-| **Agents** | `.claude/agents/` | Claude delegates or explicit | Isolated | Single-file autonomous tasks |
 | **Skills** | `.claude/skills/` | `/skill-name` or auto-trigger | Main or forked | Workflows with supporting files |
 | **MCP Servers** | `claude mcp list` | Tool calls | Persistent | External capabilities |
 | **Plugins** | External | Various | Various | Shared configurations |
 
 **Key Distinction**:
-- **Agents**: Single `.md` file only, NO supporting directories
 - **Skills**: `SKILL.md` file + optional supporting files (templates, checklists, scripts)
+- All rv-* skills use `context: fork` for isolated execution context
 
 ---
 
@@ -152,33 +148,23 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
 
 **Note**: `Skill` is included because this orchestrator invokes other skills like `/rv-analyze-complexity`.
 
-### Agents Frontmatter (.md in .claude/agents/)
+### Quality Gate Skill Frontmatter Example
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `name` | Yes | string | Unique identifier. Lowercase, hyphens only |
-| `description` | Yes | string | When Claude should delegate. Include "use proactively" for auto-delegation |
-| `tools` | No | string/array | Tools the agent can use. Omit to inherit all |
-| `disallowedTools` | No | string/array | Tools to explicitly deny |
-| `model` | No | string | `sonnet`, `opus`, `haiku`, `inherit` (default: `inherit`) |
-| `permissionMode` | No | string | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` |
-| `skills` | No | array | Skills to preload at startup |
-| `hooks` | No | object | Hooks scoped to agent lifecycle |
+The quality gate skill (`rv-code-reviewer`) uses `context: fork` for isolated review context:
 
-**Example:**
 ```yaml
 ---
 name: rv-code-reviewer
 description: >-
-  Expert code reviewer. Use after writing or modifying code to review for quality.
+  Expert code reviewer and quality gate. Use after writing or modifying code to review for quality.
   Do NOT use for: implementing fixes, writing code.
-tools: Read, Grep, Glob, Bash
-model: inherit
-skills:
-  - rv-analyze-complexity
-  - rv-analyze-dependencies
+context: fork
+agent: general-purpose
+allowed-tools: Read, Grep, Glob, Bash, Skill
 ---
 ```
+
+**Note**: `context: fork` ensures the reviewer runs in a fresh, isolated context. `Skill` is included in `allowed-tools` so the reviewer can invoke analysis skills like `/rv-analyze-complexity`.
 
 ### Description Best Practices
 
@@ -225,25 +211,25 @@ Skill tool: skill="rv-analyze-module", args="$ARGUMENTS"
 
 ---
 
-## Agents
+## Quality Gate Skill
 
-Located in `.claude/agents/`. Single `.md` file only (no supporting directories).
+Located in `.claude/skills/rv-code-reviewer/`. Invocable as `/rv-code-reviewer`. Uses `context: fork` for isolated review context.
 
-### rv-code-reviewer
+### /rv-code-reviewer
 
-**Purpose**: Expert code review, final quality gate in agent chain.
+**Purpose**: Expert code review, final quality gate in orchestrator workflows.
 
 **When to Use**:
 - After any code changes
-- As chain endpoint from orchestrators
-- Proactively on `git diff`
+- As chain endpoint from orchestrators (via Skill tool)
+- Directly via `/rv-code-reviewer`
 
-**Preloaded Skills**:
+**Invoked Analysis Skills** (via Skill tool at runtime):
 - `rv-analyze-complexity` - For deep analysis
 - `rv-analyze-dependencies` - For dependency issues
 
 **Chain Integration**:
-- Called by: `rv-refactor`, `rv-feature`, `rv-tdd`, `rv-cleanup`
+- Called by: `rv-refactor`, `rv-feature`, `rv-tdd`, `rv-cleanup` (via Skill tool)
 - Position: Final gate before user approval
 
 **Review Checklist**:
@@ -279,7 +265,7 @@ Located in `.claude/skills/`. Invoke with `/skill-name`. These are complex multi
 ANALYSIS → PLANNING → [CHECKPOINT #1] → EXECUTION → VERIFICATION → CODE REVIEW → [CHECKPOINT #2] → AUDIT
 ```
 
-**Chains To**: `rv-code-reviewer` agent
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
 
 **Supporting Files**: `.claude/skills/rv-refactor/`
 - Templates: `analysis-report.md`, `refactoring-plan.md`, `final-report.md`
@@ -301,7 +287,7 @@ ANALYSIS → PLANNING → [CHECKPOINT #1] → EXECUTION → VERIFICATION → COD
 DISCOVERY → DESIGN → [CHECKPOINT #1: Choose Approach] → PLANNING → [CHECKPOINT #2] → IMPLEMENTATION (TDD) → CODE REVIEW → [CHECKPOINT #3] → AUDIT
 ```
 
-**Chains To**: `rv-code-reviewer` agent
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
 
 **Key Feature**: User CHOOSES approach (not just approves) at first checkpoint.
 
@@ -327,7 +313,7 @@ DISCOVERY → DESIGN → [CHECKPOINT #1: Choose Approach] → PLANNING → [CHEC
 ANALYSIS → TEST PLANNING → [CHECKPOINT #1] → RED (failing tests) → GREEN (minimal impl) → REFACTOR → CODE REVIEW → [CHECKPOINT #2] → AUDIT
 ```
 
-**Chains To**: `rv-code-reviewer` agent
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
 
 **Key Rules**:
 - NEVER write implementation before tests
@@ -365,7 +351,7 @@ ANALYSIS → TEST PLANNING → [CHECKPOINT #1] → RED (failing tests) → GREEN
 ANALYSIS → PLANNING → [CHECKPOINT #1] → EXECUTION (per group with rollback) → CODE REVIEW → [CHECKPOINT #2] → AUDIT
 ```
 
-**Chains To**: `rv-code-reviewer` agent
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
 
 **Safety Features**:
 - Backup before any removal
@@ -704,7 +690,7 @@ Thought 3: Root cause analysis...
 | `feature-[date]-[name]` | feature-implementation | After rv-feature | permanent |
 | `tdd-[date]-[feature]` | tdd-implementation | After rv-tdd | permanent |
 | `cleanup-[date]-[module]` | cleanup-operation | After rv-cleanup | permanent |
-| `review-[date]-[module]` | code-review | After rv-code-reviewer | permanent |
+| `review-[date]-[module]` | code-review | After /rv-code-reviewer | permanent |
 
 **Fallback**: If unavailable, output audit summary directly to user.
 
@@ -758,7 +744,7 @@ Provides additional skills and patterns:
 
 ---
 
-## Agent Chains
+## Skill Chains
 
 ### Standard Chain Flow
 
@@ -767,21 +753,22 @@ Provides additional skills and patterns:
 │                        ORCHESTRATOR                              │
 │  (rv-refactor / rv-feature / rv-tdd / rv-cleanup)               │
 │                                                                  │
-│  1. Analysis phase (uses preloaded skills)                      │
+│  1. Analysis phase (uses component skills via Skill tool)       │
 │  2. Planning phase                                               │
 │  3. User checkpoint (AskUserQuestion)                           │
 │  4. Execution phase                                              │
 │  5. Verification phase                                           │
 └──────────────────────────────────┬───────────────────────────────┘
                                    │
-                                   │ Task tool with
-                                   │ subagent_type: rv-code-reviewer
+                                   │ Skill tool with
+                                   │ skill="rv-code-reviewer"
                                    ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                      rv-code-reviewer                            │
+│                   /rv-code-reviewer                               │
+│                   (forked skill — isolated review context)        │
 │                                                                  │
 │  - Reviews all changes                                           │
-│  - Can invoke analysis skills for deep dive                     │
+│  - Can invoke analysis skills for deep dive (via Skill tool)    │
 │  - Returns findings to orchestrator                              │
 └──────────────────────────────────┬───────────────────────────────┘
                                    │
@@ -798,11 +785,11 @@ Provides additional skills and patterns:
 
 ### Chain Configuration
 
-Orchestrators invoke code review via Task tool:
+Orchestrators invoke code review via Skill tool:
 ```
-Task tool:
-  subagent_type: rv-code-reviewer
-  prompt: "Review the [operation] changes for [target]. Focus on: [specific areas]"
+Skill tool:
+  skill: rv-code-reviewer
+  args: "Review the [operation] changes for [target]. Focus on: [specific areas]"
 ```
 
 ---
@@ -817,7 +804,7 @@ Task tool:
 | "Implement login feature" | `/rv-feature` orchestrator skill | Discovery + design + TDD |
 | "Add tests for X" | `/rv-tdd` orchestrator skill | Strict RED-GREEN-REFACTOR |
 | "Clean up dead code" | `/rv-cleanup` orchestrator skill | Safe removal with rollback |
-| "Review my changes" | `rv-code-reviewer` agent | Expert code review |
+| "Review my changes" | `/rv-code-reviewer` skill | Expert code review |
 | "Check complexity of file" | `/rv-analyze-complexity` skill | Quick analysis |
 | "Run the tests" | `/rv-test-run` skill | Simple test execution |
 | "Fix lint issues" | `/rv-qa-lint-fix` skill | Auto-fix formatting |
@@ -839,9 +826,9 @@ Task tool:
 /rv-qa-lint-fix rv-android-core
 ```
 
-**Agent** - Ask Claude to use:
+**Quality Gate** - Use slash command:
 ```
-Have rv-code-reviewer review my changes
+/rv-code-reviewer
 ```
 
 ### Automatic Invocation
@@ -849,7 +836,7 @@ Have rv-code-reviewer review my changes
 Claude automatically:
 - **Invokes orchestrator skills** based on task description and complexity
 - **Triggers component skills** based on context and description
-- **Chains to code review agent** after orchestrator skill completes
+- **Chains to `/rv-code-reviewer`** after orchestrator skill completes (via Skill tool)
 
 ---
 
@@ -884,7 +871,7 @@ What are you trying to do?
     │
     ├── Remove technical debt → /rv-cleanup
     │
-    └── Review changes → rv-code-reviewer (agent)
+    └── Review changes → /rv-code-reviewer (quality gate skill)
 ```
 
 ### MCP Usage
@@ -915,7 +902,7 @@ Do you need...
 3. **Checkpoint #1**: User approves plan
 4. Executes with backup
 5. Runs tests via `/rv-verify`
-6. Chains to `rv-code-reviewer` agent
+6. Chains to `/rv-code-reviewer` (via Skill tool)
 7. **Checkpoint #2**: User approves result
 8. Persists audit to memory
 
@@ -934,7 +921,7 @@ Do you need...
 4. Planning: detailed steps
 5. **Checkpoint #2**: User approves plan
 6. Implementation with TDD
-7. Chains to `rv-code-reviewer` agent
+7. Chains to `/rv-code-reviewer` (via Skill tool)
 8. **Checkpoint #3**: User approves feature
 9. Persists audit to memory
 
@@ -971,9 +958,6 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 ├── AGENTS.md                          # This file - full documentation
 ├── project-info.md                    # Quick reference (paths, env vars, commands)
 │
-├── agents/                            # Autonomous agents (single .md file only)
-│   └── rv-code-reviewer.md            # Code review quality gate
-│
 └── skills/                            # Invocable skills (via /skill-name)
     │
     │   # Orchestrator Skills (with supporting files)
@@ -1000,6 +984,10 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
     │   ├── SKILL.md
     │   ├── templates/
     │   └── checklists/
+    │
+    │   # Quality Gate Skill
+    ├── rv-code-reviewer/
+    │   └── SKILL.md                   # Forked skill — code review quality gate
     │
     │   # Analysis Skills
     ├── rv-analyze-complexity/
@@ -1111,8 +1099,8 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 
 ## Quick Reference
 
-### Agent
-- `rv-code-reviewer` - Quality gate (delegated by Claude or orchestrators)
+### Quality Gate Skill
+- `/rv-code-reviewer` - Quality gate (invoked by orchestrators via Skill tool, or directly)
 
 ### Orchestrator Skills (invoke via /skill-name)
 - `/rv-refactor` - Restructure code

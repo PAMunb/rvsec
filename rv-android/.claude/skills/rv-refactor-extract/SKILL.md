@@ -9,6 +9,7 @@ argument-hint: [file-path] [target-name]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
+disable-model-invocation: true
 ---
 
 # Extract Component: $ARGUMENTS

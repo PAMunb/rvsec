@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Write, Bash, Task, Skill
+allowed-tools: Read, Grep, Glob, Write, Bash, Skill
 ---
 
 # Generate CLAUDE.md: $ARGUMENTS

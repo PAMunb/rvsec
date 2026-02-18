@@ -8,6 +8,7 @@ argument-hint: [module-name or task-description]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion
+disable-model-invocation: true
 ---
 
 # Risk Management: $ARGUMENTS

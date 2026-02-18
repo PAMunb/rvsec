@@ -7,7 +7,7 @@ description: >-
 argument-hint: [module-name or 'all']
 context: fork
 agent: general-purpose
-allowed-tools: Read, Write, Grep, Glob, Bash, Task, Skill
+allowed-tools: Read, Write, Grep, Glob, Bash, Skill
 ---
 
 # Sync Documentation: $ARGUMENTS

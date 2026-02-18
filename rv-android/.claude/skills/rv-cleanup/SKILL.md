@@ -8,7 +8,7 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, AskUserQuestion, Skill
 ---
 
 # Cleanup Orchestrator: $ARGUMENTS
@@ -60,7 +60,7 @@ PHASE 3: EXECUTION ────────────────────�
     │  Backup → Remove → Test → Rollback if fail (per group)
     ▼
 PHASE 4: CODE REVIEW ─────────────────────────────────────────►
-    │  Chain to rv-code-reviewer subagent
+    │  Chain to /rv-code-reviewer skill
     ▼
 CHECKPOINT #2 ◄─────────────────────────────────────── USER ──►
     │  User approves results
@@ -258,14 +258,14 @@ uv run autoflake --in-place --remove-all-unused-imports src/
 
 ---
 
-## Phase 4: Code Review (Agent Chain)
+## Phase 4: Code Review
 
-**Chain to rv-code-reviewer subagent**:
+**Chain to rv-code-reviewer skill**:
 
 ```
-Use Task tool:
-- subagent_type: rv-code-reviewer
-- prompt: "Review the cleanup changes for [module]. Verify: no functional code removed, all tests pass, no broken imports, no orphaned references."
+Use Skill tool:
+- skill: "rv-code-reviewer"
+- args: "Review the cleanup changes for [module]. Verify: no functional code removed, all tests pass, no broken imports, no orphaned references."
 ```
 
 ### Key Review Points

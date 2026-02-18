@@ -282,23 +282,22 @@ SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid 
 - `/rv-debug-regression` - Regression bug investigation
 - `/rv-doc-*` - Documentation (code, readme, generate-claude-md, architecture, adr, docs-sync)
 
-**Agents** (auto-delegated by Claude):
-- `rv-refactor` - Code restructuring workflow
-- `rv-feature` - Feature implementation workflow
-- `rv-tdd` - Test-driven development workflow
-- `rv-cleanup` - Dead code removal workflow
-- `rv-code-reviewer` - Code review (final gate)
+**Orchestrators** (invoke via `/skill-name`):
+- `/rv-refactor` - Code restructuring workflow
+- `/rv-feature` - Feature implementation workflow
+- `/rv-tdd` - Test-driven development workflow
+- `/rv-cleanup` - Dead code removal workflow
+
+**Quality Gate** (invoke via `/rv-code-reviewer`):
+- `/rv-code-reviewer` - Code review (chained from orchestrators or standalone)
 
 ### Directory Structure
 
 ```
 .claude/
-├── AGENTS.md                # Full documentation (authoritative)
+├── AGENTS.md                # Full skill documentation (authoritative)
 ├── project-info.md          # Quick reference (paths, env vars)
-├── agents/                  # Orchestrator agents + supporting files
-│   ├── rv-*.md              # Agent definitions
-│   └── rv-*/                # Templates, checklists, examples
-└── skills/                  # Invocable skills
+└── skills/                  # All skills (43 total)
     └── rv-*/SKILL.md        # Skill definitions
 ```
 

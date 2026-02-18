@@ -8,7 +8,7 @@ description: >-
 argument-hint: [feature-name or description]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, AskUserQuestion, Skill
 ---
 
 # Feature Implementation Orchestrator: $ARGUMENTS
@@ -57,7 +57,7 @@ PHASE 4: IMPLEMENTATION (TDD) ────────────────�
     │  RED → GREEN → REFACTOR for each step
     ▼
 PHASE 5: CODE REVIEW ─────────────────────────────────────────►
-    │  Chain to rv-code-reviewer subagent
+    │  Chain to /rv-code-reviewer skill
     ▼
 CHECKPOINT #3 ◄─────────────────────────────────────── USER ──►
     │  User approves feature
@@ -465,14 +465,14 @@ This runs tests, lint, and type checks in one unified step.
 
 ---
 
-## Phase 5: Code Review (Agent Chain)
+## Phase 5: Code Review
 
-**Chain to rv-code-reviewer subagent**:
+**Chain to rv-code-reviewer skill**:
 
 ```
-Use Task tool:
-- subagent_type: rv-code-reviewer
-- prompt: "Review the feature implementation for [feature-name]. Focus on: code quality, architecture adherence, security, testing completeness, TDD adherence."
+Use Skill tool:
+- skill: "rv-code-reviewer"
+- args: "Review the feature implementation for [feature-name]. Focus on: code quality, architecture adherence, security, testing completeness, TDD adherence."
 ```
 
 Incorporate review findings into final presentation.

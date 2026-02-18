@@ -8,7 +8,7 @@ description: >-
 argument-hint: [feature-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, AskUserQuestion, Skill
 ---
 
 # TDD Orchestrator: $ARGUMENTS
@@ -62,7 +62,7 @@ PHASE 5: REFACTOR ────────────────────�
     │  Improve code while keeping tests green
     ▼
 PHASE 6: CODE REVIEW ─────────────────────────────────────────►
-    │  Chain to rv-code-reviewer agent
+    │  Chain to /rv-code-reviewer skill
     ▼
 CHECKPOINT #2 ◄─────────────────────────────────────── USER ──►
     │  User approves implementation
@@ -350,12 +350,12 @@ This ensures all tests pass and code quality checks are satisfied.
 
 ## Phase 6: Code Review
 
-**Chain to rv-code-reviewer agent**:
+**Chain to rv-code-reviewer skill**:
 
 ```
-Use Task tool:
-- subagent_type: rv-code-reviewer
-- prompt: "Review the TDD implementation for [feature]. Focus on: test quality, TDD adherence, YAGNI compliance, code quality, mocking appropriateness."
+Use Skill tool:
+- skill: "rv-code-reviewer"
+- args: "Review the TDD implementation for [feature]. Focus on: test quality, TDD adherence, YAGNI compliance, code quality, mocking appropriateness."
 ```
 
 ### Key Review Points
