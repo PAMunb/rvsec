@@ -61,7 +61,7 @@ Additionally, the `InputValueGenerator` behavior changes (part of FR26 action ex
 ## Impact
 
 **Modules affected:**
-- **rv-agent** (primary): `rvagent_strategy.py`, `scorers.py`, `action_ranker.py`, `agent_config.py`, `input_value_generator.py`, `rv_agent.py`, `learn_node.py`, `algorithm_node.py`, `parse_node.py`, `screen_node.py`, `tool_executor.py`, `transition_manager.py`, `navigation_guidance.py`, `prompts/v13.py`
+- **rv-agent** (primary): `rvagent_strategy.py`, `scorers.py`, `action_ranker.py`, `agent_config.py`, `input_value_generator.py`, `rv_agent.py`, `learn_node.py`, `algorithm_node.py`, `parse_node.py`, `screen_node.py`, `tool_executor.py`, `transition_manager.py`, `navigation_guidance.py`, `prompts/v17.py` (new — v16 already exists)
 - No other modules are modified.
 
 **APIs affected:**

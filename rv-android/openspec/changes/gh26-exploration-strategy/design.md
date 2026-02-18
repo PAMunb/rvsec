@@ -38,8 +38,8 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
   │    ▼
   │  strategy.select_next_action()
   │    │
-  │    ├── 1. PathBuffer.get_next_action() ──→ if buffered path, return action
-  │    ├── 2. _get_untested_actions() ──→ ActionRanker.score_action()
+  │    ├── Tier 1: PathBuffer.get_next_action() ──→ if buffered path, return action
+  │    ├── Tier 2: _get_untested_actions() ──→ ActionRanker.score_action()
   │    │       │                              │
   │    │       │                    ┌─────────┼─────────────────┐
   │    │       │                    ▼         ▼                 ▼
@@ -54,10 +54,10 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
   │    │       │              StrengthScorer (+ cumulative_reward)
   │    │       │              [reward from RewardPropagator]
   │    │       │
-  │    ├── 3. should_backtrack(saturation_threshold) ──→ plan path or fall through
-  │    ├── 4. PathBuffer: plan_coverage_path() > plan_mop_path() > plan_backtrack_path()
-  │    ├── 5. ActionRanker.rank_actions(all_actions) (scored continuous mode)
-  │    └── 6. BACK (final fallback)
+  │    ├── Tier 3: should_backtrack(saturation_threshold) ──→ plan path or fall through
+  │    │     └── PathBuffer: plan_coverage_path() > plan_mop_path() > plan_backtrack_path()
+  │    ├── Tier 4: ActionRanker.rank_actions(all_actions) (scored continuous mode)
+  │    └── Tier 5: BACK (final fallback)
   │
   │  ──→ validation_node ──→ execute_node ──→ learn_node
   │                                              │
@@ -84,7 +84,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `RVAgentConfig` | 11 new calibration parameters | `config/agent_config.py` | Modified |
 | `ScreenNode` | New `action_cumulative_reward: Dict[Tuple[Tuple[int,int], str], float]` field (same key type as `action_execution_counts`) | `domain/screen_node.py` | Modified |
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
-| `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
+| `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, ui_coverage_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
 | `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
 | `decision_router_node` | Mode-aware routing (existing); add tracking log for algorithm-fast-path | `agent/nodes/decision_node.py` | Modified |
 | `learn_node` | Reward propagation trigger after action success recording | `agent/nodes/learn_node.py` | Modified |
@@ -177,7 +177,7 @@ The navigation/graph system consists of five components in a layered architectur
 - Inline path management in `select_next_action()`: simpler but makes the already-long method harder to test and reason about
 - PathBuffer as part of SuccessorTracker: conflates two concerns (successor tracking is about action re-enabling, not path planning)
 
-**Rationale**: A separate class with clear lifecycle (`plan_backtrack_path()`, `plan_mop_path()`, `get_next_action()`, `invalidate()`) is independently testable and keeps `select_next_action()` focused on action selection. The PathBuffer holds transient state (a list of planned actions) that is conceptually different from the DFS graph state.
+**Rationale**: A separate class with clear lifecycle (`plan_backtrack_path()`, `plan_mop_path()`, `plan_coverage_path()`, `get_next_action()`, `invalidate()`) is independently testable and keeps `select_next_action()` focused on action selection. The PathBuffer holds transient state (a list of planned actions) that is conceptually different from the DFS graph state.
 
 ### D2: Reward propagation model -- simplified N-step vs full SARSA
 
@@ -976,7 +976,7 @@ The `learn_node` determines the `REWARD_MOP_REACHED` reward type by checking `se
 | Error | Source | Strategy | Recovery |
 |-------|--------|----------|----------|
 | PathBuffer reaches unexpected state | `learn_node` detects hash mismatch with buffer expectation | Call `PathBuffer.invalidate()`, log warning | Normal action selection resumes (Tier 2-5) |
-| PathBuffer BFS finds no path | `plan_mop_path()` or `plan_backtrack_path()` returns False | Return False, caller falls through to next tier | Strategy proceeds to scored continuous mode (Tier 4) |
+| PathBuffer BFS finds no path | `plan_coverage_path()`, `plan_mop_path()`, or `plan_backtrack_path()` returns False | Return False, caller falls through to next tier | Strategy proceeds to scored continuous mode (Tier 4) |
 | Reward propagation on short history | Internal action history has < N items | Propagate through all available items | No error; works correctly with any history length >= 1 |
 | Missing static analysis data | `TransitionManager` has no WTG, or `StaticAnalysisData` is None | MopScorer returns 0.0, WtgScorer returns 0.0, PathBuffer Strategy B disabled, NavigationGuidance returns empty | Agent operates as generic UI structure explorer; Strategy A (backtrack to unsaturated ancestor) still works |
 | `should_backtrack()` on empty graph | State hash not in `graph.states` | Return True (backtrack from unknown state) | Agent navigates BACK, which is safe behavior for unknown states |
@@ -1189,7 +1189,7 @@ This experiment uses **default parameter values** (the 11 new config fields at t
 
 2. **LLM-generated text tracking**: **Resolved — use `tested_values`.** When the LLM generates a SET_TEXT action, the text is recorded in `InputValueGenerator.tested_values` for the corresponding field. This prevents the algorithm path from repeating the same value when it later encounters the same field. The risk of conflating LLM creativity with algorithmic exhaustion is acceptable because: (a) the LLM rarely generates the same text twice, so collision is rare; (b) preventing repetition is more important than preserving LLM variability. See task 2.6.
 
-3. **PathBuffer Strategy B priority over Strategy A**: When both strategies can produce a path, which takes priority? The current design tries Strategy B (MOP-directed) first and Strategy A (backtrack to unsaturated ancestor) second, because MOP coverage is the primary metric. This ordering may need to be configurable if gh9 calibration reveals different optimal behavior.
+3. **PathBuffer Strategy ordering (C > B > A)**: When multiple strategies can produce a path, the evaluation order is: Strategy C (coverage navigation) first, then Strategy B (MOP-directed), then Strategy A (backtrack to unsaturated ancestor). Strategy C is first because broad UI coverage addresses the "small island" problem, increasing the probability surface for finding MOP methods. Strategy B provides MOP-directed precision when static analysis data is available. Strategy A is the fallback for backtracking to unsaturated ancestors. This ordering may need to be configurable if gh9 calibration reveals different optimal behavior for specific APK categories.
 
 4. **Reward propagation for error recovery actions**: gh18's error recovery actions (SET_TEXT/CLICK with `decision_maker="error_recovery"`) should participate in reward propagation -- if an error recovery SET_TEXT leads to a successful MOP trigger, that reward should propagate back through the error recovery sequence. The implementation must include error recovery actions in the action history, not filter them out.
 
