@@ -80,7 +80,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `TransitionManager` | Gains BFS path planning to MOP-dense Activities | `services/transition_manager.py` | Modified |
 | `NavigationGuidance` | MOP-specific LLM prompt enrichment | `services/navigation_guidance.py` | Modified |
 | `CoverageDensityScorer` | Cross-screen coverage guidance using learned transitions | `strategies/rvagent_strategy/ranking/scorers.py` | New |
-| `RankingContext.successor_tracker` | SuccessorTracker reference for CoverageDensityScorer destination lookups | `strategies/rvagent_strategy/ranking/context.py` | Modified |
+| `RankingContext.successor_tracker`, `RankingContext.has_untested_inputs` | SuccessorTracker reference for CoverageDensityScorer destination lookups; `has_untested_inputs` flag for MopScorer form-context deferral (INV-AGT-39) | `strategies/rvagent_strategy/ranking/context.py` | Modified |
 | `RVAgentConfig` | 11 new calibration parameters | `config/agent_config.py` | Modified |
 | `ScreenNode` | New `action_cumulative_reward: Dict[Tuple[Tuple[int,int], str], float]` field (same key type as `action_execution_counts`) | `domain/screen_node.py` | Modified |
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
@@ -126,6 +126,7 @@ The navigation/graph system consists of five components in a layered architectur
 | PathBuffer integration | FR26, FR30 | `path_buffer.py` (new), `rvagent_strategy.py` | `test_path_buffer.py`, `test_strategy_path_buffer_integration.py` |
 | Saturation threshold | FR26 | `rvagent_strategy.py`, `agent_config.py` | `test_saturation_threshold.py` |
 | Scorer rebalancing (new defaults) | FR27 | `agent_config.py` (default values) | `test_scorer_weights.py` |
+| MopScorer form-context deferral | FR27 | `scorers.py` (MopScorer.score), `context.py` (has_untested_inputs), `rvagent_strategy.py` (Tier 2/4 context) | `test_mop_scorer_deferral.py` |
 | GradualDecayScorer activation | FR27 | `rvagent_strategy.py` (__init__ scorer list) | `test_gradual_decay_scorer.py` |
 | N-step reward propagation | FR27 | `reward_propagator.py` (new), `learn_node.py`, `scorers.py` (StrengthScorer), `screen_node.py` | `test_reward_propagator.py`, `test_strength_scorer_reward.py` |
 | Speed optimization (parse_node caching) | FR24 | `parse_node.py`, `decision_node.py` (tracking only) | `test_speed_optimization.py` |
@@ -441,6 +442,9 @@ class CoverageDensityScorer(Scorer):
             return self.weight * 0.5
 
         coverage_gap = context.ui_coverage.get_coverage_gap(destination)
+        # Guard: zero total_elements → 0.0 (neutral). get_coverage_gap returns
+        # 0.0 for unknown states or states with no elements, preventing division
+        # by zero in the untested_elements / total_elements formula.
         return self.weight * coverage_gap
 ```
 
@@ -480,7 +484,49 @@ def get_action_destination(
 class RankingContext:
     # ... existing fields ...
     successor_tracker: Optional["SuccessorTracker"] = None  # For CoverageDensityScorer
+    has_untested_inputs: bool = False  # True when untested SET_TEXT/TEXT_CHANGE exist (INV-AGT-39)
 ```
+
+### Modified: MopScorer.score() — Form-Context Deferral (INV-AGT-39)
+
+```python
+# strategies/rvagent_strategy/ranking/scorers.py
+
+class MopScorer(Scorer):
+    """
+    Scores actions based on proximity to monitored operations (MOP).
+
+    Form-context deferral (INV-AGT-39): In Tier 2, when the screen has untested
+    SET_TEXT/TEXT_CHANGE actions, MopScorer returns 0.0 for CLICK actions. This
+    prevents the agent from clicking submit buttons on empty forms — a common
+    waste pattern where MOP-reaching buttons like "GENERATE HASH" are clicked
+    before form fields are filled, producing error indicators instead of valid
+    MOP triggers.
+
+    In Tier 4 (scored continuous mode), has_untested_inputs is always False
+    because all actions have been tested by definition. MopScorer applies at
+    full weight, ensuring the button is re-executed AFTER form fields are filled.
+
+    The deferral only affects CLICK actions — SET_TEXT actions with MOP association
+    (e.g., a text field whose content is passed to Cipher.getInstance) still
+    receive full MOP scoring, which is correct: filling a MOP-relevant field
+    should be prioritized regardless of other untested inputs.
+    """
+
+    def score(self, action, context) -> float:
+        # Form-context deferral (INV-AGT-39): suppress MOP for CLICK
+        # when untested input actions exist on the screen.
+        # In Tier 4, has_untested_inputs is always False (all tested).
+        if context.has_untested_inputs and action.action_type == "CLICK":
+            return 0.0
+        if action.directly_reaches_mop:
+            return self.direct_score  # +500
+        elif action.reaches_mop:
+            return self.transitive_score  # +300
+        return 0.0
+```
+
+**Design rationale**: The MOP-first bias is the root cause of wasted iterations on form-heavy screens. Without deferral, MopScorer (+500) forces GENERATE HASH to be selected before any text input field is tested in every fresh screen state. The button click on an empty form produces error indicators but no valid MOP trigger, wasting an iteration. With deferral, the button still gets selected in Tier 2 (it has ComponentPriority +50 tiebreaker) but without the +500 MOP boost, so it competes on equal footing with other CLICK actions. The critical payoff comes in Tier 4: after all actions are tested (including SET_TEXT), MopScorer applies at full weight, ensuring the button is re-executed with valid form data. This creates the natural form-first flow: fill inputs → click button → Tier 4 re-executes button with valid data. The `has_untested_inputs` flag is computed per-tier, not stored — it is True in Tier 2 when at least one untested action is SET_TEXT/TEXT_CHANGE, and always False in Tier 4.
 
 ### PathBuffer.plan_coverage_path() (new method)
 
@@ -576,13 +622,15 @@ class RewardPropagator:
 
     # Reward values
     REWARD_SAME_STATE: float = -0.1
+    REWARD_FORM_FILL: float = 0.0  # Neutral reward for SET_TEXT/TEXT_CHANGE on same screen
     REWARD_NEW_STATE: float = 1.0
     REWARD_NEW_ACTIVITY: float = 2.0
     REWARD_MOP_REACHED: float = 5.0
 
-    # Cumulative reward cap: prevents score inflation from repeated MOP sequences.
+    # Cumulative reward bounds: prevents unbounded score inflation/deflation.
     # Max cumulative reward = MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight
-    # With default reward_mop_weight=5.0, cap = 3.0 * 5.0 = 15.0
+    # Min cumulative reward = -MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight
+    # With default reward_mop_weight=5.0, bounds = [-15.0, +15.0]
     MAX_CUMULATIVE_REWARD_FACTOR: float = 3.0
 
     def __init__(self, config: "RVAgentConfig"):
@@ -629,8 +677,11 @@ class RewardPropagator:
         simultaneously (e.g., action leads to new Activity AND has
         callback_signature), the HIGHEST reward value is used. The priority
         order is: mop_reached (5.0) > new_activity (2.0) > new_state (1.0)
-        > same_state (-0.1). This is implemented as if/elif in learn_node,
-        not if/if — only one propagate() call per iteration.
+        > form_fill (0.0) > same_state (-0.1). The form_fill type applies
+        when hash is unchanged AND the action was SET_TEXT or TEXT_CHANGE —
+        this prevents penalizing form filling actions that legitimately do
+        not change the screen hash. This is implemented as if/elif in
+        learn_node, not if/if — only one propagate() call per iteration.
 
         Propagation indexing: The most recent action in the deque (index -1)
         receives reward * gamma^0 (i.e., the full reward). The second-most-recent
@@ -638,13 +689,17 @@ class RewardPropagator:
         action that caused/preceded the reward event.
 
         Args:
-            reward_type: One of "same_state", "new_state", "new_activity", "mop_reached".
+            reward_type: One of "same_state", "form_fill", "new_state", "new_activity", "mop_reached".
             graph: DynamicStateGraph for accessing ScreenNode data.
 
         Postcondition: Updates action_cumulative_reward in ScreenNode for each
-        action within the propagation window. Cumulative reward is capped at
-        `MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight` (default 3.0 * 5.0
-        = 15.0) to prevent score inflation from repeated MOP-reaching sequences.
+        action within the propagation window. Cumulative reward is bounded:
+        upper cap at `MAX_CUMULATIVE_REWARD_FACTOR * config.reward_mop_weight`
+        (default +15.0) and lower cap at `-MAX_CUMULATIVE_REWARD_FACTOR *
+        config.reward_mop_weight` (default -15.0). The upper cap prevents
+        score inflation from repeated MOP-reaching sequences; the lower cap
+        prevents unbounded negative accumulation from repeated same_state
+        penalties that would permanently suppress actions.
 
         Error behavior: If the internal history has fewer than N items, propagates
         through all available items. If graph.states does not contain a state_hash,
@@ -702,7 +757,16 @@ def select_next_action(self, current_hash, screen_desc) -> Optional[ItemAction]:
     # Tier 2: Untested actions — score with rebalanced ActionRanker
     untested_actions = self._get_untested_actions(node, screen_desc)
     if untested_actions:
-        selected = self._select_priority_action(untested_actions, screen_desc)
+        # Check if any untested action is a text input (INV-AGT-39)
+        has_untested_inputs = any(
+            a.action_type in ("SET_TEXT", "TEXT_CHANGE")
+            for a in untested_actions
+        )
+        ranking_context = RankingContext(
+            ...,
+            has_untested_inputs=has_untested_inputs,
+        )
+        selected = self._select_priority_action(untested_actions, screen_desc, ranking_context)
         # ... existing pre-marking and input handling ...
         return selected
 
@@ -718,13 +782,18 @@ def select_next_action(self, current_hash, screen_desc) -> Optional[ItemAction]:
         # Do NOT return _create_back_action() here: preserves continuous exploration
 
     # Tier 4: Scored continuous mode — ALL actions ranked by full scorer system
+    # has_untested_inputs always False in Tier 4 (all actions tested → MopScorer at full weight)
+    ranking_context = RankingContext(
+        ...,
+        has_untested_inputs=False,
+    )
     all_filtered = self._get_all_filtered_actions(screen_desc)
     if all_filtered:
         scroll_action = self._try_generate_scroll_action(...)
         if scroll_action:
             return scroll_action
-        ranked = self.action_ranker.rank_actions(all_filtered, ranking_context)
-        selected = ranked[0] if ranked else None
+        scored_actions = self.action_ranker.rank(all_filtered, ranking_context)
+        selected = scored_actions[0].action if scored_actions else None
         if selected:
             return selected
 
@@ -732,7 +801,7 @@ def select_next_action(self, current_hash, screen_desc) -> Optional[ItemAction]:
     return self._create_back_action()
 ```
 
-**Design rationale for Tier 4 scored selection**: In the previous design, Tier 4 used `_select_least_executed_action()` which selects purely by execution count — no scorer involvement. This means all gh26 scorer improvements (CoverageDensityScorer, rebalanced MopScorer, GradualDecayScorer) have zero effect once the agent enters continuous mode. In 3-hour experiments, 60-90% of iterations operate in Tier 4, so the majority of the run would not benefit from the new scorers. By replacing `_select_least_executed_action()` with `ActionRanker.rank_actions()` on ALL actions (tested + untested), the scorers naturally handle the transition from untested to re-testing: `GradualDecayScorer` gives exponential decay (heavily-tested actions get near-zero score), `MopScorer` gives priority regardless of test count, `CoverageDensityScorer` prefers actions leading to less-explored screens, and `SaturationScorer` gives bonus inversely proportional to saturation. This makes continuous mode "smart" — re-tests in MOP-prioritized, coverage-guided order instead of just "pick least-executed." The Tier 3 conditional change (removing the plain BACK fallback when all path plans fail) ensures that when all reachable states are saturated, the agent falls through to Tier 4's scored selection rather than entering an unproductive BACK cycling loop.
+**Design rationale for Tier 4 scored selection**: In the previous design, Tier 4 used `_select_least_executed_action()` which selects purely by execution count — no scorer involvement. This means all gh26 scorer improvements (CoverageDensityScorer, rebalanced MopScorer, GradualDecayScorer) have zero effect once the agent enters continuous mode. In 3-hour experiments, 60-90% of iterations operate in Tier 4, so the majority of the run would not benefit from the new scorers. By replacing `_select_least_executed_action()` with `ActionRanker.rank()` on ALL actions (tested + untested), the scorers naturally handle the transition from untested to re-testing: `GradualDecayScorer` gives exponential decay (heavily-tested actions get near-zero score), `MopScorer` gives priority regardless of test count, `CoverageDensityScorer` prefers actions leading to less-explored screens, and `SaturationScorer` gives bonus inversely proportional to saturation. This makes continuous mode "smart" — re-tests in MOP-prioritized, coverage-guided order instead of just "pick least-executed." The Tier 3 conditional change (removing the plain BACK fallback when all path plans fail) ensures that when all reachable states are saturated, the agent falls through to Tier 4's scored selection rather than entering an unproductive BACK cycling loop.
 
 ### Modified: should_backtrack()
 
@@ -886,7 +955,8 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    ├── Tier 1: PathBuffer.get_next_action()
    │     └── If buffered action available → return it
    ├── Tier 2: _get_untested_actions() → ActionRanker with rebalanced weights
-   │     ├── MopScorer: +500 (DM), +300 (M)
+   │     │   has_untested_inputs = any SET_TEXT/TEXT_CHANGE in untested (INV-AGT-39)
+   │     ├── MopScorer: +500 (DM), +300 (M) — deferred to 0.0 for CLICK if has_untested_inputs
    │     ├── WtgScorer: +150
    │     ├── GradualDecayScorer: 200 * 0.7^visits [NEW — activated; visits from UICoverageTracker]
    │     ├── CoverageDensityScorer: 200 * coverage_gap [NEW — always active; SuccessorTracker+UICoverage]
@@ -900,7 +970,7 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    │     ├── PathBuffer.plan_mop_path() → BFS to MOP-dense Activity
    │     ├── PathBuffer.plan_backtrack_path() → BACK to unsaturated ancestor
    │     └── All plans failed → fall through to Tier 4 (do NOT return plain BACK)
-   ├── Tier 4: Scored continuous mode (scroll + ActionRanker on ALL actions)
+   ├── Tier 4: Scored continuous mode (scroll + ActionRanker on ALL actions, has_untested_inputs=False)
    └── Tier 5: BACK fallback
 
 5. validation_node → coordinate validation, loop detection
@@ -922,7 +992,8 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    │     │     ├── mop_reached → 5.0 (when callback_signature present, regardless of state change)
    │     │     ├── new_activity → 2.0 (hash changed AND activity not seen before)
    │     │     ├── new_state → 1.0 (hash changed AND activity already seen)
-   │     │     └── same_state → -0.1 (hash unchanged)
+   │     │     ├── form_fill → 0.0 (hash unchanged AND action was SET_TEXT/TEXT_CHANGE)
+   │     │     └── same_state → -0.1 (hash unchanged AND action was NOT SET_TEXT/TEXT_CHANGE)
    │     └── Propagate backward through internal history: reward * gamma^distance
    │           → Updates ScreenNode.action_cumulative_reward
    └── Memory updates (MemoryCoordinator)
@@ -1000,7 +1071,7 @@ Mitigation: Write comprehensive unit tests for `should_backtrack()` BEFORE integ
 Mitigation: The validation experiment (see "Experimental Validation" section) measures the combined effect of all 10 improvements against a pre-implementation baseline (10 APKs, 3 tools, 3 reps, 300s, Wilcoxon signed-rank test). Per-improvement ablation is deferred to gh9 calibration, which tests parameter combinations systematically via Optuna.
 
 **[Speed optimization mode-awareness]** Skipping screenshot capture in algorithm iterations must not break multimode LLM iterations. If the routing check has a bug, LLM iterations could run without screenshots, producing invalid actions.
-Mitigation: The speed optimization is a conditional skip in `decision_router_node`, not a removal of the screenshot node from the graph. The LangGraph workflow still contains all nodes; the router simply sends algorithm iterations on the "algorithm" edge (which bypasses `capture_screenshot_node` by graph topology) while LLM iterations follow the "llm" edge (which includes `capture_screenshot_node`). This is the existing routing mechanism -- no new skip logic is needed for the LangGraph graph itself. The speed optimization focuses on caching `screen_desc` when hash is unchanged in `parse_node` and skipping unnecessary UIAutomator re-dumps.
+Mitigation: The speed optimization is a conditional skip in `decision_router_node`, not a removal of the screenshot node from the graph. The LangGraph workflow still contains all nodes; the router simply sends algorithm iterations on the "algorithm" edge (which bypasses `capture_screenshot_node` by graph topology) while LLM iterations follow the "llm" edge (which includes `capture_screenshot_node`). This is the existing routing mechanism -- no new skip logic is needed for the LangGraph graph itself. The speed optimization focuses on caching `screen_desc` when hash is unchanged in `parse_node` (the UIAutomator dump and hash computation always execute every iteration — only the visitor pipeline is cached; see D5).
 
 **[PathBuffer stale path]** A buffered path may become invalid if the app's state changes unexpectedly (e.g., a notification dialog appears, app auto-navigates). The agent would execute the next buffered action on the wrong screen.
 Mitigation: `learn_node` validates that the actual next state hash matches the PathBuffer's expectation. On mismatch, `PathBuffer.invalidate()` clears the buffer and normal action selection resumes. This adds one hash comparison per iteration when the buffer is active -- negligible cost.
@@ -1031,6 +1102,7 @@ Accepted trade-off: The hash-unchanged invalidation handles the most common fail
 | **Unit** | `should_backtrack()` with saturation threshold | States at 0.7, 0.8, 0.9, 1.0 saturation with threshold=0.8 | ~3 tests |
 | **Unit** | `should_backtrack()` edge cases | Empty graph, single node, state not found, incomplete successors | ~3 tests |
 | **Unit** | Scorer weight defaults verification | Verify MopScorer=500/300, WtgScorer=150, VisitationPenalty=-15, Stochastic=0.15 | ~2 tests |
+| **Unit** | `MopScorer` form-context deferral | Verify MopScorer returns 0.0 for CLICK when `has_untested_inputs=True`, normal score for SET_TEXT, full +500 when `has_untested_inputs=False` | ~3 tests |
 | **Unit** | `GradualDecayScorer` in active scorer list | Verify 9 scorers registered (7 existing + GradualDecayScorer + CoverageDensityScorer) | ~1 test |
 | **Unit** | `StrengthScorer` with cumulative reward | Known strength + known cumulative_reward, verify combined score | ~3 tests |
 | **Unit** | `InputValueGenerator` value ordering fix | Verify Faker values first for "text" type, PINs only for "password"/"pin" | ~3 tests |
@@ -1058,7 +1130,7 @@ Accepted trade-off: The hash-unchanged invalidation handles the most common fail
 | **Regression** | Existing scorer tests | All existing scorer tests pass with new defaults | ~existing |
 | **Regression** | Existing input generator tests | All existing InputValueGenerator tests pass with fixed ordering | ~existing |
 
-**Estimated totals**: ~41 unit tests (new), ~16 integration tests (new), existing regression tests pass.
+**Estimated totals**: ~44 unit tests (new), ~16 integration tests (new), existing regression tests pass.
 
 ## Experimental Validation
 

@@ -55,13 +55,15 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 - **INV-AGT-34**: `SuccessorTracker.find_nearest_unsaturated()` MUST return `Optional[Tuple[str, int]]` where the tuple contains `(state_hash, hop_count)` instead of the previous `Optional[str]`. The `hop_count` indicates the BFS distance (number of BACK actions) to reach the unsaturated ancestor. This return type is a prerequisite for `PathBuffer.plan_backtrack_path()`, which uses the hop_count to determine how many BACK actions to buffer for backtrack navigation.
 
-- **INV-AGT-35**: `RewardPropagator` MUST cap `action_cumulative_reward` at `MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight` (default 3.0 * 5.0 = 15.0). When a cumulative reward addition would exceed this cap, the value MUST be clamped to the cap instead of growing further. Without this cap, `StrengthScorer` scores could grow unbounded over long sessions (300+ iterations), inflating the reward signal and drowning out other scorer contributions.
+- **INV-AGT-35**: `RewardPropagator` MUST cap `action_cumulative_reward` symmetrically at `[-MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight, +MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight]` (default bounds: [-15.0, +15.0]). When a cumulative reward addition would exceed the upper cap or fall below the lower cap, the value MUST be clamped to the respective bound instead of growing further. Without these caps, `StrengthScorer` scores could grow unbounded over long sessions (300+ iterations), inflating the reward signal and drowning out other scorer contributions. The lower bound prevents excessive negative accumulation from penalizing actions that happen to precede many same-state transitions.
 
-- **INV-AGT-36**: The `CoverageDensityScorer` MUST be always active — always registered in the scorer list, not gated on whether `StaticAnalysisData` is present. When tracking data is unavailable (`context.successor_tracker` is None or `context.ui_coverage` is None), the scorer MUST return 0.0 (neutral, does not block action selection). For each candidate action, the scorer MUST query `SuccessorTracker.get_action_destination()` to determine the action's known destination state. If the destination is known, the score MUST be `coverage_density_weight * coverage_gap` where `coverage_gap = untested_elements / total_elements` for the destination screen (from `UICoverageTracker`). If the destination is unknown (action has never been executed or leads to an unrecorded state), the score MUST be `coverage_density_weight * 0.5` (exploration bonus for the unknown). The default `coverage_density_weight` is 200.0, placing CoverageDensityScorer in the same magnitude as `GradualDecayScorer` without overshadowing `MopScorer` (+500). The relative ordering is preserved: MOP-direct (500) > MOP-transitive (300) > Coverage (200) > WTG (150).
+- **INV-AGT-36**: The `CoverageDensityScorer` MUST be always active — always registered in the scorer list, not gated on whether `StaticAnalysisData` is present. When tracking data is unavailable (`context.successor_tracker` is None or `context.ui_coverage` is None), the scorer MUST return 0.0 (neutral, does not block action selection). When the destination screen has `total_elements = 0` (e.g., a loading screen with no interactive elements), the scorer MUST return 0.0 — the `coverage_gap` formula (`untested_elements / total_elements`) MUST NOT cause a division by zero. For each candidate action, the scorer MUST query `SuccessorTracker.get_action_destination()` to determine the action's known destination state. If the destination is known, the score MUST be `coverage_density_weight * coverage_gap` where `coverage_gap = untested_elements / total_elements` for the destination screen (from `UICoverageTracker`). If the destination is unknown (action has never been executed or leads to an unrecorded state), the score MUST be `coverage_density_weight * 0.5` (exploration bonus for the unknown). The default `coverage_density_weight` is 200.0, placing CoverageDensityScorer in the same magnitude as `GradualDecayScorer` without overshadowing `MopScorer` (+500). The relative ordering is preserved: MOP-direct (500) > MOP-transitive (300) > Coverage (200) > WTG (150).
 
 - **INV-AGT-37**: Saturation rate MUST only consider actionable (non-system) actions in both numerator and denominator. System actions (BACK, RESTART with `coordinates=None`) injected by the visitor MUST NOT inflate `total_actions` in `DynamicStateGraph.get_or_create_state()`. Without this correction, `get_saturation_rate()` returns N/(N+2) at maximum — screens with fewer than 8 real actions can never reach the 80% `backtrack_saturation_threshold`, rendering proactive backtracking (INV-AGT-31) ineffective for small screens. The visitor still injects BACK/RESTART for action selection; only the saturation denominator is affected.
 
 - **INV-AGT-38**: When all path planning strategies fail in Tier 3 (all reachable states saturated — `plan_coverage_path()`, `plan_mop_path()`, and `plan_backtrack_path()` all return False), the agent MUST fall through to Tier 4 (scored continuous mode) and MUST NOT return a plain BACK action. In Tier 4, the agent MUST use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) instead of `_select_least_executed_action()`. This ensures CoverageDensityScorer, MopScorer, GradualDecayScorer, and SaturationScorer guide re-testing priority during long runs (60-90% of 3-hour experiments operate in Tier 4). The agent MUST never stop selecting actions until timeout — the "never stop" contract is maintained by Tier 4's scored selection, not by a plain BACK fallback.
+
+- **INV-AGT-39**: In Tier 2 (untested action selection), `MopScorer` MUST return 0.0 for CLICK actions when the current screen has untested SET_TEXT or TEXT_CHANGE actions. This defers MOP-reaching buttons until form fields are tested, preventing the agent from clicking submit buttons on empty forms. In Tier 4 (scored continuous mode), `MopScorer` MUST apply full scoring regardless of input state — by Tier 4, all actions are tested, so form fields have already been filled. The deferral is implemented via a `has_untested_inputs` flag in `RankingContext`, set to True when the untested action list contains at least one SET_TEXT or TEXT_CHANGE action.
 
 ## MODIFIED Requirements
 
@@ -72,7 +74,7 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 **Action Selection Order**: The `select_next_action()` method MUST evaluate action sources in the following priority order:
 
 1. **Path buffer**: If `PathBuffer` has a buffered path with remaining steps, execute the next buffered action. This takes highest priority because buffered paths represent multi-step navigation plans toward high-value targets (unsaturated ancestors or MOP-rich Activities).
-2. **Untested actions**: If untested actions exist on the current screen, select one using `ActionRanker` with the full scorer system.
+2. **Untested actions**: If untested actions exist on the current screen, select one using `ActionRanker` with the full scorer system. **MopScorer is deferred for CLICK actions when untested SET_TEXT/TEXT_CHANGE actions exist** (INV-AGT-39), ensuring form fields are filled before submit buttons are clicked.
 3. **Proactive backtracking**: If the state's saturation rate exceeds `backtrack_saturation_threshold` (default 0.8), try path planning (Strategy C > B > A). If a plan succeeds, buffer it and return the first action. If all plans fail (all reachable states saturated), fall through to Tier 4 — do NOT return a plain BACK. The `should_backtrack()` method — previously dead code — is activated to perform this saturation check.
 4. **Scored continuous exploration**: Use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) with the full scorer system (MopScorer, CoverageDensityScorer, GradualDecayScorer, SaturationScorer, etc.). This replaces the previous `_select_least_executed_action()` to ensure scorer improvements benefit long runs where 60-90% of iterations operate in this tier.
 5. **BACK**: If no actions are available at all (e.g., all permanently failed or ranked list empty), return a BACK action.
@@ -125,6 +127,63 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 - **AND** the saturation rate (e.g., 0.75) is below `backtrack_saturation_threshold` (0.8)
 - **THEN** the strategy MUST NOT return None
 - **AND** MUST use `ActionRanker.rank_actions()` on ALL filtered actions (tested + untested) to select the highest-scored action, guided by the full scorer system (MopScorer, CoverageDensityScorer, GradualDecayScorer, SaturationScorer, StrengthScorer, etc.)
+
+#### Scenario: Form-First Action Sequencing (CryptoApp)
+
+CryptoApp main screen has 3 interactive components:
+- Action A: CLICK on Spinner (combobox, "Message Digest" selector — leads to dropdown with 12+ algorithms)
+- Action B: SET_TEXT on EditText (text input field — stays on same screen)
+- Action C: CLICK on Button ("GENERATE HASH" — MOP-reaching, `directly_reaches_mop=True`)
+
+**Expected iteration-by-iteration flow:**
+
+- **WHEN** the agent visits S0 (fresh CryptoApp screen, all 3 actions untested)
+- **THEN** Tier 2 activates (3 untested actions)
+- **AND** MopScorer is deferred for Action C (CLICK) because Action B (SET_TEXT) is untested (INV-AGT-39)
+- **AND** Action C scores ~475 (no MOP), Action A scores ~425, Action B scores ~425
+- **AND** Action C (GENERATE HASH) is selected (ComponentPriority +50 tiebreaker) — first click on empty form is acceptable, produces error indicators
+- **AND** after execution, 2 untested actions remain [A, B]
+
+- **WHEN** Tier 2 evaluates 2 remaining untested actions [A (CLICK Spinner), B (SET_TEXT)]
+- **THEN** MopScorer is not relevant (neither A nor B has MOP)
+- **AND** Action A and B score ~425 each, UI ordering selects Action A (Spinner above EditText)
+- **AND** Action A navigates to S_spinner (dropdown with 12+ algorithms)
+
+- **WHEN** agent is on S_spinner and selects "MD5"
+- **THEN** returns to S1 (new state with MD5 selected, different structural hash from S0)
+- **AND** on S1, all 3 actions are untested again
+
+- **WHEN** Tier 2 evaluates S1's 3 untested actions
+- **THEN** MopScorer is deferred for Action C' (CLICK) because Action B' (SET_TEXT) is untested
+- **AND** Action C' scores ~475 (no MOP), Action A' and B' score ~425 each
+- **AND** Action C' (GENERATE HASH) is selected again — second click, still no text but has MD5 selected
+
+- **WHEN** Tier 2 evaluates S1's 2 remaining untested [A', B']
+- **THEN** Action A' (Spinner) wins by UI ordering → navigates to S_spinner
+- **AND** OR Action B' (SET_TEXT) wins → fills text field
+
+- **WHEN** Action B' is eventually selected (either by UI ordering after A' is tested, or by stochastic selection)
+- **THEN** 5 text input variations are entered (form_fill reward = 0.0 per INV-AGT-35)
+- **AND** after B' exhausted, all 3 actions on S1 are in `executed_actions`
+
+- **WHEN** all actions on S1 are tested (saturation = 33% with threshold=2, well below 80%)
+- **THEN** Tier 3 (`should_backtrack()`) returns False
+- **AND** Tier 4 activates: `ActionRanker.rank()` on ALL actions
+- **AND** MopScorer applies at FULL weight (+500) because `has_untested_inputs` is False
+- **AND** Action C' (GENERATE HASH) scores ~877 (MOP +500 + cumulative_reward from prior mop_reached)
+- **AND** GENERATE HASH is re-executed with MD5 selected AND text field filled → valid MOP trigger
+
+- **WHEN** the agent continues on S1 in Tier 4
+- **THEN** saturation increases as actions are re-executed (each needs count ≥ 2 to be "saturated")
+- **AND** after 6-9 iterations, saturation reaches 80-100%
+- **AND** Tier 3 activates: proactive backtracking or path planning
+
+**Key outcomes:**
+1. GENERATE HASH is clicked on empty form at most ONCE per screen state (first Tier 2 pass)
+2. Form fields are filled BEFORE the button is re-executed via Tier 4
+3. Each combobox algorithm selection creates a new state where the flow repeats
+4. The agent covers multiple (algorithm, text) combinations with valid MOP triggers
+5. Saturation (threshold=2) gives 6-9 iterations per state, sufficient for thorough testing
 
 #### Scenario: Successor Re-enablement
 
@@ -179,8 +238,8 @@ The scorer list includes the 7 original scorers plus `GradualDecayScorer` and `C
 
 | Scorer | Previous Default | New Default | Rationale |
 |--------|-----------------|-------------|-----------|
-| `MopScorer` (direct) | 300 | 500 | MOP-direct actions are the primary exploration target; they MUST rank above all other scorers |
-| `MopScorer` (transitive) | 150 | 300 | MOP-transitive actions MUST outweigh WTG navigation to prevent the agent from preferring new screens over MOP paths |
+| `MopScorer` (direct) | 300 | 500 | MOP-direct actions are the primary exploration target; they MUST rank above all other scorers (deferred in Tier 2 when untested inputs exist — INV-AGT-39) |
+| `MopScorer` (transitive) | 150 | 300 | MOP-transitive actions MUST outweigh WTG navigation to prevent the agent from preferring new screens over MOP paths (deferred in Tier 2 when untested inputs exist — INV-AGT-39) |
 | `WtgScorer` | 250 | 150 | WTG provides a support role for screen discovery, not a primary driver |
 | `SaturationScorer` | 80 | 100 | Slightly increased to incentivize exploration of unsaturated states |
 | `ComponentPriorityScorer` | 50/40 | 50/40 | Unchanged |
@@ -445,7 +504,8 @@ The agent MUST implement backward reward propagation through action chains to le
 
 | Event | Constant | Value | Description |
 |-------|----------|-------|-------------|
-| Same state | `REWARD_SAME_STATE` | -0.1 | Action did not change the screen state |
+| Same state | `REWARD_SAME_STATE` | -0.1 | Action did not change the screen state (and was not a form fill action) |
+| Form fill | `REWARD_FORM_FILL` | 0.0 | SET_TEXT/TEXT_CHANGE action that did not change the screen hash — neutral reward prevents penalizing form filling that legitimately keeps the same screen |
 | New state | `REWARD_NEW_STATE` | 1.0 | Discovered a previously unseen screen |
 | New Activity | `REWARD_NEW_ACTIVITY` | 2.0 | Discovered a previously unseen Activity |
 | MOP reached | `REWARD_MOP_REACHED` | Configurable via `reward_mop_weight` (default 5.0) | The executed action has a non-empty `callback_signature`, indicating it is structurally associated with a monitored operation method. This is a **proxy signal** — the action CAN reach MOP, not confirmation that a MOP method was actually invoked at runtime. Real-time MOP confirmation would require logcat parsing within the iteration loop, which is not feasible within the 300s time budget. |
@@ -487,8 +547,17 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 #### Scenario: Same State Penalty
 
 - **WHEN** an action does not change the screen hash (same state before and after)
+- **AND** the action is NOT a SET_TEXT or TEXT_CHANGE action
 - **THEN** `REWARD_SAME_STATE` = -0.1 MUST be assigned to the action
 - **AND** backward propagation MUST still be triggered (with negative reward)
+
+#### Scenario: Form Fill Neutral Reward
+
+- **WHEN** a SET_TEXT or TEXT_CHANGE action does not change the screen hash (same state before and after)
+- **THEN** `REWARD_FORM_FILL` = 0.0 MUST be assigned to the action (NOT `REWARD_SAME_STATE` = -0.1)
+- **AND** backward propagation MUST still be triggered (with neutral reward)
+- **AND** cumulative_reward for the form fill action MUST NOT decrease
+- **AND** this prevents a perverse incentive against filling forms that gate MOP methods (e.g., login screens requiring credentials before accessing crypto settings)
 
 #### Scenario: Cumulative Reward Accumulation
 
@@ -509,7 +578,7 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 - **AND** that action also has `callback_signature` present (REWARD_MOP_REACHED = 5.0)
 - **THEN** only one `propagate()` call MUST be made per iteration
 - **AND** the reward type MUST be `mop_reached` (5.0), not `new_activity` (2.0)
-- **AND** the priority order MUST be: mop_reached > new_activity > new_state > same_state
+- **AND** the priority order MUST be: mop_reached > new_activity > new_state > form_fill > same_state
 
 #### Scenario: MOP Detection is Proxy Signal
 
