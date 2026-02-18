@@ -142,7 +142,7 @@ description: >-
 argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, AskUserQuestion, Skill
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, AskUserQuestion, Skill
 ---
 ```
 

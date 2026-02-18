@@ -1,8 +1,8 @@
 # Skills vs Subagents: Analysis and Validation Plan
 
-**Date**: 2026-02-17 (v3 — reframed as validation-first plan)
+**Date**: 2026-02-17 (v4 — Phase 2 implementation complete, Phase 3 verification planned)
 **Scope**: Architectural audit + empirical validation plan for Claude Code skill/subagent nesting
-**Status**: PHASE 2 (Optimization) in progress — Phase 1 validated all hypotheses
+**Status**: PHASE 2 (Optimization) COMPLETE — Phase 3 (Verification) planned
 **Comparative**: `agente-documentador` (Claude Code, 50 skills) and `hello-opencode` (OpenCode, nested subagents)
 
 ---
@@ -16,8 +16,8 @@ This document serves as both analysis and plan. The analysis (Sections 2-8) iden
 | Phase | Status | Gate |
 |-------|--------|------|
 | **Phase 1: Empirical Validation** | **COMPLETE** (T1-T11 all pass) | Results validated — Phase 2 proceeds |
-| **Phase 2: Optimization** | **IN PROGRESS** | Implementing R1C, R2, R4 |
-| Phase 3: WORKFLOW.md update (conditional) | BLOCKED by Phase 2 | Only after validated solution is stable |
+| **Phase 2: Optimization** | **COMPLETE** | R1C + R2 + R4 implemented (commits `17bda936`, `fe8b3b5a`) |
+| **Phase 3: Bottom-Up Verification** | **PLANNED** | Verify all changes work end-to-end (Section 10) |
 
 **Decision matrix** (after Phase 1):
 
@@ -654,6 +654,94 @@ Cancelled:
 
 ---
 
+## 10. Phase 3: Bottom-Up Verification Plan
+
+Strategy: test from leaf changes (infrastructure, individual skills) up to orchestrator chains. Each level validates prerequisites for the next. **All tests run in a new session** so hook tracing captures everything.
+
+### Level 0: Tracing Infrastructure (R2)
+
+Prerequisite: none. Verifies the observability layer works before we depend on it.
+
+| ID | Test | Action | Pass Criteria |
+|----|------|--------|---------------|
+| V0.1 | Session logging | Start new session, send any message | `output/trace.log` exists, contains `SESSION_START` entry with session_id |
+| V0.2 | Tool logging | Use Read on any file | `PRE_TOOL_USE` + `POST_TOOL_USE` entries for `Read` in trace.log |
+| V0.3 | JSONL integrity | Inspect trace.log | Every line is valid JSON, all entries have `timestamp` and `event` fields |
+
+### Level 1: Static Verification (frontmatter correctness)
+
+Prerequisite: V0 passes. Verifies mechanical edits are correct before runtime tests.
+
+| ID | Test | Action | Pass Criteria |
+|----|------|--------|---------------|
+| V1.1 | No Task in skills | `grep -r "Task" .claude/skills/*/SKILL.md` (frontmatter only) | Zero matches in `allowed-tools` lines |
+| V1.2 | disable-model-invocation | Check 7 skill frontmatters | All 7 have `disable-model-invocation: true`: rv-risk, rv-retrospective, rv-planning, rv-security, rv-refactor-simplify, rv-refactor-extract, rv-release |
+| V1.3 | rv-code-reviewer exists as skill | `ls .claude/skills/rv-code-reviewer/SKILL.md` | File exists |
+| V1.4 | rv-code-reviewer agent deleted | `ls .claude/agents/rv-code-reviewer.md` | File does NOT exist |
+| V1.5 | Documentation counts | Grep WORKFLOW.md and AGENTS.md for skill counts | "43 skills" present, no "42 skills + 1 agent" |
+| V1.6 | No stale agent refs | `grep -r "\.claude/agents/" .claude/AGENTS.md docs/WORKFLOW.md CLAUDE.md` | Zero matches |
+
+### Level 2: Individual Skill Runtime (rv-code-reviewer standalone)
+
+Prerequisite: V1 passes. Verifies the converted skill works in isolation.
+
+| ID | Test | Action | Pass Criteria |
+|----|------|--------|---------------|
+| V2.1 | Standalone invocation | `/rv-code-reviewer rv-android-core` | Skill runs as forked subagent, returns code review summary |
+| V2.2 | Trace capture | Check trace.log after V2.1 | `SUBAGENT_START` with agent_type containing skill info, followed by tool use events, then `SUBAGENT_STOP` |
+| V2.3 | Nested skill invocation | During V2.1, reviewer should invoke `/rv-analyze-complexity` | Second `SUBAGENT_START` event (nested fork) in trace.log |
+
+### Level 3: Anti-Regression (disable-model-invocation)
+
+Prerequisite: V1.2 passes.
+
+| ID | Test | Action | Pass Criteria |
+|----|------|--------|---------------|
+| V3.1 | No auto-trigger | Send message: "analyze the security risks of the agent module" | `/rv-security` and `/rv-risk` do NOT auto-trigger (Claude responds directly or asks for clarification) |
+| V3.2 | Explicit invocation | `/rv-risk rv-agent` | Skill runs normally via explicit slash command |
+
+### Level 4: Orchestrator Chain (end-to-end)
+
+Prerequisite: V2 passes. This is the critical test — validates the entire Solution C fix.
+
+| ID | Test | Action | Pass Criteria |
+|----|------|--------|---------------|
+| V4.1 | Orchestrator + code review chain | `/rv-refactor modules/rv-android-core/src/rv_android_core/constants.py` (small, safe target) | Orchestrator reaches code review phase, invokes `Skill(rv-code-reviewer)`, review runs and returns findings |
+| V4.2 | Trace chain validation | Check trace.log after V4.1 | Two distinct `SUBAGENT_START` events: (1) rv-refactor orchestrator, (2) rv-code-reviewer nested inside. Both have corresponding `SUBAGENT_STOP` |
+| V4.3 | No Task tool errors | Check trace.log for `POST_TOOL_USE_FAILURE` | Zero failures related to Task tool (the old silent failure mode is gone) |
+
+### Level 5: Documentation Consistency (final check)
+
+Prerequisite: V4 passes.
+
+| ID | Test | Action | Pass Criteria |
+|----|------|--------|---------------|
+| V5.1 | AGENTS.md accuracy | Read AGENTS.md, compare against actual `.claude/skills/` directory | All listed skills exist, no missing skills, no extra unlisted skills |
+| V5.2 | WORKFLOW.md accuracy | Verify skill counts and chain descriptions | Matches actual architecture (43 skills, Skill tool chains) |
+| V5.3 | CLAUDE.md accuracy | Verify Skills section matches current architecture | No "Agents" section, orchestrators listed as skills |
+
+### Execution Order
+
+```
+V0.1 → V0.2 → V0.3           (tracing works)
+  ↓
+V1.1 → V1.2 → V1.3 → V1.4 → V1.5 → V1.6   (static checks)
+  ↓
+V2.1 → V2.2 → V2.3           (rv-code-reviewer standalone)
+  ↓
+V3.1 → V3.2                   (disable-model-invocation)
+  ↓
+V4.1 → V4.2 → V4.3           (orchestrator chain — main fix)
+  ↓
+V5.1 → V5.2 → V5.3           (documentation consistency)
+```
+
+**Estimated effort**: Levels 0-1 are automated (grep/file checks, ~5 min). Level 2 requires one skill invocation (~2 min). Level 3 is a quick manual test (~1 min). Level 4 is the most expensive — a real orchestrator run (~5-10 min). Level 5 is a manual review (~3 min).
+
+**Total**: ~15-20 min for full verification.
+
+---
+
 ## Appendix A: Architecture Diagrams
 
 ### Current (Problematic)
@@ -792,4 +880,4 @@ Settings configuration (`.claude/settings.json`):
 }
 ```
 
-**Adaptation for rv-android**: Change log path from `.docgen/logs/` to `.rvagent/logs/`, adjust tool matchers, add to `.gitignore`.
+**Adopted for rv-android** in commit `fe8b3b5a` (R2): `.claude/hooks/trace_logger.py` + `.claude/settings.json`. Logs to `output/trace.log` (covered by `.gitignore` `*.log` rule). Handles 8 events (adds `PostToolUseFailure` over the agente-documentador's 7).
