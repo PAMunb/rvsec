@@ -51,13 +51,13 @@ No new error types. Existing `RVAgentError` hierarchy applies.
 
 - **INV-AGT-32**: The `InputValueGenerator` MUST call `device.clear_text()` before `input_text()` for all SET_TEXT actions. Text MUST NOT be appended to existing field content.
 
-- **INV-AGT-33**: The speed optimization for algorithm iterations operates at two levels. First, existing LangGraph graph topology: the `decision_router_node` routes to the `"algorithm"` edge, which bypasses `capture_screenshot_node` and `llm_generate_node` entirely — this is existing per-iteration routing behavior (not a compile-time flag), so multimode algorithm iterations also benefit. Second, NEW from gh26: in `parse_node`, when the current `screen_hash` equals `previous_screen_hash`, the node MUST reuse the cached `screen_desc` from the previous iteration instead of recomputing it. This screen_desc caching eliminates redundant UI parsing when the screen has not changed between iterations.
+- **INV-AGT-33**: The speed optimization for algorithm iterations operates at two levels. First, existing LangGraph graph topology: the `decision_router_node` routes to the `"algorithm"` edge, which bypasses `capture_screenshot_node` and `llm_generate_node` entirely — this is existing per-iteration routing behavior (not a compile-time flag), so multimode algorithm iterations also benefit. Second, NEW from gh26: in `parse_node`, when the current `screen_hash` equals `previous_screen_hash`, the node MUST reuse the cached `screen_desc` from the previous iteration instead of recomputing it. This screen_desc caching eliminates redundant UI parsing when the screen has not changed between iterations. The cache (`RVAgent._cached_screen_desc`) MUST be explicitly set to None on `force_restart_app` — an app restart may return to the same splash screen with identical hash, and reusing a stale cached screen_desc in that scenario would skip the fresh UI parse needed after restart.
 
 - **INV-AGT-34**: `SuccessorTracker.find_nearest_unsaturated()` MUST return `Optional[Tuple[str, int]]` where the tuple contains `(state_hash, hop_count)` instead of the previous `Optional[str]`. The `hop_count` indicates the BFS distance (number of BACK actions) to reach the unsaturated ancestor. This return type is a prerequisite for `PathBuffer.plan_backtrack_path()`, which uses the hop_count to determine how many BACK actions to buffer for backtrack navigation.
 
 - **INV-AGT-35**: `RewardPropagator` MUST cap `action_cumulative_reward` at `MAX_CUMULATIVE_REWARD_FACTOR * reward_mop_weight` (default 3.0 * 5.0 = 15.0). When a cumulative reward addition would exceed this cap, the value MUST be clamped to the cap instead of growing further. Without this cap, `StrengthScorer` scores could grow unbounded over long sessions (300+ iterations), inflating the reward signal and drowning out other scorer contributions.
 
-- **INV-AGT-36**: The `CoverageDensityScorer` MUST be always active — not gated on whether `StaticAnalysisData` is present. For each candidate action, the scorer MUST query `SuccessorTracker.get_action_destination()` to determine the action's known destination state. If the destination is known, the score MUST be `coverage_density_weight * coverage_gap` where `coverage_gap = untested_elements / total_elements` for the destination screen (from `UICoverageTracker`). If the destination is unknown (action has never been executed or leads to an unrecorded state), the score MUST be `coverage_density_weight * 0.5` (exploration bonus for the unknown). The default `coverage_density_weight` is 200.0, placing CoverageDensityScorer in the same magnitude as `GradualDecayScorer` without overshadowing `MopScorer` (+500). The relative ordering is preserved: MOP-direct (500) > MOP-transitive (300) > Coverage (200) > WTG (150).
+- **INV-AGT-36**: The `CoverageDensityScorer` MUST be always active — always registered in the scorer list, not gated on whether `StaticAnalysisData` is present. When tracking data is unavailable (`context.successor_tracker` is None or `context.ui_coverage` is None), the scorer MUST return 0.0 (neutral, does not block action selection). For each candidate action, the scorer MUST query `SuccessorTracker.get_action_destination()` to determine the action's known destination state. If the destination is known, the score MUST be `coverage_density_weight * coverage_gap` where `coverage_gap = untested_elements / total_elements` for the destination screen (from `UICoverageTracker`). If the destination is unknown (action has never been executed or leads to an unrecorded state), the score MUST be `coverage_density_weight * 0.5` (exploration bonus for the unknown). The default `coverage_density_weight` is 200.0, placing CoverageDensityScorer in the same magnitude as `GradualDecayScorer` without overshadowing `MopScorer` (+500). The relative ordering is preserved: MOP-direct (500) > MOP-transitive (300) > Coverage (200) > WTG (150).
 
 ## MODIFIED Requirements
 
@@ -417,7 +417,7 @@ Default configuration: `Qwen/Qwen3-VL-4B-Instruct`, temperature=0.01, top_p=0.6,
 
 ## ADDED Requirements
 
-### Requirement: N-Step Reward Propagation
+### Requirement: N-Step Reward Propagation (FR27)
 
 The agent MUST implement backward reward propagation through action chains to learn which action sequences lead to productive outcomes. This is a simplified adaptation of Fastbot's SARSA n-step approach, tailored to rv-agent's architecture. Instead of maintaining a separate Q-table, rewards are stored in the existing `ScreenNode` data structure via a new `action_cumulative_reward` dictionary.
 
@@ -529,7 +529,7 @@ The propagation reads from `RewardPropagator`'s internal action history — a de
 - **AND** the error recovery actions MUST NOT be filtered from `RewardPropagator`'s internal action history based on their `decision_maker` field
 - **AND** the cumulative reward MUST accumulate on the error recovery actions in their respective `ScreenNode` entries, making those recovery paths more attractive in future visits
 
-### Requirement: Text Input Quality
+### Requirement: Text Input Quality (FR26)
 
 The `InputValueGenerator` and text input execution pipeline MUST produce context-appropriate input values and handle text field interaction correctly. This requirement addresses six bugs in the current implementation that collectively waste 20-40% of text input iterations and prevent MOP-relevant edge case testing.
 
@@ -599,7 +599,7 @@ The `InputValueGenerator` and text input execution pipeline MUST produce context
 - **THEN** "john.doe@example.com" MUST be added to `tested_values[F]`
 - **AND** subsequent `get_next_value()` calls for field F MUST NOT return "john.doe@example.com"
 
-### Requirement: Path Buffer
+### Requirement: Path Buffer (FR26, FR30)
 
 The `PathBuffer` class MUST manage multi-step navigation paths for the `RVAgentStrategy`. It provides an execution buffer that stores a sequence of actions to be executed in order, enabling the strategy to plan and execute multi-step navigation instead of making isolated single-action decisions.
 
