@@ -86,6 +86,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
 | `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, ui_coverage_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
 | `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
+| `RVAgent.run()` | FileHandler for RVTRACK `.trace` file: attach before main loop, remove in `finally`. Reuses `metrics_output_dir` | `agent/rv_agent.py` | Modified |
 | `decision_router_node` | Mode-aware routing (existing); add tracking log for algorithm-fast-path | `agent/nodes/decision_node.py` | Modified |
 | `learn_node` | Reward propagation trigger after action success recording | `agent/nodes/learn_node.py` | Modified |
 
@@ -1162,37 +1163,24 @@ Range: 82-2417 methods (median ~450). All 10 have `exp01_jca=True` and `exp01_ge
 
 Follows the container-level parallelism pattern from gh9 and rvsec-02. Each phase has its own docker-compose file.
 
-**Phase 0 — Preprocessing** (single container, ~20-30 min):
+**Phase 0 — Baseline** (2 containers, ~4-5 hours):
 
-```
-docker-compose.preprocess.yml
-  └── preprocess_0:
-        image: phtcosta/rvandroid
-        RV_SKIP_EXECUTION=true (instrumentation + static analysis only)
-        volumes:
-          - /home/pedro/desenvolvimento/RV_ANDROID/apks:/opt/rvsec/rv-android/apks:ro
-          - exp02_apks.txt filter
-          - output → instrumented_apks/
-        output: 10 instrumented APKs + .gesda + .wtg + .reach per APK
-```
-
-**Phase 1 — Baseline** (2 containers, ~4-5 hours):
+Each container runs the full pipeline (monitors + instrument + static analysis + execution). Pre-processing adds ~5-7 min per container — negligible for a 4-5 hour experiment. This is simpler than a separate preprocessing step because the Docker image stores all pre-processing artifacts inside `results/<experiment>/` (not in `out/`), and the entrypoint has no `RV_SKIP_EXECUTION` flag.
 
 ```
 docker-compose.baseline.yml
   ├── batch_0: (5 APKs)
   │     image: phtcosta/rvandroid (pre-gh26 codebase)
   │     RV_TOOLS=ape,fastbot,rvagent:pure_algorithm
-  │     RV_TIMEOUTS=300, RV_REPETITIONS=3
-  │     RV_SKIP_MONITORS=true, RV_SKIP_INSTRUMENT=true, RV_SKIP_STATIC_ANALYSIS=true
+  │     RV_TIMEOUTS=300, RV_REPETITIONS=3, RV_JCA_SPEC=true
   │     RV_DELAY=0
-  │     volumes: instrumented_apks/:ro → results/baseline/batch_0/
+  │     volumes: original_apks/:ro → results/baseline/batch_0/
   └── batch_1: (5 APKs)
         same config, RV_DELAY=10
         volumes: → results/baseline/batch_1/
 ```
 
-**Phase 2 — Validation** (2 containers, ~4-5 hours):
+**Phase 1 — Validation** (2 containers, ~4-5 hours):
 
 ```
 docker-compose.validation.yml
@@ -1202,7 +1190,7 @@ docker-compose.validation.yml
   └── batch_1: (5 APKs)
 ```
 
-All docker-compose files are stored in `docker/data/gh26_experiment/`. Instrumented APKs are reused across phases (instrumentation does not change between baseline and validation — only rv-agent code changes).
+All docker-compose files are stored in `docker/data/gh26_experiment/`. Each container runs the full pipeline independently. Instrumentation is deterministic so results are equivalent to shared preprocessing — only rv-agent code changes between baseline and validation images.
 
 ### Comparison Metrics
 
@@ -1215,15 +1203,28 @@ All docker-compose files are stored in `docker/data/gh26_experiment/`. Instrumen
 | `cov_rv_method` | summary.csv | % of MOP-reachable methods executed |
 | `errors` | summary.csv | Count of runtime verification violations detected |
 
-**RVAgent-specific metrics** (from tracking JSONL, only for `rvagent:pure_algorithm`):
+**RVAgent-specific metrics** (from `rvagent_metrics.json`, only for `rvagent:pure_algorithm`):
 
 | Metric | Source | What it measures |
 |--------|--------|-----------------|
-| Unique states | `[RVTRACK:STATE]` entries | Count of distinct `screen_hash` values — measures exploration breadth |
-| Stuck events | `[RVTRACK:LEARN]` with `stuck=true` | Level 1 (BACK) + Level 2 (restart) count — lower is better |
-| PathBuffer activations | `[RVTRACK:BACKTRACK]` | Buffer plan_backtrack + plan_mop count — new in gh26, expected > 0 |
-| Reward propagations | `[RVTRACK:STRENGTH]` | propagate() trigger count — new in gh26, expected > 0 |
-| Action distribution | `[RVTRACK:ACTION]` | Actions grouped by target element type (Button, EditText, CheckBox, ImageView, etc.) — measures UI coverage diversity |
+| Unique states | `exploration.unique_states` | Count of distinct screen states — measures exploration breadth |
+| Iterations | `exploration.iterations` | Total agent iterations — measures throughput |
+| Execution time | `exploration.execution_time_s` | Agent wall-clock time — for computing mean iteration time |
+| UI element coverage | `ui_coverage.element_coverage` | % of discovered UI elements tested — measures interaction breadth |
+| Screens visited | `ui_coverage.screens_visited` | Count of distinct screens — measures navigation breadth |
+| Coverage per screen | `ui_coverage.coverage_per_screen` | Per-screen element coverage — identifies undertested screens |
+| Action distribution | `ui_coverage.interactions_by_type` | Actions grouped by element type (Button, EditText, etc.) — measures coverage diversity |
+
+**RVTRACK .trace file**:
+
+RVTRACK entries (`[RVTRACK:<CATEGORY>]`) are persisted to a `.trace` file alongside `rvagent_metrics.json` by reusing the existing `metrics_output_dir` config field. In `RVAgent.run()`, a Python `FileHandler` is attached to the `rv_agent` logger before the main loop and removed in `finally`. The file naming follows the same convention as metrics JSON: `{package}__{rep}__{timeout}__rvagent:{mode}.trace`.
+
+This works in both execution paths without any new config field:
+- **Via rv-platform**: `rvagent_tool/config.py` already maps `task.results_dir` → `config.metrics_output_dir`. The `.trace` file lands in `results/<experiment>/<apk>/` alongside `.logcat` and `rvagent_metrics.json`.
+- **Standalone CLI**: `cli/main.py` already maps `--results-dir` → `config.metrics_output_dir`. The `.trace` file lands in the same directory as metrics.
+- **Unconfigured** (`metrics_output_dir=None`): No FileHandler is added; RVTRACK entries go to stdout only (unit tests, no side-effects).
+
+Post-gh26, task 9.5 adds aggregate counters to `rvagent_metrics.json` (backtrack_count, path_buffer_hit_rate, reward_propagation_events, coverage_navigation_events). The `.trace` file captures ALL per-iteration RVTRACK entries (detailed logs), while `rvagent_metrics.json` has aggregate summaries. Both are complementary: `.trace` for debugging, metrics JSON for statistical analysis.
 
 ### Statistical Analysis
 
