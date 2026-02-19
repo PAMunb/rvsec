@@ -313,6 +313,25 @@ class RVAgent:
             logger.error(f"Failed to launch app: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
 
+        # Set up .trace file handler for RVTRACK log persistence
+        trace_handler = None
+        if self.config.metrics_output_dir:
+            try:
+                from pathlib import Path
+                from rv_agent.metrics import MetricsExporter
+                trace_filename = MetricsExporter.build_filename(
+                    self.config.package_name, self.config.agent_mode,
+                    self.config.timeout
+                ).replace(".rvagent_metrics.json", ".trace")
+                trace_path = Path(self.config.metrics_output_dir) / trace_filename
+                trace_path.parent.mkdir(parents=True, exist_ok=True)
+                trace_handler = logging.FileHandler(str(trace_path), encoding="utf-8")
+                trace_handler.setLevel(logging.DEBUG)
+                logging.getLogger("rv_agent").addHandler(trace_handler)
+                logger.info(f"RVTRACK trace file: {trace_path}")
+            except Exception as e:
+                logger.warning(f"Failed to set up trace file: {e}")
+
         # Initialize state
         state = {
             "iteration": 0,
@@ -434,5 +453,10 @@ class RVAgent:
                 agent_mode=self.config.agent_mode,
                 timeout=self.config.timeout
             )
+
+        # Clean up trace file handler
+        if trace_handler:
+            logging.getLogger("rv_agent").removeHandler(trace_handler)
+            trace_handler.close()
 
         return results
