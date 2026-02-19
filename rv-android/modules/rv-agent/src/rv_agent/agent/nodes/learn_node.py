@@ -340,6 +340,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         error_detected=error_detected,
     )
 
+    # Track LLM-generated text values to prevent repetition via value_generator
+    _track_llm_text_value(agent, state)
+
     result = {
         "recent_action_window": memory_result["recent_action_window"],
         "action_history_summary": summaries["action_history_summary"],
@@ -490,3 +493,55 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
 
     except Exception as e:
         logger.warning(f"Failed to record action success: {e}")
+
+
+def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
+    """
+    Record LLM-generated text values in InputValueGenerator to prevent repetition.
+
+    When the LLM generates a SET_TEXT action, the text value is recorded in
+    value_generator.tested_values so the algorithm path doesn't re-test it.
+
+    Args:
+        agent: RVAgent instance with strategy.value_generator
+        state: Current agent state with action and decision_maker info
+    """
+    try:
+        decision_maker = state.get("decision_maker")
+        if decision_maker != "llm":
+            return
+
+        current_action = state.get("current_action")
+        if not current_action:
+            return
+
+        action_type = (current_action.get("action_type", "")).upper()
+        if action_type not in ("SET_TEXT", "TEXT_CHANGE"):
+            return
+
+        text = current_action.get("text", "")
+        if not text:
+            return
+
+        # Get element ID from item_action or coordinates
+        item_action = state.get("current_item_action")
+        if item_action and hasattr(item_action, 'widget_id') and item_action.widget_id:
+            element_id = item_action.widget_id
+        else:
+            x = current_action.get("x")
+            y = current_action.get("y")
+            if x is not None and y is not None:
+                element_id = f"({x},{y})"
+            else:
+                return
+
+        value_generator = getattr(agent.strategy, 'value_generator', None)
+        if not value_generator:
+            return
+
+        if text not in value_generator.tested_values.get(element_id, []):
+            value_generator.tested_values[element_id].append(text)
+            logger.debug(f"Tracked LLM text for {element_id}: '{text[:20]}'")
+
+    except Exception as e:
+        logger.warning(f"Failed to track LLM text value: {e}")

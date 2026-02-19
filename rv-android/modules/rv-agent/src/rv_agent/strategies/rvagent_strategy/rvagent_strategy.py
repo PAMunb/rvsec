@@ -683,26 +683,48 @@ class RVAgentStrategy(ExplorationStrategy):
         return activities
 
     def _infer_input_type(self, target_view: Optional[Dict]) -> str:
-        """Infer input type from target_view data."""
+        """Infer input type from target_view data.
+
+        Priority: password flag > hint > content_description > resource_id.
+        Hint is the most reliable signal (e.g., "Email", "Password").
+        """
         if not target_view:
             return "text"
 
-        # Password field detection (from UIAutomator)
+        # Password field detection (from UIAutomator password flag)
         if target_view.get('password') or target_view.get('is_password'):
             return "password"
 
-        # Infer from resource_id
-        resource_id = (target_view.get('resource_id') or '').lower()
-        if 'email' in resource_id:
-            return "email"
-        if 'phone' in resource_id or 'mobile' in resource_id:
-            return "phone"
-        if 'username' in resource_id or 'user_name' in resource_id:
-            return "username"
-        if 'name' in resource_id:
-            return "name"
-        if 'address' in resource_id:
-            return "address"
+        # Check hint, content_description, and resource_id (in priority order)
+        fields_to_check = [
+            (target_view.get('hint') or ''),
+            (target_view.get('content-desc') or target_view.get('content_description') or ''),
+            (target_view.get('resource-id') or target_view.get('resource_id') or ''),
+        ]
+
+        # Pattern matching across all fields
+        type_patterns = [
+            ("email", ["email", "e-mail"]),
+            ("phone", ["phone", "mobile", "tel"]),
+            ("url", ["url", "website", "link"]),
+            ("search", ["search", "query", "find"]),
+            ("date", ["date", "birthday", "dob"]),
+            ("time", ["time", "hour"]),
+            ("number", ["number", "amount", "quantity", "price"]),
+            ("zip", ["zip", "postal", "cep"]),
+            ("verification_code", ["code", "otp", "verification", "pin"]),
+            ("username", ["username", "user_name", "login"]),
+            ("name", ["name", "nome"]),
+            ("address", ["address", "endereco"]),
+        ]
+
+        for field_value in fields_to_check:
+            lower = field_value.lower()
+            if not lower:
+                continue
+            for input_type, keywords in type_patterns:
+                if any(kw in lower for kw in keywords):
+                    return input_type
 
         return "text"
 

@@ -121,53 +121,45 @@ class InputValueGenerator:
         """
         Get test values for regular input fields using Faker.
 
+        PINs/passwords are only returned for "password" and "pin" types.
+        All other types start with Faker-generated realistic values.
+
         Args:
             input_type: Type of input field to generate values for
 
         Returns:
-            List of realistic test values
+            List of realistic test values (no empty strings as first value)
         """
-        # Common PIN/password values for testing (try these first for lock screens)
-        common_pins = ["1234", "0000", "123456", "password", "admin", "test", "demo"]
+        # Password/PIN fields get common test values directly
+        if input_type in ("password", "pin"):
+            return ["1234", "0000", "123456", "password", "admin", "test", "demo"]
 
-        # Generate unique values based on input type
+        # Type-specific Faker generators
+        generators = {
+            "email": self.faker.email,
+            "name": self.faker.name,
+            "phone": self.faker.phone_number,
+            "address": self.faker.address,
+            "username": self.faker.user_name,
+            "city": self.faker.city,
+            "country": self.faker.country,
+            "company": self.faker.company,
+            "search": lambda: self.faker.sentence(nb_words=3),
+            "url": self.faker.url,
+            "date": lambda: self.faker.date(),
+            "time": lambda: self.faker.time(),
+            "number": lambda: str(self.faker.random_int(min=1, max=9999)),
+            "zip": self.faker.zipcode,
+            "verification_code": lambda: str(self.faker.random_int(min=100000, max=999999)),
+        }
+
+        gen_fn = generators.get(input_type, lambda: self.faker.text(max_nb_chars=50))
+
         unique_values = set()
-
-        # Generate more values than needed to ensure variety
         for _ in range(self.max_variations * 2):
-            if input_type == "email":
-                unique_values.add(self.faker.email())
-            elif input_type == "name":
-                unique_values.add(self.faker.name())
-            elif input_type == "phone":
-                unique_values.add(self.faker.phone_number())
-            elif input_type == "address":
-                unique_values.add(self.faker.address())
-            elif input_type == "text":
-                unique_values.add(self.faker.text(max_nb_chars=50))
-            elif input_type == "username":
-                unique_values.add(self.faker.user_name())
-            elif input_type in ("password", "pin"):
-                # For password/PIN fields, use common test values
-                unique_values.update(common_pins)
-            elif input_type == "city":
-                unique_values.add(self.faker.city())
-            elif input_type == "country":
-                unique_values.add(self.faker.country())
-            elif input_type == "company":
-                unique_values.add(self.faker.company())
-            else:
-                # Default to text if input type is unknown
-                unique_values.add(self.faker.text(max_nb_chars=50))
+            unique_values.add(gen_fn())
 
-        # Convert to list and limit to max_variations
-        unique_list = list(unique_values)[:self.max_variations]
-
-        # Prepend common PINs for unknown input types (helps with lock screens)
-        if input_type not in ("email", "name", "phone", "address", "city", "country", "company"):
-            return common_pins[:3] + unique_list
-        else:
-            return ["", "test"] + unique_list
+        return list(unique_values)[:self.max_variations]
 
     def _get_mop_values(self, input_type: str = "text") -> List[str]:
         """
