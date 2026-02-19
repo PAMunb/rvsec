@@ -86,7 +86,7 @@ RVAgent.run() → External Loop → LangGraph Workflow (one iteration)
 | `SuccessorTracker.find_nearest_unsaturated()` | Return type change: `Optional[str]` → `Optional[Tuple[str, int]]` (ancestor_hash, bfs_hop_count) | `strategies/rvagent_strategy/successor_tracker.py` | Modified |
 | `AgentFactory` | Modified to instantiate and wire `PathBuffer(transition_manager, successor_tracker, ui_coverage_tracker, config)` and `RewardPropagator(config)` into `RVAgentStrategy` during agent construction | `agent/agent_factory.py` | Modified |
 | `RVAgent._build_agent_graph()` | No topology change needed — algorithm path already bypasses screenshot/LLM nodes via existing conditional edges | `agent/rv_agent.py` | Unchanged |
-| `RVAgent.run()` | FileHandler for RVTRACK `.trace` file: attach before main loop, remove in `finally`. Reuses `metrics_output_dir` | `agent/rv_agent.py` | Modified |
+| `RVAgent.run()` | FileHandler for RVTRACK `.trace` file: attach after app launch, remove before return. Reuses `metrics_output_dir` | `agent/rv_agent.py` | Modified |
 | `decision_router_node` | Mode-aware routing (existing); add tracking log for algorithm-fast-path | `agent/nodes/decision_node.py` | Modified |
 | `learn_node` | Reward propagation trigger after action success recording | `agent/nodes/learn_node.py` | Modified |
 
@@ -1217,7 +1217,7 @@ All docker-compose files are stored in `docker/data/gh26_experiment/`. Each cont
 
 **RVTRACK .trace file**:
 
-RVTRACK entries (`[RVTRACK:<CATEGORY>]`) are persisted to a `.trace` file alongside `rvagent_metrics.json` by reusing the existing `metrics_output_dir` config field. In `RVAgent.run()`, a Python `FileHandler` is attached to the `rv_agent` logger before the main loop and removed in `finally`. The file naming follows the same convention as metrics JSON: `{package}__{rep}__{timeout}__rvagent:{mode}.trace`.
+RVTRACK entries (`[RVTRACK:<CATEGORY>]`) are persisted to a `.trace` file alongside `rvagent_metrics.json` by reusing the existing `metrics_output_dir` config field. In `RVAgent.run()`, a Python `FileHandler` is attached to the `rv_agent` logger after app launch and removed before return. The file naming follows the same convention as metrics JSON: `{package}__{rep}__{timeout}__rvagent:{mode}.trace`.
 
 This works in both execution paths without any new config field:
 - **Via rv-platform**: `rvagent_tool/config.py` already maps `task.results_dir` → `config.metrics_output_dir`. The `.trace` file lands in `results/<experiment>/<apk>/` alongside `.logcat` and `rvagent_metrics.json`.

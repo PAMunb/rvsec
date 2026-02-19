@@ -39,7 +39,7 @@ This delta spec assumes gh18 (validation error detection) has already been imple
 ### Side-Effects
 
 - **Tracking**: New `[RVTRACK:STRATEGY]` log entries for proactive backtracking events, path buffer hits/misses, reward propagation triggers, and `[RVTRACK:COVERAGE]` entries for coverage-based navigation events (Strategy C activations, target screen, exploration_potential score)
-- **File System**: RVTRACK log entries persisted to `.trace` file in `metrics_output_dir` when configured. File naming follows the same convention as metrics JSON: `{package}__{rep}__{timeout}__rvagent:{mode}.trace`. Reuses the existing `metrics_output_dir` config field (no new field needed). Implementation: Python `FileHandler` attached to the `rv_agent` logger before the main loop and removed in `finally`. When `metrics_output_dir` is None (unit tests, unconfigured), RVTRACK entries go to stdout only (existing behavior).
+- **File System**: RVTRACK log entries persisted to `.trace` file in `metrics_output_dir` when configured. File naming follows the same convention as metrics JSON: `{package}__{rep}__{timeout}__rvagent:{mode}.trace`. Reuses the existing `metrics_output_dir` config field (no new field needed). Implementation: Python `FileHandler` attached to the `rv_agent` logger after app launch and removed before return. When `metrics_output_dir` is None (unit tests, unconfigured), RVTRACK entries go to stdout only (existing behavior).
 
 ### Error
 
