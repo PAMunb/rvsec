@@ -275,11 +275,12 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             # Try Backtrack BFS first
             successor_tracker = getattr(agent.strategy, 'successor_tracker', None)
             if successor_tracker:
-                unsaturated_target = successor_tracker.find_nearest_unsaturated(current_hash)
-                if unsaturated_target:
+                bfs_result = successor_tracker.find_nearest_unsaturated(current_hash)
+                if bfs_result:
+                    unsaturated_target, hop_count = bfs_result
                     logger.info(
                         f"Level 2 stuck: Backtrack BFS found unsaturated state "
-                        f"{unsaturated_target[:8]}... -> Forcing BACK"
+                        f"{unsaturated_target[:8]}... ({hop_count} hops) -> Forcing BACK"
                     )
                     force_back = True
                     # Track backtrack decision

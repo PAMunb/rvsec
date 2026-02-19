@@ -280,44 +280,69 @@ class RVAgentStrategy(ExplorationStrategy):
             f"  Saturation: {saturation_rate:.1%}"
         )
 
-        # 5. Select action based on availability
-        # Priority: untested actions first, then scroll to reveal more, then least-executed
+        # 5. Select action using tiered priority
+        # Tier 2: Untested actions
+        # Tier 3: Proactive backtracking (saturation >= threshold)
+        # Tier 4: Scored continuous mode (ActionRanker on all actions)
+        # Tier 5: BACK fallback
+        selected_action = None
+
         if untested_actions:
-            # UNTESTED: Select priority action from untested
+            # TIER 2 - UNTESTED: Select priority action from untested
             selected_action = self._select_priority_action(untested_actions, screen_desc)
             if selected_action:
-                logger.info(f"RVAgent DEEPEN: Selected UNTESTED action")
+                logger.info(f"RVAgent TIER2: Selected UNTESTED action")
             else:
-                # Fallback to first untested
                 selected_action = untested_actions[0]
-                logger.info(f"RVAgent DEEPEN: Fallback to first untested action")
-        elif all_filtered_actions:
-            # CONTINUOUS: All visible actions tested
-            # Before re-testing actions, try scroll to reveal hidden content (15% prob)
-            # This may expose new untested elements in lists/scrollable views
+                logger.info(f"RVAgent TIER2: Fallback to first untested action")
+
+        elif self.should_backtrack(current_hash):
+            # TIER 3 - PROACTIVE BACKTRACKING: saturation >= threshold
+            # Try path planning if PathBuffer is available (wired in Group 6)
+            path_buffer = getattr(self, 'path_buffer', None)
+            if path_buffer and hasattr(path_buffer, 'is_active') and not path_buffer.is_active:
+                # Try planning paths: coverage > MOP > backtrack
+                planned = (
+                    path_buffer.plan_coverage_path()
+                    or path_buffer.plan_mop_path(screen_desc.activity, self._get_mop_data())
+                    or path_buffer.plan_backtrack_path(current_hash)
+                )
+                if planned:
+                    buffered = path_buffer.get_next_action()
+                    if buffered:
+                        selected_action = buffered
+                        logger.info(f"RVAgent TIER3: Using path buffer action")
+
+            if not selected_action:
+                # All path plans failed or no buffer — fall through to Tier 4
+                logger.info(
+                    f"RVAgent TIER3: Saturation {saturation_rate:.1%} >= threshold, "
+                    f"no path plan available — falling through to scored selection"
+                )
+
+        if not selected_action and all_filtered_actions:
+            # TIER 4 - SCORED CONTINUOUS: All visible actions tested
+            # Try scroll to reveal hidden content (15% prob)
             scroll_action = self._try_generate_scroll_action(
-                screen_desc, node, self.scrolled_positions, probability=0.15
+                screen_desc, node, self.scrolled_positions, probability=self.config.scroll_probability
             )
             if scroll_action:
-                logger.info(f"RVAgent SCROLL: All visible actions tested, scrolling to reveal more content")
+                logger.info(f"RVAgent SCROLL: scrolling to reveal more content")
                 return scroll_action
 
-            # No scroll needed/possible - select LEAST-EXECUTED action
-            # Algorithm continues until timeout, never stops when "exhausted"
-            # Filters out permanently failed actions to avoid repeated crashes
-            selected_action = self._select_least_executed_action(node, all_filtered_actions)
+            # Select action using ActionRanker on ALL filtered actions
+            selected_action = self._select_priority_action(all_filtered_actions, screen_desc)
 
-            # If all actions have failed, fall through to BACK
             if selected_action is None:
-                logger.info(f"RVAgent: All actions failed on state {current_hash[:8]}, returning BACK")
+                logger.info(f"RVAgent: All actions scored zero on {current_hash[:8]}, returning BACK")
                 return self._create_back_action()
 
             action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
             exec_count = node.get_action_execution_count(action_signature)
-            logger.info(f"RVAgent CONTINUOUS: Selected LEAST-EXECUTED action")
-            logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
-        else:
-            # No actions available (edge case) - return BACK to navigate
+            logger.info(f"RVAgent TIER4: Selected SCORED action (count: {exec_count})")
+
+        if not selected_action:
+            # TIER 5 - No actions available
             logger.info(f"RVAgent: No actions available on state {current_hash[:8]}, returning BACK")
             return self._create_back_action()
 
@@ -410,9 +435,12 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         Determine if backtracking needed from current state.
 
+        Uses saturation threshold: backtrack when saturation_rate >= threshold.
+        Saturation measures how many actions have been executed 2+ times.
+
         Logic:
         1. Check incomplete successors - if found, DON'T backtrack
-        2. Check state exhaustion - backtrack if all actions executed
+        2. Check saturation against config threshold (default 0.8)
 
         Args:
             current_hash: Current state hash
@@ -420,7 +448,6 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             True if should backtrack
         """
-        # Get state node
         node = self.graph.states.get(current_hash)
         if not node:
             logger.warning(f"State {current_hash[:8]} not in graph - backtracking")
@@ -434,16 +461,17 @@ class RVAgentStrategy(ExplorationStrategy):
             )
             return False
 
-        # Check state exhaustion
-        exhausted = len(node.executed_actions) >= node.total_actions
+        # Check saturation against threshold
+        saturation = node.get_saturation_rate(threshold=2)
+        should = saturation >= self.config.backtrack_saturation_threshold
 
-        if exhausted:
+        if should:
             logger.info(
                 f"Should backtrack from {current_hash[:8]}: "
-                f"state exhausted ({len(node.executed_actions)}/{node.total_actions})"
+                f"saturation {saturation:.1%} >= threshold {self.config.backtrack_saturation_threshold:.1%}"
             )
 
-        return exhausted
+        return should
 
     def _create_back_action(self) -> ItemAction:
         """
@@ -688,6 +716,10 @@ class RVAgentStrategy(ExplorationStrategy):
             if element_id and self.value_generator.has_remaining_values(element_id):
                 return True
         return False
+
+    def _get_mop_data(self) -> Optional[Dict]:
+        """Get MOP data from static analysis for path planning."""
+        return getattr(self, 'static_analysis_data', None)
 
     def _get_visited_activities(self) -> Set[str]:
         """Get set of visited activity names from transition_manager or graph."""

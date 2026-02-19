@@ -326,7 +326,7 @@ class SuccessorTracker:
         """
         return list(self.back_successors.get(state_hash, set()))
 
-    def find_nearest_unsaturated(self, current_state: str) -> Optional[str]:
+    def find_nearest_unsaturated(self, current_state: str) -> Optional[Tuple[str, int]]:
         """
         BFS to find the nearest unsaturated ancestor state.
 
@@ -337,28 +337,31 @@ class SuccessorTracker:
             current_state: Current state hash to start search from
 
         Returns:
-            Hash of nearest unsaturated state, or None if all saturated
+            Tuple of (state_hash, hop_count) for nearest unsaturated state,
+            or None if all reachable states are saturated.
+            hop_count is the number of BACK actions needed to reach the target.
         """
         visited = {current_state}
-        queue = deque([current_state])
+        queue = deque([(current_state, 0)])
 
         while queue:
-            state_hash = queue.popleft()
+            state_hash, depth = queue.popleft()
 
             for back_target in self.back_successors.get(state_hash, []):
                 if back_target in visited:
                     continue
 
                 visited.add(back_target)
+                hop_count = depth + 1
 
                 if not self._is_saturated(back_target):
                     logger.info(
                         f"Backtrack BFS: Found unsaturated state {back_target[:8]} "
-                        f"(distance: {len(visited) - 1} BACK actions)"
+                        f"(distance: {hop_count} BACK actions)"
                     )
-                    return back_target
+                    return (back_target, hop_count)
 
-                queue.append(back_target)
+                queue.append((back_target, hop_count))
 
         logger.info("Backtrack BFS: All reachable states are saturated")
         return None
