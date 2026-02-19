@@ -182,44 +182,6 @@ class GradualDecayScorer(Scorer):
 
 
 
-class ExecutionCountScorer(Scorer):
-    """
-    Scores actions inversely proportional to execution count.
-
-    Less-executed actions get higher scores, promoting exploration diversity.
-    """
-
-    BASE_SCORE = 10.0
-
-    def __init__(self, coordinate_converter=None):
-        self.converter = coordinate_converter
-
-    def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        node = context.graph.states.get(context.current_state_hash)
-        if not node:
-            return self.BASE_SCORE
-
-        action_signature = self._convert_signature(action.coords_for_matching)
-        exec_count = node.get_action_execution_count(action_signature)
-
-        return self.BASE_SCORE / (1.0 + exec_count)
-
-    def _convert_signature(self, signature):
-        """Convert action signature to optimized space."""
-        (device_x, device_y), action_type = signature
-
-        if self.converter:
-            optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
-        else:
-            optimized_x, optimized_y = device_to_optimized(
-                device_x, device_y,
-                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
-                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
-            )
-
-        return ((optimized_x, optimized_y), action_type)
-
-
 class ComponentPriorityScorer(Scorer):
     """
     Scores actions based on component type priority.

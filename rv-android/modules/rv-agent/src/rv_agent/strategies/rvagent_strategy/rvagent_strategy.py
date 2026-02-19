@@ -10,7 +10,6 @@ Implements state space exploration with:
 
 import logging
 import random
-from dataclasses import dataclass
 from typing import Optional, List, Set, Tuple, Dict, TYPE_CHECKING
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.widget import WidgetEventType
@@ -45,15 +44,6 @@ if TYPE_CHECKING:
     from rv_agent.config.agent_config import RVAgentConfig
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class RVAgentState:
-    """Represents a state in the DFS stack."""
-    screen_hash: str
-    depth: int
-    parent_hash: Optional[str]
-    untested_count: int
 
 
 class RVAgentStrategy(ExplorationStrategy):
@@ -149,9 +139,6 @@ class RVAgentStrategy(ExplorationStrategy):
             self.value_generator: Generates test values for input fields.
             self.coverage_metrics: Tracks MOP method execution coverage.
             self.action_ranker: Composite scorer with 8 registered scorers.
-            self.state_stack: DFS stack of RVAgentState entries.
-            self.visited_states: Set of visited screen hashes.
-            self.current_depth: Current DFS depth. Incremented on action selection.
             self.previous_hash: Last state hash for transition tracking.
             self.scrolled_positions: Tracks scroll positions to avoid loops.
         """
@@ -193,11 +180,6 @@ class RVAgentStrategy(ExplorationStrategy):
             SystemElementFilter(),
             VisitationPenaltyScorer(config=config),
         ])
-
-        # DFS state
-        self.state_stack: List[RVAgentState] = []
-        self.visited_states: Set[str] = set()
-        self.current_depth = 0
 
         # Previous state for transition tracking
         self.previous_hash: Optional[str] = None
@@ -260,18 +242,7 @@ class RVAgentStrategy(ExplorationStrategy):
                 screen_desc
             )
 
-            parent_hash = self.state_stack[-1].screen_hash if self.state_stack else None
-
-            rvagent_state = RVAgentState(
-                screen_hash=current_hash,
-                depth=self.current_depth,
-                parent_hash=parent_hash,
-                untested_count=node.total_actions
-            )
-            self.state_stack.append(rvagent_state)
-            self.visited_states.add(current_hash)
-
-            logger.info(f"RVAgent: New state at depth {self.current_depth}, {node.total_actions} actions")
+            logger.info(f"RVAgent: New state, {node.total_actions} actions")
         else:
             node = self.graph.states[current_hash]
             node.visit_count += 1
@@ -326,7 +297,6 @@ class RVAgentStrategy(ExplorationStrategy):
                 screen_desc, node, self.scrolled_positions, probability=0.15
             )
             if scroll_action:
-                self.current_depth += 1
                 logger.info(f"RVAgent SCROLL: All visible actions tested, scrolling to reveal more content")
                 return scroll_action
 
@@ -348,8 +318,6 @@ class RVAgentStrategy(ExplorationStrategy):
             # No actions available (edge case) - return BACK to navigate
             logger.info(f"RVAgent: No actions available on state {current_hash[:8]}, returning BACK")
             return self._create_back_action()
-
-        self.current_depth += 1
 
         # 6. Handle input fields with value generation
         if selected_action.event == WidgetEventType.TEXT_CHANGE:
@@ -424,18 +392,13 @@ class RVAgentStrategy(ExplorationStrategy):
         self.successor_tracker.record_successor(from_hash, action_signature, to_hash)
 
         # Update plateau detector
-        new_state = to_hash not in self.visited_states
+        new_state = to_hash not in self.graph.states
         new_mop = action.callback_signature if action.callback_signature else None
 
         self.plateau_detector.record_iteration(
             discovered_new_state=new_state,
             new_mop_method=new_mop
         )
-
-        # Update stack if new state
-        if new_state and from_hash in self.visited_states:
-            # Deepening - handled in select_next_action
-            pass
 
         self.previous_hash = from_hash
 
@@ -699,8 +662,6 @@ class RVAgentStrategy(ExplorationStrategy):
             RankingContext with all required data for scoring
         """
         current_hash = self.graph.get_current_state_hash() if hasattr(self.graph, 'get_current_state_hash') else ""
-        if not current_hash and self.state_stack:
-            current_hash = self.state_stack[-1].screen_hash
 
         return RankingContext(
             screen_desc=screen_desc,
@@ -712,11 +673,12 @@ class RVAgentStrategy(ExplorationStrategy):
         )
 
     def _get_visited_activities(self) -> Set[str]:
-        """Get set of visited activity names."""
+        """Get set of visited activity names from transition_manager or graph."""
+        if self.transition_manager:
+            return self.transition_manager._visited_activities
         activities = set()
-        for state_hash in self.visited_states:
-            node = self.graph.states.get(state_hash)
-            if node and node.activity:
+        for node in self.graph.states.values():
+            if node.activity:
                 activities.add(node.activity)
         return activities
 
@@ -867,10 +829,6 @@ class RVAgentStrategy(ExplorationStrategy):
         input value tracking, scroll positions, and MOP coverage. Graph and UI
         coverage are managed separately.
         """
-        # Reset DFS state
-        self.state_stack.clear()
-        self.visited_states.clear()
-        self.current_depth = 0
         self.previous_hash = None
         self.scrolled_positions.clear()
         self._current_iteration = 0
@@ -909,9 +867,7 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         stats = {
             "strategy": "rvagent",
-            "depth": self.current_depth,
-            "states_visited": len(self.visited_states),
-            "stack_size": len(self.state_stack),
+            "states_visited": len(self.graph.states),
             "coverage": self.coverage_metrics.get_summary(),
             "plateau": self.plateau_detector.get_metrics(),
             "successor_tracking": self.successor_tracker.get_statistics(),

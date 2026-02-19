@@ -148,6 +148,9 @@ class DynamicStateGraph:
 
     def __init__(self):
         self.states: Dict[str, ScreenNode] = {}
+        # Chronological list of all transitions. Audit-only — used for post-run
+        # reporting and analysis. Not queried for navigation decisions; see
+        # SuccessorTracker.successors for O(1) navigation lookups.
         self.transitions: List[Transition] = []
         self.current_trace: List[Dict[str, Any]] = []
 

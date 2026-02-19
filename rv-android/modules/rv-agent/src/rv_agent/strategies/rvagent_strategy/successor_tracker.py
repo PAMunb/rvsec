@@ -141,11 +141,11 @@ class SuccessorTracker:
             # Unknown state - assume fully explored to avoid infinite loops
             return 1.0
 
-        # Calculate coverage: executed_actions / total_actions
+        # Zero actions = fully explored for successor tracking (differs from ScreenNode's 0.0)
         if node.total_actions == 0:
-            coverage = 1.0  # No actions = fully explored
+            coverage = 1.0
         else:
-            coverage = len(node.executed_actions) / node.total_actions
+            coverage = node.get_coverage()
 
         # Cache result
         self.coverage_cache[state_hash] = coverage

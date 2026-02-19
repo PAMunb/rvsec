@@ -3,7 +3,7 @@ Integration tests for RVAgentStrategy.
 
 Tests the complete exploration flow including:
 - Action selection and priority ordering
-- State management (DFS stack, visited states)
+- State management (graph-based state tracking)
 - Transition recording and successor tracking
 - Backtracking logic
 - Plateau detection
@@ -18,7 +18,7 @@ import pytest
 import hashlib
 from typing import List
 
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy, RVAgentState
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.config.agent_config import RVAgentConfig
@@ -53,9 +53,6 @@ class TestRVAgentStrategyInitialization:
 
         assert strategy.graph is dynamic_graph
         assert strategy.ui_coverage is ui_coverage
-        assert strategy.current_depth == 0
-        assert len(strategy.state_stack) == 0
-        assert len(strategy.visited_states) == 0
 
     def test_initialization_with_custom_params(self, dynamic_graph, ui_coverage):
         """Strategy accepts custom parameters."""
@@ -91,18 +88,7 @@ class TestActionSelection:
         action = rvagent_strategy.select_next_action(screen_hash, simple_screen)
 
         assert action is not None
-        assert screen_hash in rvagent_strategy.visited_states
-        assert len(rvagent_strategy.state_stack) == 1
-        assert rvagent_strategy.state_stack[0].screen_hash == screen_hash
-
-    def test_select_action_increments_depth(self, rvagent_strategy, simple_screen):
-        """Selecting action increments current depth."""
-        screen_hash = compute_test_hash("MainActivity", 3)
-        initial_depth = rvagent_strategy.current_depth
-
-        rvagent_strategy.select_next_action(screen_hash, simple_screen)
-
-        assert rvagent_strategy.current_depth == initial_depth + 1
+        assert screen_hash in rvagent_strategy.graph.states
 
     def test_select_action_records_in_graph(self, rvagent_strategy, simple_screen):
         """Selected action is recorded in the graph."""
@@ -416,36 +402,18 @@ class TestPlateauDetection:
 
 
 class TestStateManagement:
-    """Test DFS state stack management."""
+    """Test graph-based state management."""
 
-    def test_new_state_added_to_stack(self, rvagent_strategy, simple_screen):
-        """New states are added to the DFS stack."""
+    def test_new_state_added_to_graph(self, rvagent_strategy, simple_screen):
+        """New states are added to the graph."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
         rvagent_strategy.select_next_action(screen_hash, simple_screen)
 
-        assert len(rvagent_strategy.state_stack) == 1
-        assert rvagent_strategy.state_stack[0].screen_hash == screen_hash
-
-    def test_state_stack_tracks_depth(self, rvagent_strategy):
-        """State stack correctly tracks exploration depth."""
-        screens = [
-            create_mock_screen(f"Activity{i}", [create_mock_action(coords=(200, 400))])
-            for i in range(3)
-        ]
-        hashes = [compute_test_hash(f"Activity{i}", 1) for i in range(3)]
-
-        for i, (screen_hash, screen) in enumerate(zip(hashes, screens)):
-            action = rvagent_strategy.select_next_action(screen_hash, screen)
-            if action and i < len(screens) - 1:
-                rvagent_strategy.record_transition(screen_hash, hashes[i + 1], action)
-
-        # Check depths are tracked correctly
-        for i, state in enumerate(rvagent_strategy.state_stack):
-            assert state.depth == i
+        assert screen_hash in rvagent_strategy.graph.states
 
     def test_visited_states_tracking(self, rvagent_strategy):
-        """Visited states are tracked correctly."""
+        """Visited states are tracked in the graph."""
         screens = [
             create_mock_screen(f"Activity{i}", [create_mock_action(coords=(200, 400))])
             for i in range(3)
@@ -455,38 +423,11 @@ class TestStateManagement:
         for screen_hash, screen in zip(hashes, screens):
             rvagent_strategy.select_next_action(screen_hash, screen)
 
-        assert all(h in rvagent_strategy.visited_states for h in hashes)
+        assert all(h in rvagent_strategy.graph.states for h in hashes)
 
 
 class TestReset:
     """Test strategy reset functionality."""
-
-    def test_reset_clears_state_stack(self, rvagent_strategy, simple_screen):
-        """Reset clears DFS state stack."""
-        screen_hash = compute_test_hash("MainActivity", 3)
-        rvagent_strategy.select_next_action(screen_hash, simple_screen)
-
-        rvagent_strategy.reset()
-
-        assert len(rvagent_strategy.state_stack) == 0
-
-    def test_reset_clears_visited_states(self, rvagent_strategy, simple_screen):
-        """Reset clears visited states."""
-        screen_hash = compute_test_hash("MainActivity", 3)
-        rvagent_strategy.select_next_action(screen_hash, simple_screen)
-
-        rvagent_strategy.reset()
-
-        assert len(rvagent_strategy.visited_states) == 0
-
-    def test_reset_clears_depth(self, rvagent_strategy, simple_screen):
-        """Reset clears current depth."""
-        screen_hash = compute_test_hash("MainActivity", 3)
-        rvagent_strategy.select_next_action(screen_hash, simple_screen)
-
-        rvagent_strategy.reset()
-
-        assert rvagent_strategy.current_depth == 0
 
     def test_reset_clears_successor_tracker(self, rvagent_strategy, simple_screen, dropdown_screen):
         """Reset clears successor tracker."""
@@ -538,9 +479,7 @@ class TestStatistics:
 
         assert "strategy" in stats
         assert stats["strategy"] == "rvagent"
-        assert "depth" in stats
         assert "states_visited" in stats
-        assert "stack_size" in stats
         assert "coverage" in stats
         assert "plateau" in stats
         assert "successor_tracking" in stats
@@ -559,7 +498,6 @@ class TestStatistics:
         stats_after = rvagent_strategy.get_statistics()
 
         assert stats_after["states_visited"] == 1
-        assert stats_after["depth"] > stats_before["depth"]
 
 
 class TestCoordinateConversion:

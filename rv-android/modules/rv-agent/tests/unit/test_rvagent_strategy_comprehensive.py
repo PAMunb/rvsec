@@ -144,11 +144,9 @@ class TestRVAgentStrategyStateManagement:
         strategy = _create_strategy()
 
         strategy._current_iteration = 10
-        strategy.current_depth = 5
 
         strategy.reset()
 
-        assert strategy.current_depth == 0
         assert strategy._current_iteration == 0
 
     def test_get_statistics_returns_dict(self):
@@ -158,9 +156,7 @@ class TestRVAgentStrategyStateManagement:
         stats = strategy.get_statistics()
 
         assert isinstance(stats, dict)
-        assert "depth" in stats
         assert "states_visited" in stats
-        assert stats["depth"] == 0
         assert stats["states_visited"] == 0
 
 
@@ -176,18 +172,6 @@ class TestRVAgentStrategyActionSelection:
 
         # Returns BACK action as fallback when no actions available
         assert next_action is not None or next_action is None
-
-    def test_select_next_action_increments_depth(self):
-        """RVAgentStrategy increments depth when selecting an action."""
-        strategy = _create_strategy(use_real_components=True)
-        screen = _make_screen("MainActivity", [
-            MockAction(coordinates=(200, 500), widget_id="btn_test"),
-        ])
-
-        initial_depth = strategy.current_depth
-        strategy.select_next_action("hash123", screen)
-
-        assert strategy.current_depth == initial_depth + 1
 
     def test_select_next_action_with_no_actions(self):
         """RVAgentStrategy returns BACK action when no actions available."""
@@ -323,10 +307,3 @@ class TestRVAgentStrategyEdgeCases:
         with pytest.raises((AttributeError, TypeError)):
             strategy.select_next_action("hash123", None)
 
-    def test_current_depth_tracking(self):
-        """RVAgentStrategy tracks current depth correctly."""
-        strategy = _create_strategy()
-
-        assert strategy.current_depth == 0
-        strategy.current_depth = 6
-        assert strategy.current_depth == 6
