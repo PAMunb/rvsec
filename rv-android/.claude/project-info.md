@@ -199,6 +199,21 @@ docker run --rm --device /dev/kvm \
   phtcosta/rvandroid_dev:0.8.0
 ```
 
+### Docker Security Checks
+
+```bash
+# Pre-build: lint Dockerfile
+hadolint docker/base/Dockerfile
+
+# Post-build: image CIS benchmarks
+dockle phtcosta/rvandroid:0.8.0
+
+# Post-build: vulnerability scan
+trivy image --severity HIGH,CRITICAL phtcosta/rvandroid:0.8.0
+```
+
+See `docker/SECURITY.md` for full details.
+
 ---
 
 ## Monitor Generation

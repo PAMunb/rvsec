@@ -55,6 +55,23 @@ ARES, QTesting, and Humanoid require additional Docker infrastructure:
 - **ARES/QTesting**: Spawn sibling containers via docker.sock mount. Network: `--network container:$(hostname)` inside Docker, `--network host` outside.
 - **Humanoid**: Shared inference server (`phtcosta/humanoid:1.0` on port 50405), declared as service in compose files. The healthcheck uses a TCP socket connect (`python -c "import socket; ..."`) because the container has no `curl` and the server returns HTTP 501 for GET requests. The `start_period: 30s` accounts for TensorFlow model loading time.
 
+## Security Tooling
+
+Three tools cover Docker image security (details in `SECURITY.md`):
+
+| Tool | Phase | Purpose |
+|------|-------|---------|
+| Hadolint | Pre-build | Dockerfile linting (best practices, ShellCheck) |
+| Dockle | Post-build | Image linting (CIS benchmarks, non-root, secrets) |
+| Trivy | Post-build | Vulnerability scanning (CVEs, misconfigs, secrets) |
+
+```bash
+# Quick security check
+hadolint docker/base/Dockerfile            # Lint Dockerfile
+dockle phtcosta/rvandroid:0.8.0            # Check built image
+trivy image --severity HIGH,CRITICAL phtcosta/rvandroid:0.8.0  # Scan for CVEs
+```
+
 ## Building
 
 ```bash
