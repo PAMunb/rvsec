@@ -32,6 +32,7 @@ from rv_agent.strategies.rvagent_strategy.ranking import (
     SaturationScorer,
     ComponentPriorityScorer,
     StrengthScorer,
+    GradualDecayScorer,
     SystemElementFilter,
     VisitationPenaltyScorer,
 )
@@ -138,7 +139,7 @@ class RVAgentStrategy(ExplorationStrategy):
             self.plateau_detector: Detects exploration stagnation over sliding window.
             self.value_generator: Generates test values for input fields.
             self.coverage_metrics: Tracks MOP method execution coverage.
-            self.action_ranker: Composite scorer with 8 registered scorers.
+            self.action_ranker: Composite scorer with registered scorers.
             self.previous_hash: Last state hash for transition tracking.
             self.scrolled_positions: Tracks scroll positions to avoid loops.
         """
@@ -176,6 +177,7 @@ class RVAgentStrategy(ExplorationStrategy):
             SaturationScorer(config=config),
             ComponentPriorityScorer(config=config),
             StrengthScorer(coordinate_converter=coordinate_converter, config=config),
+            GradualDecayScorer(config=config),
             # Penalty scorers
             SystemElementFilter(),
             VisitationPenaltyScorer(config=config),
@@ -573,17 +575,18 @@ class RVAgentStrategy(ExplorationStrategy):
         and stochastic (select_stochastic with Gumbel-max) selection. Stochastic
         selection adds controlled randomness while preserving priority order.
 
-        Delegates scoring to registered Scorers (7 total):
+        Delegates scoring to registered Scorers (8 total):
         Prioritization:
-        - MopScorer: +300 (direct), +150 (transitive MOP)
-        - WtgScorer: +250 (WTG-guided navigation)
-        - SaturationScorer: +80 * (1 - saturation_rate)
+        - MopScorer: +500 (direct), +300 (transitive), deferred on forms
+        - WtgScorer: +150 (WTG-guided navigation)
+        - SaturationScorer: +100 * (1 - saturation_rate)
         - ComponentPriorityScorer: +50 (buttons), +40 (toggles)
         - StrengthScorer: +50 * success_rate
+        - GradualDecayScorer: 200 * 0.7^visits (0 after 5)
 
         Penalties:
         - SystemElementFilter: -5000 (system UI elements)
-        - VisitationPenaltyScorer: -10 * log(1 + visits)
+        - VisitationPenaltyScorer: -15 * log(1 + visits)
 
         Args:
             actions: Candidate actions
@@ -670,7 +673,21 @@ class RVAgentStrategy(ExplorationStrategy):
             current_state_hash=current_hash,
             visited_activities=self._get_visited_activities(),
             transition_manager=self.transition_manager,
+            has_untested_inputs=self._has_untested_inputs(screen_desc),
         )
+
+    def _has_untested_inputs(self, screen_desc: ScreenDescription) -> bool:
+        """Check if the current screen has EditText actions with remaining test values."""
+        for action in screen_desc.get_all_actions():
+            target_class = action.target_view.get('class', '') if action.target_view else ''
+            if 'EditText' not in target_class:
+                continue
+            element_id = action.widget_id or (
+                f"({action.coordinates[0]},{action.coordinates[1]})" if action.coordinates else None
+            )
+            if element_id and self.value_generator.has_remaining_values(element_id):
+                return True
+        return False
 
     def _get_visited_activities(self) -> Set[str]:
         """Get set of visited activity names from transition_manager or graph."""

@@ -6,11 +6,12 @@ by the ActionRanker to determine final action ranking.
 
 Scorer Architecture (8 scorers total):
   Prioritization:
-    - MopScorer: MOP-reaching actions
+    - MopScorer: MOP-reaching actions (with form-context deferral)
     - WtgScorer: WTG-guided navigation
     - SaturationScorer: Bonus for unsaturated states
     - ComponentPriorityScorer: Button/form/navigation priority
     - StrengthScorer: Success rate based priority
+    - GradualDecayScorer: Exponential decay based on visit count
 
   Penalties:
     - SystemElementFilter: Filters system UI elements
@@ -82,6 +83,10 @@ class MopScorer(Scorer):
             self.transitive_score = self.DEFAULT_TRANSITIVE_SCORE
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        # Defer MOP scoring for CLICK when untested text inputs exist on screen
+        if getattr(context, 'has_untested_inputs', False) and getattr(action, 'action_type', '') == "CLICK":
+            return 0.0
+
         if action.directly_reaches_mop:
             return self.direct_score
         elif action.reaches_mop:

@@ -3,8 +3,8 @@ Action ranking system for RVAgent strategy.
 
 Provides a modular scoring system for action prioritization.
 
-Active Scorers (7 total):
-  Prioritization: MopScorer, WtgScorer, SaturationScorer, ComponentPriorityScorer, StrengthScorer
+Active Scorers (8 total):
+  Prioritization: MopScorer, WtgScorer, SaturationScorer, ComponentPriorityScorer, StrengthScorer, GradualDecayScorer
   Penalties: SystemElementFilter, VisitationPenaltyScorer
 """
 

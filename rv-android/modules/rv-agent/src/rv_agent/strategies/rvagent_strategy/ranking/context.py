@@ -29,3 +29,4 @@ class RankingContext:
     current_state_hash: str
     visited_activities: Set[str]
     transition_manager: Optional["TransitionManager"] = None
+    has_untested_inputs: bool = False
