@@ -338,6 +338,42 @@ class UICoverageTracker:
             self.logger.error(f" Exploration suggestions failed: {e}")
             return [{"suggestion": "error", "reason": str(e)}]
 
+    def get_coverage_gap(self, state_hash: str) -> float:
+        """
+        Get the fraction of untested elements for a given screen state.
+
+        Returns untested_elements / total_elements for the state.
+        Returns 0.0 if state is unknown, has no elements, or total is zero.
+
+        Args:
+            state_hash: Screen state hash to query
+
+        Returns:
+            Coverage gap ratio (0.0 to 1.0), where 1.0 means all elements untested
+        """
+        if state_hash not in self.screen_elements:
+            return 0.0
+        screen_elems = self.screen_elements[state_hash]
+        total = len(screen_elems)
+        if total == 0:
+            return 0.0
+        untested = sum(1 for e in screen_elems if e not in self.tested_elements)
+        return untested / total
+
+    def get_element_count(self, state_hash: str) -> int:
+        """
+        Get the total number of registered elements for a given screen state.
+
+        Args:
+            state_hash: Screen state hash to query
+
+        Returns:
+            Number of registered elements (0 if state unknown)
+        """
+        if state_hash not in self.screen_elements:
+            return 0
+        return len(self.screen_elements[state_hash])
+
     def get_overall_statistics(self) -> Dict[str, Any]:
         """Get comprehensive coverage statistics."""
         try:

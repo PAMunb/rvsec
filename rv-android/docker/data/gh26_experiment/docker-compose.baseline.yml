@@ -1,0 +1,76 @@
+# GH26 Baseline Experiment: 10 exp02 APKs × 3 tools × 3 reps = 90 tasks.
+# Two containers run in parallel, each with 5 APKs (batch filter).
+# Full pipeline (monitors + instrumentation + static analysis + execution).
+#
+# Usage:
+#   docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up
+#
+# Resume after failure:
+#   docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,fastbot,rvagent:pure_algorithm"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_APKS_DIR: /opt/rvsec/rv-android/apks
+    RV_HUMANOID_URL: humanoid:50405
+  volumes: &rvandroid-volumes
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: 8g
+  depends_on:
+    humanoid:
+      condition: service_healthy
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: humanoid
+    ports:
+      - 50405:50405
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.create_connection(('127.0.0.1', 50405), timeout=3); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  batch_0:
+    <<: *rvandroid-base
+    container_name: gh26_baseline_0
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh26_baseline_0
+      RV_DEVICE_PORT: "5554"
+      RV_DELAY: "0"
+      RV_APKS_FILTER: /opt/rvsec/rv-android/data/batch_0.txt
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+      - ./batch_0.txt:/opt/rvsec/rv-android/data/batch_0.txt:ro
+      - ./results/baseline/batch_0:/opt/rvsec/rv-android/results
+
+  batch_1:
+    <<: *rvandroid-base
+    container_name: gh26_baseline_1
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh26_baseline_1
+      RV_DEVICE_PORT: "5556"
+      RV_DELAY: "10"
+      RV_APKS_FILTER: /opt/rvsec/rv-android/data/batch_1.txt
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+      - ./batch_1.txt:/opt/rvsec/rv-android/data/batch_1.txt:ro
+      - ./results/baseline/batch_1:/opt/rvsec/rv-android/results

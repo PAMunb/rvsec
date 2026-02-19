@@ -399,3 +399,49 @@ class TestActionTypeDistribution:
 
         assert tracker.action_type_counts["custom_action"] == 1
         assert tracker.action_type_counts["view"] == 1
+
+
+# =============================================================================
+# Coverage Gap and Element Count (task 1.6)
+# =============================================================================
+
+
+class TestCoverageGapAndElementCount:
+    """Tests for get_coverage_gap and get_element_count methods."""
+
+    @pytest.fixture
+    def tracker(self):
+        return UICoverageTracker()
+
+    def test_get_coverage_gap_known_state(self, tracker):
+        """Coverage gap reflects untested fraction."""
+        tracker.screen_elements["h1"] = {"e1", "e2", "e3", "e4"}
+        tracker.tested_elements["e1"] = 1
+        tracker.tested_elements["e3"] = 2
+        # 2 untested out of 4
+        assert tracker.get_coverage_gap("h1") == pytest.approx(0.5)
+
+    def test_get_coverage_gap_unknown_state(self, tracker):
+        """Unknown state returns 0.0."""
+        assert tracker.get_coverage_gap("unknown") == 0.0
+
+    def test_get_coverage_gap_all_tested(self, tracker):
+        """Fully tested state returns 0.0 gap."""
+        tracker.screen_elements["h1"] = {"e1", "e2"}
+        tracker.tested_elements["e1"] = 1
+        tracker.tested_elements["e2"] = 3
+        assert tracker.get_coverage_gap("h1") == 0.0
+
+    def test_get_coverage_gap_empty_screen(self, tracker):
+        """Empty element set returns 0.0."""
+        tracker.screen_elements["h1"] = set()
+        assert tracker.get_coverage_gap("h1") == 0.0
+
+    def test_get_element_count(self, tracker):
+        """Returns correct element count for known state."""
+        tracker.screen_elements["h1"] = {"e1", "e2", "e3"}
+        assert tracker.get_element_count("h1") == 3
+
+    def test_get_element_count_unknown_state(self, tracker):
+        """Unknown state returns 0."""
+        assert tracker.get_element_count("unknown") == 0

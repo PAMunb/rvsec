@@ -87,3 +87,13 @@ class RVAgentConstants:
     LLM_RESPONSE_TIME_TARGET = 3.0    # Maximum 3s average response time
     FORMAT_COMPLIANCE_TARGET = 0.95   # 95% JSON format compliance
     REASONING_QUALITY_TARGET = 0.90   # 90% coherent reasoning explanations
+
+    # === GH26 EXPLORATION STRATEGY CONSTANTS ===
+    # PathBuffer constants (safety bounds, not performance knobs)
+    PATH_BUFFER_ENABLED = True
+    MAX_BACKTRACK_HOPS = 8   # Maximum BFS hops for backtrack target search
+    MAX_COVERAGE_HOPS = 5    # Maximum BFS hops for coverage-gap target search
+
+    # Reward propagation constants
+    REWARD_MOP_WEIGHT = 5.0      # MOP event reward multiplier (base reward = 1.0)
+    REWARD_PROPAGATION_N = 5     # Steps for N-step reward propagation (gamma^5=0.33)

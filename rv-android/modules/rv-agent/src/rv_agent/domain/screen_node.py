@@ -56,6 +56,8 @@ class ScreenNode:
     action_execution_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
     # Success tracking for strength calculation
     action_success_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
+    # Per-action cumulative reward from N-step propagation
+    action_cumulative_reward: Dict[Tuple[Tuple[int, int], str], float] = field(default_factory=dict)
 
     def get_coverage(self) -> float:
         """

@@ -190,7 +190,7 @@ class RVAgentConfig(BaseValidatedModel):
         description="Maximum test value variations per input field"
     )
     stochastic_probability: float = Field(
-        default=0.3,
+        default=0.15,
         ge=0.0,
         le=1.0,
         description="Probability of using Gumbel-max stochastic action selection (0=deterministic, 1=always stochastic)"
@@ -227,13 +227,13 @@ class RVAgentConfig(BaseValidatedModel):
     # === SCORER WEIGHTS (Calibration Parameters) ===
     # MopScorer - prioritizes actions reaching monitored operations
     mop_direct_score: float = Field(
-        default=300.0,
+        default=500.0,
         ge=0.0,
         le=1000.0,
         description="Score for actions directly reaching MOP methods"
     )
     mop_transitive_score: float = Field(
-        default=150.0,
+        default=300.0,
         ge=0.0,
         le=500.0,
         description="Score for actions transitively reaching MOP methods"
@@ -241,7 +241,7 @@ class RVAgentConfig(BaseValidatedModel):
 
     # WtgScorer - prioritizes WTG-guided navigation
     wtg_guided_score: float = Field(
-        default=250.0,
+        default=150.0,
         ge=0.0,
         le=500.0,
         description="Score for WTG-guided actions leading to unvisited screens"
@@ -249,7 +249,7 @@ class RVAgentConfig(BaseValidatedModel):
 
     # SaturationScorer - bonus for unsaturated states
     unsaturated_bonus: float = Field(
-        default=80.0,
+        default=100.0,
         ge=0.0,
         le=200.0,
         description="Bonus score for actions in unsaturated states"
@@ -257,7 +257,7 @@ class RVAgentConfig(BaseValidatedModel):
 
     # VisitationPenaltyScorer - penalizes over-visited states
     visitation_penalty_factor: float = Field(
-        default=-10.0,
+        default=-15.0,
         le=0.0,
         ge=-50.0,
         description="Penalty factor for over-visited states (negative value)"
@@ -361,6 +361,44 @@ class RVAgentConfig(BaseValidatedModel):
         ge=0.01,
         le=0.5,
         description="Minimum score to accept spatial match between error and input [0.01, 0.5]"
+    )
+
+    # === GH26 EXPLORATION STRATEGY PARAMETERS ===
+    backtrack_saturation_threshold: float = Field(
+        default=0.8,
+        ge=0.5,
+        le=1.0,
+        description="Saturation threshold triggering backtrack (0.8 = backtrack when 80% of actions saturated)"
+    )
+    mop_nav_weight: float = Field(
+        default=2.0,
+        ge=0.5,
+        le=5.0,
+        description="Weight multiplier for MOP-reaching targets in navigation scoring"
+    )
+    mop_max_input_variations: int = Field(
+        default=11,
+        ge=5,
+        le=15,
+        description="Maximum input value variations for MOP-reaching screens"
+    )
+    reward_gamma: float = Field(
+        default=0.8,
+        ge=0.5,
+        le=0.99,
+        description="Discount factor for N-step reward propagation (0.8 = 20% decay per step)"
+    )
+    reward_score_weight: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=3.0,
+        description="Weight for cumulative_reward influence in StrengthScorer"
+    )
+    coverage_density_weight: float = Field(
+        default=200.0,
+        ge=50.0,
+        le=400.0,
+        description="CoverageDensityScorer weight for prioritizing screens with untested elements"
     )
 
     # === EXPLORATION PARAMETERS ===

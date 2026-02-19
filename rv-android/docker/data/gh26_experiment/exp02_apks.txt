@@ -1,0 +1,10 @@
+com.blogspot.e_kanivets.moneytracker_38.apk
+com.gianlu.dnshero_40.apk
+com.github.axet.hourlyreminder_476.apk
+com.pindroid_69.apk
+com.rafapps.simplenotes_7.apk
+com.thibaudperso.sonycamera_24.apk
+li.klass.fhem_141.apk
+org.pulpdust.lesserpad_42.apk
+org.secuso.privacyfriendlydicer_8.apk
+org.secuso.privacyfriendlyludo_5.apk
