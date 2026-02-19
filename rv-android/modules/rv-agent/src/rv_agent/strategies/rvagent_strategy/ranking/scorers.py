@@ -377,6 +377,7 @@ class StrengthScorer(Scorer):
     """
 
     DEFAULT_WEIGHT = 50.0
+    DEFAULT_REWARD_SCORE_WEIGHT = 1.0
 
     def __init__(
         self,
@@ -393,8 +394,10 @@ class StrengthScorer(Scorer):
         self.converter = coordinate_converter
         if config:
             self.weight = config.strength_weight
+            self.reward_score_weight = config.reward_score_weight
         else:
             self.weight = self.DEFAULT_WEIGHT
+            self.reward_score_weight = self.DEFAULT_REWARD_SCORE_WEIGHT
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         node = context.graph.states.get(context.current_state_hash)
@@ -403,8 +406,9 @@ class StrengthScorer(Scorer):
 
         action_signature = self._convert_signature(action.coords_for_matching)
         strength = node.get_action_strength(action_signature)
+        cumulative_reward = node.action_cumulative_reward.get(action_signature, 0.0)
 
-        return self.weight * strength
+        return self.weight * strength + self.reward_score_weight * cumulative_reward
 
     def _convert_signature(self, signature):
         """Convert action signature to optimized space."""

@@ -169,6 +169,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Record action success for strength-based scoring
     _record_action_success(agent, state)
 
+    # Propagate reward based on action outcome
+    _propagate_reward(agent, state)
+
     # --- Validation error detection (before stuck detection) ---
     #
     # WHY 3-way branching:
@@ -493,6 +496,83 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
 
     except Exception as e:
         logger.warning(f"Failed to record action success: {e}")
+
+
+def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
+    """
+    Record action in reward history and propagate reward based on outcome.
+
+    Determines reward type using priority order:
+    1. mop_reached: action has callback_signature (MOP method triggered)
+    2. new_activity: screen changed AND activity not seen before
+    3. new_state: screen changed AND activity already seen
+    4. form_fill: screen unchanged AND action was SET_TEXT/TEXT_CHANGE
+    5. same_state: screen unchanged AND action was not text input
+    """
+    try:
+        reward_propagator = getattr(agent.strategy, 'reward_propagator', None)
+        if not reward_propagator:
+            return
+
+        previous_hash = state.get("previous_screen_hash")
+        current_hash = state.get("current_screen_hash")
+        current_action = state.get("current_action")
+
+        if not previous_hash or not current_hash or not current_action:
+            return
+
+        x = current_action.get("x")
+        y = current_action.get("y")
+        action_type = current_action.get("action_type", "CLICK")
+
+        if x is None or y is None:
+            return
+
+        # Convert to optimized space (same as _record_action_success)
+        converter = getattr(agent.strategy, 'converter', None)
+        if converter:
+            opt_x, opt_y = converter.device_to_optimized(x, y)
+        else:
+            opt_x, opt_y = device_to_optimized(
+                x, y,
+                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
+                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+            )
+
+        action_signature = ((opt_x, opt_y), action_type)
+        reward_propagator.record_action(previous_hash, action_signature)
+
+        # Determine reward type (priority: mop > new_activity > new_state > form_fill > same_state)
+        selected_action = state.get("current_item_action")
+        has_mop = (
+            selected_action
+            and hasattr(selected_action, 'callback_signature')
+            and selected_action.callback_signature
+        )
+
+        if has_mop:
+            reward_type = "mop_reached"
+        elif previous_hash != current_hash:
+            # Screen changed — check if it's a new activity
+            current_activity = state.get("current_activity", "")
+            visited_activities = getattr(agent.strategy, '_get_visited_activities', lambda: set())()
+            if current_activity and current_activity not in visited_activities:
+                reward_type = "new_activity"
+            else:
+                reward_type = "new_state"
+        else:
+            # Screen unchanged
+            if action_type.upper() in ("SET_TEXT", "TEXT_CHANGE"):
+                reward_type = "form_fill"
+            else:
+                reward_type = "same_state"
+
+        graph = getattr(agent.strategy, 'graph', None)
+        if graph:
+            reward_propagator.propagate(reward_type, graph)
+
+    except Exception as e:
+        logger.warning(f"Failed to propagate reward: {e}")
 
 
 def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
