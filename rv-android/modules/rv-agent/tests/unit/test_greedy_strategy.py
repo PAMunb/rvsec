@@ -117,6 +117,7 @@ class TestShouldBacktrack:
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
         screen_desc.activity = "Test"
+        screen_desc.get_all_actions.return_value = []
 
         node = strategy.graph.get_or_create_state(
             "test_hash", "Test", screen_desc
@@ -136,6 +137,7 @@ class TestShouldBacktrack:
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
         screen_desc.activity = "Test"
+        screen_desc.get_all_actions.return_value = []
 
         node = strategy.graph.get_or_create_state(
             "test_hash", "Test", screen_desc
@@ -430,6 +432,7 @@ class TestGetUntestedActions:
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
         screen_desc.activity = "Test"
+        screen_desc.get_all_actions.return_value = []
 
         node = strategy.graph.get_or_create_state(
             "test_hash", "Test", screen_desc
@@ -453,6 +456,7 @@ class TestGetUntestedActions:
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
         screen_desc.activity = "Test"
+        screen_desc.get_all_actions.return_value = []
 
         node = strategy.graph.get_or_create_state(
             "test_hash", "Test", screen_desc
@@ -478,6 +482,7 @@ class TestGetUntestedActions:
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
         screen_desc.activity = "Test"
+        screen_desc.get_all_actions.return_value = []
 
         node = strategy.graph.get_or_create_state(
             "test_hash", "Test", screen_desc
@@ -515,6 +520,7 @@ class TestSelectNextAction:
         # Mock an action
         action = MagicMock(spec=ItemAction)
         action.id = "action1"
+        action.coordinates = (500, 500)
         action.coords_for_matching = ((500, 500), "click")
         action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = (500, 500)
@@ -561,6 +567,7 @@ class TestSelectNextAction:
         # Create two actions: one with MOP, one without
         action_no_mop = MagicMock(spec=ItemAction)
         action_no_mop.id = "action_no_mop"
+        action_no_mop.coordinates = (100, 500)
         action_no_mop.coords_for_matching = ((100, 500), "click")
         action_no_mop.target_view = {"system_action": False}
         action_no_mop.get_execution_coordinates.return_value = (100, 500)
@@ -569,6 +576,7 @@ class TestSelectNextAction:
 
         action_with_mop = MagicMock(spec=ItemAction)
         action_with_mop.id = "action_with_mop"
+        action_with_mop.coordinates = (200, 500)
         action_with_mop.coords_for_matching = ((200, 500), "click")
         action_with_mop.target_view = {"system_action": False}
         action_with_mop.get_execution_coordinates.return_value = (200, 500)
@@ -594,6 +602,7 @@ class TestSelectNextAction:
 
         action1 = MagicMock(spec=ItemAction)
         action1.id = "action1"
+        action1.coordinates = (100, 500)
         action1.coords_for_matching = ((100, 500), "click")
         action1.target_view = {"system_action": False}
         action1.get_execution_coordinates.return_value = (100, 500)
@@ -602,6 +611,7 @@ class TestSelectNextAction:
 
         action2 = MagicMock(spec=ItemAction)
         action2.id = "action2"
+        action2.coordinates = (200, 500)
         action2.coords_for_matching = ((200, 500), "click")
         action2.target_view = {"system_action": False}
         action2.get_execution_coordinates.return_value = (200, 500)
@@ -627,6 +637,7 @@ class TestSelectNextAction:
 
         action = MagicMock(spec=ItemAction)
         action.id = "action1"
+        action.coordinates = (500, 500)
         action.coords_for_matching = ((500, 500), "click")
         action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = (500, 500)
@@ -642,6 +653,7 @@ class TestSelectNextAction:
         # Create a new action for second visit
         action2 = MagicMock(spec=ItemAction)
         action2.id = "action2"
+        action2.coordinates = (600, 600)
         action2.coords_for_matching = ((600, 600), "click")
         action2.target_view = {"system_action": False}
         action2.get_execution_coordinates.return_value = (600, 600)

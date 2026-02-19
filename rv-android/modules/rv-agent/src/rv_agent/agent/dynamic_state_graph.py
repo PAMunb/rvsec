@@ -182,8 +182,13 @@ class DynamicStateGraph:
             node.visit_count += 1
             return node
 
-        # First visit - count total actions
-        total_actions = len(screen_desc.get_all_actions())
+        # First visit - count only non-system actions (those with coordinates).
+        # System actions (BACK, RESTART) have coordinates=None and inflate the
+        # denominator, preventing saturation from reaching the backtrack threshold.
+        total_actions = sum(
+            1 for a in screen_desc.get_all_actions()
+            if a.coordinates is not None
+        )
 
         node = ScreenNode(
             screen_hash=screen_hash,
