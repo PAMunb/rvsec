@@ -1132,65 +1132,97 @@ Unit and integration tests verify correctness, but the 10 improvements interact 
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| **APK set** | 10 APKs from experiment 02 (exp02 dataset) | Diverse categories (Money, Internet, Multimedia, Writing, Games), all have JCA+generic specs, previously validated in rvsec-02 |
+| **APK set** | 30 APKs, SA-validated from 188 exp01_jca pool | 3x larger than original exp02 set (10); all 30 confirmed to produce .gesda/.wtg/.reach files with the current GESDA/GATOR/REACH pipeline. Stratified sampling ensures diversity across categories and size buckets |
 | **Spec set** | JCA (23 specs) | Thesis focus; MOP coverage is the primary quality metric |
 | **Tools** | `ape`, `fastbot`, `rvagent:pure_algorithm` | APE and Fastbot serve as unmodified reference baselines (sanity check); rvagent is the subject under test |
 | **Timeout** | 300s (5 min) | Matches the standard experiment duration used in thesis experiments and gh9 calibration |
-| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 10 APKs (mean of 3 reps each) |
-| **Total tasks** | 90 (10 × 3 × 3) per phase | Two phases: baseline (90) + validation (90) = 180 total tasks |
+| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 30 APKs (mean of 3 reps each) |
+| **Total tasks** | 270 (30 × 3 × 3) per phase | Two phases: baseline (270) + validation (270) = 540 total tasks |
 | **Parallelism** | 2 Docker containers on laptop | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
 
-### APK Set (exp02)
+### Dataset Rebuild: Why exp02 Was Replaced
 
-The 10 APKs selected from `apks_complete.csv` where `exp02=True`:
+The original 10 exp02 APKs could not all be instrumented or produce the 3 required static analysis files (.gesda, .wtg, .reach) with the current GESDA/GATOR/REACH pipeline. The `exp01_jca=True` flag in `apks_complete.csv` only guarantees compatibility with the OLD Androguard-based SA pipeline, not the current pipeline. Additionally, n=10 provides low statistical power for Wilcoxon signed-rank tests — n=30 substantially increases power to detect medium effect sizes.
 
-| APK | Package | Category | Methods |
-|-----|---------|----------|---------|
-| com.blogspot.e_kanivets.moneytracker_38.apk | com.blogspot.e_kanivets | Money | 1205 |
-| com.gianlu.dnshero_40.apk | com.gianlu | Internet | 435 |
-| com.github.axet.hourlyreminder_476.apk | com.github.axet.hourlyreminder | Multimedia | 724 |
-| com.pindroid_69.apk | com.pindroid | Internet | 640 |
-| com.rafapps.simplenotes_7.apk | com.rafapps.simplenotes | Writing | 161 |
-| com.thibaudperso.sonycamera_24.apk | com.thibaudperso.sonycamera | Multimedia | 454 |
-| li.klass.fhem_141.apk | li.klass.fhem | Internet | 2417 |
-| org.pulpdust.lesserpad_42.apk | org.pulpdust.lesserpad | Writing | 129 |
-| org.secuso.privacyfriendlydicer_8.apk | org.secuso.privacyfriendlydicer | Games | 82 |
-| org.secuso.privacyfriendlyludo_5.apk | org.secuso.privacyfriendlyludo | Games | 269 |
+The replacement uses a 4-step pipeline:
 
-Range: 82-2417 methods (median ~450). All 10 have `exp01_jca=True` and `exp01_generic=True`, ensuring JCA monitored operations are present.
+1. **Extract**: Filter `apks_complete.csv` for `exp01_jca=True` → 188 APKs
+2. **Pre-select**: Stratified sampling (`scripts/select_dataset.py --cal-size 65 --seed 42`) → 65 APKs balanced across categories and size buckets
+3. **SA filter**: Run `scripts/filter_apks_static_analysis.py` on the 65 APKs with GESDA, GATOR, REACH (timeout 600s each, 2 workers). APKs that produce all 3 output files pass; others are discarded. Expected yield: ~40-55 APKs
+4. **Final selection**: Stratified sampling on SA-passed set (`scripts/select_dataset.py --cal-size 30 --seed 42`) → 30 APKs for the experiment
+
+The SA filter output from the baseline is reused in the validation experiment via `RV_SKIP_STATIC_ANALYSIS=true` and volume mount of the baseline's `results/` directory for instrumented APKs + SA files.
+
+Data artifacts (gitignored, in `out/`):
+- `out/gh26_dataset/all_jca_apks.txt` — 188 APKs from step 1
+- `out/gh26_dataset/preselection/` — 65 APKs from step 2
+- `out/gh26_sa_filter/` — SA filter results from step 3
+- `out/gh26_dataset/final_selection/` — 30 APKs from step 4
+
+### APK Set (SA-validated, 30 APKs)
+
+The 30 APKs are selected via the pipeline above. The specific APK list is recorded in `tasks.md` Group 0 after SA filter completes. Criteria: `exp01_jca=True`, all 3 SA files (.gesda, .wtg, .reach) produced successfully, stratified across categories and size buckets (tiny/small/medium/large/xlarge by method count).
 
 ### Docker Execution Architecture
 
 Follows the container-level parallelism pattern from gh9 and rvsec-02. Each phase has its own docker-compose file.
 
-**Phase 0 — Baseline** (2 containers, ~4-5 hours):
+**Phase 0 — Baseline** (2 containers, ~11.5 hours):
 
-Each container runs the full pipeline (monitors + instrument + static analysis + execution). Pre-processing adds ~5-7 min per container — negligible for a 4-5 hour experiment. This is simpler than a separate preprocessing step because the Docker image stores all pre-processing artifacts inside `results/<experiment>/` (not in `out/`), and the entrypoint has no `RV_SKIP_EXECUTION` flag.
+Each container runs the full pipeline (monitors + instrument + static analysis + execution). Pre-processing adds ~75 min per container. 2 batches of 15 APKs each, running in parallel.
 
 ```
 docker-compose.baseline.yml
-  ├── batch_0: (5 APKs)
+  ├── batch_0: (15 APKs)
   │     image: phtcosta/rvandroid (pre-gh26 codebase)
   │     RV_TOOLS=ape,fastbot,rvagent:pure_algorithm
   │     RV_TIMEOUTS=300, RV_REPETITIONS=3, RV_JCA_SPEC=true
   │     RV_DELAY=0
   │     volumes: original_apks/:ro → results/baseline/batch_0/
-  └── batch_1: (5 APKs)
+  └── batch_1: (15 APKs)
         same config, RV_DELAY=10
         volumes: → results/baseline/batch_1/
 ```
 
-**Phase 1 — Validation** (2 containers, ~4-5 hours):
+Calculation: preprocessing ~75min/container + (135 tasks × 5min) = ~11.5h per container. 2 containers in parallel.
+
+**Phase 1 — Validation** (2 containers, ~11.5 hours):
 
 ```
 docker-compose.validation.yml
-  ├── batch_0: (5 APKs)
+  ├── batch_0: (15 APKs)
   │     image: phtcosta/rvandroid:gh26-validation (post-gh26 codebase)
-  │     (identical config to baseline)
-  └── batch_1: (5 APKs)
+  │     RV_SKIP_STATIC_ANALYSIS=true (reuse baseline SA artifacts)
+  │     volumes: results/baseline/batch_0/:ro → instrumented APKs + SA files
+  │     (all other config identical to baseline)
+  └── batch_1: (15 APKs)
+        same config, volumes: results/baseline/batch_1/:ro
 ```
 
-All docker-compose files are stored in `docker/data/gh26_experiment/`. Each container runs the full pipeline independently. Instrumentation is deterministic so results are equivalent to shared preprocessing — only rv-agent code changes between baseline and validation images.
+All docker-compose files are stored in `docker/data/gh26_experiment/`. Validation containers reuse instrumented APKs and SA files (.gesda/.wtg/.reach) from the baseline via `RV_SKIP_STATIC_ANALYSIS=true` and read-only volume mounts, avoiding redundant ~75-minute preprocessing. Instrumentation is deterministic, so baseline artifacts are valid for validation — only rv-agent code changes between baseline and validation images.
+
+**Phase 1b — No-SA Validation** (optional, 2 containers, ~11.5 hours):
+
+```
+docker-compose.validation-nosa.yml
+  ├── batch_0: (15 APKs)
+  │     image: phtcosta/rvandroid:gh26-validation
+  │     RV_SKIP_STATIC_ANALYSIS=true for rvagent:pure_algorithm only
+  │     (ape/fastbot unchanged)
+  └── batch_1: (15 APKs)
+```
+
+This optional variant validates that CoverageDensityScorer + Strategy C provide meaningful exploration efficiency even without static analysis data (the "warm no-SA" scenario). Compares against both baseline and validation-with-SA to isolate the dual guidance contribution.
+
+### Time Budget (12h window)
+
+| Config | APKs | Tools | Reps | Tasks | Per Container | Est. Time |
+|--------|------|-------|------|-------|---------------|-----------|
+| A (chosen) | 30 | 3 | 3 | 270 | 135 tasks | ~11.5h |
+| B (fallback) | 30 | 3 | 2 | 180 | 90 tasks | ~8h |
+| C (fallback) | 25 | 3 | 3 | 225 | ~113 tasks | ~10h |
+
+Config A maximizes statistical power (30 observations per tool) and fits within 12h. If SA filter yields fewer than 30 passing APKs, fall back to Config C.
 
 ### Comparison Metrics
 
@@ -1233,8 +1265,8 @@ Post-gh26, task 9.5 adds aggregate counters to `rvagent_metrics.json` (backtrack
 | Aspect | Choice | Rationale |
 |--------|--------|-----------|
 | **Test** | Wilcoxon signed-rank | Non-parametric, paired, does not assume normal distribution |
-| **Sample size** | n=10 per tool (10 APKs, mean of 3 reps each) | Above minimum for Wilcoxon (n≥5); 3 reps per APK averaged to reduce noise (reps are pseudo-replicates, not independent) |
-| **Effect size** | r = Z / √n | Standardized effect size for non-parametric tests |
+| **Sample size** | n=30 per tool (30 APKs, mean of 3 reps each) | 3x larger than original n=10; much higher power to detect medium effect sizes. 30 APKs × 3 reps = 90 observations per tool |
+| **Effect size** | r = Z / √n | Standardized effect size for non-parametric tests; with n=30, r is more precisely estimated |
 | **Significance** | α=0.05, two-tailed | Standard threshold; report exact p-values |
 | **Multiple comparisons** | Report per-metric, flag if Bonferroni-corrected p > 0.05 | 4 metrics × 3 tools = 12 tests; conservative correction |
 

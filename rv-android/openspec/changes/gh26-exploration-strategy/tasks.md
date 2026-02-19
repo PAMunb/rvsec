@@ -17,6 +17,8 @@
 
 <!-- Subagent dispatch hints:
      - Group 0 (Baseline Experiment) must run BEFORE any code changes.
+       Dataset pipeline: 0.1a-0.1b DONE, 0.1c (SA filter ~4-8h) PENDING, 0.1d-0.1e PENDING (blocked by 0.1c).
+       Docker setup: 0.4b-0.4d PENDING (blocked by 0.1e). Baseline run: 0.5 (blocked by 0.4d).
      - Group 1 (Config & Models: 6 config fields + 5 constants) must complete first — all other groups depend on it.
      - Group 1.5 (Dead Code Removal) depends on Group 1 only. Must complete before
        Groups 5, 6 (which heavily modify rvagent_strategy.py). Small scope — main
@@ -49,25 +51,43 @@
 
 ## 0. Baseline Experiment (BEFORE implementation)
 
-Run a controlled experiment to establish baseline metrics before any gh26 code changes. Uses the 10 APKs from experiment 02 (exp02 dataset), 3 testing tools, 5-minute timeout, and 3 repetitions. Results serve as the control group for post-implementation comparison.
+Run a controlled experiment to establish baseline metrics before any gh26 code changes. Uses 30 SA-validated APKs (replacing the original 10 exp02 APKs — see "Dataset Rebuild" below), 3 testing tools, 5-minute timeout, and 3 repetitions. Results serve as the control group for post-implementation comparison.
+
+**Dataset Rebuild**: The original 10 exp02 APKs could not all be instrumented or produce the 3 required SA files (.gesda, .wtg, .reach) with the current GESDA/GATOR/REACH pipeline. The `exp01_jca=True` flag only guarantees compatibility with the OLD Androguard-based SA pipeline. The replacement uses a 4-step pipeline: (1) extract 188 `exp01_jca=True` APKs, (2) stratified pre-selection of 65, (3) SA filter validation with GESDA/GATOR/REACH, (4) stratified final selection of 30. This also triples the sample size (n=30 vs n=10), substantially increasing statistical power for Wilcoxon signed-rank tests.
 
 **Experiment parameters:**
-- APKs: 10 from exp02 (see task 0.1 for list)
+- APKs: 30 SA-validated (see tasks 0.1a-0.1d for dataset pipeline, task 0.1e for final list)
 - Tools: `ape`, `fastbot`, `rvagent:pure_algorithm`
 - Spec set: `jca`
 - Timeout: 300s (5 min)
 - Repetitions: 3
-- Total tasks: 10 × 3 × 3 = 90
-- Parallelism: 2 Docker containers on laptop
+- Total tasks: 30 × 3 × 3 = 270
+- Parallelism: 2 Docker containers on laptop (15 APKs each)
 - Original APKs: `/home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS`
+- CSV metadata: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal/dataset/results/apks/apks_complete.csv`
 
-- [x] 0.1 Create experiment directory `docker/data/gh26_experiment/` with filter file `exp02_apks.txt` containing the 10 exp02 APK filenames (one per line): `com.blogspot.e_kanivets.moneytracker_38.apk`, `com.gianlu.dnshero_40.apk`, `com.github.axet.hourlyreminder_476.apk`, `com.pindroid_69.apk`, `com.rafapps.simplenotes_7.apk`, `com.thibaudperso.sonycamera_24.apk`, `li.klass.fhem_141.apk`, `org.pulpdust.lesserpad_42.apk`, `org.secuso.privacyfriendlydicer_8.apk`, `org.secuso.privacyfriendlyludo_5.apk`. Create two batch filter files: `batch_0.txt` (first 5 APKs) and `batch_1.txt` (last 5 APKs).
-- [x] 0.2 ~~Create `docker/data/gh26_experiment/docker-compose.preprocess.yml`~~ — **DROPPED**: dry-run (task 0.3b) confirmed that the Docker image stores all pre-processing artifacts (monitors, instrumented APKs, static analysis files) inside `results/<experiment>/` rather than `out/`. The entrypoint has no `RV_SKIP_EXECUTION` flag, so separate preprocessing is not possible without modifying the image. Instead, each baseline container runs the full pipeline (monitors + instrument + static analysis + execution). Pre-processing adds ~5-7 min per container — negligible for a 4-5 hour experiment. This also simplifies the setup: no separate preprocessing step, no `instrumented_apks/` directory to manage, each container is self-contained.
-- [x] 0.3 ~~Run preprocessing~~ — **DROPPED** (merged into 0.4, see 0.2 rationale).
-- [x] 0.3b Docker dry-run: validated with `cryptoapp.apk`, `rvagent:pure_algorithm`, 60s timeout, full pipeline. Results: container started, emulator booted, APK installed, `summary.csv` produced with non-zero coverage (`cov_act=50%, cov_method=6.78%, cov_rv_method=14%`). `rvagent_metrics.json` produced with UI coverage data (30.3% element coverage, 3 states, 18 iterations). RVSEC-COV entries found in logcat (8 entries). All artifacts validated.
-- [x] 0.3c Implement RVTRACK `.trace` file persistence in `rv_agent.py`: reuse `metrics_output_dir` (no new config field). In `RVAgent.run()`, after app launch, if `self.config.metrics_output_dir` is set: (a) build filename using `MetricsExporter.build_filename()` convention but with `.trace` extension (`{package}__{rep}__{timeout}__rvagent:{mode}.trace`), (b) create a `logging.FileHandler` pointing to `{metrics_output_dir}/{filename}`, (c) attach it to `logging.getLogger("rv_agent")`. Before return, remove the handler and close it. ~10 lines. This captures ALL `[RVTRACK:<CATEGORY>]` entries to a per-task `.trace` file. Works automatically in both rv-platform path (`task.results_dir` → `metrics_output_dir`) and standalone CLI path (`--results-dir` → `metrics_output_dir`). When `metrics_output_dir` is None (unit tests), no FileHandler is added — zero side-effects. Rebuild Docker image after this task to include .trace support in both baseline and validation experiments.
-- [x] 0.4 Create `docker/data/gh26_experiment/docker-compose.baseline.yml`: 2 containers (`batch_0`, `batch_1`) each running `rv-experiment` with full pipeline (no skip flags — each container does its own monitor generation, instrumentation, and static analysis). Config: `RV_TOOLS=ape,fastbot,rvagent:pure_algorithm`, `RV_TIMEOUTS=300`, `RV_REPETITIONS=3`, `RV_NO_WINDOW=true`, `RV_JCA_SPEC=true`. Each container gets its batch filter file (5 APKs) via `RV_APKS_FILTER`. Mount original APKs from `/home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS`. Stagger start: `RV_DELAY=0` and `RV_DELAY=10`. Resource limits: `cpus: 4, memory: 8g` per container. Results in `docker/data/gh26_experiment/results/baseline/batch_0/` and `batch_1/`.
-- [ ] 0.5 Run baseline experiment: `docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up`. Monitor progress. Each container runs 5 APKs × 3 tools × 3 reps = 45 tasks (+ ~5-7 min preprocessing). Expected duration: ~4-5 hours with 2 containers. Resume on failure via `RV_EXPERIMENT_NAME`.
+**Dataset pipeline (tasks 0.1a-0.1d):**
+
+- [x] 0.1a Extract `exp01_jca=True` APKs from `apks_complete.csv` → `out/gh26_dataset/all_jca_apks.txt` (188 APKs).
+- [x] 0.1b Pre-select 65 APKs via stratified sampling: `python scripts/select_dataset.py --passed-apks out/gh26_dataset/all_jca_apks.txt --csv <apks_complete.csv> --cal-size 65 --output-dir out/gh26_dataset/preselection --seed 42`. Output: `out/gh26_dataset/preselection/calibration_set_v2.txt` (65 APKs).
+- [ ] 0.1c Run SA filter on pre-selected APKs: copy 65 APK files from `/home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS/` to `out/gh26_sa_filter_apks/`, then run `python scripts/filter_apks_static_analysis.py --apks-dir out/gh26_sa_filter_apks --output-dir out/gh26_sa_filter -p 2 --timeout 600`. Requires Java 8 (`sdk use java 8.0.302-open`). Expected: ~40-55 APKs pass. Estimated time: ~4-8h. Output: `out/gh26_sa_filter/passed_apks.txt`, `out/gh26_sa_filter/failed_apks.txt`, `out/gh26_sa_filter/analysis_report.json`.
+- [ ] 0.1d Select 30 APKs from SA-passed set: `python scripts/select_dataset.py --passed-apks out/gh26_sa_filter/passed_apks.txt --csv <apks_complete.csv> --cal-size 30 --output-dir out/gh26_dataset/final_selection --seed 42`. Verify: `--stats-only` on final selection to confirm stratification. If fewer than 30 pass SA filter, fall back to Config C (25 APKs).
+- [ ] 0.1e Record final 30 APK list here after task 0.1d completes. **APK LIST**: _(to be filled after SA filter)_
+
+**Previous tasks (completed with exp02 dataset, still valid):**
+
+- [x] 0.1 ~~Create experiment directory with exp02 APKs~~ — **SUPERSEDED by 0.1a-0.1e**: original exp02 APKs replaced by SA-validated dataset.
+- [x] 0.2 ~~Create docker-compose.preprocess.yml~~ — **DROPPED**: full pipeline per container (see 0.2 rationale in git history).
+- [x] 0.3 ~~Run preprocessing~~ — **DROPPED** (merged into 0.4).
+- [x] 0.3b Docker dry-run: validated with `cryptoapp.apk`, full pipeline. All artifacts validated.
+- [x] 0.3c Implement RVTRACK `.trace` file persistence in `rv_agent.py`.
+
+**Experiment setup (depends on 0.1e):**
+
+- [ ] 0.4b Update `docker/data/gh26_experiment/batch_0.txt` and `batch_1.txt` with 15 APKs each from the final 30 APK list (task 0.1e).
+- [ ] 0.4c Update `docker/data/gh26_experiment/docker-compose.baseline.yml`: same config as before but with 2 batches of 15 APKs. Config: `RV_TOOLS=ape,fastbot,rvagent:pure_algorithm`, `RV_TIMEOUTS=300`, `RV_REPETITIONS=3`, `RV_NO_WINDOW=true`, `RV_JCA_SPEC=true`, `RV_DELAY=0` (batch_0) / `RV_DELAY=10` (batch_1) for staggered start to avoid KVM boot races. Each container: 15 APKs × 3 tools × 3 reps = 135 tasks. Resource limits: `cpus: 4, memory: 8g` per container. Expected duration: ~11.5h per container.
+- [ ] 0.4d Verify docker-compose syntax: `docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml config`.
+- [ ] 0.5 Run baseline experiment: `docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up`. Monitor progress. Each container runs 15 APKs × 3 tools × 3 reps = 135 tasks (+ ~75 min preprocessing). Expected duration: ~11.5 hours with 2 containers. Resume on failure via `RV_EXPERIMENT_NAME`.
 - [ ] 0.6 Aggregate baseline metrics: merge `summary.csv` from both batches into `docker/data/gh26_experiment/baseline_metrics.csv`. Compute per (apk, tool): mean and std of `cov_method`, `cov_act`, `cov_rv_method`, `errors`. For rvagent, also extract from `rvagent_metrics.json`: `exploration.iterations`, `exploration.execution_time_s`, `exploration.unique_states`, `ui_coverage.element_coverage`, `ui_coverage.screens_visited`. Compute `mean_iteration_time_ms` as `(execution_time_s / iterations) * 1000` — this validates the "<1s per iteration" claim post-gh26. Archive `rvagent_metrics.json` files for post-implementation comparison.
 
 ## 1. Configuration & Models
@@ -202,7 +222,9 @@ Full integration tests, regression checks, and final verification. Must run afte
 
 ## 10. Post-Implementation Validation Experiment
 
-Run the same experiment as Group 0 but with gh26 changes applied. Compare against baseline to measure the actual impact of the 10 improvements. Must run after Group 9 passes `/rv-verify` and code review.
+Run the same experiment as Group 0 but with gh26 changes applied. Same 30 SA-validated APKs, same tools, same config. Compare against baseline to measure the actual impact of the 10 improvements. Must run after Group 9 passes `/rv-verify` and code review.
+
+The SA filter output from the baseline (task 0.1c) is reused: instrumented APKs and SA files (.gesda/.wtg/.reach) from `results/baseline/` are volume-mounted into validation containers via `RV_SKIP_STATIC_ANALYSIS=true`, avoiding redundant 75-minute preprocessing.
 
 **Comparison metrics (all 3 tools, from summary.csv):**
 - Method coverage % (`cov_method`)
@@ -219,13 +241,13 @@ Run the same experiment as Group 0 but with gh26 changes applied. Compare agains
 - Post-gh26 only: aggregate counters (backtrack_count, path_buffer_hit_rate, reward_propagation_events, coverage_navigation_events — added in task 9.5)
 
 **Statistical analysis:**
-- Paired observations: 10 APKs × 3 reps = 30 per tool
-- Test: Wilcoxon signed-rank (non-parametric, paired, n=10 — mean of 3 reps per APK)
+- Paired observations: 30 APKs × 3 reps = 90 per tool
+- Test: Wilcoxon signed-rank (non-parametric, paired, n=30 — mean of 3 reps per APK)
 - Report: per-metric p-value + effect size (r = Z/√n)
 
 - [ ] 10.1 Build Docker image with gh26 changes: `docker build -t phtcosta/rvandroid:gh26-validation -f docker/rvandroid/Dockerfile .` from project root. Verify image: run `uv run pytest modules/rv-agent/tests/unit/ -v` inside container to confirm all tests pass.
-- [ ] 10.2 Create `docker/data/gh26_experiment/docker-compose.validation.yml`: identical to `docker-compose.baseline.yml` but using `phtcosta/rvandroid:gh26-validation` image. Results in `docker/data/gh26_experiment/results/validation/batch_0/` and `batch_1/`.
-- [ ] 10.3 Run validation experiment: `docker compose -f docker/data/gh26_experiment/docker-compose.validation.yml up`. Same configuration as baseline: 2 containers, 10 APKs, 3 tools, 3 reps, 300s. Expected duration: ~4-5 hours.
+- [ ] 10.2 Create `docker/data/gh26_experiment/docker-compose.validation.yml`: same structure as `docker-compose.baseline.yml` (2 batches of 15 APKs) but using `phtcosta/rvandroid:gh26-validation` image and `RV_SKIP_STATIC_ANALYSIS=true`. Volume-mount baseline's `results/baseline/batch_N/` for SA artifact reuse (instrumented APKs + .gesda/.wtg/.reach files). Results in `docker/data/gh26_experiment/results/validation/batch_0/` and `batch_1/`.
+- [ ] 10.3 Run validation experiment: `docker compose -f docker/data/gh26_experiment/docker-compose.validation.yml up`. Same configuration as baseline: 2 containers, 30 APKs (15 each), 3 tools, 3 reps, 300s. Expected duration: ~11.5 hours (same as baseline but SA preprocessing skipped — execution time dominates).
 - [ ] 10.3b Create and run no-SA validation variant: `docker-compose.validation-nosa.yml` — identical to validation but with `RV_SKIP_STATIC_ANALYSIS=true` for `rvagent:pure_algorithm` only (ape/fastbot unchanged). This validates that CoverageDensityScorer + Strategy C provide meaningful exploration efficiency even without static analysis data, measuring the "warm no-SA" scenario described in the brainstorming doc. Results in `docker/data/gh26_experiment/results/validation_nosa/`. Compare against both baseline and validation-with-SA to isolate the dual guidance contribution.
 - [ ] 10.4 Aggregate validation metrics: merge `summary.csv` from both batches into `docker/data/gh26_experiment/validation_metrics.csv`. Same format as `baseline_metrics.csv`.
 - [ ] 10.5 Create comparison script `docker/data/gh26_experiment/compare_results.py`: reads `baseline_metrics.csv` and `validation_metrics.csv`, computes per (apk, tool) deltas for each metric, runs Wilcoxon signed-rank test per (tool, metric) pair, generates `comparison_report.md` with: (a) per-tool summary table (mean baseline → mean validation, Δ%, p-value), (b) per-APK breakdown for rvagent:pure_algorithm, (c) RVAgent-specific metrics comparison from `rvagent_metrics.json` (unique_states, element_coverage, screens_visited, iterations, mean_iteration_time). Script uses only stdlib + scipy (for stats).
