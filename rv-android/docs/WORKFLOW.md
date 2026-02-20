@@ -713,15 +713,17 @@ These are architectural principles for the skill system itself. For the developm
 | `/rv-tdd` | Test-driven development workflow | `/rv-code-reviewer` (via Skill tool) |
 | `/rv-cleanup` | Dead code removal workflow | `/rv-code-reviewer` (via Skill tool) |
 
-#### Execution Layer: Components — Analysis (5)
+#### Execution Layer: Components — Analysis (7)
 
-| Skill | Purpose |
-|-------|---------|
-| `/rv-analyze-module` | Deep analysis of a module (persists to memory) |
-| `/rv-analyze-file` | Analyze a specific file |
-| `/rv-analyze-complexity` | Find complexity hotspots |
-| `/rv-analyze-dependencies` | Check dependency health across modules |
-| `/rv-analyze-dead-code` | Find unused code |
+| Skill | Scope | Purpose |
+|-------|-------|---------|
+| `/rv-analyze-file` | File | Qualitative analysis (8 dimensions, code smells) |
+| `/rv-analyze-file-complexity` | File | Complexity metrics via radon cc/mi/raw |
+| `/rv-analyze-file-dead-code` | File | Dead code detection via pyflakes/vulture |
+| `/rv-analyze-complexity` | Module | Complexity metrics via radon across all module files |
+| `/rv-analyze-dependencies` | Module | Dependency mapping, violation/cycle detection |
+| `/rv-analyze-dead-code` | Module | Dead code detection via pyflakes/vulture across module |
+| `/rv-analyze-module` | Module (L1) | Full architecture (chains to 3 sub-skills + 4 perspectives) |
 
 #### Execution Layer: Components — Testing and QA (5)
 

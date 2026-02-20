@@ -1,10 +1,7 @@
 ---
 name: rv-analyze-file
-description: >-
-  Analyze single Python file structure and dependencies. Use when understanding a specific file,
-  preparing to modify it, or reviewing code.
-  Do NOT use for: multiple files (use /rv-analyze-module), making changes (use /rv-refactor-*).
-argument-hint: [file-path]
+description: Analyze single Python file structure, responsibilities, and code smells.
+argument-hint: "<file-path>"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob
@@ -12,96 +9,88 @@ allowed-tools: Read, Grep, Glob
 
 # Analyze File: $ARGUMENTS
 
-## Supporting Files
-
-Read these reference files before starting analysis:
-
-- `checklists/file-analysis-dimensions.md` — 8 analysis dimensions (structure, responsibilities, dependencies, complexity, error handling, API, config, testing)
-- `checklists/code-smell-catalog.md` — Code smell catalog by category with severity and suggested refactoring
-- `templates/report.md` — Output report format
-
----
+> **Scope**: Qualitative analysis of ONE file — structure, responsibilities, patterns, smells.
+> For quantitative metrics, use `/rv-analyze-file-complexity` (radon) or `/rv-analyze-file-dead-code` (pyflakes/vulture).
+> Do NOT use for: multiple files (use `/rv-analyze-module`), making changes (use `/rv-refactor-*`).
 
 ## Steps
 
-1. **Read the file** at $ARGUMENTS
+### Step 0: Check MCP Memory Cache
 
-2. **Extract structure**:
-   - Imports (stdlib, third-party, internal)
-   - Classes and their methods
-   - Standalone functions
-   - Constants and globals
+```
+Use mcp__memory__search_nodes with query: "analysis:file:$ARGUMENTS"
+```
 
-3. **Analyze dependencies**:
-   - What does this file import?
-   - What imports this file? (reverse lookup)
+If found, extract the `git_hash` observation. Compare with current hash:
+```bash
+git log -1 --format=%h -- $ARGUMENTS
+```
 
-4. **Assess complexity**:
-   - Lines of code
-   - Number of classes/functions
-   - Cyclomatic complexity indicators
-   - Nesting depth
+- **Cache hit** (hashes match): Return the cached `summary` and `details` observations. Note "Using cached analysis. File unchanged since [date]." and STOP.
+- **Cache miss** (hashes differ or not found): Proceed to Step 1.
 
-5. **Identify patterns**:
-   - Design patterns used
-   - Code smells
-   - Documentation quality
+### Step 1: Read Reference
+
+Read `reference.md` from this skill's directory. It contains the 8 analysis dimensions, code smell catalog, and health scoring.
+
+### Step 2: Read and Analyze File
+
+Read the target file. Analyze through the 8 dimensions from reference.md (in priority order):
+
+1. **Structure**: Imports, classes, functions, constants, file length
+2. **Responsibilities**: SRP assessment — how many distinct responsibilities?
+3. **Dependencies**: What it imports, what imports it (Grep reverse lookup)
+4. **Complexity**: Nesting depth, function lengths, parameter counts
+5. **Error Handling**: try/except quality, cleanup patterns
+6. **API Surface**: Public symbols, docstrings, type annotations
+7. **Configuration**: Magic values, environment reads
+8. **Testing**: Testability assessment, mock requirements
+
+Not every dimension needs deep analysis — focus depth where issues exist. For clean dimensions, a brief "OK" suffices.
+
+### Step 3: Persist to MCP Memory
+
+```
+Use mcp__memory__create_entities (or update existing via delete + create):
+  Entity: "analysis:file:$ARGUMENTS"
+  Type: "file-analysis"
+  Observations:
+    - "git_hash: <hash>"
+    - "date: YYYY-MM-DD"
+    - "summary: LOC=X, classes=Y, functions=Z, health=GRADE, smells=W, responsibilities=R"
+    - "details: <full report as single observation>"
+```
+
+If MCP fails, skip caching — still output the report.
 
 ## Output Format
 
-```
-## File Analysis: [filename]
+```markdown
+## File Analysis: <filename>
 
-### Overview
-- **Path**: [full path]
-- **Lines**: X
-- **Classes**: Y
-- **Functions**: Z
-
-### Imports
-
-#### Standard Library
-- os, sys, ...
-
-#### Third-Party
-- langchain, pydantic, ...
-
-#### Internal (rv-android)
-- rv_android_core.models
-- rv_agent.domain
+**LOC**: X | **Classes**: Y | **Functions**: Z | **Health**: GRADE
 
 ### Structure
-
-#### Classes
-| Class | Methods | Lines | Purpose |
-|-------|---------|-------|---------|
-| ClassName | X | Y | Description |
-
-#### Functions
-| Function | Lines | Purpose |
-|----------|-------|---------|
-| func_name | X | Description |
+(imports by category, classes/functions summary)
 
 ### Dependencies
-
-#### Used By (importers)
-| File | Import |
-|------|--------|
-| other.py | from this import X |
-
-#### Uses (imports)
-| Module | What |
-|--------|------|
-| module | Class, function |
+| Direction | Module | What |
+|-----------|--------|------|
+| Uses | rv_android_core | ErrorHandler |
+| Used by | rv_platform | TaskExecutor |
 
 ### Quality Assessment
+| Metric | Value | Threshold | Status |
+|--------|-------|-----------|--------|
+| Lines | X | 500 | OK/Warning |
+| Max function length | Y | 50 | OK/Warning |
+| Max nesting | Z | 4 | OK/Warning |
 
-| Metric | Value | Status |
-|--------|-------|--------|
-| Lines | X | ✅/⚠️ |
-| Max function length | Y | ✅/⚠️ |
-| Max nesting | Z | ✅/⚠️ |
+### Code Smells
+| # | Smell | Location | Severity | Notes |
+|---|-------|----------|----------|-------|
+| 1 | Long Method | func:42 | High | 80 lines |
 
 ### Recommendations
-1. [Improvement suggestions]
+1. **[issue]**: [specific action]
 ```

@@ -37,12 +37,17 @@ This document unifies the analysis skill tree redesign with the bottom-up verifi
 1. **Leaf = file scope, fast, cheap**. Module scope = orchestrator with internal iteration.
 2. **Naming convention**: `rv-analyze-file-*` for file-scoped variants. `rv-analyze-*` (without `file`) for module-scoped.
 3. **Always fork** (`context: fork`): every skill gets its own context window.
-4. **Minimize tokens**: lean SKILL.md (~50-80 lines), no checklists/supporting files unless essential, no MCP cache/memory overhead.
+4. **Minimize tokens**: lean SKILL.md (~50-80 lines), no checklists/supporting files unless essential. Use MCP memory for git hash-based cache (Section 2.1) to avoid redundant analysis.
 5. **No fork-per-file iteration in module-scoped skills**: iterate internally (Glob+Read), not by forking to file-level skills for every file (too expensive: 46 forks × ~30s each). File-scoped skills may be invoked individually by consumers for targeted analysis (e.g., rv-code-reviewer calling rv-analyze-file-complexity for 1-3 specific files).
 6. **Seamless workflow integration**: naming and scope must align with WORKFLOW.md usage patterns (Phase 0, Explore, Quick Path Analyze).
 7. **Consolidate supporting files**: the knowledge in checklists/templates is valuable and must be preserved — not deleted. Approach: merge 3 separate files into 1 consolidated `reference.md` per skill (preserving all content), inline only the essential thresholds (~5 lines) in SKILL.md, and change instruction to "Read reference.md before starting analysis". This reduces mandatory reads from 3 to **1** while keeping all accumulated knowledge accessible — the consolidated file contains checklists that **standardize** analyses, so reading it is mandatory (without it, each analysis would be inconsistent). Supporting files that prove genuinely unused after verification can be removed later. This addresses the primary root cause of F1.
 8. **No sequential-thinking MCP in L0 skills**: the `sequential-thinking` MCP server adds ~2-3 tool calls overhead without clear value for leaf skills. Numbered steps in the output suffice. Reserve sequential-thinking for complex orchestrators (L1+) where multi-step reasoning adds value.
 9. **Compact frontmatter descriptions**: skill descriptions are loaded into the main context window permanently (not just when invoked) and consume a shared budget of ~16,000 chars (2% of context window). With 32 skills at avg 260 chars/description = 8,334 chars = **52% of the budget**. With 2 new skills (34 total), this pressure increases. Shorten descriptions to <100 chars, moving routing info ("Do NOT use for...") to the SKILL.md body. **Critical**: `context: fork` MUST stay — without it skills run inline in the main window, defeating all context isolation. `agent: general-purpose` is technically the default for forked skills, but keeping it explicit is low-risk.
+10. **Static analysis tools over LLM estimation**: analysis skills must use actual static analysis tools for precise, reproducible metrics — not LLM reasoning alone. The LLM interprets tool results and adds qualitative assessment for aspects the tools cannot measure. Available tools (installed as dev dependencies in `pyproject.toml`):
+    - **radon** (complexity): `radon cc` (cyclomatic complexity per function, A-F grade), `radon mi` (maintainability index), `radon raw` (LOC/SLOC/comments)
+    - **pyflakes** (dead code): unused imports, undefined names
+    - **vulture** (dead code): unused functions, classes, variables, imports with confidence %
+    - Run all tools in a SINGLE Bash call to minimize tool call count.
 
 ---
 
@@ -180,11 +185,11 @@ No skill chains. Either file-scoped or module-scoped.
 | Skill | Scope | Change | Target Tool Calls |
 |-------|-------|--------|-------------------|
 | rv-analyze-file | File | SLIM DOWN: consolidate 3 supporting files → 1 reference.md (mandatory read), inline essentials | ~15 |
-| **rv-analyze-file-complexity** | File | **NEW**: complexity of ONE file (LOC, functions, nesting) | ~5 |
-| **rv-analyze-file-dead-code** | File | **NEW**: dead code in ONE file (unused imports, functions, unreachable) | ~5 |
-| rv-analyze-complexity | Module | REDESIGN: remove supporting files + sequential-thinking, internal iteration, MCP memory with git hash cache, aggregate report | ~20 |
-| rv-analyze-dead-code | Module | REDESIGN: remove supporting files, internal iteration, MCP memory with git hash cache, aggregate report | ~15 |
-| rv-analyze-dependencies | Module | REDESIGN: remove supporting files + sequential-thinking, MCP memory with git hash cache | ~15 |
+| **rv-analyze-file-complexity** | File | **NEW**: `radon cc/mi/raw` + LLM qualitative (nesting, params), MCP memory cache | ~5 full / ~2 cached |
+| **rv-analyze-file-dead-code** | File | **NEW**: `pyflakes` + `vulture` + cross-ref Grep, MCP memory cache | ~7 full / ~2 cached |
+| rv-analyze-complexity | Module | REDESIGN: `radon cc/mi/raw` per file (batched), remove supporting files + sequential-thinking, MCP memory cache, aggregate report | ~20 |
+| rv-analyze-dead-code | Module | REDESIGN: `pyflakes` + `vulture` per file (batched), remove supporting files, MCP memory cache, aggregate report | ~15 |
+| rv-analyze-dependencies | Module | REDESIGN: remove supporting files + sequential-thinking, MCP memory cache | ~15 |
 | rv-impact-analyzer | File/class | KEEP as-is | ~15 |
 | *(12 other leaves unchanged)* | Various | No change | — |
 
@@ -283,8 +288,8 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 
 | # | File | Description |
 |---|------|-------------|
-| 1 | `.claude/skills/rv-analyze-file-complexity/SKILL.md` | New file-scoped complexity skill (~50 lines), no supporting files (lightweight, ~5 tool calls) |
-| 2 | `.claude/skills/rv-analyze-file-dead-code/SKILL.md` | New file-scoped dead code skill (~50 lines), no supporting files (lightweight, ~5 tool calls) |
+| 1 | `.claude/skills/rv-analyze-file-complexity/SKILL.md` | New file-scoped complexity skill (~80 lines). Uses `radon cc/mi/raw` + LLM qualitative, MCP memory cache. No supporting files. |
+| 2 | `.claude/skills/rv-analyze-file-dead-code/SKILL.md` | New file-scoped dead code skill (~80 lines). Uses `pyflakes` + `vulture` + cross-ref Grep, MCP memory cache. No supporting files. |
 | 3 | `.claude/skills/rv-analyze-complexity/reference.md` | Consolidated from 3 supporting files (checklists + templates). Original files deleted after consolidation |
 | 4 | `.claude/skills/rv-analyze-dead-code/reference.md` | Consolidated from 3 supporting files. Original files deleted after consolidation |
 | 5 | `.claude/skills/rv-analyze-dependencies/reference.md` | Consolidated from 3 supporting files. Original files deleted after consolidation |
@@ -295,8 +300,8 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 
 | # | File | Change |
 |---|------|--------|
-| 1 | `.claude/skills/rv-analyze-complexity/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, remove Guiding Principles (9 paragraphs → 3 lines inline), remove sequential-thinking, redesign MCP memory schema (entity naming + git hash cache), module-scoped internal iteration, **compact description to <100 chars**, move routing to body, slim to ~60 lines |
-| 2 | `.claude/skills/rv-analyze-dead-code/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, redesign MCP memory schema (entity naming + git hash cache), module-scoped internal iteration, **compact description to <100 chars**, move routing to body, slim to ~60 lines |
+| 1 | `.claude/skills/rv-analyze-complexity/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, remove Guiding Principles (9 paragraphs → 3 lines inline), remove sequential-thinking, use `radon cc/mi/raw` (batched across module files), redesign MCP memory schema (entity naming + git hash cache), module-scoped internal iteration, **compact description to <100 chars**, move routing to body, slim to ~60 lines |
+| 2 | `.claude/skills/rv-analyze-dead-code/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, use `pyflakes` + `vulture` (batched across module files), redesign MCP memory schema (entity naming + git hash cache), module-scoped internal iteration, **compact description to <100 chars**, move routing to body, slim to ~60 lines |
 | 3 | `.claude/skills/rv-analyze-dependencies/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, remove sequential-thinking, redesign MCP memory schema (entity naming + git hash cache), **compact description to <100 chars**, move routing to body, slim to ~60 lines |
 | 4 | `.claude/skills/rv-analyze-module/SKILL.md` | Redesign: remove Steps 5-8 (73 lines of in-SKILL.md modeling instructions) + delete 4 checklist files (context-modeling.md, interaction-modeling.md, structural-modeling.md, behavioral-modeling.md), simplify to: check cache → call 3 L0 via Skill → own analysis (directory + components + tests) → synthesize → persist, **compact description to <100 chars**, move routing to body |
 | 5 | `.claude/skills/rv-analyze-file/SKILL.md` | Slim: consolidate 3 supporting files → 1 reference.md (mandatory read), change to "Read reference.md before starting analysis", **compact description to <100 chars**, move routing to body |
@@ -309,7 +314,7 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 
 **Total: 7 files to create + 11 files to modify + ~16 files to delete (original supporting files) = ~34 file operations**
 
-**Note**: frontmatter compaction (Phase 1) applies to the 7 analysis skills already being modified (rows 1-7). Phase 2 (remaining 25+ skills) is a separate future task — see Section 2.2. File-scoped variants (`rv-analyze-file-complexity`, `rv-analyze-file-dead-code`) operate WITHOUT supporting files — they are lightweight (~5 tool calls) and don't need reference material.
+**Note**: frontmatter compaction (Phase 1) applies to the 7 analysis skills already being modified (rows 1-7). Phase 2 (remaining 25+ skills) is a separate future task — see Section 2.2. File-scoped variants use static analysis tools (`radon`, `pyflakes`, `vulture`) for precise metrics + MCP memory for git hash-based caching. They operate without supporting files — the tools provide the data, the LLM interprets it.
 
 ---
 
@@ -317,8 +322,8 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 
 After all changes:
 
-1. `/rv-analyze-file-complexity modules/rv-android-core/src/rv_android_core/constants.py` → ONE file, <7 tool calls
-2. `/rv-analyze-file-dead-code modules/rv-android-core/src/rv_android_core/constants.py` → ONE file, <7 tool calls
+1. `/rv-analyze-file-complexity modules/rv-android-core/src/rv_android_core/constants.py` → ONE file, ~5 tool calls (radon cc/mi/raw + Read + MCP persist), ~2 on cache hit
+2. `/rv-analyze-file-dead-code modules/rv-android-core/src/rv_android_core/constants.py` → ONE file, ~7 tool calls (pyflakes + vulture + cross-ref + MCP persist), ~2 on cache hit
 3. `/rv-analyze-complexity rv-android-core` → module, internal iteration, ~20 tool calls (down from 49)
 4. `/rv-analyze-dead-code rv-android-core` → module, internal iteration, ~15 tool calls
 5. `/rv-analyze-module rv-android-core` → 3 Skill forks + own modeling, ~10 own tool calls + 3 forks
@@ -743,10 +748,10 @@ The batches intercalate **refactoring** (creating/modifying skills) with **verif
 |-------|-------|--------|--------|------|
 | 0 | Infrastructure + Static Checks | V0, V1 | N/A | Verification (DONE) |
 | 1 | L0.1 rv-analyze-file (original) | 1 skill | rv-android-core | Verification (L0.1 PASS) |
-| **1R** | **Create** rv-analyze-file-complexity + **validate** (no supporting files — lightweight) | 1 skill | rv-android-core | Refactoring + Verification |
-| **2R** | **Create** rv-analyze-file-dead-code + **validate** (no supporting files — lightweight) | 1 skill | rv-android-core | Refactoring + Verification |
-| **3R** | **Redesign** rv-analyze-complexity + **validate** (absorbs L0.2) | 1 skill | rv-android-core | Refactoring + Verification |
-| **4R** | **Redesign** rv-analyze-dead-code + **validate** (absorbs L0.4) | 1 skill | rv-android-core | Refactoring + Verification |
+| **1R** | **Create** rv-analyze-file-complexity + **validate** (radon cc/mi/raw + MCP cache) | 1 skill | rv-android-core | Refactoring + Verification |
+| **2R** | **Create** rv-analyze-file-dead-code + **validate** (pyflakes + vulture + MCP cache) | 1 skill | rv-android-core | Refactoring + Verification |
+| **3R** | **Redesign** rv-analyze-complexity + **validate** (radon batched + MCP cache, absorbs L0.2) | 1 skill | rv-android-core | Refactoring + Verification |
+| **4R** | **Redesign** rv-analyze-dead-code + **validate** (pyflakes/vulture batched + MCP cache, absorbs L0.4) | 1 skill | rv-android-core | Refactoring + Verification |
 | **5R** | **Redesign** rv-analyze-dependencies + **validate** (absorbs L0.3) | 1 skill | rv-android-core | Refactoring + Verification |
 | **6R** | **Redesign** rv-analyze-module + **validate** (absorbs L1.1) | 1 skill | rv-android-core | Refactoring + Verification |
 | **7R** | **Slim** rv-analyze-file (consolidate supporting files) + **re-validate** L0.1 | 1 skill | rv-android-core | Refactoring + Verification |

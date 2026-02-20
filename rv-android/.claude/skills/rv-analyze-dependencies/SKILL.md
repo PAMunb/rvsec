@@ -1,10 +1,7 @@
 ---
 name: rv-analyze-dependencies
-description: >-
-  Map module dependencies and identify issues. Use when understanding module relationships,
-  finding circular dependencies, or planning refactoring.
-  Do NOT use for: fixing dependencies (use /rv-refactor), full module analysis (use /rv-analyze-module).
-argument-hint: [module-name or empty for all]
+description: Map module dependencies and detect violations, cycles, and coupling issues.
+argument-hint: "<module-name or empty for all>"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash
@@ -12,142 +9,109 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # Analyze Dependencies: $ARGUMENTS
 
-## Supporting Files
-
-Read these reference files before starting analysis:
-
-- `checklists/dependency-health.md` — Health metrics, allowed dependency matrix, instability/abstractness metrics
-- `checklists/circular-dependency-detection.md` — Cycle detection methods, resolution strategies, decision matrix
-- `templates/report.md` — Output report format
-
----
-
-## MCP Integration (with fallback)
-
-### Step 0: Check Memory for Cached Analysis
-
-Before expensive analysis, check for recent cached data:
-
-```
-Use mcp__memory__search_nodes with query: "dependencies-$ARGUMENTS"
-```
-
-**If found and recent** (< 7 days based on entity name date):
-- Return cached findings
-- Note: "Using cached analysis from [date]"
-
-**If not found or stale**:
-- Proceed with full analysis below
-
-### Primary Path (MCP available)
-- **sequential-thinking**: Analyze dependency graph systematically
-- **memory**: Persist dependency map:
-  - Entity name: `dependencies-$ARGUMENTS-[YYYY-MM-DD]`
-  - Type: `dependency-analysis`
-
-### Fallback Path (MCP unavailable)
-If MCP tools fail or timeout:
-1. **Manual analysis**: Document reasoning steps in numbered format
-2. **No persistence**: Output dependency map directly to user
-3. **Indicate fallback**: Note "MCP unavailable - using manual analysis"
-
-### Error Detection
-MCP is unavailable if:
-- Tool call returns error/timeout
-- Tool not found in available tools
-- Connection refused
-
-**Always complete the analysis** - MCP enhances but is not required.
+> **Scope**: Analyzes declared (pyproject.toml) and actual (import) dependencies. Defaults to all modules if $ARGUMENTS is empty.
+> Do NOT use for: fixing dependencies (use `/rv-refactor`), full module analysis (use `/rv-analyze-module`).
 
 ## Steps
 
-1. **Determine scope**:
-   - If $ARGUMENTS empty: analyze all modules
-   - If module specified: focus on that module
+### Step 0: Check MCP Memory Cache
 
-2. **Map internal dependencies**:
-   ```bash
-   # For each module, check pyproject.toml
-   for module in modules/rv-*/; do
-     echo "=== $(basename $module) ==="
-     grep -A 20 "\[project.dependencies\]" $module/pyproject.toml | grep "rv-"
-   done
-   ```
+```
+Use mcp__memory__search_nodes with query: "analysis:dependencies:$ARGUMENTS"
+```
 
-3. **Check for circular dependencies**:
-   - Build dependency graph
-   - Detect cycles
+If $ARGUMENTS is empty, search for `"analysis:dependencies:workspace"`.
 
-4. **Analyze import patterns**:
-   ```bash
-   # Find cross-module imports
-   grep -r "from rv_" modules/$MODULE/src/ | grep -v __pycache__
-   ```
+Compare `git_hash` with current:
+```bash
+git log -1 --format=%h -- modules/$ARGUMENTS/
+```
+For workspace-wide: `git log -1 --format=%h -- modules/`
 
-5. **Identify dependency issues**:
-   - Circular dependencies
-   - Over-coupling (too many deps)
-   - Under-abstraction (direct imports of internals)
+- **Cache hit** (hashes match): Return cached results and STOP.
+- **Cache miss**: Proceed to Step 1.
 
-6. **Generate dependency graph** (ASCII)
+### Step 1: Read Reference
+
+Read `reference.md` from this skill's directory. It contains the allowed dependency matrix, health metrics (fan-in/fan-out, instability, depth), and circular dependency resolution strategies.
+
+### Step 2: Extract Declared Dependencies
+
+Parse `pyproject.toml` for each module in scope in a SINGLE Bash call:
+```bash
+for module in modules/rv-*/; do
+  name=$(basename $module)
+  echo "=== $name ==="
+  grep -A 30 '^\[project\]' $module/pyproject.toml 2>/dev/null | grep -E '^\s+"rv-' | sed 's/[",]//g' | xargs
+done
+```
+
+### Step 3: Extract Actual Import Dependencies
+
+Scan source files for cross-module imports in a SINGLE Bash call:
+```bash
+for module in modules/rv-*/; do
+  name=$(basename $module)
+  echo "=== $name ==="
+  grep -rh --include='*.py' 'from rv_\|import rv_' $module/src/ 2>/dev/null | grep -v __pycache__ | sort -u
+done
+```
+
+If $ARGUMENTS specifies a single module, limit both steps to that module.
+
+### Step 4: Analyze
+
+Compare declared vs actual dependencies:
+- **Undeclared imports**: Module imports `rv_X` but `rv-X` not in its `pyproject.toml` — potential hidden dependency
+- **Unused declarations**: `rv-X` declared in `pyproject.toml` but never imported — unnecessary coupling
+- **Matrix violations**: Dependencies not in the allowed matrix from reference.md — architectural issue
+- **Circular dependencies**: A depends on B and B depends on A (check transitively)
+
+Compute for each module:
+- Fan-in (Ca), Fan-out (Ce), Instability I = Ce / (Ca + Ce)
+- Max dependency depth
+
+### Step 5: Persist to MCP Memory
+
+```
+Use mcp__memory__create_entities (or update existing via delete + create):
+  Entity: "analysis:dependencies:$ARGUMENTS" (or "analysis:dependencies:workspace")
+  Type: "module-dependency-analysis"
+  Observations:
+    - "git_hash: <hash>"
+    - "date: YYYY-MM-DD"
+    - "summary: modules=X, violations=Y, cycles=Z, max_depth=W, undeclared=U"
+    - "details: <full report as single observation>"
+```
+
+If MCP fails, skip caching — still output the report.
 
 ## Output Format
 
-```
-## Dependency Analysis
+```markdown
+## Dependency Analysis: <scope>
 
-### Module Dependency Graph
-
-```
-rv-experiment
-    └── rv-platform
-        ├── rv-android-core
-        ├── rv-tools
-        │   └── rv-android-core
-        └── rv-agent
-            ├── rv-android-core
-            └── rv-screen-parser
-```
+**Modules**: X | **Violations**: Y | **Cycles**: Z | **Max Depth**: W
 
 ### Dependency Matrix
 
-| Module | Depends On | Depended By |
-|--------|------------|-------------|
-| rv-android-core | - | all |
-| rv-agent | core, llm, screen-parser | platform |
+| Module | Layer | Declared Deps | Actual Imports | Fan-In | Fan-Out | I |
+|--------|-------|---------------|----------------|--------|---------|---|
+| rv-android-core | 1 | 0 | 0 | 11 | 0 | 0.0 |
 
-### Issues Found
+### Issues
 
-| Issue | Modules | Severity |
-|-------|---------|----------|
-| Circular dependency | A ↔ B | High |
-| Over-coupling | X (10 deps) | Medium |
+| # | Type | Modules | Severity | Notes |
+|---|------|---------|----------|-------|
+| 1 | Violation | A → B | High | Not in allowed matrix |
+| 2 | Cycle | A ↔ B | Medium | Type-only, use TYPE_CHECKING |
+| 3 | Undeclared | A imports B | Low | Missing from pyproject.toml |
+
+### Dependency Graph (ASCII)
+
+(tree showing module hierarchy and dependencies)
 
 ### Recommendations
-1. [Prioritized actions]
 
-### Memory Reference
-- Saved as: rv-dependency-map
-```
-
-## Module Hierarchy (Expected)
-
-```
-Layer 1 (Foundation):
-  rv-android-core
-
-Layer 2 (Utilities):
-  rv-tools, rv-uiautomator, rv-screen-parser
-
-Layer 3 (Analysis):
-  rv-static-analysis, rv-coverage, rv-monitor-generator
-
-Layer 4 (Execution):
-  rv-instrumentation, rv-agent
-
-Layer 5 (Orchestration):
-  rv-platform
-
-Layer 6 (Experiment):
-  rv-experiment, rv-agent-validation
+1. **[issue]**: [specific action]
 ```

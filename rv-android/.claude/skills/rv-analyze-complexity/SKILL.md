@@ -1,149 +1,103 @@
 ---
 name: rv-analyze-complexity
-description: >-
-  Analyze code complexity and identify over-engineered code. Use when evaluating code quality,
-  finding refactoring targets, or assessing technical debt.
-  Do NOT use for: making changes (use /rv-refactor-simplify), full module analysis (use /rv-analyze-module).
-argument-hint: [module-name or file-path]
+description: Analyze code complexity of a module using radon and qualitative metrics.
+argument-hint: "<module-name>"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
-# Analyze Code Complexity: $ARGUMENTS
+# Analyze Module Complexity: $ARGUMENTS
 
-## Supporting Files
-
-Read these reference files before starting analysis:
-
-- `checklists/complexity-thresholds.md` — Metric thresholds for risk classification (cyclomatic, cognitive, Halstead, LOC, coupling)
-- `checklists/refactoring-indicators.md` — Code smell to refactoring technique mapping with expected impact
-- `templates/report.md` — Output report format
-
----
-
-## Guiding Principles
-
-Your complexity analysis must be guided by fundamental software measurement principles. The goal is not just to collect numbers, but to gain insight into the quality of the software design and identify areas for improvement.
-
-1.  **Use Goal-Oriented Measurement (GQM)**: Start with a clear goal. Don't just measure for the sake of measuring. Define what you want to understand, what metrics will provide that information, and how you will interpret the results.
-    *   **Justification**: "My goal is to 'identify modules that are difficult to test'. Therefore, I will focus on the **Cyclomatic Complexity** metric, as it directly measures testability."
-
-2.  **Analyze Key Complexity Indicators**: Focus on metrics that are proven indicators of internal quality attributes like maintainability and reliability.
-    *   **Cyclomatic Complexity**: Measures the amount of decision logic in a function. A high value (typically > 10) indicates complex branching that is difficult to test and understand.
-    *   **Coupling**: Measures the degree of interdependence between modules. High coupling is a primary driver of system-level complexity and makes the code harder to change without causing ripple effects.
-    *   **Cohesion**: Measures how focused a module's responsibilities are. Low cohesion (a module doing many unrelated things) is a sign of poor design and high complexity.
-    *   **Size (Lines of Code)**: While not a perfect metric for complexity on its own, very large modules or functions are often a symptom of other design problems, such as low cohesion.
-
-3.  **Interpret Metrics in Context**: Raw numbers are not enough. A high complexity score isn't automatically "bad." You must interpret the metrics in the context of the code's purpose. A complex algorithm might have an inherently high cyclomatic complexity, but the goal is to ensure it is not *unnecessarily* complex.
-    *   **Justification**: "Although the cyclomatic complexity of this function is 15, this is acceptable because it implements a complex state machine. The complexity is therefore essential, not accidental."
-
-## Requirement for Principle-Based Justification
-
-When you present your findings, you **must** justify your analysis using the principles above.
-
-- "This function is a high-priority refactoring target because its **High Cyclomatic Complexity (25)** and **Low Cohesion** indicate it is likely difficult to maintain and test."
-- "My analysis follows the **GQM** principle. The goal is to find unstable components, so I am focusing on **Coupling** metrics to identify modules with excessive external dependencies."
-
-## MCP Integration (with fallback)
-
-### Step 0: Check Memory for Cached Analysis
-
-Before expensive analysis, check for recent cached data:
-
-```
-Use mcp__memory__search_nodes with query: "complexity-$ARGUMENTS"
-```
-
-**If found and recent** (< 7 days based on entity name date):
-- Return cached findings
-- Note: "Using cached analysis from [date]"
-
-**If not found or stale**:
-- Proceed with full analysis below
-
-### Primary Path (MCP available)
-1. Call `mcp__sequential-thinking__sequentialthinking` to reason through complexity metrics step-by-step
-2. After analysis, use `mcp__memory__create_entities` to persist findings:
-   - Entity name: `complexity-$ARGUMENTS-[YYYY-MM-DD]`
-   - Type: `complexity-analysis`
-
-### Fallback Path (MCP unavailable)
-If MCP tools fail or timeout:
-1. **Manual reasoning**: Break analysis into numbered steps in your response
-2. **No persistence**: Output findings directly to user instead of memory
-3. **Indicate fallback**: Note "MCP unavailable - using manual analysis"
-
-### Error Detection
-MCP is unavailable if:
-- Tool call returns error/timeout
-- Tool not found in available tools
-- Connection refused
-
-**Always complete the analysis** - MCP enhances but is not required.
-
-## Complexity Thresholds
-
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| Lines per file | > 500 | Split into focused components |
-| Function length | > 50 lines | Extract helper functions |
-| Classes per file | > 3 | Separate into modules |
-| Imports | > 20 | Check for dependency issues |
-| Nesting depth | > 4 levels | Refactor conditionals |
+> **Scope**: This skill analyzes an entire module. For single-file analysis, use `/rv-analyze-file-complexity`.
+> Do NOT use for: making changes (use `/rv-refactor-simplify`), full module audit (use `/rv-analyze-module`).
 
 ## Steps
 
-1. **Parse scope** from $ARGUMENTS:
-   - Empty: analyze rv-agent module (primary focus)
-   - Module name (e.g., "rv-agent"): analyze that module
-   - File path: analyze specific file
+### Step 0: Check MCP Memory Cache
 
-2. **Gather metrics** for each Python file:
-   - Count total lines of code
-   - Count function/method definitions and lengths
-   - Count class definitions
-   - Count imports
-   - Identify deeply nested code
+```
+Use mcp__memory__search_nodes with query: "analysis:complexity:$ARGUMENTS"
+```
 
-3. **Use sequential-thinking** to analyze patterns:
-   - Which files have multiple threshold violations?
-   - What are the root causes of complexity?
-   - What's the refactoring priority?
+If found, extract the `git_hash` observation. Compare with current hash:
+```bash
+git log -1 --format=%h -- modules/$ARGUMENTS/
+```
 
-4. **Generate report** with prioritized recommendations
+- **Cache hit** (hashes match): Return the cached `summary` and `details` observations. Note "Using cached analysis. Module unchanged since [date]." and STOP.
+- **Cache miss** (hashes differ or not found): Proceed to Step 1.
 
-5. **Persist to memory** (optional):
-   - Save complexity hotspots for tracking over time
+### Step 1: Read Reference
+
+Read `reference.md` from this skill's directory. It contains complexity thresholds, refactoring indicators, and Python-specific signals. Use these thresholds for all classifications.
+
+### Step 2: Run Static Analysis (radon)
+
+Run radon across ALL module source files in a SINGLE Bash call:
+```bash
+echo "=== CC ===" && uv run radon cc modules/$ARGUMENTS/src/ -s -a -nc && echo "=== MI ===" && uv run radon mi modules/$ARGUMENTS/src/ -s && echo "=== RAW ===" && uv run radon raw modules/$ARGUMENTS/src/ -s
+```
+
+- `-nc` filters CC output to grade C or worse (≥11), reducing noise
+- If no `src/` directory, use `modules/$ARGUMENTS/` instead
+- Radon provides: CC per function (A-F), MI per file (A-C), raw LOC/SLOC/comments
+
+### Step 3: Identify Hotspots
+
+From radon output, identify files with ANY of:
+- Function with CC grade C or worse (≥11)
+- MI below 65 (grade B or C)
+- SLOC > 500
+
+For each hotspot file, Read it and assess what radon does NOT provide:
+- Parameter count per function (exclude `self`/`cls`)
+- Maximum nesting depth per function
+- Code smell patterns from reference.md (God Class, Long Method, Feature Envy, etc.)
+
+Skip this step if radon found no hotspots — report all-clear.
+
+### Step 4: Persist to MCP Memory
+
+```
+Use mcp__memory__create_entities (or update existing via delete + create):
+  Entity: "analysis:complexity:$ARGUMENTS"
+  Type: "module-complexity-analysis"
+  Observations:
+    - "git_hash: <hash>"
+    - "date: YYYY-MM-DD"
+    - "summary: files=X, hotspots=Y, avg_MI=Z(grade), max_CC=W(grade), total_SLOC=N"
+    - "details: <full report as single observation>"
+```
+
+If MCP fails, skip caching — still output the report.
 
 ## Output Format
 
-```
-## Complexity Analysis Report
+```markdown
+## Module Complexity: <module-name>
 
-### Summary
-- Total files analyzed: X
-- Files exceeding thresholds: Y
-- Priority refactoring targets: Z
+**Files**: X | **Hotspots**: Y | **Avg MI**: Z (grade) | **Max CC**: W (grade) | **Total SLOC**: N
 
-### Files Over Threshold
+### Hotspot Files
 
-| File | Lines | Functions | Classes | Issue | Priority |
-|------|-------|-----------|---------|-------|----------|
-| path/file.py | XXX | Y | Z | [Issue] | P1 |
+| File | SLOC | MI | Grade | Max CC | Grade | Status |
+|------|------|----|-------|--------|-------|--------|
+| path/file.py | X | Y | B | Z | C | Warning |
+
+### Function-Level Detail (hotspots only)
+
+| File | Function | CC | Grade | Lines | Params | Nesting | Status |
+|------|----------|-----|-------|-------|--------|---------|--------|
+| file.py | func | 15 | C | 80 | 6 | 4 | Must Refactor |
+
+### Code Smells (if any)
+
+| File | Smell | Evidence | Severity | Refactoring |
+|------|-------|----------|----------|-------------|
+| file.py | God Class | 25 methods | High | Extract Class |
 
 ### Recommendations
 
-1. **file.py** (Priority 1)
-   - Issue: [description]
-   - Action: [recommended refactoring]
-
-### Memory Reference
-- Saved to memory as: [entity-name] (if persisted)
+1. **file.py:func** — CC=15, 6 params: [specific action]
 ```
-
-## Key Files to Check (rv-agent)
-
-- `strategies/rvagent_strategy/rvagent_strategy.py` - Main strategy (largest)
-- `agent/nodes/*.py` - Workflow nodes
-- `llm/llm_client.py` - LLM integration

@@ -1,10 +1,6 @@
 ---
 name: rv-refactor-simplify
-description: >-
-  Simplify over-engineered or complex code. Use when reducing complexity,
-  removing unnecessary abstractions, or applying KISS principle.
-  Do NOT use for: extracting components (use /rv-refactor-extract),
-  full module refactoring (use /rv-refactor).
+description: Simplify over-engineered code by reducing complexity and abstractions.
 argument-hint: [file-path]
 context: fork
 agent: general-purpose
@@ -49,7 +45,7 @@ This ensures that refactoring is deliberate and directly contributes to a better
 
 1. **Analyze complexity** first - Use the **Skill tool**:
    ```
-   Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
+   Skill tool: skill="rv-analyze-file-complexity", args="$ARGUMENTS"
    ```
    This identifies the most complex areas that need simplification.
 

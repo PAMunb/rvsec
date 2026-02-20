@@ -43,6 +43,7 @@ dev = [
     "bandit>=1.7.0",
     "vulture>=2.7.0",
     "safety>=3.2.0",
+    "radon>=6.0.0",
 ]
 
 [tool.uv]

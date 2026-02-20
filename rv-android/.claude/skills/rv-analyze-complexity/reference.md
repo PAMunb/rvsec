@@ -1,17 +1,12 @@
-# Complexity Thresholds
+# Complexity Analysis Reference
 
-Reference table of complexity metrics and their acceptable ranges for risk classification.
-
-## How to Use
-
-1. Compute metrics for the target code (function, class, or file level)
-2. Compare each metric against the thresholds below
-3. Flag anything in the "High" or "Very High" range as a refactoring candidate
-4. Report findings with the metric name, actual value, and threshold category
+Consolidated reference for module-scoped complexity analysis. Contains metric thresholds, refactoring indicators, and Python-specific signals.
 
 ---
 
-## Cyclomatic Complexity
+## Complexity Thresholds
+
+### Cyclomatic Complexity
 
 Measures independent paths through a function. Each `if`, `elif`, `for`, `while`, `and`, `or`, `except`, and ternary adds one.
 
@@ -22,7 +17,7 @@ Measures independent paths through a function. Each `if`, `elif`, `for`, `while`
 | 21–50 | High | Must refactor before merge |
 | 50+ | Very High | Refactor immediately; function is untestable |
 
-## Cognitive Complexity (Sonar Model)
+### Cognitive Complexity (Sonar Model)
 
 Measures how hard a function is to understand. Penalizes nesting, break in linear flow, and recursion.
 
@@ -32,11 +27,7 @@ Measures how hard a function is to understand. Penalizes nesting, break in linea
 | 15–25 | Warning | Simplify if feasible |
 | > 25 | Must simplify | Extract methods or reduce nesting |
 
-Key contributors: nested conditionals (+nesting increment), `break`/`continue` to labels, recursion, boolean sequences mixing `and`/`or`.
-
-## Halstead Metrics
-
-Derived from operator and operand counts. Useful for comparing alternative implementations.
+### Halstead Metrics
 
 | Metric | Formula | Interpretation |
 |--------|---------|----------------|
@@ -44,11 +35,7 @@ Derived from operator and operand counts. Useful for comparing alternative imple
 | Difficulty (D) | (η₁/2) × (N₂/η₂) | Error proneness; higher = more bug-prone |
 | Effort (E) | D × V | Estimated mental effort; use for relative comparison |
 
-Where N = total operators + operands, η = unique operators + operands.
-
-## Maintainability Index
-
-Composite metric combining Halstead Volume, Cyclomatic Complexity, and LOC.
+### Maintainability Index
 
 | Range | Category | Action |
 |-------|----------|--------|
@@ -58,7 +45,7 @@ Composite metric combining Halstead Volume, Cyclomatic Complexity, and LOC.
 
 Formula: MI = 171 − 5.2 × ln(V) − 0.23 × CC − 16.2 × ln(LOC)
 
-## Lines of Code (LOC) Thresholds
+### Size Thresholds
 
 | Scope | Threshold | Action if Exceeded |
 |-------|-----------|-------------------|
@@ -66,11 +53,7 @@ Formula: MI = 171 − 5.2 × ln(V) − 0.23 × CC − 16.2 × ln(LOC)
 | Class | 500 lines | Split responsibilities |
 | File/module | 1000 lines | Split into submodules |
 
-Blank lines and comments are excluded from these counts. Measure logical lines only.
-
-## Nesting Depth
-
-Maximum levels of indentation within a function.
+### Nesting Depth
 
 | Depth | Category | Action |
 |-------|----------|--------|
@@ -79,9 +62,7 @@ Maximum levels of indentation within a function.
 | 4 | Warning | Use guard clauses or extract method |
 | 5+ | Must refactor | Flatten with early returns, extract, or decompose |
 
-## Parameter Count
-
-Number of parameters in a function signature.
+### Parameter Count
 
 | Count | Category | Action |
 |-------|----------|--------|
@@ -89,9 +70,9 @@ Number of parameters in a function signature.
 | 4–5 | Acceptable | Consider parameter object if related |
 | 6+ | Must refactor | Introduce parameter object or split function |
 
-Exclude `self`/`cls` from count. `*args`/`**kwargs` count as 1 each.
+Exclude `self`/`cls` from count.
 
-## Coupling Metrics
+### Coupling Metrics
 
 | Metric | Definition | Healthy Range |
 |--------|-----------|---------------|
@@ -99,9 +80,7 @@ Exclude `self`/`cls` from count. `*args`/`**kwargs` count as 1 each.
 | Efferent coupling (Ce) | Modules this one depends on | Ce > 7 = fragile, consider facade |
 | Instability (I) | Ce / (Ca + Ce) | 0 = maximally stable, 1 = maximally unstable |
 
-Stable modules (low I) should be abstract. Unstable modules (high I) should be concrete.
-
-## Python-Specific Complexity Signals
+### Python-Specific Complexity Signals
 
 | Signal | Threshold | Action |
 |--------|-----------|--------|
@@ -110,3 +89,30 @@ Stable modules (low I) should be abstract. Unstable modules (high I) should be c
 | Star imports | Any `from X import *` | Replace with explicit imports |
 | Dynamic attribute access | > 3 `getattr`/`setattr` in one function | Consider dictionary or class |
 | Exception handler breadth | Bare `except:` or `except Exception` | Narrow to specific exceptions |
+
+---
+
+## Refactoring Indicators
+
+### Smell-to-Refactoring Mapping
+
+| Code Smell | Detection Heuristic | Refactoring Technique | Expected Reduction |
+|-----------|---------------------|----------------------|-------------------|
+| God Class | > 7 responsibilities, > 20 methods, > 15 fields | Extract Class | CC −30%, LOC −40% |
+| Long Method | > 30 lines, > 3 indent levels, > 4 params | Extract Method | CC −50%, nesting −2 |
+| Feature Envy | Method uses more data from another class than its own | Move Method | Coupling −1 per move |
+| Data Clumps | Same 3+ params appear together in multiple signatures | Extract Class / Introduce Parameter Object | Param count −60% |
+| Divergent Change | Class changed for unrelated reasons in different commits | Extract Class by responsibility | SRP violations −100% |
+| Shotgun Surgery | One logical change touches 5+ files | Move Method, Inline Class | Files touched −50% |
+| Primitive Obsession | Using str/int/dict where a domain object fits | Replace Primitive with Value Object | Type safety +100% |
+| Switch Statements | Repeated type-checking on same field in 3+ locations | Replace Conditional with Polymorphism | CC per function −70% |
+| Speculative Generality | Abstract class with 1 subclass, unused parameters | Collapse Hierarchy, Remove Middle Man | Class count −20%, LOC −15% |
+
+### Severity Classification
+
+| Severity | Criteria | SLA |
+|----------|----------|-----|
+| Critical | CC > 50, God Class > 30 methods | Refactor before next feature |
+| High | CC 21–50, Long Method > 50 lines | Refactor within current sprint |
+| Medium | CC 11–20, 3+ smell instances | Refactor on next touch |
+| Low | Minor smells, cosmetic | Optional improvement |

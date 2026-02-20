@@ -78,7 +78,7 @@ Complete documentation for skills, workflows, and MCP integrations.
 │                     COMPONENT SKILLS                                │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-analyze-*     │  │ rv-refactor-*    │  │ rv-test-*        │  │
-│  │ (5 skills)       │  │ (4 skills)       │  │ (2 skills)       │  │
+│  │ (7 skills)       │  │ (4 skills)       │  │ (2 skills)       │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ rv-qa-*, verify  │  │ rv-doc-*, sync   │  │ rv-debug-*       │  │
@@ -155,16 +155,14 @@ The quality gate skill (`rv-code-reviewer`) uses `context: fork` for isolated re
 ```yaml
 ---
 name: rv-code-reviewer
-description: >-
-  Expert code reviewer and quality gate. Use after writing or modifying code to review for quality.
-  Do NOT use for: implementing fixes, writing code.
+description: Review code quality, patterns, and issues in rv-android changes.
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash, Skill
 ---
 ```
 
-**Note**: `context: fork` ensures the reviewer runs in a fresh, isolated context. `Skill` is included in `allowed-tools` so the reviewer can invoke analysis skills like `/rv-analyze-complexity`.
+**Note**: `context: fork` ensures the reviewer runs in a fresh, isolated context. `Skill` is included in `allowed-tools` so the reviewer can invoke analysis skills like `/rv-analyze-file-complexity` or `/rv-analyze-complexity`.
 
 ### Description Best Practices
 
@@ -225,8 +223,11 @@ Located in `.claude/skills/rv-code-reviewer/`. Invocable as `/rv-code-reviewer`.
 - Directly via `/rv-code-reviewer`
 
 **Invoked Analysis Skills** (via Skill tool at runtime):
-- `rv-analyze-complexity` - For deep analysis
-- `rv-analyze-dependencies` - For dependency issues
+- `rv-analyze-file-complexity` - File-level complexity (radon)
+- `rv-analyze-complexity` - Module-level complexity (radon)
+- `rv-analyze-dependencies` - Dependency issues
+- `rv-analyze-file-dead-code` - File-level dead code (pyflakes/vulture)
+- `rv-analyze-dead-code` - Module-level dead code (pyflakes/vulture)
 
 **Chain Integration**:
 - Called by: `rv-refactor`, `rv-feature`, `rv-tdd`, `rv-cleanup` (via Skill tool)
@@ -371,13 +372,15 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 
 ### Analysis Skills
 
-| Skill | Command | Purpose | MCP Integration |
-|-------|---------|---------|-----------------|
-| `rv-analyze-complexity` | `/rv-analyze-complexity [module]` | Code complexity metrics | sequential-thinking, memory |
-| `rv-analyze-dependencies` | `/rv-analyze-dependencies [module]` | Module dependency mapping | sequential-thinking, memory |
-| `rv-analyze-dead-code` | `/rv-analyze-dead-code [module]` | Unused code detection | memory |
-| `rv-analyze-file` | `/rv-analyze-file [path]` | Single file analysis | - |
-| `rv-analyze-module` | `/rv-analyze-module [module]` | Module architecture | sequential-thinking, memory, context7 |
+| Skill | Command | Purpose | Scope | Tools |
+|-------|---------|---------|-------|-------|
+| `rv-analyze-file` | `/rv-analyze-file [path]` | Single file qualitative analysis (8 dimensions, code smells) | File | memory (git hash cache) |
+| `rv-analyze-file-complexity` | `/rv-analyze-file-complexity [path]` | Single file complexity metrics (radon cc/mi/raw) | File | radon, memory (git hash cache) |
+| `rv-analyze-file-dead-code` | `/rv-analyze-file-dead-code [path]` | Single file dead code detection (pyflakes/vulture) | File | pyflakes, vulture, memory (git hash cache) |
+| `rv-analyze-complexity` | `/rv-analyze-complexity [module]` | Module-wide complexity metrics (radon cc/mi/raw) | Module | radon, memory (git hash cache) |
+| `rv-analyze-dependencies` | `/rv-analyze-dependencies [module]` | Module dependency mapping, violation/cycle detection | Module | memory (git hash cache) |
+| `rv-analyze-dead-code` | `/rv-analyze-dead-code [module]` | Module-wide dead code detection (pyflakes/vulture) | Module | pyflakes, vulture, memory (git hash cache) |
+| `rv-analyze-module` | `/rv-analyze-module [module]` | Module architecture (chains to 3 sub-skills + 4 perspectives) | Module (L1) | memory (git hash cache) |
 
 **Complexity Thresholds**:
 | Metric | Threshold | Action |
@@ -673,19 +676,23 @@ Thought 3: Root cause analysis...
 
 **Cache Pattern** (used by analysis skills):
 ```
-1. Search memory for cached data: "complexity-rv-agent"
-2. If found and recent (< 7 days) → return cached
-3. If not found or stale → do analysis
-4. Save results to memory with date in entity name
+1. Search memory for cached entity: "analysis:complexity:rv-agent"
+2. If found → compare git_hash observation with: git log -1 --format=%h -- modules/rv-agent/
+3. If hashes match → return cached (cache hit = 2 tool calls)
+4. If hashes differ or not found → do full analysis
+5. Save results to memory with git_hash observation
 ```
 
 **Entity Types Used**:
-| Entity Pattern | Type | When Created | Cache TTL |
-|----------------|------|--------------|-----------|
-| `complexity-[module]-[date]` | complexity-analysis | After rv-analyze-complexity | 7 days |
-| `dependencies-[module]-[date]` | dependency-analysis | After rv-analyze-dependencies | 7 days |
-| `dead-code-[module]-[date]` | dead-code-analysis | After rv-analyze-dead-code | 7 days |
-| `rv-[module]-analysis` | module-analysis | After rv-analyze-module | 7 days |
+| Entity Pattern | Type | When Created | Invalidation |
+|----------------|------|--------------|--------------|
+| `analysis:file-complexity:<path>` | file-complexity-analysis | After rv-analyze-file-complexity | git hash change |
+| `analysis:file-dead-code:<path>` | file-dead-code-analysis | After rv-analyze-file-dead-code | git hash change |
+| `analysis:file:<path>` | file-analysis | After rv-analyze-file | git hash change |
+| `analysis:complexity:<module>` | complexity-analysis | After rv-analyze-complexity | git hash change |
+| `analysis:dependencies:<module>` | dependency-analysis | After rv-analyze-dependencies | git hash change |
+| `analysis:dead-code:<module>` | dead-code-analysis | After rv-analyze-dead-code | git hash change |
+| `analysis:module:<module>` | module-analysis | After rv-analyze-module | git hash change |
 | `refactor-[date]-[target]` | refactoring-operation | After rv-refactor | permanent |
 | `feature-[date]-[name]` | feature-implementation | After rv-feature | permanent |
 | `tdd-[date]-[feature]` | tdd-implementation | After rv-tdd | permanent |
@@ -989,27 +996,28 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
     ├── rv-code-reviewer/
     │   └── SKILL.md                   # Forked skill — code review quality gate
     │
-    │   # Analysis Skills
-    ├── rv-analyze-complexity/
-    │   ├── SKILL.md
-    │   ├── checklists/
-    │   └── templates/
-    ├── rv-analyze-dependencies/
-    │   ├── SKILL.md
-    │   ├── checklists/
-    │   └── templates/
-    ├── rv-analyze-dead-code/
-    │   ├── SKILL.md
-    │   ├── checklists/
-    │   └── templates/
+    │   # Analysis Skills (file-scoped)
     ├── rv-analyze-file/
     │   ├── SKILL.md
-    │   ├── checklists/
-    │   └── templates/
-    ├── rv-analyze-module/
+    │   └── reference.md              # 8 dimensions + code smell catalog
+    ├── rv-analyze-file-complexity/
+    │   └── SKILL.md                  # radon cc/mi/raw (thresholds inlined)
+    ├── rv-analyze-file-dead-code/
+    │   └── SKILL.md                  # pyflakes/vulture (FP patterns inlined)
+    │
+    │   # Analysis Skills (module-scoped)
+    ├── rv-analyze-complexity/
     │   ├── SKILL.md
-    │   ├── checklists/
-    │   └── templates/
+    │   └── reference.md              # Complexity thresholds + refactoring indicators
+    ├── rv-analyze-dependencies/
+    │   ├── SKILL.md
+    │   └── reference.md              # Dependency health + circular detection
+    ├── rv-analyze-dead-code/
+    │   ├── SKILL.md
+    │   └── reference.md              # Dead code categories + FP patterns
+    ├── rv-analyze-module/             # L1 orchestrator (chains to 3 sub-skills)
+    │   ├── SKILL.md
+    │   └── reference.md              # 4 modeling perspectives + module directory
     ├── rv-impact-analyzer/
     │   ├── SKILL.md
     │   └── templates/
@@ -1110,12 +1118,16 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 
 ### Skills (Slash commands)
 
-**Analysis**:
-- `/rv-analyze-complexity [target]`
-- `/rv-analyze-dependencies [module]`
-- `/rv-analyze-dead-code [module]`
-- `/rv-analyze-file [path]`
-- `/rv-analyze-module [module]`
+**Analysis (file-scoped)**:
+- `/rv-analyze-file [path]` — qualitative (8 dimensions, code smells)
+- `/rv-analyze-file-complexity [path]` — radon cc/mi/raw
+- `/rv-analyze-file-dead-code [path]` — pyflakes/vulture
+
+**Analysis (module-scoped)**:
+- `/rv-analyze-complexity [module]` — radon cc/mi/raw across module
+- `/rv-analyze-dependencies [module]` — dependency mapping, violations, cycles
+- `/rv-analyze-dead-code [module]` — pyflakes/vulture across module
+- `/rv-analyze-module [module]` — full architecture (chains to 3 sub-skills)
 
 **Refactoring**:
 - `/rv-refactor-simplify [path]`

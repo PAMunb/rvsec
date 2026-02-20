@@ -273,7 +273,7 @@ SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid 
 ### Quick Reference
 
 **Skills** (invoke via `/skill-name`):
-- `/rv-analyze-*` - Code analysis (complexity, dependencies, dead-code, module, file)
+- `/rv-analyze-*` - Code analysis (file: qualitative, complexity, dead-code; module: complexity, dependencies, dead-code, architecture)
 - `/rv-refactor-*` - Refactoring (simplify, extract, cleanup, constants)
 - `/rv-test-*` - Testing (run, add)
 - `/rv-qa-*` - Quality (lint, lint-fix)

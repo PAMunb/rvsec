@@ -1,10 +1,6 @@
 ---
 name: rv-code-reviewer
-description: >-
-  Expert code reviewer for rv-android. Use after writing or modifying code to review for quality,
-  patterns, and issues. Proactively reviews code changes.
-  Do NOT use for: implementing fixes, writing code, running tests, or analysis without review context.
-  Chains from /rv-refactor, /rv-feature, /rv-tdd, /rv-cleanup orchestrators.
+description: Review code quality, patterns, and issues in rv-android changes.
 allowed-tools: Read, Grep, Glob, Bash, Skill
 context: fork
 agent: general-purpose
@@ -63,9 +59,11 @@ If issues are unclear or complex, use the **Skill tool** to invoke analysis skil
 
 | Situation | Skill to Invoke |
 |-----------|----------------|
-| Complex code with unclear logic | `Skill tool: skill="rv-analyze-complexity", args="<file-path>"` |
+| File complexity (single file) | `Skill tool: skill="rv-analyze-file-complexity", args="<file-path>"` |
+| Module complexity (all files) | `Skill tool: skill="rv-analyze-complexity", args="<module>"` |
 | Suspected dependency issues | `Skill tool: skill="rv-analyze-dependencies", args="<module>"` |
-| Dead code or unused imports | `Skill tool: skill="rv-analyze-dead-code", args="<module>"` |
+| Dead code in single file | `Skill tool: skill="rv-analyze-file-dead-code", args="<file-path>"` |
+| Dead code across module | `Skill tool: skill="rv-analyze-dead-code", args="<module>"` |
 
 **Note**: For all analysis skills, invoke via Skill tool on demand.
 
