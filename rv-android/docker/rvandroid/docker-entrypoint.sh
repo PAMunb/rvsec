@@ -15,6 +15,27 @@ if [ -n "$RV_DELAY" ] && [ "$RV_DELAY" -gt 0 ] 2>/dev/null; then
     sleep "$RV_DELAY"
 fi
 
+# Pre-computed static analysis files: copy from mounted dir to instrumented_apks/
+# Expected layout: $RV_SA_DIR/<apk_name>.apk/<apk_name>.apk.{gesda,wtg,reach}
+# Target depends on whether --name is used (results/<name>/instrumented_apks)
+# or not (out/instrumented_apks).
+if [ -n "$RV_SA_DIR" ] && [ -d "$RV_SA_DIR" ]; then
+    if [ -n "$RV_EXPERIMENT_NAME" ]; then
+        SA_TARGET="results/$RV_EXPERIMENT_NAME/instrumented_apks"
+    else
+        SA_TARGET="out/instrumented_apks"
+    fi
+    mkdir -p "$SA_TARGET"
+    copied=0
+    for sa_dir in "$RV_SA_DIR"/*.apk/; do
+        [ -d "$sa_dir" ] || continue
+        for f in "$sa_dir"/*.gesda "$sa_dir"/*.wtg "$sa_dir"/*.reach; do
+            [ -f "$f" ] && cp "$f" "$SA_TARGET/" && copied=$((copied + 1))
+        done
+    done
+    echo "=== RV-Android Docker: copied $copied SA files to $SA_TARGET ==="
+fi
+
 # Build CLI command from environment variables
 CMD="uv run rv-experiment run"
 

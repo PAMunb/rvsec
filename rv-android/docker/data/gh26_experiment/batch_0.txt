@@ -1,5 +1,11 @@
-com.blogspot.e_kanivets.moneytracker_38.apk
-com.gianlu.dnshero_40.apk
-com.github.axet.hourlyreminder_476.apk
-com.pindroid_69.apk
-com.rafapps.simplenotes_7.apk
+com.aidinhut.simpletextcrypt_14.apk
+com.andybotting.tramhunter_1300.apk
+com.aptasystems.dicewarepasswordgenerator_8.apk
+com.easytarget.micopi_32.apk
+com.freezingwind.animereleasenotifier_9.apk
+com.koushikdutta.superuser_1030.apk
+com.tobiaskuban.android.monthcalendarwidgetfoss_5.apk
+community.fairphone.mycontacts_3.apk
+de.kodejak.hashr_13.apk
+de.nellessen.usercontrolleddecryptionoperations_6.apk
+gg.mw.passera_2.apk

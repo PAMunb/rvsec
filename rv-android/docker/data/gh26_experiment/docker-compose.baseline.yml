@@ -1,6 +1,7 @@
-# GH26 Baseline Experiment: 10 exp02 APKs × 3 tools × 3 reps = 90 tasks.
-# Two containers run in parallel, each with 5 APKs (batch filter).
-# Full pipeline (monitors + instrumentation + static analysis + execution).
+# GH26 Baseline Experiment: 21 APKs × 3 tools × 3 reps = 189 tasks.
+# Two containers run in parallel (11 + 10 APKs).
+# SA skipped — pre-computed files copied from RV_SA_DIR by entrypoint.
+# Pipeline: monitors + instrumentation + execution (no static analysis).
 #
 # Usage:
 #   docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up
@@ -16,7 +17,9 @@ x-rvandroid: &rvandroid-base
     RV_REPETITIONS: "3"
     RV_NO_WINDOW: "true"
     RV_JCA_SPEC: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
     RV_APKS_DIR: /opt/rvsec/rv-android/apks
+    RV_SA_DIR: /opt/rvsec/rv-android/sa_precomputed
     RV_HUMANOID_URL: humanoid:50405
   volumes: &rvandroid-volumes
     - /var/run/docker.sock:/var/run/docker.sock
@@ -57,6 +60,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+      - ../../../out/gh26_sa_filter:/opt/rvsec/rv-android/sa_precomputed:ro
+      - ../../../docker/rvandroid/docker-entrypoint.sh:/opt/docker-entrypoint.sh:ro
       - ./batch_0.txt:/opt/rvsec/rv-android/data/batch_0.txt:ro
       - ./results/baseline/batch_0:/opt/rvsec/rv-android/results
 
@@ -72,5 +77,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+      - ../../../out/gh26_sa_filter:/opt/rvsec/rv-android/sa_precomputed:ro
+      - ../../../docker/rvandroid/docker-entrypoint.sh:/opt/docker-entrypoint.sh:ro
       - ./batch_1.txt:/opt/rvsec/rv-android/data/batch_1.txt:ro
       - ./results/baseline/batch_1:/opt/rvsec/rv-android/results

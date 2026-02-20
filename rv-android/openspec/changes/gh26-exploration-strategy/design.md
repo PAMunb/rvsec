@@ -1132,97 +1132,140 @@ Unit and integration tests verify correctness, but the 10 improvements interact 
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| **APK set** | 30 APKs, SA-validated from 188 exp01_jca pool | 3x larger than original exp02 set (10); all 30 confirmed to produce .gesda/.wtg/.reach files with the current GESDA/GATOR/REACH pipeline. Stratified sampling ensures diversity across categories and size buckets |
+| **APK set** | 21 APKs, SA-validated | 14 from SA filter (65 pre-selected, 51 failed — mostly REACH/GATOR timeouts) + 7 recovered from aborted old baseline (all with 3 SA files). All consolidated in `out/gh26_sa_filter/` |
 | **Spec set** | JCA (23 specs) | Thesis focus; MOP coverage is the primary quality metric |
 | **Tools** | `ape`, `fastbot`, `rvagent:pure_algorithm` | APE and Fastbot serve as unmodified reference baselines (sanity check); rvagent is the subject under test |
 | **Timeout** | 300s (5 min) | Matches the standard experiment duration used in thesis experiments and gh9 calibration |
-| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 30 APKs (mean of 3 reps each) |
-| **Total tasks** | 270 (30 × 3 × 3) per phase | Two phases: baseline (270) + validation (270) = 540 total tasks |
-| **Parallelism** | 2 Docker containers on laptop | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
+| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 21 APKs (mean of 3 reps each) |
+| **Total tasks** | 189 (21 × 3 × 3) per phase | Two phases: baseline (189) + validation (189) = 378 total tasks |
+| **Parallelism** | 2 Docker containers on laptop (11 + 10 APKs) | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
+| **SA reuse** | Pre-computed .gesda/.wtg/.reach from `out/gh26_sa_filter/` | Mounted read-only into containers; `RV_SKIP_STATIC_ANALYSIS=true` skips redundant SA preprocessing (~75 min saved per container) |
 
 ### Dataset Rebuild: Why exp02 Was Replaced
 
 The original 10 exp02 APKs could not all be instrumented or produce the 3 required static analysis files (.gesda, .wtg, .reach) with the current GESDA/GATOR/REACH pipeline. The `exp01_jca=True` flag in `apks_complete.csv` only guarantees compatibility with the OLD Androguard-based SA pipeline, not the current pipeline. Additionally, n=10 provides low statistical power for Wilcoxon signed-rank tests — n=30 substantially increases power to detect medium effect sizes.
 
-The replacement uses a 4-step pipeline:
+The replacement combines two sources:
 
 1. **Extract**: Filter `apks_complete.csv` for `exp01_jca=True` → 188 APKs
 2. **Pre-select**: Stratified sampling (`scripts/select_dataset.py --cal-size 65 --seed 42`) → 65 APKs balanced across categories and size buckets
-3. **SA filter**: Run `scripts/filter_apks_static_analysis.py` on the 65 APKs with GESDA, GATOR, REACH (timeout 600s each, 2 workers). APKs that produce all 3 output files pass; others are discarded. Expected yield: ~40-55 APKs
-4. **Final selection**: Stratified sampling on SA-passed set (`scripts/select_dataset.py --cal-size 30 --seed 42`) → 30 APKs for the experiment
+3. **SA filter**: Run `scripts/filter_apks_static_analysis.py` on the 65 APKs with GESDA, GATOR, REACH (timeout 600s each, 2 workers). Result: **14/65 passed** (51 failed — REACH timeout ~35, GATOR timeout ~8, GATOR NoClassDefFoundError ~6, other ~2)
+4. **Recovery from aborted baseline**: The old baseline experiment (10 exp02 APKs) was aborted after discovering missing SA files, but **7 of 10 APKs had already produced all 3 SA files**. These were recovered from `docker/data/gh26_experiment/results/baseline/batch_{0,1}/*/instrumented_apks/`
 
-The SA filter output from the baseline is reused in the validation experiment via `RV_SKIP_STATIC_ANALYSIS=true` and volume mount of the baseline's `results/` directory for instrumented APKs + SA files.
+All 21 SA files (14 + 7) are consolidated in `out/gh26_sa_filter/<apk_name>/<apk_name>.{gesda,wtg,reach}`. Both baseline and validation experiments reuse these via `RV_SKIP_STATIC_ANALYSIS=true` and volume mounts.
 
 Data artifacts (gitignored, in `out/`):
 - `out/gh26_dataset/all_jca_apks.txt` — 188 APKs from step 1
 - `out/gh26_dataset/preselection/` — 65 APKs from step 2
-- `out/gh26_sa_filter/` — SA filter results from step 3
-- `out/gh26_dataset/final_selection/` — 30 APKs from step 4
+- `out/gh26_sa_filter/` — consolidated SA files for all 21 APKs (14 from filter + 7 from old baseline)
 
-### APK Set (SA-validated, 30 APKs)
+### APK Set (SA-validated, 21 APKs)
 
-The 30 APKs are selected via the pipeline above. The specific APK list is recorded in `tasks.md` Group 0 after SA filter completes. Criteria: `exp01_jca=True`, all 3 SA files (.gesda, .wtg, .reach) produced successfully, stratified across categories and size buckets (tiny/small/medium/large/xlarge by method count).
+The 21 APKs have all 3 SA files (.gesda, .wtg, .reach) confirmed. The specific APK list is recorded in `tasks.md` Group 0, task 0.1e.
+
+### Docker Image Tagging Strategy
+
+The experiment uses two distinct Docker images to guarantee reproducibility and isolate the effect of gh26 code changes:
+
+| Tag | Image ID | Contents | Purpose |
+|-----|----------|----------|---------|
+| `phtcosta/rvandroid:gh26-pre` | Same as `0.8.0` (`462a37b1aec2`) | `modules` branch **before** gh26 Groups 1-9 | Baseline experiment (Phase 0) |
+| `phtcosta/rvandroid:gh26-pos` | New build | `modules` branch **after** gh26 Groups 1-9 pushed | Validation experiment (Phase 1) |
+
+**Tag `gh26-pre`** — created immediately after baseline starts, before any gh26 code changes are committed:
+
+```bash
+docker tag phtcosta/rvandroid:0.8.0 phtcosta/rvandroid:gh26-pre
+```
+
+This is a zero-cost alias (same image ID). Preserves the pre-gh26 codebase state even if `0.8.0` / `latest` are later overwritten by a rebuild.
+
+**Tag `gh26-pos`** — built after Groups 1-9 are implemented, tests pass, and code is pushed to `modules` branch on GitHub:
+
+```bash
+docker build --no-cache \
+  -t phtcosta/rvandroid:gh26-pos \
+  -f docker/rvandroid/Dockerfile \
+  docker/rvandroid/
+```
+
+The Dockerfile clones `modules` from GitHub (`git clone --branch modules`), so the code must be pushed before building. The updated `docker-entrypoint.sh` (with `RV_SA_DIR` handler) is baked into this image via `COPY` — no volume mount override needed for validation.
+
+**Verification after build:**
+
+```bash
+# Confirm entrypoint has RV_SA_DIR handler
+docker run --rm phtcosta/rvandroid:gh26-pos bash -c "grep RV_SA_DIR /opt/docker-entrypoint.sh"
+# Confirm rv-agent tests pass inside container
+docker run --rm --device /dev/kvm phtcosta/rvandroid:gh26-pos bash -c \
+  "cd /opt/rvsec/rv-android && uv run pytest modules/rv-agent/tests/unit/ -v --tb=short"
+```
 
 ### Docker Execution Architecture
 
 Follows the container-level parallelism pattern from gh9 and rvsec-02. Each phase has its own docker-compose file.
 
-**Phase 0 — Baseline** (2 containers, ~11.5 hours):
+**Phase 0 — Baseline** (2 containers, ~8 hours):
 
-Each container runs the full pipeline (monitors + instrument + static analysis + execution). Pre-processing adds ~75 min per container. 2 batches of 15 APKs each, running in parallel.
+Each container runs monitors + instrumentation + execution (SA skipped — pre-computed files injected by entrypoint). 2 batches (11 + 10 APKs), running in parallel.
+
+SA file injection mechanism: the `docker-entrypoint.sh` was extended with a `RV_SA_DIR` handler. When `RV_SA_DIR` is set and points to a directory, the entrypoint copies all `.gesda`, `.wtg`, `.reach` files from `$RV_SA_DIR/<apk>.apk/` into `results/$RV_EXPERIMENT_NAME/instrumented_apks/` before running `rv-experiment`. This ensures `StaticAnalysisComponent.copy_static_analysis_files()` finds them in `apks_dir` (which resolves to `results/<name>/instrumented_apks/` when `--name` is used). The updated entrypoint is mounted via volume (not baked into the `gh26-pre` image).
 
 ```
 docker-compose.baseline.yml
-  ├── batch_0: (15 APKs)
-  │     image: phtcosta/rvandroid (pre-gh26 codebase)
+  ├── batch_0: (11 APKs)
+  │     image: phtcosta/rvandroid:gh26-pre
   │     RV_TOOLS=ape,fastbot,rvagent:pure_algorithm
   │     RV_TIMEOUTS=300, RV_REPETITIONS=3, RV_JCA_SPEC=true
+  │     RV_SKIP_STATIC_ANALYSIS=true
+  │     RV_SA_DIR=/opt/rvsec/rv-android/sa_precomputed
   │     RV_DELAY=0
-  │     volumes: original_apks/:ro → results/baseline/batch_0/
-  └── batch_1: (15 APKs)
+  │     volumes:
+  │       out/gh26_sa_filter/ → sa_precomputed/:ro
+  │       docker/rvandroid/docker-entrypoint.sh → /opt/docker-entrypoint.sh:ro
+  │       original_apks/ → apks/:ro
+  │       results/baseline/batch_0/ → results/
+  └── batch_1: (10 APKs)
         same config, RV_DELAY=10
-        volumes: → results/baseline/batch_1/
 ```
 
-Calculation: preprocessing ~75min/container + (135 tasks × 5min) = ~11.5h per container. 2 containers in parallel.
+Calculation: preprocessing ~50min/container (monitors + instrumentation, SA skipped) + (99 tasks × 5min) = ~8h per container (batch_0). Batch_1: ~50min + (90 × 5min) = ~8h.
 
-**Phase 1 — Validation** (2 containers, ~11.5 hours):
+**Phase 1 — Validation** (2 containers, ~8 hours):
 
 ```
 docker-compose.validation.yml
-  ├── batch_0: (15 APKs)
-  │     image: phtcosta/rvandroid:gh26-validation (post-gh26 codebase)
-  │     RV_SKIP_STATIC_ANALYSIS=true (reuse baseline SA artifacts)
-  │     volumes: results/baseline/batch_0/:ro → instrumented APKs + SA files
+  ├── batch_0: (11 APKs)
+  │     image: phtcosta/rvandroid:gh26-pos (post-gh26 codebase)
+  │     RV_SKIP_STATIC_ANALYSIS=true (reuse pre-computed SA files)
+  │     volumes: out/gh26_sa_filter/:ro, results/baseline/batch_0/:ro → instrumented APKs
   │     (all other config identical to baseline)
-  └── batch_1: (15 APKs)
+  └── batch_1: (10 APKs)
         same config, volumes: results/baseline/batch_1/:ro
 ```
 
-All docker-compose files are stored in `docker/data/gh26_experiment/`. Validation containers reuse instrumented APKs and SA files (.gesda/.wtg/.reach) from the baseline via `RV_SKIP_STATIC_ANALYSIS=true` and read-only volume mounts, avoiding redundant ~75-minute preprocessing. Instrumentation is deterministic, so baseline artifacts are valid for validation — only rv-agent code changes between baseline and validation images.
+All docker-compose files are stored in `docker/data/gh26_experiment/`. Validation containers reuse instrumented APKs from the baseline and SA files from `out/gh26_sa_filter/` via `RV_SKIP_STATIC_ANALYSIS=true` and read-only volume mounts. Instrumentation is deterministic, so baseline artifacts are valid for validation — only rv-agent code changes between `gh26-pre` and `gh26-pos` images.
 
-**Phase 1b — No-SA Validation** (optional, 2 containers, ~11.5 hours):
+**Phase 1b — No-SA Validation** (optional, 2 containers, ~8 hours):
 
 ```
 docker-compose.validation-nosa.yml
-  ├── batch_0: (15 APKs)
-  │     image: phtcosta/rvandroid:gh26-validation
+  ├── batch_0: (11 APKs)
+  │     image: phtcosta/rvandroid:gh26-pos
   │     RV_SKIP_STATIC_ANALYSIS=true for rvagent:pure_algorithm only
   │     (ape/fastbot unchanged)
-  └── batch_1: (15 APKs)
+  └── batch_1: (10 APKs)
 ```
 
 This optional variant validates that CoverageDensityScorer + Strategy C provide meaningful exploration efficiency even without static analysis data (the "warm no-SA" scenario). Compares against both baseline and validation-with-SA to isolate the dual guidance contribution.
 
 ### Time Budget (12h window)
 
-| Config | APKs | Tools | Reps | Tasks | Per Container | Est. Time |
-|--------|------|-------|------|-------|---------------|-----------|
-| A (chosen) | 30 | 3 | 3 | 270 | 135 tasks | ~11.5h |
-| B (fallback) | 30 | 3 | 2 | 180 | 90 tasks | ~8h |
-| C (fallback) | 25 | 3 | 3 | 225 | ~113 tasks | ~10h |
+| Config | APKs | Tools | Reps | Tasks | Per Container (max) | Est. Time |
+|--------|------|-------|------|-------|---------------------|-----------|
+| Chosen | 21 | 3 | 3 | 189 | 99 tasks (11+10 split) | ~8h |
 
-Config A maximizes statistical power (30 observations per tool) and fits within 12h. If SA filter yields fewer than 30 passing APKs, fall back to Config C.
+21 APKs provide 21 paired observations per tool for Wilcoxon signed-rank tests. SA preprocessing skipped (~50 min for monitors + instrumentation only).
 
 ### Comparison Metrics
 
