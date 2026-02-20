@@ -1,6 +1,6 @@
 # Skills Verification Report
 
-**Plan**: `docs/20260218_skills.md`
+**Plan**: `docs/20260220_plano_refatoracao_skills.md` (unified plan: design + verification)
 **Start date**: 2026-02-20
 **Status**: IN PROGRESS
 
@@ -11,11 +11,12 @@
 | Batch | Scope | Skills Tested | PASS | FAIL | DEFERRED | Date |
 |-------|-------|--------------|------|------|----------|------|
 | 0 | Infrastructure + Static Checks | — | 11 | 0 | 1 | 2026-02-20 |
-| 1 | L0.1-L0.5 (analysis leaves) | 0/5 | | | | |
-| 2 | L0.6-L0.9 (refactor + QA leaves) | 0/4 | | | | |
+| 1 | L0.1 rv-analyze-file (original) | 1/1 | 1 | 0 | 0 | 2026-02-20 |
+| 1R-10R | Analysis skill refactoring + validation | 0/9 | | | | |
+| 2 | L0.5-L0.9 (non-analysis leaves) | 0/5 | | | | |
 | 3 | L0.10-L0.12 (doc leaves) | 0/3 | | | | |
 | 4 | L0.13-L0.16 (planning/risk leaves) | 0/4 | | | | |
-| 5 | L1.1-L1.4 (mid-level + Solution C) | 0/4 | | | | |
+| 5 | L1.2-L1.4 (code-reviewer, debug-regression, qa-lint-fix) | 0/3 | | | | |
 | 6 | L1.5-L1.9 (remaining mid-level) | 0/5 | | | | |
 | 7 | L2.1-L2.2 + L3.1 (deep nesting) | 0/3 | | | | |
 | 8 | L4.1 + L4.4 (orchestrators, critical) | 0/2 | | | | |
