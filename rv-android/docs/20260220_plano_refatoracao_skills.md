@@ -26,7 +26,9 @@ This document unifies the analysis skill tree redesign with the bottom-up verifi
 | rv-analyze-complexity | L0 leaf | Entire module | 49 | Module-wide scan for a "leaf" + 3 supporting file reads + sequential-thinking overhead |
 | rv-analyze-dead-code | L0 leaf | Entire module | (untested) | Module-wide scan for a "leaf" + 3 supporting file reads |
 | rv-analyze-dependencies | L0 leaf | Module or all | (untested) | Module-wide scan for a "leaf" + 3 supporting file reads + sequential-thinking overhead |
-| rv-analyze-module | L1 mid-level | Module | (untested) | Calls three module-scoped "leaves" — redundant orchestration + 4 modeling checklists |
+| rv-analyze-module | L1 mid-level | Module | (untested) | Calls three module-scoped "leaves" — redundant orchestration + 4 modeling checklists (Steps 5-8, 73 lines + 4 external checklist files) |
+
+**Pre-existing mismatch**: rv-code-reviewer already passes file-scoped args (`args="<file-path>"`) to module-scoped skills (rv-analyze-complexity, rv-analyze-dead-code). This latent scope mismatch is additional evidence for the redesign — the new file-scoped variants (`rv-analyze-file-complexity`, `rv-analyze-file-dead-code`) resolve it.
 
 ---
 
@@ -36,7 +38,7 @@ This document unifies the analysis skill tree redesign with the bottom-up verifi
 2. **Naming convention**: `rv-analyze-file-*` for file-scoped variants. `rv-analyze-*` (without `file`) for module-scoped.
 3. **Always fork** (`context: fork`): every skill gets its own context window.
 4. **Minimize tokens**: lean SKILL.md (~50-80 lines), no checklists/supporting files unless essential, no MCP cache/memory overhead.
-5. **No fork-per-file iteration**: module-scoped skills iterate internally (Glob+Read), not by forking to file-level skills (too expensive: 46 forks × ~30s each).
+5. **No fork-per-file iteration in module-scoped skills**: iterate internally (Glob+Read), not by forking to file-level skills for every file (too expensive: 46 forks × ~30s each). File-scoped skills may be invoked individually by consumers for targeted analysis (e.g., rv-code-reviewer calling rv-analyze-file-complexity for 1-3 specific files).
 6. **Seamless workflow integration**: naming and scope must align with WORKFLOW.md usage patterns (Phase 0, Explore, Quick Path Analyze).
 7. **Consolidate supporting files**: the knowledge in checklists/templates is valuable and must be preserved — not deleted. Approach: merge 3 separate files into 1 consolidated `reference.md` per skill (preserving all content), inline only the essential thresholds (~5 lines) in SKILL.md, and change instruction to "Read reference.md before starting analysis". This reduces mandatory reads from 3 to **1** while keeping all accumulated knowledge accessible — the consolidated file contains checklists that **standardize** analyses, so reading it is mandatory (without it, each analysis would be inconsistent). Supporting files that prove genuinely unused after verification can be removed later. This addresses the primary root cause of F1.
 8. **No sequential-thinking MCP in L0 skills**: the `sequential-thinking` MCP server adds ~2-3 tool calls overhead without clear value for leaf skills. Numbered steps in the output suffice. Reserve sequential-thinking for complex orchestrators (L1+) where multi-step reasoning adds value.
@@ -57,7 +59,10 @@ The analysis skills already have MCP memory integration (rv-analyze-complexity, 
 
 **Git hash-based cache invalidation** (replaces 7-day staleness check):
 - Store `git_hash: <short-sha>` in observations
-- Before analysis: compare stored hash with `git rev-parse --short HEAD`
+- Before analysis: compare stored hash with scope-specific git command:
+  - Module-scoped skills: `git log -1 --format=%h -- modules/<module>/`
+  - File-scoped skills: `git log -1 --format=%h -- <file-path>`
+- This ensures the cache is only invalidated when the analyzed scope actually changes (not on every unrelated commit, as `git rev-parse --short HEAD` would)
 - If equal → reuse cached results (skip analysis)
 - If different → delete old observations, re-analyze, persist new results
 
@@ -161,6 +166,8 @@ rv-analyze-file-dead-code       (file — dead code only)
 rv-analyze-module               (module — orchestrator, calls above via Skill)
 rv-impact-analyzer              (file/class — change impact, keep name as-is)
 ```
+
+**Clarification**: `rv-analyze-module` is the sole L1 orchestrator in this group. All other `rv-analyze-*` (without `file`) — `rv-analyze-complexity`, `rv-analyze-dead-code`, `rv-analyze-dependencies` — are L0 leaves with internal iteration. The naming convention does not encode the L0/L1 distinction; the list above is the authoritative reference.
 
 ---
 
@@ -276,8 +283,13 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 
 | # | File | Description |
 |---|------|-------------|
-| 1 | `.claude/skills/rv-analyze-file-complexity/SKILL.md` | New file-scoped complexity skill (~50 lines) |
-| 2 | `.claude/skills/rv-analyze-file-dead-code/SKILL.md` | New file-scoped dead code skill (~50 lines) |
+| 1 | `.claude/skills/rv-analyze-file-complexity/SKILL.md` | New file-scoped complexity skill (~50 lines), no supporting files (lightweight, ~5 tool calls) |
+| 2 | `.claude/skills/rv-analyze-file-dead-code/SKILL.md` | New file-scoped dead code skill (~50 lines), no supporting files (lightweight, ~5 tool calls) |
+| 3 | `.claude/skills/rv-analyze-complexity/reference.md` | Consolidated from 3 supporting files (checklists + templates). Original files deleted after consolidation |
+| 4 | `.claude/skills/rv-analyze-dead-code/reference.md` | Consolidated from 3 supporting files. Original files deleted after consolidation |
+| 5 | `.claude/skills/rv-analyze-dependencies/reference.md` | Consolidated from 3 supporting files. Original files deleted after consolidation |
+| 6 | `.claude/skills/rv-analyze-file/reference.md` | Consolidated from 3 supporting files. Original files deleted after consolidation |
+| 7 | `.claude/skills/rv-analyze-module/reference.md` | Consolidated from 4 modeling checklist files. Original files deleted after consolidation |
 
 ## 7. Files to Modify
 
@@ -286,7 +298,7 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 | 1 | `.claude/skills/rv-analyze-complexity/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, remove Guiding Principles (9 paragraphs → 3 lines inline), remove sequential-thinking, redesign MCP memory schema (entity naming + git hash cache), module-scoped internal iteration, **compact description to <100 chars**, move routing to body, slim to ~60 lines |
 | 2 | `.claude/skills/rv-analyze-dead-code/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, redesign MCP memory schema (entity naming + git hash cache), module-scoped internal iteration, **compact description to <100 chars**, move routing to body, slim to ~60 lines |
 | 3 | `.claude/skills/rv-analyze-dependencies/SKILL.md` | Redesign: merge 3 supporting files → 1 reference.md, remove sequential-thinking, redesign MCP memory schema (entity naming + git hash cache), **compact description to <100 chars**, move routing to body, slim to ~60 lines |
-| 4 | `.claude/skills/rv-analyze-module/SKILL.md` | Redesign: remove 4 Modeling Perspectives (Steps 5-8), simplify to: check cache → call 3 L0 via Skill → own analysis (directory + components + tests) → synthesize → persist, **compact description to <100 chars**, move routing to body |
+| 4 | `.claude/skills/rv-analyze-module/SKILL.md` | Redesign: remove Steps 5-8 (73 lines of in-SKILL.md modeling instructions) + delete 4 checklist files (context-modeling.md, interaction-modeling.md, structural-modeling.md, behavioral-modeling.md), simplify to: check cache → call 3 L0 via Skill → own analysis (directory + components + tests) → synthesize → persist, **compact description to <100 chars**, move routing to body |
 | 5 | `.claude/skills/rv-analyze-file/SKILL.md` | Slim: consolidate 3 supporting files → 1 reference.md (mandatory read), change to "Read reference.md before starting analysis", **compact description to <100 chars**, move routing to body |
 | 6 | `.claude/skills/rv-code-reviewer/SKILL.md` | Update refs: line 66 rv-analyze-complexity → rv-analyze-file-complexity, line 68 rv-analyze-dead-code → rv-analyze-file-dead-code, **compact description to <100 chars** |
 | 7 | `.claude/skills/rv-refactor-simplify/SKILL.md` | Update ref: line 52 rv-analyze-complexity → rv-analyze-file-complexity, **compact description to <100 chars** |
@@ -295,9 +307,9 @@ This would formalize the OpenSpec ↔ rv-* skill integration at the schema level
 | 10 | `docs/20260218_skills.md` | Add redirect note (content merged into this document) |
 | 11 | `docs/RELATORIO_SKILLS.md` | Record findings F2 + F3 (frontmatter analysis) |
 
-**Total: 2 files to create + 11 files to modify = 13 files**
+**Total: 7 files to create + 11 files to modify + ~16 files to delete (original supporting files) = ~34 file operations**
 
-**Note**: frontmatter compaction (Phase 1) applies to the 7 analysis skills already being modified (rows 1-7). Phase 2 (remaining 25+ skills) is a separate future task — see Section 2.2.
+**Note**: frontmatter compaction (Phase 1) applies to the 7 analysis skills already being modified (rows 1-7). Phase 2 (remaining 25+ skills) is a separate future task — see Section 2.2. File-scoped variants (`rv-analyze-file-complexity`, `rv-analyze-file-dead-code`) operate WITHOUT supporting files — they are lightweight (~5 tool calls) and don't need reference material.
 
 ---
 
@@ -545,8 +557,10 @@ Before testing any skills, verify the tracing infrastructure is operational:
 | V0.2 | SUBAGENT events captured | Invoke any leaf skill; check trace.log | SUBAGENT_START and SUBAGENT_STOP appear |
 | V0.3 | PRE_TOOL_USE events captured | Same invocation as V0.2 | PRE_TOOL_USE entries for tools used by skill |
 | V0.4 | Context budget | Run `/context` after session start | No "skills excluded due to budget" warnings |
+| V0.5 | MCP memory server | Invoke `mcp__memory__search_nodes` with a test query | Server responds (success or empty results — not connection error) |
+| V0.6 | MCP sequential-thinking server | Invoke `mcp__sequential-thinking__sequentialthinking` with a trivial thought | Server responds (not connection error) |
 
-**Pre-condition**: Hooks must be re-enabled from `hooks_locked/` before any testing (see Section 16).
+**Pre-condition**: Hooks must be re-enabled from `hooks_locked/` before any testing (see Section 16). MCP servers (memory, sequential-thinking) must be running for skills that depend on them — V0.5/V0.6 verify this.
 
 ### 12.6 Static Checks (Level 1 Prerequisites)
 
@@ -729,8 +743,8 @@ The batches intercalate **refactoring** (creating/modifying skills) with **verif
 |-------|-------|--------|--------|------|
 | 0 | Infrastructure + Static Checks | V0, V1 | N/A | Verification (DONE) |
 | 1 | L0.1 rv-analyze-file (original) | 1 skill | rv-android-core | Verification (L0.1 PASS) |
-| **1R** | **Create** rv-analyze-file-complexity + **validate** | 1 skill | rv-android-core | Refactoring + Verification |
-| **2R** | **Create** rv-analyze-file-dead-code + **validate** | 1 skill | rv-android-core | Refactoring + Verification |
+| **1R** | **Create** rv-analyze-file-complexity + **validate** (no supporting files — lightweight) | 1 skill | rv-android-core | Refactoring + Verification |
+| **2R** | **Create** rv-analyze-file-dead-code + **validate** (no supporting files — lightweight) | 1 skill | rv-android-core | Refactoring + Verification |
 | **3R** | **Redesign** rv-analyze-complexity + **validate** (absorbs L0.2) | 1 skill | rv-android-core | Refactoring + Verification |
 | **4R** | **Redesign** rv-analyze-dead-code + **validate** (absorbs L0.4) | 1 skill | rv-android-core | Refactoring + Verification |
 | **5R** | **Redesign** rv-analyze-dependencies + **validate** (absorbs L0.3) | 1 skill | rv-android-core | Refactoring + Verification |
