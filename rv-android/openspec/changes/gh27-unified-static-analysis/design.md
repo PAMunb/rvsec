@@ -304,7 +304,7 @@ flowchart TD
 
 By writing `reachability` first, a timeout that interrupts the tool after the first section still preserves the most critical data: the complete method universe. Windows and transitions are used by rv-agent for navigation guidance, but the agent can function (less optimally) without them. Coverage cannot function at all without the method universe.
 
-The Java client uses `JsonWriter` with explicit `flush()` after each section's closing bracket, so partial writes produce valid JSON through the last completed section.
+The Java client uses `JsonWriter` with explicit `flush()` after each section's closing bracket. On timeout, the outer JSON object may be unclosed (e.g., `{"reachability": [...], "windows": [`), making the file not strictly valid JSON. The `UnifiedParser` must handle this: attempt `json.loads()` first; on `JSONDecodeError`, find the position of the last complete `]` bracket, truncate the content there, close the JSON object with `}`, and retry parsing. This recovers all fully-written sections from a truncated file with ~10 lines of code and no external dependencies.
 
 **Signature format compatibility**: Coverage.aj uses `method.getDeclaringClass().getName()` which produces the same format as `SootMethod.getSignature()`: `<class: returnType name(params)>`. This ensures the runtime-logged signatures match the static analysis signatures exactly, with `SignatureNormalizer` handling inner class dot-to-dollar conversion.
 
@@ -322,7 +322,7 @@ Parses the unified JSON into `StaticAnalysisData`. Extends `BaseStaticAnalysisPa
 
 - **Preconditions**: `file_path` is a string path (may not exist), `package` is the `code_package` from `App.code_package`
 - **Postconditions**: Returns a valid `StaticAnalysisData` (possibly with empty sections on failure)
-- **Error behavior**: Missing file → warning log + empty `StaticAnalysisData`. Malformed section → error log + empty domain object for that section, other sections parsed normally (INV-ANA-06).
+- **Error behavior**: Missing file → warning log + empty `StaticAnalysisData`. Truncated JSON (from timeout) → attempt recovery by closing at last complete `]` bracket, parse recovered content. Malformed section → error log + empty domain object for that section, other sections parsed normally (INV-ANA-06).
 
 ### `StaticAnalyzer._run_unified() -> None`
 

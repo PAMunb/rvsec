@@ -75,7 +75,7 @@ Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-s
 
 - [ ] 5.1 Add `EXTENSION_UNIFIED = ".json"` to `rv-android-core/constants.py`
 - [ ] 5.2 Create `UnifiedParser` class extending `BaseStaticAnalysisParser`
-- [ ] 5.3 Implement `parse_file(file_path, package) -> StaticAnalysisData` — reads JSON, delegates to section parsers
+- [ ] 5.3 Implement `parse_file(file_path, package) -> StaticAnalysisData` — reads JSON, delegates to section parsers. Include truncated JSON recovery: on `JSONDecodeError`, find last complete `]` bracket, close with `}`, retry parse
 - [ ] 5.4 Implement `_parse_classes(data, package) -> Classes` — iterates `reachability` section, applies SignatureNormalizer (INV-ANA-02), filters by code_package (INV-ANA-03)
 - [ ] 5.5 Implement `_parse_windows(data, package, classes) -> Windows` — iterates `windows` section, processes widgets and listeners, maps event types
 - [ ] 5.6 Implement `_parse_transitions(data, windows) -> WindowTransitionGraph` — iterates `transitions` section, resolves source/target by window ID
@@ -109,7 +109,7 @@ Files: `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_a
 ## 8. Tests
 
 - [ ] 8.1 Create `tests/resources/cryptoapp.apk.json` test fixture from real unified tool output
-- [ ] 8.2 Create `test_unified_parser.py`: well-formed JSON, empty JSON, missing sections, missing file, inner class normalization, code_package filtering, partial section failure, empty windows array, transitions referencing unknown window IDs (skip with warning), truncated JSON from timeout (valid sections parsed, missing sections return empty objects)
+- [ ] 8.2 Create `test_unified_parser.py`: well-formed JSON, empty JSON, missing sections, missing file, inner class normalization, code_package filtering, partial section failure, empty windows array, transitions referencing unknown window IDs (skip with warning), truncated JSON from timeout (valid sections parsed, missing sections return empty objects), empty MOP specs (all reachesMop = false)
 - [ ] 8.3 Update `test_static_analysis_parser.py` for unified flow
 - [ ] 8.4 Update `test_static_analysis.py` (or `test_static_analyzer.py`) for single-tool pipeline
 - [ ] 8.5 Update `test_config.py` for new configuration fields

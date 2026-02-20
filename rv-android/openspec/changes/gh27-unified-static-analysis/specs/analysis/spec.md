@@ -142,8 +142,8 @@ The call graph is built using Soot's default entry point strategy — Android li
 #### Scenario: Timeout with partial JSON output
 
 - **WHEN** the unified tool times out after writing a partial JSON file (e.g., `reachability` section written and flushed, but `windows` and `transitions` sections missing due to timeout)
-- **THEN** `UnifiedParser` MUST attempt to parse the partial file
-- **AND** valid sections present in the partial JSON MUST be parsed successfully into their domain objects
+- **THEN** `UnifiedParser` MUST attempt to parse the partial file. If `json.loads()` fails due to truncation, the parser MUST attempt recovery by finding the last complete `]` bracket, truncating the content there, closing the JSON object, and retrying
+- **AND** valid sections present in the recovered JSON MUST be parsed successfully into their domain objects
 - **AND** missing or truncated sections MUST result in empty domain objects for those sections (INV-ANA-06)
 - **AND** a warning MUST be logged indicating incomplete file due to timeout
 - **AND** `StaticAnalysisResult.timed_out` MUST be `True`
