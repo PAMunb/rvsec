@@ -5,7 +5,6 @@ argument-hint: [file-path]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-disable-model-invocation: true
 ---
 
 # Simplify Code: $ARGUMENTS
@@ -43,11 +42,10 @@ This ensures that refactoring is deliberate and directly contributes to a better
 
 ## Steps
 
-1. **Analyze complexity** first - Use the **Skill tool**:
+1. **Analyze complexity** (MANDATORY — DO NOT SKIP). You MUST invoke this sub-skill BEFORE any simplification. Do NOT analyze complexity yourself via Read/Bash — delegate to rv-analyze-file-complexity:
    ```
    Skill tool: skill="rv-analyze-file-complexity", args="$ARGUMENTS"
    ```
-   This identifies the most complex areas that need simplification.
 
 2. **Read and understand** the file at $ARGUMENTS
 
@@ -75,10 +73,9 @@ This ensures that refactoring is deliberate and directly contributes to a better
    - Consolidate duplicated logic
    - Simplify conditionals
 
-6. **Verify**:
-   ```bash
-   cd modules/$MODULE
-   PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
+6. **Verify via rv-verify** (MANDATORY — DO NOT SKIP). You MUST invoke rv-verify using the **Skill tool**. Do NOT run pytest directly via Bash — delegate to rv-verify:
+   ```
+   Skill tool: skill="rv-verify", args="$MODULE"
    ```
 
 ## Common Simplifications

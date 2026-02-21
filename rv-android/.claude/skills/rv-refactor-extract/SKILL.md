@@ -5,11 +5,10 @@ description: >-
   isolating concerns, or improving modularity.
   Do NOT use for: simplification without extraction (use /rv-refactor-simplify),
   full module refactoring (use /rv-refactor).
-argument-hint: [file-path] [target-name]
+argument-hint: "[file-path] [target-name]"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
-disable-model-invocation: true
 ---
 
 # Extract Component: $ARGUMENTS
@@ -79,9 +78,9 @@ DONE
 - File path containing code
 - Target to extract (function, class, or code block)
 
-### Step 1.2: Analyze File Structure
+### Step 1.2: Analyze File Structure (MANDATORY — DO NOT SKIP)
 
-Use the **Skill tool**:
+You MUST invoke this sub-skill BEFORE any extraction work. Do NOT analyze file structure yourself via Read/Grep — delegate to rv-analyze-file:
 ```
 Skill tool: skill="rv-analyze-file", args="$FILE_PATH"
 ```
@@ -125,18 +124,13 @@ Reference: `checklists/reusability-assessment.md`
 
 ### Step 2.3: Make Decision
 
-```markdown
-## Extraction Decision
+Produce a decision summary:
 
-**Benefits Total**: [X/20]
-**Costs Total**: [Y/15]
-**Net Value**: [Benefits - Costs]
-
-Decision:
-- > 10: Proceed with extraction
-- 5-10: Consider simpler alternative
-- < 5: Do not extract
-```
+    ## Extraction Decision
+    Benefits Total: [X/20]
+    Costs Total: [Y/15]
+    Net Value: [Benefits - Costs]
+    Decision: > 10 proceed, 5-10 consider simpler, < 5 do not extract
 
 ---
 
@@ -153,45 +147,18 @@ Decision:
 
 ### Step 3.2: Design Interface
 
-```markdown
-## Interface Design
-
-**Purpose**: [one sentence]
-
-**Public API**:
-| Method | Parameters | Returns | Description |
-|--------|------------|---------|-------------|
-| `name()` | `param: Type` | `ReturnType` | What it does |
-
-**Dependencies**:
-- [list external dependencies]
-
-**Usage Example**:
-```python
-from module.component import function
-result = function(input)
-```
-```
+Produce an interface design document covering:
+- Purpose (one sentence)
+- Public API table (Method, Parameters, Returns, Description)
+- Dependencies list
+- Usage example showing import and call
 
 ### Step 3.3: Plan File Structure
 
-```markdown
-## File Structure
-
-**New File**: [path/to/new_file.py]
-**Contains**:
-- [list of classes/functions to extract]
-
-**Original File**: [path/to/original.py]
-**Changes**:
-- Remove: [extracted code]
-- Add import: `from .new_file import X`
-
-**Other Files to Update**:
-| File | Change |
-|------|--------|
-| [file.py] | Update import |
-```
+Produce a file structure plan covering:
+- New file path and what it will contain
+- Original file changes (what to remove, what import to add)
+- Other files to update (table: File, Change)
 
 ---
 
@@ -230,11 +197,11 @@ Update imports as needed.
 
 ## Phase 5: Verify Extraction
 
-### Step 5.1: Run Tests
+### Step 5.1: Run Verification (MANDATORY — DO NOT SKIP)
 
-```bash
-cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+You MUST invoke rv-verify using the **Skill tool**. Do NOT run pytest directly via Bash — delegate to rv-verify:
+```
+Skill tool: skill="rv-verify", args="$MODULE"
 ```
 
 ### Step 5.2: Verify Imports
@@ -244,9 +211,9 @@ cd modules/$MODULE
 uv run python -c "from module.new_file import X; print('Import OK')"
 ```
 
-### Step 5.3: Check for Broken References
+### Step 5.3: Check for Broken References (MANDATORY — DO NOT SKIP)
 
-Use the **Skill tool**:
+You MUST invoke this sub-skill AFTER extraction to verify no broken references. Do NOT check dependencies yourself via Grep/Read — delegate to rv-analyze-dependencies:
 ```
 Skill tool: skill="rv-analyze-dependencies", args="$MODULE"
 ```
@@ -332,51 +299,15 @@ module/
 
 ## Output Format
 
-```markdown
-## Extraction Report: [target]
+Produce a report with these sections:
 
-### Summary
-- **Extracted**: [what was extracted]
-- **From**: [original file]
-- **To**: [new file]
-- **Type**: function/class/module
-- **Reuse Level**: Function/Component/Shared
-
-### Reusability Assessment
-- **Benefits Score**: [X/20]
-- **Costs Score**: [Y/15]
-- **Net Value**: [X-Y] (threshold: 10)
-
-### Interface
-```python
-# How to use the extracted component
-from module.new_file import Component
-result = Component.method(input)
-```
-
-### Files Changed
-
-#### New File Created
-- **Path**: [new file path]
-- **Contains**: [list of extracted items]
-- **Purpose**: [why it exists]
-
-#### Original File Updated
-- Removed: [extracted code]
-- Added import: `from .new_file import X`
-
-#### Other Files Updated
-| File | Change |
-|------|--------|
-| file.py | Updated import |
-
-### Verification
-- Tests: [pass/fail]
-- Imports: [ok/broken]
-
-### Backup
-- Created: backup/[filename]_before_extract.py
-```
+    ## Extraction Report: [target]
+    ### Summary: Extracted, From, To, Type, Reuse Level
+    ### Reusability Assessment: Benefits Score, Costs Score, Net Value
+    ### Interface: usage example (import + call)
+    ### Files Changed: new file, original file updates, other files
+    ### Verification: Tests pass/fail, Imports ok/broken
+    ### Backup: location
 
 ---
 

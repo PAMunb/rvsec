@@ -9,7 +9,6 @@ argument-hint: [module-name or file-path]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion, Skill
-disable-model-invocation: true
 ---
 
 # Security Analysis: $ARGUMENTS
@@ -220,9 +219,9 @@ Reference `checklists/design-guidelines.md` and verify:
 9. **Log security events** - Audit trail?
 10. **Design for recovery** - Incident response capability?
 
-### Code Analysis
+### Code Analysis (MANDATORY — DO NOT SKIP)
 
-Use the **Skill tool** to analyze the target:
+You MUST invoke this sub-skill BEFORE manual code analysis. Do NOT analyze the file yourself via Read/Grep — delegate to rv-analyze-file first:
 ```
 Skill tool: skill="rv-analyze-file", args="$TARGET_FILE"
 ```

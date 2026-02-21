@@ -4,7 +4,7 @@ description: >-
   Add a single test file for an existing function or class. Use for quick test additions to existing code.
   Do NOT use for: implementing new features with tests, bug fixes requiring regression tests, or full TDD workflow.
   Use /rv-tdd for implementing features with strict RED-GREEN-REFACTOR cycles.
-argument-hint: [file-path] [function-or-class-name]
+argument-hint: "[file-path] [function-or-class-name]"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, Skill
@@ -122,7 +122,7 @@ START: Write test for [target]
    - File path containing code to test
    - Optional: specific function or class name
 
-2. **Analyze the code** - Use the **Skill tool**:
+2. **Analyze the code** (MANDATORY — DO NOT SKIP). You MUST invoke this sub-skill BEFORE writing any tests. Do NOT analyze the file yourself via Read/Grep — delegate to rv-analyze-file:
    ```
    Skill tool: skill="rv-analyze-file", args="[file-path]"
    ```
@@ -177,7 +177,7 @@ START: Write test for [target]
    - Descriptive test names
    - Mock external dependencies
 
-7. **Verify test fails** (RED phase) - Use the **Skill tool**:
+7. **Verify test fails** (MANDATORY — DO NOT SKIP). You MUST invoke rv-test-run to verify tests. Do NOT run pytest directly via Bash — delegate to rv-test-run:
    ```
    Skill tool: skill="rv-test-run", args="$MODULE tests/[category]/test_$FILE.py"
    ```
@@ -228,27 +228,13 @@ def test_target_function():
 
 ## Output Format
 
-```
-## Tests Created: [target]
+Produce a report with these sections:
 
-### Test File
-- **Path**: tests/unit/test_[name].py
-- **Tests**: X test cases
-
-### Test Cases
-1. `test_happy_path` - Normal operation
-2. `test_edge_case` - Edge case handling
-3. `test_error_handling` - Error cases
-
-### Run Command
-```bash
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_[name].py -v
-```
-
-### Test Results
-- Passed: X
-- Failed: Y (with details if any)
-```
+    ## Tests Created: [target]
+    ### Test File: Path, Tests count
+    ### Test Cases: numbered list with name and description
+    ### Run Command: pytest invocation
+    ### Test Results: Passed/Failed counts
 
 ## Guidelines
 

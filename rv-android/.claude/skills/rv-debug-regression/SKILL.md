@@ -43,15 +43,15 @@ REPORT ────────────────────────�
 
 ## Steps
 
-### Step 1: Confirm Failure (mandatory: use rv-test-run)
+### Step 1: Confirm Failure (MANDATORY — DO NOT SKIP)
 
-Reproduce the failure using the **Skill tool**:
+You MUST reproduce the failure using the **Skill tool**. Do NOT run tests directly via Bash — delegate to rv-test-run:
 
 ```
 Skill tool: skill="rv-test-run", args="[module] [test-path]::$ARGUMENTS"
 ```
 
-The sub-skill will run the test and report pass/fail with output.
+If `$ARGUMENTS` is a commit hash, first identify which module/tests are affected by reading the commit, then invoke rv-test-run for that module.
 
 **Document** from the rv-test-run output:
 - Test name and location

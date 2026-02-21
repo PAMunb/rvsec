@@ -14,11 +14,10 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 
 ## Steps
 
-1. **Run dead code analysis** first - Use the **Skill tool**:
+1. **Run dead code analysis** (MANDATORY — DO NOT SKIP). You MUST invoke this sub-skill BEFORE any cleanup. Do NOT search for dead code yourself via Grep/Read — delegate to rv-analyze-dead-code:
    ```
    Skill tool: skill="rv-analyze-dead-code", args="$MODULE"
    ```
-   This will identify unused imports, functions, and dead code systematically.
 
 2. **Identify cleanup targets**:
    - Unused imports
@@ -39,9 +38,9 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Skill
    - Remove commented code blocks
    - Delete empty files
 
-5. **Verify**:
-   ```bash
-   uv run pytest tests/ -v
+5. **Verify via rv-verify** (MANDATORY — DO NOT SKIP). You MUST invoke rv-verify using the **Skill tool**. Do NOT run pytest, flake8, or any other tool directly via Bash — delegate to rv-verify:
+   ```
+   Skill tool: skill="rv-verify", args="$MODULE"
    ```
 
 ## Automated Cleanup

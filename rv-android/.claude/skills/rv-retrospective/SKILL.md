@@ -8,7 +8,6 @@ argument-hint: [scope: feature|sprint|project]
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash
-disable-model-invocation: true
 ---
 
 # Process Retrospective: $ARGUMENTS

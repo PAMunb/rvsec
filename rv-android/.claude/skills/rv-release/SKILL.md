@@ -4,11 +4,10 @@ description: >-
   uv workspace release manager. Use when publishing modules to PyPI, bumping versions,
   generating changelogs, or coordinating multi-module releases.
   Do NOT use for: CI/CD pipeline setup, deployment, or infrastructure changes.
-argument-hint: [major|minor|patch] [module-name (optional)]
+argument-hint: "[major|minor|patch] [module-name (optional)]"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Bash, Glob, Edit, Write, AskUserQuestion
-disable-model-invocation: true
 ---
 
 # Release Management: $ARGUMENTS

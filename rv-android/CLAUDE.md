@@ -297,7 +297,7 @@ SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid 
 .claude/
 ├── AGENTS.md                # Full skill documentation (authoritative)
 ├── project-info.md          # Quick reference (paths, env vars)
-└── skills/                  # All skills (42 total)
+└── skills/                  # All skills (44 total)
     └── rv-*/SKILL.md        # Skill definitions
 ```
 

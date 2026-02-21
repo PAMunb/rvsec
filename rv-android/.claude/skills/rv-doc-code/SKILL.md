@@ -6,7 +6,7 @@ description: >-
   or auditing documentation coverage in a module.
   Do NOT use for: README.md (use /rv-doc-readme), CLAUDE.md (use /rv-doc-generate-claude-md),
   architecture.md (use /rv-doc-architecture), ADRs (use /rv-doc-adr).
-argument-hint: [module-name or file-path] [--audit]
+argument-hint: "[module-name or file-path] [--audit]"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash

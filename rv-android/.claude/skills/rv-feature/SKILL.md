@@ -128,9 +128,11 @@ Classify requirements into Functional and Non-Functional:
 | Product | Security | "AES-256 encryption" |
 | Organizational | Standard | "PEP 8 compliance" |
 
-### Step 1.4: Codebase Context Analysis
+### Step 1.4: Codebase Context Analysis (MANDATORY — DO NOT SKIP)
 
 Determine the target module from $ARGUMENTS (the feature description).
+
+You MUST invoke BOTH module analysis AND dependency mapping before proceeding. Do NOT analyze the codebase yourself via Read/Grep — delegate to these sub-skills:
 
 Understand the module structure - Use the **Skill tool**:
 ```
@@ -142,7 +144,7 @@ Map dependencies - Use the **Skill tool**:
 Skill tool: skill="rv-analyze-dependencies", args="$TARGET_MODULE"
 ```
 
-Analyze existing patterns in similar files - Use the **Skill tool**:
+Optionally, analyze existing patterns in similar files - Use the **Skill tool**:
 ```
 Skill tool: skill="rv-analyze-file", args="$SIMILAR_FILE"
 ```

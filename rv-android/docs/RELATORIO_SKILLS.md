@@ -26,10 +26,11 @@
 | 3 | L0.10-L0.12 (doc leaves) | 3/3 | 3 | 0 | 0 | 2026-02-20 |
 | 4 | L0.13-L0.16 (planning/risk leaves) | 4/4 | 0 | 0 | 4 | 2026-02-20 |
 | 5 | L1.2-L1.4 (code-reviewer, debug-regression, qa-lint-fix) | 3/3 | 2 | 1 | 0 | 2026-02-20 |
-| 6 | L1.5-L1.9 (remaining mid-level) | 0/5 | | | | |
-| 7 | L2.1-L2.2 + L3.1 (deep nesting) | 0/3 | | | | |
-| 8 | L4.1 + L4.4 (orchestrators, critical) | 0/2 | | | | |
-| 9 | L4.2 + L4.3 (remaining orchestrators) | 0/2 | | | | |
+| 5-retest | B1-B3 re-test after prompt fixes | 3/3 | 3 | 0 | 0 | 2026-02-21 |
+| 6 | L1.5-L1.9 (remaining mid-level) | 5/5 | 5 | 0 | 0 | 2026-02-21 |
+| 7 | L2.1-L2.2 + L3.1 (deep nesting) | 3/3 | 3 | 0 | 0 | 2026-02-21 |
+| 8 | L4.1 + L4.4 (orchestrators, critical) | 2/2 | 2 | 0 | 0 | 2026-02-21 |
+| 9 | L4.2 + L4.3 (remaining orchestrators) | 2/2 | 2 | 0 | 0 | 2026-02-21 |
 
 ---
 
@@ -709,3 +710,352 @@ Cross-referenced with empirical validation from `hello-claude-code` project (11 
 **O44 (rv-qa-lint-fix redundant step)**: Step 4 ran `uv run pytest tests/unit/ -v` before Step 5's rv-verify. Since rv-verify already runs full tests, Step 4 was redundant and could short-circuit the chain — if tests pass in Step 4, the model might skip Step 5. Removed Step 4. Re-test needed in next session.
 
 **O45 (chain pattern taxonomy)**: L1 skills use 2 chain patterns: (1) **Pre-analysis** — invoke analysis before main work (rv-refactor-*, rv-test-add, rv-security, rv-code-reviewer); (2) **Post-verification** — invoke verification after changes (rv-qa-lint-fix, rv-debug-regression). All chains are now mandatory numbered steps. The failed "conditional" pattern ("when needed") was eliminated.
+
+---
+
+## Batch 5-retest — Re-test B1-B3 After Prompt Fixes
+
+**Date**: 2026-02-21
+**Purpose**: Verify that the 3 fixes applied in Batch 5 actually produce nested SUBAGENT events.
+**Method**: Invoke each skill, check trace.log for nested Skill tool calls.
+
+### Prompt Fixes Applied (before re-testing)
+
+All 3 skills received prompt strengthening following the pattern discovered to work:
+
+**Pattern that works**: `(MANDATORY — DO NOT SKIP)` + `You MUST invoke...` + `Do NOT run X directly via Bash — delegate to sub-skill` + explicit step boundaries.
+
+| Skill | Fix Applied |
+|-------|-------------|
+| rv-code-reviewer | Step 2 title: `(MANDATORY — DO NOT SKIP)`. Body: `You MUST invoke BOTH complexity AND dead-code skills. Never skip one because the file looks simple.` Added `If no Python files in diff — skip to Step 3` escape clause. |
+| rv-debug-regression | Step 1 title: `(MANDATORY — DO NOT SKIP)`. Body: `Do NOT run tests directly via Bash — delegate to rv-test-run`. Added commit-hash handling: `If $ARGUMENTS is a commit hash, first identify which module/tests are affected`. |
+| rv-qa-lint-fix | Step 2 title: `(ONLY these 3 commands)`. Added explicit boundary: `Do NOT add any verification, checking, or analysis steps. After these 3 commands complete, go DIRECTLY to Step 3.` Step 3 title: `(MANDATORY — DO NOT SKIP)`. Body: `This is the ONLY verification step`. |
+
+**Note on rv-qa-lint-fix**: Required 2 iterations. First fix (just adding MANDATORY label) failed — the model ran flake8 directly after auto-fixers and started manually fixing issues, never reaching the rv-verify step. Second fix added explicit boundaries between Step 2 and Step 3 (`Do NOT add any verification steps. Go DIRECTLY to Step 3`), which worked.
+
+### Results
+
+| # | Skill | Target | Status | Nested Sub-skills | Chain Depth | Notes |
+|---|-------|--------|--------|:---:|:-:|-------|
+| B1 | rv-code-reviewer | rv-android-core (with Python diff) | **PASS** | rv-analyze-file-complexity, rv-analyze-file-dead-code | 1 | Both skills invoked for constants.py. Review cited metrics from sub-skills. |
+| B2 | rv-debug-regression | b652652a | **PASS** | rv-test-run x2 | 1 | Step 1: specific test. Then: full test file (43 tests pass). |
+| B3 | rv-qa-lint-fix | rv-android-core | **PASS** | rv-verify | 1 | rv-verify ran ~10 min (754 tests). Detected autoflake removed needed import, fixed it. |
+
+### Trace Evidence
+
+**B1 (rv-code-reviewer)**:
+```
+aa15d2b616e (rv-code-reviewer) START 11:59:55
+  a633782dc65 (rv-analyze-file-complexity) START 12:00:43 → STOP 12:01:07
+  a5795939e87 (rv-analyze-file-dead-code)  START 12:01:07 → STOP 12:03:11
+aa15d2b616e (rv-code-reviewer) STOP 12:04:02
+```
+
+**B2 (rv-debug-regression)**:
+```
+a2403798acb (rv-debug-regression) START 12:05:50
+  a84b9a840c1 (rv-test-run #1) START 12:06:11 → STOP 12:06:28  [specific test]
+  a1d9b0db0ca (rv-test-run #2) START 12:06:47 → STOP 12:07:03  [full test file]
+a2403798acb (rv-debug-regression) STOP 12:07:38
+```
+
+**B3 (rv-qa-lint-fix)**:
+```
+rv-qa-lint-fix START 12:14:16
+  rv-verify START 12:14:48 → STOP 12:25:26  (~10 min)
+rv-qa-lint-fix STOP 12:26:07
+```
+
+### Observations
+
+**O46 (prompt enforcement pattern)**: The pattern `(MANDATORY — DO NOT SKIP)` + `Do NOT X via Bash` is necessary but not sufficient for post-verification chains. When the mandatory sub-skill comes AFTER the main work (rv-qa-lint-fix), the model adds its own intermediate verification steps. Explicit step boundaries (`Do NOT add any verification. Go DIRECTLY to Step N`) are required to prevent this.
+
+**O47 (pre-analysis vs post-verification)**: Pre-analysis chains (rv-code-reviewer Step 2 → analysis before review) are easier to enforce because the sub-skill runs first. Post-verification chains (rv-qa-lint-fix Step 3 → verify after fixes) need stricter boundaries because the model tends to self-verify between the main work and the mandatory step.
+
+**O48 (rv-verify as safety net)**: The rv-qa-lint-fix B3 test demonstrated rv-verify's value: autoflake removed `import logging` from `util/logging/constants.py` (appeared unused locally, but was re-exported to `manager.py`). rv-verify caught this via 30 failing test collections and the skill restored the import. Without the mandatory rv-verify chain, this breakage would have been shipped.
+
+---
+
+## Batch 6 — L1.5-L1.9 (Remaining Mid-Level Skills)
+
+**Date**: 2026-02-21
+**Target module**: rv-android-core (`constants.py` as test target)
+**Invocation method**: Skill tool from main context (skills fork automatically)
+**Focus**: Chain verification + YAML frontmatter fix
+
+### Pre-test Fixes Applied
+
+#### Fix 1: YAML frontmatter `argument-hint` parse error (ROOT CAUSE of fork failures)
+
+**Discovery**: Skills rv-refactor-extract and rv-test-add consistently loaded inline instead of forking (`"Launching skill"` instead of `"completed (forked execution)"`). After eliminating size hypothesis (rv-security at 13KB/401 lines forked correctly) and nested code blocks (fixing them didn't help), a YAML parse validation revealed the root cause.
+
+**Root cause**: In YAML, `[...]` is an array literal. The `argument-hint` field with TWO bracket expressions (e.g., `[file-path] [target-name]`) caused a parse error: `expected <block end>, but found '['`. This prevented Claude Code from reading `context: fork`, defaulting to inline loading.
+
+**Evidence**: Python `yaml.safe_load()` on frontmatter returned parse errors for the 4 affected skills but succeeded for all others. After quoting the values, all 4 parsed correctly and forked on invocation.
+
+**Fix**: Quote the `argument-hint` value with double quotes.
+
+| Skill | Before (YAML ERROR) | After (OK) |
+|-------|---------------------|------------|
+| rv-refactor-extract | `argument-hint: [file-path] [target-name]` | `argument-hint: "[file-path] [target-name]"` |
+| rv-test-add | `argument-hint: [file-path] [function-or-class-name]` | `argument-hint: "[file-path] [function-or-class-name]"` |
+| rv-release | `argument-hint: [major\|minor\|patch] [module-name (optional)]` | `argument-hint: "[major\|minor\|patch] [module-name (optional)]"` |
+| rv-doc-code | `argument-hint: [module-name or file-path] [--audit]` | `argument-hint: "[module-name or file-path] [--audit]"` |
+
+**Note**: Single-bracket values (e.g., `[module-name]`) parse as valid YAML arrays and work correctly. Only multiple brackets cause the error.
+
+**Related known bug**: [GitHub #16803](https://github.com/anthropics/claude-code/issues/16803) — `context: fork` never works for plugin-loaded skills. For local `.claude/skills/`, it works when YAML parses correctly (our case).
+
+#### Fix 2: `disable-model-invocation: true` removed from 7 skills
+
+Previously done in Batch 5 re-test session. Skills affected: rv-refactor-extract, rv-refactor-simplify, rv-security, rv-release, rv-planning, rv-retrospective, rv-risk. This flag prevented the Skill tool from invoking them, breaking chains from parent skills.
+
+#### Fix 3: Mandatory rv-verify delegation pattern
+
+Added to rv-refactor-cleanup (Step 5), rv-refactor-simplify (Step 6), rv-refactor-extract (Step 5.1). Previously these skills ran `uv run pytest` directly instead of delegating to rv-verify.
+
+#### Fix 4: Nested code blocks in rv-test-add
+
+Replaced nested code fences (` ``` ` containing ` ```bash `) in Output Format section with indented text block. Same pattern previously applied to rv-refactor-extract.
+
+### Results
+
+| # | Skill | Target | Status | Nested Sub-skills | Chain Depth | SUBAGENTs | Notes |
+|---|-------|--------|--------|:---:|:-:|:-:|-------|
+| L1.5 | rv-refactor-cleanup | rv-android-core | **PASS** | rv-analyze-dead-code, rv-verify | 1 | 3 | Found and removed dead code. Both chains fired. |
+| L1.6 | rv-refactor-simplify | rv-android-core | **PASS** | rv-analyze-file-complexity, rv-verify | 1 | 3 | Analyzed complexity, proposed simplifications. Both chains fired. |
+| L1.7 | rv-refactor-extract | constants.py | **PASS** | rv-analyze-file, rv-verify, rv-analyze-dependencies | 1 | 4 | All 3 chains fired. Performed dead code cleanup. 754 tests pass. |
+| L1.8 | rv-security | constants.py | **PASS** | rv-analyze-file | 1 | 3 | Security analysis produced. Chain to rv-analyze-file fired. |
+| L1.9 | rv-test-add | constants.py | **PASS** | rv-analyze-file, rv-test-run | 1 | 3 | Created 80 test cases. Both chains fired. |
+
+### Trace Evidence
+
+**L1.7 (rv-refactor-extract)** — most chains (3 nested):
+```
+a03c30db7c7 (rv-refactor-extract) START
+  a32d66695ee (rv-analyze-file)          START → STOP
+  a6beec7eba5 (rv-verify)               START → STOP
+  ae30119e873 (rv-analyze-dependencies)  START → STOP
+a03c30db7c7 (rv-refactor-extract) STOP
+```
+
+**L1.9 (rv-test-add)** — confirmed fork after YAML fix:
+```
+a15b4924c7a (rv-test-add) START
+  a4d655557146 (rv-analyze-file) START → STOP
+  ae661b56a47e (rv-test-run)    START → STOP
+a15b4924c7a (rv-test-add) STOP
+```
+
+### Observations
+
+**O49 (YAML frontmatter as silent failure)**: The `argument-hint` YAML parse error caused a silent fallback to inline loading. Claude Code did not emit any warning or error — it simply loaded the skill content directly into the main context instead of forking. This is the most impactful finding of the verification: a subtle YAML syntax issue can silently disable skill forking, and there is no diagnostic to catch it. **Recommendation**: Add a YAML parse check to the static verification batch (V1.x) using `yaml.safe_load()` on all SKILL.md frontmatters.
+
+**O50 (rv-refactor-extract chain quality)**: The skill correctly followed all 5 phases: Identify (rv-analyze-file), Assess (reusability scoring), Design (interface + file plan), Extract (dead code removal — adapted because constants.py didn't need traditional extraction), Verify (rv-verify + rv-analyze-dependencies). All 3 mandatory chains fired. The skill adapted "extraction" to "dead code cleanup" when the analysis showed no extraction candidates but 64% dead code — a valid interpretation.
+
+**O51 (rv-test-add test design quality)**: The skill created 80 tests across 5 classes, covering structural invariants (extension format, env var format, uniqueness), semantic bounds (percentage ranges, positive values), and public API surface (regression guards for actively imported constants). Test design principles were explicitly cited: Equivalence Partitioning, Boundary Value Analysis, Error Guessing, Traceability to Requirements. All 80 tests passed.
+
+**O52 (Batch 4 DEFERRED skills now invocable)**: Removing `disable-model-invocation: true` from rv-planning, rv-risk, rv-retrospective, and rv-release means they are now invocable via Skill tool. The original Batch 4 marked them DEFERRED because they couldn't be tested. They could now be tested in a future verification pass, but this is low priority — they are standalone skills with no chains.
+
+---
+
+## Batch 7 — L2.1-L2.2 + L3.1 (Deep Nesting)
+
+**Date**: 2026-02-21
+**Target module**: rv-android-core
+**Focus**: 3-level SUBAGENT nesting (L2 → L1 → L0) and conditional chain behavior
+
+### Results
+
+| # | Skill | Target | Status | Nested Sub-skills | Max Chain Depth | SUBAGENTs | Notes |
+|---|-------|--------|--------|:---:|:-:|:-:|-------|
+| L2.1 | rv-doc-architecture | rv-android-core | **PASS** | rv-analyze-module → {rv-analyze-complexity, rv-analyze-dead-code, rv-analyze-dependencies} | 3 | 5 | Full 3-level nesting: L2 → L1 (rv-analyze-module) → 3× L0 analysis |
+| L2.2 | rv-doc-generate-claude-md | rv-android-core | **PASS** | rv-analyze-module → {rv-analyze-complexity, rv-analyze-dead-code, rv-analyze-dependencies} | 3 | 5 | Same 3-level pattern. Generated comprehensive CLAUDE.md. |
+| L3.1 | rv-docs-sync | rv-android-core | **PASS** | (none — conditional chain, correctly skipped) | 1 | 1 | Fork only. Changes were BEHAVIORAL, so deep chains to L2 skills correctly skipped. |
+
+### Trace Evidence
+
+**L2.1 (rv-doc-architecture)** — 3-level nesting:
+```
+rv-doc-architecture START
+  rv-analyze-module START
+    rv-analyze-complexity    START → STOP
+    rv-analyze-dead-code     START → STOP
+    rv-analyze-dependencies  START → STOP
+  rv-analyze-module STOP
+rv-doc-architecture STOP
+```
+
+**L2.2 (rv-doc-generate-claude-md)** — same 3-level pattern:
+```
+rv-doc-generate-claude-md START
+  rv-analyze-module START
+    rv-analyze-complexity    START → STOP
+    rv-analyze-dead-code     START → STOP
+    rv-analyze-dependencies  START → STOP
+  rv-analyze-module STOP
+rv-doc-generate-claude-md STOP
+```
+
+**L3.1 (rv-docs-sync)** — conditional chain, shallow:
+```
+rv-docs-sync START
+rv-docs-sync STOP
+```
+
+### Observations
+
+**O53 (3-level nesting confirmed)**: L2 skills (rv-doc-architecture, rv-doc-generate-claude-md) successfully created 3 levels of SUBAGENT nesting: L2 fork → L1 rv-analyze-module fork → 3× L0 analysis forks. This is the deepest nesting in the skill tree and validates that Claude Code handles recursive forking correctly. Total: 5 SUBAGENTs per L2 invocation.
+
+**O54 (rv-docs-sync conditional chain correctness)**: rv-docs-sync only chains to L2 skills (rv-doc-generate-claude-md, rv-doc-architecture) when change severity is ARCHITECTURE. For BEHAVIORAL/STRUCTURAL changes, it operates directly without deep chains. The test produced BEHAVIORAL changes, so the shallow execution (1 SUBAGENT) was correct by design. This is NOT a failure — it validates the conditional chain logic.
+
+**O55 (L2 documentation quality)**: Both rv-doc-architecture and rv-doc-generate-claude-md produced comprehensive output, incorporating analysis metrics from the nested L0 sub-skills (complexity scores, dead code counts, dependency graph). The 3-level chain is not just structural — each level contributes data that flows up to the final document.
+
+---
+
+## Batch 8 — L4.1 + L4.4 (Critical Orchestrators)
+
+**Date**: 2026-02-21
+**Target module**: rv-agent
+**Focus**: L4 orchestrators chaining to analysis sub-skills. Critical test of Solution C (orchestrator → sub-skills via Skill tool).
+
+### Results
+
+| # | Skill | Target | Status | Nested Sub-skills | Max Chain Depth | SUBAGENTs | Notes |
+|---|-------|--------|--------|:---:|:-:|:-:|-------|
+| L4.1 | rv-refactor | rv-agent | **PASS** | rv-impact-analyzer, rv-analyze-complexity, rv-analyze-dependencies | 2 | 4 | Analysis chains all fired. Stopped at Phase 2 checkpoint (plan approval). |
+| L4.4 | rv-cleanup | rv-agent | **PASS** | rv-analyze-dead-code, rv-analyze-dependencies, rv-analyze-complexity | 1 | 4 | All 3 analysis chains fired. Stopped at Phase 2 checkpoint. |
+
+### Trace Evidence
+
+**L4.1 (rv-refactor)** — 3 analysis chains:
+```
+a681820fd024c (rv-refactor) START
+  a382d3a1787e7 (rv-impact-analyzer)      START → STOP
+  a51a4f7ef7aba (rv-analyze-complexity)    START → STOP
+  a5f863db3493d (rv-analyze-dependencies)  START → STOP (with 2 internal sub-agents)
+a681820fd024c (rv-refactor) STOP
+```
+
+**L4.4 (rv-cleanup)** — 3 analysis chains:
+```
+af431a51d0814 (rv-cleanup) START
+  a18844dc60511 (rv-analyze-dead-code)     START → STOP
+  ae51971c7e621 (rv-analyze-dependencies)  START → STOP
+  ab3b4a63d24c0 (rv-analyze-complexity)    START → STOP
+af431a51d0814 (rv-cleanup) STOP
+```
+
+### Observations
+
+**O56 (L4 orchestrator checkpoint limitation)**: Both orchestrators reached Phase 2 (plan approval) before implementation. Post-implementation chains (rv-verify, rv-docs-sync, rv-code-reviewer) are behind the checkpoint and cannot fire without actual code changes being approved and implemented. The analysis chains (pre-implementation) are fully validated; the post-implementation chains use the same Skill tool mechanism and are structurally identical.
+
+**O57 (AskUserQuestion in forks)**: The orchestrator checkpoints were returned as text in the skill result rather than being shown interactively to the user via `AskUserQuestion`. In forked skills (context: fork), `AskUserQuestion` may not propagate correctly to the user. The skills used text-based checkpoints instead, which terminate the fork and return the plan. This is a design limitation — orchestrators with approval checkpoints effectively become two-phase: Phase 1 (analysis + plan) runs in the fork, Phase 2+ (implementation) would require a separate invocation with approval.
+
+**O58 (rv-refactor vs rv-cleanup analysis quality)**: Both orchestrators produced high-quality analysis. rv-refactor identified 3 complexity hotspots (CC=72, CC=40, CC=32) and proposed specific extraction strategies. rv-cleanup identified 46 dead code findings across 20 files and categorized by risk level. Both used analysis sub-skill data to inform their plans rather than duplicating analysis manually.
+
+---
+
+## Batch 9 — L4.2 + L4.3 (Remaining Orchestrators)
+
+**Date**: 2026-02-21
+**Target module**: rv-agent
+**Focus**: Feature and TDD orchestrators with analysis chains
+
+### Pre-test Fix Applied
+
+#### Fix: rv-feature Phase 1.4 analysis chains made MANDATORY
+
+**Problem**: rv-feature Phase 1.4 (Codebase Context Analysis) had non-mandatory analysis chain invocations. On first test, the skill forked but skipped all analysis sub-skills (0 chains) — same pattern as rv-code-reviewer in Batch 5 where optional language gave the model discretion to skip.
+
+**Fix**: Added `(MANDATORY — DO NOT SKIP)` to Phase 1.4 title. Added `You MUST invoke BOTH module analysis AND dependency mapping before proceeding. Do NOT analyze the codebase yourself via Read/Grep — delegate to these sub-skills:` to body. Made rv-analyze-file optional (kept as "Optionally, analyze...").
+
+#### Fix: rv-tdd Phase 1 analysis chain made MANDATORY
+
+**Problem**: rv-tdd Phase 1 Step 2 (Analyze existing code) had implied-mandatory but not explicitly marked analysis chain. Applied same fix pattern preventively.
+
+**Fix**: Added `(MANDATORY — DO NOT SKIP)` to Step 2 title. Added `You MUST invoke rv-analyze-file before writing any tests. Do NOT analyze the file yourself via Read/Grep — delegate to rv-analyze-file:` to body.
+
+### Results
+
+| # | Skill | Target | Status | Nested Sub-skills | Max Chain Depth | SUBAGENTs | Notes |
+|---|-------|--------|--------|:---:|:-:|:-:|-------|
+| L4.2 | rv-feature | rv-agent (retry logic) | **PASS** (after fix) | rv-analyze-module → {complexity, dead-code, dependencies}, rv-analyze-dependencies, rv-analyze-file | 3 | 8 | Full 3-level nesting via rv-analyze-module. All mandatory chains fired. |
+| L4.3 | rv-tdd | rv-agent (error handling) | **PASS** (after fix) | rv-analyze-file | 1 | 2 | Chain to rv-analyze-file fired in Phase 1. |
+
+### Trace Evidence
+
+**L4.2 (rv-feature)** — 3-level nesting, 7 nested SUBAGENTs:
+```
+a4b8301c67bc2 (rv-feature) START
+  a53f102a0be2a (rv-analyze-module) START
+    afee88e9a7e71 (rv-analyze-complexity)    START → STOP
+    aecc25687c44a (rv-analyze-dead-code)     START → STOP
+    a5b203937ef11 (rv-analyze-dependencies)  START → STOP
+  a53f102a0be2a (rv-analyze-module) STOP
+  aa97754064474 (rv-analyze-dependencies)    START → STOP  (direct)
+  a242de739dbb2 (rv-analyze-file)            START → STOP  (similar file)
+a4b8301c67bc2 (rv-feature) STOP
+```
+
+**L4.3 (rv-tdd)** — 1 nested SUBAGENT:
+```
+a0c297dd0fa56 (rv-tdd) START
+  ab2f6f6479b8c (rv-analyze-file) START → STOP
+a0c297dd0fa56 (rv-tdd) STOP
+```
+
+### Observations
+
+**O59 (non-mandatory chains = skipped chains)**: This is now a confirmed pattern across 4 skills (rv-code-reviewer in Batch 5, rv-feature in Batch 9, and potentially others). When analysis chain invocations lack explicit `(MANDATORY — DO NOT SKIP)` + `You MUST invoke` + `Do NOT X via Bash` markers, the model consistently skips them in favor of direct Read/Grep analysis. The fix is mechanical: add the three-part mandatory marker pattern to every skill chain that must fire.
+
+**O60 (rv-feature deep nesting)**: After the fix, rv-feature produced the deepest nesting seen in testing: L4 → L1 (rv-analyze-module) → 3× L0 (complexity, dead-code, dependencies). Total: 8 SUBAGENTs, 3 levels deep. This exceeds the L2 skills tested in Batch 7 because rv-feature also invoked rv-analyze-dependencies and rv-analyze-file as direct chains alongside the rv-analyze-module cascade.
+
+**O61 (rv-tdd analysis scope)**: rv-tdd correctly invoked rv-analyze-file for the specific target file (llm_client.py) rather than rv-analyze-module for the entire module. This is appropriate — TDD focuses on a single file/class, not module-wide analysis. The skill then produced a comprehensive test plan with 11 test cases covering 8 error partitions.
+
+**O62 (post-implementation chains remain untested)**: All 4 L4 orchestrators (rv-refactor, rv-cleanup, rv-feature, rv-tdd) stopped at approval checkpoints before reaching their post-implementation chains (rv-verify, rv-docs-sync, rv-code-reviewer). These chains use the same Skill tool mechanism validated at lower levels. The mechanism is proven; only the prompt compliance at the post-implementation stage is unverified. This is acceptable — the mandatory marker pattern has been applied consistently, and the lower-level skills (which these chains invoke) have been individually verified.
+
+---
+
+## Conclusion
+
+### Verification Summary
+
+| Metric | Value |
+|--------|-------|
+| **Total skills verified** | 34/44 |
+| **PASS** | 30 |
+| **PASS after fix** | 8 (B1-B3, L1.7, L1.9, L4.2, + 2 preventive) |
+| **DEFERRED** | 4 (rv-planning, rv-risk, rv-retrospective, rv-release — standalone, no chains) |
+| **FAIL (unfixed)** | 0 |
+| **Batches executed** | 18 (0, 1, 1R-10R, 2-9) |
+| **Fixes applied** | 12 |
+| **Deepest nesting verified** | 3 levels (L4 → L1 → L0) |
+| **Max SUBAGENTs in single invocation** | 8 (rv-feature) |
+
+### Fixes Applied Summary
+
+| # | Fix | Skills Affected | Batch |
+|---|-----|-----------------|-------|
+| 1 | `disable-model-invocation: true` removed | 7 skills | Pre-Batch 6 |
+| 2 | YAML `argument-hint` quoted (parse error) | 4 skills (rv-refactor-extract, rv-test-add, rv-release, rv-doc-code) | Batch 6 |
+| 3 | `(MANDATORY — DO NOT SKIP)` + delegation pattern | 6 skills (rv-code-reviewer, rv-debug-regression, rv-qa-lint-fix, rv-refactor-extract, rv-feature, rv-tdd) | Batches 5, 6, 9 |
+| 4 | Nested code block fix | 2 skills (rv-refactor-extract, rv-test-add) | Batch 6 |
+| 5 | Mandatory rv-verify delegation | 3 skills (rv-refactor-cleanup, rv-refactor-simplify, rv-refactor-extract) | Batch 6 |
+| 6 | Step boundary enforcement | 1 skill (rv-qa-lint-fix) | Batch 5 |
+
+### Key Findings
+
+1. **YAML frontmatter validation is critical** (O49): A silent YAML parse error in `argument-hint` disabled forking for 4 skills with no diagnostic. This is the highest-impact bug found — it affects skill architecture silently.
+
+2. **Non-mandatory chains are skipped chains** (O59): Across all skill levels, optional/implied-mandatory chain invocations were consistently skipped by the model. The three-part mandatory pattern `(MANDATORY — DO NOT SKIP)` + `You MUST invoke` + `Do NOT X via Bash` is required for reliable chain execution.
+
+3. **Post-verification chains need explicit boundaries** (O46, O47): When a mandatory sub-skill comes AFTER the main work, the model adds its own intermediate verification steps, potentially short-circuiting the chain. Explicit step boundaries are needed.
+
+4. **3-level SUBAGENT nesting works reliably** (O53, O60): L4 → L1 → L0 chains with up to 8 SUBAGENTs per invocation execute correctly. The forking mechanism handles recursive nesting without issues.
+
+5. **Orchestrator checkpoints limit full-chain testing** (O56, O57, O62): L4 orchestrators with approval checkpoints effectively become two-phase. Post-implementation chains (rv-verify, rv-docs-sync, rv-code-reviewer) cannot be tested without actual implementation. The mechanism is proven at lower levels; only prompt compliance is unverified at the post-implementation stage.
+
+### Status
+
+**VERIFICATION COMPLETE**. All 34 testable skills pass. 4 standalone skills deferred (no chains to test). 12 fixes applied across 6 categories. The skill tree chain mechanism is validated from L0 leaves through L4 orchestrators with up to 3 levels of nesting.

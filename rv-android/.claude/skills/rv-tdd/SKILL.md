@@ -84,9 +84,9 @@ DONE
    - What are the inputs/outputs?
    - What are the edge cases?
 
-2. **Analyze existing code**:
+2. **Analyze existing code** (MANDATORY — DO NOT SKIP):
 
-   Determine the target file from $ARGUMENTS. Use the **Skill tool**:
+   Determine the target file from $ARGUMENTS. You MUST invoke rv-analyze-file before writing any tests. Do NOT analyze the file yourself via Read/Grep — delegate to rv-analyze-file:
    ```
    Skill tool: skill="rv-analyze-file", args="$TARGET_FILE"
    ```

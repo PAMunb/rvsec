@@ -53,39 +53,28 @@ When chained, focus on the specific context provided by the calling orchestrator
 2. **Gather metrics** (mandatory — see below)
 3. Review with metrics data
 
-## Step 2: Gather Metrics (mandatory)
+## Step 2: Gather Metrics (MANDATORY — DO NOT SKIP)
 
-Before reviewing, invoke analysis skills to collect quantitative data. Invoke **in parallel** (multiple Skill calls in one response) when possible.
+You MUST invoke analysis sub-skills BEFORE writing any review. This is not optional. Do NOT analyze files yourself — delegate to the sub-skills below. Invoke them in parallel (multiple Skill calls in one response).
 
-**For module-scoped reviews** (`$ARGUMENTS` is a module name):
+**If `$ARGUMENTS` is a module name** — identify Python files in `git diff` that belong to the module, then invoke ALL of these:
 
-```
-Skill tool: skill="rv-analyze-file-complexity", args="<changed-file-1>"
-Skill tool: skill="rv-analyze-file-complexity", args="<changed-file-2>"
-Skill tool: skill="rv-analyze-file-dead-code", args="<changed-file-1>"
-```
+1. For EACH changed Python file (up to 5 files), invoke BOTH:
+   - `Skill tool: skill="rv-analyze-file-complexity", args="<file-path>"`
+   - `Skill tool: skill="rv-analyze-file-dead-code", args="<file-path>"`
+2. If >5 changed Python files, use module-scoped instead:
+   - `Skill tool: skill="rv-analyze-complexity", args="<module>"`
+   - `Skill tool: skill="rv-analyze-dead-code", args="<module>"`
+3. If changes touch imports or module boundaries, ALSO invoke:
+   - `Skill tool: skill="rv-analyze-dependencies", args="<module>"`
 
-Run these for each changed file (up to 5 files; skip if >5 changed files — use module-scoped instead):
+**If `$ARGUMENTS` is a file path** — invoke BOTH:
+- `Skill tool: skill="rv-analyze-file-complexity", args="<file-path>"`
+- `Skill tool: skill="rv-analyze-file-dead-code", args="<file-path>"`
 
-```
-Skill tool: skill="rv-analyze-complexity", args="<module>"
-Skill tool: skill="rv-analyze-dead-code", args="<module>"
-```
+**If no Python files in diff** — skip to Step 3 (documentation-only review).
 
-**For file-scoped reviews** (`$ARGUMENTS` is a file path):
-
-```
-Skill tool: skill="rv-analyze-file-complexity", args="<file-path>"
-Skill tool: skill="rv-analyze-file-dead-code", args="<file-path>"
-```
-
-**For dependency-sensitive changes** (imports, module boundaries):
-
-```
-Skill tool: skill="rv-analyze-dependencies", args="<module>"
-```
-
-Use the analysis results to inform your review — cite specific metrics when flagging issues.
+You MUST invoke BOTH complexity AND dead-code skills. Never skip one because the file "looks simple." Use the analysis results to inform your review — cite specific metrics when flagging issues.
 
 ## Project Context
 

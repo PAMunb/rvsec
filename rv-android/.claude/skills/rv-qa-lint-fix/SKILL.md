@@ -11,35 +11,34 @@ allowed-tools: Read, Bash, Skill
 
 # Auto-Fix Lint Issues: $ARGUMENTS
 
-## Steps
+## Step 1: Parse Scope
 
-1. **Parse scope** from $ARGUMENTS
+Parse module name from `$ARGUMENTS`.
 
-2. **Run auto-fixers**:
-   ```bash
-   cd modules/$MODULE
+## Step 2: Run Auto-Fixers (ONLY these 3 commands)
 
-   # Fix imports (remove unused, sort)
-   uv run autoflake --in-place --remove-all-unused-imports --recursive src/
-   uv run isort src/
+Run ONLY these 3 commands. Do NOT add any verification, checking, or analysis steps. Do NOT run flake8, mypy, or any other tool. Do NOT read or manually edit source files.
 
-   # Fix formatting
-   uv run black src/
-   ```
+```bash
+cd modules/$MODULE
+uv run autoflake --in-place --remove-all-unused-imports --recursive src/
+uv run isort src/
+uv run black src/
+```
 
-3. **Verify fixes**:
-   ```bash
-   uv run flake8 src/ --max-line-length=120
-   uv run mypy src/ --ignore-missing-imports
-   ```
+After these 3 commands complete, go DIRECTLY to Step 3. Do NOT perform any intermediate verification.
 
-4. **Run full verification** (mandatory) - Use the **Skill tool**:
-   ```
-   Skill tool: skill="rv-verify", args="$MODULE"
-   ```
-   This runs tests, lint, types, and formatting checks — ensuring auto-fixes caused no breakage.
+## Step 3: Verify via rv-verify (MANDATORY — DO NOT SKIP)
 
-5. **Report changes**
+You MUST invoke rv-verify using the **Skill tool**. This is the ONLY verification step — do NOT run flake8, mypy, pytest, or any other tool directly via Bash:
+
+```
+Skill tool: skill="rv-verify", args="$MODULE"
+```
+
+rv-verify handles ALL verification (tests, lint, types, formatting). You MUST invoke this skill even if the auto-fixers reported no changes.
+
+## Step 4: Report Changes
 
 ## Fix Order
 
