@@ -49,23 +49,43 @@ When chained, focus on the specific context provided by the calling orchestrator
 
 ## When Invoked
 
-1. Run `git diff` to see recent changes
-2. Focus on modified files
-3. Begin review immediately
+1. Run `git diff` to identify changed files
+2. **Gather metrics** (mandatory — see below)
+3. Review with metrics data
 
-## Deep Analysis (when needed)
+## Step 2: Gather Metrics (mandatory)
 
-If issues are unclear or complex, use the **Skill tool** to invoke analysis skills:
+Before reviewing, invoke analysis skills to collect quantitative data. Invoke **in parallel** (multiple Skill calls in one response) when possible.
 
-| Situation | Skill to Invoke |
-|-----------|----------------|
-| File complexity (single file) | `Skill tool: skill="rv-analyze-file-complexity", args="<file-path>"` |
-| Module complexity (all files) | `Skill tool: skill="rv-analyze-complexity", args="<module>"` |
-| Suspected dependency issues | `Skill tool: skill="rv-analyze-dependencies", args="<module>"` |
-| Dead code in single file | `Skill tool: skill="rv-analyze-file-dead-code", args="<file-path>"` |
-| Dead code across module | `Skill tool: skill="rv-analyze-dead-code", args="<module>"` |
+**For module-scoped reviews** (`$ARGUMENTS` is a module name):
 
-**Note**: For all analysis skills, invoke via Skill tool on demand.
+```
+Skill tool: skill="rv-analyze-file-complexity", args="<changed-file-1>"
+Skill tool: skill="rv-analyze-file-complexity", args="<changed-file-2>"
+Skill tool: skill="rv-analyze-file-dead-code", args="<changed-file-1>"
+```
+
+Run these for each changed file (up to 5 files; skip if >5 changed files — use module-scoped instead):
+
+```
+Skill tool: skill="rv-analyze-complexity", args="<module>"
+Skill tool: skill="rv-analyze-dead-code", args="<module>"
+```
+
+**For file-scoped reviews** (`$ARGUMENTS` is a file path):
+
+```
+Skill tool: skill="rv-analyze-file-complexity", args="<file-path>"
+Skill tool: skill="rv-analyze-file-dead-code", args="<file-path>"
+```
+
+**For dependency-sensitive changes** (imports, module boundaries):
+
+```
+Skill tool: skill="rv-analyze-dependencies", args="<module>"
+```
+
+Use the analysis results to inform your review — cite specific metrics when flagging issues.
 
 ## Project Context
 
