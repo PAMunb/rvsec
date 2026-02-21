@@ -112,6 +112,7 @@ Claude Code manages issue **state** (open/closed) via MCP `issue_write`, and **b
 | Triage | Move card from "No Status" to Backlog | `gh project item-edit` with Status → Backlog |
 | Work starting | Move card to In Progress | `gh project item-edit` with Status → In Progress |
 | Work in progress | Commits reference the issue | `refs #N` in commit messages |
+| Work complete (before closing) | Check off all acceptance criteria | Edit issue body: `- [ ]` → `- [x]` for every satisfied criterion |
 | Work complete (single commit) | Close the issue via commit | `closes #N` in the final commit message |
 | Work complete (already committed with `refs`) | Close the issue via MCP | `issue_write` with `state: "closed"`, `state_reason: "completed"` |
 | Issue closed | Move card to Done | `gh project item-edit` with Status → Done |
@@ -122,6 +123,8 @@ Claude Code manages issue **state** (open/closed) via MCP `issue_write`, and **b
 3. If the final commit already used `refs #N`, close the issue explicitly via MCP after verification
 4. After closing an issue, move the card to Done via `gh project item-edit`
 5. New issues land in "No Status" — move to Backlog via `gh project item-edit` when triaged
+6. **Before closing an issue**, check off (`- [x]`) every satisfied acceptance criteria checkbox in the issue body. This is the primary evidence that the work was completed — unchecked boxes on a closed issue indicate incomplete work or missing documentation
+7. If an acceptance criterion was not met due to scope change or a superseding approach, add a brief inline note (e.g., `- [x] ~~Original criterion~~ — superseded by #N`) rather than leaving it unchecked
 
 **Board management via `gh` CLI:**
 
