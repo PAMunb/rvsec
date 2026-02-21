@@ -654,7 +654,7 @@ flowchart TD
             RT["rv-tdd"]
             RC["rv-cleanup"]
         end
-        subgraph Components["Components (27 skills)"]
+        subgraph Components["Components (29 skills)"]
             direction LR
             AN["Analysis"]
             QA["QA / Test"]
@@ -778,7 +778,7 @@ These are architectural principles for the skill system itself. For the developm
 |-------|---------|
 | `/rv-code-reviewer` | Code review at the end of orchestrator workflows (forked skill, invoked via Skill tool) |
 
-**Total**: 10 OpenSpec + 4 orchestrators + 27 components + 1 quality gate = **43 skills**
+**Total**: 10 OpenSpec + 4 orchestrators + 29 components + 1 quality gate = **44 skills**
 
 ### Skill Annotations in tasks.md
 
@@ -962,7 +962,7 @@ Feedback from Gemini, Qwen, and SDD literature was evaluated during workflow des
 | ThoughtWorks | SDD is not waterfall | Align | "Fluid, not rigid" principle (Design Principle #5) ensures short feedback cycles |
 | Fowler | Beware MDD parallels | Noted | RV-Android uses spec-anchored approach (code is maintained artifact, not specs) |
 
-**Skill set decision**: Keep all 43 skills. The discoverability gap is addressed through documentation (this file + CLAUDE.md), not removal. Each skill serves a distinct purpose and the orchestrator/component hierarchy provides clear entry points.
+**Skill set decision**: Keep all 44 skills. The discoverability gap is addressed through documentation (this file + CLAUDE.md), not removal. Each skill serves a distinct purpose and the orchestrator/component hierarchy provides clear entry points.
 
 ---
 
