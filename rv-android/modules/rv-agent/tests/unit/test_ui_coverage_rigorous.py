@@ -10,13 +10,13 @@ import time
 
 from rv_agent.memory.ui_coverage import UICoverageTracker, UIElementStats
 
-
 pytestmark = pytest.mark.unit
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def tracker():
@@ -27,6 +27,7 @@ def tracker():
 # =============================================================================
 # UIElementStats Tests
 # =============================================================================
+
 
 class TestUIElementStats:
     """Test UIElementStats dataclass."""
@@ -61,6 +62,7 @@ class TestUIElementStats:
 # Initialization Tests
 # =============================================================================
 
+
 class TestUICoverageInit:
     """Test UICoverageTracker initialization."""
 
@@ -77,6 +79,7 @@ class TestUICoverageInit:
 # =============================================================================
 # Record Interaction Tests
 # =============================================================================
+
 
 class TestRecordInteraction:
     """Test record_interaction method."""
@@ -141,6 +144,7 @@ class TestRecordInteraction:
 # Temporal Tracking Tests
 # =============================================================================
 
+
 class TestTemporalTracking:
     """Test temporal interaction tracking."""
 
@@ -182,6 +186,7 @@ class TestTemporalTracking:
 # Discovery Timeline Tests
 # =============================================================================
 
+
 class TestDiscoveryTimeline:
     """Test discovery timeline tracking."""
 
@@ -217,6 +222,7 @@ class TestDiscoveryTimeline:
 # =============================================================================
 # Element Testing Status Tests
 # =============================================================================
+
 
 class TestElementTestingStatus:
     """Test element testing status queries."""
@@ -257,13 +263,14 @@ class TestElementTestingStatus:
 # Statistics Tests
 # =============================================================================
 
+
 class TestCoverageStatistics:
     """Test coverage statistics generation."""
 
     def test_get_overall_statistics_empty(self, tracker):
         """Statistics for empty tracker."""
         # Need to check if this method exists
-        if hasattr(tracker, 'get_overall_statistics'):
+        if hasattr(tracker, "get_overall_statistics"):
             stats = tracker.get_overall_statistics()
             assert isinstance(stats, dict)
 
@@ -289,6 +296,7 @@ class TestCoverageStatistics:
 # =============================================================================
 # Edge Cases Tests
 # =============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
@@ -337,6 +345,7 @@ class TestEdgeCases:
 # Screen-Specific Coverage Tests
 # =============================================================================
 
+
 class TestScreenSpecificCoverage:
     """Test screen-specific element tracking."""
 
@@ -372,6 +381,7 @@ class TestScreenSpecificCoverage:
 # =============================================================================
 # Action Type Distribution Tests
 # =============================================================================
+
 
 class TestActionTypeDistribution:
     """Test action type distribution tracking."""

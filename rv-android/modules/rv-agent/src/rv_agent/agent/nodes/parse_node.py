@@ -34,17 +34,31 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     result = agent.screen_processor.parse_current_screen(
         target_package=agent.config.package_name,
-        external_navigation_count=state.get("external_navigation_count", 0)
+        external_navigation_count=state.get("external_navigation_count", 0),
     )
 
+    # Screen description caching: reuse cached value when screen hash is unchanged.
+    # parse_current_screen still runs (we need the hash to compare), but the
+    # expensive-to-process screen_description is reused from cache on repeat screens.
     screen_desc = result.get("screen_description")
+    previous_hash = state.get("previous_screen_hash")
+    screen_hash = result["screen_hash"]
+
+    cached = getattr(agent, "_cached_screen_desc", None)
+    if screen_hash and screen_hash == previous_hash and cached is not None:
+        screen_desc = cached
+        result["screen_description"] = screen_desc
+    else:
+        # Update cache with fresh screen_description
+        agent._cached_screen_desc = screen_desc
+
     elements_count = len(screen_desc.items) if screen_desc else 0
 
     track.parse(
         iter=iteration,
         activity=result["activity"],
         elements=elements_count,
-        hash=result["screen_hash"] or "unknown"
+        hash=result["screen_hash"] or "unknown",
     )
 
     ui_elements_text = result["ui_elements_text"]
@@ -52,8 +66,7 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         logger.warning(f"UI elements text too short: '{ui_elements_text[:100]}'")
 
     # Register screen elements for UI coverage tracking
-    screen_hash = result["screen_hash"]
-    if screen_hash and screen_desc and hasattr(agent, 'ui_coverage'):
+    if screen_hash and screen_desc and hasattr(agent, "ui_coverage"):
         try:
             agent.ui_coverage.register_screen_elements(screen_hash, screen_desc)
         except Exception as e:
@@ -61,8 +74,7 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Error detection: capture screenshot when screen hash repeats (same screen after action)
     error_detection_screenshot = None
-    if (agent.config.error_detection_enabled
-            and screen_hash == state.get("previous_screen_hash")):
+    if agent.config.error_detection_enabled and screen_hash == previous_hash:
         try:
             error_detection_screenshot = agent.device.take_screenshot()
         except Exception as e:

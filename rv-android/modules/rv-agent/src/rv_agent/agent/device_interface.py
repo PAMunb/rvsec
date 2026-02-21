@@ -59,8 +59,7 @@ class DeviceInterface:
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_agent.device_interface",
-            {CONTEXT_COMPONENT: "DeviceInterface"}
+            "rv_agent.device_interface", {CONTEXT_COMPONENT: "DeviceInterface"}
         )
 
         # Initialize UIAutomator2 adapter
@@ -90,9 +89,9 @@ class DeviceInterface:
             True if emulator, False otherwise
         """
         return (
-            device_id.startswith("emulator-") or
-            device_id.startswith("localhost:") or
-            device_id.startswith("127.0.0.1:")
+            device_id.startswith("emulator-")
+            or device_id.startswith("localhost:")
+            or device_id.startswith("127.0.0.1:")
         )
 
     def take_screenshot(self, output_dir: str = "/tmp") -> Optional[str]:
@@ -140,12 +139,14 @@ class DeviceInterface:
             # Get device info which contains screen dimensions
             device_info = self.ui_adapter.device.info
             if device_info:
-                width = device_info.get('displayWidth', 1080)
-                height = device_info.get('displayHeight', 1920)
+                width = device_info.get("displayWidth", 1080)
+                height = device_info.get("displayHeight", 1920)
                 self.logger.debug(f"Screen size: {width}x{height}")
                 return (width, height)
             else:
-                self.logger.warning("Could not get screen size, using default 1080x1920")
+                self.logger.warning(
+                    "Could not get screen size, using default 1080x1920"
+                )
                 return (1080, 1920)
         except Exception as e:
             self.logger.error(f"Failed to get screen size: {e}")
@@ -238,6 +239,56 @@ class DeviceInterface:
             self.logger.error(f"Text input failed: {e}")
             return False
 
+    def clear_text(self) -> bool:
+        """
+        Clear text in currently focused field.
+
+        Uses UIAutomator2's clear_text if available, otherwise
+        selects all text and deletes it via key events.
+
+        Returns:
+            True if successful
+        """
+        try:
+            self.logger.debug("Clearing text in focused field")
+            clear_method = getattr(self.ui_adapter, "clear_text", None)
+            if clear_method:
+                return clear_method()
+            # Fallback: Ctrl+A then Delete via shell
+            import subprocess
+
+            subprocess.run(
+                [
+                    "adb",
+                    "-s",
+                    self.device_id,
+                    "shell",
+                    "input",
+                    "keyevent",
+                    "KEYCODE_MOVE_HOME",
+                ],
+                capture_output=True,
+                timeout=5,
+            )
+            subprocess.run(
+                [
+                    "adb",
+                    "-s",
+                    self.device_id,
+                    "shell",
+                    "input",
+                    "keyevent",
+                    "--longpress",
+                    "67",
+                ],
+                capture_output=True,
+                timeout=5,
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Clear text failed: {e}")
+            return False
+
     def scroll(self, direction: str, distance: str = "medium") -> bool:
         """
         Scroll in specified direction.
@@ -258,10 +309,30 @@ class DeviceInterface:
 
             # Calculate scroll coordinates
             direction_map = {
-                "down": (center_x, center_y - pixels // 2, center_x, center_y + pixels // 2),
-                "up": (center_x, center_y + pixels // 2, center_x, center_y - pixels // 2),
-                "left": (center_x + pixels // 2, center_y, center_x - pixels // 2, center_y),
-                "right": (center_x - pixels // 2, center_y, center_x + pixels // 2, center_y)
+                "down": (
+                    center_x,
+                    center_y - pixels // 2,
+                    center_x,
+                    center_y + pixels // 2,
+                ),
+                "up": (
+                    center_x,
+                    center_y + pixels // 2,
+                    center_x,
+                    center_y - pixels // 2,
+                ),
+                "left": (
+                    center_x + pixels // 2,
+                    center_y,
+                    center_x - pixels // 2,
+                    center_y,
+                ),
+                "right": (
+                    center_x - pixels // 2,
+                    center_y,
+                    center_x + pixels // 2,
+                    center_y,
+                ),
             }
 
             if direction not in direction_map:
@@ -269,7 +340,9 @@ class DeviceInterface:
                 return False
 
             start_x, start_y, end_x, end_y = direction_map[direction]
-            success = self.ui_adapter.swipe(start_x, start_y, end_x, end_y, duration=0.5)
+            success = self.ui_adapter.swipe(
+                start_x, start_y, end_x, end_y, duration=0.5
+            )
 
             if success:
                 time.sleep(0.5)  # Allow scroll to complete
@@ -336,7 +409,9 @@ class DeviceInterface:
 
             # Disable IME (Input Method Editor) soft keyboard
             cmd = f"adb -s {self.device_id} shell settings put secure show_ime_with_hard_keyboard 0"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+            result = subprocess.run(
+                cmd, shell=True, capture_output=True, text=True, timeout=5
+            )
 
             if result.returncode == 0:
                 self.logger.info("✅ Soft keyboard disabled successfully")
@@ -378,7 +453,7 @@ class DeviceInterface:
         """
         try:
             self.logger.debug(f"Pressing keycode {keycode}")
-            success = self.ui_adapter.press_keycode(keycode) # TODO(#22): implementar
+            success = self.ui_adapter.press_keycode(keycode)  # TODO(#22): implementar
             if success:
                 time.sleep(0.3)  # Allow key press to register
             return success
@@ -387,12 +462,7 @@ class DeviceInterface:
             return False
 
     def swipe(
-        self,
-        start_x: int,
-        start_y: int,
-        end_x: int,
-        end_y: int,
-        duration: float = 0.5
+        self, start_x: int, start_y: int, end_x: int, end_y: int, duration: float = 0.5
     ) -> bool:
         """
         Swipe from start to end coordinates.
@@ -412,7 +482,9 @@ class DeviceInterface:
                 f"Swiping from ({start_x}, {start_y}) to ({end_x}, {end_y}) "
                 f"duration={duration}s"
             )
-            success = self.ui_adapter.swipe(start_x, start_y, end_x, end_y, duration=duration)
+            success = self.ui_adapter.swipe(
+                start_x, start_y, end_x, end_y, duration=duration
+            )
             if success:
                 time.sleep(0.5)  # Allow UI to settle after swipe
             return success

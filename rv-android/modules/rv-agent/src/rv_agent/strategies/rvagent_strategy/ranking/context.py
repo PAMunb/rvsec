@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
     from rv_agent.memory.ui_coverage import UICoverageTracker
     from rv_agent.services.transition_manager import TransitionManager
+    from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
 
 
 @dataclass
@@ -30,3 +31,4 @@ class RankingContext:
     visited_activities: Set[str]
     transition_manager: Optional["TransitionManager"] = None
     has_untested_inputs: bool = False
+    successor_tracker: Optional["SuccessorTracker"] = None

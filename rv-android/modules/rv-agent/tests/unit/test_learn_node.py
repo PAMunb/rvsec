@@ -31,11 +31,11 @@ class TestLearnNodeIntegration:
             "action_history_summary": "",
             "exploration_summary": "",
             "memory_insights": "",
-            "navigation_path": ""
+            "navigation_path": "",
         }
         mock_memory_coordinator.track_state_discovery.return_value = {
             "visited_states": [],
-            "state_transitions": []
+            "state_transitions": [],
         }
         mock_memory_coordinator.check_continuation.return_value = {
             "should_continue": True
@@ -61,10 +61,10 @@ class TestLearnNodeIntegration:
             "current_activity": ".MainActivity",
             "current_action": {
                 "action_type": "CLICK",
-                "original_coords": [500, 500]  # Normalized coords
+                "original_coords": [500, 500],  # Normalized coords
             },
             "screen_description": mock_screen_desc,
-            "iteration": 1
+            "iteration": 1,
         }
 
         result = learn_node(mock_agent, state)
@@ -86,11 +86,11 @@ class TestLearnNodeIntegration:
             "action_history_summary": "",
             "exploration_summary": "",
             "memory_insights": "",
-            "navigation_path": ""
+            "navigation_path": "",
         }
         mock_memory_coordinator.track_state_discovery.return_value = {
             "visited_states": [],
-            "state_transitions": []
+            "state_transitions": [],
         }
         mock_memory_coordinator.check_continuation.return_value = {
             "should_continue": True
@@ -109,7 +109,7 @@ class TestLearnNodeIntegration:
             "current_screen_hash": "new_hash",
             "current_activity": ".MainActivity",
             "current_action": {"action_type": "CLICK"},
-            "iteration": 1
+            "iteration": 1,
         }
 
         # Should not raise
@@ -127,15 +127,22 @@ class TestLearnNodeStuckDetection:
         mock_screen_processor.ui_coverage = None
 
         mock_memory_coordinator = MagicMock()
-        mock_memory_coordinator.update_memories.return_value = {"recent_action_window": []}
+        mock_memory_coordinator.update_memories.return_value = {
+            "recent_action_window": []
+        }
         mock_memory_coordinator.generate_summaries.return_value = {
-            "action_history_summary": "", "exploration_summary": "",
-            "memory_insights": "", "navigation_path": ""
+            "action_history_summary": "",
+            "exploration_summary": "",
+            "memory_insights": "",
+            "navigation_path": "",
         }
         mock_memory_coordinator.track_state_discovery.return_value = {
-            "visited_states": [], "state_transitions": []
+            "visited_states": [],
+            "state_transitions": [],
         }
-        mock_memory_coordinator.check_continuation.return_value = {"should_continue": True}
+        mock_memory_coordinator.check_continuation.return_value = {
+            "should_continue": True
+        }
 
         mock_agent = MagicMock()
         mock_agent.screen_processor = mock_screen_processor
@@ -158,15 +165,22 @@ class TestLearnNodeStuckDetection:
         mock_screen_processor.ui_coverage = None
 
         mock_memory_coordinator = MagicMock()
-        mock_memory_coordinator.update_memories.return_value = {"recent_action_window": []}
+        mock_memory_coordinator.update_memories.return_value = {
+            "recent_action_window": []
+        }
         mock_memory_coordinator.generate_summaries.return_value = {
-            "action_history_summary": "", "exploration_summary": "",
-            "memory_insights": "", "navigation_path": ""
+            "action_history_summary": "",
+            "exploration_summary": "",
+            "memory_insights": "",
+            "navigation_path": "",
         }
         mock_memory_coordinator.track_state_discovery.return_value = {
-            "visited_states": [], "state_transitions": []
+            "visited_states": [],
+            "state_transitions": [],
         }
-        mock_memory_coordinator.check_continuation.return_value = {"should_continue": True}
+        mock_memory_coordinator.check_continuation.return_value = {
+            "should_continue": True
+        }
 
         mock_agent = MagicMock()
         mock_agent.screen_processor = mock_screen_processor
@@ -189,20 +203,29 @@ class TestLearnNodeStuckDetection:
         mock_screen_processor.ui_coverage = None
 
         mock_memory_coordinator = MagicMock()
-        mock_memory_coordinator.update_memories.return_value = {"recent_action_window": []}
+        mock_memory_coordinator.update_memories.return_value = {
+            "recent_action_window": []
+        }
         mock_memory_coordinator.generate_summaries.return_value = {
-            "action_history_summary": "", "exploration_summary": "",
-            "memory_insights": "", "navigation_path": ""
+            "action_history_summary": "",
+            "exploration_summary": "",
+            "memory_insights": "",
+            "navigation_path": "",
         }
         mock_memory_coordinator.track_state_discovery.return_value = {
-            "visited_states": [], "state_transitions": []
+            "visited_states": [],
+            "state_transitions": [],
         }
-        mock_memory_coordinator.check_continuation.return_value = {"should_continue": True}
+        mock_memory_coordinator.check_continuation.return_value = {
+            "should_continue": True
+        }
 
         mock_agent = MagicMock()
         mock_agent.screen_processor = mock_screen_processor
         mock_agent.memory_coordinator = mock_memory_coordinator
-        mock_agent.stuck_screen_count = 7  # One below threshold (BASE_STUCK_THRESHOLD=8)
+        mock_agent.stuck_screen_count = (
+            7  # One below threshold (BASE_STUCK_THRESHOLD=8)
+        )
         mock_agent.last_screen_hash = "stuck_hash"
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
@@ -214,5 +237,3 @@ class TestLearnNodeStuckDetection:
 
         assert result.get("force_back_action") is True
         assert mock_agent.stuck_screen_count == 0  # Reset after forcing back
-
-

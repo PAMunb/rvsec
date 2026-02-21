@@ -61,7 +61,7 @@ def mock_dependencies():
         "x": raw.get("tool_args", {}).get("x", 0),
         "y": raw.get("tool_args", {}).get("y", 0),
         "text": raw.get("tool_args", {}).get("text", ""),
-        "source": "llm"
+        "source": "llm",
     }
 
     mock_deps = {
@@ -88,7 +88,7 @@ def mock_dependencies():
         "algorithm_percentage": 0.0,
         "llm_validation_failed": 0,
         "forced_back": 0,
-        "primary_total": 0
+        "primary_total": 0,
     }
     return mock_deps
 
@@ -102,7 +102,9 @@ def agent(agent_config, mock_dependencies):
 class TestRVAgentInitialization:
     """Test RVAgent initialization and validation."""
 
-    def test_initialization_stores_all_components(self, agent_config, mock_dependencies):
+    def test_initialization_stores_all_components(
+        self, agent_config, mock_dependencies
+    ):
         """Agent stores all injected dependencies."""
         agent = RVAgent(config=agent_config, **mock_dependencies)
 
@@ -117,7 +119,9 @@ class TestRVAgentInitialization:
         assert agent.tool_executor == mock_dependencies["tool_executor"]
         assert agent.memory_coordinator == mock_dependencies["memory_coordinator"]
 
-    def test_initialization_sets_detection_thresholds(self, agent_config, mock_dependencies):
+    def test_initialization_sets_detection_thresholds(
+        self, agent_config, mock_dependencies
+    ):
         """Agent initializes stuck and deadlock detection thresholds."""
         agent = RVAgent(config=agent_config, **mock_dependencies)
 
@@ -134,7 +138,9 @@ class TestRVAgentInitialization:
 
         assert agent.graph is not None
 
-    def test_initialization_pure_algorithm_no_llm_client(self, agent_config, mock_dependencies):
+    def test_initialization_pure_algorithm_no_llm_client(
+        self, agent_config, mock_dependencies
+    ):
         """Pure algorithm mode works without LLM client."""
         mock_dependencies["llm_client"] = None
 
@@ -142,7 +148,9 @@ class TestRVAgentInitialization:
 
         assert agent.llm_client is None
 
-    def test_initialization_requires_llm_for_llm_only(self, agent_config, mock_dependencies):
+    def test_initialization_requires_llm_for_llm_only(
+        self, agent_config, mock_dependencies
+    ):
         """LLM-only mode requires LLM client."""
         agent_config.get_agent_mode.return_value = "llm_only"
         mock_dependencies["llm_client"] = None
@@ -150,7 +158,9 @@ class TestRVAgentInitialization:
         with pytest.raises(ValueError, match="LLM client required for mode: llm_only"):
             RVAgent(config=agent_config, **mock_dependencies)
 
-    def test_initialization_requires_llm_for_multimode(self, agent_config, mock_dependencies):
+    def test_initialization_requires_llm_for_multimode(
+        self, agent_config, mock_dependencies
+    ):
         """Multimode requires LLM client."""
         agent_config.get_agent_mode.return_value = "multimode"
         mock_dependencies["llm_client"] = None
@@ -163,12 +173,11 @@ class TestRVAgentInitialization:
         static_data = MagicMock()
 
         agent = RVAgent(
-            config=agent_config,
-            static_data=static_data,
-            **mock_dependencies
+            config=agent_config, static_data=static_data, **mock_dependencies
         )
 
         assert agent.static_data == static_data
+
 
 class TestParseUINode:
     """Test parse_ui_node behavior."""
@@ -181,7 +190,7 @@ class TestParseUINode:
             "screen_description": MagicMock(),
             "ui_elements_text": "1. Button 'Submit'",
             "is_external": False,
-            "external_navigation_count": 0
+            "external_navigation_count": 0,
         }
 
         state = {"external_navigation_count": 0}
@@ -200,7 +209,7 @@ class TestParseUINode:
             "screen_description": None,
             "ui_elements_text": "",
             "is_external": True,
-            "external_navigation_count": 1
+            "external_navigation_count": 1,
         }
 
         state = {"external_navigation_count": 0}
@@ -217,7 +226,7 @@ class TestParseUINode:
             "screen_description": None,
             "ui_elements_text": "short",
             "is_external": False,
-            "external_navigation_count": 0
+            "external_navigation_count": 0,
         }
 
         state = {}
@@ -288,7 +297,9 @@ class TestAlgorithmNode:
         item_action.action_type = "CLICK"
         item_action.id = "btn_submit"
         item_action.text = "Submit"
-        mock_dependencies["exploration_strategy"].select_next_action.return_value = item_action
+        mock_dependencies["exploration_strategy"].select_next_action.return_value = (
+            item_action
+        )
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
         result = algorithm_node(agent, state)
@@ -331,7 +342,9 @@ class TestAlgorithmNode:
         """Action without coordinates ends iteration."""
         item_action = MagicMock()
         item_action.get_execution_coordinates.return_value = None
-        mock_dependencies["exploration_strategy"].select_next_action.return_value = item_action
+        mock_dependencies["exploration_strategy"].select_next_action.return_value = (
+            item_action
+        )
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
         result = algorithm_node(agent, state)
@@ -348,7 +361,9 @@ class TestAlgorithmNode:
         item_action.action_type = "CLICK"
         item_action.id = "btn"
         item_action.text = ""
-        mock_dependencies["exploration_strategy"].select_next_action.return_value = item_action
+        mock_dependencies["exploration_strategy"].select_next_action.return_value = (
+            item_action
+        )
 
         state = {"current_screen_hash": "hash1", "screen_description": MagicMock()}
         algorithm_node(agent, state)
@@ -370,8 +385,7 @@ class TestCaptureScreenshotNode:
         assert result["screenshot_b64"] == "base64_data"
         mock_dependencies["device"].take_screenshot.assert_called_once()
         mock_dependencies["image_handler"].optimize.assert_called_with(
-            image_path="/tmp/screenshot.png",
-            quality=90
+            image_path="/tmp/screenshot.png", quality=90
         )
 
     def test_optimization_failure_returns_end(self, agent, mock_dependencies):
@@ -387,7 +401,9 @@ class TestCaptureScreenshotNode:
 
     def test_capture_exception_returns_end(self, agent, mock_dependencies):
         """Screenshot capture exception ends iteration."""
-        mock_dependencies["device"].take_screenshot.side_effect = Exception("Device error")
+        mock_dependencies["device"].take_screenshot.side_effect = Exception(
+            "Device error"
+        )
 
         state = {}
         result = capture_screenshot_node(agent, state)
@@ -404,10 +420,7 @@ class TestLLMGenerateNode:
         # Create a mock response object with tool_calls attribute
         mock_response = MagicMock()
         mock_response.tool_calls = [
-            {
-                "name": "click",
-                "args": {"x": 100, "y": 200, "text": "button"}
-            }
+            {"name": "click", "args": {"x": 100, "y": 200, "text": "button"}}
         ]
         mock_response.content = "Clicking the button"
 
@@ -416,7 +429,7 @@ class TestLLMGenerateNode:
             "success": True,
             "tokens_input": 1000,
             "tokens_output": 50,
-            "time_ms": 500
+            "time_ms": 500,
         }
 
         state = {
@@ -427,7 +440,7 @@ class TestLLMGenerateNode:
             "action_history_summary": "Previous actions",
             "llm_tokens_input": 100,
             "llm_tokens_output": 10,
-            "llm_time_ms": 200
+            "llm_time_ms": 200,
         }
         result = llm_generate_node(agent, state)
 
@@ -457,7 +470,7 @@ class TestValidateActionNode:
         """Validates LLM action through routing manager."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
             "current_action": {"action_type": "CLICK", "x": 100, "y": 500},
-            "loop_detected": False
+            "loop_detected": False,
         }
 
         # Set device_dimensions so boundary check uses real values
@@ -466,7 +479,7 @@ class TestValidateActionNode:
         state = {
             "decision_maker": "llm",
             "llm_action": {"action_type": "CLICK", "x": 100, "y": 500},
-            "recent_action_window": []
+            "recent_action_window": [],
         }
         result = validate_action_node(agent, state)
 
@@ -477,13 +490,13 @@ class TestValidateActionNode:
         """Validates algorithm action through routing manager."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
             "current_action": {"action_type": "BACK"},
-            "loop_detected": False
+            "loop_detected": False,
         }
 
         state = {
             "decision_maker": "algorithm",
             "current_action": {"action_type": "BACK"},
-            "recent_action_window": []
+            "recent_action_window": [],
         }
         result = validate_action_node(agent, state)
 
@@ -494,13 +507,13 @@ class TestValidateActionNode:
         """Loop detection updates the loop_detected flag."""
         mock_dependencies["routing_manager"].validate_action.return_value = {
             "current_action": {"action_type": "BACK", "reason": "loop_detected"},
-            "loop_detected": True
+            "loop_detected": True,
         }
 
         state = {
             "decision_maker": "llm",
             "llm_action": {"action_type": "CLICK", "x": 100},
-            "recent_action_window": [{"action_type": "CLICK", "x": 100}] * 5
+            "recent_action_window": [{"action_type": "CLICK", "x": 100}] * 5,
         }
         result = validate_action_node(agent, state)
 
@@ -515,12 +528,12 @@ class TestExecuteNode:
         """Action executed via tool executor."""
         mock_dependencies["tool_executor"].execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100}
+            "action_executed": {"action_type": "CLICK", "x": 100},
         }
 
         state = {
             "current_action": {"action_type": "CLICK", "x": 100},
-            "decision_maker": "algorithm"
+            "decision_maker": "algorithm",
         }
         result = execute_node(agent, state)
 
@@ -533,12 +546,12 @@ class TestExecuteNode:
         """LLM action executed via tool executor."""
         mock_dependencies["tool_executor"].execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100}
+            "action_executed": {"action_type": "CLICK", "x": 100},
         }
 
         state = {
             "current_action": {"action_type": "CLICK", "x": 50},
-            "decision_maker": "llm"
+            "decision_maker": "llm",
         }
         result = execute_node(agent, state)
 
@@ -550,7 +563,7 @@ class TestExecuteNode:
         """Records state transition on successful action."""
         mock_dependencies["tool_executor"].execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "CLICK"}
+            "action_executed": {"action_type": "CLICK"},
         }
         item_action = MagicMock()
 
@@ -559,7 +572,7 @@ class TestExecuteNode:
             "decision_maker": "algorithm",
             "previous_screen_hash": "hash1",
             "current_screen_hash": "hash2",
-            "current_item_action": item_action
+            "current_item_action": item_action,
         }
         execute_node(agent, state)
 
@@ -585,11 +598,11 @@ class TestLearnNode:
             "action_history_summary": "history",
             "exploration_summary": "exploration",
             "memory_insights": "insights",
-            "navigation_path": "path"
+            "navigation_path": "path",
         }
         mock_dependencies["memory_coordinator"].track_state_discovery.return_value = {
             "visited_states": ["hash1"],
-            "state_transitions": [("hash0", "hash1")]
+            "state_transitions": [("hash0", "hash1")],
         }
         mock_dependencies["memory_coordinator"].check_continuation.return_value = {
             "should_continue": True
@@ -605,13 +618,15 @@ class TestLearnNode:
             "current_activity": "Main",
             "current_action": {"action_type": "CLICK"},
             "start_time": time.time(),
-            "timeout": 100
+            "timeout": 100,
         }
         learn_node(agent, state)
 
         mock_dependencies["memory_coordinator"].update_memories.assert_called_once()
         mock_dependencies["memory_coordinator"].generate_summaries.assert_called_once()
-        mock_dependencies["memory_coordinator"].track_state_discovery.assert_called_once()
+        mock_dependencies[
+            "memory_coordinator"
+        ].track_state_discovery.assert_called_once()
 
     def test_stuck_detection_increments_counter(self, agent, mock_dependencies):
         """Unchanged screen increments stuck counter."""
@@ -619,7 +634,11 @@ class TestLearnNode:
         agent.last_screen_hash = "hash1"
         agent.stuck_screen_count = 0
 
-        state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
+        state = {
+            "current_screen_hash": "hash1",
+            "start_time": time.time(),
+            "timeout": 100,
+        }
         learn_node(agent, state)
 
         assert agent.stuck_screen_count == 1
@@ -630,7 +649,11 @@ class TestLearnNode:
         agent.last_screen_hash = "hash1"
         agent.stuck_screen_count = 2
 
-        state = {"current_screen_hash": "hash2", "start_time": time.time(), "timeout": 100}
+        state = {
+            "current_screen_hash": "hash2",
+            "start_time": time.time(),
+            "timeout": 100,
+        }
         learn_node(agent, state)
 
         assert agent.stuck_screen_count == 0
@@ -642,7 +665,11 @@ class TestLearnNode:
         agent.last_screen_hash = "hash1"
         agent.stuck_screen_count = 7  # Will become 8 (BASE_STUCK_THRESHOLD)
 
-        state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
+        state = {
+            "current_screen_hash": "hash1",
+            "start_time": time.time(),
+            "timeout": 100,
+        }
         result = learn_node(agent, state)
 
         assert result.get("force_back_action") is True
@@ -652,7 +679,11 @@ class TestLearnNode:
         """Learn node returns generated summaries."""
         self._setup_memory_mocks(mock_dependencies)
 
-        state = {"current_screen_hash": "hash1", "start_time": time.time(), "timeout": 100}
+        state = {
+            "current_screen_hash": "hash1",
+            "start_time": time.time(),
+            "timeout": 100,
+        }
         result = learn_node(agent, state)
 
         assert result["action_history_summary"] == "history"
@@ -667,7 +698,7 @@ class TestGetMemoryStats:
         """get_memory_stats delegates to MemoryCoordinator."""
         mock_dependencies["memory_coordinator"].get_all_statistics.return_value = {
             "total_actions": 50,
-            "unique_states": 10
+            "unique_states": 10,
         }
 
         stats = agent.get_memory_stats()
@@ -688,7 +719,7 @@ class TestRunMethod:
             "state_transitions": [("hash1", "hash2")],
             "llm_tokens_input": 100,
             "llm_tokens_output": 50,
-            "llm_time_ms": 500
+            "llm_time_ms": 500,
         }
 
         # Mock routing manager counters
@@ -700,7 +731,7 @@ class TestRunMethod:
             "algorithm_percentage": 30.0,
             "llm_validation_failed": 0,
             "forced_back": 0,
-            "primary_total": 10
+            "primary_total": 10,
         }
 
         # Mock memory stats
@@ -713,7 +744,7 @@ class TestRunMethod:
         self._setup_run_mocks(agent, mock_dependencies)
         agent.config.timeout = 0.1  # Short timeout
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             agent.run()
 
         mock_dependencies["device"].launch_app.assert_called_with("com.example.app")
@@ -723,7 +754,7 @@ class TestRunMethod:
         self._setup_run_mocks(agent, mock_dependencies)
         agent.config.timeout = 0.5
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = agent.run()
 
         assert result["status"] == "completed"
@@ -734,7 +765,7 @@ class TestRunMethod:
         self._setup_run_mocks(agent, mock_dependencies)
         agent.config.timeout = 0.1
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = agent.run()
 
         assert "iterations" in result
@@ -758,7 +789,7 @@ class TestRunMethod:
         self._setup_run_mocks(agent, mock_dependencies)
         agent.graph.invoke.side_effect = KeyboardInterrupt()
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = agent.run()
 
         assert result["status"] == "completed"
@@ -768,7 +799,7 @@ class TestRunMethod:
         self._setup_run_mocks(agent, mock_dependencies)
         agent.graph.invoke.side_effect = RuntimeError("Execution error")
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             result = agent.run()
 
         assert result["status"] == "completed"  # Still completes with metrics
@@ -784,7 +815,7 @@ class TestBuildAgentGraph:
 
     def test_graph_has_correct_nodes(self, agent_config, mock_dependencies):
         """Graph contains all expected nodes."""
-        with patch('rv_agent.agent.rv_agent.StateGraph') as mock_sg:
+        with patch("rv_agent.agent.rv_agent.StateGraph") as mock_sg:
             mock_workflow = MagicMock()
             mock_sg.return_value = mock_workflow
 
@@ -793,9 +824,14 @@ class TestBuildAgentGraph:
             # Verify nodes were added
             node_calls = [call[0][0] for call in mock_workflow.add_node.call_args_list]
             expected_nodes = [
-                "parse_ui", "decision_router", "algorithm_node",
-                "capture_screenshot", "llm_generate", "validate_action",
-                "execute", "learn"
+                "parse_ui",
+                "decision_router",
+                "algorithm_node",
+                "capture_screenshot",
+                "llm_generate",
+                "validate_action",
+                "execute",
+                "learn",
             ]
             for node in expected_nodes:
                 assert node in node_calls

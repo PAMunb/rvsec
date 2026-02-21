@@ -13,8 +13,14 @@ from pathlib import Path
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.agent_factory import AgentFactory
-from .conftest import launch_app, force_stop_app, DATASET_ROOT, DEVICE_ID, SGLANG_URL, SGLANG_MODEL
-
+from .conftest import (
+    launch_app,
+    force_stop_app,
+    DATASET_ROOT,
+    DEVICE_ID,
+    SGLANG_URL,
+    SGLANG_MODEL,
+)
 
 pytestmark = [pytest.mark.online, pytest.mark.static_analysis]
 
@@ -22,6 +28,7 @@ pytestmark = [pytest.mark.online, pytest.mark.static_analysis]
 # =============================================================================
 # Static Data Loading Tests
 # =============================================================================
+
 
 class TestStaticDataLoading:
     """Test loading static analysis data."""
@@ -68,12 +75,18 @@ class TestStaticDataLoading:
             print(f"\n  Static data loaded successfully")
 
             # Check components
-            if hasattr(static_data, 'classes'):
-                print(f"  Classes: {len(static_data.classes.methods) if hasattr(static_data.classes, 'methods') else 'N/A'}")
-            if hasattr(static_data, 'windows'):
-                print(f"  Windows: {len(static_data.windows.windows) if hasattr(static_data.windows, 'windows') else 'N/A'}")
-            if hasattr(static_data, 'wtg'):
-                print(f"  WTG transitions: {len(static_data.wtg.transitions) if hasattr(static_data.wtg, 'transitions') else 'N/A'}")
+            if hasattr(static_data, "classes"):
+                print(
+                    f"  Classes: {len(static_data.classes.methods) if hasattr(static_data.classes, 'methods') else 'N/A'}"
+                )
+            if hasattr(static_data, "windows"):
+                print(
+                    f"  Windows: {len(static_data.windows.windows) if hasattr(static_data.windows, 'windows') else 'N/A'}"
+                )
+            if hasattr(static_data, "wtg"):
+                print(
+                    f"  WTG transitions: {len(static_data.wtg.transitions) if hasattr(static_data.wtg, 'transitions') else 'N/A'}"
+                )
 
         except ImportError:
             pytest.skip("rv_static_analysis not available")
@@ -82,6 +95,7 @@ class TestStaticDataLoading:
 # =============================================================================
 # Exploration With Static Analysis Tests
 # =============================================================================
+
 
 class TestExplorationWithStaticAnalysis:
     """Test agent exploration with static analysis data."""
@@ -93,6 +107,7 @@ class TestExplorationWithStaticAnalysis:
         if cryptoapp.has_static_analysis:
             try:
                 from rv_static_analysis.loader import StaticAnalysisLoader
+
                 loader = StaticAnalysisLoader(cryptoapp.static_data_dir)
                 static_data = loader.load()
             except Exception:
@@ -106,9 +121,7 @@ class TestExplorationWithStaticAnalysis:
         )
 
         agent = AgentFactory.create_agent(
-            config,
-            device=device,
-            static_data=static_data
+            config, device=device, static_data=static_data
         )
 
         assert agent is not None
@@ -117,13 +130,16 @@ class TestExplorationWithStaticAnalysis:
         else:
             print(f"\n  Agent created without static analysis data")
 
-    def test_exploration_with_static_data(self, device, cryptoapp, device_id, check_emulator):
+    def test_exploration_with_static_data(
+        self, device, cryptoapp, device_id, check_emulator
+    ):
         """Run exploration with static analysis data."""
         static_data = None
 
         if cryptoapp.has_static_analysis:
             try:
                 from rv_static_analysis.loader import StaticAnalysisLoader
+
                 loader = StaticAnalysisLoader(cryptoapp.static_data_dir)
                 static_data = loader.load()
             except Exception:
@@ -137,9 +153,7 @@ class TestExplorationWithStaticAnalysis:
         )
 
         agent = AgentFactory.create_agent(
-            config,
-            device=device,
-            static_data=static_data
+            config, device=device, static_data=static_data
         )
 
         launch_app(device_id, cryptoapp.package_name)
@@ -158,6 +172,7 @@ class TestExplorationWithStaticAnalysis:
 # Graceful Degradation Tests (No Static Analysis)
 # =============================================================================
 
+
 class TestGracefulDegradation:
     """Test agent works without static analysis data."""
 
@@ -171,16 +186,14 @@ class TestGracefulDegradation:
         )
 
         # Explicitly create without static data
-        agent = AgentFactory.create_agent(
-            config,
-            device=device,
-            static_data=None
-        )
+        agent = AgentFactory.create_agent(config, device=device, static_data=None)
 
         assert agent is not None
         print(f"\n  Agent created without static data")
 
-    def test_exploration_without_static_data(self, device, cryptoapp, device_id, check_emulator):
+    def test_exploration_without_static_data(
+        self, device, cryptoapp, device_id, check_emulator
+    ):
         """Run exploration without static analysis data."""
         config = RVAgentConfig(
             package_name=cryptoapp.package_name,
@@ -189,11 +202,7 @@ class TestGracefulDegradation:
             timeout=60,
         )
 
-        agent = AgentFactory.create_agent(
-            config,
-            device=device,
-            static_data=None
-        )
+        agent = AgentFactory.create_agent(config, device=device, static_data=None)
 
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)
@@ -207,7 +216,9 @@ class TestGracefulDegradation:
         assert result.get("status") == "completed"
         assert result.get("iterations", 0) > 0
 
-    def test_compare_with_and_without_static(self, device, cryptoapp, device_id, check_emulator):
+    def test_compare_with_and_without_static(
+        self, device, cryptoapp, device_id, check_emulator
+    ):
         """Compare exploration results with and without static data."""
         # Run without static data
         config = RVAgentConfig(
@@ -217,7 +228,9 @@ class TestGracefulDegradation:
             timeout=20,
         )
 
-        agent_no_static = AgentFactory.create_agent(config, device=device, static_data=None)
+        agent_no_static = AgentFactory.create_agent(
+            config, device=device, static_data=None
+        )
 
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)
@@ -232,12 +245,15 @@ class TestGracefulDegradation:
         if cryptoapp.has_static_analysis:
             try:
                 from rv_static_analysis.loader import StaticAnalysisLoader
+
                 loader = StaticAnalysisLoader(cryptoapp.static_data_dir)
                 static_data = loader.load()
             except Exception:
                 pass
 
-        agent_with_static = AgentFactory.create_agent(config, device=device, static_data=static_data)
+        agent_with_static = AgentFactory.create_agent(
+            config, device=device, static_data=static_data
+        )
 
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)
@@ -261,6 +277,7 @@ class TestGracefulDegradation:
 # MOP Prioritization Tests
 # =============================================================================
 
+
 class TestMOPPrioritization:
     """Test MOP (Monitored Operations) prioritization."""
 
@@ -277,18 +294,23 @@ class TestMOPPrioritization:
 
         # Check strategy has MOP priority method
         strategy = agent.strategy
-        has_mop_priority = hasattr(strategy, '_get_mop_priority') or hasattr(strategy, 'mop_prioritization')
+        has_mop_priority = hasattr(strategy, "_get_mop_priority") or hasattr(
+            strategy, "mop_prioritization"
+        )
 
         print(f"\n  Strategy: {type(strategy).__name__}")
         print(f"  Has MOP priority: {has_mop_priority}")
 
-    def test_mop_priority_with_static_data(self, device, cryptoapp, device_id, check_emulator):
+    def test_mop_priority_with_static_data(
+        self, device, cryptoapp, device_id, check_emulator
+    ):
         """MOP priority works with static analysis data."""
         static_data = None
 
         if cryptoapp.has_static_analysis:
             try:
                 from rv_static_analysis.loader import StaticAnalysisLoader
+
                 loader = StaticAnalysisLoader(cryptoapp.static_data_dir)
                 static_data = loader.load()
             except Exception:
@@ -304,7 +326,9 @@ class TestMOPPrioritization:
             timeout=60,
         )
 
-        agent = AgentFactory.create_agent(config, device=device, static_data=static_data)
+        agent = AgentFactory.create_agent(
+            config, device=device, static_data=static_data
+        )
 
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)

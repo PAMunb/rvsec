@@ -113,4 +113,6 @@ class TestScorerWeightDefaults:
 
         # Top action should win ~85%+ of the time overall
         win_rate = top_wins / 200
-        assert win_rate >= 0.80, f"Top action win rate {win_rate:.2%} too low (expected >= 80%)"
+        assert (
+            win_rate >= 0.80
+        ), f"Top action win rate {win_rate:.2%} too low (expected >= 80%)"

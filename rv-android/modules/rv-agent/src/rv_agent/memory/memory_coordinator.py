@@ -50,29 +50,29 @@ class MemoryCoordinator:
     # Supports both uppercase (from execution) and lowercase (from tool results)
     ACTION_TYPE_MAPPING = {
         # Uppercase format (from execution/ToolExecutor)
-        'CLICK': 'click',
-        'LONG_CLICK': 'long_click',
-        'SET_TEXT': 'set_text',
-        'SWIPE': 'swipe',
-        'SCROLL': 'scroll',
-        'SCROLL_UP': 'scroll_up',
-        'SCROLL_DOWN': 'scroll_down',
-        'SCROLL_LEFT': 'scroll_left',
-        'SCROLL_RIGHT': 'scroll_right',
-        'BACK': 'key_event',
-        'SYSTEM_BACK': 'key_event',
-        'HOME': 'key_event',
-        'PRESS_ENTER': 'key_event',
-        'UNKNOWN': 'unknown',
+        "CLICK": "click",
+        "LONG_CLICK": "long_click",
+        "SET_TEXT": "set_text",
+        "SWIPE": "swipe",
+        "SCROLL": "scroll",
+        "SCROLL_UP": "scroll_up",
+        "SCROLL_DOWN": "scroll_down",
+        "SCROLL_LEFT": "scroll_left",
+        "SCROLL_RIGHT": "scroll_right",
+        "BACK": "key_event",
+        "SYSTEM_BACK": "key_event",
+        "HOME": "key_event",
+        "PRESS_ENTER": "key_event",
+        "UNKNOWN": "unknown",
         # Lowercase format (from LLM tool results)
-        'click': 'click',
-        'long_click': 'long_click',
-        'set_text': 'set_text',
-        'swipe': 'swipe',
-        'scroll': 'scroll',
-        'back': 'key_event',
-        'home': 'key_event',
-        'press_enter': 'key_event'
+        "click": "click",
+        "long_click": "long_click",
+        "set_text": "set_text",
+        "swipe": "swipe",
+        "scroll": "scroll",
+        "back": "key_event",
+        "home": "key_event",
+        "press_enter": "key_event",
     }
 
     def __init__(
@@ -82,7 +82,7 @@ class MemoryCoordinator:
         long_term_memory: Optional[LongTermMemory],
         ui_coverage: UICoverageTracker,
         agent_memory: AgentMemoryManager,
-        action_window_size: int = 10
+        action_window_size: int = 10,
     ):
         """
         Initialize memory coordinator.
@@ -112,7 +112,7 @@ class MemoryCoordinator:
         action: Optional[Dict[str, Any]],
         llm_reasoning: str,
         iteration: int,
-        recent_action_window: List[Dict[str, Any]]
+        recent_action_window: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
         Update all memory systems with current iteration data.
@@ -137,52 +137,38 @@ class MemoryCoordinator:
         if action:
             recent_action_window.append(action)
             if len(recent_action_window) > self.action_window_size:
-                recent_action_window = recent_action_window[-self.action_window_size:]
+                recent_action_window = recent_action_window[-self.action_window_size :]
 
         try:
             # Update DynamicStateGraph
             self._update_dynamic_graph(
-                current_screen_hash,
-                current_activity,
-                screen_description,
-                action
+                current_screen_hash, current_activity, screen_description, action
             )
 
             # Update ShortTermMemory
             self._update_short_term(
-                current_screen_hash,
-                current_activity,
-                action,
-                llm_reasoning
+                current_screen_hash, current_activity, action, llm_reasoning
             )
 
             # Update UICoverageTracker
-            self._update_ui_coverage(
-                current_screen_hash,
-                screen_description
-            )
+            self._update_ui_coverage(current_screen_hash, screen_description)
 
             # Update LongTermMemory (if available)
             if self.long_term:
                 self._update_long_term(
-                    current_screen_hash,
-                    current_activity,
-                    screen_description
+                    current_screen_hash, current_activity, screen_description
                 )
 
             self.logger.info("Memory systems updated successfully")
 
-            return {
-                "recent_action_window": recent_action_window,
-                "success": True
-            }
+            return {"recent_action_window": recent_action_window, "success": True}
 
         except Exception as e:
             self.logger.error(f"Memory update failed: {e}", exc_info=True)
             return {
                 "recent_action_window": recent_action_window,
                 "success": False,
-                "error": str(e)
+                "error": str(e),
             }
 
     def generate_summaries(
@@ -190,7 +176,7 @@ class MemoryCoordinator:
         action: Optional[Dict[str, Any]],
         current_activity: str,
         visited_states: List[str],
-        state_transitions: List[tuple]
+        state_transitions: List[tuple],
     ) -> Dict[str, str]:
         """
         Generate memory summaries for next iteration context.
@@ -216,15 +202,14 @@ class MemoryCoordinator:
                 self.agent_memory.record_action(
                     action=action,
                     activity=current_activity,
-                    success=True  # TODO(#18): Track actual action success via error detection
+                    success=True,  # TODO(#18): Track actual action success via error detection
                 )
                 self.logger.debug("Recorded action in AgentMemoryManager")
 
             # Generate all summaries
             action_history = self.agent_memory.get_action_history_summary()
             exploration = self.agent_memory.get_exploration_summary(
-                visited_states=visited_states,
-                state_transitions=state_transitions
+                visited_states=visited_states, state_transitions=state_transitions
             )
             insights = self.agent_memory.get_memory_insights(current_activity)
             navigation = self.agent_memory.get_navigation_path()
@@ -235,7 +220,7 @@ class MemoryCoordinator:
                 "action_history_summary": action_history,
                 "exploration_summary": exploration,
                 "memory_insights": insights,
-                "navigation_path": navigation
+                "navigation_path": navigation,
             }
 
         except Exception as e:
@@ -245,7 +230,7 @@ class MemoryCoordinator:
                 "action_history_summary": "No previous actions.",
                 "exploration_summary": "Starting exploration.",
                 "memory_insights": "No insights yet.",
-                "navigation_path": "Starting navigation."
+                "navigation_path": "Starting navigation.",
             }
 
     def track_state_discovery(
@@ -253,7 +238,7 @@ class MemoryCoordinator:
         current_hash: str,
         previous_hash: Optional[str],
         visited_states: List[str],
-        state_transitions: List[tuple]
+        state_transitions: List[tuple],
     ) -> Dict[str, Any]:
         """
         Track state discovery and transitions.
@@ -294,14 +279,10 @@ class MemoryCoordinator:
             "visited_states": visited_states,
             "state_transitions": state_transitions,
             "new_state_discovered": new_state,
-            "new_transition_discovered": new_transition
+            "new_transition_discovered": new_transition,
         }
 
-    def check_continuation(
-        self,
-        start_time: float,
-        timeout: float
-    ) -> Dict[str, Any]:
+    def check_continuation(self, start_time: float, timeout: float) -> Dict[str, Any]:
         """
         Check if exploration should continue.
 
@@ -327,7 +308,7 @@ class MemoryCoordinator:
         return {
             "should_continue": should_continue,
             "elapsed_time": elapsed,
-            "remaining_time": remaining
+            "remaining_time": remaining,
         }
 
     def _update_dynamic_graph(
@@ -335,14 +316,12 @@ class MemoryCoordinator:
         screen_hash: str,
         activity: str,
         screen_desc: ScreenDescription,
-        action: Optional[Dict[str, Any]]
+        action: Optional[Dict[str, Any]],
     ):
         """Update DynamicStateGraph with state and action information."""
         # Create or update state node
         node = self.dynamic_graph.get_or_create_state(
-            screen_hash=screen_hash,
-            activity=activity,
-            screen_desc=screen_desc
+            screen_hash=screen_hash, activity=activity, screen_desc=screen_desc
         )
         self.logger.debug(
             f"Updated graph state: {screen_hash[:8]} (visits: {node.visit_count})"
@@ -369,7 +348,14 @@ class MemoryCoordinator:
             action_id = action.get("id", "unknown")
 
             # Enhanced logging for better visibility
-            if action_type in ('swipe', 'scroll', 'scroll_up', 'scroll_down', 'scroll_left', 'scroll_right'):
+            if action_type in (
+                "swipe",
+                "scroll",
+                "scroll_up",
+                "scroll_down",
+                "scroll_left",
+                "scroll_right",
+            ):
                 direction = action.get("direction", "unknown")
                 self.logger.info(
                     f"↔️ SCROLL/SWIPE: {action_type} direction={direction} "
@@ -381,8 +367,7 @@ class MemoryCoordinator:
                 )
 
             self.dynamic_graph.record_action(
-                screen_hash=screen_hash,
-                action_signature=action_signature
+                screen_hash=screen_hash, action_signature=action_signature
             )
 
     def _update_short_term(
@@ -390,27 +375,18 @@ class MemoryCoordinator:
         screen_hash: str,
         activity: str,
         action: Optional[Dict[str, Any]],
-        llm_reasoning: str
+        llm_reasoning: str,
     ):
         """Update ShortTermMemory with iteration record."""
-        state_dict = {
-            "screen_hash": screen_hash,
-            "activity": activity
-        }
+        state_dict = {"screen_hash": screen_hash, "activity": activity}
         actions_list = [action] if action else []
 
         self.short_term.record_iteration(
-            state=state_dict,
-            actions=actions_list,
-            llm_reasoning=llm_reasoning
+            state=state_dict, actions=actions_list, llm_reasoning=llm_reasoning
         )
         self.logger.debug("Updated ShortTermMemory")
 
-    def _update_ui_coverage(
-        self,
-        screen_hash: str,
-        screen_desc: ScreenDescription
-    ):
+    def _update_ui_coverage(self, screen_hash: str, screen_desc: ScreenDescription):
         """
         Update UICoverageTracker with screen element visibility.
 
@@ -421,19 +397,18 @@ class MemoryCoordinator:
         """
         # Element registration is done in parse_node.py via register_screen_elements()
         # Real action tracking is done in execute_node.py via record_interaction()
-        self.logger.debug(f"Screen has {len(screen_desc.items)} elements (visibility tracked via parse_node)")
+        self.logger.debug(
+            f"Screen has {len(screen_desc.items)} elements (visibility tracked via parse_node)"
+        )
 
     def _update_long_term(
-        self,
-        screen_hash: str,
-        activity: str,
-        screen_desc: ScreenDescription
+        self, screen_hash: str, activity: str, screen_desc: ScreenDescription
     ):
         """Update LongTermMemory with state visit."""
         self.long_term.record_state(
             state_hash=screen_hash,
             activity=activity,
-            interactive_elements_count=len(screen_desc.items)
+            interactive_elements_count=len(screen_desc.items),
         )
         self.logger.debug(f"Updated LongTermMemory: state {screen_hash[:8]}")
 
@@ -465,13 +440,13 @@ class MemoryCoordinator:
 
         try:
             stats = {
-                'ui_coverage': self.ui_coverage.get_overall_statistics(),
-                'short_term': self.short_term.get_statistics(),
-                'long_term': self.long_term.get_statistics() if self.long_term else {},
-                'dynamic_graph': {
-                    'total_states': len(self.dynamic_graph.states),
-                    'total_transitions': len(self.dynamic_graph.transitions)
-                }
+                "ui_coverage": self.ui_coverage.get_overall_statistics(),
+                "short_term": self.short_term.get_statistics(),
+                "long_term": self.long_term.get_statistics() if self.long_term else {},
+                "dynamic_graph": {
+                    "total_states": len(self.dynamic_graph.states),
+                    "total_transitions": len(self.dynamic_graph.transitions),
+                },
             }
 
             self.logger.info(
@@ -487,8 +462,8 @@ class MemoryCoordinator:
             self.logger.error(f"Failed to collect statistics: {e}", exc_info=True)
             # Return empty structure on error
             return {
-                'ui_coverage': {},
-                'short_term': {},
-                'long_term': {},
-                'dynamic_graph': {'total_states': 0, 'total_transitions': 0}
+                "ui_coverage": {},
+                "short_term": {},
+                "long_term": {},
+                "dynamic_graph": {"total_states": 0, "total_transitions": 0},
             }

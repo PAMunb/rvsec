@@ -11,7 +11,6 @@ from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.agent.device_interface import DeviceInterface
 from .conftest import launch_app, force_stop_app
 
-
 pytestmark = [pytest.mark.online]
 
 
@@ -23,8 +22,7 @@ class TestScreenCapture:
         processor = ScreenProcessor(device)
 
         result = processor.parse_current_screen(
-            target_package=None,
-            external_navigation_count=0
+            target_package=None, external_navigation_count=0
         )
 
         assert result is not None
@@ -39,8 +37,7 @@ class TestScreenCapture:
         processor = ScreenProcessor(device)
 
         result = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         assert result is not None
@@ -59,8 +56,7 @@ class TestScreenCapture:
         processor = ScreenProcessor(device)
 
         result = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         assert result is not None
@@ -87,13 +83,11 @@ class TestScreenHashing:
 
         # Parse twice
         result1 = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
         time.sleep(0.5)
         result2 = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         hash1 = result1.get("screen_hash") or result1.get("current_screen_hash")
@@ -103,7 +97,9 @@ class TestScreenHashing:
             assert hash1 == hash2, "Same screen should produce same hash"
             print(f"\n  Hash: {hash1}")
 
-    def test_different_screens_different_hash(self, device, cryptoapp, device_id, check_emulator):
+    def test_different_screens_different_hash(
+        self, device, cryptoapp, device_id, check_emulator
+    ):
         """Different screens produce different hashes."""
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)
@@ -112,8 +108,7 @@ class TestScreenHashing:
 
         # Parse first screen
         result1 = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         # Navigate to different screen
@@ -121,8 +116,7 @@ class TestScreenHashing:
         time.sleep(1)
 
         result2 = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         hash1 = result1.get("screen_hash") or result1.get("current_screen_hash")
@@ -147,8 +141,7 @@ class TestExternalNavigation:
 
         # Parse in target app
         result1 = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         # Go home (external navigation)
@@ -157,12 +150,13 @@ class TestExternalNavigation:
 
         # Parse outside target app
         result2 = processor.parse_current_screen(
-            target_package=cryptoapp.package_name,
-            external_navigation_count=0
+            target_package=cryptoapp.package_name, external_navigation_count=0
         )
 
         # Check external navigation detection
-        is_external = result2.get("is_external", False) or result2.get("external_app", False)
+        is_external = result2.get("is_external", False) or result2.get(
+            "external_app", False
+        )
         print(f"\n  External navigation detected: {is_external}")
 
         # Return to app

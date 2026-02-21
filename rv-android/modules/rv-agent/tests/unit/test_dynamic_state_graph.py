@@ -17,13 +17,13 @@ from rv_agent.agent.dynamic_state_graph import (
 )
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ScreenItem
 
-
 pytestmark = pytest.mark.unit
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def graph():
@@ -35,9 +35,7 @@ def graph():
 def empty_screen_desc():
     """Empty screen description."""
     return ScreenDescription(
-        activity="com.test.app/.MainActivity",
-        items=[],
-        events_by_id={}
+        activity="com.test.app/.MainActivity", items=[], events_by_id={}
     )
 
 
@@ -57,7 +55,7 @@ def screen_desc_with_items():
             "enabled": True,
             "long-clickable": False,
             "editable": False,
-            "bounds": [[0, i*100], [100, (i+1)*100]],
+            "bounds": [[0, i * 100], [100, (i + 1) * 100]],
         }
         item.get_all_actions = MagicMock(return_value=[MagicMock()])
         items.append(item)
@@ -73,6 +71,7 @@ def screen_desc_with_items():
 # ScreenNode Tests
 # =============================================================================
 
+
 class TestScreenNode:
     """Test ScreenNode class."""
 
@@ -82,7 +81,7 @@ class TestScreenNode:
             screen_hash="abc123def456",
             activity="MainActivity",
             visit_count=1,
-            total_actions=10
+            total_actions=10,
         )
 
         assert node.screen_hash == "abc123def456"
@@ -93,31 +92,19 @@ class TestScreenNode:
 
     def test_coverage_zero_actions(self):
         """Coverage is 0 when no actions available."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=0
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=0)
 
         assert node.get_coverage() == 0.0
 
     def test_coverage_no_executed(self):
         """Coverage is 0 when no actions executed."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=10
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=10)
 
         assert node.get_coverage() == 0.0
 
     def test_coverage_partial(self):
         """Coverage is correctly calculated with partial execution."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=10
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=10)
 
         # Execute 3 actions
         node.record_action(((100, 200), "click"))
@@ -128,11 +115,7 @@ class TestScreenNode:
 
     def test_coverage_full(self):
         """Coverage is 1.0 when all actions executed."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=3
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=3)
 
         node.record_action(((100, 200), "click"))
         node.record_action(((150, 250), "click"))
@@ -142,11 +125,7 @@ class TestScreenNode:
 
     def test_record_action_deduplication(self):
         """Same action signature is not recorded twice."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=5
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=5)
 
         signature = ((100, 200), "click")
 
@@ -159,11 +138,7 @@ class TestScreenNode:
 
     def test_is_action_executed(self):
         """is_action_executed correctly identifies executed actions."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=5
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=5)
 
         sig1 = ((100, 200), "click")
         sig2 = ((150, 250), "click")
@@ -175,11 +150,7 @@ class TestScreenNode:
 
     def test_action_signature_includes_type(self):
         """Different action types at same coords are distinct."""
-        node = ScreenNode(
-            screen_hash="test",
-            activity="Main",
-            total_actions=5
-        )
+        node = ScreenNode(screen_hash="test", activity="Main", total_actions=5)
 
         click_sig = ((100, 200), "click")
         long_click_sig = ((100, 200), "long_click")
@@ -193,6 +164,7 @@ class TestScreenNode:
 # =============================================================================
 # ScreenNode Execution Count Tests
 # =============================================================================
+
 
 class TestScreenNodeExecutionCount:
     """Test ScreenNode execution count tracking for continuous exploration."""
@@ -236,6 +208,7 @@ class TestScreenNodeExecutionCount:
 # DynamicStateGraph State Management Tests
 # =============================================================================
 
+
 class TestGraphStateManagement:
     """Test DynamicStateGraph state management."""
 
@@ -248,9 +221,7 @@ class TestGraphStateManagement:
     def test_create_new_state(self, graph, empty_screen_desc):
         """get_or_create_state creates new state node."""
         node = graph.get_or_create_state(
-            screen_hash="hash1",
-            activity="MainActivity",
-            screen_desc=empty_screen_desc
+            screen_hash="hash1", activity="MainActivity", screen_desc=empty_screen_desc
         )
 
         assert node.screen_hash == "hash1"
@@ -285,9 +256,7 @@ class TestGraphStateManagement:
     def test_total_actions_captured(self, graph, screen_desc_with_items):
         """Total actions are captured from screen description."""
         node = graph.get_or_create_state(
-            screen_hash="hash1",
-            activity="Main",
-            screen_desc=screen_desc_with_items
+            screen_hash="hash1", activity="Main", screen_desc=screen_desc_with_items
         )
 
         assert node.total_actions == 5
@@ -296,6 +265,7 @@ class TestGraphStateManagement:
 # =============================================================================
 # DynamicStateGraph Action Recording Tests
 # =============================================================================
+
 
 class TestGraphActionRecording:
     """Test action recording in DynamicStateGraph."""
@@ -332,6 +302,7 @@ class TestGraphActionRecording:
 # =============================================================================
 # DynamicStateGraph Transition Tests
 # =============================================================================
+
 
 class TestGraphTransitions:
     """Test transition recording in DynamicStateGraph."""
@@ -402,6 +373,7 @@ class TestGraphTransitions:
 # DynamicStateGraph Untested Actions Tests
 # =============================================================================
 
+
 class TestGraphUntestedActions:
     """Test untested action retrieval."""
 
@@ -411,7 +383,7 @@ class TestGraphUntestedActions:
 
         mock_actions = [MagicMock() for _ in range(5)]
         for i, action in enumerate(mock_actions):
-            action.coords_for_matching = ((i*100, 200), "click")
+            action.coords_for_matching = ((i * 100, 200), "click")
 
         untested = graph.get_untested_actions("hash1", mock_actions)
 
@@ -423,7 +395,7 @@ class TestGraphUntestedActions:
 
         mock_actions = [MagicMock() for _ in range(5)]
         for i, action in enumerate(mock_actions):
-            action.coords_for_matching = ((i*100, 200), "click")
+            action.coords_for_matching = ((i * 100, 200), "click")
 
         # Execute first 2 actions
         graph.record_action("hash1", ((0, 200), "click"))
@@ -456,6 +428,7 @@ class TestGraphUntestedActions:
 # =============================================================================
 # DynamicStateGraph Coverage and Metrics Tests
 # =============================================================================
+
 
 class TestGraphCoverageMetrics:
     """Test coverage computation and metrics."""
@@ -509,6 +482,7 @@ class TestGraphCoverageMetrics:
 # DynamicStateGraph Report Generation Tests
 # =============================================================================
 
+
 class TestGraphReportGeneration:
     """Test report generation."""
 
@@ -560,6 +534,7 @@ class TestGraphReportGeneration:
 # =============================================================================
 # Screen Hash Computation Tests
 # =============================================================================
+
 
 class TestScreenHashComputation:
     """Test compute_screen_hash_from_description function."""
@@ -689,6 +664,7 @@ class TestScreenHashComputation:
 # Transition Dataclass Tests
 # =============================================================================
 
+
 class TestTransitionDataclass:
     """Test Transition dataclass."""
 
@@ -699,7 +675,7 @@ class TestTransitionDataclass:
             from_hash="hash1",
             to_hash="hash2",
             action_sequence=actions,
-            timestamp=1234567890.0
+            timestamp=1234567890.0,
         )
 
         assert t.from_hash == "hash1"

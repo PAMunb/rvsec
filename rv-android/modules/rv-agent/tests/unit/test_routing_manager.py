@@ -6,6 +6,7 @@ Tests the simplified routing manager that:
 - Validates actions and returns BACK on failure (no fallback cycle)
 - Tracks counters for metrics
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -41,7 +42,7 @@ def routing_manager(mock_config, mock_fallback_manager, mock_exploration_strateg
     return RoutingManager(
         config=mock_config,
         fallback_manager=mock_fallback_manager,
-        exploration_strategy=mock_exploration_strategy
+        exploration_strategy=mock_exploration_strategy,
     )
 
 
@@ -76,8 +77,10 @@ class TestRoutingManager:
         assert routing_manager.llm_executed == 0
         assert routing_manager.algorithm_chosen == 0
 
-    @patch('random.random', return_value=0.6)
-    def test_route_decision_multimode_chooses_llm(self, mock_random, routing_manager, mock_config):
+    @patch("random.random", return_value=0.6)
+    def test_route_decision_multimode_chooses_llm(
+        self, mock_random, routing_manager, mock_config
+    ):
         """Test multimode chooses LLM when random value is below probability."""
         mock_config.llm_probability = 0.7
         decision = routing_manager.route_decision(iteration=1)
@@ -85,8 +88,10 @@ class TestRoutingManager:
         assert routing_manager.llm_executed == 0
         assert routing_manager.algorithm_chosen == 0
 
-    @patch('random.random', return_value=0.8)
-    def test_route_decision_multimode_chooses_algorithm(self, mock_random, routing_manager, mock_config):
+    @patch("random.random", return_value=0.8)
+    def test_route_decision_multimode_chooses_algorithm(
+        self, mock_random, routing_manager, mock_config
+    ):
         """Test multimode chooses algorithm when random value is above probability."""
         mock_config.llm_probability = 0.7
         decision = routing_manager.route_decision(iteration=1)
@@ -94,7 +99,9 @@ class TestRoutingManager:
         assert routing_manager.algorithm_chosen == 1
         assert routing_manager.llm_executed == 0
 
-    def test_route_decision_unknown_mode_defaults_to_algorithm(self, routing_manager, mock_config):
+    def test_route_decision_unknown_mode_defaults_to_algorithm(
+        self, routing_manager, mock_config
+    ):
         """Test that unknown mode defaults to algorithm path."""
         mock_config.get_agent_mode.return_value = "unknown_mode"
         decision = routing_manager.route_decision(iteration=1)
@@ -111,30 +118,40 @@ class TestRoutingManager:
         assert result["current_action"]["action_type"] == "BACK"
         assert routing_manager.llm_validation_failed == 1
 
-    def test_validate_action_valid_llm_action_passes(self, routing_manager, mock_config):
+    def test_validate_action_valid_llm_action_passes(
+        self, routing_manager, mock_config
+    ):
         """Test that a valid LLM action passes validation."""
         action = {"action_type": "CLICK", "x": 100, "y": 200}
-        result = routing_manager.validate_action(action, recent_actions=[], decision_maker="llm")
+        result = routing_manager.validate_action(
+            action, recent_actions=[], decision_maker="llm"
+        )
         assert result["validation_path"] == "execute"
         assert not result["loop_detected"]
         assert result["current_action"] == action
         assert routing_manager.llm_executed == 1
         assert routing_manager.llm_validation_failed == 0
 
-    def test_validate_action_valid_algorithm_action_passes(self, routing_manager, mock_config):
+    def test_validate_action_valid_algorithm_action_passes(
+        self, routing_manager, mock_config
+    ):
         """Test that a valid algorithm action passes validation.
 
         Note: algorithm_chosen is incremented in route_decision(), not validate_action().
         """
         action = {"action_type": "CLICK", "x": 100, "y": 200}
-        result = routing_manager.validate_action(action, recent_actions=[], decision_maker="algorithm")
+        result = routing_manager.validate_action(
+            action, recent_actions=[], decision_maker="algorithm"
+        )
         assert result["validation_path"] == "execute"
         assert not result["loop_detected"]
         assert result["current_action"] == action
         assert routing_manager.llm_executed == 0
         assert routing_manager.algorithm_chosen == 0
 
-    def test_validate_action_invalid_action_dict_returns_back(self, routing_manager, mock_config):
+    def test_validate_action_invalid_action_dict_returns_back(
+        self, routing_manager, mock_config
+    ):
         """Test that an invalid action dict returns BACK."""
         action = {"action_type": None}
         result = routing_manager.validate_action(action, recent_actions=[])
@@ -143,7 +160,9 @@ class TestRoutingManager:
         assert result["current_action"]["action_type"] == "BACK"
         assert routing_manager.llm_validation_failed == 1
 
-    def test_validate_action_empty_dict_returns_back(self, routing_manager, mock_config):
+    def test_validate_action_empty_dict_returns_back(
+        self, routing_manager, mock_config
+    ):
         """Test that an empty action dict returns BACK."""
         action = {}
         result = routing_manager.validate_action(action, recent_actions=[])

@@ -39,6 +39,7 @@ class BFSState:
     - Provides state exhaustion detection
     - Maintains exploration hierarchy
     """
+
     screen_hash: str
     depth: int
     parent_hash: Optional[str]
@@ -91,8 +92,8 @@ class BFSStrategy(ExplorationStrategy):
         self,
         graph: DynamicStateGraph,
         static_data: Optional[StaticAnalysisData] = None,
-        coordinate_converter = None,
-        target_package: Optional[str] = None
+        coordinate_converter=None,
+        target_package: Optional[str] = None,
     ):
         """
         Initialize BFS exploration strategy.
@@ -121,9 +122,7 @@ class BFSStrategy(ExplorationStrategy):
             logger.info(f"BFS: Filtering actions to package '{target_package}'")
 
     def select_next_action(
-        self,
-        current_hash: str,
-        screen_desc: ScreenDescription
+        self, current_hash: str, screen_desc: ScreenDescription
     ) -> Optional[ItemAction]:
         """
         Select next action using breadth-first traversal algorithm.
@@ -151,14 +150,14 @@ class BFSStrategy(ExplorationStrategy):
         Returns:
             Selected ItemAction to execute, or None if current state exhausted
         """
-        logger.debug(f"BFS: Processing state {current_hash[:8]}, depth={self.current_depth}")
+        logger.debug(
+            f"BFS: Processing state {current_hash[:8]}, depth={self.current_depth}"
+        )
 
         # Create or update graph node
         if current_hash not in self.graph.states:
             node = self.graph.get_or_create_state(
-                current_hash,
-                screen_desc.activity,
-                screen_desc
+                current_hash, screen_desc.activity, screen_desc
             )
 
             parent_hash = self.current_state_hash
@@ -167,7 +166,7 @@ class BFSStrategy(ExplorationStrategy):
                 screen_hash=current_hash,
                 depth=self.current_depth,
                 parent_hash=parent_hash,
-                untested_count=node.total_actions
+                untested_count=node.total_actions,
             )
 
             # Add to queue for BFS exploration
@@ -175,13 +174,17 @@ class BFSStrategy(ExplorationStrategy):
             self.visited_states.add(current_hash)
             self.current_state_hash = current_hash
 
-            logger.info(f"BFS: New state at depth {self.current_depth}, {node.total_actions} actions")
+            logger.info(
+                f"BFS: New state at depth {self.current_depth}, {node.total_actions} actions"
+            )
             logger.info(f"     Hash: {current_hash[:16]}...")
             logger.info(f"     Queue size: {len(self.state_queue)}")
         else:
             node = self.graph.states[current_hash]
             self.current_state_hash = current_hash
-            logger.info(f"BFS: Revisited state (visit {node.visit_count}, executed: {len(node.executed_actions)})")
+            logger.info(
+                f"BFS: Revisited state (visit {node.visit_count}, executed: {len(node.executed_actions)})"
+            )
             logger.info(f"     Hash: {current_hash[:16]}...")
 
         # Get all available actions
@@ -205,14 +208,20 @@ class BFSStrategy(ExplorationStrategy):
             selected_action = self._select_priority_action(untested_actions)
 
             # Mark action as executed before execution to handle crashes
-            action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
-            logger.info(f"BFS BREADTH: Selected UNTESTED action ID={selected_action.id}")
+            action_signature = self._convert_signature_to_optimized(
+                selected_action.coords_for_matching
+            )
+            logger.info(
+                f"BFS BREADTH: Selected UNTESTED action ID={selected_action.id}"
+            )
             logger.info(f"  Signature: {action_signature}")
             logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
             logger.info(f"  Execution count: 0 (first time)")
             logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
-            self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+            self.graph.record_action(
+                screen_hash=current_hash, action_signature=action_signature
+            )
 
             return selected_action
 
@@ -223,7 +232,9 @@ class BFSStrategy(ExplorationStrategy):
                 screen_desc, node, self.scrolled_positions, probability=0.15
             )
             if scroll_action:
-                logger.info(f"BFS SCROLL: All visible actions tested, scrolling to reveal more content")
+                logger.info(
+                    f"BFS SCROLL: All visible actions tested, scrolling to reveal more content"
+                )
                 return scroll_action
 
             # No scroll - select LEAST-EXECUTED action
@@ -233,20 +244,28 @@ class BFSStrategy(ExplorationStrategy):
 
             # If all actions have failed, fall through to BACK
             if selected_action is not None:
-                action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+                action_signature = self._convert_signature_to_optimized(
+                    selected_action.coords_for_matching
+                )
                 exec_count = node.get_action_execution_count(action_signature)
-                logger.info(f"BFS CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}")
+                logger.info(
+                    f"BFS CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}"
+                )
                 logger.info(f"  Signature: {action_signature}")
                 logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
                 logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
                 logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
-                self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+                self.graph.record_action(
+                    screen_hash=current_hash, action_signature=action_signature
+                )
 
                 return selected_action
 
         # No actions available (edge case) - return BACK to navigate
-        logger.info(f"BFS: No actions available on state {current_hash[:8]}, returning BACK")
+        logger.info(
+            f"BFS: No actions available on state {current_hash[:8]}, returning BACK"
+        )
 
         # Create a BACK ItemAction for navigation
         back_action = ItemAction(
@@ -257,16 +276,11 @@ class BFSStrategy(ExplorationStrategy):
             directly_reaches_mop=False,
             target_view={"system_action": True, "class": "SystemAction_BACK"},
             coordinates=None,
-            text_input=None
+            text_input=None,
         )
         return back_action
 
-    def record_transition(
-        self,
-        from_hash: str,
-        to_hash: str,
-        action: ItemAction
-    ):
+    def record_transition(self, from_hash: str, to_hash: str, action: ItemAction):
         """
         Record state transition for strategy bookkeeping.
 
@@ -281,7 +295,9 @@ class BFSStrategy(ExplorationStrategy):
         # Update depth when moving to new state
         if to_hash not in self.visited_states:
             self.current_depth += 1
-            logger.debug(f"BFS: Transition to new state, depth now {self.current_depth}")
+            logger.debug(
+                f"BFS: Transition to new state, depth now {self.current_depth}"
+            )
 
     def should_backtrack(self, current_hash: str) -> bool:
         """
@@ -304,7 +320,9 @@ class BFSStrategy(ExplorationStrategy):
         is_exhausted = len(node.executed_actions) >= node.total_actions
 
         if is_exhausted:
-            logger.info(f"BFS: State {current_hash[:8]} exhausted, need navigation to next queued state")
+            logger.info(
+                f"BFS: State {current_hash[:8]} exhausted, need navigation to next queued state"
+            )
 
         return is_exhausted
 
@@ -344,12 +362,12 @@ class BFSStrategy(ExplorationStrategy):
 
         for action in actions:
             # Skip system actions
-            if action.target_view.get('system_action', False):
+            if action.target_view.get("system_action", False):
                 logger.debug(f"Filtered system action: ID={action.id}")
                 continue
 
             # Filter by package - only include actions from target app
-            action_package = action.target_view.get('package', '')
+            action_package = action.target_view.get("package", "")
             if self.target_package and action_package:
                 if action_package != self.target_package:
                     external_count += 1
@@ -364,13 +382,17 @@ class BFSStrategy(ExplorationStrategy):
 
             # Skip actions without valid coordinates (e.g., SystemAction_BACK)
             if not coords:
-                logger.debug(f"Filtered action without coordinates: ID={action.id}, class={action.target_view.get('class', 'unknown')}")
+                logger.debug(
+                    f"Filtered action without coordinates: ID={action.id}, class={action.target_view.get('class', 'unknown')}"
+                )
                 continue
 
             # Skip navigation bar actions (above NAVBAR_THRESHOLD_Y in device space)
             x, y = coords
             if y > RVAgentConstants.NAVBAR_THRESHOLD_Y:
-                logger.debug(f"Filtered nav bar action: ID={action.id} coords=({x},{y})")
+                logger.debug(
+                    f"Filtered nav bar action: ID={action.id} coords=({x},{y})"
+                )
                 continue
 
             filtered.append(action)
@@ -381,9 +403,7 @@ class BFSStrategy(ExplorationStrategy):
         return filtered
 
     def _get_untested_actions(
-        self,
-        node,
-        actions: List[ItemAction]
+        self, node, actions: List[ItemAction]
     ) -> List[ItemAction]:
         """
         Identify actions not yet executed on this state.
@@ -402,7 +422,9 @@ class BFSStrategy(ExplorationStrategy):
 
         for action in actions:
             # Convert signature from device to optimized space
-            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            action_signature = self._convert_signature_to_optimized(
+                action.coords_for_matching
+            )
 
             if action_signature not in node.executed_actions:
                 untested.append(action)
@@ -425,14 +447,14 @@ class BFSStrategy(ExplorationStrategy):
             Action with highest priority score
         """
         priority_sorted = sorted(
-            actions,
-            key=lambda a: self._get_mop_priority(a),
-            reverse=True
+            actions, key=lambda a: self._get_mop_priority(a), reverse=True
         )
 
         return priority_sorted[0]
 
-    def _select_least_executed_action(self, node, actions: List[ItemAction]) -> Optional[ItemAction]:
+    def _select_least_executed_action(
+        self, node, actions: List[ItemAction]
+    ) -> Optional[ItemAction]:
         """
         Select action with fewest executions for continuous exploration.
 
@@ -454,7 +476,9 @@ class BFSStrategy(ExplorationStrategy):
             return None
 
         def sort_key(action: ItemAction):
-            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            action_signature = self._convert_signature_to_optimized(
+                action.coords_for_matching
+            )
             exec_count = node.get_action_execution_count(action_signature)
             mop_priority = self._get_mop_priority(action)
             # Sort by: (exec_count ASC, -mop_priority DESC)
@@ -487,8 +511,7 @@ class BFSStrategy(ExplorationStrategy):
             return 1  # Regular action
 
     def _convert_signature_to_optimized(
-        self,
-        signature: Tuple[Tuple[int, int], str]
+        self, signature: Tuple[Tuple[int, int], str]
     ) -> Tuple[Tuple[int, int], str]:
         """
         Convert action signature from device space to optimized space.
@@ -508,13 +531,22 @@ class BFSStrategy(ExplorationStrategy):
 
         if self.converter:
             # Use CoordinateConverter for consistent conversion
-            optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
+            optimized_x, optimized_y = self.converter.device_to_optimized(
+                device_x, device_y
+            )
         else:
             # Fallback to direct conversion if converter unavailable
             optimized_x, optimized_y = device_to_optimized(
-                device_x, device_y,
-                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
-                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+                device_x,
+                device_y,
+                (
+                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
+                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
+                ),
+                (
+                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
+                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
+                ),
             )
 
         return ((optimized_x, optimized_y), action_type)

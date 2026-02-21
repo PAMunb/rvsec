@@ -50,7 +50,7 @@ class FallbackManager:
         self,
         screen_hash: str,
         screen_description: ScreenDescription,
-        strategy_name: str = "dfs"
+        strategy_name: str = "dfs",
     ) -> Optional[ItemAction]:
         """
         Get fallback action using algorithmic strategy.

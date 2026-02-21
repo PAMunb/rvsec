@@ -53,11 +53,17 @@ class ScreenNode:
     visit_count: int = 0
     total_actions: int = 0
     executed_actions: Set[Tuple[Tuple[int, int], str]] = field(default_factory=set)
-    action_execution_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
+    action_execution_counts: Dict[Tuple[Tuple[int, int], str], int] = field(
+        default_factory=dict
+    )
     # Success tracking for strength calculation
-    action_success_counts: Dict[Tuple[Tuple[int, int], str], int] = field(default_factory=dict)
+    action_success_counts: Dict[Tuple[Tuple[int, int], str], int] = field(
+        default_factory=dict
+    )
     # Per-action cumulative reward from N-step propagation
-    action_cumulative_reward: Dict[Tuple[Tuple[int, int], str], float] = field(default_factory=dict)
+    action_cumulative_reward: Dict[Tuple[Tuple[int, int], str], float] = field(
+        default_factory=dict
+    )
 
     def get_coverage(self) -> float:
         """
@@ -79,9 +85,13 @@ class ScreenNode:
             action_signature: ((x, y), action_type) tuple identifying the action
         """
         self.executed_actions.add(action_signature)
-        self.action_execution_counts[action_signature] = self.action_execution_counts.get(action_signature, 0) + 1
+        self.action_execution_counts[action_signature] = (
+            self.action_execution_counts.get(action_signature, 0) + 1
+        )
 
-    def get_action_execution_count(self, action_signature: Tuple[Tuple[int, int], str]) -> int:
+    def get_action_execution_count(
+        self, action_signature: Tuple[Tuple[int, int], str]
+    ) -> int:
         """
         Get execution count for an action signature.
 
@@ -105,7 +115,9 @@ class ScreenNode:
         """
         return action_signature in self.executed_actions
 
-    def is_action_saturated(self, action_signature: Tuple[Tuple[int, int], str], threshold: int = 2) -> bool:
+    def is_action_saturated(
+        self, action_signature: Tuple[Tuple[int, int], str], threshold: int = 2
+    ) -> bool:
         """
         Check if action has been executed at least threshold times.
 
@@ -136,7 +148,8 @@ class ScreenNode:
             return 1.0  # No actions = fully saturated
 
         saturated_count = sum(
-            1 for sig in self.executed_actions
+            1
+            for sig in self.executed_actions
             if self.is_action_saturated(sig, threshold)
         )
         return saturated_count / self.total_actions
@@ -150,7 +163,9 @@ class ScreenNode:
         """
         return set(self.executed_actions)
 
-    def record_action_success(self, action_signature: Tuple[Tuple[int, int], str], success: bool) -> None:
+    def record_action_success(
+        self, action_signature: Tuple[Tuple[int, int], str], success: bool
+    ) -> None:
         """
         Record whether an action execution was successful.
 
@@ -166,7 +181,9 @@ class ScreenNode:
                 self.action_success_counts.get(action_signature, 0) + 1
             )
 
-    def get_action_strength(self, action_signature: Tuple[Tuple[int, int], str]) -> float:
+    def get_action_strength(
+        self, action_signature: Tuple[Tuple[int, int], str]
+    ) -> float:
         """
         Compute action strength based on success rate.
 

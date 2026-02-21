@@ -19,10 +19,10 @@ from PIL import Image
 
 from rv_agent.services.vision_service import ImageHandler
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def temp_output_dir(tmp_path):
@@ -35,7 +35,7 @@ def temp_output_dir(tmp_path):
 @pytest.fixture
 def image_handler(temp_output_dir):
     """Create ImageHandler instance."""
-    with patch.object(ImageHandler, '__init__', lambda self, *args, **kwargs: None):
+    with patch.object(ImageHandler, "__init__", lambda self, *args, **kwargs: None):
         handler = ImageHandler.__new__(ImageHandler)
         handler.output_dir = temp_output_dir
         handler.rotation_limit = 10
@@ -45,6 +45,7 @@ def image_handler(temp_output_dir):
         handler.logger = MagicMock()
         # Use deque instead of list for proper maxlen behavior
         from collections import deque
+
         handler.screenshot_queue = deque(maxlen=10)
         return handler
 
@@ -52,18 +53,18 @@ def image_handler(temp_output_dir):
 @pytest.fixture
 def sample_png_bytes():
     """Create sample PNG image bytes."""
-    img = Image.new('RGB', (1080, 1920), color='blue')
+    img = Image.new("RGB", (1080, 1920), color="blue")
     buffer = BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
 @pytest.fixture
 def sample_rgba_png_bytes():
     """Create sample RGBA PNG image bytes."""
-    img = Image.new('RGBA', (1080, 1920), color=(255, 0, 0, 128))
+    img = Image.new("RGBA", (1080, 1920), color=(255, 0, 0, 128))
     buffer = BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
@@ -79,6 +80,7 @@ def sample_image_file(temp_output_dir, sample_png_bytes):
 # ImageHandler Initialization Tests
 # =============================================================================
 
+
 class TestImageHandlerInit:
     """Tests for ImageHandler initialization."""
 
@@ -86,7 +88,7 @@ class TestImageHandlerInit:
         """Test that initialization creates output directory."""
         output_dir = tmp_path / "new_screenshots"
 
-        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
+        with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(output_dir))
 
@@ -96,7 +98,7 @@ class TestImageHandlerInit:
         """Test initialization with default parameters."""
         output_dir = tmp_path / "screenshots"
 
-        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
+        with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(output_dir))
 
@@ -108,13 +110,10 @@ class TestImageHandlerInit:
         """Test initialization with custom parameters."""
         output_dir = tmp_path / "screenshots"
 
-        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
+        with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(
-                str(output_dir),
-                rotation_limit=5,
-                target_size=(640, 1080),
-                quality=75
+                str(output_dir), rotation_limit=5, target_size=(640, 1080), quality=75
             )
 
         assert handler.rotation_limit == 5
@@ -125,6 +124,7 @@ class TestImageHandlerInit:
 # =============================================================================
 # Save Screenshot Tests
 # =============================================================================
+
 
 class TestSaveScreenshot:
     """Tests for ImageHandler.save_screenshot()."""
@@ -153,6 +153,7 @@ class TestSaveScreenshot:
         """Test that rotation removes oldest screenshot."""
         # Set rotation limit to 3
         from collections import deque
+
         image_handler.screenshot_queue = deque(maxlen=3)
         image_handler.rotation_limit = 3
 
@@ -169,6 +170,7 @@ class TestSaveScreenshot:
     def test_rotation_deletes_file(self, image_handler, sample_png_bytes):
         """Test that rotation deletes old file from disk."""
         from collections import deque
+
         image_handler.screenshot_queue = deque(maxlen=2)
         image_handler.rotation_limit = 2
 
@@ -194,6 +196,7 @@ class TestSaveScreenshot:
 # Optimize Tests
 # =============================================================================
 
+
 class TestOptimize:
     """Tests for ImageHandler.optimize()."""
 
@@ -209,7 +212,7 @@ class TestOptimize:
     def test_optimize_resizes_image(self, image_handler, temp_output_dir):
         """Test that optimize resizes large images."""
         # Create large image
-        large_img = Image.new('RGB', (2160, 3840), color='red')
+        large_img = Image.new("RGB", (2160, 3840), color="red")
         large_path = temp_output_dir / "large.png"
         large_img.save(large_path)
 
@@ -223,7 +226,9 @@ class TestOptimize:
         assert img.size[0] <= 704
         assert img.size[1] <= 1248
 
-    def test_optimize_converts_rgba_to_rgb(self, image_handler, temp_output_dir, sample_rgba_png_bytes):
+    def test_optimize_converts_rgba_to_rgb(
+        self, image_handler, temp_output_dir, sample_rgba_png_bytes
+    ):
         """Test that optimize converts RGBA to RGB for JPEG."""
         rgba_path = temp_output_dir / "rgba.png"
         rgba_path.write_bytes(sample_rgba_png_bytes)
@@ -240,11 +245,16 @@ class TestOptimize:
         """Test optimize with custom quality setting."""
         # Create image with noise/detail to show quality difference
         import random
-        img = Image.new('RGB', (500, 500))
+
+        img = Image.new("RGB", (500, 500))
         pixels = img.load()
         for i in range(500):
             for j in range(500):
-                pixels[i, j] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+                pixels[i, j] = (
+                    random.randint(0, 255),
+                    random.randint(0, 255),
+                    random.randint(0, 255),
+                )
         noisy_path = temp_output_dir / "noisy.png"
         img.save(noisy_path)
 
@@ -286,12 +296,13 @@ class TestOptimize:
         assert result is not None
         decoded = base64.b64decode(result)
         # PNG magic bytes
-        assert decoded[:8] == b'\x89PNG\r\n\x1a\n'
+        assert decoded[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 # =============================================================================
 # Optimize With Fallback Tests
 # =============================================================================
+
 
 class TestOptimizeWithFallback:
     """Tests for ImageHandler.optimize_with_fallback()."""
@@ -309,7 +320,7 @@ class TestOptimizeWithFallback:
         corrupted_path.write_bytes(b"not an image")
 
         # Patch optimize to return None
-        with patch.object(image_handler, 'optimize', return_value=None):
+        with patch.object(image_handler, "optimize", return_value=None):
             result = image_handler.optimize_with_fallback(str(corrupted_path))
 
         # Should fall back to basic encoding
@@ -319,7 +330,7 @@ class TestOptimizeWithFallback:
 
     def test_fallback_returns_none_when_file_missing(self, image_handler):
         """Test that fallback returns None when file is missing."""
-        with patch.object(image_handler, 'optimize', return_value=None):
+        with patch.object(image_handler, "optimize", return_value=None):
             result = image_handler.optimize_with_fallback("/nonexistent/file.png")
 
         assert result is None
@@ -328,6 +339,7 @@ class TestOptimizeWithFallback:
 # =============================================================================
 # Queue Management Tests
 # =============================================================================
+
 
 class TestQueueManagement:
     """Tests for queue management methods."""
@@ -394,12 +406,13 @@ class TestQueueManagement:
 # Integration Tests
 # =============================================================================
 
+
 class TestImageHandlerIntegration:
     """Integration tests for ImageHandler."""
 
     def test_full_workflow(self, temp_output_dir, sample_png_bytes):
         """Test complete screenshot workflow."""
-        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
+        with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(temp_output_dir), rotation_limit=5)
 
@@ -425,7 +438,7 @@ class TestImageHandlerIntegration:
 
     def test_rotation_workflow(self, temp_output_dir, sample_png_bytes):
         """Test rotation workflow with multiple screenshots."""
-        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
+        with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(temp_output_dir), rotation_limit=3)
 
@@ -445,12 +458,12 @@ class TestImageHandlerIntegration:
 
     def test_optimize_preserves_aspect_ratio(self, temp_output_dir):
         """Test that optimization preserves aspect ratio."""
-        with patch('rv_agent.services.vision_service.LoggingManager') as mock_logging:
+        with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
             handler = ImageHandler(str(temp_output_dir))
 
         # Create image with specific aspect ratio (16:9)
-        img = Image.new('RGB', (1920, 1080), color='green')
+        img = Image.new("RGB", (1920, 1080), color="green")
         img_path = temp_output_dir / "wide.png"
         img.save(img_path)
 

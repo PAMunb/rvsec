@@ -22,6 +22,7 @@ class MockItemAction:
 
     Simulates the ItemAction from rv_screen_parser with all necessary attributes.
     """
+
     event: WidgetEventType = WidgetEventType.CLICK
     coordinates: Tuple[int, int] = (540, 960)
     widget_id: Optional[str] = None
@@ -51,13 +52,16 @@ class MockItemAction:
 @dataclass
 class MockScreenItem:
     """Mock screen item containing view and actions."""
-    view: dict = field(default_factory=lambda: {
-        'class': 'android.widget.Button',
-        'clickable': True,
-        'bounds': [(100, 200), (300, 400)],
-        'resource_id': '',
-        'text': ''
-    })
+
+    view: dict = field(
+        default_factory=lambda: {
+            "class": "android.widget.Button",
+            "clickable": True,
+            "bounds": [(100, 200), (300, 400)],
+            "resource_id": "",
+            "text": "",
+        }
+    )
     actions: List[MockItemAction] = field(default_factory=list)
 
 
@@ -68,6 +72,7 @@ class MockScreenDescription:
 
     Simulates the ScreenDescription from rv_screen_parser.
     """
+
     activity: str = "MainActivity"
     items: List[MockScreenItem] = field(default_factory=list)
 
@@ -85,7 +90,7 @@ def create_mock_action(
     widget_id: Optional[str] = None,
     directly_reaches_mop: bool = False,
     reaches_mop: bool = False,
-    callback_signature: Optional[str] = None
+    callback_signature: Optional[str] = None,
 ) -> MockItemAction:
     """Factory function to create mock actions."""
     return MockItemAction(
@@ -94,27 +99,28 @@ def create_mock_action(
         widget_id=widget_id,
         directly_reaches_mop=directly_reaches_mop,
         reaches_mop=reaches_mop,
-        callback_signature=callback_signature
+        callback_signature=callback_signature,
     )
 
 
 def create_mock_screen(
-    activity: str,
-    actions: List[MockItemAction]
+    activity: str, actions: List[MockItemAction]
 ) -> MockScreenDescription:
     """Factory function to create mock screen descriptions."""
     items = []
     for action in actions:
         item = MockScreenItem(
             view={
-                'class': 'android.widget.Button',
-                'clickable': True,
-                'bounds': [(action.coordinates[0]-50, action.coordinates[1]-50),
-                          (action.coordinates[0]+50, action.coordinates[1]+50)],
-                'resource_id': action.widget_id or '',
-                'text': action.text
+                "class": "android.widget.Button",
+                "clickable": True,
+                "bounds": [
+                    (action.coordinates[0] - 50, action.coordinates[1] - 50),
+                    (action.coordinates[0] + 50, action.coordinates[1] + 50),
+                ],
+                "resource_id": action.widget_id or "",
+                "text": action.text,
             },
-            actions=[action]
+            actions=[action],
         )
         items.append(item)
 
@@ -153,7 +159,7 @@ def simple_screen():
             create_mock_action(coords=(200, 400), widget_id="btn_login"),
             create_mock_action(coords=(200, 600), widget_id="btn_register"),
             create_mock_action(coords=(200, 800), widget_id="btn_settings"),
-        ]
+        ],
     )
 
 
@@ -167,18 +173,13 @@ def mop_priority_screen():
                 coords=(200, 400),
                 widget_id="btn_encrypt",
                 directly_reaches_mop=True,
-                callback_signature="javax.crypto.Cipher.init"
+                callback_signature="javax.crypto.Cipher.init",
             ),
             create_mock_action(
-                coords=(200, 600),
-                widget_id="btn_settings",
-                reaches_mop=True
+                coords=(200, 600), widget_id="btn_settings", reaches_mop=True
             ),
-            create_mock_action(
-                coords=(200, 800),
-                widget_id="btn_help"
-            ),
-        ]
+            create_mock_action(coords=(200, 800), widget_id="btn_help"),
+        ],
     )
 
 
@@ -191,18 +192,15 @@ def input_screen():
             create_mock_action(
                 coords=(200, 400),
                 event_type=WidgetEventType.TEXT_CHANGE,
-                widget_id="input_username"
+                widget_id="input_username",
             ),
             create_mock_action(
                 coords=(200, 600),
                 event_type=WidgetEventType.TEXT_CHANGE,
-                widget_id="input_password"
+                widget_id="input_password",
             ),
-            create_mock_action(
-                coords=(200, 800),
-                widget_id="btn_submit"
-            ),
-        ]
+            create_mock_action(coords=(200, 800), widget_id="btn_submit"),
+        ],
     )
 
 
@@ -215,5 +213,5 @@ def dropdown_screen():
             create_mock_action(coords=(200, 400), widget_id="option_1"),
             create_mock_action(coords=(200, 500), widget_id="option_2"),
             create_mock_action(coords=(200, 600), widget_id="option_3"),
-        ]
+        ],
     )

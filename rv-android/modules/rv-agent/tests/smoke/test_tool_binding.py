@@ -8,7 +8,6 @@ import pytest
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
-
 pytestmark = [pytest.mark.smoke, pytest.mark.sglang]
 
 
@@ -85,7 +84,9 @@ class TestToolBinding:
         llm_with_tools = llm.bind_tools(tools)
 
         messages = [
-            SystemMessage(content="You are an Android UI automation agent. Use the provided tools."),
+            SystemMessage(
+                content="You are an Android UI automation agent. Use the provided tools."
+            ),
             HumanMessage(content="Click the OK button at coordinates (352, 624)."),
         ]
 
@@ -94,9 +95,13 @@ class TestToolBinding:
 
         # Response should have content or tool_calls
         has_content = response.content and len(response.content) > 0
-        has_tool_calls = hasattr(response, "tool_calls") and len(response.tool_calls) > 0
+        has_tool_calls = (
+            hasattr(response, "tool_calls") and len(response.tool_calls) > 0
+        )
 
-        assert has_content or has_tool_calls, "Response has neither content nor tool_calls"
+        assert (
+            has_content or has_tool_calls
+        ), "Response has neither content nor tool_calls"
 
     def test_tool_call_extraction(self, sglang_url, sglang_model):
         """Tool calls can be extracted from response."""
@@ -126,7 +131,9 @@ class TestToolBinding:
             assert "name" in tool_call or "function" in tool_call
         else:
             # Fallback: tool call might be in content
-            from rv_agent.llm.tools.tool_call_parser import parse_tool_calls_with_strategy
+            from rv_agent.llm.tools.tool_call_parser import (
+                parse_tool_calls_with_strategy,
+            )
 
             tool_calls, _ = parse_tool_calls_with_strategy(response.content)
             # At least verify parsing doesn't crash

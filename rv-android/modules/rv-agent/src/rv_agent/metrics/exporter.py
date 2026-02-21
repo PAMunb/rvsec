@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -59,10 +58,7 @@ class MetricsExporter:
 
     @staticmethod
     def build_filename(
-        package_name: str,
-        agent_mode: str,
-        timeout: int,
-        repetition: int = 1
+        package_name: str, agent_mode: str, timeout: int, repetition: int = 1
     ) -> str:
         """
         Build metrics filename following rv-android naming convention.
@@ -82,11 +78,7 @@ class MetricsExporter:
 
     @classmethod
     def format_metrics(
-        cls,
-        results: Dict[str, Any],
-        package_name: str,
-        agent_mode: str,
-        timeout: int
+        cls, results: Dict[str, Any], package_name: str, agent_mode: str, timeout: int
     ) -> Dict[str, Any]:
         """
         Format agent results into structured metrics.
@@ -106,13 +98,13 @@ class MetricsExporter:
                 "agent_mode": agent_mode,
                 "timeout_configured": timeout,
                 "timestamp": datetime.now().isoformat(),
-                "status": results.get("status", "unknown")
+                "status": results.get("status", "unknown"),
             },
             "exploration": {
                 "iterations": results.get("iterations", 0),
                 "execution_time_s": results.get("execution_time_s", 0),
                 "unique_states": results.get("unique_states", 0),
-                "total_transitions": results.get("total_transitions", 0)
+                "total_transitions": results.get("total_transitions", 0),
             },
             "decisions": {
                 "total_actions": results.get("total_actions", 0),
@@ -121,19 +113,15 @@ class MetricsExporter:
                 "llm_percentage": results.get("llm_percentage", 0.0),
                 "algorithm_percentage": results.get("algorithm_percentage", 0.0),
                 "llm_validation_failed": results.get("llm_validation_failed", 0),
-                "forced_back": results.get("forced_back", 0)
+                "forced_back": results.get("forced_back", 0),
             },
             "llm": cls._compute_llm_metrics(results),
             "ui_coverage": results.get("ui_coverage", {}),
-            "memory_stats": results.get("memory_stats", {})
+            "memory_stats": results.get("memory_stats", {}),
         }
 
     @staticmethod
-    def save(
-        metrics: Dict[str, Any],
-        output_dir: str,
-        filename: str
-    ) -> Optional[Path]:
+    def save(metrics: Dict[str, Any], output_dir: str, filename: str) -> Optional[Path]:
         """
         Save metrics to JSON file.
 
@@ -169,7 +157,7 @@ class MetricsExporter:
         package_name: str,
         agent_mode: str,
         timeout: int,
-        repetition: int = 1
+        repetition: int = 1,
     ) -> Optional[Path]:
         """
         Export agent results to metrics file.

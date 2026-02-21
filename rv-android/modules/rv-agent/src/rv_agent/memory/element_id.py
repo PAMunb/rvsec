@@ -84,25 +84,25 @@ def make_element_id_from_action(action: Any) -> Optional[str]:
 
     # Handle dict-like actions (from execute_node)
     if isinstance(action, dict):
-        x = action.get('x')
-        y = action.get('y')
+        x = action.get("x")
+        y = action.get("y")
         if x is not None and y is not None:
             return make_element_id(int(x), int(y))
         return None
 
     # Handle ItemAction with coordinates attribute
-    if hasattr(action, 'coordinates') and action.coordinates:
+    if hasattr(action, "coordinates") and action.coordinates:
         return make_element_id_from_tuple(action.coordinates)
 
     # Handle ItemAction with get_execution_coordinates method
-    if hasattr(action, 'get_execution_coordinates'):
+    if hasattr(action, "get_execution_coordinates"):
         coords = action.get_execution_coordinates()
         if coords:
             return make_element_id_from_tuple(coords)
 
     # Handle ItemAction with target_view bounds
-    if hasattr(action, 'target_view') and action.target_view:
-        bounds = action.target_view.get('bounds')
+    if hasattr(action, "target_view") and action.target_view:
+        bounds = action.target_view.get("bounds")
         if bounds and isinstance(bounds, list) and len(bounds) == 2:
             try:
                 x1, y1 = bounds[0]
@@ -157,15 +157,15 @@ def parse_element_id(element_id: str) -> Optional[Tuple[int, int]]:
         >>> parse_element_id('com.app:id/button')
         None
     """
-    if not element_id or not element_id.startswith('coords:'):
+    if not element_id or not element_id.startswith("coords:"):
         return None
 
     try:
         coords_part = element_id[7:]  # Remove 'coords:' prefix
         # Handle old format with :CLICK suffix
-        if ':' in coords_part:
-            coords_part = coords_part.split(':')[0]
-        x_str, y_str = coords_part.split(',')
+        if ":" in coords_part:
+            coords_part = coords_part.split(":")[0]
+        x_str, y_str = coords_part.split(",")
         return (int(x_str), int(y_str))
     except (ValueError, IndexError):
         return None
@@ -181,4 +181,4 @@ def is_coordinate_based(element_id: str) -> bool:
     Returns:
         True if coordinate-based, False otherwise
     """
-    return element_id is not None and element_id.startswith('coords:')
+    return element_id is not None and element_id.startswith("coords:")

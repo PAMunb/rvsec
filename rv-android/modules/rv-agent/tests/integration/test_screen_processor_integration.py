@@ -9,15 +9,19 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
+from rv_agent.agent.dynamic_state_graph import (
+    DynamicStateGraph,
+    compute_screen_hash_from_description,
+)
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.memory.ui_coverage import UICoverageTracker
-
 
 pytestmark = pytest.mark.integration
 
@@ -62,7 +66,7 @@ def screen_processor(mock_device, graph, ui_coverage):
         device=mock_device,
         dynamic_graph=graph,
         ui_coverage=ui_coverage,
-        device_dimensions=(1080, 1920)
+        device_dimensions=(1080, 1920),
     )
 
 
@@ -75,6 +79,7 @@ def parser():
 # =============================================================================
 # UI Element Formatting Tests
 # =============================================================================
+
 
 class TestUIElementFormatting:
     """Test UI element formatting with real fixtures."""
@@ -100,6 +105,7 @@ class TestUIElementFormatting:
 
         # Should have coordinate format like (x, y)
         import re
+
         coord_pattern = r"position \(\d+, \d+\)"
         matches = re.findall(coord_pattern, formatted)
 
@@ -114,6 +120,7 @@ class TestUIElementFormatting:
 
         # Should have position format like "at position (x, y)"
         import re
+
         position_pattern = r"at position \(\d+, \d+\)"
         matches = re.findall(position_pattern, formatted)
 
@@ -128,8 +135,11 @@ class TestUIElementFormatting:
 
         # Should have position coordinates in the format (x, y)
         import re
+
         position_pattern = r"position \(\d+, \d+\)"
-        assert re.search(position_pattern, formatted), "Should have position coordinates"
+        assert re.search(
+            position_pattern, formatted
+        ), "Should have position coordinates"
 
     def test_format_empty_screen(self, screen_processor):
         """Format empty screen description."""
@@ -156,6 +166,7 @@ class TestUIElementFormatting:
 # Coordinate Transformation Tests
 # =============================================================================
 
+
 class TestCoordinateTransformation:
     """Test coordinate validation in device space."""
 
@@ -168,6 +179,7 @@ class TestCoordinateTransformation:
 
         # Extract all coordinates
         import re
+
         coord_pattern = r"position \((\d+), (\d+)\)"
         matches = re.findall(coord_pattern, formatted)
 
@@ -187,6 +199,7 @@ class TestCoordinateTransformation:
 
         # Extract all bounds
         import re
+
         bounds_pattern = r"bounds\[\[(\d+), (\d+)\], \[(\d+), (\d+)\]\]"
         matches = re.findall(bounds_pattern, formatted)
 
@@ -205,8 +218,8 @@ class TestCoordinateTransformation:
 
         # Get first clickable element with valid bounds
         for item in screen_desc.items:
-            bounds = item.view.get('bounds')
-            if bounds and item.view.get('clickable'):
+            bounds = item.view.get("bounds")
+            if bounds and item.view.get("clickable"):
                 x1, y1 = bounds[0]
                 x2, y2 = bounds[1]
 
@@ -223,6 +236,7 @@ class TestCoordinateTransformation:
 # Screen Parsing Integration Tests
 # =============================================================================
 
+
 class TestScreenParsingIntegration:
     """Test screen parsing with mock device."""
 
@@ -233,7 +247,7 @@ class TestScreenParsingIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "br.unb.cic.cryptoapp.MainActivity",
-            "current_package": "br.unb.cic.cryptoapp"
+            "current_package": "br.unb.cic.cryptoapp",
         }
 
         result = screen_processor.parse_current_screen(
@@ -253,7 +267,7 @@ class TestScreenParsingIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "com.android.settings.MainActivity",
-            "current_package": "com.android.settings"
+            "current_package": "com.android.settings",
         }
 
         result = screen_processor.parse_current_screen(
@@ -270,17 +284,16 @@ class TestScreenParsingIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "com.other.Activity",
-            "current_package": "com.other"
+            "current_package": "com.other",
         }
 
         result1 = screen_processor.parse_current_screen(
-            target_package="br.unb.cic.cryptoapp",
-            external_navigation_count=0
+            target_package="br.unb.cic.cryptoapp", external_navigation_count=0
         )
 
         result2 = screen_processor.parse_current_screen(
             target_package="br.unb.cic.cryptoapp",
-            external_navigation_count=result1["external_navigation_count"]
+            external_navigation_count=result1["external_navigation_count"],
         )
 
         assert result2["external_navigation_count"] == 2
@@ -289,6 +302,7 @@ class TestScreenParsingIntegration:
 # =============================================================================
 # Hash Computation Integration Tests
 # =============================================================================
+
 
 class TestHashComputationIntegration:
     """Test hash computation with ScreenProcessor."""
@@ -300,7 +314,7 @@ class TestHashComputationIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "MainActivity",
-            "current_package": "br.unb.cic.cryptoapp"
+            "current_package": "br.unb.cic.cryptoapp",
         }
 
         result = screen_processor.parse_current_screen(
@@ -317,7 +331,7 @@ class TestHashComputationIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "MainActivity",
-            "current_package": "br.unb.cic.cryptoapp"
+            "current_package": "br.unb.cic.cryptoapp",
         }
 
         result1 = screen_processor.parse_current_screen(
@@ -335,17 +349,20 @@ class TestHashComputationIntegration:
 # UI Coverage Annotation Tests
 # =============================================================================
 
+
 class TestUICoverageAnnotation:
     """Test UI coverage annotation in formatted output."""
 
-    def test_coverage_annotation_applied(self, screen_processor, mock_device, ui_coverage):
+    def test_coverage_annotation_applied(
+        self, screen_processor, mock_device, ui_coverage
+    ):
         """UI coverage annotations are applied."""
         xml_content = load_xml_content("cryptoapp", "001")
 
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "MainActivity",
-            "current_package": "br.unb.cic.cryptoapp"
+            "current_package": "br.unb.cic.cryptoapp",
         }
 
         # Record some interactions
@@ -363,6 +380,7 @@ class TestUICoverageAnnotation:
 # Multi-App Integration Tests
 # =============================================================================
 
+
 class TestMultiAppIntegration:
     """Test screen processor with multiple apps."""
 
@@ -373,7 +391,7 @@ class TestMultiAppIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "org.secuso.privacyfriendlyludo.MainActivity",
-            "current_package": "org.secuso.privacyfriendlyludo"
+            "current_package": "org.secuso.privacyfriendlyludo",
         }
 
         result = screen_processor.parse_current_screen(
@@ -390,7 +408,7 @@ class TestMultiAppIntegration:
         mock_device.get_current_ui_state.return_value = {
             "xml": xml_content,
             "current_activity": "byrne.utilities.hashpass.MainActivity",
-            "current_package": "byrne.utilities.hashpass"
+            "current_package": "byrne.utilities.hashpass",
         }
 
         result = screen_processor.parse_current_screen(
@@ -416,6 +434,7 @@ class TestMultiAppIntegration:
 # =============================================================================
 # Element Type Detection Tests
 # =============================================================================
+
 
 class TestElementTypeDetection:
     """Test detection of different UI element types."""

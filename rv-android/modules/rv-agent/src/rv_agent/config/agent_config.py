@@ -30,44 +30,40 @@ class RVAgentConfig(BaseValidatedModel):
     # === EXECUTION CONFIGURATION ===
     device_id: str = Field(
         default=RVAgentConstants.DEFAULT_DEVICE_ID,
-        description="Android device or emulator ID for testing"
+        description="Android device or emulator ID for testing",
     )
     agent_mode: str = Field(
         default="multimode",
-        description="Agent exploration mode: 'pure_algorithm', 'llm_only', 'multimode'"
+        description="Agent exploration mode: 'pure_algorithm', 'llm_only', 'multimode'",
     )
     llm_probability: float = Field(
         default=0.7,
         ge=0.0,
         le=1.0,
-        description="LLM probability for multimode (0.7 = 70% LLM, 30% algorithm)"
+        description="LLM probability for multimode (0.7 = 70% LLM, 30% algorithm)",
     )
     timeout: int = Field(
         default=RVAgentConstants.DEFAULT_TIMEOUT,
         ge=60,
-        description="Test execution timeout in seconds"
+        description="Test execution timeout in seconds",
     )
     results_dir: str = Field(
-        default="./results",
-        description="Directory for test results and artifacts"
+        default="./results", description="Directory for test results and artifacts"
     )
-    package_name: str = Field(
-        description="Target application package name (required)"
-    )
+    package_name: str = Field(description="Target application package name (required)")
 
     # === SGLang LLM CONFIGURATION ===
     # Validated parameters from rvsec-vision-llm benchmark
     llm_model: str = Field(
-        default="Qwen/Qwen3-VL-4B-Instruct",
-        description="LLM model identifier"
+        default="Qwen/Qwen3-VL-4B-Instruct", description="LLM model identifier"
     )
     llm_base_url: str = Field(
         default="http://192.168.0.36:30000/v1",
-        description="SGLang server URL (OpenAI-compatible API)"
+        description="SGLang server URL (OpenAI-compatible API)",
     )
     prompt_version: str = Field(
         default="v13",
-        description="Prompt version (v13: dialog handling, v14: structured reasoning)"
+        description="Prompt version (v13: dialog handling, v14: structured reasoning, v17: MOP navigation)",
     )
 
     # Inference parameters (validated from benchmark)
@@ -75,56 +71,43 @@ class RVAgentConfig(BaseValidatedModel):
         default=0.01,
         ge=0.0,
         le=2.0,
-        description="LLM temperature (0.01 optimal for tool calling)"
+        description="LLM temperature (0.01 optimal for tool calling)",
     )
     llm_top_p: float = Field(
-        default=0.6,
-        ge=0.0,
-        le=1.0,
-        description="LLM top-p parameter (0.6 optimal)"
+        default=0.6, ge=0.0, le=1.0, description="LLM top-p parameter (0.6 optimal)"
     )
-    llm_top_k: int = Field(
-        default=50,
-        ge=1,
-        le=100,
-        description="LLM top-k parameter"
-    )
+    llm_top_k: int = Field(default=50, ge=1, le=100, description="LLM top-k parameter")
     llm_max_tokens: int = Field(
-        default=2048,
-        ge=100,
-        le=40000,
-        description="Maximum tokens per LLM response"
+        default=2048, ge=100, le=40000, description="Maximum tokens per LLM response"
     )
     llm_timeout: float = Field(
         default=30.0,
         ge=5.0,
         le=120.0,
-        description="Timeout for single LLM call in seconds"
+        description="Timeout for single LLM call in seconds",
     )
 
     # === OUTPUT CONFIGURATION ===
     metrics_output_dir: Optional[str] = Field(
         default=None,
-        description="Directory for saving agent metrics JSON. If None, metrics are not saved to file."
+        description="Directory for saving agent metrics JSON. If None, metrics are not saved to file.",
     )
 
     # === TOOL CONFIGURATION ===
     debug_mode: bool = Field(
-        default=False,
-        description="Enable debug mode for detailed logging"
+        default=False, description="Enable debug mode for detailed logging"
     )
     max_external_attempts: int = Field(
         default=3,
         ge=1,
         le=10,
-        description="Maximum actions outside target app before restart"
+        description="Maximum actions outside target app before restart",
     )
 
     # === LOGGING CONFIGURATION ===
     # debug_mode is a CLI shortcut (--debug flag); log_level is granular config (env: RVAGENT_LOG_LEVEL)
     log_level: str = Field(
-        default="INFO",
-        description="Log level: DEBUG, INFO, WARNING, ERROR"
+        default="INFO", description="Log level: DEBUG, INFO, WARNING, ERROR"
     )
 
     # === COORDINATE CONFIGURATION ===
@@ -132,26 +115,25 @@ class RVAgentConfig(BaseValidatedModel):
         default=RVAgentConstants.COORDINATE_TOLERANCE,
         ge=10,
         le=100,
-        description="Pixel tolerance for coordinate validation (50px validated)"
+        description="Pixel tolerance for coordinate validation (50px validated)",
     )
     # === DEVICE AND SCREENSHOT CONFIGURATION ===
     device_dimensions: tuple[int, int] = Field(
-        default=(1080, 1920),
-        description="Device screen dimensions (width, height)"
+        default=(1080, 1920), description="Device screen dimensions (width, height)"
     )
     optimized_dimensions: tuple[int, int] = Field(
         default=(704, 1248),
-        description="Optimized screenshot dimensions for LLM (multiple of 32 for Qwen3-VL)"
+        description="Optimized screenshot dimensions for LLM (multiple of 32 for Qwen3-VL)",
     )
     screenshot_dir: str = Field(
         default="/tmp/rvagent_screenshots",
-        description="Directory for storing captured screenshots"
+        description="Directory for storing captured screenshots",
     )
     screenshot_rotation_limit: int = Field(
         default=50,
         ge=10,
         le=200,
-        description="Maximum number of screenshots to keep (rotation limit)"
+        description="Maximum number of screenshots to keep (rotation limit)",
     )
 
     # === MEMORY CONFIGURATION ===
@@ -159,47 +141,44 @@ class RVAgentConfig(BaseValidatedModel):
         default=RVAgentConstants.MAX_SHORT_TERM_ITERATIONS,
         ge=3,
         le=20,
-        description="Maximum iterations in short-term memory"
+        description="Maximum iterations in short-term memory",
     )
     max_long_term_states: int = Field(
         default=RVAgentConstants.MAX_LONG_TERM_STATES,
         ge=100,
         le=5000,
-        description="Maximum states in long-term memory"
+        description="Maximum states in long-term memory",
     )
 
     # === EXPLORATION STRATEGY CONFIGURATION ===
     strategy: str = Field(
         default="rvagent",
-        description="Exploration strategy: 'rvagent', 'dfs', 'bfs', 'greedy'"
+        description="Exploration strategy: 'rvagent', 'dfs', 'bfs', 'greedy'",
     )
     seed: Optional[int] = Field(
         default=None,
-        description="Random seed for reproducible exploration. If None, non-deterministic."
+        description="Random seed for reproducible exploration. If None, non-deterministic.",
     )
     plateau_window: int = Field(
-        default=10,
-        ge=5,
-        le=50,
-        description="Plateau detection window size"
+        default=10, ge=5, le=50, description="Plateau detection window size"
     )
     max_input_variations: int = Field(
         default=3,
         ge=1,
         le=10,
-        description="Maximum test value variations per input field"
+        description="Maximum test value variations per input field",
     )
     stochastic_probability: float = Field(
         default=0.15,
         ge=0.0,
         le=1.0,
-        description="Probability of using Gumbel-max stochastic action selection (0=deterministic, 1=always stochastic)"
+        description="Probability of using Gumbel-max stochastic action selection (0=deterministic, 1=always stochastic)",
     )
     stochastic_temperature: float = Field(
         default=1.0,
         ge=0.1,
         le=5.0,
-        description="Temperature for Gumbel-max selection (higher = more random)"
+        description="Temperature for Gumbel-max selection (higher = more random)",
     )
 
     # === FALLBACK CONFIGURATION ===
@@ -207,21 +186,19 @@ class RVAgentConfig(BaseValidatedModel):
         default=2,
         ge=0,
         le=5,
-        description="Max consecutive LLM failures before algorithm fallback"
+        description="Max consecutive LLM failures before algorithm fallback",
     )
     auto_fallback_on_timeout: bool = Field(
-        default=True,
-        description="Automatically fallback to algorithm on LLM timeout"
+        default=True, description="Automatically fallback to algorithm on LLM timeout"
     )
     auto_fallback_on_error: bool = Field(
-        default=True,
-        description="Automatically fallback to algorithm on LLM error"
+        default=True, description="Automatically fallback to algorithm on LLM error"
     )
 
     # === STATIC ANALYSIS ===
     static_analysis_path: Optional[str] = Field(
         default=None,
-        description="Path to static analysis data (GATOR output) for MOP guidance"
+        description="Path to static analysis data (GATOR output) for MOP guidance",
     )
 
     # === SCORER WEIGHTS (Calibration Parameters) ===
@@ -230,13 +207,13 @@ class RVAgentConfig(BaseValidatedModel):
         default=500.0,
         ge=0.0,
         le=1000.0,
-        description="Score for actions directly reaching MOP methods"
+        description="Score for actions directly reaching MOP methods",
     )
     mop_transitive_score: float = Field(
         default=300.0,
         ge=0.0,
         le=500.0,
-        description="Score for actions transitively reaching MOP methods"
+        description="Score for actions transitively reaching MOP methods",
     )
 
     # WtgScorer - prioritizes WTG-guided navigation
@@ -244,7 +221,7 @@ class RVAgentConfig(BaseValidatedModel):
         default=150.0,
         ge=0.0,
         le=500.0,
-        description="Score for WTG-guided actions leading to unvisited screens"
+        description="Score for WTG-guided actions leading to unvisited screens",
     )
 
     # SaturationScorer - bonus for unsaturated states
@@ -252,7 +229,7 @@ class RVAgentConfig(BaseValidatedModel):
         default=100.0,
         ge=0.0,
         le=200.0,
-        description="Bonus score for actions in unsaturated states"
+        description="Bonus score for actions in unsaturated states",
     )
 
     # VisitationPenaltyScorer - penalizes over-visited states
@@ -260,7 +237,7 @@ class RVAgentConfig(BaseValidatedModel):
         default=-15.0,
         le=0.0,
         ge=-50.0,
-        description="Penalty factor for over-visited states (negative value)"
+        description="Penalty factor for over-visited states (negative value)",
     )
 
     # StrengthScorer - historical success rate
@@ -268,7 +245,7 @@ class RVAgentConfig(BaseValidatedModel):
         default=50.0,
         ge=0.0,
         le=200.0,
-        description="Weight for action strength (success rate) scoring"
+        description="Weight for action strength (success rate) scoring",
     )
 
     # GradualDecayScorer - exponential decay by visits
@@ -276,19 +253,16 @@ class RVAgentConfig(BaseValidatedModel):
         default=200.0,
         ge=50.0,
         le=500.0,
-        description="Base score for GradualDecayScorer"
+        description="Base score for GradualDecayScorer",
     )
     gradual_decay_rate: float = Field(
         default=0.7,
         ge=0.3,
         le=0.95,
-        description="Decay rate per visit (0.7 = 70% retention)"
+        description="Decay rate per visit (0.7 = 70% retention)",
     )
     gradual_decay_min_visits: int = Field(
-        default=5,
-        ge=2,
-        le=15,
-        description="Visits after which score becomes zero"
+        default=5, ge=2, le=15, description="Visits after which score becomes zero"
     )
 
     # ComponentPriorityScorer - widget type priorities
@@ -296,13 +270,13 @@ class RVAgentConfig(BaseValidatedModel):
         default=50.0,
         ge=20.0,
         le=100.0,
-        description="Score for high-priority components (buttons, inputs)"
+        description="Score for high-priority components (buttons, inputs)",
     )
     component_medium_priority: float = Field(
         default=40.0,
         ge=10.0,
         le=80.0,
-        description="Score for medium-priority components (toggles, sliders)"
+        description="Score for medium-priority components (toggles, sliders)",
     )
 
     # === SUCCESSOR TRACKER PARAMETERS ===
@@ -310,37 +284,37 @@ class RVAgentConfig(BaseValidatedModel):
         default=6,
         ge=1,
         le=20,
-        description="Maximum times an action can be re-enabled for successor exploration"
+        description="Maximum times an action can be re-enabled for successor exploration",
     )
     ui_coverage_threshold: float = Field(
         default=0.9,
         ge=0.5,
         le=1.0,
-        description="UI coverage threshold (executed_actions/total_actions per screen) for successor re-enablement"
+        description="UI coverage threshold (executed_actions/total_actions per screen) for successor re-enablement",
     )
 
     # === ERROR DETECTION CONFIGURATION ===
     error_detection_enabled: bool = Field(
         default=True,
-        description="Master switch for validation error detection on screen"
+        description="Master switch for validation error detection on screen",
     )
     error_detection_confidence: float = Field(
         default=0.7,
         ge=0.3,
         le=0.95,
-        description="Confidence threshold for error indicator detection [0.3, 0.95]"
+        description="Confidence threshold for error indicator detection [0.3, 0.95]",
     )
     error_max_indicator_size: int = Field(
         default=80,
         ge=30,
         le=200,
-        description="Maximum pixel size for a valid error indicator [30, 200]"
+        description="Maximum pixel size for a valid error indicator [30, 200]",
     )
     error_max_indicator_count: int = Field(
         default=5,
         ge=2,
         le=20,
-        description="Maximum indicators before assuming themed UI (not errors) [2, 20]"
+        description="Maximum indicators before assuming themed UI (not errors) [2, 20]",
     )
 
     # === SPATIAL ASSOCIATION (error-to-input mapping) ===
@@ -348,19 +322,19 @@ class RVAgentConfig(BaseValidatedModel):
         default=1.2,
         ge=1.0,
         le=2.0,
-        description="EditText priority tiebreaker for spatial error-to-input association [1.0, 2.0]"
+        description="EditText priority tiebreaker for spatial error-to-input association [1.0, 2.0]",
     )
     spatial_spinner_boost: float = Field(
         default=1.1,
         ge=1.0,
         le=2.0,
-        description="Spinner priority tiebreaker for spatial error-to-input association [1.0, 2.0]"
+        description="Spinner priority tiebreaker for spatial error-to-input association [1.0, 2.0]",
     )
     spatial_min_match_threshold: float = Field(
         default=0.1,
         ge=0.01,
         le=0.5,
-        description="Minimum score to accept spatial match between error and input [0.01, 0.5]"
+        description="Minimum score to accept spatial match between error and input [0.01, 0.5]",
     )
 
     # === GH26 EXPLORATION STRATEGY PARAMETERS ===
@@ -368,37 +342,37 @@ class RVAgentConfig(BaseValidatedModel):
         default=0.8,
         ge=0.5,
         le=1.0,
-        description="Saturation threshold triggering backtrack (0.8 = backtrack when 80% of actions saturated)"
+        description="Saturation threshold triggering backtrack (0.8 = backtrack when 80% of actions saturated)",
     )
     mop_nav_weight: float = Field(
         default=2.0,
         ge=0.5,
         le=5.0,
-        description="Weight multiplier for MOP-reaching targets in navigation scoring"
+        description="Weight multiplier for MOP-reaching targets in navigation scoring",
     )
     mop_max_input_variations: int = Field(
         default=11,
         ge=5,
         le=15,
-        description="Maximum input value variations for MOP-reaching screens"
+        description="Maximum input value variations for MOP-reaching screens",
     )
     reward_gamma: float = Field(
         default=0.8,
         ge=0.5,
         le=0.99,
-        description="Discount factor for N-step reward propagation (0.8 = 20% decay per step)"
+        description="Discount factor for N-step reward propagation (0.8 = 20% decay per step)",
     )
     reward_score_weight: float = Field(
         default=1.0,
         ge=0.1,
         le=3.0,
-        description="Weight for cumulative_reward influence in StrengthScorer"
+        description="Weight for cumulative_reward influence in StrengthScorer",
     )
     coverage_density_weight: float = Field(
         default=200.0,
         ge=50.0,
         le=400.0,
-        description="CoverageDensityScorer weight for prioritizing screens with untested elements"
+        description="CoverageDensityScorer weight for prioritizing screens with untested elements",
     )
 
     # === EXPLORATION PARAMETERS ===
@@ -406,7 +380,7 @@ class RVAgentConfig(BaseValidatedModel):
         default=0.15,
         ge=0.0,
         le=0.5,
-        description="Probability of scroll action for dynamic content discovery"
+        description="Probability of scroll action for dynamic content discovery",
     )
 
     def get_langchain_config(self) -> Dict[str, Any]:
@@ -439,6 +413,7 @@ class RVAgentConfig(BaseValidatedModel):
             Agent mode: 'pure_algorithm', 'llm_only', or 'multimode'
         """
         import os
+
         env_mode = os.getenv("RVAGENT_MODE")
         valid_modes = ["pure_algorithm", "llm_only", "multimode"]
         if env_mode and env_mode in valid_modes:
@@ -456,6 +431,7 @@ class RVAgentConfig(BaseValidatedModel):
         """
         import os
         import logging
+
         level_str = os.getenv("RVAGENT_LOG_LEVEL", self.log_level).upper()
         return getattr(logging, level_str, logging.INFO)
 
@@ -477,7 +453,9 @@ class RVAgentConfig(BaseValidatedModel):
         return self.model_dump(exclude_unset=False)
 
     @classmethod
-    def create_default(cls, package_name: str, device_id: str = None) -> "RVAgentConfig":
+    def create_default(
+        cls, package_name: str, device_id: str = None
+    ) -> "RVAgentConfig":
         """
         Create configuration with default SGLang parameters.
 

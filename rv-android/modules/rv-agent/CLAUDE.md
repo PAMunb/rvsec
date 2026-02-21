@@ -70,6 +70,10 @@ The tracking module is at `tracking.py`.
 | LEARN | Learning updates | iter, stuck, memory_updated, stuck_reason |
 | LLM | LLM call metrics | iter, tokens_in, tokens_out, time_ms, tool_calls, success |
 | NAV | Navigation guidance | iter, wtg_available, unvisited_targets, suggested_action_id |
+| STRATEGY | Tier selection and routing | iter, mode, action, reason |
+| BACKTRACK | Reactive and proactive backtracking | iter, from_state, to_state, reason, strategy, remaining, target |
+| REWARD | Reward propagation events | iter, type, value, steps |
+| COVERAGE | Coverage-directed navigation | iter, target, potential, hops |
 
 **Usage:**
 ```bash
@@ -94,7 +98,10 @@ grep -v "RVTRACK" agent.log > clean.log
 | DeviceInterface | Android emulator interaction via UIAutomator2 | `agent/device_interface.py` |
 | DynamicStateGraph | Graph-based state tracking with structural hashing | `agent/dynamic_state_graph.py` |
 | LLMClient | Vision LLM communication with SGLang backend | `llm/llm_client.py` |
-| RVAgentStrategy | Coverage-optimized DFS with successor tracking | `strategies/rvagent_strategy/rvagent_strategy.py` |
+| RVAgentStrategy | 5-tier action selection with proactive backtracking | `strategies/rvagent_strategy/rvagent_strategy.py` |
+| PathBuffer | Buffered multi-step navigation (Strategies A/B/C) | `strategies/rvagent_strategy/path_buffer.py` |
+| RewardPropagator | N-step reward propagation with gamma discounting | `strategies/rvagent_strategy/reward_propagator.py` |
+| ActionRanker | Composite scorer with 9 weighted scorers | `strategies/rvagent_strategy/ranking/action_ranker.py` |
 | RoutingManager | Decision routing between LLM and algorithm (stuck detection delegated to learn_node) | `routing/routing_manager.py` |
 | ToolExecutor | Action execution on Android device | `execution/tool_executor.py` |
 | MemoryCoordinator | Multi-component memory management | `memory/memory_coordinator.py` |
@@ -144,14 +151,16 @@ src/rv_agent/
 │   ├── bfs_strategy.py      # Basic BFS strategy
 │   ├── greedy_strategy.py   # Greedy strategy
 │   └── rvagent_strategy/    # Main RVAgent strategy
-│       ├── rvagent_strategy.py   # Coverage-optimized DFS
+│       ├── rvagent_strategy.py   # 5-tier action selection with proactive backtracking
 │       ├── successor_tracker.py  # Successor state tracking
 │       ├── plateau_detector.py   # Stagnation detection
-│       ├── input_value_generator.py # Test value generation
+│       ├── input_value_generator.py # Test value generation (clear-before-type)
 │       ├── coverage_metrics.py   # Coverage tracking
+│       ├── path_buffer.py        # Buffered multi-step navigation (Strategies A/B/C)
+│       ├── reward_propagator.py  # N-step reward propagation with gamma discounting
 │       └── ranking/              # Action ranking system
-│           ├── action_ranker.py  # Composite scorer
-│           ├── scorers.py        # Individual scorers (MOP, WTG, etc.)
+│           ├── action_ranker.py  # Composite scorer (9 active scorers)
+│           ├── scorers.py        # MOP, WTG, Decay, Coverage, Saturation, etc.
 │           └── context.py        # RankingContext dataclass
 │
 ├── llm/                     # LLM interaction
@@ -432,8 +441,14 @@ uv run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --
 | `llm_base_url` | str | http://192.168.0.36:30000/v1 | SGLang server URL |
 | `llm_temperature` | float | 0.01 | LLM temperature (0.01 optimal for tool calling) |
 | `prompt_version` | str | v13 | Prompt version (v12, v13, v14, v15, v16) |
-| `stochastic_probability` | float | 0.3 | Gumbel-max stochastic selection probability |
+| `stochastic_probability` | float | 0.15 | Gumbel-max stochastic selection probability |
 | `stochastic_temperature` | float | 1.0 | Gumbel-max temperature (higher = more random) |
+| `backtrack_saturation_threshold` | float | 0.8 | Saturation threshold triggering proactive backtrack |
+| `mop_nav_weight` | float | 2.0 | Weight for MOP-reaching targets in navigation scoring |
+| `mop_max_input_variations` | int | 11 | Max input value variations for MOP-reaching screens |
+| `reward_gamma` | float | 0.8 | Discount factor for N-step reward propagation |
+| `reward_score_weight` | float | 1.0 | Cumulative reward weight in StrengthScorer |
+| `coverage_density_weight` | float | 200.0 | CoverageDensityScorer weight for untested elements |
 
 ### LLM Configuration (SGLang)
 
@@ -470,19 +485,45 @@ Solution in `tool_call_parser.py`:
 2. If empty, parse from `response.content` (XML/JSON formats)
 3. Supports: XML (Hermes), JSON array, JSON object, markdown, pythonic
 
-### Action Ranking Scorers
+### Action Ranking Scorers (9 scorers)
 
-The `RVAgentStrategy` uses a composite scoring system for action selection:
+The `RVAgentStrategy` uses a composite scoring system with 9 scorers for action selection:
 
 | Scorer | Score Range | Purpose |
 |--------|-------------|---------|
+| MopScorer | +500 (DM), +300 (M) | Prioritize MOP-reaching actions (Tier 4 only, deferred in Tier 2) |
 | GradualDecayScorer | 200 * 0.7^visits (0 after 5) | Exponential decay prevents cliff effect |
-| MopScorer | +100 (DM), +50 (M) | Prioritize MOP-reaching actions |
-| WtgScorer | +100 | Prioritize WTG-guided transitions to unvisited screens |
+| CoverageDensityScorer | 200 * coverage_gap | Prioritize actions leading to screens with untested elements |
+| WtgScorer | +150 | Prioritize WTG-guided transitions to unvisited screens |
+| SaturationScorer | +100 | Bonus for unsaturated states |
 | ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
-| ExecutionCountScorer | 10/(1+count) | Lower count = higher score |
+| StrengthScorer | weight * strength + rsw * cumulative_reward | Historical success rate + reward propagation |
+| SystemElementScorer | -5000 | Deprioritize system elements |
+| VisitationPenaltyScorer | -15 * log(1 + visits) | Logarithmic penalty for over-visited states |
 
-GradualDecayScorer uses exponential decay (70% retention per visit) instead of binary scoring, preventing premature abandonment of partially-tested elements.
+### 5-Tier Action Selection
+
+| Tier | Name | Condition | Behavior |
+|------|------|-----------|----------|
+| 1 | PathBuffer | Buffer has pending actions | Dispense next buffered action |
+| 2 | Untested | Untested actions available | Priority selection (MOP deferred) |
+| 3 | Proactive Backtrack | Saturation >= 0.8 threshold | Plan path: C (coverage) > B (MOP) > A (ancestor) |
+| 4 | Scored Continuous | All actions tested, not saturated | ActionRanker with all 9 scorers |
+| 5 | BACK Fallback | No actions available | Return BACK action |
+
+### PathBuffer (Strategies A/B/C)
+
+PathBuffer stores a sequence of actions and dispenses one per iteration for multi-hop navigation:
+
+| Strategy | Name | Target | Method |
+|----------|------|--------|--------|
+| A | Backtrack | Nearest unsaturated ancestor | BFS on SuccessorTracker.back_successors |
+| B | MOP | Activity with monitored operations | BFS on WTG via TransitionManager |
+| C | Coverage | Ancestor with highest exploration potential | BFS scored by coverage_gap * element_count |
+
+### RewardPropagator
+
+N-step temporal difference reward propagation with gamma discounting. When events occur (MOP reached, new state, etc.), rewards propagate backward through the last N=5 actions. Cumulative rewards are clamped to [-15.0, +15.0] to prevent score inflation.
 
 ### Memory Systems
 

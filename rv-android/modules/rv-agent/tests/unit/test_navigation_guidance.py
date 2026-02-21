@@ -16,10 +16,10 @@ from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.services.transition_manager import TransitionManager
 from rv_agent.services.navigation_guidance import NavigationGuidance, ExplorationContext
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def fixtures_path():
@@ -77,6 +77,7 @@ def mock_screen_description():
 # Test: ExplorationContext
 # =============================================================================
 
+
 class TestExplorationContext:
     """Test ExplorationContext dataclass."""
 
@@ -101,9 +102,7 @@ class TestExplorationContext:
 
     def test_coverage_percent_property(self):
         """coverage_percent property extracts from exploration_progress."""
-        context = ExplorationContext(
-            exploration_progress={"coverage_percent": 45.5}
-        )
+        context = ExplorationContext(exploration_progress={"coverage_percent": 45.5})
 
         assert context.coverage_percent == 45.5
 
@@ -117,6 +116,7 @@ class TestExplorationContext:
 # =============================================================================
 # Test: NavigationGuidance Initialization
 # =============================================================================
+
 
 class TestNavigationGuidanceInit:
     """Test NavigationGuidance initialization."""
@@ -148,6 +148,7 @@ class TestNavigationGuidanceInit:
 # Test: Get Context
 # =============================================================================
 
+
 class TestGetContext:
     """Test get_context method."""
 
@@ -177,9 +178,7 @@ class TestGetContext:
         # MainActivity should have transitions to other screens
         assert len(context.unvisited_screens) > 0
 
-    def test_get_context_disabled_returns_empty_context(
-        self, mock_screen_description
-    ):
+    def test_get_context_disabled_returns_empty_context(self, mock_screen_description):
         """get_context when disabled returns empty context."""
         guidance = NavigationGuidance(None)
         context = guidance.get_context(mock_screen_description)
@@ -207,6 +206,7 @@ class TestGetContext:
 # Test: Format for LLM
 # =============================================================================
 
+
 class TestFormatForLLM:
     """Test format_for_llm method."""
 
@@ -221,8 +221,7 @@ class TestFormatForLLM:
     def test_format_with_unvisited_screens(self, navigation_guidance):
         """format_for_llm includes unvisited screens."""
         context = ExplorationContext(
-            has_guidance=True,
-            unvisited_screens=["SettingsActivity", "HelpActivity"]
+            has_guidance=True, unvisited_screens=["SettingsActivity", "HelpActivity"]
         )
 
         result = navigation_guidance.format_for_llm(context)
@@ -234,8 +233,7 @@ class TestFormatForLLM:
     def test_format_limits_unvisited_screens_to_three(self, navigation_guidance):
         """format_for_llm limits displayed screens to 3."""
         context = ExplorationContext(
-            has_guidance=True,
-            unvisited_screens=[f"Activity{i}" for i in range(10)]
+            has_guidance=True, unvisited_screens=[f"Activity{i}" for i in range(10)]
         )
 
         result = navigation_guidance.format_for_llm(context)
@@ -248,7 +246,7 @@ class TestFormatForLLM:
         context = ExplorationContext(
             has_guidance=True,
             unvisited_screens=["ActivityA"],
-            priority_targets=["CipherActivity"]
+            priority_targets=["CipherActivity"],
         )
 
         result = navigation_guidance.format_for_llm(context)
@@ -261,11 +259,13 @@ class TestFormatForLLM:
         context = ExplorationContext(
             has_guidance=True,
             unvisited_screens=["SettingsActivity"],
-            suggested_actions=[{
-                "action_type": "click",
-                "action_text": "Settings button",
-                "target_activity": "SettingsActivity"
-            }]
+            suggested_actions=[
+                {
+                    "action_type": "click",
+                    "action_text": "Settings button",
+                    "target_activity": "SettingsActivity",
+                }
+            ],
         )
 
         result = navigation_guidance.format_for_llm(context)
@@ -278,7 +278,7 @@ class TestFormatForLLM:
         context = ExplorationContext(
             has_guidance=True,
             unvisited_screens=["ActivityA"],
-            exploration_progress={"coverage_percent": 33.3}
+            exploration_progress={"coverage_percent": 33.3},
         )
 
         result = navigation_guidance.format_for_llm(context)
@@ -290,6 +290,7 @@ class TestFormatForLLM:
 # =============================================================================
 # Test: Format for LLM Compact
 # =============================================================================
+
 
 class TestFormatForLLMCompact:
     """Test format_for_llm_compact method."""
@@ -305,8 +306,7 @@ class TestFormatForLLMCompact:
     def test_compact_format_with_screens(self, navigation_guidance):
         """Compact format returns one-line hint."""
         context = ExplorationContext(
-            has_guidance=True,
-            unvisited_screens=["SettingsActivity", "HelpActivity"]
+            has_guidance=True, unvisited_screens=["SettingsActivity", "HelpActivity"]
         )
 
         result = navigation_guidance.format_for_llm_compact(context)
@@ -319,10 +319,9 @@ class TestFormatForLLMCompact:
         context = ExplorationContext(
             has_guidance=True,
             unvisited_screens=["SettingsActivity"],
-            suggested_actions=[{
-                "action_text": "Settings",
-                "target_activity": "SettingsActivity"
-            }]
+            suggested_actions=[
+                {"action_text": "Settings", "target_activity": "SettingsActivity"}
+            ],
         )
 
         result = navigation_guidance.format_for_llm_compact(context)
@@ -334,6 +333,7 @@ class TestFormatForLLMCompact:
 # =============================================================================
 # Test: Get Summary
 # =============================================================================
+
 
 class TestGetSummary:
     """Test get_summary method."""
@@ -360,6 +360,7 @@ class TestGetSummary:
 # =============================================================================
 # Test: Activity Name Formatting
 # =============================================================================
+
 
 class TestActivityNameFormatting:
     """Test _format_activity_name helper."""
@@ -395,12 +396,11 @@ class TestActivityNameFormatting:
 # Test: Integration with Real Data
 # =============================================================================
 
+
 class TestIntegrationWithRealData:
     """Integration tests with real static analysis data."""
 
-    def test_full_workflow(
-        self, navigation_guidance, mock_screen_description
-    ):
+    def test_full_workflow(self, navigation_guidance, mock_screen_description):
         """Test complete workflow: get context, format for LLM."""
         # Get context
         context = navigation_guidance.get_context(mock_screen_description)
@@ -416,9 +416,7 @@ class TestIntegrationWithRealData:
         assert "Navigation guidance:" in llm_text
         assert "Unvisited screens" in llm_text
 
-    def test_consecutive_contexts(
-        self, navigation_guidance, mock_screen_description
-    ):
+    def test_consecutive_contexts(self, navigation_guidance, mock_screen_description):
         """Test getting context multiple times."""
         # First context
         context1 = navigation_guidance.get_context(mock_screen_description)

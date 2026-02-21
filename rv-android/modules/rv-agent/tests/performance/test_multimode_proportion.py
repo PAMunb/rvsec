@@ -14,7 +14,6 @@ from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.routing.routing_manager import RoutingManager
 
-
 pytestmark = [pytest.mark.performance]
 
 
@@ -22,13 +21,14 @@ pytestmark = [pytest.mark.performance]
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def multimode_config():
     """Create multimode configuration."""
     return RVAgentConfig(
         package_name="com.example.test",
         agent_mode="multimode",
-        llm_probability=0.7  # 70% LLM
+        llm_probability=0.7,  # 70% LLM
     )
 
 
@@ -39,7 +39,7 @@ def mock_fallback_manager():
     manager.get_fallback_action.return_value = {
         "action_type": "CLICK",
         "x": 100,
-        "y": 200
+        "y": 200,
     }
     return manager
 
@@ -50,13 +50,14 @@ def routing_manager(multimode_config, mock_fallback_manager):
     return RoutingManager(
         config=multimode_config,
         fallback_manager=mock_fallback_manager,
-        exploration_strategy=None
+        exploration_strategy=None,
     )
 
 
 # =============================================================================
 # Proportion Tests
 # =============================================================================
+
 
 class TestMultimodeProportions:
     """Tests for multimode LLM/algorithm proportions."""
@@ -111,19 +112,16 @@ class TestMultimodeProportions:
 class TestPureAlgorithmMode:
     """Tests for pure algorithm mode."""
 
-    def test_pure_algorithm_always_returns_algorithm(
-        self, mock_fallback_manager
-    ):
+    def test_pure_algorithm_always_returns_algorithm(self, mock_fallback_manager):
         """Test that pure_algorithm mode always routes to algorithm."""
         config = RVAgentConfig(
-            package_name="com.example.test",
-            agent_mode="pure_algorithm"
+            package_name="com.example.test", agent_mode="pure_algorithm"
         )
 
         manager = RoutingManager(
             config=config,
             fallback_manager=mock_fallback_manager,
-            exploration_strategy=None
+            exploration_strategy=None,
         )
 
         for i in range(10):
@@ -134,19 +132,14 @@ class TestPureAlgorithmMode:
 class TestLLMOnlyMode:
     """Tests for LLM-only mode."""
 
-    def test_llm_only_always_returns_llm(
-        self, mock_fallback_manager
-    ):
+    def test_llm_only_always_returns_llm(self, mock_fallback_manager):
         """Test that llm_only mode always routes to LLM."""
-        config = RVAgentConfig(
-            package_name="com.example.test",
-            agent_mode="llm_only"
-        )
+        config = RVAgentConfig(package_name="com.example.test", agent_mode="llm_only")
 
         manager = RoutingManager(
             config=config,
             fallback_manager=mock_fallback_manager,
-            exploration_strategy=None
+            exploration_strategy=None,
         )
 
         for i in range(10):
@@ -159,8 +152,8 @@ class TestRecoveryMode:
 
     def test_recovery_mode_exists(self, routing_manager):
         """Test that recovery mode attributes exist."""
-        assert hasattr(routing_manager, 'recovery_mode_active')
-        assert hasattr(routing_manager, 'consecutive_llm_failures')
+        assert hasattr(routing_manager, "recovery_mode_active")
+        assert hasattr(routing_manager, "consecutive_llm_failures")
 
     def test_recovery_threshold_constant(self):
         """Test recovery threshold constant is defined."""
@@ -172,6 +165,7 @@ class TestRecoveryMode:
 # Statistical Tests
 # =============================================================================
 
+
 class TestStatisticalProperties:
     """Tests for statistical properties of routing."""
 
@@ -180,14 +174,14 @@ class TestStatisticalProperties:
         # RoutingManager should have some way to get statistics
         # Check common method names
         has_stats = (
-            hasattr(routing_manager, 'get_statistics') or
-            hasattr(routing_manager, 'get_routing_stats') or
-            hasattr(routing_manager, 'get_stats')
+            hasattr(routing_manager, "get_statistics")
+            or hasattr(routing_manager, "get_routing_stats")
+            or hasattr(routing_manager, "get_stats")
         )
 
         # The counters themselves can be used for statistics
-        assert hasattr(routing_manager, 'llm_executed')
-        assert hasattr(routing_manager, 'algorithm_chosen')
+        assert hasattr(routing_manager, "llm_executed")
+        assert hasattr(routing_manager, "algorithm_chosen")
 
     def test_counter_initialization(self, routing_manager):
         """Test that counters start at zero."""

@@ -39,9 +39,7 @@ class ToolExecutor:
     """
 
     def __init__(
-        self,
-        device: DeviceInterface,
-        image_handler: Optional[ImageHandler] = None
+        self, device: DeviceInterface, image_handler: Optional[ImageHandler] = None
     ):
         """
         Initialize tool executor.
@@ -76,7 +74,9 @@ class ToolExecutor:
         """
         action_type = action.get("action_type", "UNKNOWN")
 
-        self.logger.info(f"Executing action: {action_type} (source={action.get('source', 'unknown')})")
+        self.logger.info(
+            f"Executing action: {action_type} (source={action.get('source', 'unknown')})"
+        )
 
         try:
             if action_type == "CLICK":
@@ -91,7 +91,12 @@ class ToolExecutor:
                 result = self._execute_drag(action)
             elif action_type == "SCROLL":
                 result = self._execute_scroll(action)
-            elif action_type in ("SCROLL_UP", "SCROLL_DOWN", "SCROLL_LEFT", "SCROLL_RIGHT"):
+            elif action_type in (
+                "SCROLL_UP",
+                "SCROLL_DOWN",
+                "SCROLL_LEFT",
+                "SCROLL_RIGHT",
+            ):
                 result = self._execute_directional_scroll(action_type)
             elif action_type == "BACK":
                 result = self._execute_back()
@@ -110,7 +115,7 @@ class ToolExecutor:
                 self.logger.warning(f"Unknown action type: {action_type}")
                 result = {
                     "success": False,
-                    "error": f"Unknown action type: {action_type}"
+                    "error": f"Unknown action type: {action_type}",
                 }
 
             result["action_executed"] = action
@@ -150,12 +155,10 @@ class ToolExecutor:
 
         if not text:
             self.logger.warning("SET_TEXT action with no text")
-            return {
-                "success": False,
-                "error": "No text provided for SET_TEXT"
-            }
+            return {"success": False, "error": "No text provided for SET_TEXT"}
 
         self.device.click(x, y)
+        self.device.clear_text()
         self.device.input_text(text)
         self.logger.debug(f"Typed '{text}' at ({x}, {y})")
 
@@ -171,7 +174,9 @@ class ToolExecutor:
             start_x, start_y = swipe_start
             end_x, end_y = swipe_end
             self.device.swipe(start_x, start_y, end_x, end_y)
-            self.logger.debug(f"Swiped from ({start_x}, {start_y}) to ({end_x}, {end_y})")
+            self.logger.debug(
+                f"Swiped from ({start_x}, {start_y}) to ({end_x}, {end_y})"
+            )
         else:
             # Fallback to direction-based scroll
             direction = action.get("direction", "down")
@@ -196,10 +201,12 @@ class ToolExecutor:
         swipe_end = action.get("swipe_end")
 
         if not swipe_start or not swipe_end:
-            self.logger.warning("DRAG action missing swipe_start or swipe_end coordinates")
+            self.logger.warning(
+                "DRAG action missing swipe_start or swipe_end coordinates"
+            )
             return {
                 "success": False,
-                "error": "DRAG requires swipe_start and swipe_end coordinates"
+                "error": "DRAG requires swipe_start and swipe_end coordinates",
             }
 
         start_x, start_y = swipe_start
@@ -216,7 +223,7 @@ class ToolExecutor:
             "SCROLL_UP": "up",
             "SCROLL_DOWN": "down",
             "SCROLL_LEFT": "left",
-            "SCROLL_RIGHT": "right"
+            "SCROLL_RIGHT": "right",
         }
 
         direction = direction_map.get(action_type, "down")
@@ -254,7 +261,7 @@ class ToolExecutor:
             self.logger.warning("RESTART_APP action with no package name")
             return {
                 "success": False,
-                "error": "No package name provided for RESTART_APP"
+                "error": "No package name provided for RESTART_APP",
             }
 
         self.device.stop_app(package)

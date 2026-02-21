@@ -37,9 +37,7 @@ class ExplorationStrategy(ABC):
 
     @abstractmethod
     def select_next_action(
-        self,
-        current_hash: str,
-        screen_desc: ScreenDescription
+        self, current_hash: str, screen_desc: ScreenDescription
     ) -> Optional[ItemAction]:
         """
         Select next action to execute based on traversal algorithm.
@@ -60,12 +58,7 @@ class ExplorationStrategy(ABC):
         pass
 
     @abstractmethod
-    def record_transition(
-        self,
-        from_hash: str,
-        to_hash: str,
-        action: ItemAction
-    ):
+    def record_transition(self, from_hash: str, to_hash: str, action: ItemAction):
         """
         Record state transition for strategy bookkeeping.
 
@@ -145,9 +138,8 @@ class ExplorationStrategy(ABC):
         Returns:
             True if action has MOP marker
         """
-        return (
-            getattr(action, 'directly_reaches_mop', False) or
-            getattr(action, 'reaches_mop', False)
+        return getattr(action, "directly_reaches_mop", False) or getattr(
+            action, "reaches_mop", False
         )
 
     def _is_direct_mop(self, action: ItemAction) -> bool:
@@ -160,13 +152,10 @@ class ExplorationStrategy(ABC):
         Returns:
             True if action directly reaches MOP
         """
-        return getattr(action, 'directly_reaches_mop', False)
+        return getattr(action, "directly_reaches_mop", False)
 
     def _try_generate_text_input(
-        self,
-        screen_desc: ScreenDescription,
-        node,
-        probability: float = 0.2
+        self, screen_desc: ScreenDescription, node, probability: float = 0.2
     ) -> Optional[ItemAction]:
         """
         Try to generate SET_TEXT action for EditText fields.
@@ -198,10 +187,10 @@ class ExplorationStrategy(ABC):
         # Filter for EditText elements
         text_fields = []
         for item in screen_desc.items:
-            elem_class = item.view.get('class', '')
-            if 'EditText' in elem_class or 'AutoCompleteTextView' in elem_class:
+            elem_class = item.view.get("class", "")
+            if "EditText" in elem_class or "AutoCompleteTextView" in elem_class:
                 # Get coordinates for this EditText
-                bounds = item.view.get('bounds')
+                bounds = item.view.get("bounds")
                 if bounds and len(bounds) == 2:
                     x1, y1 = bounds[0]
                     x2, y2 = bounds[1]
@@ -214,53 +203,61 @@ class ExplorationStrategy(ABC):
 
                     # Convert to optimized space for comparison
                     from rv_agent.services import coordinate_utils
+
                     opt_x, opt_y = coordinate_utils.device_to_optimized(
-                        center_x, center_y,
+                        center_x,
+                        center_y,
                         (1080, 1920),  # device dimensions
-                        (704, 1248)    # optimized dimensions
+                        (704, 1248),  # optimized dimensions
                     )
                     opt_signature = ((opt_x, opt_y), "SET_TEXT")
 
                     # Only consider if not yet executed
                     if opt_signature not in node.executed_actions:
-                        text_fields.append({
-                            'item': item,
-                            'center_x': center_x,
-                            'center_y': center_y,
-                            'signature': signature
-                        })
+                        text_fields.append(
+                            {
+                                "item": item,
+                                "center_x": center_x,
+                                "center_y": center_y,
+                                "signature": signature,
+                            }
+                        )
 
         if not text_fields:
             return None
 
         # Select first untested EditText
         target = text_fields[0]
-        item = target['item']
+        item = target["item"]
 
         # Infer appropriate text based on hints
-        hint = item.view.get('content_desc', '').lower()
-        hint += " " + item.view.get('hint', '').lower()
-        hint += " " + item.view.get('text', '').lower()
-        hint += " " + item.view.get('resource_id', '').lower()
+        hint = item.view.get("content_desc", "").lower()
+        hint += " " + item.view.get("hint", "").lower()
+        hint += " " + item.view.get("text", "").lower()
+        hint += " " + item.view.get("resource_id", "").lower()
 
         # Determine text based on hints
-        if 'email' in hint or 'e-mail' in hint or 'mail' in hint:
+        if "email" in hint or "e-mail" in hint or "mail" in hint:
             text = "test@example.com"
-        elif 'passw' in hint or 'senha' in hint or 'pwd' in hint:
+        elif "passw" in hint or "senha" in hint or "pwd" in hint:
             text = "Test123!"
-        elif 'name' in hint or 'nome' in hint or 'usuario' in hint or 'user' in hint:
+        elif "name" in hint or "nome" in hint or "usuario" in hint or "user" in hint:
             text = "TestUser"
-        elif 'phone' in hint or 'tel' in hint or 'fone' in hint or 'celular' in hint:
+        elif "phone" in hint or "tel" in hint or "fone" in hint or "celular" in hint:
             text = "5511999999999"
-        elif 'search' in hint or 'busca' in hint or 'pesquis' in hint or 'query' in hint:
+        elif (
+            "search" in hint or "busca" in hint or "pesquis" in hint or "query" in hint
+        ):
             text = "test"
-        elif 'url' in hint or 'site' in hint or 'web' in hint or 'link' in hint:
+        elif "url" in hint or "site" in hint or "web" in hint or "link" in hint:
             text = "https://example.com"
-        elif 'number' in hint or 'numero' in hint or 'num' in hint:
+        elif "number" in hint or "numero" in hint or "num" in hint:
             text = "123"
-        elif 'age' in hint or 'idade' in hint:
+        elif "age" in hint or "idade" in hint:
             text = "25"
-        elif 'message' in hint or 'mensagem' in hint or 'texto' in hint or 'note' in hint:
+        elif (
+            "message" in hint or "mensagem" in hint or "texto" in hint or "note" in hint
+        ):
             text = "Test message"
         else:
             # Generic text for unknown fields
@@ -272,27 +269,27 @@ class ExplorationStrategy(ABC):
         from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
 
         # Use hash of signature as unique int id
-        action_id = hash(target['signature']) & 0x7FFFFFFF  # Ensure positive int
+        action_id = hash(target["signature"]) & 0x7FFFFFFF  # Ensure positive int
 
         text_action = ItemAction(
             id=action_id,
             text=f"SET_TEXT ({text})",  # Action description in standard format
             event=WidgetEventType.TEXT_CHANGE,  # Text input event type
             target_view=item.view,
-            coordinates=(target['center_x'], target['center_y'])
+            coordinates=(target["center_x"], target["center_y"]),
         )
 
         import logging
+
         logger = logging.getLogger(__name__)
-        resource_id = item.view.get('resource_id', 'EditText').split('/')[-1]
+        resource_id = item.view.get("resource_id", "EditText").split("/")[-1]
         logger.info(f"📝 Algorithm generating SET_TEXT: '{text}' for {resource_id}")
         logger.info(f"   Hint analysis: {hint[:100]}...")
 
         return text_action
 
     def _detect_scrollable_containers(
-        self,
-        screen_desc: ScreenDescription
+        self, screen_desc: ScreenDescription
     ) -> List[Dict[str, Any]]:
         """
         Detect scrollable containers in the current screen.
@@ -315,25 +312,26 @@ class ExplorationStrategy(ABC):
             - direction: 'vertical', 'horizontal', or 'both'
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         # Scrollable container types (ordered: more specific patterns first)
         # HorizontalScrollView must come before ScrollView to avoid false matches
         SCROLLABLE_TYPES = [
-            ('HorizontalScrollView', 'horizontal'),
-            ('NestedScrollView', 'vertical'),
-            ('RecyclerView', 'vertical'),
-            ('ScrollView', 'vertical'),
-            ('ListView', 'vertical'),
-            ('ViewPager2', 'horizontal'),
-            ('ViewPager', 'horizontal'),
+            ("HorizontalScrollView", "horizontal"),
+            ("NestedScrollView", "vertical"),
+            ("RecyclerView", "vertical"),
+            ("ScrollView", "vertical"),
+            ("ListView", "vertical"),
+            ("ViewPager2", "horizontal"),
+            ("ViewPager", "horizontal"),
         ]
 
         scrollables = []
 
         for item in screen_desc.items:
             view = item.view
-            elem_class = view.get('class', '')
+            elem_class = view.get("class", "")
 
             # Check if this is a scrollable container
             scrollable_type = None
@@ -346,12 +344,12 @@ class ExplorationStrategy(ABC):
                     break
 
             # Also check scrollable attribute
-            if not scrollable_type and view.get('scrollable', False):
-                scrollable_type = 'scrollable'
-                direction = 'vertical'  # Default to vertical
+            if not scrollable_type and view.get("scrollable", False):
+                scrollable_type = "scrollable"
+                direction = "vertical"  # Default to vertical
 
             if scrollable_type:
-                bounds = view.get('bounds', [])
+                bounds = view.get("bounds", [])
                 if bounds and len(bounds) == 2:
                     x1, y1 = bounds[0]
                     x2, y2 = bounds[1]
@@ -364,15 +362,17 @@ class ExplorationStrategy(ABC):
                     if width < 100 or height < 100:
                         continue
 
-                    scrollables.append({
-                        'bounds': bounds,
-                        'center': (center_x, center_y),
-                        'scrollable_type': scrollable_type,
-                        'direction': direction,
-                        'resource_id': view.get('resource_id', ''),
-                        'width': width,
-                        'height': height
-                    })
+                    scrollables.append(
+                        {
+                            "bounds": bounds,
+                            "center": (center_x, center_y),
+                            "scrollable_type": scrollable_type,
+                            "direction": direction,
+                            "resource_id": view.get("resource_id", ""),
+                            "width": width,
+                            "height": height,
+                        }
+                    )
 
                     logger.debug(
                         f"Found scrollable: {scrollable_type} at ({center_x}, {center_y}) "
@@ -386,7 +386,7 @@ class ExplorationStrategy(ABC):
         screen_desc: ScreenDescription,
         node,
         scrolled_positions: set,
-        probability: float = 0.3
+        probability: float = 0.3,
     ) -> Optional[ItemAction]:
         """
         Try to generate SWIPE action for scrollable containers.
@@ -406,6 +406,7 @@ class ExplorationStrategy(ABC):
         """
         import random
         import logging
+
         logger = logging.getLogger(__name__)
 
         # Probability gate
@@ -419,12 +420,12 @@ class ExplorationStrategy(ABC):
             return None
 
         # Filter out already-scrolled containers
-        screen_hash = getattr(node, 'screen_hash', 'unknown')
+        screen_hash = getattr(node, "screen_hash", "unknown")
         unscrolled = []
 
         for container in scrollables:
             container_id = f"{container['resource_id']}|{container['bounds']}"
-            scroll_key = (screen_hash, container_id, container['direction'])
+            scroll_key = (screen_hash, container_id, container["direction"])
 
             if scroll_key not in scrolled_positions:
                 unscrolled.append((container, container_id))
@@ -437,23 +438,23 @@ class ExplorationStrategy(ABC):
         target_container, container_id = unscrolled[0]
 
         # Calculate swipe coordinates based on direction
-        center_x, center_y = target_container['center']
+        center_x, center_y = target_container["center"]
 
-        if target_container['direction'] == 'vertical':
+        if target_container["direction"] == "vertical":
             # Swipe up to scroll down (reveal more content below)
             start_x = center_x
-            start_y = center_y + target_container['height'] // 4  # Start lower
+            start_y = center_y + target_container["height"] // 4  # Start lower
             end_x = center_x
-            end_y = center_y - target_container['height'] // 4  # End higher
+            end_y = center_y - target_container["height"] // 4  # End higher
         else:  # horizontal
             # Swipe left to scroll right (reveal more content to the right)
-            start_x = center_x + target_container['width'] // 4
+            start_x = center_x + target_container["width"] // 4
             start_y = center_y
-            end_x = center_x - target_container['width'] // 4
+            end_x = center_x - target_container["width"] // 4
             end_y = center_y
 
         # Mark as scrolled
-        scroll_key = (screen_hash, container_id, target_container['direction'])
+        scroll_key = (screen_hash, container_id, target_container["direction"])
         scrolled_positions.add(scroll_key)
 
         # Create SWIPE ItemAction
@@ -467,11 +468,11 @@ class ExplorationStrategy(ABC):
             text=f"SWIPE ({target_container['direction']})",
             event=WidgetEventType.SCROLL,
             target_view={
-                'class': target_container['scrollable_type'],
-                'bounds': target_container['bounds'],
-                'resource_id': target_container['resource_id'],
-                'swipe_start': (start_x, start_y),
-                'swipe_end': (end_x, end_y),
+                "class": target_container["scrollable_type"],
+                "bounds": target_container["bounds"],
+                "resource_id": target_container["resource_id"],
+                "swipe_start": (start_x, start_y),
+                "swipe_end": (end_x, end_y),
             },
             coordinates=(start_x, start_y),  # Start coordinates
         )

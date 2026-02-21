@@ -18,13 +18,13 @@ from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.memory.agent_memory import AgentMemoryManager
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
-
 pytestmark = pytest.mark.unit
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_graph():
@@ -67,7 +67,9 @@ def mock_agent_memory():
 
 
 @pytest.fixture
-def coordinator(mock_graph, mock_short_term, mock_long_term, mock_ui_coverage, mock_agent_memory):
+def coordinator(
+    mock_graph, mock_short_term, mock_long_term, mock_ui_coverage, mock_agent_memory
+):
     """MemoryCoordinator with all mocked dependencies."""
     return MemoryCoordinator(
         dynamic_graph=mock_graph,
@@ -75,7 +77,7 @@ def coordinator(mock_graph, mock_short_term, mock_long_term, mock_ui_coverage, m
         long_term_memory=mock_long_term,
         ui_coverage=mock_ui_coverage,
         agent_memory=mock_agent_memory,
-        action_window_size=10
+        action_window_size=10,
     )
 
 
@@ -83,10 +85,7 @@ def coordinator(mock_graph, mock_short_term, mock_long_term, mock_ui_coverage, m
 def screen_desc():
     """Screen description with items."""
     item = MagicMock()
-    item.view = {
-        "resource_id": "btn_ok",
-        "class": "android.widget.Button"
-    }
+    item.view = {"resource_id": "btn_ok", "class": "android.widget.Button"}
 
     desc = MagicMock(spec=ScreenDescription)
     desc.items = [item]
@@ -96,6 +95,7 @@ def screen_desc():
 # =============================================================================
 # Initialization Tests
 # =============================================================================
+
 
 class TestMemoryCoordinatorInit:
     """Test MemoryCoordinator initialization."""
@@ -109,14 +109,16 @@ class TestMemoryCoordinatorInit:
         assert coordinator.agent_memory is not None
         assert coordinator.action_window_size == 10
 
-    def test_initialization_without_long_term(self, mock_graph, mock_short_term, mock_ui_coverage, mock_agent_memory):
+    def test_initialization_without_long_term(
+        self, mock_graph, mock_short_term, mock_ui_coverage, mock_agent_memory
+    ):
         """Coordinator works without LongTermMemory."""
         coordinator = MemoryCoordinator(
             dynamic_graph=mock_graph,
             short_term_memory=mock_short_term,
             long_term_memory=None,  # No long-term memory
             ui_coverage=mock_ui_coverage,
-            agent_memory=mock_agent_memory
+            agent_memory=mock_agent_memory,
         )
 
         assert coordinator.long_term is None
@@ -125,6 +127,7 @@ class TestMemoryCoordinatorInit:
 # =============================================================================
 # Update Memories Tests
 # =============================================================================
+
 
 class TestUpdateMemories:
     """Test update_memories method."""
@@ -138,7 +141,7 @@ class TestUpdateMemories:
             action=None,
             llm_reasoning="Test reasoning",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -147,12 +150,7 @@ class TestUpdateMemories:
 
     def test_update_memories_with_action(self, coordinator, screen_desc):
         """update_memories records action in graph."""
-        action = {
-            "action_type": "CLICK",
-            "x": 100,
-            "y": 200,
-            "id": "action_1"
-        }
+        action = {"action_type": "CLICK", "x": 100, "y": 200, "id": "action_1"}
 
         coordinator.update_memories(
             current_screen_hash="hash123",
@@ -161,7 +159,7 @@ class TestUpdateMemories:
             action=action,
             llm_reasoning="Click OK",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         coordinator.dynamic_graph.record_action_to_trace.assert_called()
@@ -178,7 +176,7 @@ class TestUpdateMemories:
             action=action,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert len(result["recent_action_window"]) == 1
@@ -188,10 +186,7 @@ class TestUpdateMemories:
         """update_memories limits action window size."""
         coordinator.action_window_size = 3
 
-        existing_window = [
-            {"action_type": "CLICK", "x": i, "y": i}
-            for i in range(3)
-        ]
+        existing_window = [{"action_type": "CLICK", "x": i, "y": i} for i in range(3)]
         new_action = {"action_type": "SCROLL", "direction": "down"}
 
         result = coordinator.update_memories(
@@ -201,7 +196,7 @@ class TestUpdateMemories:
             action=new_action,
             llm_reasoning="Test",
             iteration=4,
-            recent_action_window=existing_window
+            recent_action_window=existing_window,
         )
 
         # Window should be limited to 3
@@ -211,11 +206,7 @@ class TestUpdateMemories:
 
     def test_update_memories_with_llm_coords(self, coordinator, screen_desc):
         """update_memories handles llm_coords format."""
-        action = {
-            "action_type": "click",
-            "llm_coords": (352, 624),
-            "id": "action_1"
-        }
+        action = {"action_type": "click", "llm_coords": (352, 624), "id": "action_1"}
 
         coordinator.update_memories(
             current_screen_hash="hash123",
@@ -224,7 +215,7 @@ class TestUpdateMemories:
             action=action,
             llm_reasoning="Click",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         # Should use llm_coords for action signature
@@ -254,12 +245,13 @@ class TestUpdateMemories:
                 action=action,
                 llm_reasoning="Test",
                 iteration=1,
-                recent_action_window=[]
+                recent_action_window=[],
             )
 
             call_args = coordinator.dynamic_graph.record_action.call_args
-            assert call_args[1]["action_signature"][1] == expected_type, \
-                f"Expected {expected_type} for {raw_type}"
+            assert (
+                call_args[1]["action_signature"][1] == expected_type
+            ), f"Expected {expected_type} for {raw_type}"
 
     def test_update_memories_ui_coverage_per_element(self, coordinator, screen_desc):
         """update_memories no longer records UI coverage per element (moved to execute_node/parse_node)."""
@@ -276,21 +268,28 @@ class TestUpdateMemories:
             action=None,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         # record_interaction is no longer called from MemoryCoordinator
         # (visibility tracked via parse_node, interactions via execute_node)
         coordinator.ui_coverage.record_interaction.assert_not_called()
 
-    def test_update_memories_long_term_optional(self, mock_graph, mock_short_term, mock_ui_coverage, mock_agent_memory, screen_desc):
+    def test_update_memories_long_term_optional(
+        self,
+        mock_graph,
+        mock_short_term,
+        mock_ui_coverage,
+        mock_agent_memory,
+        screen_desc,
+    ):
         """update_memories works when long_term is None."""
         coordinator = MemoryCoordinator(
             dynamic_graph=mock_graph,
             short_term_memory=mock_short_term,
             long_term_memory=None,
             ui_coverage=mock_ui_coverage,
-            agent_memory=mock_agent_memory
+            agent_memory=mock_agent_memory,
         )
 
         result = coordinator.update_memories(
@@ -300,7 +299,7 @@ class TestUpdateMemories:
             action=None,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -309,6 +308,7 @@ class TestUpdateMemories:
 # =============================================================================
 # Generate Summaries Tests
 # =============================================================================
+
 
 class TestGenerateSummaries:
     """Test generate_summaries method."""
@@ -319,7 +319,7 @@ class TestGenerateSummaries:
             action=None,
             current_activity="MainActivity",
             visited_states=["hash1"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         assert "action_history_summary" in summaries
@@ -335,7 +335,7 @@ class TestGenerateSummaries:
             action=action,
             current_activity="MainActivity",
             visited_states=["hash1"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         coordinator.agent_memory.record_action.assert_called_once()
@@ -346,26 +346,27 @@ class TestGenerateSummaries:
             action={"action_type": "CLICK"},
             current_activity="Main",
             visited_states=["hash1", "hash2"],
-            state_transitions=[("hash1", "hash2")]
+            state_transitions=[("hash1", "hash2")],
         )
 
         coordinator.agent_memory.get_action_history_summary.assert_called_once()
         coordinator.agent_memory.get_exploration_summary.assert_called_once_with(
-            visited_states=["hash1", "hash2"],
-            state_transitions=[("hash1", "hash2")]
+            visited_states=["hash1", "hash2"], state_transitions=[("hash1", "hash2")]
         )
         coordinator.agent_memory.get_memory_insights.assert_called_once_with("Main")
         coordinator.agent_memory.get_navigation_path.assert_called_once()
 
     def test_generate_summaries_error_handling(self, coordinator):
         """generate_summaries returns fallback on error."""
-        coordinator.agent_memory.get_action_history_summary.side_effect = Exception("Test error")
+        coordinator.agent_memory.get_action_history_summary.side_effect = Exception(
+            "Test error"
+        )
 
         summaries = coordinator.generate_summaries(
             action=None,
             current_activity="Main",
             visited_states=[],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         # Should return fallback summaries
@@ -376,6 +377,7 @@ class TestGenerateSummaries:
 # Track State Discovery Tests
 # =============================================================================
 
+
 class TestTrackStateDiscovery:
     """Test track_state_discovery method."""
 
@@ -385,7 +387,7 @@ class TestTrackStateDiscovery:
             current_hash="hash_new",
             previous_hash=None,
             visited_states=[],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         assert result["new_state_discovered"] is True
@@ -397,7 +399,7 @@ class TestTrackStateDiscovery:
             current_hash="hash_existing",
             previous_hash=None,
             visited_states=["hash_existing"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         assert result["new_state_discovered"] is False
@@ -409,7 +411,7 @@ class TestTrackStateDiscovery:
             current_hash="hash2",
             previous_hash="hash1",
             visited_states=["hash1", "hash2"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         assert result["new_transition_discovered"] is True
@@ -421,7 +423,7 @@ class TestTrackStateDiscovery:
             current_hash="hash2",
             previous_hash="hash1",
             visited_states=["hash1", "hash2"],
-            state_transitions=[("hash1", "hash2")]
+            state_transitions=[("hash1", "hash2")],
         )
 
         assert result["new_transition_discovered"] is False
@@ -433,7 +435,7 @@ class TestTrackStateDiscovery:
             current_hash="hash1",
             previous_hash="hash1",  # Same state
             visited_states=["hash1"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         assert result["new_transition_discovered"] is False
@@ -444,6 +446,7 @@ class TestTrackStateDiscovery:
 # Check Continuation Tests
 # =============================================================================
 
+
 class TestCheckContinuation:
     """Test check_continuation method."""
 
@@ -452,8 +455,7 @@ class TestCheckContinuation:
         start_time = time.time()
 
         result = coordinator.check_continuation(
-            start_time=start_time,
-            timeout=180.0  # 3 minutes
+            start_time=start_time, timeout=180.0  # 3 minutes
         )
 
         assert result["should_continue"] is True
@@ -465,8 +467,7 @@ class TestCheckContinuation:
         start_time = time.time() - 200  # 200 seconds ago
 
         result = coordinator.check_continuation(
-            start_time=start_time,
-            timeout=180.0  # 3 minutes
+            start_time=start_time, timeout=180.0  # 3 minutes
         )
 
         assert result["should_continue"] is False
@@ -478,6 +479,7 @@ class TestCheckContinuation:
 # Get All Statistics Tests
 # =============================================================================
 
+
 class TestGetAllStatistics:
     """Test get_all_statistics method."""
 
@@ -486,12 +488,8 @@ class TestGetAllStatistics:
         coordinator.ui_coverage.get_overall_statistics.return_value = {
             "total_unique_elements": 10
         }
-        coordinator.short_term.get_statistics.return_value = {
-            "iteration_count": 5
-        }
-        coordinator.long_term.get_statistics.return_value = {
-            "total_states": 3
-        }
+        coordinator.short_term.get_statistics.return_value = {"iteration_count": 5}
+        coordinator.long_term.get_statistics.return_value = {"total_states": 3}
         coordinator.dynamic_graph.states = {"h1": MagicMock(), "h2": MagicMock()}
         coordinator.dynamic_graph.transitions = [MagicMock()]
 
@@ -504,14 +502,16 @@ class TestGetAllStatistics:
         assert stats["dynamic_graph"]["total_states"] == 2
         assert stats["dynamic_graph"]["total_transitions"] == 1
 
-    def test_get_all_statistics_without_long_term(self, mock_graph, mock_short_term, mock_ui_coverage, mock_agent_memory):
+    def test_get_all_statistics_without_long_term(
+        self, mock_graph, mock_short_term, mock_ui_coverage, mock_agent_memory
+    ):
         """get_all_statistics works without long_term."""
         coordinator = MemoryCoordinator(
             dynamic_graph=mock_graph,
             short_term_memory=mock_short_term,
             long_term_memory=None,
             ui_coverage=mock_ui_coverage,
-            agent_memory=mock_agent_memory
+            agent_memory=mock_agent_memory,
         )
 
         mock_ui_coverage.get_overall_statistics.return_value = {}
@@ -536,6 +536,7 @@ class TestGetAllStatistics:
 # Integration with Real Components Tests
 # =============================================================================
 
+
 class TestIntegrationRealComponents:
     """Test MemoryCoordinator with real (non-mocked) components."""
 
@@ -547,7 +548,7 @@ class TestIntegrationRealComponents:
             short_term_memory=MagicMock(),
             long_term_memory=None,
             ui_coverage=MagicMock(),
-            agent_memory=MagicMock()
+            agent_memory=MagicMock(),
         )
 
         screen_desc = MagicMock(spec=ScreenDescription)
@@ -561,7 +562,7 @@ class TestIntegrationRealComponents:
             action=None,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert "real_hash" in graph.states
@@ -575,7 +576,7 @@ class TestIntegrationRealComponents:
             short_term_memory=MagicMock(),
             long_term_memory=None,
             ui_coverage=MagicMock(),
-            agent_memory=agent_memory
+            agent_memory=agent_memory,
         )
         coordinator.dynamic_graph.current_trace = []
 
@@ -585,7 +586,7 @@ class TestIntegrationRealComponents:
             action=action,
             current_activity="TestActivity",
             visited_states=["h1"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         # Agent memory should have recorded the action

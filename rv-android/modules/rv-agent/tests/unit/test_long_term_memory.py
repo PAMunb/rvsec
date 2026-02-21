@@ -21,10 +21,7 @@ class TestMemoryState:
 
     def test_creation(self):
         """Creates state with required fields."""
-        state = MemoryState(
-            fingerprint="hash123",
-            activity="MainActivity"
-        )
+        state = MemoryState(fingerprint="hash123", activity="MainActivity")
 
         assert state.fingerprint == "hash123"
         assert state.activity == "MainActivity"
@@ -49,7 +46,7 @@ class TestMemoryState:
             fingerprint="hash",
             activity="Main",
             visit_count=5,
-            interactive_elements_count=10
+            interactive_elements_count=10,
         )
 
         assert state.visit_count == 5
@@ -61,11 +58,7 @@ class TestMemoryAction:
 
     def test_creation(self):
         """Creates action with required fields."""
-        action = MemoryAction(
-            id=1,
-            text="click button",
-            action_type="click"
-        )
+        action = MemoryAction(id=1, text="click button", action_type="click")
 
         assert action.id == 1
         assert action.text == "click button"
@@ -83,11 +76,7 @@ class TestMemoryAction:
     def test_success_rate_all_success(self):
         """Success rate is 1.0 with all successes."""
         action = MemoryAction(
-            id=1,
-            text="click",
-            action_type="click",
-            execution_count=5,
-            success_count=5
+            id=1, text="click", action_type="click", execution_count=5, success_count=5
         )
 
         assert action.success_rate == 1.0
@@ -95,11 +84,7 @@ class TestMemoryAction:
     def test_success_rate_partial(self):
         """Calculates partial success rate."""
         action = MemoryAction(
-            id=1,
-            text="click",
-            action_type="click",
-            execution_count=4,
-            success_count=2
+            id=1, text="click", action_type="click", execution_count=4, success_count=2
         )
 
         assert action.success_rate == 0.5
@@ -118,8 +103,8 @@ class TestMemoryAction:
 class TestLongTermMemoryInit:
     """Test LongTermMemory initialization."""
 
-    @patch('rv_agent.memory.long_term.LoggingManager')
-    @patch('rv_agent.memory.long_term.ErrorHandler')
+    @patch("rv_agent.memory.long_term.LoggingManager")
+    @patch("rv_agent.memory.long_term.ErrorHandler")
     def test_initialization(self, mock_error, mock_logging):
         """Initializes with empty collections."""
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
@@ -133,8 +118,8 @@ class TestLongTermMemoryInit:
         assert memory.total_activities == 0
         assert memory.total_actions == 0
 
-    @patch('rv_agent.memory.long_term.LoggingManager')
-    @patch('rv_agent.memory.long_term.ErrorHandler')
+    @patch("rv_agent.memory.long_term.LoggingManager")
+    @patch("rv_agent.memory.long_term.ErrorHandler")
     def test_initialization_with_static_data(self, mock_error, mock_logging):
         """Accepts static data."""
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
@@ -151,9 +136,11 @@ class TestRecordState:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 
@@ -201,9 +188,11 @@ class TestRecordAction:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 
@@ -229,7 +218,7 @@ class TestRecordAction:
         memory.record_action(1, "click", "click", False, "hash1")
 
         assert memory.actions[1].success_count == 2
-        assert memory.actions[1].success_rate == 2/3
+        assert memory.actions[1].success_rate == 2 / 3
 
     def test_records_state_transition(self, memory):
         """Records state transition when to_state differs from from_state."""
@@ -257,9 +246,11 @@ class TestGetStateGuidance:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 
@@ -324,9 +315,11 @@ class TestGetUnexploredTransitions:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 
@@ -367,9 +360,11 @@ class TestGetStatistics:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 
@@ -417,9 +412,11 @@ class TestClearMemory:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 
@@ -444,9 +441,11 @@ class TestGetMostVisitedStates:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.long_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.long_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.long_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.long_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return LongTermMemory()
 

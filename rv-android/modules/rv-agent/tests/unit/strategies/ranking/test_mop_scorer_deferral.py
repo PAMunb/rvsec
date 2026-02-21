@@ -36,7 +36,9 @@ def context_without_untested_inputs():
 class TestMopScorerDeferral:
     """Verify form-context deferral behavior."""
 
-    def test_mop_deferred_when_untested_inputs(self, config, context_with_untested_inputs):
+    def test_mop_deferred_when_untested_inputs(
+        self, config, context_with_untested_inputs
+    ):
         """CLICK with directly_reaches_mop=True deferred when untested inputs exist."""
         scorer = MopScorer(config=config)
 
@@ -58,10 +60,13 @@ class TestMopScorerDeferral:
         action.action_type = "SET_TEXT"
 
         score = scorer.score(action, context_with_untested_inputs)
-        assert score == config.mop_transitive_score, \
-            "MOP SET_TEXT should NOT be deferred when untested inputs exist"
+        assert (
+            score == config.mop_transitive_score
+        ), "MOP SET_TEXT should NOT be deferred when untested inputs exist"
 
-    def test_mop_full_score_when_no_untested_inputs(self, config, context_without_untested_inputs):
+    def test_mop_full_score_when_no_untested_inputs(
+        self, config, context_without_untested_inputs
+    ):
         """CLICK with directly_reaches_mop=True gets full +500 when no untested inputs."""
         scorer = MopScorer(config=config)
 
@@ -71,5 +76,6 @@ class TestMopScorerDeferral:
         action.action_type = "CLICK"
 
         score = scorer.score(action, context_without_untested_inputs)
-        assert score == config.mop_direct_score, \
-            f"MOP CLICK should get full score ({config.mop_direct_score}) when no untested inputs"
+        assert (
+            score == config.mop_direct_score
+        ), f"MOP CLICK should get full score ({config.mop_direct_score}) when no untested inputs"

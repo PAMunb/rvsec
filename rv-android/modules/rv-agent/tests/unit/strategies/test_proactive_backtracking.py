@@ -26,8 +26,13 @@ from rv_screen_parser.parser.screen.visitor.model import (
 SAFE_Y = 500
 
 
-def _make_action(action_id, x=None, event=WidgetEventType.CLICK,
-                 reaches_mop=False, directly_reaches_mop=False):
+def _make_action(
+    action_id,
+    x=None,
+    event=WidgetEventType.CLICK,
+    reaches_mop=False,
+    directly_reaches_mop=False,
+):
     """Create ItemAction with coords in safe zone."""
     if x is None:
         x = 100 + action_id * 80
@@ -75,7 +80,9 @@ def _make_strategy():
     return strategy
 
 
-def _populate_node(strategy, state_hash, actions, saturated_count, activity="com.test.MainActivity"):
+def _populate_node(
+    strategy, state_hash, actions, saturated_count, activity="com.test.MainActivity"
+):
     """Create a screen_desc, call select_next_action to build the node, then
     manually set execution counts for desired saturation level.
 
@@ -105,14 +112,16 @@ class TestProactiveBacktracking:
         """Saturation 0.9 -> should_backtrack() True, path planning attempted C > B > A."""
         strategy = _make_strategy()
         actions = [_make_action(i + 1) for i in range(10)]
-        node, screen_desc = _populate_node(strategy, "state_A", actions, saturated_count=9)
+        node, screen_desc = _populate_node(
+            strategy, "state_A", actions, saturated_count=9
+        )
 
         # Mock path_buffer that tracks planning call order
         mock_buffer = MagicMock()
         mock_buffer.is_active = False
         call_order = []
         mock_buffer.plan_coverage_path = MagicMock(
-            side_effect=lambda: (call_order.append("C"), False)[1]
+            side_effect=lambda *a: (call_order.append("C"), False)[1]
         )
         mock_buffer.plan_mop_path = MagicMock(
             side_effect=lambda *a, **kw: (call_order.append("B"), False)[1]
@@ -133,7 +142,9 @@ class TestProactiveBacktracking:
         """Saturation 0.9, all plans fail -> Tier 4 scored selection, NOT plain BACK."""
         strategy = _make_strategy()
         actions = [_make_action(i + 1) for i in range(10)]
-        node, screen_desc = _populate_node(strategy, "state_A", actions, saturated_count=9)
+        node, screen_desc = _populate_node(
+            strategy, "state_A", actions, saturated_count=9
+        )
 
         # PathBuffer with all plans failing
         mock_buffer = MagicMock()
@@ -153,7 +164,9 @@ class TestProactiveBacktracking:
         """Saturation 0.7 < threshold 0.8 -> scored selection via ActionRanker."""
         strategy = _make_strategy()
         actions = [_make_action(i + 1) for i in range(10)]
-        node, screen_desc = _populate_node(strategy, "state_A", actions, saturated_count=7)
+        node, screen_desc = _populate_node(
+            strategy, "state_A", actions, saturated_count=7
+        )
 
         result = strategy.select_next_action("state_A", screen_desc)
 
@@ -166,7 +179,11 @@ class TestProactiveBacktracking:
         strategy = _make_strategy()
 
         # TIER 2: 3 actions, only 1 executed -> 2 untested -> picks untested
-        actions_t2 = [_make_action(1, x=200), _make_action(2, x=400), _make_action(3, x=600)]
+        actions_t2 = [
+            _make_action(1, x=200),
+            _make_action(2, x=400),
+            _make_action(3, x=600),
+        ]
         screen_desc_t2 = _make_screen_desc(actions_t2)
 
         # First call creates the node, action 1 gets pre-marked
@@ -177,7 +194,9 @@ class TestProactiveBacktracking:
 
         # TIER 5: empty screen -> BACK
         empty_screen = _make_screen_desc([])
-        node_empty = ScreenNode(screen_hash="s2", activity="com.test.Main", total_actions=0)
+        node_empty = ScreenNode(
+            screen_hash="s2", activity="com.test.Main", total_actions=0
+        )
         strategy.graph.states["s2"] = node_empty
 
         result_back = strategy.select_next_action("s2", empty_screen)

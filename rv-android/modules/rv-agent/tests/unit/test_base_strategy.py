@@ -106,7 +106,7 @@ class TestHasMopMarker:
 
     def test_missing_mop_attributes(self, strategy):
         """Action without MOP attributes returns False."""
-        action = MagicMock(spec=['id', 'text'])
+        action = MagicMock(spec=["id", "text"])
 
         assert strategy._has_mop_marker(action) is False
 
@@ -135,7 +135,7 @@ class TestIsDirectMop:
 
     def test_missing_direct_mop_attribute(self, strategy):
         """Action without attribute returns False."""
-        action = MagicMock(spec=['id', 'text'])
+        action = MagicMock(spec=["id", "text"])
 
         assert strategy._is_direct_mop(action) is False
 
@@ -155,12 +155,12 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'com.example/email_input',
-            'content_desc': '',
-            'hint': 'Enter email',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "com.example/email_input",
+            "content_desc": "",
+            "hint": "Enter email",
+            "text": "",
         }
 
         screen_desc.items = [item]
@@ -172,8 +172,10 @@ class TestTryGenerateTextInput:
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.5):  # > 0.2
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.5):  # > 0.2
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is None
 
@@ -183,20 +185,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'email',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "email",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):  # < 0.2
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):  # < 0.2
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "test@example.com" in result.text
@@ -207,20 +211,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'password',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "password",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "Test123!" in result.text
@@ -231,20 +237,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'username',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "username",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "TestUser" in result.text
@@ -255,20 +263,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'phone',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "phone",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "5511999999999" in result.text
@@ -279,20 +289,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'search_box',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "search_box",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "test" in result.text
@@ -303,20 +315,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'url_input',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "url_input",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "https://example.com" in result.text
@@ -327,20 +341,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'number_input',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "number_input",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "123" in result.text
@@ -351,20 +367,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'comment',
-            'content_desc': '',
-            'hint': 'note',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "comment",
+            "content_desc": "",
+            "hint": "note",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "Test message" in result.text
@@ -375,20 +393,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'random_field',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "random_field",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
         assert "test123" in result.text
@@ -399,16 +419,18 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.Button',
-            'bounds': [(100, 200), (400, 300)]
+            "class": "android.widget.Button",
+            "bounds": [(100, 200), (400, 300)],
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is None
 
@@ -418,20 +440,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.AutoCompleteTextView',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'search',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.AutoCompleteTextView",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "search",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is not None
 
@@ -441,30 +465,31 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [(100, 200), (400, 300)],
-            'resource_id': 'email',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": [(100, 200), (400, 300)],
+            "resource_id": "email",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         # Calculate center: (100+400)/2 = 250, (200+300)/2 = 250
         # Convert to optimized space
         from rv_agent.services import coordinate_utils
+
         opt_x, opt_y = coordinate_utils.device_to_optimized(
-            250, 250,
-            (1080, 1920),
-            (704, 1248)
+            250, 250, (1080, 1920), (704, 1248)
         )
 
         node = MagicMock()
         # Use calculated optimized coordinates
         node.executed_actions = {((opt_x, opt_y), "SET_TEXT")}
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is None
 
@@ -474,20 +499,22 @@ class TestTryGenerateTextInput:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.EditText',
-            'bounds': None,
-            'resource_id': 'email',
-            'content_desc': '',
-            'hint': '',
-            'text': ''
+            "class": "android.widget.EditText",
+            "bounds": None,
+            "resource_id": "email",
+            "content_desc": "",
+            "hint": "",
+            "text": "",
         }
         screen_desc.items = [item]
 
         node = MagicMock()
         node.executed_actions = set()
 
-        with patch('random.random', return_value=0.1):
-            result = strategy._try_generate_text_input(screen_desc, node, probability=0.2)
+        with patch("random.random", return_value=0.1):
+            result = strategy._try_generate_text_input(
+                screen_desc, node, probability=0.2
+            )
 
         assert result is None
 
@@ -495,6 +522,7 @@ class TestTryGenerateTextInput:
 # =============================================================================
 # Scrollable Container Detection Tests
 # =============================================================================
+
 
 class TestDetectScrollableContainers:
     """Test _detect_scrollable_containers method."""
@@ -509,137 +537,137 @@ class TestDetectScrollableContainers:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'androidx.recyclerview.widget.RecyclerView',
-            'bounds': [[0, 100], [1080, 1800]],
-            'scrollable': True,
-            'resource_id': 'list_container'
+            "class": "androidx.recyclerview.widget.RecyclerView",
+            "bounds": [[0, 100], [1080, 1800]],
+            "scrollable": True,
+            "resource_id": "list_container",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'RecyclerView'
-        assert scrollables[0]['direction'] == 'vertical'
-        assert scrollables[0]['center'] == (540, 950)
+        assert scrollables[0]["scrollable_type"] == "RecyclerView"
+        assert scrollables[0]["direction"] == "vertical"
+        assert scrollables[0]["center"] == (540, 950)
 
     def test_detect_horizontal_scroll_view(self, strategy):
         """Detects HorizontalScrollView as horizontal scrollable."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.HorizontalScrollView',
-            'bounds': [[0, 500], [1080, 700]],
-            'scrollable': True,
-            'resource_id': 'horizontal_container'
+            "class": "android.widget.HorizontalScrollView",
+            "bounds": [[0, 500], [1080, 700]],
+            "scrollable": True,
+            "resource_id": "horizontal_container",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'HorizontalScrollView'
-        assert scrollables[0]['direction'] == 'horizontal'
+        assert scrollables[0]["scrollable_type"] == "HorizontalScrollView"
+        assert scrollables[0]["direction"] == "horizontal"
 
     def test_detect_list_view(self, strategy):
         """Detects ListView as vertical scrollable."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.ListView',
-            'bounds': [[0, 200], [1080, 1600]],
-            'scrollable': True,
-            'resource_id': 'list_view'
+            "class": "android.widget.ListView",
+            "bounds": [[0, 200], [1080, 1600]],
+            "scrollable": True,
+            "resource_id": "list_view",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'ListView'
-        assert scrollables[0]['direction'] == 'vertical'
+        assert scrollables[0]["scrollable_type"] == "ListView"
+        assert scrollables[0]["direction"] == "vertical"
 
     def test_detect_scroll_view(self, strategy):
         """Detects ScrollView as vertical scrollable."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.ScrollView',
-            'bounds': [[0, 100], [1080, 1900]],
-            'scrollable': True,
-            'resource_id': 'scroll_view'
+            "class": "android.widget.ScrollView",
+            "bounds": [[0, 100], [1080, 1900]],
+            "scrollable": True,
+            "resource_id": "scroll_view",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'ScrollView'
-        assert scrollables[0]['direction'] == 'vertical'
+        assert scrollables[0]["scrollable_type"] == "ScrollView"
+        assert scrollables[0]["direction"] == "vertical"
 
     def test_detect_nested_scroll_view(self, strategy):
         """Detects NestedScrollView as vertical scrollable."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'androidx.core.widget.NestedScrollView',
-            'bounds': [[0, 100], [1080, 1900]],
-            'scrollable': True,
-            'resource_id': 'nested_scroll'
+            "class": "androidx.core.widget.NestedScrollView",
+            "bounds": [[0, 100], [1080, 1900]],
+            "scrollable": True,
+            "resource_id": "nested_scroll",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'NestedScrollView'
-        assert scrollables[0]['direction'] == 'vertical'
+        assert scrollables[0]["scrollable_type"] == "NestedScrollView"
+        assert scrollables[0]["direction"] == "vertical"
 
     def test_detect_view_pager(self, strategy):
         """Detects ViewPager as horizontal scrollable."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'androidx.viewpager.widget.ViewPager',
-            'bounds': [[0, 200], [1080, 800]],
-            'scrollable': True,
-            'resource_id': 'view_pager'
+            "class": "androidx.viewpager.widget.ViewPager",
+            "bounds": [[0, 200], [1080, 800]],
+            "scrollable": True,
+            "resource_id": "view_pager",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'ViewPager'
-        assert scrollables[0]['direction'] == 'horizontal'
+        assert scrollables[0]["scrollable_type"] == "ViewPager"
+        assert scrollables[0]["direction"] == "horizontal"
 
     def test_detect_by_scrollable_attribute(self, strategy):
         """Detects scrollable by attribute when type not recognized."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'com.custom.ScrollableWidget',
-            'bounds': [[0, 100], [1080, 1800]],
-            'scrollable': True,
-            'resource_id': 'custom_scroll'
+            "class": "com.custom.ScrollableWidget",
+            "bounds": [[0, 100], [1080, 1800]],
+            "scrollable": True,
+            "resource_id": "custom_scroll",
         }
         screen_desc.items = [item]
 
         scrollables = strategy._detect_scrollable_containers(screen_desc)
 
         assert len(scrollables) == 1
-        assert scrollables[0]['scrollable_type'] == 'scrollable'
-        assert scrollables[0]['direction'] == 'vertical'
+        assert scrollables[0]["scrollable_type"] == "scrollable"
+        assert scrollables[0]["direction"] == "vertical"
 
     def test_skip_small_containers(self, strategy):
         """Skips containers smaller than 100x100."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.ScrollView',
-            'bounds': [[0, 0], [50, 50]],  # Too small
-            'scrollable': True,
-            'resource_id': 'tiny_scroll'
+            "class": "android.widget.ScrollView",
+            "bounds": [[0, 0], [50, 50]],  # Too small
+            "scrollable": True,
+            "resource_id": "tiny_scroll",
         }
         screen_desc.items = [item]
 
@@ -652,10 +680,10 @@ class TestDetectScrollableContainers:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.Button',
-            'bounds': [[100, 100], [300, 200]],
-            'scrollable': False,
-            'resource_id': 'btn'
+            "class": "android.widget.Button",
+            "bounds": [[100, 100], [300, 200]],
+            "scrollable": False,
+            "resource_id": "btn",
         }
         screen_desc.items = [item]
 
@@ -669,18 +697,18 @@ class TestDetectScrollableContainers:
 
         item1 = MagicMock()
         item1.view = {
-            'class': 'android.widget.ListView',
-            'bounds': [[0, 100], [540, 900]],
-            'scrollable': True,
-            'resource_id': 'list1'
+            "class": "android.widget.ListView",
+            "bounds": [[0, 100], [540, 900]],
+            "scrollable": True,
+            "resource_id": "list1",
         }
 
         item2 = MagicMock()
         item2.view = {
-            'class': 'android.widget.HorizontalScrollView',
-            'bounds': [[0, 950], [1080, 1100]],
-            'scrollable': True,
-            'resource_id': 'horizontal1'
+            "class": "android.widget.HorizontalScrollView",
+            "bounds": [[0, 950], [1080, 1100]],
+            "scrollable": True,
+            "resource_id": "horizontal1",
         }
 
         screen_desc.items = [item1, item2]
@@ -693,6 +721,7 @@ class TestDetectScrollableContainers:
 # =============================================================================
 # Scroll Action Generation Tests
 # =============================================================================
+
 
 class TestTryGenerateScrollAction:
     """Test _try_generate_scroll_action method."""
@@ -713,40 +742,40 @@ class TestTryGenerateScrollAction:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.RecyclerView',
-            'bounds': [[0, 100], [1080, 1800]],
-            'scrollable': True,
-            'resource_id': 'list'
+            "class": "android.widget.RecyclerView",
+            "bounds": [[0, 100], [1080, 1800]],
+            "scrollable": True,
+            "resource_id": "list",
         }
         screen_desc.items = [item]
 
         scrolled_positions = set()
 
-        with patch('random.random', return_value=0.1):
+        with patch("random.random", return_value=0.1):
             action = strategy._try_generate_scroll_action(
                 screen_desc, mock_node, scrolled_positions, probability=0.3
             )
 
         assert action is not None
         assert action.text == "SWIPE (vertical)"
-        assert 'swipe_start' in action.target_view
-        assert 'swipe_end' in action.target_view
+        assert "swipe_start" in action.target_view
+        assert "swipe_end" in action.target_view
 
     def test_no_scroll_when_probability_fails(self, strategy, mock_node):
         """Returns None when probability check fails."""
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.RecyclerView',
-            'bounds': [[0, 100], [1080, 1800]],
-            'scrollable': True,
-            'resource_id': 'list'
+            "class": "android.widget.RecyclerView",
+            "bounds": [[0, 100], [1080, 1800]],
+            "scrollable": True,
+            "resource_id": "list",
         }
         screen_desc.items = [item]
 
         scrolled_positions = set()
 
-        with patch('random.random', return_value=0.9):
+        with patch("random.random", return_value=0.9):
             action = strategy._try_generate_scroll_action(
                 screen_desc, mock_node, scrolled_positions, probability=0.3
             )
@@ -758,16 +787,16 @@ class TestTryGenerateScrollAction:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.Button',
-            'bounds': [[100, 100], [300, 200]],
-            'scrollable': False,
-            'resource_id': 'btn'
+            "class": "android.widget.Button",
+            "bounds": [[100, 100], [300, 200]],
+            "scrollable": False,
+            "resource_id": "btn",
         }
         screen_desc.items = [item]
 
         scrolled_positions = set()
 
-        with patch('random.random', return_value=0.1):
+        with patch("random.random", return_value=0.1):
             action = strategy._try_generate_scroll_action(
                 screen_desc, mock_node, scrolled_positions, probability=0.3
             )
@@ -779,10 +808,10 @@ class TestTryGenerateScrollAction:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.RecyclerView',
-            'bounds': [[0, 100], [1080, 1800]],
-            'scrollable': True,
-            'resource_id': 'list'
+            "class": "android.widget.RecyclerView",
+            "bounds": [[0, 100], [1080, 1800]],
+            "scrollable": True,
+            "resource_id": "list",
         }
         screen_desc.items = [item]
 
@@ -790,7 +819,7 @@ class TestTryGenerateScrollAction:
         container_id = f"list|[[0, 100], [1080, 1800]]"
         scrolled_positions = {("test_hash", container_id, "vertical")}
 
-        with patch('random.random', return_value=0.1):
+        with patch("random.random", return_value=0.1):
             action = strategy._try_generate_scroll_action(
                 screen_desc, mock_node, scrolled_positions, probability=0.3
             )
@@ -802,16 +831,16 @@ class TestTryGenerateScrollAction:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.RecyclerView',
-            'bounds': [[0, 100], [1080, 1800]],
-            'scrollable': True,
-            'resource_id': 'list'
+            "class": "android.widget.RecyclerView",
+            "bounds": [[0, 100], [1080, 1800]],
+            "scrollable": True,
+            "resource_id": "list",
         }
         screen_desc.items = [item]
 
         scrolled_positions = set()
 
-        with patch('random.random', return_value=0.1):
+        with patch("random.random", return_value=0.1):
             action = strategy._try_generate_scroll_action(
                 screen_desc, mock_node, scrolled_positions, probability=0.3
             )
@@ -824,16 +853,16 @@ class TestTryGenerateScrollAction:
         screen_desc = MagicMock(spec=ScreenDescription)
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.HorizontalScrollView',
-            'bounds': [[0, 500], [1080, 700]],
-            'scrollable': True,
-            'resource_id': 'horizontal'
+            "class": "android.widget.HorizontalScrollView",
+            "bounds": [[0, 500], [1080, 700]],
+            "scrollable": True,
+            "resource_id": "horizontal",
         }
         screen_desc.items = [item]
 
         scrolled_positions = set()
 
-        with patch('random.random', return_value=0.1):
+        with patch("random.random", return_value=0.1):
             action = strategy._try_generate_scroll_action(
                 screen_desc, mock_node, scrolled_positions, probability=0.3
             )
@@ -841,6 +870,6 @@ class TestTryGenerateScrollAction:
         assert action is not None
         assert action.text == "SWIPE (horizontal)"
         # Horizontal: start_x > end_x (swipe left)
-        start_x = action.target_view['swipe_start'][0]
-        end_x = action.target_view['swipe_end'][0]
+        start_x = action.target_view["swipe_start"][0]
+        end_x = action.target_view["swipe_end"][0]
         assert start_x > end_x

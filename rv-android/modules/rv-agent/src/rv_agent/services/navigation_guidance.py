@@ -4,12 +4,16 @@ Unified navigation guidance for algorithm and LLM.
 Provide a consistent interface for exploration guidance based on Window
 Transition Graph (WTG) analysis, usable by both algorithmic strategies and
 LLM-based decision making. Wrap TransitionManager output into format-agnostic
-ExplorationContext and format it for LLM prompts.
+ExplorationContext and format it for LLM prompts. When StaticAnalysisData is
+available, enrich guidance with MOP-specific context describing which UI
+elements reach monitored API calls and what those operations do.
 
 ### Architectural Decisions:
 
 - Format-agnostic context: ExplorationContext works for algorithm and LLM
 - Separate formatting: format_for_llm() and format_for_llm_compact() for prompts
+- MOP enrichment: format_for_llm() includes MOP method descriptions when
+  StaticAnalysisData is available via TransitionManager
 - Graceful degradation: returns empty context when no TransitionManager
 
 ### Role in the System:
@@ -22,7 +26,7 @@ ExplorationContext and format it for LLM prompts.
 
 - Input: ScreenDescription from UI parsing, TransitionManager for WTG data
 - Output: ExplorationContext dataclass, formatted strings for LLM prompts
-- Dependencies: TransitionManager (optional)
+- Dependencies: TransitionManager (optional), StaticAnalysisData (optional, via TransitionManager)
 """
 
 import logging
@@ -36,6 +40,25 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MopDescription:
+    """Description of a MOP method reachable from a UI element.
+
+    Attributes:
+        element_text: Human-readable description of the UI element
+            (e.g., "Encrypt" button).
+        method_name: Short method name (e.g., "doEncrypt").
+        class_name: Simple class name containing the method (e.g., "CryptoHelper").
+        directly_reaches: True if the element directly calls the monitored
+            operation, False if it reaches transitively.
+    """
+
+    element_text: str
+    method_name: str
+    class_name: str
+    directly_reaches: bool
 
 
 @dataclass
@@ -53,12 +76,17 @@ class ExplorationContext:
         has_guidance: Whether static WTG guidance is available.
         priority_targets: Activity names of MOP-reaching screens
             (priority > 100 from TransitionManager).
+        mop_descriptions: Descriptions of MOP methods reachable from
+            UI elements on the current screen. Populated when
+            StaticAnalysisData is available via TransitionManager.
     """
+
     unvisited_screens: List[str] = field(default_factory=list)
     suggested_actions: List[Dict[str, Any]] = field(default_factory=list)
     exploration_progress: Dict[str, Any] = field(default_factory=dict)
     has_guidance: bool = False
     priority_targets: List[str] = field(default_factory=list)
+    mop_descriptions: List[MopDescription] = field(default_factory=list)
 
     @property
     def has_unvisited(self) -> bool:
@@ -139,8 +167,7 @@ class NavigationGuidance:
         try:
             # Get raw guidance from TransitionManager
             guidance = self.transition_manager.get_navigation_guidance(
-                current_activity=screen_desc.activity,
-                screen_desc=screen_desc
+                current_activity=screen_desc.activity, screen_desc=screen_desc
             )
 
             # Extract unvisited screens
@@ -158,13 +185,19 @@ class NavigationGuidance:
                 if t.get("priority", 0) > 100  # High priority = MOP-reaching
             ]
 
+            # Collect MOP descriptions from suggested actions
+            mop_descriptions = self._collect_mop_descriptions(
+                guidance.get("suggested_actions", [])
+            )
+
             # Build context
             context = ExplorationContext(
                 unvisited_screens=unvisited_screens,
                 suggested_actions=guidance.get("suggested_actions", []),
                 exploration_progress=guidance.get("exploration_progress", {}),
                 has_guidance=guidance.get("has_static_guidance", False),
-                priority_targets=priority_targets
+                priority_targets=priority_targets,
+                mop_descriptions=mop_descriptions,
             )
 
             if context.has_unvisited:
@@ -212,13 +245,27 @@ class NavigationGuidance:
             targets_text = ", ".join(self._format_activity_name(t) for t in targets)
             lines.append(f"Priority targets (monitored operations): {targets_text}")
 
+        # MOP descriptions (elements reaching monitored operations)
+        if context.mop_descriptions:
+            descs = context.mop_descriptions[:3]  # Limit to top 3
+            for desc in descs:
+                reach_type = "directly calls" if desc.directly_reaches else "reaches"
+                lines.append(
+                    f"'{desc.element_text}' {reach_type} "
+                    f"monitored operation {desc.class_name}.{desc.method_name}"
+                )
+
         # Suggested action
         if context.suggested_actions:
             action = context.suggested_actions[0]
             action_type = action.get("action_type", "click")
             action_text = action.get("action_text", "element")
-            target = self._format_activity_name(action.get("target_activity", "unknown"))
-            lines.append(f"Suggested: {action_type} on '{action_text}' to reach {target}")
+            target = self._format_activity_name(
+                action.get("target_activity", "unknown")
+            )
+            lines.append(
+                f"Suggested: {action_type} on '{action_text}' to reach {target}"
+            )
 
         # Coverage progress
         if context.coverage_percent > 0:
@@ -251,7 +298,9 @@ class NavigationGuidance:
             action = context.suggested_actions[0]
             action_text = action.get("action_text", "")
             if action_text:
-                return f"Hint: '{action_text}' leads to {first_screen} ({count} unvisited)"
+                return (
+                    f"Hint: '{action_text}' leads to {first_screen} ({count} unvisited)"
+                )
 
         return f"Hint: {count} unvisited screens, try reaching {first_screen}"
 
@@ -268,6 +317,73 @@ class NavigationGuidance:
         summary = self.transition_manager.get_exploration_summary()
         summary["enabled"] = True
         return summary
+
+    def _collect_mop_descriptions(
+        self, suggested_actions: List[Dict[str, Any]]
+    ) -> List[MopDescription]:
+        """
+        Collect MOP method descriptions from suggested actions.
+
+        Examines the widget events for each suggested action and checks
+        whether the associated methods reach monitored operations.
+        Uses StaticAnalysisData from TransitionManager to resolve
+        method signatures to MOP status.
+
+        Args:
+            suggested_actions: Actions from TransitionManager.get_navigation_guidance().
+
+        Returns:
+            List of MopDescription for elements that reach monitored operations.
+        """
+        if not self.transition_manager or not self.transition_manager.static_data:
+            return []
+
+        static_data = self.transition_manager.static_data
+        if not hasattr(static_data, "classes") or not static_data.classes:
+            return []
+
+        descriptions = []
+
+        for action in suggested_actions:
+            widget_id = action.get("widget_id")
+            if not widget_id:
+                continue
+
+            # Look up the widget in static data to get its events
+            widget = self.transition_manager._find_widget_globally(widget_id)
+            if not widget or not hasattr(widget, "events"):
+                continue
+
+            action_text = action.get("action_text", "element")
+
+            for event in widget.events:
+                if not hasattr(event, "signature"):
+                    continue
+
+                method = static_data.classes.methods.get(event.signature)
+                if not method:
+                    continue
+
+                if method.directly_reaches_mop:
+                    descriptions.append(
+                        MopDescription(
+                            element_text=action_text,
+                            method_name=method.name,
+                            class_name=self._format_activity_name(method.class_name),
+                            directly_reaches=True,
+                        )
+                    )
+                elif method.reaches_mop:
+                    descriptions.append(
+                        MopDescription(
+                            element_text=action_text,
+                            method_name=method.name,
+                            class_name=self._format_activity_name(method.class_name),
+                            directly_reaches=False,
+                        )
+                    )
+
+        return descriptions
 
     def _format_activity_name(self, activity: str) -> str:
         """

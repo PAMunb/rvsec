@@ -10,7 +10,6 @@ import time
 from rv_agent.agent.device_interface import DeviceInterface
 from .conftest import launch_app, force_stop_app, go_home
 
-
 pytestmark = [pytest.mark.online]
 
 
@@ -41,6 +40,7 @@ class TestScreenCapture:
         screenshot_path = device.take_screenshot()
         assert screenshot_path is not None
         from pathlib import Path
+
         assert Path(screenshot_path).exists()
         size = Path(screenshot_path).stat().st_size
         assert size > 1000  # Non-trivial image

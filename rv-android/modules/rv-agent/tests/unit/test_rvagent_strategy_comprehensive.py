@@ -15,12 +15,13 @@ from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_android_core.domain.widget import WidgetEventType
 
-
 # --- Mock data structures for screen/action ---
+
 
 @dataclass
 class MockAction:
     """Mock action compatible with RVAgentStrategy."""
+
     event: WidgetEventType = WidgetEventType.CLICK
     coordinates: Tuple[int, int] = (540, 960)
     widget_id: Optional[str] = None
@@ -45,6 +46,7 @@ class MockAction:
 @dataclass
 class MockItem:
     """Mock screen item."""
+
     view: dict = field(default_factory=dict)
     actions: List[MockAction] = field(default_factory=list)
 
@@ -52,6 +54,7 @@ class MockItem:
 @dataclass
 class MockScreen:
     """Mock screen description compatible with RVAgentStrategy."""
+
     activity: str = "MainActivity"
     items: List[MockItem] = field(default_factory=list)
 
@@ -306,4 +309,3 @@ class TestRVAgentStrategyEdgeCases:
 
         with pytest.raises((AttributeError, TypeError)):
             strategy.select_next_action("hash123", None)
-

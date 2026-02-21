@@ -19,7 +19,6 @@ from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.domain.state import AgentState
 
-
 # class TestRVAgentComponentIntegration:
 #     """Test integration between RVAgent and its core components."""
 #
@@ -121,7 +120,7 @@ class TestStrategyMemoryIntegration:
         strategy.memory_coordinator = mock_memory_coordinator
 
         # The strategy should have access to the memory coordinator
-        assert hasattr(strategy, 'memory_coordinator')
+        assert hasattr(strategy, "memory_coordinator")
         assert strategy.memory_coordinator is mock_memory_coordinator
 
 
@@ -132,24 +131,24 @@ class TestToolExecutorStrategyIntegration:
         """ToolExecutor and Strategy properly coordinate transition tracking."""
         # This test verifies that when ToolExecutor records a transition,
         # the Strategy component can access that information
-        
+
         mock_device = MagicMock()
         mock_device.click.return_value = True
-        
+
         # Create tool executor
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         # Mock the action to execute
         action = {
             "action_type": "CLICK",
             "x": 100,
             "y": 200,
-            "element_description": "Test button"
+            "element_description": "Test button",
         }
-        
+
         # Execute the action
         result = tool_executor.execute_action(action)
-        
+
         # Verify the action was executed
         mock_device.click.assert_called_once_with(100, 200)
         assert result["success"] is True
@@ -166,9 +165,7 @@ class TestScreenAnalyzerLLMIntegration:
 
         # Create screen processor with correct dependencies
         screen_processor = ScreenProcessor(
-            device=mock_device,
-            dynamic_graph=mock_graph,
-            ui_coverage=mock_ui_coverage
+            device=mock_device, dynamic_graph=mock_graph, ui_coverage=mock_ui_coverage
         )
 
         # Verify initialization
@@ -219,7 +216,7 @@ class TestRoutingManagerIntegration:
         routing_manager = RoutingManager(
             config=mock_config,
             fallback_manager=mock_fallback_manager,
-            exploration_strategy=mock_exploration_strategy
+            exploration_strategy=mock_exploration_strategy,
         )
 
         # Verify initialization
@@ -231,14 +228,14 @@ class TestRoutingManagerIntegration:
 class TestEndToEndFlowMocked:
     """Test end-to-end flow with mocked components."""
 
-    @patch('rv_agent.agent.rv_agent.DynamicStateGraph')
-    @patch('rv_agent.agent.rv_agent.UICoverageTracker')
-    @patch('rv_agent.agent.rv_agent.ScreenProcessor')
-    @patch('rv_agent.agent.rv_agent.LLMClient')
-    @patch('rv_agent.agent.rv_agent.ToolExecutor')
-    @patch('rv_agent.agent.rv_agent.MemoryCoordinator')
-    @patch('rv_agent.agent.rv_agent.RoutingManager')
-    @patch('rv_agent.agent.rv_agent.DeviceInterface')
+    @patch("rv_agent.agent.rv_agent.DynamicStateGraph")
+    @patch("rv_agent.agent.rv_agent.UICoverageTracker")
+    @patch("rv_agent.agent.rv_agent.ScreenProcessor")
+    @patch("rv_agent.agent.rv_agent.LLMClient")
+    @patch("rv_agent.agent.rv_agent.ToolExecutor")
+    @patch("rv_agent.agent.rv_agent.MemoryCoordinator")
+    @patch("rv_agent.agent.rv_agent.RoutingManager")
+    @patch("rv_agent.agent.rv_agent.DeviceInterface")
     def test_complete_iteration_cycle(
         self,
         mock_device_interface,
@@ -248,38 +245,44 @@ class TestEndToEndFlowMocked:
         mock_llm_client,
         mock_screen_processor,
         mock_ui_coverage,
-        mock_dynamic_graph
+        mock_dynamic_graph,
     ):
         """Complete iteration cycle works with all components properly integrated."""
         # Create mock instances
         mock_device = MagicMock()
         mock_device_interface.return_value = mock_device
-        mock_device.get_current_ui_state.return_value = {"activity": "MainActivity", "elements": []}
+        mock_device.get_current_ui_state.return_value = {
+            "activity": "MainActivity",
+            "elements": [],
+        }
         mock_device.take_screenshot.return_value = "/tmp/screenshot.png"
-        
+
         mock_graph = MagicMock()
         mock_dynamic_graph.return_value = mock_graph
-        
+
         mock_coverage = MagicMock()
         mock_ui_coverage.return_value = mock_coverage
-        
+
         mock_screen_proc = MagicMock()
         mock_screen_processor.return_value = mock_screen_proc
         mock_screen_proc.capture_and_process.return_value = {
             "screenshot_b64": "base64image",
             "ui_elements_text": "Button: OK",
-            "screen_description": MagicMock()
+            "screen_description": MagicMock(),
         }
-        
+
         mock_llm = MagicMock()
         mock_llm_client.return_value = mock_llm
         mock_llm.generate_with_retry.return_value = MagicMock()
         mock_llm.generate_with_retry.return_value.content = "Test response"
-        
+
         mock_tool_exec = MagicMock()
         mock_tool_executor.return_value = mock_tool_exec
-        mock_tool_exec.execute_action.return_value = {"success": True, "action_executed": {"action_type": "CLICK"}}
-        
+        mock_tool_exec.execute_action.return_value = {
+            "success": True,
+            "action_executed": {"action_type": "CLICK"},
+        }
+
         mock_memory_coord = MagicMock()
         mock_memory_coordinator.return_value = mock_memory_coord
         mock_memory_coord.update_memories.return_value = {"recent_action_window": []}
@@ -287,22 +290,25 @@ class TestEndToEndFlowMocked:
             "action_history_summary": "",
             "exploration_summary": "",
             "memory_insights": "",
-            "navigation_path": ""
+            "navigation_path": "",
         }
         mock_memory_coord.check_continuation.return_value = {"should_continue": True}
-        
+
         mock_routing = MagicMock()
         mock_routing_manager.return_value = mock_routing
-        mock_routing.route_iteration.return_value = {"use_llm": True, "use_algorithm": False}
-        
+        mock_routing.route_iteration.return_value = {
+            "use_llm": True,
+            "use_algorithm": False,
+        }
+
         # Create config
         config = RVAgentConfig(
             package_name="com.example.test",
             device_id="emulator-5554",
             llm_base_url="http://test.url",
-            llm_model="test-model"
+            llm_model="test-model",
         )
-        
+
         # Create RVAgent with mocked components
         agent = RVAgent(
             config=config,
@@ -315,9 +321,9 @@ class TestEndToEndFlowMocked:
             routing_manager=mock_routing,
             tool_executor=mock_tool_exec,
             memory_coordinator=mock_memory_coord,
-            ui_coverage=mock_coverage
+            ui_coverage=mock_coverage,
         )
-        
+
         # Create initial state
         initial_state = AgentState(
             current_activity="MainActivity",
@@ -325,9 +331,9 @@ class TestEndToEndFlowMocked:
             visited_states=set(),
             state_transitions=[],
             recent_action_window=[],
-            iteration=0
+            iteration=0,
         )
-        
+
         # Verify that the agent has all required components
         assert agent.device is not None
         assert agent.screen_processor is not None

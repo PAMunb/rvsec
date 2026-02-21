@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage
 
-
 pytestmark = pytest.mark.unit
 
 
@@ -96,7 +95,7 @@ class TestGetAndroidTools:
         tools = get_android_tools()
         for tool in tools:
             # StructuredTool objects have a .func attribute that is callable
-            assert hasattr(tool, 'func'), f"Tool {tool.name} missing func attribute"
+            assert hasattr(tool, "func"), f"Tool {tool.name} missing func attribute"
             assert callable(tool.func), f"Tool {tool.name}.func is not callable"
 
 
@@ -123,7 +122,9 @@ class TestExtractToolCalls:
     def test_native_tool_calls_extracted(self, client):
         """Native tool_calls are extracted from response."""
         response = AIMessage(content="Reasoning")
-        response.tool_calls = [{"name": "android_click", "args": {"x": 100, "y": 200}, "id": "1"}]
+        response.tool_calls = [
+            {"name": "android_click", "args": {"x": 100, "y": 200}, "id": "1"}
+        ]
 
         tool_calls, strategy = client._extract_tool_calls(response)
 
@@ -146,9 +147,7 @@ class TestExtractToolCalls:
 
     def test_fallback_parsing_json(self, client):
         """Tool calls are parsed from JSON format in content."""
-        response = AIMessage(
-            content='{"name": "android_back", "arguments": {}}'
-        )
+        response = AIMessage(content='{"name": "android_back", "arguments": {}}')
         response.tool_calls = []
 
         tool_calls, strategy = client._extract_tool_calls(response)
@@ -306,7 +305,9 @@ class TestAndroidTools:
         """android_click returns success with coordinates."""
         from rv_agent.llm.tools.sglang_tools import android_click
 
-        result = android_click.invoke({"x": 100, "y": 200, "element_description": "OK button"})
+        result = android_click.invoke(
+            {"x": 100, "y": 200, "element_description": "OK button"}
+        )
 
         assert result["success"] is True
         assert result["x"] == 100
@@ -392,10 +393,7 @@ class TestExtractTokenUsage:
         """Extract tokens from token_usage metadata."""
         response = AIMessage(content="Test")
         response.response_metadata = {
-            "token_usage": {
-                "prompt_tokens": 100,
-                "completion_tokens": 50
-            }
+            "token_usage": {"prompt_tokens": 100, "completion_tokens": 50}
         }
 
         input_tokens, output_tokens = client._extract_token_usage(response)
@@ -407,10 +405,7 @@ class TestExtractTokenUsage:
         """Extract tokens from usage metadata (alternative format)."""
         response = AIMessage(content="Test")
         response.response_metadata = {
-            "usage": {
-                "prompt_tokens": 200,
-                "completion_tokens": 75
-            }
+            "usage": {"prompt_tokens": 200, "completion_tokens": 75}
         }
 
         input_tokens, output_tokens = client._extract_token_usage(response)
@@ -464,7 +459,9 @@ class TestGenerateAction:
         from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
         response = AIMessage(content="Clicking button")
-        response.tool_calls = [{"name": "android_click", "args": {"x": 100, "y": 200}, "id": "1"}]
+        response.tool_calls = [
+            {"name": "android_click", "args": {"x": 100, "y": 200}, "id": "1"}
+        ]
         response.response_metadata = {
             "token_usage": {"prompt_tokens": 100, "completion_tokens": 50}
         }
@@ -478,7 +475,7 @@ class TestGenerateAction:
             screen_description=mock_screen_desc,
             ui_elements_text="OK button at (100, 200)",
             screenshot_b64="base64image",
-            iteration=1
+            iteration=1,
         )
 
         assert result["success"] is True
@@ -493,7 +490,9 @@ class TestGenerateAction:
         from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
         from rv_agent.domain.exceptions import LLMError
 
-        client.llm_with_tools.invoke = MagicMock(side_effect=Exception("Connection failed"))
+        client.llm_with_tools.invoke = MagicMock(
+            side_effect=Exception("Connection failed")
+        )
 
         mock_screen_desc = MagicMock(spec=ScreenDescription)
         mock_screen_desc.items = []
@@ -503,7 +502,7 @@ class TestGenerateAction:
                 screen_description=mock_screen_desc,
                 ui_elements_text="OK button",
                 screenshot_b64="base64image",
-                iteration=1
+                iteration=1,
             )
 
         assert "Connection failed" in str(exc_info.value)

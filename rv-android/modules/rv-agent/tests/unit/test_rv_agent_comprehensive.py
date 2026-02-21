@@ -51,7 +51,7 @@ class TestRVAgentInitialization:
         mock_config.max_input_variations = 3
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0
-        
+
         mock_device = MagicMock()
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
@@ -60,7 +60,7 @@ class TestRVAgentInitialization:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         # Create RVAgent instance
         agent = RVAgent(
             config=mock_config,
@@ -72,9 +72,9 @@ class TestRVAgentInitialization:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify initialization
         assert agent.config == mock_config
         assert agent.device == mock_device
@@ -86,13 +86,13 @@ class TestRVAgentInitialization:
         assert agent.tool_executor == mock_tool_executor
         # Note: transition_manager doesn't exist, it was dynamic_graph
         assert agent.dynamic_graph is not None
-        
+
         # Verify default values
-        assert hasattr(agent, 'stuck_screen_count')
+        assert hasattr(agent, "stuck_screen_count")
         assert agent.stuck_screen_count == 0
-        assert hasattr(agent, 'consecutive_no_action')
+        assert hasattr(agent, "consecutive_no_action")
         assert agent.consecutive_no_action == 0
-        assert hasattr(agent, 'last_screen_hash')
+        assert hasattr(agent, "last_screen_hash")
         assert agent.last_screen_hash is None
 
     def test_initialization_sets_detection_thresholds(self):
@@ -115,7 +115,7 @@ class TestRVAgentInitialization:
         mock_config.max_input_variations = 3
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0
-        
+
         mock_device = MagicMock()
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
@@ -124,7 +124,7 @@ class TestRVAgentInitialization:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         agent = RVAgent(
             config=mock_config,
             device=mock_device,
@@ -135,12 +135,12 @@ class TestRVAgentInitialization:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify thresholds are set (these values come from the actual implementation)
-        assert hasattr(agent, 'BASE_STUCK_THRESHOLD')
-        assert hasattr(agent, 'NO_ACTION_THRESHOLD')
+        assert hasattr(agent, "BASE_STUCK_THRESHOLD")
+        assert hasattr(agent, "NO_ACTION_THRESHOLD")
         assert agent.stuck_screen_count == 0
         assert agent.consecutive_no_action == 0
         assert agent.last_screen_hash is None
@@ -169,7 +169,7 @@ class TestRVAgentWorkflowConstruction:
         mock_config.max_input_variations = 3
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0
-        
+
         mock_device = MagicMock()
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
@@ -178,7 +178,7 @@ class TestRVAgentWorkflowConstruction:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         agent = RVAgent(
             config=mock_config,
             device=mock_device,
@@ -189,12 +189,12 @@ class TestRVAgentWorkflowConstruction:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify the method exists
-        assert hasattr(agent, '_build_agent_graph')
-        assert callable(getattr(agent, '_build_agent_graph'))
+        assert hasattr(agent, "_build_agent_graph")
+        assert callable(getattr(agent, "_build_agent_graph"))
 
     def test_get_langgraph_workflow_method_exists(self):
         """RVAgent has get_langgraph_workflow method."""
@@ -216,7 +216,7 @@ class TestRVAgentWorkflowConstruction:
         mock_config.max_input_variations = 3
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0
-        
+
         mock_device = MagicMock()
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
@@ -225,7 +225,7 @@ class TestRVAgentWorkflowConstruction:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         agent = RVAgent(
             config=mock_config,
             device=mock_device,
@@ -236,12 +236,12 @@ class TestRVAgentWorkflowConstruction:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify the method exists
-        assert hasattr(agent, 'get_memory_stats')
-        assert callable(getattr(agent, 'get_memory_stats'))
+        assert hasattr(agent, "get_memory_stats")
+        assert callable(getattr(agent, "get_memory_stats"))
 
 
 class TestRVAgentStateManagement:
@@ -268,10 +268,10 @@ class TestRVAgentStateManagement:
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0
         mock_config.package_name = "test.app"
-        
+
         mock_device = MagicMock()
         mock_device.get_current_package.return_value = "test.app"
-        
+
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
         mock_routing_manager = MagicMock()
@@ -279,7 +279,7 @@ class TestRVAgentStateManagement:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         agent = RVAgent(
             config=mock_config,
             device=mock_device,
@@ -290,12 +290,12 @@ class TestRVAgentStateManagement:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify that the agent has the necessary attributes for state management
-        assert hasattr(agent, 'run')
-        assert callable(getattr(agent, 'run'))
+        assert hasattr(agent, "run")
+        assert callable(getattr(agent, "run"))
 
 
 class TestRVAgentIterationTracking:
@@ -321,7 +321,7 @@ class TestRVAgentIterationTracking:
         mock_config.max_input_variations = 3
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0
-        
+
         mock_device = MagicMock()
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
@@ -330,7 +330,7 @@ class TestRVAgentIterationTracking:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         agent = RVAgent(
             config=mock_config,
             device=mock_device,
@@ -341,11 +341,11 @@ class TestRVAgentIterationTracking:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify that the agent has necessary attributes for tracking
-        assert hasattr(agent, 'config')
+        assert hasattr(agent, "config")
         assert agent.config is not None
 
     def test_timeout_check_functionality(self):
@@ -368,7 +368,7 @@ class TestRVAgentIterationTracking:
         mock_config.max_input_variations = 3
         mock_config.stochastic_probability = 0.3
         mock_config.stochastic_temperature = 1.0  # 5 minutes
-        
+
         mock_device = MagicMock()
         mock_memory_coordinator = MagicMock()
         mock_strategy = MagicMock()
@@ -377,7 +377,7 @@ class TestRVAgentIterationTracking:
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
         mock_transition_manager = MagicMock()
-        
+
         agent = RVAgent(
             config=mock_config,
             device=mock_device,
@@ -388,9 +388,9 @@ class TestRVAgentIterationTracking:
             llm_client=mock_llm_client,
             routing_manager=mock_routing_manager,
             tool_executor=mock_tool_executor,
-            memory_coordinator=mock_memory_coordinator
+            memory_coordinator=mock_memory_coordinator,
         )
-        
+
         # Verify that the agent has the run method which handles timeout logic
-        assert hasattr(agent, 'run')
-        assert callable(getattr(agent, 'run'))
+        assert hasattr(agent, "run")
+        assert callable(getattr(agent, "run"))

@@ -1,14 +1,17 @@
 """
 Unit tests for the RVAgentConfig model.
 """
+
 import pytest
 from unittest.mock import patch
 from rv_agent.config.agent_config import RVAgentConfig
+
 
 @pytest.fixture
 def default_config():
     """A default RVAgentConfig instance for testing."""
     return RVAgentConfig(package_name="com.example.app")
+
 
 class TestAgentConfig:
     """Test suite for RVAgentConfig."""
@@ -25,7 +28,7 @@ class TestAgentConfig:
             assert "extra_body" in lc_config
             assert lc_config["extra_body"]["top_k"] == default_config.llm_top_k
 
-    @patch('os.getenv')
+    @patch("os.getenv")
     def test_get_agent_mode_from_env(self, mock_getenv, default_config):
         """Test that get_agent_mode prioritizes the environment variable."""
         # Default mode is 'multimode'
@@ -43,7 +46,9 @@ class TestAgentConfig:
     def test_validate_failure_cases(self):
         """Test the failure paths of the validate method."""
         # Custom validation: invalid agent_mode
-        config = RVAgentConfig(package_name="com.example.app", agent_mode="invalid_mode")
+        config = RVAgentConfig(
+            package_name="com.example.app", agent_mode="invalid_mode"
+        )
         is_valid, msg = config.validate()
         assert not is_valid
         assert "agent_mode must be one of" in msg
@@ -64,10 +69,12 @@ class TestAgentConfig:
         """Test the create_default class method."""
         config = RVAgentConfig.create_default(package_name="com.test.app")
         assert config.package_name == "com.test.app"
-        assert config.device_id == RVAgentConfig.model_fields['device_id'].default
+        assert config.device_id == RVAgentConfig.model_fields["device_id"].default
 
     def test_create_default_with_device_id(self):
         """Test create_default with a specific device_id."""
-        config = RVAgentConfig.create_default(package_name="com.test.app", device_id="emulator-5556")
+        config = RVAgentConfig.create_default(
+            package_name="com.test.app", device_id="emulator-5556"
+        )
         assert config.package_name == "com.test.app"
         assert config.device_id == "emulator-5556"

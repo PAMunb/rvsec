@@ -20,8 +20,12 @@ from rv_agent.memory.element_id import make_element_id_from_tuple
 logger = logging.getLogger(__name__)
 
 # Spatial association constants for below-field heuristic
-SPATIAL_BELOW_FIELD_SCORE = 0.7  # Score when error indicator is directly below an input field
-SPATIAL_BELOW_FIELD_MAX_PX = 100  # Max vertical distance (px) from field bottom to error center
+SPATIAL_BELOW_FIELD_SCORE = (
+    0.7  # Score when error indicator is directly below an input field
+)
+SPATIAL_BELOW_FIELD_MAX_PX = (
+    100  # Max vertical distance (px) from field bottom to error center
+)
 
 
 def _calculate_association_score(error_bbox, item_bounds, item_class, agent) -> float:
@@ -40,7 +44,11 @@ def _calculate_association_score(error_bbox, item_bounds, item_class, agent) -> 
     """
     try:
         # Parse item bounds: [[x1,y1],[x2,y2]]
-        if not item_bounds or not isinstance(item_bounds, list) or len(item_bounds) != 2:
+        if (
+            not item_bounds
+            or not isinstance(item_bounds, list)
+            or len(item_bounds) != 2
+        ):
             return 0.0
         item_x1, item_y1 = item_bounds[0]
         item_x2, item_y2 = item_bounds[1]
@@ -81,7 +89,10 @@ def _calculate_association_score(error_bbox, item_bounds, item_class, agent) -> 
     below_field_score = 0.0
     err_center_y = error_bbox.y + error_bbox.height // 2
     item_bottom = item_y2
-    if err_center_y > item_bottom and err_center_y < item_bottom + SPATIAL_BELOW_FIELD_MAX_PX:
+    if (
+        err_center_y > item_bottom
+        and err_center_y < item_bottom + SPATIAL_BELOW_FIELD_MAX_PX
+    ):
         # Check horizontal overlap
         h_inter = max(0, min(err_x2, item_x2) - max(err_x1, item_x1))
         if h_inter > 0:
@@ -127,9 +138,14 @@ def _find_associated_input_action(agent, state) -> Optional[Tuple]:
                 item_bounds = action.target_view["bounds"]
                 item_class = action.target_view.get("class", "")
 
-                score = _calculate_association_score(error_bbox, item_bounds, item_class, agent)
+                score = _calculate_association_score(
+                    error_bbox, item_bounds, item_class, agent
+                )
 
-                if score > best_score and score >= agent.config.spatial_min_match_threshold:
+                if (
+                    score > best_score
+                    and score >= agent.config.spatial_min_match_threshold
+                ):
                     best_score = score
                     best_action = action
                     best_item = item
@@ -165,7 +181,9 @@ def _find_next_input_action(state) -> Optional[Tuple]:
     return None
 
 
-def _build_error_recovery_action(agent, matched_action, state) -> Optional[Dict[str, Any]]:
+def _build_error_recovery_action(
+    agent, matched_action, state
+) -> Optional[Dict[str, Any]]:
     """Build the unified action dict for error recovery.
 
     For set_text actions, generates a text value using the value generator.
@@ -246,14 +264,14 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             "text": "",
             "source": "algorithm",
             "reason": "level2_stuck_recovery",
-            "package_name": agent.config.package_name
+            "package_name": agent.config.package_name,
         }
         agent.consecutive_no_action = 0
         return {
             "current_action": action,
             "current_item_action": None,
             "decision_maker": "stuck_recovery",
-            "force_restart_app": False
+            "force_restart_app": False,
         }
 
     # Check for stuck state override - force BACK action
@@ -269,14 +287,14 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             "y": 0,
             "text": "",
             "source": "algorithm",
-            "reason": "stuck_state_recovery"
+            "reason": "stuck_state_recovery",
         }
         agent.consecutive_no_action = 0
         return {
             "current_action": action,
             "current_item_action": None,
             "decision_maker": "stuck_recovery",
-            "force_back_action": False
+            "force_back_action": False,
         }
 
     # Error recovery: fill input field when validation error detected.
@@ -326,13 +344,13 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             "y": 0,
             "text": "",
             "source": "algorithm",
-            "reason": "deadlock_escape"
+            "reason": "deadlock_escape",
         }
         agent.consecutive_no_action = 0
         result = {
             "current_action": action,
             "current_item_action": None,
-            "decision_maker": "algorithm"
+            "decision_maker": "algorithm",
         }
         result.update(_error_recovery_clear)
         return result
@@ -348,10 +366,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             f"No action available from strategy "
             f"(consecutive_no_action={agent.consecutive_no_action}/{agent.NO_ACTION_THRESHOLD})"
         )
-        result = {
-            "current_action": None,
-            "decision_path": "end"
-        }
+        result = {"current_action": None, "decision_path": "end"}
         result.update(_error_recovery_clear)
         return result
 
@@ -368,13 +383,13 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             "y": 0,
             "text": item_action.text or "",
             "source": "algorithm",
-            "id": item_action.id
+            "id": item_action.id,
         }
         agent.consecutive_no_action = 0
         result = {
             "current_action": action,
             "current_item_action": item_action,
-            "decision_maker": "algorithm"
+            "decision_maker": "algorithm",
         }
         result.update(_error_recovery_clear)
         return result
@@ -386,10 +401,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             f"Failed to get coordinates from ItemAction: "
             f"type={action_type}, id={item_action.id}, text={item_action.text[:50] if item_action.text else 'None'}"
         )
-        result = {
-            "current_action": None,
-            "decision_path": "end"
-        }
+        result = {"current_action": None, "decision_path": "end"}
         result.update(_error_recovery_clear)
         return result
 
@@ -410,7 +422,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "y": y,
         "text": text_value,
         "source": "algorithm",
-        "id": item_action.id
+        "id": item_action.id,
     }
 
     # Extract swipe/drag data from target_view if available
@@ -434,7 +446,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     result = {
         "current_action": action,
         "current_item_action": item_action,
-        "decision_maker": "algorithm"
+        "decision_maker": "algorithm",
     }
     result.update(_error_recovery_clear)
     return result

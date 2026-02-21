@@ -57,9 +57,7 @@ class TestRVAgentStrategyInitialization:
     def test_initialization_with_custom_params(self, dynamic_graph, ui_coverage):
         """Strategy accepts custom parameters."""
         config = RVAgentConfig(
-            package_name="com.test.app",
-            plateau_window=20,
-            max_input_variations=5
+            package_name="com.test.app", plateau_window=20, max_input_variations=5
         )
         strategy = RVAgentStrategy(
             graph=dynamic_graph,
@@ -125,7 +123,9 @@ class TestActionSelection:
         # Should have selected 3 different actions
         assert len(selected_coords) == 3
 
-    def test_continues_exploration_after_exhausted(self, rvagent_strategy, simple_screen):
+    def test_continues_exploration_after_exhausted(
+        self, rvagent_strategy, simple_screen
+    ):
         """Continues exploration (least-visited) after all actions executed once."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
@@ -142,7 +142,9 @@ class TestActionSelection:
 class TestMOPPrioritization:
     """Test MOP-aware action prioritization."""
 
-    def test_direct_mop_has_highest_priority(self, rvagent_strategy, mop_priority_screen):
+    def test_direct_mop_has_highest_priority(
+        self, rvagent_strategy, mop_priority_screen
+    ):
         """Direct MOP actions ([DM]) are selected first."""
         screen_hash = compute_test_hash("CryptoActivity", 3)
 
@@ -152,7 +154,9 @@ class TestMOPPrioritization:
         assert action.directly_reaches_mop is True
         assert action.widget_id == "btn_encrypt"
 
-    def test_transitive_mop_second_priority(self, rvagent_strategy, mop_priority_screen):
+    def test_transitive_mop_second_priority(
+        self, rvagent_strategy, mop_priority_screen
+    ):
         """Transitive MOP actions ([M]) are selected after [DM]."""
         screen_hash = compute_test_hash("CryptoActivity", 3)
 
@@ -189,7 +193,10 @@ class TestMOPPrioritization:
 
         assert action.callback_signature == "javax.crypto.Cipher.init"
         assert rvagent_strategy.coverage_metrics.get_mop_count() == 1
-        assert "javax.crypto.Cipher.init" in rvagent_strategy.coverage_metrics.mop_methods_reached
+        assert (
+            "javax.crypto.Cipher.init"
+            in rvagent_strategy.coverage_metrics.mop_methods_reached
+        )
 
 
 class TestInputFieldHandling:
@@ -214,9 +221,9 @@ class TestInputFieldHandling:
                 create_mock_action(
                     coords=(200, 400),
                     event_type=WidgetEventType.TEXT_CHANGE,
-                    widget_id="input_field"
+                    widget_id="input_field",
                 ),
-            ]
+            ],
         )
         screen_hash = compute_test_hash("InputActivity", 1)
 
@@ -233,7 +240,9 @@ class TestInputFieldHandling:
 class TestTransitionRecording:
     """Test state transition recording."""
 
-    def test_record_transition_updates_graph(self, rvagent_strategy, simple_screen, dropdown_screen):
+    def test_record_transition_updates_graph(
+        self, rvagent_strategy, simple_screen, dropdown_screen
+    ):
         """Transition is recorded in the graph."""
         from_hash = compute_test_hash("MainActivity", 3)
         to_hash = compute_test_hash("DropdownActivity", 3)
@@ -260,7 +269,9 @@ class TestTransitionRecording:
         rvagent_strategy.record_transition(from_hash, to_hash, action)
 
         # Check successor is tracked
-        action_sig = rvagent_strategy._convert_signature_to_optimized(action.coords_for_matching)
+        action_sig = rvagent_strategy._convert_signature_to_optimized(
+            action.coords_for_matching
+        )
         assert (from_hash, action_sig) in rvagent_strategy.successor_tracker.successors
 
     def test_record_transition_updates_plateau_detector(
@@ -286,7 +297,7 @@ class TestSuccessorTracking:
             activity="MainActivity",
             actions=[
                 create_mock_action(coords=(200, 400), widget_id="dropdown"),
-            ]
+            ],
         )
         main_hash = compute_test_hash("MainActivity", 1)
 
@@ -297,7 +308,7 @@ class TestSuccessorTracking:
                 create_mock_action(coords=(200, 400), widget_id="option_1"),
                 create_mock_action(coords=(200, 500), widget_id="option_2"),
                 create_mock_action(coords=(200, 600), widget_id="option_3"),
-            ]
+            ],
         )
         dropdown_hash = compute_test_hash("DropdownActivity", 3)
 
@@ -330,17 +341,29 @@ class TestBacktracking:
     """Test backtracking logic."""
 
     def test_should_backtrack_when_exhausted(self, rvagent_strategy, simple_screen):
-        """Should backtrack when all actions are executed."""
+        """Should backtrack when saturation exceeds threshold (gh26: threshold-based).
+
+        gh26 changed should_backtrack() from binary exhaustion to saturation threshold.
+        Saturation = actions_with_count>=2 / total_actions. Default threshold = 0.8.
+        """
         screen_hash = compute_test_hash("MainActivity", 3)
 
-        # Execute all actions
+        # Execute all 3 untested actions first (Tier 2)
         for _ in range(3):
             rvagent_strategy.select_next_action(screen_hash, simple_screen)
+
+        # Manually set action counts to 2+ to reach saturation
+        # (Tier 4 deterministic mode picks same action repeatedly with equal scores)
+        node = rvagent_strategy.graph.states[screen_hash]
+        for sig in list(node.action_execution_counts.keys()):
+            node.action_execution_counts[sig] = 2
 
         should_bt = rvagent_strategy.should_backtrack(screen_hash)
         assert should_bt is True
 
-    def test_should_not_backtrack_with_untested_actions(self, rvagent_strategy, simple_screen):
+    def test_should_not_backtrack_with_untested_actions(
+        self, rvagent_strategy, simple_screen
+    ):
         """Should not backtrack when untested actions remain."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
@@ -366,7 +389,7 @@ class TestPlateauDetection:
         for i in range(5):
             screen = create_mock_screen(
                 activity=f"Activity{i}",
-                actions=[create_mock_action(coords=(200, 400 + i*100))]
+                actions=[create_mock_action(coords=(200, 400 + i * 100))],
             )
             screens.append((compute_test_hash(f"Activity{i}", 1), screen))
 
@@ -387,15 +410,14 @@ class TestPlateauDetection:
             actions=[
                 create_mock_action(coords=(200, 400)),
                 create_mock_action(coords=(200, 500)),
-            ]
+            ],
         )
         screen_hash = compute_test_hash("StuckActivity", 2)
 
         # Fill plateau window with no-progress iterations (default window_size=10)
         for _ in range(11):
             rvagent_strategy.plateau_detector.record_iteration(
-                discovered_new_state=False,
-                new_mop_method=None
+                discovered_new_state=False, new_mop_method=None
             )
 
         assert rvagent_strategy.plateau_detector.is_plateau_reached() is True
@@ -429,7 +451,9 @@ class TestStateManagement:
 class TestReset:
     """Test strategy reset functionality."""
 
-    def test_reset_clears_successor_tracker(self, rvagent_strategy, simple_screen, dropdown_screen):
+    def test_reset_clears_successor_tracker(
+        self, rvagent_strategy, simple_screen, dropdown_screen
+    ):
         """Reset clears successor tracker."""
         from_hash = compute_test_hash("MainActivity", 3)
         to_hash = compute_test_hash("DropdownActivity", 3)
@@ -526,8 +550,8 @@ class TestSystemActionFiltering:
             activity="MainActivity",
             actions=[
                 create_mock_action(coords=(540, 1850)),  # Navigation bar
-                create_mock_action(coords=(540, 500)),   # Normal area
-            ]
+                create_mock_action(coords=(540, 500)),  # Normal area
+            ],
         )
         screen_hash = compute_test_hash("MainActivity", 2)
 
@@ -542,9 +566,9 @@ class TestSystemActionFiltering:
         screen = create_mock_screen(
             activity="MainActivity",
             actions=[
-                create_mock_action(coords=(540, 50)),    # Status bar
-                create_mock_action(coords=(540, 500)),   # Normal area
-            ]
+                create_mock_action(coords=(540, 50)),  # Status bar
+                create_mock_action(coords=(540, 500)),  # Normal area
+            ],
         )
         screen_hash = compute_test_hash("MainActivity", 2)
 
@@ -566,7 +590,7 @@ class TestExplorationScenarios:
             actions=[
                 create_mock_action(coords=(200, 400), widget_id="btn_login"),
                 create_mock_action(coords=(200, 600), widget_id="btn_register"),
-            ]
+            ],
         )
         login_hash = compute_test_hash("LoginActivity", 2)
 
@@ -579,9 +603,9 @@ class TestExplorationScenarios:
                     coords=(200, 600),
                     widget_id="btn_crypto",
                     directly_reaches_mop=True,
-                    callback_signature="javax.crypto.Cipher.init"
+                    callback_signature="javax.crypto.Cipher.init",
                 ),
-            ]
+            ],
         )
         home_hash = compute_test_hash("HomeActivity", 2)
 
@@ -611,7 +635,7 @@ class TestExplorationScenarios:
                 create_mock_action(coords=(200, 400), widget_id="opt_security"),
                 create_mock_action(coords=(200, 500), widget_id="opt_privacy"),
                 create_mock_action(coords=(200, 600), widget_id="opt_about"),
-            ]
+            ],
         )
         settings_hash = compute_test_hash("SettingsActivity", 3)
 
@@ -628,11 +652,14 @@ class TestExplorationScenarios:
         assert "opt_privacy" in selected_widget_ids
         assert "opt_about" in selected_widget_ids
 
-        # In continuous exploration mode, still returns actions (least-visited)
-        # But should_backtrack still returns True when all unique actions tested
-        next_action = rvagent_strategy.select_next_action(settings_hash, settings_screen)
-        assert next_action is not None  # Continuous mode returns least-visited
-        assert rvagent_strategy.should_backtrack(settings_hash) is True
+        # In continuous exploration mode, still returns actions (Tier 4 scored)
+        # gh26: should_backtrack uses saturation threshold (actions tested 2+ times)
+        # After testing each action once, saturation = 0/3 = 0.0 < 0.8 threshold
+        next_action = rvagent_strategy.select_next_action(
+            settings_hash, settings_screen
+        )
+        assert next_action is not None  # Tier 4 scored continuous mode
+        assert rvagent_strategy.should_backtrack(settings_hash) is False
 
     def test_mop_driven_exploration(self, rvagent_strategy):
         """Exploration driven by MOP priority."""
@@ -645,20 +672,18 @@ class TestExplorationScenarios:
                     coords=(200, 500),
                     widget_id="btn_encrypt",
                     directly_reaches_mop=True,
-                    callback_signature="javax.crypto.Cipher.init"
+                    callback_signature="javax.crypto.Cipher.init",
                 ),
                 create_mock_action(
                     coords=(200, 600),
                     widget_id="btn_decrypt",
                     directly_reaches_mop=True,
-                    callback_signature="javax.crypto.Cipher.doFinal"
+                    callback_signature="javax.crypto.Cipher.doFinal",
                 ),
                 create_mock_action(
-                    coords=(200, 700),
-                    widget_id="btn_settings",
-                    reaches_mop=True
+                    coords=(200, 700), widget_id="btn_settings", reaches_mop=True
                 ),
-            ]
+            ],
         )
         screen_hash = compute_test_hash("CryptoActivity", 4)
 

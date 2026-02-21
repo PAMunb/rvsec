@@ -31,11 +31,7 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     if not agent.llm_client:
         logger.error("LLM client not available")
-        return {
-            "llm_action": None,
-            "has_tool_calls": False,
-            "decision_maker": "llm"
-        }
+        return {"llm_action": None, "has_tool_calls": False, "decision_maker": "llm"}
 
     # Get navigation hint if available
     navigation_hint = ""
@@ -77,7 +73,7 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             first_tool = tool_calls[0]
             raw_action = {
                 "tool_name": first_tool.get("name", ""),
-                "tool_args": first_tool.get("args", {})
+                "tool_args": first_tool.get("args", {}),
             }
 
             # Normalize to unified format using ActionNormalizer
@@ -97,15 +93,17 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         tokens_out=result.get("tokens_output", 0),
         time_ms=result.get("time_ms", 0),
         tool_calls=1 if has_tool_calls else 0,
-        success=llm_action is not None
+        success=llm_action is not None,
     )
 
     return {
         "llm_action": llm_action,
         "has_tool_calls": has_tool_calls,
         "llm_reasoning": llm_reasoning,
-        "llm_tokens_input": state.get("llm_tokens_input", 0) + result.get("tokens_input", 0),
-        "llm_tokens_output": state.get("llm_tokens_output", 0) + result.get("tokens_output", 0),
+        "llm_tokens_input": state.get("llm_tokens_input", 0)
+        + result.get("tokens_input", 0),
+        "llm_tokens_output": state.get("llm_tokens_output", 0)
+        + result.get("tokens_output", 0),
         "llm_time_ms": state.get("llm_time_ms", 0) + result.get("time_ms", 0),
-        "decision_maker": "llm"
+        "decision_maker": "llm",
     }

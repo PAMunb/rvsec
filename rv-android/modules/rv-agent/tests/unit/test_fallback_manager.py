@@ -1,6 +1,7 @@
 """
 Unit tests for the FallbackManager.
 """
+
 import pytest
 from unittest.mock import MagicMock
 
@@ -34,13 +35,19 @@ class TestFallbackManager:
         screen_description = MagicMock()
 
         with caplog.at_level("WARNING"):
-            result = fallback_manager.get_fallback_action(screen_hash, screen_description)
+            result = fallback_manager.get_fallback_action(
+                screen_hash, screen_description
+            )
 
         assert result is None
         assert "Fallback action requested for dfs" in caplog.text
-        assert "implementation requires agent-maintained strategy instance" in caplog.text
+        assert (
+            "implementation requires agent-maintained strategy instance" in caplog.text
+        )
 
-    def test_get_fallback_action_handles_exception(self, fallback_manager, mock_strategy_registry, caplog):
+    def test_get_fallback_action_handles_exception(
+        self, fallback_manager, mock_strategy_registry, caplog
+    ):
         """Test that get_fallback_action handles exceptions gracefully."""
         mock_strategy_registry.side_effect = Exception("Test error")
 

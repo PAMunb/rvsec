@@ -41,8 +41,9 @@ CRITICAL:
 Call the appropriate tool after your analysis."""
 
 
-def build_user_message(state_info: dict, navigation_hint: str = "",
-                       screen_line: str = "") -> str:
+def build_user_message(
+    state_info: dict, navigation_hint: str = "", screen_line: str = ""
+) -> str:
     """
     Build user message with priority-enriched context.
 
@@ -54,9 +55,9 @@ def build_user_message(state_info: dict, navigation_hint: str = "",
         navigation_hint: WTG guidance text
         screen_line: Screen info (activity, coverage, visit count)
     """
-    ui_elements = state_info.get('ui_elements', [])
-    last_action = state_info.get('last_action')
-    iteration = state_info.get('iteration', 0)
+    ui_elements = state_info.get("ui_elements", [])
+    last_action = state_info.get("last_action")
+    iteration = state_info.get("iteration", 0)
 
     if ui_elements and len(ui_elements) > 0:
         elements_text = ui_elements[0]

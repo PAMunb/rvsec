@@ -14,7 +14,10 @@ from rv_screen_parser.parser.screen.parser_factory import ParserFactory
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ScreenItem
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_agent.ui.rvagent_visitor import RVAgentVisitor
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
+from rv_agent.agent.dynamic_state_graph import (
+    DynamicStateGraph,
+    compute_screen_hash_from_description,
+)
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.memory.ui_coverage import UICoverageTracker
 
@@ -51,7 +54,7 @@ class ScreenProcessor:
         ui_coverage: Optional[UICoverageTracker] = None,
         static_data: Optional[StaticAnalysisData] = None,
         device_dimensions: Tuple[int, int] = (1080, 1920),
-        max_external_attempts: int = 3
+        max_external_attempts: int = 3,
     ):
         """
         Initialize screen processor.
@@ -74,16 +77,13 @@ class ScreenProcessor:
         # Initialize UI parser using factory pattern with RVAgentVisitor
         # for full static analysis integration (MOP markers, WTG navigation)
         self.parser = ParserFactory.create(
-            ScreenParserType.UIAUTOMATOR,
-            visitor_class=RVAgentVisitor
+            ScreenParserType.UIAUTOMATOR, visitor_class=RVAgentVisitor
         )
 
         self.logger = logging.getLogger(__name__)
 
     def parse_current_screen(
-        self,
-        target_package: str,
-        external_navigation_count: int = 0
+        self, target_package: str, external_navigation_count: int = 0
     ) -> Dict[str, Any]:
         """
         Parse current UI state and detect external navigation.
@@ -107,7 +107,7 @@ class ScreenProcessor:
         ui_state = self.device.get_current_ui_state()
 
         # Check external navigation
-        current_package = ui_state.get('current_package', '')
+        current_package = ui_state.get("current_package", "")
         is_external = current_package and current_package != target_package
 
         # DEBUG: Always log package comparison
@@ -143,8 +143,8 @@ class ScreenProcessor:
 
         # Parse screen
         screen_description = self.parser.parse_screen(
-            {"hierarchy": ui_state['xml'], "activity": ui_state['current_activity']},
-            static_data=self.static_data
+            {"hierarchy": ui_state["xml"], "activity": ui_state["current_activity"]},
+            static_data=self.static_data,
         )
 
         # Compute screen hash
@@ -157,7 +157,9 @@ class ScreenProcessor:
         untested = ui_elements_text.count("[UNTESTED]")
         tested = ui_elements_text.count("[TESTED-")
         well_tested = ui_elements_text.count("[WELL-TESTED]")
-        self.logger.info(f"Elements: untested={untested} tested={tested} well_tested={well_tested}")
+        self.logger.info(
+            f"Elements: untested={untested} tested={tested} well_tested={well_tested}"
+        )
 
         self.logger.info(f"Activity: {ui_state['current_activity']}")
         self.logger.info(f"Screen hash: {screen_hash[:12]}...")
@@ -165,16 +167,18 @@ class ScreenProcessor:
 
         return {
             "screen_hash": screen_hash,
-            "activity": ui_state['current_activity'],
+            "activity": ui_state["current_activity"],
             "screen_description": screen_description,
             "ui_elements_text": ui_elements_text,
             "is_external": is_external,
             "external_navigation_count": external_navigation_count,
             "restart_occurred": restart_occurred,
-            "ui_xml": ui_state.get('xml', '')
+            "ui_xml": ui_state.get("xml", ""),
         }
 
-    def format_ui_elements(self, screen_description: ScreenDescription, screen_hash: str = "") -> str:
+    def format_ui_elements(
+        self, screen_description: ScreenDescription, screen_hash: str = ""
+    ) -> str:
         """
         Format UI elements with test status, scores, and MOP markers.
 
@@ -199,8 +203,10 @@ class ScreenProcessor:
         # Filter to interactive elements - those with actions created by visitor
         # Exclude system actions (BACK, RESTART) - LLM has dedicated tools for these
         interactive_items = [
-            item for item in screen_description.items
-            if item.actions and not item.view.get('class', '').startswith('SystemAction_')
+            item
+            for item in screen_description.items
+            if item.actions
+            and not item.view.get("class", "").startswith("SystemAction_")
         ]
 
         if not interactive_items:
@@ -217,7 +223,7 @@ class ScreenProcessor:
             return "No interactive elements found."
 
         # Sort by score descending
-        scored_elements.sort(key=lambda x: x['score'], reverse=True)
+        scored_elements.sort(key=lambda x: x["score"], reverse=True)
 
         # Format output with sequential numbering
         lines = []
@@ -240,12 +246,14 @@ class ScreenProcessor:
         Returns:
             Dict with description, tag, score, coordinates, or None if invalid
         """
-        elem_type = item.view.get('class', 'View').split('.')[-1]
-        text = item.view.get('text', '')
-        bounds = item.view.get('bounds')
+        elem_type = item.view.get("class", "View").split(".")[-1]
+        text = item.view.get("text", "")
+        bounds = item.view.get("bounds")
 
         # Validate bounds
-        if not (bounds and len(bounds) == 2 and len(bounds[0]) == 2 and len(bounds[1]) == 2):
+        if not (
+            bounds and len(bounds) == 2 and len(bounds[0]) == 2 and len(bounds[1]) == 2
+        ):
             return None
 
         # Calculate center and normalize to [0, 1000)
@@ -259,6 +267,7 @@ class ScreenProcessor:
         test_count = 0
         if self.ui_coverage:
             from rv_agent.memory.ui_coverage import make_element_id
+
             element_id = make_element_id(norm_x, norm_y)
             test_count = self.ui_coverage.get_element_test_count(element_id)
             # Track element for this screen
@@ -287,7 +296,7 @@ class ScreenProcessor:
         # MOP bonus (simplificado - MopScorer real usa mesmos valores)
         mop_bonus = 0
         mop_marker = ""
-        if hasattr(item, 'actions') and item.actions:
+        if hasattr(item, "actions") and item.actions:
             action = item.actions[0]
             if action.directly_reaches_mop:
                 mop_bonus = 100
@@ -299,7 +308,7 @@ class ScreenProcessor:
         total_score = base_score + mop_bonus
 
         # Build description - include content_description if text is empty
-        content_desc = item.view.get('content_description', '')
+        content_desc = item.view.get("content_description", "")
         parts = [elem_type]
         if text:
             parts.append(f"'{text}'")
@@ -309,12 +318,12 @@ class ScreenProcessor:
         description = " ".join(parts) + mop_marker
 
         return {
-            'description': description,
-            'tag': tag,
-            'score': total_score,
-            'x': norm_x,
-            'y': norm_y,
-            'test_count': test_count,
+            "description": description,
+            "tag": tag,
+            "score": total_score,
+            "x": norm_x,
+            "y": norm_y,
+            "test_count": test_count,
         }
 
     def _restart_app(self, package_name: str):
@@ -331,9 +340,7 @@ class ScreenProcessor:
         time.sleep(2)
 
     def detect_ui_mutation(
-        self,
-        before_desc: ScreenDescription,
-        after_desc: ScreenDescription
+        self, before_desc: ScreenDescription, after_desc: ScreenDescription
     ) -> bool:
         """
         Detect subtle UI state changes even when structural hash is the same.
@@ -371,16 +378,22 @@ class ScreenProcessor:
             after_view = after_map[element_id]
 
             # Check for state mutations
-            if before_view.get('enabled') != after_view.get('enabled'):
-                self.logger.info(f"UI Mutation: 'enabled' changed for {element_id[:50]}")
+            if before_view.get("enabled") != after_view.get("enabled"):
+                self.logger.info(
+                    f"UI Mutation: 'enabled' changed for {element_id[:50]}"
+                )
                 return True
 
-            if before_view.get('checked') != after_view.get('checked'):
-                self.logger.info(f"UI Mutation: 'checked' changed for {element_id[:50]}")
+            if before_view.get("checked") != after_view.get("checked"):
+                self.logger.info(
+                    f"UI Mutation: 'checked' changed for {element_id[:50]}"
+                )
                 return True
 
-            if before_view.get('selected') != after_view.get('selected'):
-                self.logger.info(f"UI Mutation: 'selected' changed for {element_id[:50]}")
+            if before_view.get("selected") != after_view.get("selected"):
+                self.logger.info(
+                    f"UI Mutation: 'selected' changed for {element_id[:50]}"
+                )
                 return True
 
         return False
@@ -405,9 +418,9 @@ class ScreenProcessor:
             view = item.view
 
             # Compose unique identifier
-            resource_id = view.get('resource-id', '')
-            class_name = view.get('class', '')
-            bounds = str(view.get('bounds', ''))
+            resource_id = view.get("resource-id", "")
+            class_name = view.get("class", "")
+            bounds = str(view.get("bounds", ""))
             element_id = f"{resource_id}|{class_name}|{bounds}"
 
             element_map[element_id] = view

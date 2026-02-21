@@ -37,6 +37,7 @@ class TestToolExecutor:
         result = executor.execute_action(action)
         assert result["success"] is True
         executor.device.click.assert_called_with(100, 200)
+        executor.device.clear_text.assert_called_once()
         executor.device.input_text.assert_called_with("hello")
 
     def test_execute_scroll(self, executor):
@@ -145,7 +146,9 @@ class TestToolExecutor:
     def test_execute_action_with_exception(self, executor):
         executor.device.click.side_effect = Exception("Device disconnected")
         action = {"action_type": "CLICK", "x": 100, "y": 200}
-        with pytest.raises(DeviceError, match="Action execution failed: Device disconnected"):
+        with pytest.raises(
+            DeviceError, match="Action execution failed: Device disconnected"
+        ):
             executor.execute_action(action)
 
     def test_no_coordinate_conversion_with_handler(self, executor_with_handler):

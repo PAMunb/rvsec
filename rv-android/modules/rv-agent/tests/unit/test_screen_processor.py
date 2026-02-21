@@ -34,24 +34,29 @@ class TestScreenProcessorInit:
         graph = DynamicStateGraph()
 
         processor = ScreenProcessor(
-            device=device,
-            dynamic_graph=graph,
-            device_dimensions=(1440, 2560)
+            device=device, dynamic_graph=graph, device_dimensions=(1440, 2560)
         )
 
         assert processor.device_dimensions == (1440, 2560)
 
 
-def _make_interactive_item(class_name, text='', bounds=None, resource_id='',
-                           content_desc='', reaches_mop=False, directly_reaches_mop=False):
+def _make_interactive_item(
+    class_name,
+    text="",
+    bounds=None,
+    resource_id="",
+    content_desc="",
+    reaches_mop=False,
+    directly_reaches_mop=False,
+):
     """Helper to create a mock interactive item with actions (required by current format_ui_elements)."""
     item = MagicMock()
     item.view = {
-        'class': class_name,
-        'text': text,
-        'bounds': bounds or [(100, 200), (300, 400)],
-        'resource_id': resource_id,
-        'content_description': content_desc,
+        "class": class_name,
+        "text": text,
+        "bounds": bounds or [(100, 200), (300, 400)],
+        "resource_id": resource_id,
+        "content_description": content_desc,
     }
 
     action = MagicMock(spec=ItemAction)
@@ -94,9 +99,9 @@ class TestFormatUIElements:
 
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.TextView',
-            'clickable': False,
-            'bounds': [(100, 200), (300, 400)]
+            "class": "android.widget.TextView",
+            "clickable": False,
+            "bounds": [(100, 200), (300, 400)],
         }
         item.actions = []  # No actions = not interactive
         screen_desc.items = [item]
@@ -110,9 +115,9 @@ class TestFormatUIElements:
         screen_desc = MagicMock(spec=ScreenDescription)
 
         item = _make_interactive_item(
-            'android.widget.EditText',
-            text='Email',
-            resource_id='com.example/email_input'
+            "android.widget.EditText",
+            text="Email",
+            resource_id="com.example/email_input",
         )
         screen_desc.items = [item]
 
@@ -127,9 +132,9 @@ class TestFormatUIElements:
         screen_desc = MagicMock(spec=ScreenDescription)
 
         item = _make_interactive_item(
-            'android.widget.Spinner',
-            text='Select country',
-            resource_id='com.example/country_spinner'
+            "android.widget.Spinner",
+            text="Select country",
+            resource_id="com.example/country_spinner",
         )
         screen_desc.items = [item]
 
@@ -144,9 +149,9 @@ class TestFormatUIElements:
         screen_desc = MagicMock(spec=ScreenDescription)
 
         item = _make_interactive_item(
-            'android.widget.Button',
-            text='Submit',
-            resource_id='com.example/submit_button'
+            "android.widget.Button",
+            text="Submit",
+            resource_id="com.example/submit_button",
         )
         screen_desc.items = [item]
 
@@ -161,19 +166,15 @@ class TestFormatUIElements:
         screen_desc = MagicMock(spec=ScreenDescription)
 
         edittext_item = _make_interactive_item(
-            'android.widget.EditText',
-            bounds=[(100, 200), (300, 400)]
+            "android.widget.EditText", bounds=[(100, 200), (300, 400)]
         )
 
         spinner_item = _make_interactive_item(
-            'android.widget.Spinner',
-            bounds=[(100, 500), (300, 600)]
+            "android.widget.Spinner", bounds=[(100, 500), (300, 600)]
         )
 
         button_item = _make_interactive_item(
-            'android.widget.Button',
-            text='OK',
-            bounds=[(100, 700), (300, 800)]
+            "android.widget.Button", text="OK", bounds=[(100, 700), (300, 800)]
         )
 
         screen_desc.items = [edittext_item, spinner_item, button_item]
@@ -200,30 +201,26 @@ class TestProcessElement:
     def test_process_basic_element(self, processor):
         """Process basic element returns dict with expected keys."""
         item = _make_interactive_item(
-            'android.widget.Button',
-            text='Submit',
-            resource_id='com.example/submit_btn',
-            bounds=[(100, 200), (300, 400)]
+            "android.widget.Button",
+            text="Submit",
+            resource_id="com.example/submit_btn",
+            bounds=[(100, 200), (300, 400)],
         )
 
         result = processor._process_element(item, "screen_hash")
 
         assert result is not None
-        assert "Button" in result['description']
-        assert "'Submit'" in result['description']
-        assert result['tag'] == "[UNTESTED]"
-        assert result['score'] == 200  # Base score for untested
-        assert 'x' in result
-        assert 'y' in result
+        assert "Button" in result["description"]
+        assert "'Submit'" in result["description"]
+        assert result["tag"] == "[UNTESTED]"
+        assert result["score"] == 200  # Base score for untested
+        assert "x" in result
+        assert "y" in result
 
     def test_process_element_invalid_bounds(self, processor):
         """Element with invalid bounds returns None."""
         item = MagicMock()
-        item.view = {
-            'class': 'android.widget.Button',
-            'text': 'Submit',
-            'bounds': None
-        }
+        item.view = {"class": "android.widget.Button", "text": "Submit", "bounds": None}
         item.actions = [MagicMock()]
 
         result = processor._process_element(item, "screen_hash")
@@ -234,9 +231,9 @@ class TestProcessElement:
         """Element with incomplete bounds returns None."""
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.Button',
-            'text': 'Submit',
-            'bounds': [(100, 200)]  # Missing second point
+            "class": "android.widget.Button",
+            "text": "Submit",
+            "bounds": [(100, 200)],  # Missing second point
         }
         item.actions = [MagicMock()]
 
@@ -247,47 +244,43 @@ class TestProcessElement:
     def test_process_element_with_mop_direct(self, processor):
         """Element with direct MOP marker gets [DM] and bonus score."""
         item = _make_interactive_item(
-            'android.widget.Button',
-            text='Encrypt',
-            directly_reaches_mop=True
+            "android.widget.Button", text="Encrypt", directly_reaches_mop=True
         )
 
         result = processor._process_element(item, "screen_hash")
 
         assert result is not None
-        assert "[DM]" in result['description']
-        assert result['score'] == 300  # 200 base + 100 DM bonus
+        assert "[DM]" in result["description"]
+        assert result["score"] == 300  # 200 base + 100 DM bonus
 
     def test_process_element_with_mop_transitive(self, processor):
         """Element with transitive MOP marker gets [M] and bonus score."""
         item = _make_interactive_item(
-            'android.widget.Button',
-            text='Settings',
-            reaches_mop=True
+            "android.widget.Button", text="Settings", reaches_mop=True
         )
 
         result = processor._process_element(item, "screen_hash")
 
         assert result is not None
-        assert "[M]" in result['description']
-        assert result['score'] == 250  # 200 base + 50 M bonus
+        assert "[M]" in result["description"]
+        assert result["score"] == 250  # 200 base + 50 M bonus
 
     def test_process_element_with_mop_both(self, processor):
         """Element with both MOP flags prioritizes [DM]."""
         item = _make_interactive_item(
-            'android.widget.Button',
-            text='Submit',
+            "android.widget.Button",
+            text="Submit",
             directly_reaches_mop=True,
-            reaches_mop=True
+            reaches_mop=True,
         )
 
         result = processor._process_element(item, "screen_hash")
 
         assert result is not None
-        assert "Button" in result['description']
-        assert "'Submit'" in result['description']
-        assert "[DM]" in result['description']
-        assert result['score'] == 300  # 200 base + 100 DM bonus (DM takes precedence)
+        assert "Button" in result["description"]
+        assert "'Submit'" in result["description"]
+        assert "[DM]" in result["description"]
+        assert result["score"] == 300  # 200 base + 100 DM bonus (DM takes precedence)
 
 
 class TestRestartApp:
@@ -299,7 +292,7 @@ class TestRestartApp:
         graph = DynamicStateGraph()
         processor = ScreenProcessor(device=device, dynamic_graph=graph)
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             processor._restart_app("com.example.app")
 
         device.stop_app.assert_called_once_with("com.example.app")
@@ -313,25 +306,24 @@ class TestParseCurrentScreen:
         """Basic parse returns expected structure."""
         device = MagicMock()
         device.get_current_ui_state.return_value = {
-            'xml': '<hierarchy></hierarchy>',
-            'current_activity': 'com.example/.MainActivity',
-            'current_package': 'com.example'
+            "xml": "<hierarchy></hierarchy>",
+            "current_activity": "com.example/.MainActivity",
+            "current_package": "com.example",
         }
         graph = DynamicStateGraph()
 
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
-        screen_desc.activity = 'MainActivity'
+        screen_desc.activity = "MainActivity"
 
-        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
+        with patch("rv_agent.services.screen_analyzer.ParserFactory") as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
 
             processor = ScreenProcessor(device=device, dynamic_graph=graph)
             result = processor.parse_current_screen(
-                target_package="com.example",
-                external_navigation_count=0
+                target_package="com.example", external_navigation_count=0
             )
 
         assert "screen_hash" in result
@@ -344,25 +336,24 @@ class TestParseCurrentScreen:
         """Parse detects external navigation."""
         device = MagicMock()
         device.get_current_ui_state.return_value = {
-            'xml': '<hierarchy></hierarchy>',
-            'current_activity': 'com.google/.SearchActivity',
-            'current_package': 'com.google'
+            "xml": "<hierarchy></hierarchy>",
+            "current_activity": "com.google/.SearchActivity",
+            "current_package": "com.google",
         }
         graph = DynamicStateGraph()
 
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
-        screen_desc.activity = 'SearchActivity'
+        screen_desc.activity = "SearchActivity"
 
-        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
+        with patch("rv_agent.services.screen_analyzer.ParserFactory") as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
 
             processor = ScreenProcessor(device=device, dynamic_graph=graph)
             result = processor.parse_current_screen(
-                target_package="com.example",
-                external_navigation_count=0
+                target_package="com.example", external_navigation_count=0
             )
 
         assert result["is_external"] is True
@@ -374,32 +365,31 @@ class TestParseCurrentScreen:
         # First call returns external, second returns target
         device.get_current_ui_state.side_effect = [
             {
-                'xml': '<hierarchy></hierarchy>',
-                'current_activity': 'com.google/.SearchActivity',
-                'current_package': 'com.google'
+                "xml": "<hierarchy></hierarchy>",
+                "current_activity": "com.google/.SearchActivity",
+                "current_package": "com.google",
             },
             {
-                'xml': '<hierarchy></hierarchy>',
-                'current_activity': 'com.example/.MainActivity',
-                'current_package': 'com.example'
-            }
+                "xml": "<hierarchy></hierarchy>",
+                "current_activity": "com.example/.MainActivity",
+                "current_package": "com.example",
+            },
         ]
         graph = DynamicStateGraph()
 
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
-        screen_desc.activity = 'MainActivity'
+        screen_desc.activity = "MainActivity"
 
-        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
+        with patch("rv_agent.services.screen_analyzer.ParserFactory") as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
 
-            with patch('time.sleep'):
+            with patch("time.sleep"):
                 processor = ScreenProcessor(device=device, dynamic_graph=graph)
                 result = processor.parse_current_screen(
-                    target_package="com.example",
-                    external_navigation_count=3  # At max
+                    target_package="com.example", external_navigation_count=3  # At max
                 )
 
         assert result["restart_occurred"] is True
@@ -410,17 +400,17 @@ class TestParseCurrentScreen:
         """Counter resets when returning to target app."""
         device = MagicMock()
         device.get_current_ui_state.return_value = {
-            'xml': '<hierarchy></hierarchy>',
-            'current_activity': 'com.example/.MainActivity',
-            'current_package': 'com.example'
+            "xml": "<hierarchy></hierarchy>",
+            "current_activity": "com.example/.MainActivity",
+            "current_package": "com.example",
         }
         graph = DynamicStateGraph()
 
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
-        screen_desc.activity = 'MainActivity'
+        screen_desc.activity = "MainActivity"
 
-        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
+        with patch("rv_agent.services.screen_analyzer.ParserFactory") as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
@@ -428,7 +418,7 @@ class TestParseCurrentScreen:
             processor = ScreenProcessor(device=device, dynamic_graph=graph)
             result = processor.parse_current_screen(
                 target_package="com.example",
-                external_navigation_count=2  # Was external
+                external_navigation_count=2,  # Was external
             )
 
         assert result["external_navigation_count"] == 0
@@ -437,31 +427,28 @@ class TestParseCurrentScreen:
         """Parse generates ui_elements_text using format_ui_elements (coverage integrated)."""
         device = MagicMock()
         device.get_current_ui_state.return_value = {
-            'xml': '<hierarchy></hierarchy>',
-            'current_activity': 'com.example/.MainActivity',
-            'current_package': 'com.example'
+            "xml": "<hierarchy></hierarchy>",
+            "current_activity": "com.example/.MainActivity",
+            "current_package": "com.example",
         }
         graph = DynamicStateGraph()
 
         screen_desc = MagicMock(spec=ScreenDescription)
         screen_desc.items = []
-        screen_desc.activity = 'MainActivity'
+        screen_desc.activity = "MainActivity"
 
         ui_coverage = MagicMock()
 
-        with patch('rv_agent.services.screen_analyzer.ParserFactory') as mock_factory:
+        with patch("rv_agent.services.screen_analyzer.ParserFactory") as mock_factory:
             mock_parser = MagicMock()
             mock_parser.parse_screen.return_value = screen_desc
             mock_factory.create.return_value = mock_parser
 
             processor = ScreenProcessor(
-                device=device,
-                dynamic_graph=graph,
-                ui_coverage=ui_coverage
+                device=device, dynamic_graph=graph, ui_coverage=ui_coverage
             )
             result = processor.parse_current_screen(
-                target_package="com.example",
-                external_navigation_count=0
+                target_package="com.example", external_navigation_count=0
             )
 
         # ui_elements_text is generated via format_ui_elements (not annotate_screen_elements)

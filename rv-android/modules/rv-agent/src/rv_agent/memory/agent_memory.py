@@ -20,7 +20,6 @@ import logging
 from typing import Dict, List, Optional, Set, Tuple
 from collections import deque
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -62,8 +61,10 @@ class AgentMemoryManager:
         self.activity_visits: Dict[str, int] = {}
         self.navigation_path: List[str] = []
 
-        logger.info(f"AgentMemoryManager initialized (max_actions={max_action_history}, "
-                   f"max_path={max_navigation_path})")
+        logger.info(
+            f"AgentMemoryManager initialized (max_actions={max_action_history}, "
+            f"max_path={max_navigation_path})"
+        )
 
     def record_action(self, action: Dict, activity: str, success: bool = True):
         """
@@ -80,7 +81,7 @@ class AgentMemoryManager:
             "explanation": action.get("explanation", ""),
             "activity": activity,
             "success": success,
-            "coords": (action.get("x", 0), action.get("y", 0))
+            "coords": (action.get("x", 0), action.get("y", 0)),
         }
         self.action_history.append(action_record)
 
@@ -123,12 +124,15 @@ class AgentMemoryManager:
             success_marker = "" if action["success"] else " [FAILED]"
 
             # Format: "1. CLICK at (540, 633): Explanation text"
-            lines.append(f"  {i}. {action_type} at {coords}: {explanation}{success_marker}")
+            lines.append(
+                f"  {i}. {action_type} at {coords}: {explanation}{success_marker}"
+            )
 
         return "\n".join(lines)
 
-    def get_exploration_summary(self, visited_states: List[str],
-                                state_transitions: List[Tuple[str, str]]) -> str:
+    def get_exploration_summary(
+        self, visited_states: List[str], state_transitions: List[Tuple[str, str]]
+    ) -> str:
         """
         Generate exploration progress summary string.
 
@@ -155,7 +159,7 @@ class AgentMemoryManager:
             "Exploration Progress:",
             f"- Unique screens visited: {num_states}",
             f"- State transitions discovered: {num_transitions}",
-            f"- Activities explored: {num_activities}"
+            f"- Activities explored: {num_activities}",
         ]
 
         return "\n".join(lines)
@@ -184,14 +188,13 @@ class AgentMemoryManager:
         lines = [
             "Memory Insights:",
             f"- Current activity '{current_activity}' visited {visit_count} time(s)",
-            f"- Total activities explored: {total_activities}"
+            f"- Total activities explored: {total_activities}",
         ]
 
         # Suggest least visited activity (if more than 1 activity)
         if total_activities > 1:
             least_visited_activity, least_visits = min(
-                self.activity_visits.items(),
-                key=lambda x: x[1]
+                self.activity_visits.items(), key=lambda x: x[1]
             )
 
             # Only suggest if it's not the current activity
@@ -221,7 +224,7 @@ class AgentMemoryManager:
             return "Navigation Path: Starting exploration"
 
         # Show last N activities
-        recent_path = self.navigation_path[-self.max_navigation_path:]
+        recent_path = self.navigation_path[-self.max_navigation_path :]
         path_str = " → ".join(recent_path)
 
         return f"Navigation Path: {path_str}"

@@ -9,17 +9,21 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 from unittest.mock import MagicMock, patch
 
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
+from rv_agent.agent.dynamic_state_graph import (
+    DynamicStateGraph,
+    compute_screen_hash_from_description,
+)
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.strategies.strategy_registry import StrategyRegistry
 from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.config.agent_config import RVAgentConfig
-
 
 pytestmark = pytest.mark.integration
 
@@ -38,7 +42,9 @@ def load_fixture(app_name: str, screen_num: str) -> Tuple[str, ScreenDescription
         xml_content = f.read()
 
     parser = UIAutomator2Parser(visitor_class=DefaultTextVisitor)
-    screen_desc = parser.parse(xml_content, activity=f"com.example.{app_name}.MainActivity")
+    screen_desc = parser.parse(
+        xml_content, activity=f"com.example.{app_name}.MainActivity"
+    )
 
     return xml_content, screen_desc
 
@@ -98,7 +104,7 @@ def routing_manager_pure(config_pure_algorithm, fallback_manager, dfs_strategy):
     return RoutingManager(
         config=config_pure_algorithm,
         fallback_manager=fallback_manager,
-        exploration_strategy=dfs_strategy
+        exploration_strategy=dfs_strategy,
     )
 
 
@@ -108,13 +114,14 @@ def routing_manager_multimode(config_multimode, fallback_manager, dfs_strategy):
     return RoutingManager(
         config=config_multimode,
         fallback_manager=fallback_manager,
-        exploration_strategy=dfs_strategy
+        exploration_strategy=dfs_strategy,
     )
 
 
 # =============================================================================
 # Mode Selection Tests
 # =============================================================================
+
 
 class TestModeSelection:
     """Test routing mode selection."""
@@ -137,12 +144,14 @@ class TestModeSelection:
         # At least algorithm should appear (probability 0.3)
         assert "algorithm" in unique_decisions or "llm" in unique_decisions
 
-    def test_llm_only_returns_llm(self, config_llm_only, fallback_manager, dfs_strategy):
+    def test_llm_only_returns_llm(
+        self, config_llm_only, fallback_manager, dfs_strategy
+    ):
         """LLM-only mode always routes to llm."""
         routing_manager = RoutingManager(
             config=config_llm_only,
             fallback_manager=fallback_manager,
-            exploration_strategy=dfs_strategy
+            exploration_strategy=dfs_strategy,
         )
 
         for i in range(10):
@@ -153,6 +162,7 @@ class TestModeSelection:
 # =============================================================================
 # Counter Tracking Tests
 # =============================================================================
+
 
 class TestCounterTracking:
     """Test decision counter tracking."""
@@ -195,12 +205,15 @@ class TestCounterTracking:
         # Verify percentage is calculated
         assert "llm_percentage" in counters
         assert "algorithm_percentage" in counters
-        assert counters["llm_percentage"] + counters["algorithm_percentage"] == pytest.approx(100, abs=0.1)
+        assert counters["llm_percentage"] + counters[
+            "algorithm_percentage"
+        ] == pytest.approx(100, abs=0.1)
 
 
 # =============================================================================
 # Action Validation Tests
 # =============================================================================
+
 
 class TestActionValidation:
     """Test action validation in routing."""
@@ -211,7 +224,7 @@ class TestActionValidation:
             "action_type": "CLICK",
             "x": 352,
             "y": 273,
-            "explanation": "Click button"
+            "explanation": "Click button",
         }
         recent_actions = []
 
@@ -255,7 +268,7 @@ class TestActionValidation:
         action = {
             "action_type": "SCROLL",
             "direction": "down",
-            "explanation": "Scroll down"
+            "explanation": "Scroll down",
         }
         recent_actions = []
 
@@ -268,12 +281,15 @@ class TestActionValidation:
 # Validation Counter Tests
 # =============================================================================
 
+
 class TestValidationCounting:
     """Test validation failure counting."""
 
     def test_llm_validation_failed_increments(self, routing_manager_multimode):
         """LLM validation failed counter increments on invalid action."""
-        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
+        initial = routing_manager_multimode.get_decision_counters()[
+            "llm_validation_failed"
+        ]
 
         # Trigger validation failure (None action)
         routing_manager_multimode.validate_action(None, [])
@@ -283,7 +299,9 @@ class TestValidationCounting:
 
     def test_valid_action_does_not_increment_failure(self, routing_manager_multimode):
         """Valid action does not increment failure counter."""
-        initial = routing_manager_multimode.get_decision_counters()["llm_validation_failed"]
+        initial = routing_manager_multimode.get_decision_counters()[
+            "llm_validation_failed"
+        ]
 
         action = {"action_type": "CLICK", "x": 100, "y": 200}
         routing_manager_multimode.validate_action(action, [], decision_maker="llm")
@@ -303,6 +321,7 @@ class TestValidationCounting:
 # Fixture Integration Tests
 # =============================================================================
 
+
 class TestFixtureIntegration:
     """Test routing with real fixture data."""
 
@@ -318,11 +337,7 @@ class TestFixtureIntegration:
         coords = first_action.get_execution_coordinates()
 
         if coords:
-            action = {
-                "action_type": "CLICK",
-                "x": coords[0],
-                "y": coords[1]
-            }
+            action = {"action_type": "CLICK", "x": coords[0], "y": coords[1]}
             result = routing_manager_multimode.validate_action(action, [])
 
             assert result["validation_path"] == "execute"
@@ -331,6 +346,7 @@ class TestFixtureIntegration:
 # =============================================================================
 # Proportion Tracking Tests
 # =============================================================================
+
 
 class TestProportionTracking:
     """Test LLM/algorithm proportion tracking."""
@@ -344,7 +360,9 @@ class TestProportionTracking:
             # For LLM decisions, simulate successful validation
             if decision == "llm":
                 action = {"action_type": "CLICK", "x": 100 + i, "y": 200 + i}
-                routing_manager_multimode.validate_action(action, [], decision_maker="llm")
+                routing_manager_multimode.validate_action(
+                    action, [], decision_maker="llm"
+                )
 
         counters = routing_manager_multimode.get_decision_counters()
 
@@ -371,6 +389,7 @@ class TestProportionTracking:
 # Edge Cases Tests
 # =============================================================================
 
+
 class TestEdgeCases:
     """Test routing edge cases."""
 
@@ -381,7 +400,9 @@ class TestEdgeCases:
         assert result["validation_path"] == "execute"
         assert result["current_action"]["action_type"] == "BACK"
 
-    def test_action_with_empty_action_type_returns_back(self, routing_manager_multimode):
+    def test_action_with_empty_action_type_returns_back(
+        self, routing_manager_multimode
+    ):
         """Action with empty action_type returns BACK."""
         action = {"action_type": "", "x": 100, "y": 200}
         result = routing_manager_multimode.validate_action(action, [])
@@ -417,6 +438,7 @@ class TestEdgeCases:
 # Decision Maker Source Tests
 # =============================================================================
 
+
 class TestDecisionMakerSource:
     """Test decision maker source tracking."""
 
@@ -431,7 +453,9 @@ class TestDecisionMakerSource:
         counters = routing_manager_multimode.get_decision_counters()
         assert counters["llm_executed"] == initial + 1
 
-    def test_algorithm_decision_maker_does_not_increment_chosen(self, routing_manager_multimode):
+    def test_algorithm_decision_maker_does_not_increment_chosen(
+        self, routing_manager_multimode
+    ):
         """Algorithm decision maker does not increment algorithm_chosen in validate_action.
 
         algorithm_chosen is only incremented in route_decision(), not validate_action().
@@ -441,7 +465,9 @@ class TestDecisionMakerSource:
 
         initial = routing_manager_multimode.get_decision_counters()["algorithm_chosen"]
 
-        routing_manager_multimode.validate_action(action, [], decision_maker="algorithm")
+        routing_manager_multimode.validate_action(
+            action, [], decision_maker="algorithm"
+        )
 
         counters = routing_manager_multimode.get_decision_counters()
         assert counters["algorithm_chosen"] == initial

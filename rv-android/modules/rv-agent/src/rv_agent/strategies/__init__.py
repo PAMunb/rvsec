@@ -11,8 +11,8 @@ from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
 
 __all__ = [
-    'ExplorationStrategy',
-    'DFSStrategy',
-    'BFSStrategy',
-    'GreedyStrategy',
+    "ExplorationStrategy",
+    "DFSStrategy",
+    "BFSStrategy",
+    "GreedyStrategy",
 ]

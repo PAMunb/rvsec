@@ -75,7 +75,7 @@ class RoutingManager:
         self,
         config: RVAgentConfig,
         fallback_manager: FallbackManager,
-        exploration_strategy: Optional[ExplorationStrategy] = None
+        exploration_strategy: Optional[ExplorationStrategy] = None,
     ):
         """
         Initialize routing manager.
@@ -98,12 +98,14 @@ class RoutingManager:
         # Initialize random seed for reproducibility (multimode routing)
         if config.seed is not None:
             random.seed(config.seed)
-            logging.getLogger(__name__).info(f"RoutingManager: Random seed initialized: {config.seed}")
+            logging.getLogger(__name__).info(
+                f"RoutingManager: Random seed initialized: {config.seed}"
+            )
 
         # Counters for metrics
-        self.llm_executed = 0           # LLM actions executed successfully
-        self.algorithm_chosen = 0       # Algorithm path chosen
-        self.forced_back_count = 0      # BACK from stuck detection
+        self.llm_executed = 0  # LLM actions executed successfully
+        self.algorithm_chosen = 0  # Algorithm path chosen
+        self.forced_back_count = 0  # BACK from stuck detection
         self.llm_validation_failed = 0  # LLM actions that failed validation
 
         self.logger = logging.getLogger(__name__)
@@ -161,7 +163,7 @@ class RoutingManager:
         self,
         action: Optional[Dict[str, Any]],
         recent_actions: list,
-        decision_maker: str = "llm"
+        decision_maker: str = "llm",
     ) -> Dict[str, Any]:
         """
         Validate action before execution.
@@ -181,11 +183,13 @@ class RoutingManager:
         if not action or not action.get("action_type"):
             if decision_maker == "llm":
                 self.llm_validation_failed += 1
-            self.logger.warning(f"No valid action from {decision_maker} -> executing BACK")
+            self.logger.warning(
+                f"No valid action from {decision_maker} -> executing BACK"
+            )
             return {
                 "validation_path": "execute",
                 "loop_detected": True,
-                "current_action": self._create_back_action("no_valid_action")
+                "current_action": self._create_back_action("no_valid_action"),
             }
 
         # Track execution metrics
@@ -197,7 +201,7 @@ class RoutingManager:
         return {
             "validation_path": "execute",
             "loop_detected": False,
-            "current_action": action
+            "current_action": action,
         }
 
     def _create_back_action(self, reason: str) -> Dict[str, Any]:
@@ -208,7 +212,7 @@ class RoutingManager:
             "y": 0,
             "text": "",
             "source": "validation",
-            "reason": reason
+            "reason": reason,
         }
 
     def get_decision_counters(self) -> Dict[str, Any]:
@@ -226,14 +230,18 @@ class RoutingManager:
             - "total_actions" (int): All actions including forced and failed.
         """
         primary_total = self.llm_executed + self.algorithm_chosen
-        llm_percentage = (self.llm_executed / primary_total * 100) if primary_total > 0 else 0
-        algorithm_percentage = (self.algorithm_chosen / primary_total * 100) if primary_total > 0 else 0
+        llm_percentage = (
+            (self.llm_executed / primary_total * 100) if primary_total > 0 else 0
+        )
+        algorithm_percentage = (
+            (self.algorithm_chosen / primary_total * 100) if primary_total > 0 else 0
+        )
 
         total_actions = (
-            self.llm_executed +
-            self.algorithm_chosen +
-            self.forced_back_count +
-            self.llm_validation_failed
+            self.llm_executed
+            + self.algorithm_chosen
+            + self.forced_back_count
+            + self.llm_validation_failed
         )
 
         return {
@@ -242,12 +250,10 @@ class RoutingManager:
             "algorithm_chosen": self.algorithm_chosen,
             "llm_percentage": llm_percentage,
             "algorithm_percentage": algorithm_percentage,
-
             # Event counters
             "forced_back": self.forced_back_count,
             "llm_validation_failed": self.llm_validation_failed,
-
             # Totals
             "primary_total": primary_total,
-            "total_actions": total_actions
+            "total_actions": total_actions,
         }

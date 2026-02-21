@@ -15,10 +15,10 @@ from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.services.transition_manager import TransitionManager
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def fixtures_path():
@@ -60,6 +60,7 @@ def transition_manager(static_data, dynamic_graph):
 # Test: Initialization
 # =============================================================================
 
+
 class TestTransitionManagerInit:
     """Test TransitionManager initialization."""
 
@@ -87,6 +88,7 @@ class TestTransitionManagerInit:
 # =============================================================================
 # Test: Window ID Mapping
 # =============================================================================
+
 
 class TestWindowIdMapping:
     """Test activity to window ID mapping."""
@@ -135,6 +137,7 @@ class TestWindowIdMapping:
 # Test: Activity Tracking
 # =============================================================================
 
+
 class TestActivityTracking:
     """Test activity visit tracking."""
 
@@ -150,7 +153,7 @@ class TestActivityTracking:
         """Track multiple visited activities."""
         activities = [
             "br.unb.cic.cryptoapp.MainActivity",
-            "br.unb.cic.cryptoapp.cipher.CipherActivity"
+            "br.unb.cic.cryptoapp.cipher.CipherActivity",
         ]
 
         for activity in activities:
@@ -164,6 +167,7 @@ class TestActivityTracking:
 # =============================================================================
 # Test: Navigation Targets
 # =============================================================================
+
 
 class TestNavigationTargets:
     """Test unvisited target retrieval."""
@@ -223,6 +227,7 @@ class TestNavigationTargets:
 # Test: Navigation Guidance
 # =============================================================================
 
+
 class TestNavigationGuidance:
     """Test comprehensive navigation guidance."""
 
@@ -234,8 +239,7 @@ class TestNavigationGuidance:
         screen_desc.events_by_id = {}
 
         guidance = transition_manager.get_navigation_guidance(
-            "br.unb.cic.cryptoapp.MainActivity",
-            screen_desc
+            "br.unb.cic.cryptoapp.MainActivity", screen_desc
         )
 
         assert "unvisited_targets" in guidance
@@ -262,8 +266,7 @@ class TestNavigationGuidance:
         screen_desc.events_by_id = {}
 
         guidance = transition_manager.get_navigation_guidance(
-            "br.unb.cic.cryptoapp.MainActivity",
-            screen_desc
+            "br.unb.cic.cryptoapp.MainActivity", screen_desc
         )
 
         progress = guidance["exploration_progress"]
@@ -276,6 +279,7 @@ class TestNavigationGuidance:
 # Test: Exploration Summary
 # =============================================================================
 
+
 class TestExplorationSummary:
     """Test exploration summary."""
 
@@ -283,7 +287,9 @@ class TestExplorationSummary:
         """Get exploration summary."""
         # Visit some activities
         transition_manager.mark_activity_visited("br.unb.cic.cryptoapp.MainActivity")
-        transition_manager.mark_activity_visited("br.unb.cic.cryptoapp.cipher.CipherActivity")
+        transition_manager.mark_activity_visited(
+            "br.unb.cic.cryptoapp.cipher.CipherActivity"
+        )
 
         summary = transition_manager.get_exploration_summary()
 
@@ -307,6 +313,7 @@ class TestExplorationSummary:
 # Test: Priority Calculation
 # =============================================================================
 
+
 class TestPriorityCalculation:
     """Test target priority calculation."""
 
@@ -314,16 +321,12 @@ class TestPriorityCalculation:
         """Unvisited targets get +100 priority."""
         # Calculate for unvisited
         priority_unvisited = transition_manager._calculate_target_priority(
-            target_id="1395",
-            visited=False,
-            widget_id=None
+            target_id="1395", visited=False, widget_id=None
         )
 
         # Calculate for visited
         priority_visited = transition_manager._calculate_target_priority(
-            target_id="1395",
-            visited=True,
-            widget_id=None
+            target_id="1395", visited=True, widget_id=None
         )
 
         assert priority_unvisited > priority_visited

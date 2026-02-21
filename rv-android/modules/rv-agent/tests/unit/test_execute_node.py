@@ -19,14 +19,14 @@ class TestExecuteNode:
         mock_agent = MagicMock()
         mock_tool_executor = MagicMock()
         mock_agent.tool_executor = mock_tool_executor
-        
+
         # Mock successful execution result
         execution_result = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200}
+            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200},
         }
         mock_tool_executor.execute_action.return_value = execution_result
-        
+
         # Create state with action
         state = AgentState(
             current_activity="MainActivity",
@@ -38,21 +38,18 @@ class TestExecuteNode:
                 "action_type": "CLICK",
                 "x": 100,
                 "y": 200,
-                "source": "llm"
+                "source": "llm",
             },
-            previous_screen_hash="prev_hash"
+            previous_screen_hash="prev_hash",
         )
-        
+
         result = execute_node(mock_agent, state)
-        
+
         # Verify tool executor was called with the action
-        mock_tool_executor.execute_action.assert_called_once_with({
-            "action_type": "CLICK",
-            "x": 100,
-            "y": 200,
-            "source": "llm"
-        })
-        
+        mock_tool_executor.execute_action.assert_called_once_with(
+            {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"}
+        )
+
         # Verify result structure
         assert "action_executed" in result
         assert "action_success" in result
@@ -64,21 +61,21 @@ class TestExecuteNode:
         mock_agent = MagicMock()
         mock_tool_executor = MagicMock()
         mock_agent.tool_executor = mock_tool_executor
-        
+
         # Create state without action
         state = AgentState(
             current_activity="MainActivity",
             current_screen_hash="hash123",
             visited_states=set(),
             state_transitions=[],
-            recent_action_window=[]
+            recent_action_window=[],
         )
-        
+
         result = execute_node(mock_agent, state)
-        
+
         # Verify tool executor was not called
         mock_tool_executor.execute_action.assert_not_called()
-        
+
         # Verify result indicates no action executed
         assert result["action_executed"] is None
 
@@ -87,15 +84,15 @@ class TestExecuteNode:
         mock_agent = MagicMock()
         mock_tool_executor = MagicMock()
         mock_agent.tool_executor = mock_tool_executor
-        
+
         # Mock failed execution result
         execution_result = {
             "success": False,
             "error": "Click failed",
-            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200}
+            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200},
         }
         mock_tool_executor.execute_action.return_value = execution_result
-        
+
         # Create state with action
         state = AgentState(
             current_activity="MainActivity",
@@ -107,15 +104,15 @@ class TestExecuteNode:
                 "action_type": "CLICK",
                 "x": 100,
                 "y": 200,
-                "source": "algorithm"
-            }
+                "source": "algorithm",
+            },
         )
-        
+
         result = execute_node(mock_agent, state)
-        
+
         # Verify tool executor was called
         mock_tool_executor.execute_action.assert_called_once()
-        
+
         # Verify result indicates failure
         assert "action_executed" in result
         assert "action_success" in result
@@ -129,14 +126,19 @@ class TestExecuteNode:
         mock_strategy = MagicMock()
         mock_agent.strategy = mock_strategy
         mock_agent.ui_coverage = MagicMock()
-        
+
         # Mock successful execution result
         execution_result = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"}
+            "action_executed": {
+                "action_type": "CLICK",
+                "x": 100,
+                "y": 200,
+                "source": "llm",
+            },
         }
         mock_tool_executor.execute_action.return_value = execution_result
-        
+
         # Create state with action and screen hashes
         state = AgentState(
             current_activity="MainActivity",
@@ -148,22 +150,24 @@ class TestExecuteNode:
                 "action_type": "CLICK",
                 "x": 100,
                 "y": 200,
-                "source": "llm"
+                "source": "llm",
             },
             current_item_action={
                 "action_type": "CLICK",
                 "x": 100,
                 "y": 200,
-                "source": "llm"
+                "source": "llm",
             },
-            previous_screen_hash="prev_hash"
+            previous_screen_hash="prev_hash",
         )
-        
+
         result = execute_node(mock_agent, state)
-        
+
         # Verify strategy record_transition was called
         mock_agent.strategy.record_transition.assert_called_once_with(
-            "prev_hash", "new_hash", {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"}
+            "prev_hash",
+            "new_hash",
+            {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"},
         )
 
     def test_execute_node_records_ui_coverage_for_llm_action(self):
@@ -172,7 +176,11 @@ class TestExecuteNode:
         mock_tool_executor = MagicMock()
         mock_agent.tool_executor = mock_tool_executor
         mock_agent.ui_coverage = MagicMock()
-        mock_agent.ui_coverage.find_nearest_element.return_value = ("elem_100_200", "Button", 5.0)
+        mock_agent.ui_coverage.find_nearest_element.return_value = (
+            "elem_100_200",
+            "Button",
+            5.0,
+        )
         mock_agent.screen_processor = MagicMock()
         mock_agent.screen_processor.device_dimensions = (1080, 1920)
         mock_agent.dynamic_graph = MagicMock()
@@ -181,7 +189,12 @@ class TestExecuteNode:
         # Mock successful execution result
         execution_result = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"}
+            "action_executed": {
+                "action_type": "CLICK",
+                "x": 100,
+                "y": 200,
+                "source": "llm",
+            },
         }
         mock_tool_executor.execute_action.return_value = execution_result
 
@@ -196,9 +209,9 @@ class TestExecuteNode:
                 "action_type": "CLICK",
                 "x": 100,
                 "y": 200,
-                "source": "llm"
+                "source": "llm",
             },
-            previous_screen_hash="prev_hash"
+            previous_screen_hash="prev_hash",
         )
 
         result = execute_node(mock_agent, state)
@@ -218,7 +231,12 @@ class TestExecuteNode:
         # Mock successful execution result
         execution_result = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200, "source": "algorithm"}
+            "action_executed": {
+                "action_type": "CLICK",
+                "x": 100,
+                "y": 200,
+                "source": "algorithm",
+            },
         }
         mock_tool_executor.execute_action.return_value = execution_result
 
@@ -233,9 +251,9 @@ class TestExecuteNode:
                 "action_type": "CLICK",
                 "x": 100,
                 "y": 200,
-                "source": "algorithm"
+                "source": "algorithm",
             },
-            previous_screen_hash="prev_hash"
+            previous_screen_hash="prev_hash",
         )
 
         result = execute_node(mock_agent, state)

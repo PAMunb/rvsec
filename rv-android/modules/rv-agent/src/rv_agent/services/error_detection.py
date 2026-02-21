@@ -197,7 +197,10 @@ class VisualErrorDetector:
         filtered_by_size = 0
         after_size = []
         for indicator in accepted:
-            if indicator.width > max_indicator_size or indicator.height > max_indicator_size:
+            if (
+                indicator.width > max_indicator_size
+                or indicator.height > max_indicator_size
+            ):
                 filtered_by_size += 1
             else:
                 after_size.append(indicator)

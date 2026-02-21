@@ -26,7 +26,8 @@ suggest unvisited targets prioritized by MOP reachability.
 """
 
 import logging
-from typing import Optional, Dict, List, Any, Set
+from collections import deque
+from typing import Optional, Dict, List, Any, Set, Tuple
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.wtg import WindowTransitionGraph
@@ -62,7 +63,7 @@ class TransitionManager:
     def __init__(
         self,
         static_data: Optional[StaticAnalysisData],
-        dynamic_graph: DynamicStateGraph
+        dynamic_graph: DynamicStateGraph,
     ):
         """
         Initialize TransitionManager.
@@ -83,7 +84,7 @@ class TransitionManager:
 
         # Extract WTG from static data if available
         self.wtg: Optional[WindowTransitionGraph] = None
-        if static_data and hasattr(static_data, 'wtg'):
+        if static_data and hasattr(static_data, "wtg"):
             self.wtg = static_data.wtg
 
         # Cache for activity -> window ID mapping
@@ -116,16 +117,16 @@ class TransitionManager:
         if activity in self._activity_to_window_id:
             return self._activity_to_window_id[activity]
 
-        if not self.static_data or not hasattr(self.static_data, 'windows'):
+        if not self.static_data or not hasattr(self.static_data, "windows"):
             return None
 
         windows = self.static_data.windows
-        if not windows or not hasattr(windows, 'windows'):
+        if not windows or not hasattr(windows, "windows"):
             return None
 
         # Strategy 1: Exact match on activity field
         for window in windows.windows:
-            if hasattr(window, 'activity') and window.activity == activity:
+            if hasattr(window, "activity") and window.activity == activity:
                 self._activity_to_window_id[activity] = window.id
                 return window.id
 
@@ -136,7 +137,7 @@ class TransitionManager:
                 return window.id
 
         # Strategy 3: Partial match
-        activity_parts = activity.split('.')
+        activity_parts = activity.split(".")
         activity_class = activity_parts[-1] if activity_parts else activity
 
         for window in windows.windows:
@@ -199,24 +200,30 @@ class TransitionManager:
             target_activity = self._find_activity_for_window_id(target_id)
 
             # Check if visited
-            visited = target_activity in self._visited_activities if target_activity else False
+            visited = (
+                target_activity in self._visited_activities
+                if target_activity
+                else False
+            )
 
             # Calculate priority
             priority = self._calculate_target_priority(
                 target_id=target_id,
                 visited=visited,
-                widget_id=transition.get("widget_id")
+                widget_id=transition.get("widget_id"),
             )
 
-            suggestions.append({
-                "target_activity": target_activity or f"window_{target_id}",
-                "target_window_id": target_id,
-                "widget_id": transition.get("widget_id"),
-                "event_type": transition.get("event_type"),
-                "method": transition.get("method"),
-                "visited": visited,
-                "priority": priority
-            })
+            suggestions.append(
+                {
+                    "target_activity": target_activity or f"window_{target_id}",
+                    "target_window_id": target_id,
+                    "widget_id": transition.get("widget_id"),
+                    "event_type": transition.get("event_type"),
+                    "method": transition.get("method"),
+                    "visited": visited,
+                    "priority": priority,
+                }
+            )
 
         # Sort by priority (descending)
         suggestions.sort(key=lambda x: x["priority"], reverse=True)
@@ -233,7 +240,7 @@ class TransitionManager:
         Returns:
             Activity name or None.
         """
-        if not self.static_data or not hasattr(self.static_data, 'windows'):
+        if not self.static_data or not hasattr(self.static_data, "windows"):
             return None
 
         for window in self.static_data.windows.windows:
@@ -243,10 +250,7 @@ class TransitionManager:
         return None
 
     def _calculate_target_priority(
-        self,
-        target_id: str,
-        visited: bool,
-        widget_id: Optional[str]
+        self, target_id: str, visited: bool, widget_id: Optional[str]
     ) -> int:
         """
         Calculate priority score for a navigation target.
@@ -271,16 +275,16 @@ class TransitionManager:
             priority += 100
 
         # Check MOP reachability for the widget
-        if widget_id and self.static_data and hasattr(self.static_data, 'windows'):
+        if widget_id and self.static_data and hasattr(self.static_data, "windows"):
             widget = self._find_widget_globally(widget_id)
-            if widget and hasattr(widget, 'events'):
+            if widget and hasattr(widget, "events"):
                 for event in widget.events:
-                    if hasattr(event, 'signature'):
+                    if hasattr(event, "signature"):
                         method = self._get_method(event.signature)
                         if method:
-                            if getattr(method, 'directly_reaches_mop', False):
+                            if getattr(method, "directly_reaches_mop", False):
                                 priority += 25
-                            elif getattr(method, 'reaches_mop', False):
+                            elif getattr(method, "reaches_mop", False):
                                 priority += 50
 
         return priority
@@ -295,18 +299,18 @@ class TransitionManager:
         Returns:
             Widget or None.
         """
-        if not self.static_data or not hasattr(self.static_data, 'windows'):
+        if not self.static_data or not hasattr(self.static_data, "windows"):
             return None
 
         # Try global widgets dict
-        if hasattr(self.static_data.windows, 'widgets'):
+        if hasattr(self.static_data.windows, "widgets"):
             widget = self.static_data.windows.widgets.get(widget_id)
             if widget:
                 return widget
 
         # Search in all windows
         for window in self.static_data.windows.windows:
-            if hasattr(window, 'widgets') and widget_id in window.widgets:
+            if hasattr(window, "widgets") and widget_id in window.widgets:
                 return window.widgets[widget_id]
 
         return None
@@ -321,15 +325,13 @@ class TransitionManager:
         Returns:
             Method or None.
         """
-        if not self.static_data or not hasattr(self.static_data, 'classes'):
+        if not self.static_data or not hasattr(self.static_data, "classes"):
             return None
 
         return self.static_data.classes.methods.get(signature)
 
     def get_navigation_guidance(
-        self,
-        current_activity: str,
-        screen_desc: ScreenDescription
+        self, current_activity: str, screen_desc: ScreenDescription
     ) -> Dict[str, Any]:
         """
         Get comprehensive navigation guidance for the current screen.
@@ -353,7 +355,7 @@ class TransitionManager:
             "unvisited_targets": [],
             "suggested_actions": [],
             "exploration_progress": {},
-            "has_static_guidance": False
+            "has_static_guidance": False,
         }
 
         # Mark current activity as visited
@@ -370,20 +372,24 @@ class TransitionManager:
 
         # Exploration progress
         if self.wtg and self.static_data:
-            total_windows = len(self.static_data.windows.windows) if hasattr(self.static_data, 'windows') else 0
+            total_windows = (
+                len(self.static_data.windows.windows)
+                if hasattr(self.static_data, "windows")
+                else 0
+            )
             visited_count = len(self._visited_activities)
             guidance["exploration_progress"] = {
                 "total_windows": total_windows,
                 "visited_activities": visited_count,
-                "coverage_percent": (visited_count / total_windows * 100) if total_windows > 0 else 0
+                "coverage_percent": (
+                    (visited_count / total_windows * 100) if total_windows > 0 else 0
+                ),
             }
 
         return guidance
 
     def _map_targets_to_actions(
-        self,
-        targets: List[Dict[str, Any]],
-        screen_desc: ScreenDescription
+        self, targets: List[Dict[str, Any]], screen_desc: ScreenDescription
     ) -> List[Dict[str, Any]]:
         """
         Map WTG targets to executable ItemActions in current screen.
@@ -407,13 +413,15 @@ class TransitionManager:
             if action:
                 # Build descriptive action text from target_view properties
                 action_text = self._get_action_description(action)
-                suggested.append({
-                    **target,
-                    "action_id": action.id,
-                    "action_text": action_text,
-                    "action_type": action.action_type,
-                    "coordinates": action.get_execution_coordinates()
-                })
+                suggested.append(
+                    {
+                        **target,
+                        "action_id": action.id,
+                        "action_text": action_text,
+                        "action_type": action.action_type,
+                        "coordinates": action.get_execution_coordinates(),
+                    }
+                )
 
         return suggested
 
@@ -434,35 +442,33 @@ class TransitionManager:
             return action.text  # Fallback to original text
 
         # Try content-desc first (accessibility label)
-        content_desc = target.get('content-desc', '')
+        content_desc = target.get("content-desc", "")
         if content_desc:
             return content_desc
 
         # Try view text
-        text = target.get('text', '')
+        text = target.get("text", "")
         if text:
             return text
 
         # Try resource-id (extract meaningful name)
-        resource_id = target.get('resource-id', '')
+        resource_id = target.get("resource-id", "")
         if resource_id:
             # Extract name from "com.example:id/button_name" -> "button_name"
-            parts = resource_id.split('/')
+            parts = resource_id.split("/")
             if len(parts) > 1:
-                return parts[-1].replace('_', ' ')
+                return parts[-1].replace("_", " ")
 
         # Fall back to class name
-        class_name = target.get('class', '')
+        class_name = target.get("class", "")
         if class_name:
             # Extract simple name from "android.widget.Button" -> "Button"
-            return class_name.split('.')[-1]
+            return class_name.split(".")[-1]
 
         return action.text  # Final fallback
 
     def _find_action_by_widget_id(
-        self,
-        widget_id: str,
-        screen_desc: ScreenDescription
+        self, widget_id: str, screen_desc: ScreenDescription
     ) -> Optional[ItemAction]:
         """
         Find ItemAction that corresponds to a static widget ID.
@@ -480,12 +486,152 @@ class TransitionManager:
         # Direct match via events_by_id
         # The visitor should have set widget_id during parsing
         for action in screen_desc.events_by_id.values():
-            if hasattr(action, 'widget_id') and action.widget_id == widget_id:
-                self.logger.debug(f"WTG match found: widget_id={widget_id}, action_id={action.id}")
+            if hasattr(action, "widget_id") and action.widget_id == widget_id:
+                self.logger.debug(
+                    f"WTG match found: widget_id={widget_id}, action_id={action.id}"
+                )
                 return action
 
         self.logger.debug(f"WTG match not found: widget_id={widget_id}")
         return None
+
+    def plan_path_to_mop_activity(
+        self, current_activity: str, mop_data: Any
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        BFS on WTG transitions to find path to activity with MOP methods.
+
+        Starting from the current activity, performs breadth-first search on
+        the WTG graph. For each reachable activity, checks if it has MOP methods
+        (from static analysis classes data). Scores candidates by MOP density
+        (number of MOP methods in the activity) and returns the path to the
+        best candidate as a list of action dicts.
+
+        Args:
+            current_activity: Current runtime activity name.
+            mop_data: Static analysis data or MOP data dict. Currently unused
+                directly -- MOP information is extracted from self.static_data.classes.
+
+        Returns:
+            List of action dicts for the path to the best MOP activity, or None
+            if no MOP activity is reachable. Each action dict contains:
+            - action_type: "BACK" or event type
+            - target_activity: Target activity name
+            - widget_id: Widget triggering the transition (if available)
+        """
+        if not self.wtg or not self.static_data:
+            return None
+
+        current_window_id = self.find_window_id_for_activity(current_activity)
+        if not current_window_id:
+            self.logger.debug(
+                f"plan_path_to_mop_activity: No window ID for {current_activity}"
+            )
+            return None
+
+        # BFS to find reachable activities with MOP methods
+        # Each queue entry: (window_id, path_of_transitions)
+        # path_of_transitions is a list of transition dicts from WTG
+        visited: Set[str] = {current_window_id}
+        queue: deque = deque()
+
+        # Seed BFS with direct transitions from current window
+        for transition in self.wtg.get_window_transitions(current_window_id):
+            target_id = transition.get("target")
+            if target_id and target_id not in visited:
+                queue.append((target_id, [transition]))
+                visited.add(target_id)
+
+        # Collect candidates: (mop_count, path)
+        candidates: List[Tuple[int, List[Dict[str, Any]]]] = []
+
+        while queue:
+            window_id, path = queue.popleft()
+
+            # Check MOP density for this window's activity
+            activity_name = self._find_activity_for_window_id(window_id)
+            if activity_name:
+                mop_count = self._count_mop_methods_for_activity(activity_name)
+                if mop_count > 0:
+                    candidates.append((mop_count, path))
+                    # Continue BFS to find potentially better candidates,
+                    # but don't expand further from MOP activities (greedy)
+                    continue
+
+            # Expand neighbors
+            for transition in self.wtg.get_window_transitions(window_id):
+                target_id = transition.get("target")
+                if target_id and target_id not in visited:
+                    visited.add(target_id)
+                    queue.append((target_id, path + [transition]))
+
+        if not candidates:
+            self.logger.debug("plan_path_to_mop_activity: No MOP activity reachable")
+            return None
+
+        # Select best candidate by MOP density (highest first), then shortest path
+        candidates.sort(key=lambda c: (-c[0], len(c[1])))
+        best_mop_count, best_path = candidates[0]
+
+        # Convert WTG transitions to action dicts
+        action_dicts = []
+        for transition in best_path:
+            target_activity = self._find_activity_for_window_id(
+                transition.get("target", "")
+            )
+            action_dicts.append(
+                {
+                    "action_type": "CLICK",
+                    "widget_id": transition.get("widget_id"),
+                    "target_activity": target_activity
+                    or f"window_{transition.get('target')}",
+                    "text": f"Navigate to {target_activity or 'unknown'}",
+                    "reaches_mop": True,
+                    "directly_reaches_mop": False,
+                    "coordinates": None,
+                    "target_view": {},
+                }
+            )
+
+        self.logger.info(
+            f"plan_path_to_mop_activity: Found path to MOP activity "
+            f"({best_mop_count} MOP methods, {len(action_dicts)} steps)"
+        )
+        return action_dicts
+
+    def _count_mop_methods_for_activity(self, activity_name: str) -> int:
+        """
+        Count MOP methods associated with an activity.
+
+        Searches static analysis classes data for methods in the activity's
+        class that reach monitored operations.
+
+        Args:
+            activity_name: Activity class name (e.g., "com.example.MainActivity").
+
+        Returns:
+            Number of MOP methods found in the activity's class.
+        """
+        if not self.static_data or not hasattr(self.static_data, "classes"):
+            return 0
+
+        classes = self.static_data.classes
+        if not hasattr(classes, "methods"):
+            return 0
+
+        count = 0
+        for sig, method in classes.methods.items():
+            # Match method's class_name with the activity name
+            if not hasattr(method, "class_name"):
+                continue
+            if method.class_name != activity_name:
+                continue
+            if getattr(method, "reaches_mop", False) or getattr(
+                method, "directly_reaches_mop", False
+            ):
+                count += 1
+
+        return count
 
     def get_exploration_summary(self) -> Dict[str, Any]:
         """Get summary of exploration progress.
@@ -505,14 +651,16 @@ class TransitionManager:
             "visited_count": len(self._visited_activities),
             "dynamic_states": len(self.dynamic_graph.states),
             "dynamic_transitions": len(self.dynamic_graph.transitions),
-            "avg_coverage": self.dynamic_graph.get_avg_coverage()
+            "avg_coverage": self.dynamic_graph.get_avg_coverage(),
         }
 
-        if self.wtg and self.static_data and hasattr(self.static_data, 'windows'):
+        if self.wtg and self.static_data and hasattr(self.static_data, "windows"):
             total_windows = len(self.static_data.windows.windows)
             summary["total_static_windows"] = total_windows
             summary["static_coverage_percent"] = (
-                len(self._visited_activities) / total_windows * 100
-            ) if total_windows > 0 else 0
+                (len(self._visited_activities) / total_windows * 100)
+                if total_windows > 0
+                else 0
+            )
 
         return summary

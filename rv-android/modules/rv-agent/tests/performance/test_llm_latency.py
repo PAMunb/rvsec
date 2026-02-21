@@ -17,13 +17,13 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from rv_agent.llm.llm_client import get_android_tools
 
-
 pytestmark = [pytest.mark.performance]
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def llm_with_tools(sglang_url, sglang_model):
@@ -51,25 +51,30 @@ def screenshot_fixtures():
             for img_path in sorted(app_path.glob("*.png"))[:5]:
                 with open(img_path, "rb") as f:
                     img_b64 = base64.b64encode(f.read()).decode()
-                    screenshots[app_dir].append({
-                        "path": str(img_path),
-                        "base64": img_b64
-                    })
+                    screenshots[app_dir].append(
+                        {"path": str(img_path), "base64": img_b64}
+                    )
 
     return screenshots
 
 
 def create_vision_message(img_b64: str) -> HumanMessage:
     """Create a vision message for tool calling."""
-    return HumanMessage(content=[
-        {"type": "text", "text": "Click on the most interactive element."},
-        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
-    ])
+    return HumanMessage(
+        content=[
+            {"type": "text", "text": "Click on the most interactive element."},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+            },
+        ]
+    )
 
 
 # =============================================================================
 # Latency Tests
 # =============================================================================
+
 
 class TestLLMLatency:
     """Tests for LLM latency measurement."""
@@ -77,7 +82,10 @@ class TestLLMLatency:
     @pytest.mark.slow
     def test_single_request_latency(self, llm_with_tools, screenshot_fixtures):
         """Test latency for a single tool call request."""
-        if "cryptoapp" not in screenshot_fixtures or not screenshot_fixtures["cryptoapp"]:
+        if (
+            "cryptoapp" not in screenshot_fixtures
+            or not screenshot_fixtures["cryptoapp"]
+        ):
             pytest.skip("No cryptoapp screenshots available")
 
         img_b64 = screenshot_fixtures["cryptoapp"][0]["base64"]
@@ -146,7 +154,7 @@ class TestLLMLatency:
             if latencies:
                 app_latencies[app_name] = {
                     "avg": statistics.mean(latencies),
-                    "max": max(latencies)
+                    "max": max(latencies),
                 }
 
         if not app_latencies:
@@ -160,8 +168,9 @@ class TestLLMLatency:
         overall_avg = statistics.mean(all_avgs)
 
         for app, metrics in app_latencies.items():
-            assert metrics["avg"] < overall_avg * 2.5, \
-                f"{app} latency ({metrics['avg']}ms) is too high compared to average ({overall_avg}ms)"
+            assert (
+                metrics["avg"] < overall_avg * 2.5
+            ), f"{app} latency ({metrics['avg']}ms) is too high compared to average ({overall_avg}ms)"
 
 
 class TestToolCallLatency:
@@ -181,7 +190,7 @@ class TestToolCallLatency:
                 message = create_vision_message(img_data["base64"])
                 result = llm_with_tools.invoke([message])
 
-                if result and hasattr(result, 'tool_calls') and result.tool_calls:
+                if result and hasattr(result, "tool_calls") and result.tool_calls:
                     successes += 1
                 else:
                     failures += 1
@@ -201,7 +210,10 @@ class TestWarmup:
     @pytest.mark.slow
     def test_cold_vs_warm_latency(self, sglang_url, sglang_model, screenshot_fixtures):
         """Test latency difference between cold and warm model."""
-        if "cryptoapp" not in screenshot_fixtures or not screenshot_fixtures["cryptoapp"]:
+        if (
+            "cryptoapp" not in screenshot_fixtures
+            or not screenshot_fixtures["cryptoapp"]
+        ):
             pytest.skip("No cryptoapp screenshots available")
 
         img_b64 = screenshot_fixtures["cryptoapp"][0]["base64"]
@@ -236,5 +248,6 @@ class TestWarmup:
         print(f"  Speedup: {cold_latency / avg_warm_latency:.1f}x")
 
         # Warm should be faster than cold (or at most equal)
-        assert avg_warm_latency < cold_latency * 1.5, \
-            "Warm latency should not be significantly worse than cold"
+        assert (
+            avg_warm_latency < cold_latency * 1.5
+        ), "Warm latency should not be significantly worse than cold"

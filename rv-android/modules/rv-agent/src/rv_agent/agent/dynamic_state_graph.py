@@ -78,37 +78,36 @@ def compute_screen_hash_from_description(screen_desc: ScreenDescription) -> str:
 
         # Extract ONLY structural attributes
         structural_view = {
-            'class': view.get('class', ''),
-            'resource-id': view.get('resource-id', ''),
-            'package': view.get('package', ''),
-            'clickable': view.get('clickable', False),
-            'scrollable': view.get('scrollable', False),
-            'checkable': view.get('checkable', False),
-            'enabled': view.get('enabled', True),
-            'long-clickable': view.get('long-clickable', False),
-            'editable': view.get('editable', False)
+            "class": view.get("class", ""),
+            "resource-id": view.get("resource-id", ""),
+            "package": view.get("package", ""),
+            "clickable": view.get("clickable", False),
+            "scrollable": view.get("scrollable", False),
+            "checkable": view.get("checkable", False),
+            "enabled": view.get("enabled", True),
+            "long-clickable": view.get("long-clickable", False),
+            "editable": view.get("editable", False),
         }
 
         structural_items.append(structural_view)
 
     # Sort by resource-id for deterministic ordering
     # Elements without resource-id go to end (secondary sort by class)
-    structural_items.sort(key=lambda x: (x['resource-id'] or 'zzz', x['class']))
+    structural_items.sort(key=lambda x: (x["resource-id"] or "zzz", x["class"]))
 
     # Create canonical JSON representation
     canonical = json.dumps(
-        {
-            'activity': screen_desc.activity,
-            'items': structural_items
-        },
+        {"activity": screen_desc.activity, "items": structural_items},
         sort_keys=True,
-        separators=(',', ':')  # Compact format
+        separators=(",", ":"),  # Compact format
     )
 
     # Compute hash
     screen_hash = hashlib.sha256(canonical.encode()).hexdigest()[:12]
 
-    logger.debug(f"Computed structural hash: {screen_hash} for {len(structural_items)} items")
+    logger.debug(
+        f"Computed structural hash: {screen_hash} for {len(structural_items)} items"
+    )
 
     return screen_hash
 
@@ -155,10 +154,7 @@ class DynamicStateGraph:
         self.current_trace: List[Dict[str, Any]] = []
 
     def get_or_create_state(
-        self,
-        screen_hash: str,
-        activity: str,
-        screen_desc: ScreenDescription
+        self, screen_hash: str, activity: str, screen_desc: ScreenDescription
     ) -> ScreenNode:
         """
         Get existing state node or create new one.
@@ -186,24 +182,21 @@ class DynamicStateGraph:
         # System actions (BACK, RESTART) have coordinates=None and inflate the
         # denominator, preventing saturation from reaching the backtrack threshold.
         total_actions = sum(
-            1 for a in screen_desc.get_all_actions()
-            if a.coordinates is not None
+            1 for a in screen_desc.get_all_actions() if a.coordinates is not None
         )
 
         node = ScreenNode(
             screen_hash=screen_hash,
             activity=activity,
             visit_count=1,
-            total_actions=total_actions
+            total_actions=total_actions,
         )
 
         self.states[screen_hash] = node
         return node
 
     def record_action(
-        self,
-        screen_hash: str,
-        action_signature: Tuple[Tuple[int, int], str]
+        self, screen_hash: str, action_signature: Tuple[Tuple[int, int], str]
     ):
         """
         Record action execution on a screen by signature (coordinates + type).
@@ -214,13 +207,23 @@ class DynamicStateGraph:
         """
         if screen_hash in self.states:
             node = self.states[screen_hash]
-            logger.info(f"🔒 GRAPH: Recording action signature={action_signature} on state {screen_hash[:8]}")
-            logger.info(f"   BEFORE: executed_actions = {sorted(node.executed_actions)}")
+            logger.info(
+                f"🔒 GRAPH: Recording action signature={action_signature} on state {screen_hash[:8]}"
+            )
+            logger.info(
+                f"   BEFORE: executed_actions = {sorted(node.executed_actions)}"
+            )
             self.states[screen_hash].record_action(action_signature)
-            logger.info(f"   AFTER:  executed_actions = {sorted(node.executed_actions)}")
+            logger.info(
+                f"   AFTER:  executed_actions = {sorted(node.executed_actions)}"
+            )
         else:
-            logger.warning(f"⚠️  GRAPH: Cannot record action signature={action_signature} - state {screen_hash[:8]} not found!")
-            logger.warning(f"   Available states: {[h[:8] for h in self.states.keys()]}")
+            logger.warning(
+                f"⚠️  GRAPH: Cannot record action signature={action_signature} - state {screen_hash[:8]} not found!"
+            )
+            logger.warning(
+                f"   Available states: {[h[:8] for h in self.states.keys()]}"
+            )
 
     def record_action_to_trace(self, action: Dict[str, Any]):
         """
@@ -235,10 +238,7 @@ class DynamicStateGraph:
         self.current_trace.append(action)
 
     def record_transition(
-        self,
-        from_hash: str,
-        to_hash: str,
-        timestamp: Optional[float] = None
+        self, from_hash: str, to_hash: str, timestamp: Optional[float] = None
     ):
         """
         Record state transition with complete action sequence.
@@ -258,7 +258,7 @@ class DynamicStateGraph:
                 from_hash=from_hash,
                 to_hash=to_hash,
                 action_sequence=self.current_trace.copy(),
-                timestamp=timestamp or time.time()
+                timestamp=timestamp or time.time(),
             )
         )
 
@@ -266,9 +266,7 @@ class DynamicStateGraph:
         self.current_trace = []
 
     def get_untested_actions(
-        self,
-        screen_hash: str,
-        all_actions: List[Any]
+        self, screen_hash: str, all_actions: List[Any]
     ) -> List[Any]:
         """
         Get actions not yet executed on this screen, identified by action signatures.
@@ -295,9 +293,7 @@ class DynamicStateGraph:
         return untested
 
     def is_action_executed(
-        self,
-        screen_hash: str,
-        action_signature: Tuple[Tuple[int, int], str]
+        self, screen_hash: str, action_signature: Tuple[Tuple[int, int], str]
     ) -> bool:
         """
         Check if action with given signature was executed on this screen.
@@ -321,10 +317,7 @@ class DynamicStateGraph:
         Returns:
             Dictionary mapping screen_hash to coverage percentage
         """
-        return {
-            hash: node.get_coverage() * 100
-            for hash, node in self.states.items()
-        }
+        return {hash: node.get_coverage() * 100 for hash, node in self.states.items()}
 
     def get_avg_coverage(self) -> float:
         """
@@ -366,7 +359,7 @@ class DynamicStateGraph:
                     "visit_count": node.visit_count,
                     "total_actions": node.total_actions,
                     "executed_count": len(node.executed_actions),
-                    "coverage": node.get_coverage() * 100
+                    "coverage": node.get_coverage() * 100,
                 }
                 for node in self.states.values()
             ],
@@ -376,10 +369,10 @@ class DynamicStateGraph:
                     "to": t.to_hash,
                     "action_count": len(t.action_sequence),
                     "actions": t.action_sequence,
-                    "timestamp": t.timestamp
+                    "timestamp": t.timestamp,
                 }
                 for t in self.transitions
-            ]
+            ],
         }
 
     def get_screen_line(self, screen_hash: str) -> str:
@@ -406,8 +399,8 @@ class DynamicStateGraph:
 
         # Extract short activity name (last part after dot)
         activity = node.activity
-        if activity and '.' in activity:
-            activity = activity.split('.')[-1]
+        if activity and "." in activity:
+            activity = activity.split(".")[-1]
 
         return (
             f"SCREEN: {activity} | {coverage_pct}% coverage ({tested}/{total} actions) | "
@@ -415,9 +408,7 @@ class DynamicStateGraph:
         )
 
     def get_action_execution_count(
-        self,
-        screen_hash: str,
-        action_signature: Tuple[Tuple[int, int], str]
+        self, screen_hash: str, action_signature: Tuple[Tuple[int, int], str]
     ) -> int:
         """
         Get execution count for a specific action on a screen.

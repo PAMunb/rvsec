@@ -28,6 +28,7 @@ Key Design Decisions:
    WHY MULTIPLE TESTS: Some elements have state-dependent behavior (e.g., toggle
    buttons, checkboxes). Testing once may not reveal all behaviors.
 """
+
 import time
 from typing import Dict, Set, Optional, List, Any
 from dataclasses import dataclass
@@ -42,6 +43,7 @@ class UIElementStats:
     """
     Estatísticas de interação com elementos UI para suporte a decisões LLM.
     """
+
     total_elements: int = 0
     tested_elements: int = 0
     untested_elements: int = 0
@@ -57,7 +59,7 @@ class UIElementStats:
         """Rate of new element discovery."""
         if self.total_elements == 0:
             return 0.0
-        return (self.tested_elements / self.total_elements)
+        return self.tested_elements / self.total_elements
 
 
 class UICoverageTracker:
@@ -80,6 +82,7 @@ class UICoverageTracker:
     def __init__(self):
         """Initialize UI coverage tracker with basic logging."""
         import logging
+
         self.logger = logging.getLogger("rv_agent.memory.ui_coverage")
 
         # Element tracking
@@ -99,9 +102,14 @@ class UICoverageTracker:
 
         self.logger.info(" UICoverageTracker initialized")
 
-    def record_interaction(self, element_id: str, action_type: str = "click",
-                         screen_hash: Optional[str] = None, success: bool = True,
-                         component_type: Optional[str] = None) -> None:
+    def record_interaction(
+        self,
+        element_id: str,
+        action_type: str = "click",
+        screen_hash: Optional[str] = None,
+        success: bool = True,
+        component_type: Optional[str] = None,
+    ) -> None:
         """
         Registra interação com elemento com tipo de ação para guidance balanceado.
 
@@ -121,10 +129,14 @@ class UICoverageTracker:
 
             # Track element interaction count
             was_new_element = element_id not in self.tested_elements
-            self.tested_elements[element_id] = self.tested_elements.get(element_id, 0) + 1
+            self.tested_elements[element_id] = (
+                self.tested_elements.get(element_id, 0) + 1
+            )
 
             # Track action types
-            self.action_type_counts[action_type] = self.action_type_counts.get(action_type, 0) + 1
+            self.action_type_counts[action_type] = (
+                self.action_type_counts.get(action_type, 0) + 1
+            )
 
             # Track screen-element mapping
             if screen_hash:
@@ -135,26 +147,33 @@ class UICoverageTracker:
             # Track temporal information
             if was_new_element:
                 self.first_interactions[element_id] = current_time
-                self.discovery_timeline.append({
-                    'element_id': element_id,
-                    'action_type': action_type,
-                    'screen_hash': screen_hash,
-                    'timestamp': current_time,
-                    'discovery_order': len(self.first_interactions)
-                })
+                self.discovery_timeline.append(
+                    {
+                        "element_id": element_id,
+                        "action_type": action_type,
+                        "screen_hash": screen_hash,
+                        "timestamp": current_time,
+                        "discovery_order": len(self.first_interactions),
+                    }
+                )
 
             self.last_interactions[element_id] = current_time
 
             # Logging with debug prefix
-            status = "NEW" if was_new_element else f"#{self.tested_elements[element_id]}"
+            status = (
+                "NEW" if was_new_element else f"#{self.tested_elements[element_id]}"
+            )
             result = "SUCCESS" if success else "FAILED"
-            self.logger.debug(f" UI interaction: {status} {element_id} "
-                            f"({action_type}) - {result}")
+            self.logger.debug(
+                f" UI interaction: {status} {element_id} " f"({action_type}) - {result}"
+            )
 
         except Exception as e:
             self.logger.error(f" Failed to record interaction: {e}")
 
-    def is_element_untested(self, element_id: str, screen_hash: Optional[str] = None) -> bool:
+    def is_element_untested(
+        self, element_id: str, screen_hash: Optional[str] = None
+    ) -> bool:
         """
         Check if element has never been tested before.
 
@@ -176,7 +195,7 @@ class UICoverageTracker:
         x: int,
         y: int,
         screen_hash: Optional[str] = None,
-        max_distance: float = 100.0
+        max_distance: float = 100.0,
     ) -> Optional[tuple]:
         """
         Find the nearest registered element to given coordinates.
@@ -219,7 +238,9 @@ class UICoverageTracker:
 
         return best_match
 
-    def get_element_test_count(self, element_id: str, screen_hash: Optional[str] = None) -> int:
+    def get_element_test_count(
+        self, element_id: str, screen_hash: Optional[str] = None
+    ) -> int:
         """
         Get how many times an element has been tested.
 
@@ -268,20 +289,24 @@ class UICoverageTracker:
 
             screen_elements = self.screen_elements[screen_hash]
             total_elements = len(screen_elements)
-            tested_elements = sum(1 for elem in screen_elements if elem in self.tested_elements)
+            tested_elements = sum(
+                1 for elem in screen_elements if elem in self.tested_elements
+            )
             untested_elements = total_elements - tested_elements
 
             return UIElementStats(
                 total_elements=total_elements,
                 tested_elements=tested_elements,
-                untested_elements=untested_elements
+                untested_elements=untested_elements,
             )
 
         except Exception as e:
             self.logger.error(f" Coverage stats calculation failed: {e}")
             return UIElementStats()
 
-    def get_exploration_suggestions(self, screen_hash: str, limit: int = 3) -> List[Dict[str, Any]]:
+    def get_exploration_suggestions(
+        self, screen_hash: str, limit: int = 3
+    ) -> List[Dict[str, Any]]:
         """
         Get suggestions for exploration based on coverage data.
 
@@ -294,45 +319,65 @@ class UICoverageTracker:
         """
         try:
             if screen_hash not in self.screen_elements:
-                return [{"suggestion": "explore_new_screen", "reason": "No elements tracked for this screen"}]
+                return [
+                    {
+                        "suggestion": "explore_new_screen",
+                        "reason": "No elements tracked for this screen",
+                    }
+                ]
 
             screen_elements = self.screen_elements[screen_hash]
-            untested_elements = [elem for elem in screen_elements if elem not in self.tested_elements]
+            untested_elements = [
+                elem for elem in screen_elements if elem not in self.tested_elements
+            ]
 
             suggestions = []
 
             # Prioritize untested elements
             for elem in untested_elements[:limit]:
-                suggestions.append({
-                    "element_id": elem,
-                    "suggestion": "test_untested_element",
-                    "reason": "Element has never been tested",
-                    "priority": "high"
-                })
+                suggestions.append(
+                    {
+                        "element_id": elem,
+                        "suggestion": "test_untested_element",
+                        "reason": "Element has never been tested",
+                        "priority": "high",
+                    }
+                )
 
             # If we have suggestions, return them
             if suggestions:
                 return suggestions
 
             # Look for lightly tested elements
-            lightly_tested = [(elem, self.tested_elements[elem])
-                            for elem in screen_elements
-                            if elem in self.tested_elements and self.tested_elements[elem] <= 2]
+            lightly_tested = [
+                (elem, self.tested_elements[elem])
+                for elem in screen_elements
+                if elem in self.tested_elements and self.tested_elements[elem] <= 2
+            ]
 
             lightly_tested.sort(key=lambda x: x[1])  # Sort by test count
 
             for elem, count in lightly_tested[:limit]:
-                suggestions.append({
-                    "element_id": elem,
-                    "suggestion": "retest_lightly_tested",
-                    "reason": f"Element only tested {count} times",
-                    "priority": "medium",
-                    "test_count": count
-                })
+                suggestions.append(
+                    {
+                        "element_id": elem,
+                        "suggestion": "retest_lightly_tested",
+                        "reason": f"Element only tested {count} times",
+                        "priority": "medium",
+                        "test_count": count,
+                    }
+                )
 
-            return suggestions if suggestions else [
-                {"suggestion": "explore_different_actions", "reason": "All elements well tested"}
-            ]
+            return (
+                suggestions
+                if suggestions
+                else [
+                    {
+                        "suggestion": "explore_different_actions",
+                        "reason": "All elements well tested",
+                    }
+                ]
+            )
 
         except Exception as e:
             self.logger.error(f" Exploration suggestions failed: {e}")
@@ -384,25 +429,35 @@ class UICoverageTracker:
             action_distribution = dict(self.action_type_counts)
 
             # Discovery rate over time
-            recent_discoveries = len([d for d in self.discovery_timeline
-                                   if time.time() - d['timestamp'] < 300])  # Last 5 minutes
+            recent_discoveries = len(
+                [
+                    d
+                    for d in self.discovery_timeline
+                    if time.time() - d["timestamp"] < 300
+                ]
+            )  # Last 5 minutes
 
             # Most and least tested elements
-            sorted_elements = sorted(self.tested_elements.items(), key=lambda x: x[1], reverse=True)
+            sorted_elements = sorted(
+                self.tested_elements.items(), key=lambda x: x[1], reverse=True
+            )
             most_tested = sorted_elements[:3] if sorted_elements else []
             least_tested = sorted_elements[-3:] if len(sorted_elements) > 3 else []
 
             return {
                 "total_unique_elements": total_unique_elements,
                 "total_interactions": total_interactions,
-                "average_interactions_per_element": (total_interactions / total_unique_elements
-                                                   if total_unique_elements > 0 else 0),
+                "average_interactions_per_element": (
+                    total_interactions / total_unique_elements
+                    if total_unique_elements > 0
+                    else 0
+                ),
                 "action_distribution": action_distribution,
                 "recent_discoveries": recent_discoveries,
                 "total_screens": len(self.screen_elements),
                 "most_tested_elements": most_tested,
                 "least_tested_elements": least_tested,
-                "discovery_timeline_length": len(self.discovery_timeline)
+                "discovery_timeline_length": len(self.discovery_timeline),
             }
 
         except Exception as e:
@@ -424,8 +479,10 @@ class UICoverageTracker:
         self.last_interactions.clear()
         self.discovery_timeline.clear()
 
-        self.logger.info(f" UI coverage reset complete: "
-                        f"{cleared_elements} elements, {cleared_screens} screens")
+        self.logger.info(
+            f" UI coverage reset complete: "
+            f"{cleared_elements} elements, {cleared_screens} screens"
+        )
 
     def register_screen_elements(self, screen_hash: str, screen_desc: Any) -> None:
         """
@@ -443,16 +500,22 @@ class UICoverageTracker:
                 self.screen_elements[screen_hash] = set()
 
             element_count = 0
-            for item in getattr(screen_desc, 'items', []):
-                view = getattr(item, 'view', {}) if hasattr(item, 'view') else item.get('view', {})
+            for item in getattr(screen_desc, "items", []):
+                view = (
+                    getattr(item, "view", {})
+                    if hasattr(item, "view")
+                    else item.get("view", {})
+                )
 
                 # Get component class name
-                component_class = view.get('class', 'unknown')
+                component_class = view.get("class", "unknown")
                 # Extract simple class name (e.g., "android.widget.Button" -> "Button")
-                simple_class = component_class.split('.')[-1] if component_class else 'unknown'
+                simple_class = (
+                    component_class.split(".")[-1] if component_class else "unknown"
+                )
 
                 # Get element coordinates for ID
-                bounds = view.get('bounds', [[0, 0], [0, 0]])
+                bounds = view.get("bounds", [[0, 0], [0, 0]])
                 if bounds and len(bounds) == 2:
                     center_x = (bounds[0][0] + bounds[1][0]) // 2
                     center_y = (bounds[0][1] + bounds[1][1]) // 2
@@ -492,7 +555,9 @@ class UICoverageTracker:
             total_elements = len(self.element_types)
             # Count tested elements as those in BOTH element_types AND tested_elements
             # This ensures coverage never exceeds 100%
-            tested_elements = len(set(self.tested_elements.keys()) & set(self.element_types.keys()))
+            tested_elements = len(
+                set(self.tested_elements.keys()) & set(self.element_types.keys())
+            )
             total_interactions = sum(self.tested_elements.values())
 
             # Elements and interactions by component type
@@ -503,21 +568,24 @@ class UICoverageTracker:
                 elements_by_type[comp_type] = elements_by_type.get(comp_type, 0) + 1
                 if element_id in self.tested_elements:
                     interactions_by_type[comp_type] = (
-                        interactions_by_type.get(comp_type, 0) +
-                        self.tested_elements[element_id]
+                        interactions_by_type.get(comp_type, 0)
+                        + self.tested_elements[element_id]
                     )
 
             # Coverage by component type
             coverage_by_type: Dict[str, Dict[str, Any]] = {}
             for comp_type, total_count in elements_by_type.items():
                 tested_count = sum(
-                    1 for eid, ct in self.element_types.items()
+                    1
+                    for eid, ct in self.element_types.items()
                     if ct == comp_type and eid in self.tested_elements
                 )
                 coverage_by_type[comp_type] = {
                     "total": total_count,
                     "tested": tested_count,
-                    "coverage": (tested_count / total_count * 100) if total_count > 0 else 0
+                    "coverage": (
+                        (tested_count / total_count * 100) if total_count > 0 else 0
+                    ),
                 }
 
             # Screen metrics
@@ -533,11 +601,25 @@ class UICoverageTracker:
                 )
 
             # Element distribution by test count (only for registered elements)
-            registered_and_tested = set(self.tested_elements.keys()) & set(self.element_types.keys())
+            registered_and_tested = set(self.tested_elements.keys()) & set(
+                self.element_types.keys()
+            )
             untested = total_elements - len(registered_and_tested)
-            tested_once = sum(1 for eid in registered_and_tested if self.tested_elements.get(eid, 0) == 1)
-            tested_multiple = sum(1 for eid in registered_and_tested if 2 <= self.tested_elements.get(eid, 0) <= 3)
-            well_tested = sum(1 for eid in registered_and_tested if self.tested_elements.get(eid, 0) > 3)
+            tested_once = sum(
+                1
+                for eid in registered_and_tested
+                if self.tested_elements.get(eid, 0) == 1
+            )
+            tested_multiple = sum(
+                1
+                for eid in registered_and_tested
+                if 2 <= self.tested_elements.get(eid, 0) <= 3
+            )
+            well_tested = sum(
+                1
+                for eid in registered_and_tested
+                if self.tested_elements.get(eid, 0) > 3
+            )
 
             return {
                 "total_unique_elements": total_elements,
@@ -552,14 +634,14 @@ class UICoverageTracker:
                     "untested": untested,
                     "tested_once": tested_once,
                     "tested_multiple": tested_multiple,
-                    "well_tested": well_tested
+                    "well_tested": well_tested,
                 },
                 "elements_by_type": elements_by_type,
                 "interactions_by_type": interactions_by_type,
                 "coverage_by_type": coverage_by_type,
                 "screens_visited": len(self.screen_elements),
                 "elements_per_screen": elements_per_screen,
-                "coverage_per_screen": coverage_per_screen
+                "coverage_per_screen": coverage_per_screen,
             }
 
         except Exception as e:

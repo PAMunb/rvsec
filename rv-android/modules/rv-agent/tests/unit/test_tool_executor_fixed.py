@@ -16,9 +16,9 @@ class TestToolExecutorInitialization:
     def test_initialization_with_device(self):
         """ToolExecutor initializes with device interface."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         assert tool_executor.device == mock_device
         assert tool_executor.image_handler is None
 
@@ -26,9 +26,11 @@ class TestToolExecutorInitialization:
         """ToolExecutor initializes with image handler."""
         mock_device = MagicMock()
         mock_image_handler = MagicMock()
-        
-        tool_executor = ToolExecutor(device=mock_device, image_handler=mock_image_handler)
-        
+
+        tool_executor = ToolExecutor(
+            device=mock_device, image_handler=mock_image_handler
+        )
+
         assert tool_executor.device == mock_device
         assert tool_executor.image_handler == mock_image_handler
 
@@ -39,18 +41,18 @@ class TestToolExecutorClickAction:
     def test_execute_click_success(self):
         """ToolExecutor successfully executes click action."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         action = {
             "action_type": "CLICK",
             "x": 100,
             "y": 200,
-            "element_description": "Test button"
+            "element_description": "Test button",
         }
-        
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device click was called with correct coordinates
         mock_device.click.assert_called_once_with(100, 200)
         assert result["success"] is True
@@ -59,16 +61,16 @@ class TestToolExecutorClickAction:
     def test_execute_click_with_default_coordinates(self):
         """ToolExecutor handles click with default coordinates when not provided."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         action = {
             "action_type": "CLICK"
             # Missing x, y coordinates - should default to 0, 0
         }
-        
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device click was called with default coordinates
         mock_device.click.assert_called_once_with(0, 0)
         assert result["success"] is True
@@ -80,19 +82,19 @@ class TestToolExecutorSetTextAction:
     def test_execute_set_text_success(self):
         """ToolExecutor successfully executes set_text action."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         action = {
             "action_type": "SET_TEXT",
             "x": 100,
             "y": 200,
             "text": "Hello World",
-            "element_description": "Input field"
+            "element_description": "Input field",
         }
-        
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device methods were called
         mock_device.click.assert_called_once_with(100, 200)
         mock_device.input_text.assert_called_once_with("Hello World")
@@ -101,18 +103,18 @@ class TestToolExecutorSetTextAction:
     def test_execute_set_text_without_text_fails(self):
         """ToolExecutor handles set_text without text."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         action = {
             "action_type": "SET_TEXT",
             "x": 100,
-            "y": 200
+            "y": 200,
             # Missing text field
         }
-        
+
         result = tool_executor.execute_action(action)
-        
+
         # Should fail gracefully
         assert result["success"] is False
         assert "error" in result
@@ -125,13 +127,13 @@ class TestToolExecutorSwipeAction:
     def test_execute_swipe_with_coordinates(self):
         """ToolExecutor executes swipe action with coordinates."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         action = {
             "action_type": "SCROLL",
             "swipe_start": [100, 200],
-            "swipe_end": [300, 400]
+            "swipe_end": [300, 400],
         }
 
         result = tool_executor.execute_action(action)
@@ -143,16 +145,13 @@ class TestToolExecutorSwipeAction:
     def test_execute_swipe_with_direction(self):
         """ToolExecutor executes swipe action with direction."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
-        action = {
-            "action_type": "SWIPE",
-            "direction": "down"
-        }
-        
+
+        action = {"action_type": "SWIPE", "direction": "down"}
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device scroll was called with direction
         mock_device.scroll.assert_called_once_with("down", "medium")
         assert result["success"] is True
@@ -164,15 +163,13 @@ class TestToolExecutorSystemActions:
     def test_execute_back_success(self):
         """ToolExecutor successfully executes back action."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
-        action = {
-            "action_type": "BACK"
-        }
-        
+
+        action = {"action_type": "BACK"}
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device back was called
         mock_device.back.assert_called_once()
         assert result["success"] is True
@@ -180,15 +177,13 @@ class TestToolExecutorSystemActions:
     def test_execute_home_success(self):
         """ToolExecutor successfully executes home action."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
-        action = {
-            "action_type": "HOME"
-        }
-        
+
+        action = {"action_type": "HOME"}
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device home was called
         mock_device.home.assert_called_once()
         assert result["success"] is True
@@ -196,16 +191,13 @@ class TestToolExecutorSystemActions:
     def test_execute_restart_success(self):
         """ToolExecutor successfully executes restart action."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
-        action = {
-            "action_type": "RESTART_APP",
-            "package_name": "com.example.test"
-        }
-        
+
+        action = {"action_type": "RESTART_APP", "package_name": "com.example.test"}
+
         result = tool_executor.execute_action(action)
-        
+
         # Verify device methods were called
         mock_device.stop_app.assert_called_once_with("com.example.test")
         mock_device.start_app.assert_called_once_with("com.example.test")
@@ -214,16 +206,16 @@ class TestToolExecutorSystemActions:
     def test_execute_restart_without_package_fails(self):
         """ToolExecutor handles restart without package name."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         action = {
             "action_type": "RESTART_APP"
             # Missing package_name
         }
-        
+
         result = tool_executor.execute_action(action)
-        
+
         # Should fail gracefully
         assert result["success"] is False
         assert "error" in result
@@ -236,17 +228,13 @@ class TestToolExecutorUnknownAction:
     def test_execute_unknown_action_type(self):
         """ToolExecutor handles unknown action type."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
-        action = {
-            "action_type": "UNKNOWN_ACTION_TYPE",
-            "x": 100,
-            "y": 200
-        }
-        
+
+        action = {"action_type": "UNKNOWN_ACTION_TYPE", "x": 100, "y": 200}
+
         result = tool_executor.execute_action(action)
-        
+
         # Should fail gracefully
         assert result["success"] is False
         assert "error" in result
@@ -265,11 +253,11 @@ class TestToolExecutorUnknownAction:
     def test_execute_action_with_empty_action(self):
         """ToolExecutor handles empty action."""
         mock_device = MagicMock()
-        
+
         tool_executor = ToolExecutor(device=mock_device)
-        
+
         result = tool_executor.execute_action({})
-        
+
         # Should fail gracefully
         assert result["success"] is False
         assert "error" in result

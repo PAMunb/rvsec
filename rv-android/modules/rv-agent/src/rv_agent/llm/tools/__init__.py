@@ -27,17 +27,17 @@ from .tool_call_parser import (
 
 __all__ = [
     # Tool retrieval
-    'get_android_tools',
+    "get_android_tools",
     # Individual tools
-    'android_click',
-    'android_type_text',
-    'android_long_click',
-    'android_swipe',
-    'android_scroll',
-    'android_back',
-    'android_home',
+    "android_click",
+    "android_type_text",
+    "android_long_click",
+    "android_swipe",
+    "android_scroll",
+    "android_back",
+    "android_home",
     # Parser utilities
-    'normalize_tool_args',
-    'parse_tool_calls_with_strategy',
-    'parser_stats',
+    "normalize_tool_args",
+    "parse_tool_calls_with_strategy",
+    "parser_stats",
 ]

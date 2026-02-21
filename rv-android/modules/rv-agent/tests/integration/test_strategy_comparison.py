@@ -12,19 +12,20 @@ import pytest
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
     ScreenNode,
-    compute_screen_hash_from_description
+    compute_screen_hash_from_description,
 )
 from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
-
 
 pytestmark = pytest.mark.integration
 
@@ -43,7 +44,9 @@ def load_fixture(app_name: str, screen_num: str) -> Tuple[str, ScreenDescription
         xml_content = f.read()
 
     parser = UIAutomator2Parser(visitor_class=DefaultTextVisitor)
-    screen_desc = parser.parse(xml_content, activity=f"com.example.{app_name}.MainActivity")
+    screen_desc = parser.parse(
+        xml_content, activity=f"com.example.{app_name}.MainActivity"
+    )
 
     return xml_content, screen_desc
 
@@ -99,6 +102,7 @@ def greedy_strategy(greedy_graph):
 # Strategy Initialization Tests
 # =============================================================================
 
+
 class TestStrategyInitialization:
     """Test strategy initialization."""
 
@@ -120,10 +124,13 @@ class TestStrategyInitialization:
 # Action Selection Comparison Tests
 # =============================================================================
 
+
 class TestActionSelectionComparison:
     """Compare action selection between strategies."""
 
-    def test_all_strategies_select_action(self, dfs_strategy, bfs_strategy, greedy_strategy):
+    def test_all_strategies_select_action(
+        self, dfs_strategy, bfs_strategy, greedy_strategy
+    ):
         """All strategies can select an action from same screen."""
         _, screen_desc = load_fixture("cryptoapp", "001")
 
@@ -140,7 +147,9 @@ class TestActionSelectionComparison:
         assert bfs_action is not None or len(screen_desc.get_all_actions()) == 0
         assert greedy_action is not None or len(screen_desc.get_all_actions()) == 0
 
-    def test_strategies_track_executed_actions(self, dfs_strategy, bfs_strategy, greedy_strategy):
+    def test_strategies_track_executed_actions(
+        self, dfs_strategy, bfs_strategy, greedy_strategy
+    ):
         """All strategies track executed actions."""
         _, screen_desc = load_fixture("cryptoapp", "001")
 
@@ -148,7 +157,7 @@ class TestActionSelectionComparison:
         for strategy, graph in [
             (dfs_strategy, dfs_strategy.graph),
             (bfs_strategy, bfs_strategy.graph),
-            (greedy_strategy, greedy_strategy.graph)
+            (greedy_strategy, greedy_strategy.graph),
         ]:
             screen_hash = compute_screen_hash_from_description(screen_desc)
             action = strategy.select_next_action(screen_hash, screen_desc)
@@ -158,7 +167,9 @@ class TestActionSelectionComparison:
                 assert node is not None
                 assert len(node.executed_actions) >= 1
 
-    def test_strategies_exhaust_state(self, dfs_strategy, bfs_strategy, greedy_strategy):
+    def test_strategies_exhaust_state(
+        self, dfs_strategy, bfs_strategy, greedy_strategy
+    ):
         """All strategies eventually exhaust state."""
         _, screen_desc = load_fixture("cryptoapp", "001")
 
@@ -183,6 +194,7 @@ class TestActionSelectionComparison:
 # Coverage Achievement Comparison Tests
 # =============================================================================
 
+
 class TestCoverageAchievement:
     """Compare coverage achievement between strategies."""
 
@@ -195,7 +207,7 @@ class TestCoverageAchievement:
         for name, StrategyClass in [
             ("DFS", DFSStrategy),
             ("BFS", BFSStrategy),
-            ("Greedy", GreedyStrategy)
+            ("Greedy", GreedyStrategy),
         ]:
             graph = DynamicStateGraph()
             strategy = StrategyClass(graph=graph)
@@ -216,12 +228,14 @@ class TestCoverageAchievement:
             results[name] = {
                 "actions": action_count,
                 "coverage": coverage,
-                "executed": len(node.executed_actions) if node else 0
+                "executed": len(node.executed_actions) if node else 0,
             }
 
         # All strategies should achieve some coverage
         for name, data in results.items():
-            assert data["coverage"] >= 0.5, f"{name} coverage too low: {data['coverage']}"
+            assert (
+                data["coverage"] >= 0.5
+            ), f"{name} coverage too low: {data['coverage']}"
 
     def test_coverage_approaches_similar_values(self):
         """Different strategies achieve similar final coverage."""
@@ -252,6 +266,7 @@ class TestCoverageAchievement:
 # =============================================================================
 # Exploration Order Tests
 # =============================================================================
+
 
 class TestExplorationOrder:
     """Test exploration order differences between strategies."""
@@ -295,6 +310,7 @@ class TestExplorationOrder:
 # =============================================================================
 # Multi-Screen Strategy Tests
 # =============================================================================
+
 
 class TestMultiScreenStrategies:
     """Test strategies across multiple screens."""
@@ -359,6 +375,7 @@ class TestMultiScreenStrategies:
 # Strategy Reset Tests
 # =============================================================================
 
+
 class TestStrategyReset:
     """Test strategy reset functionality."""
 
@@ -405,6 +422,7 @@ class TestStrategyReset:
 # Action Signature Consistency Tests
 # =============================================================================
 
+
 class TestActionSignatureConsistency:
     """Test action signature handling across strategies."""
 
@@ -435,6 +453,7 @@ class TestActionSignatureConsistency:
 # Performance Comparison Tests
 # =============================================================================
 
+
 class TestPerformanceComparison:
     """Compare strategy performance metrics."""
 
@@ -447,7 +466,7 @@ class TestPerformanceComparison:
         for name, StrategyClass in [
             ("DFS", DFSStrategy),
             ("BFS", BFSStrategy),
-            ("Greedy", GreedyStrategy)
+            ("Greedy", GreedyStrategy),
         ]:
             graph = DynamicStateGraph()
             strategy = StrategyClass(graph=graph)
@@ -475,6 +494,7 @@ class TestPerformanceComparison:
 # =============================================================================
 # Cross-App Strategy Tests
 # =============================================================================
+
 
 class TestCrossAppStrategies:
     """Test strategies across different apps."""

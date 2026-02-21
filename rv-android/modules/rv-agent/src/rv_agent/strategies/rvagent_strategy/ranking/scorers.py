@@ -4,7 +4,7 @@ Action scorers for priority-based selection.
 Each Scorer evaluates one aspect of action priority. Scores are summed
 by the ActionRanker to determine final action ranking.
 
-Scorer Architecture (8 scorers total):
+Scorer Architecture (9 scorers total):
   Prioritization:
     - MopScorer: MOP-reaching actions (with form-context deferral)
     - WtgScorer: WTG-guided navigation
@@ -12,6 +12,7 @@ Scorer Architecture (8 scorers total):
     - ComponentPriorityScorer: Button/form/navigation priority
     - StrengthScorer: Success rate based priority
     - GradualDecayScorer: Exponential decay based on visit count
+    - CoverageDensityScorer: Prioritizes actions leading to states with untested elements
 
   Penalties:
     - SystemElementFilter: Filters system UI elements
@@ -84,7 +85,10 @@ class MopScorer(Scorer):
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         # Defer MOP scoring for CLICK when untested text inputs exist on screen
-        if getattr(context, 'has_untested_inputs', False) and getattr(action, 'action_type', '') == "CLICK":
+        if (
+            getattr(context, "has_untested_inputs", False)
+            and getattr(action, "action_type", "") == "CLICK"
+        ):
             return 0.0
 
         if action.directly_reaches_mop:
@@ -120,13 +124,16 @@ class WtgScorer(Scorer):
         if not context.transition_manager:
             return 0.0
 
-        has_wtg = hasattr(context.transition_manager, 'wtg') and context.transition_manager.wtg is not None
+        has_wtg = (
+            hasattr(context.transition_manager, "wtg")
+            and context.transition_manager.wtg is not None
+        )
         if not has_wtg:
             return 0.0
 
         guidance = context.transition_manager.get_navigation_guidance(
             current_activity=context.screen_desc.activity,
-            screen_desc=context.screen_desc
+            screen_desc=context.screen_desc,
         )
 
         if not guidance.get("has_static_guidance", False):
@@ -182,9 +189,7 @@ class GradualDecayScorer(Scorer):
         if visit_count >= self.min_visits:
             return 0.0
 
-        return self.base_score * (self.decay_rate ** visit_count)
-
-
+        return self.base_score * (self.decay_rate**visit_count)
 
 
 class ComponentPriorityScorer(Scorer):
@@ -198,36 +203,71 @@ class ComponentPriorityScorer(Scorer):
     DEFAULT_MEDIUM_PRIORITY = 40.0
 
     # Component types categorized by priority level
-    HIGH_PRIORITY_TYPES = frozenset({
-        # Buttons
-        "Button", "ImageButton", "MaterialButton", "FloatingActionButton",
-        "ExtendedFloatingActionButton",
-        # Form inputs
-        "EditText", "AutoCompleteTextView", "MultiAutoCompleteTextView", "TextInputEditText",
-        # Dropdowns
-        "Spinner", "AppCompatSpinner",
-        # Navigation
-        "DrawerLayout", "Tab", "TabLayout", "TabView", "ActionBar$Tab", "TabItem",
-        "BottomNavigationItemView", "NavigationBarItemView", "NavigationBarView",
-        "NavigationRailView",
-        # Menus
-        "ActionMenuItemView", "MenuItemView", "OverflowMenuButton",
-        # Other
-        "Chip", "LinearLayout",
-    })
+    HIGH_PRIORITY_TYPES = frozenset(
+        {
+            # Buttons
+            "Button",
+            "ImageButton",
+            "MaterialButton",
+            "FloatingActionButton",
+            "ExtendedFloatingActionButton",
+            # Form inputs
+            "EditText",
+            "AutoCompleteTextView",
+            "MultiAutoCompleteTextView",
+            "TextInputEditText",
+            # Dropdowns
+            "Spinner",
+            "AppCompatSpinner",
+            # Navigation
+            "DrawerLayout",
+            "Tab",
+            "TabLayout",
+            "TabView",
+            "ActionBar$Tab",
+            "TabItem",
+            "BottomNavigationItemView",
+            "NavigationBarItemView",
+            "NavigationBarView",
+            "NavigationRailView",
+            # Menus
+            "ActionMenuItemView",
+            "MenuItemView",
+            "OverflowMenuButton",
+            # Other
+            "Chip",
+            "LinearLayout",
+        }
+    )
 
-    MEDIUM_PRIORITY_TYPES = frozenset({
-        # Toggles
-        "CheckBox", "MaterialCheckBox", "AppCompatCheckBox",
-        "Switch", "SwitchCompat", "SwitchMaterial",
-        "ToggleButton", "AppCompatToggleButton",
-        # Radio buttons
-        "RadioButton", "MaterialRadioButton", "AppCompatRadioButton",
-        # Sliders
-        "SeekBar", "AppCompatSeekBar", "Slider", "RangeSlider", "RatingBar",
-        # Content navigation
-        "ViewPager", "RecyclerView", "CheckedTextView", "AppCompatCheckedTextView",
-    })
+    MEDIUM_PRIORITY_TYPES = frozenset(
+        {
+            # Toggles
+            "CheckBox",
+            "MaterialCheckBox",
+            "AppCompatCheckBox",
+            "Switch",
+            "SwitchCompat",
+            "SwitchMaterial",
+            "ToggleButton",
+            "AppCompatToggleButton",
+            # Radio buttons
+            "RadioButton",
+            "MaterialRadioButton",
+            "AppCompatRadioButton",
+            # Sliders
+            "SeekBar",
+            "AppCompatSeekBar",
+            "Slider",
+            "RangeSlider",
+            "RatingBar",
+            # Content navigation
+            "ViewPager",
+            "RecyclerView",
+            "CheckedTextView",
+            "AppCompatCheckedTextView",
+        }
+    )
 
     # System actions have fixed priority
     SYSTEM_ACTION_SCORES = {
@@ -250,8 +290,8 @@ class ComponentPriorityScorer(Scorer):
             self.medium_priority = self.DEFAULT_MEDIUM_PRIORITY
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        target_class = action.target_view.get('class', '') if action.target_view else ''
-        simple_class = target_class.split('.')[-1] if target_class else ''
+        target_class = action.target_view.get("class", "") if action.target_view else ""
+        simple_class = target_class.split(".")[-1] if target_class else ""
 
         # Check system actions first
         if simple_class in self.SYSTEM_ACTION_SCORES:
@@ -365,6 +405,86 @@ class VisitationPenaltyScorer(Scorer):
         return self.penalty_factor * math.log(1 + visits)
 
 
+class CoverageDensityScorer(Scorer):
+    """
+    Scores actions based on the coverage gap of their destination state.
+
+    If the successor tracker knows where an action leads (known transition),
+    the scorer queries the UI coverage tracker for how many elements remain
+    untested at the destination. Actions leading to states with more untested
+    elements get higher scores.
+
+    For unknown transitions (destination not yet observed), a neutral score
+    of weight * 0.5 is assigned to encourage exploration of new paths.
+
+    Formula:
+        known destination:   weight * coverage_gap(destination)
+        unknown destination: weight * 0.5
+        no tracker/coverage: 0.0
+    """
+
+    DEFAULT_WEIGHT = 200.0
+
+    def __init__(
+        self, coordinate_converter=None, config: Optional["RVAgentConfig"] = None
+    ):
+        """
+        Initialize CoverageDensityScorer.
+
+        Args:
+            coordinate_converter: Converter for coordinate spaces
+            config: Optional config with calibration parameters
+        """
+        self.converter = coordinate_converter
+        if config:
+            self.weight = config.coverage_density_weight
+        else:
+            self.weight = self.DEFAULT_WEIGHT
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        if not context.successor_tracker or not context.ui_coverage:
+            return 0.0
+
+        # Convert to optimized coordinate space (SuccessorTracker uses optimized coords)
+        action_signature = self._convert_signature(action.coords_for_matching)
+
+        destination = context.successor_tracker.get_action_destination(
+            context.current_state_hash, action_signature
+        )
+
+        if destination is None:
+            # Unknown transition - moderate score to encourage exploration
+            return self.weight * 0.5
+
+        # Known destination - score based on coverage gap
+        coverage_gap = context.ui_coverage.get_coverage_gap(destination)
+        return self.weight * coverage_gap
+
+    def _convert_signature(self, signature):
+        """Convert action signature to optimized space."""
+        (device_x, device_y), action_type = signature
+
+        if self.converter:
+            optimized_x, optimized_y = self.converter.device_to_optimized(
+                device_x, device_y
+            )
+        else:
+            optimized_x, optimized_y = device_to_optimized(
+                device_x,
+                device_y,
+                (
+                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
+                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
+                ),
+                (
+                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
+                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
+                ),
+            )
+
+        return ((optimized_x, optimized_y), action_type)
+
+
 class StrengthScorer(Scorer):
     """
     Scores actions based on historical success rate.
@@ -380,9 +500,7 @@ class StrengthScorer(Scorer):
     DEFAULT_REWARD_SCORE_WEIGHT = 1.0
 
     def __init__(
-        self,
-        coordinate_converter=None,
-        config: Optional["RVAgentConfig"] = None
+        self, coordinate_converter=None, config: Optional["RVAgentConfig"] = None
     ):
         """
         Initialize StrengthScorer.
@@ -415,12 +533,21 @@ class StrengthScorer(Scorer):
         (device_x, device_y), action_type = signature
 
         if self.converter:
-            optimized_x, optimized_y = self.converter.device_to_optimized(device_x, device_y)
+            optimized_x, optimized_y = self.converter.device_to_optimized(
+                device_x, device_y
+            )
         else:
             optimized_x, optimized_y = device_to_optimized(
-                device_x, device_y,
-                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
-                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+                device_x,
+                device_y,
+                (
+                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
+                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
+                ),
+                (
+                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
+                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
+                ),
             )
 
         return ((optimized_x, optimized_y), action_type)

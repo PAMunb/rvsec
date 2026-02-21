@@ -39,11 +39,7 @@ class TestRecordTransition:
         action = MagicMock(spec=ItemAction)
         action.coords_for_matching = ((100, 200), "click")
 
-        strategy.record_transition(
-            from_hash="hash1",
-            to_hash="hash2",
-            action=action
-        )
+        strategy.record_transition(from_hash="hash1", to_hash="hash2", action=action)
 
         # Should increment attempt counter
         signature = ((100, 200), "click")
@@ -55,11 +51,7 @@ class TestRecordTransition:
         action.coords_for_matching = ((100, 200), "click")
 
         # to_hash is not in visited_states, so it's a new state
-        strategy.record_transition(
-            from_hash="hash1",
-            to_hash="hash2",
-            action=action
-        )
+        strategy.record_transition(from_hash="hash1", to_hash="hash2", action=action)
 
         signature = ((100, 200), "click")
         assert strategy.action_new_states[signature] == 1
@@ -72,11 +64,7 @@ class TestRecordTransition:
         # Pre-mark as visited
         strategy.visited_states.add("hash2")
 
-        strategy.record_transition(
-            from_hash="hash1",
-            to_hash="hash2",
-            action=action
-        )
+        strategy.record_transition(from_hash="hash1", to_hash="hash2", action=action)
 
         signature = ((100, 200), "click")
         # Should not count as new state
@@ -119,9 +107,7 @@ class TestShouldBacktrack:
         screen_desc.activity = "Test"
         screen_desc.get_all_actions.return_value = []
 
-        node = strategy.graph.get_or_create_state(
-            "test_hash", "Test", screen_desc
-        )
+        node = strategy.graph.get_or_create_state("test_hash", "Test", screen_desc)
 
         # Set total_actions = executed_actions
         node.total_actions = 3
@@ -139,9 +125,7 @@ class TestShouldBacktrack:
         screen_desc.activity = "Test"
         screen_desc.get_all_actions.return_value = []
 
-        node = strategy.graph.get_or_create_state(
-            "test_hash", "Test", screen_desc
-        )
+        node = strategy.graph.get_or_create_state("test_hash", "Test", screen_desc)
 
         node.total_actions = 5
         node.executed_actions.add(((100, 200), "click"))
@@ -434,9 +418,7 @@ class TestGetUntestedActions:
         screen_desc.activity = "Test"
         screen_desc.get_all_actions.return_value = []
 
-        node = strategy.graph.get_or_create_state(
-            "test_hash", "Test", screen_desc
-        )
+        node = strategy.graph.get_or_create_state("test_hash", "Test", screen_desc)
         node.total_actions = 3
 
         action1 = MagicMock(spec=ItemAction)
@@ -458,9 +440,7 @@ class TestGetUntestedActions:
         screen_desc.activity = "Test"
         screen_desc.get_all_actions.return_value = []
 
-        node = strategy.graph.get_or_create_state(
-            "test_hash", "Test", screen_desc
-        )
+        node = strategy.graph.get_or_create_state("test_hash", "Test", screen_desc)
         node.total_actions = 3
         node.executed_actions.add(((100, 200), "click"))
 
@@ -484,9 +464,7 @@ class TestGetUntestedActions:
         screen_desc.activity = "Test"
         screen_desc.get_all_actions.return_value = []
 
-        node = strategy.graph.get_or_create_state(
-            "test_hash", "Test", screen_desc
-        )
+        node = strategy.graph.get_or_create_state("test_hash", "Test", screen_desc)
         node.total_actions = 2
         node.executed_actions.add(((100, 200), "click"))
         node.executed_actions.add(((200, 300), "click"))
@@ -531,7 +509,7 @@ class TestSelectNextAction:
         screen_desc.items = []
 
         # Create custom mock for _try_generate_text_input
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
             result = strategy.select_next_action("new_hash", screen_desc)
 
         assert result is not None
@@ -549,8 +527,9 @@ class TestSelectNextAction:
         screen_desc.items = []
         screen_desc.get_all_actions.return_value = []
 
-        with patch.object(strategy, '_try_generate_text_input', return_value=None), \
-             patch.object(strategy, '_try_generate_scroll_action', return_value=None):
+        with patch.object(
+            strategy, "_try_generate_text_input", return_value=None
+        ), patch.object(strategy, "_try_generate_scroll_action", return_value=None):
             result = strategy.select_next_action("hash1", screen_desc)
 
         # With continuous exploration, BACK is returned when no actions available
@@ -586,8 +565,8 @@ class TestSelectNextAction:
         screen_desc.get_all_actions.return_value = [action_no_mop, action_with_mop]
 
         # Force greedy selection (not random)
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
-            with patch('random.random', return_value=0.5):  # > 0.1, so greedy
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
+            with patch("random.random", return_value=0.5):  # > 0.1, so greedy
                 result = strategy.select_next_action("hash1", screen_desc)
 
         # MOP action should be selected due to higher value
@@ -621,9 +600,9 @@ class TestSelectNextAction:
         screen_desc.get_all_actions.return_value = [action1, action2]
 
         # Force random exploration (random < 0.1)
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
-            with patch('random.random', return_value=0.05):  # < 0.1, so random
-                with patch('random.choice', return_value=action2):
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
+            with patch("random.random", return_value=0.05):  # < 0.1, so random
+                with patch("random.choice", return_value=action2):
                     result = strategy.select_next_action("hash1", screen_desc)
 
         assert result is not None
@@ -647,7 +626,7 @@ class TestSelectNextAction:
         screen_desc.get_all_actions.return_value = [action]
 
         # First visit
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
             strategy.select_next_action("revisit_hash", screen_desc)
 
         # Create a new action for second visit
@@ -663,7 +642,7 @@ class TestSelectNextAction:
         screen_desc.get_all_actions.return_value = [action, action2]
 
         # Second visit - should skip executed action
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
             result = strategy.select_next_action("revisit_hash", screen_desc)
 
         assert result is not None

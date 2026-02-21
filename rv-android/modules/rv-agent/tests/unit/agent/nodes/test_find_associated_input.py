@@ -37,7 +37,9 @@ def _make_error_indicator(x, y, width, height):
     )
 
 
-def _make_item_action(bounds, view_class="android.widget.EditText", action_type="set_text"):
+def _make_item_action(
+    bounds, view_class="android.widget.EditText", action_type="set_text"
+):
     """Create a mock ItemAction with bounds and class."""
     action = MagicMock()
     action.target_view = {

@@ -4,6 +4,7 @@ Short Term Memory for RVAgent - Screen-scoped memory.
 Implementation EXATA do plano com process isolation support.
 Gerencia memória de curto prazo das interações LLM para a tela atual.
 """
+
 import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -23,6 +24,7 @@ class Iteration:
     Representa uma chamada ao LLM e as ações geradas.
     ADAPTADO para cliente (sem dependencies server-side).
     """
+
     state_hash: str
     activity: str
     timestamp: datetime = field(default_factory=datetime.now)
@@ -49,8 +51,8 @@ class Iteration:
 
         action_texts = []
         for i, action in enumerate(self.actions):
-            action_text = action.get('element_id', action.get('action_type', 'unknown'))
-            coordinates = action.get('coordinates', [])
+            action_text = action.get("element_id", action.get("action_type", "unknown"))
+            coordinates = action.get("coordinates", [])
 
             if coordinates:
                 action_text += f" at ({coordinates[0]}, {coordinates[1]})"
@@ -58,19 +60,21 @@ class Iteration:
             # Add result if available
             if i < len(self.execution_results):
                 result = self.execution_results[i]
-                status = "✅" if result.get('success', False) else "❌"
+                status = "✅" if result.get("success", False) else "❌"
                 action_text = f"{status} {action_text}"
 
             action_texts.append(action_text)
 
-        return ', '.join(action_texts)
+        return ", ".join(action_texts)
 
     def get_success_rate(self) -> float:
         """Calculate success rate for this iteration."""
         if not self.execution_results:
             return 0.0
 
-        successful = sum(1 for result in self.execution_results if result.get('success', False))
+        successful = sum(
+            1 for result in self.execution_results if result.get("success", False)
+        )
         return successful / len(self.execution_results)
 
 
@@ -87,14 +91,15 @@ class ShortTermMemory:
     Target: br.unb.cic.cryptoapp - Screen-scoped memory management
     """
 
-    def __init__(self, max_iterations: int = RVAgentConstants.MAX_SHORT_TERM_ITERATIONS):
+    def __init__(
+        self, max_iterations: int = RVAgentConstants.MAX_SHORT_TERM_ITERATIONS
+    ):
         """Initialize short term memory with process isolation support."""
 
         # Process isolation - LoggingManager com instância própria
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_agent.memory.short_term",
-            {"component": "ShortTermMemory"}
+            "rv_agent.memory.short_term", {"component": "ShortTermMemory"}
         )
 
         # ErrorHandler decorators disponíveis no subprocess
@@ -106,8 +111,9 @@ class ShortTermMemory:
 
         self.logger.info(f" ShortTermMemory initialized (max: {max_iterations})")
 
-    def record_iteration(self, state: Dict[str, Any], actions: List[Dict],
-                        llm_reasoning: str = "") -> None:
+    def record_iteration(
+        self, state: Dict[str, Any], actions: List[Dict], llm_reasoning: str = ""
+    ) -> None:
         """
         Registra uma nova iteração com error handling cliente.
 
@@ -119,19 +125,19 @@ class ShortTermMemory:
             llm_reasoning: LLM reasoning text for this iteration
         """
         try:
-            activity = state.get('activity', 'unknown')
-            state_hash = state.get('hash_screen', 'unknown')
+            activity = state.get("activity", "unknown")
+            state_hash = state.get("hash_screen", "unknown")
 
             # Activity changed - clear memory
             if activity != self.current_activity:
-                self.logger.info(f" Activity changed: {self.current_activity} → {activity}")
+                self.logger.info(
+                    f" Activity changed: {self.current_activity} → {activity}"
+                )
                 self.clear()
                 self.current_activity = activity
 
             iteration = Iteration(
-                state_hash=state_hash,
-                activity=activity,
-                llm_reasoning=llm_reasoning
+                state_hash=state_hash, activity=activity, llm_reasoning=llm_reasoning
             )
 
             for action in actions:
@@ -140,12 +146,14 @@ class ShortTermMemory:
             self.iterations.insert(0, iteration)  # Most recent first
 
             if len(self.iterations) > self.max_iterations:
-                removed = self.iterations[self.max_iterations:]
-                self.iterations = self.iterations[:self.max_iterations]
+                removed = self.iterations[self.max_iterations :]
+                self.iterations = self.iterations[: self.max_iterations]
                 self.logger.debug(f" Removed {len(removed)} old iterations")
 
-            self.logger.debug(f" Iteration recorded: {len(actions)} actions, "
-                            f"total iterations: {len(self.iterations)}")
+            self.logger.debug(
+                f" Iteration recorded: {len(actions)} actions, "
+                f"total iterations: {len(self.iterations)}"
+            )
 
         except Exception as e:
             # CLIENTE error handling - log e continue
@@ -168,8 +176,10 @@ class ShortTermMemory:
                 latest_iteration.add_execution_result(result)
 
             success_rate = latest_iteration.get_success_rate()
-            self.logger.debug(f" Execution results recorded: "
-                            f"{len(results)} results, {success_rate:.1%} success rate")
+            self.logger.debug(
+                f" Execution results recorded: "
+                f"{len(results)} results, {success_rate:.1%} success rate"
+            )
 
         except Exception as e:
             self.logger.error(f" Failed to record execution results: {e}")
@@ -218,7 +228,7 @@ class ShortTermMemory:
                     "screen_status": "new",
                     "interaction_count": 0,
                     "recent_success_rate": 0.0,
-                    "suggested_strategy": "explore_elements"
+                    "suggested_strategy": "explore_elements",
                 }
 
             # Calculate recent success rate
@@ -227,7 +237,11 @@ class ShortTermMemory:
                 if iteration.execution_results:
                     recent_successes.append(iteration.get_success_rate())
 
-            avg_success_rate = sum(recent_successes) / len(recent_successes) if recent_successes else 0.0
+            avg_success_rate = (
+                sum(recent_successes) / len(recent_successes)
+                if recent_successes
+                else 0.0
+            )
 
             # Determine screen exploration status
             total_actions = sum(len(iter.actions) for iter in self.iterations)
@@ -242,12 +256,14 @@ class ShortTermMemory:
                 strategy = "balanced_exploration"
 
             return {
-                "screen_status": "explored" if len(self.iterations) >= 2 else "partially_explored",
+                "screen_status": (
+                    "explored" if len(self.iterations) >= 2 else "partially_explored"
+                ),
                 "interaction_count": len(self.iterations),
                 "total_actions_tried": total_actions,
                 "recent_success_rate": avg_success_rate,
                 "suggested_strategy": strategy,
-                "current_activity": self.current_activity
+                "current_activity": self.current_activity,
             }
 
         except Exception as e:
@@ -277,13 +293,17 @@ class ShortTermMemory:
             context_parts = [f"Recent actions on this screen:\n{summary}"]
 
             # Add strategic context
-            strategy = context.get('suggested_strategy', 'explore_elements')
-            success_rate = context.get('recent_success_rate', 0.0)
+            strategy = context.get("suggested_strategy", "explore_elements")
+            success_rate = context.get("recent_success_rate", 0.0)
 
             if strategy == "try_different_approach":
-                context_parts.append(f"⚠️ Recent success rate is low ({success_rate:.1%}). Try different elements or actions.")
+                context_parts.append(
+                    f"⚠️ Recent success rate is low ({success_rate:.1%}). Try different elements or actions."
+                )
             elif strategy == "deepen_exploration":
-                context_parts.append(f"✅ Recent success rate is good ({success_rate:.1%}). Continue exploring this area.")
+                context_parts.append(
+                    f"✅ Recent success rate is good ({success_rate:.1%}). Continue exploring this area."
+                )
 
             return "\n".join(context_parts)
 
@@ -305,16 +325,21 @@ class ShortTermMemory:
                 return {
                     "iteration_count": 0,
                     "current_activity": self.current_activity,
-                    "memory_status": "empty"
+                    "memory_status": "empty",
                 }
 
             # Calculate comprehensive statistics
             total_actions = sum(len(iter.actions) for iter in self.iterations)
             total_results = sum(len(iter.execution_results) for iter in self.iterations)
 
-            success_rates = [iter.get_success_rate() for iter in self.iterations
-                           if iter.execution_results]
-            avg_success_rate = sum(success_rates) / len(success_rates) if success_rates else 0.0
+            success_rates = [
+                iter.get_success_rate()
+                for iter in self.iterations
+                if iter.execution_results
+            ]
+            avg_success_rate = (
+                sum(success_rates) / len(success_rates) if success_rates else 0.0
+            )
 
             # Recent activity
             latest_iteration = self.iterations[0] if self.iterations else None
@@ -326,11 +351,25 @@ class ShortTermMemory:
                 "total_execution_results": total_results,
                 "average_success_rate": avg_success_rate,
                 "memory_utilization": f"{len(self.iterations)}/{self.max_iterations}",
-                "latest_iteration": {
-                    "timestamp": latest_iteration.timestamp.isoformat() if latest_iteration else None,
-                    "action_count": len(latest_iteration.actions) if latest_iteration else 0,
-                    "success_rate": latest_iteration.get_success_rate() if latest_iteration else 0.0
-                } if latest_iteration else None
+                "latest_iteration": (
+                    {
+                        "timestamp": (
+                            latest_iteration.timestamp.isoformat()
+                            if latest_iteration
+                            else None
+                        ),
+                        "action_count": (
+                            len(latest_iteration.actions) if latest_iteration else 0
+                        ),
+                        "success_rate": (
+                            latest_iteration.get_success_rate()
+                            if latest_iteration
+                            else 0.0
+                        ),
+                    }
+                    if latest_iteration
+                    else None
+                ),
             }
 
         except Exception as e:

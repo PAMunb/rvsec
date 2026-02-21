@@ -13,7 +13,6 @@ from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.agent_factory import AgentFactory
 from .conftest import launch_app, DATASET_ROOT, DEVICE_ID, SGLANG_URL, SGLANG_MODEL
 
-
 pytestmark = [pytest.mark.online, pytest.mark.sglang]
 
 
@@ -23,6 +22,7 @@ class TestSGLangConnectivity:
     def test_server_health(self, sglang_url, check_sglang):
         """SGLang server is healthy."""
         import httpx
+
         response = httpx.get(f"{sglang_url}/models", timeout=10)
         assert response.status_code == 200
         data = response.json()
@@ -72,7 +72,9 @@ class TestSGLangConnectivity:
 class TestLLMWithAgent:
     """Test LLM integration through agent."""
 
-    def test_agent_has_llm_client(self, device, cryptoapp, check_emulator, check_sglang):
+    def test_agent_has_llm_client(
+        self, device, cryptoapp, check_emulator, check_sglang
+    ):
         """Agent in multimode has LLM client."""
         config = RVAgentConfig(
             package_name=cryptoapp.package_name,
@@ -176,11 +178,17 @@ Use the android_click tool to click the Login button."""
 
         response = llm_with_tools.invoke([HumanMessage(content=prompt)])
 
-        print(f"\n  Response content: {response.content[:200] if response.content else 'empty'}")
-        print(f"  Tool calls: {response.tool_calls if hasattr(response, 'tool_calls') else 'none'}")
+        print(
+            f"\n  Response content: {response.content[:200] if response.content else 'empty'}"
+        )
+        print(
+            f"  Tool calls: {response.tool_calls if hasattr(response, 'tool_calls') else 'none'}"
+        )
 
         # Response should have tool call or content
-        has_response = response.content or (hasattr(response, 'tool_calls') and response.tool_calls)
+        has_response = response.content or (
+            hasattr(response, "tool_calls") and response.tool_calls
+        )
         assert has_response
 
 
@@ -215,7 +223,10 @@ class TestVisionCapability:
         message = HumanMessage(
             content=[
                 {"type": "text", "text": "Describe this Android screen briefly."},
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"}}
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"},
+                },
             ]
         )
 

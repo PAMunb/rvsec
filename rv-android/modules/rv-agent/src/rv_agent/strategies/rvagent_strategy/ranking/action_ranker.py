@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ScoredAction:
     """Action with its calculated score."""
+
     action: "ItemAction"
     score: float
 
@@ -45,9 +46,7 @@ class ActionRanker:
         self.scorers = scorers
 
     def rank(
-        self,
-        actions: List["ItemAction"],
-        context: "RankingContext"
+        self, actions: List["ItemAction"], context: "RankingContext"
     ) -> List[ScoredAction]:
         """
         Rank actions by combined score from all Scorers.
@@ -67,11 +66,7 @@ class ActionRanker:
         scored.sort(key=lambda x: -x.score)
         return scored
 
-    def score_action(
-        self,
-        action: "ItemAction",
-        context: "RankingContext"
-    ) -> float:
+    def score_action(self, action: "ItemAction", context: "RankingContext") -> float:
         """
         Calculate total score for a single action.
 
@@ -85,9 +80,7 @@ class ActionRanker:
         return sum(scorer.score(action, context) for scorer in self.scorers)
 
     def select_best(
-        self,
-        actions: List["ItemAction"],
-        context: "RankingContext"
+        self, actions: List["ItemAction"], context: "RankingContext"
     ) -> Optional["ItemAction"]:
         """
         Select the action with highest score (deterministic).
@@ -114,7 +107,7 @@ class ActionRanker:
         self,
         actions: List["ItemAction"],
         context: "RankingContext",
-        temperature: float = 1.0
+        temperature: float = 1.0,
     ) -> Optional["ItemAction"]:
         """
         Select action using Gumbel-max trick for stochastic selection.

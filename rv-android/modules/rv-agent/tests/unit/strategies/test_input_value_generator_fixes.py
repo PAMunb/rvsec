@@ -10,7 +10,9 @@ Verifies:
 """
 
 import pytest
-from rv_agent.strategies.rvagent_strategy.input_value_generator import InputValueGenerator
+from rv_agent.strategies.rvagent_strategy.input_value_generator import (
+    InputValueGenerator,
+)
 
 
 class TestValueOrdering:
@@ -23,7 +25,16 @@ class TestValueOrdering:
 
         assert value is not None
         # First value should NOT be a PIN
-        assert value not in ("1234", "0000", "123456", "password", "admin", "test", "demo", "")
+        assert value not in (
+            "1234",
+            "0000",
+            "123456",
+            "password",
+            "admin",
+            "test",
+            "demo",
+            "",
+        )
 
     def test_pins_only_for_password(self):
         """Password type should include PINs/common passwords."""
@@ -46,11 +57,30 @@ class TestValueOrdering:
         """No type should produce empty string as first value."""
         gen = InputValueGenerator(max_variations=5)
 
-        for input_type in ("text", "email", "name", "phone", "address", "search", "url",
-                           "date", "time", "number", "zip", "verification_code", "username"):
-            value = gen.get_next_value(f"field_{input_type}", is_mop=False, input_type=input_type)
-            assert value != "", f"First value for '{input_type}' should not be empty string"
-            assert value is not None, f"First value for '{input_type}' should not be None"
+        for input_type in (
+            "text",
+            "email",
+            "name",
+            "phone",
+            "address",
+            "search",
+            "url",
+            "date",
+            "time",
+            "number",
+            "zip",
+            "verification_code",
+            "username",
+        ):
+            value = gen.get_next_value(
+                f"field_{input_type}", is_mop=False, input_type=input_type
+            )
+            assert (
+                value != ""
+            ), f"First value for '{input_type}' should not be empty string"
+            assert (
+                value is not None
+            ), f"First value for '{input_type}' should not be None"
 
 
 class TestMopFieldExtendedVariations:
@@ -122,7 +152,9 @@ class TestMissingInputTypes:
     def test_verification_code_type(self):
         """Verification code type should produce numeric code values."""
         gen = InputValueGenerator(max_variations=3)
-        value = gen.get_next_value("code_field", is_mop=False, input_type="verification_code")
+        value = gen.get_next_value(
+            "code_field", is_mop=False, input_type="verification_code"
+        )
         assert value is not None
         assert len(value) > 0
         # Should be numeric

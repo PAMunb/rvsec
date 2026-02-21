@@ -144,10 +144,7 @@ class TestStrategyInstantiation:
         ui_coverage = UICoverageTracker()
 
         strategy = registry.get_strategy(
-            "rvagent",
-            graph=graph,
-            config=config,
-            ui_coverage=ui_coverage
+            "rvagent", graph=graph, config=config, ui_coverage=ui_coverage
         )
 
         assert strategy is not None
@@ -165,7 +162,7 @@ class TestStrategyInstantiation:
             ui_coverage=ui_coverage,
             coordinate_converter=coordinate_converter,
             static_data=static_data,
-            device_dimensions=(1080, 2400)
+            device_dimensions=(1080, 2400),
         )
 
         assert strategy is not None
@@ -181,11 +178,7 @@ class TestStrategyInstantiation:
         """Get strategy with static analysis data."""
         static_data = MagicMock()
 
-        strategy = registry.get_strategy(
-            "dfs",
-            graph=graph,
-            static_data=static_data
-        )
+        strategy = registry.get_strategy("dfs", graph=graph, static_data=static_data)
 
         assert isinstance(strategy, DFSStrategy)
 
@@ -194,9 +187,7 @@ class TestStrategyInstantiation:
         converter = MagicMock()
 
         strategy = registry.get_strategy(
-            "bfs",
-            graph=graph,
-            coordinate_converter=converter
+            "bfs", graph=graph, coordinate_converter=converter
         )
 
         assert isinstance(strategy, BFSStrategy)

@@ -11,7 +11,6 @@ import logging
 from collections import deque
 from typing import Dict, Any, Deque
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,11 +56,7 @@ class PlateauDetector:
 
         logger.info(f"PlateauDetector initialized with window_size={window_size}")
 
-    def record_iteration(
-        self,
-        discovered_new_state: bool,
-        new_mop_method: str = None
-    ):
+    def record_iteration(self, discovered_new_state: bool, new_mop_method: str = None):
         """
         Record exploration metrics for current iteration.
 
@@ -134,17 +129,14 @@ class PlateauDetector:
             # Configuration
             "window_size": self.window_size,
             "iterations_tracked": len(self.state_discovery),
-
             # Window metrics
             "states_in_window": progress["states_in_window"],
             "mop_in_window": progress["mop_in_window"],
-
             # Total metrics
             "total_iterations": self.total_iterations,
             "total_states_discovered": self.total_states_discovered,
             "total_mop_methods_executed": self.total_mop_methods_executed,
             "unique_mop_methods": len(self.mop_methods_seen),
-
             # Status
             "plateau_reached": self.is_plateau_reached(),
         }

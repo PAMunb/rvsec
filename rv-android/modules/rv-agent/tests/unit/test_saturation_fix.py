@@ -19,6 +19,7 @@ from rv_agent.domain.screen_node import ScreenNode
 @dataclass
 class MockAction:
     """Mock action for testing."""
+
     coordinates: Optional[Tuple[int, int]] = (540, 960)
     event: object = None
 

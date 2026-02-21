@@ -45,7 +45,6 @@ from rv_agent.llm.tools.tool_call_parser import (
 )
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
-
 logger = logging.getLogger(__name__)
 
 

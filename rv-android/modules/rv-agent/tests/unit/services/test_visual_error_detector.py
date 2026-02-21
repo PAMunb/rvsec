@@ -193,8 +193,7 @@ class TestVisualErrorDetector:
         mock_cv2.imread.return_value = mock_image
 
         indicators = [
-            _make_indicator(y=300 + i * 50, confidence=0.80)
-            for i in range(8)
+            _make_indicator(y=300 + i * 50, confidence=0.80) for i in range(8)
         ]
         mock_detector_cls.return_value.detect_errors.return_value = indicators
 
@@ -220,7 +219,11 @@ class TestVisualErrorDetector:
         large2 = _make_indicator(x=500, y=800, width=60, height=100, confidence=0.88)
 
         mock_detector_cls.return_value.detect_errors.return_value = [
-            small1, small2, small3, large1, large2
+            small1,
+            small2,
+            small3,
+            large1,
+            large2,
         ]
 
         detector = VisualErrorDetector()

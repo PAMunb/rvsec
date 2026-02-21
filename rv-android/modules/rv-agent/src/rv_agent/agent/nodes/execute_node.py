@@ -12,7 +12,10 @@ if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent.domain.state import AgentState
-from rv_agent.memory.element_id import make_element_id_from_action, make_element_id_from_tuple
+from rv_agent.memory.element_id import (
+    make_element_id_from_action,
+    make_element_id_from_tuple,
+)
 from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
@@ -24,7 +27,7 @@ def _record_ui_interaction(
     action_type: str,
     screen_hash: str,
     item_action: Any,
-    source: str
+    source: str,
 ) -> None:
     """
     Record UI interaction for coverage tracking.
@@ -45,14 +48,18 @@ def _record_ui_interaction(
     component_type = None
 
     # Get device dimensions for normalization
-    device_width = agent.screen_processor.device_dimensions[0] if agent.screen_processor else 1080
-    device_height = agent.screen_processor.device_dimensions[1] if agent.screen_processor else 1920
+    device_width = (
+        agent.screen_processor.device_dimensions[0] if agent.screen_processor else 1080
+    )
+    device_height = (
+        agent.screen_processor.device_dimensions[1] if agent.screen_processor else 1920
+    )
 
     # For algorithm actions, normalize coords and use proximity matching
     if source == "algorithm" and item_action:
         if item_action.target_view:
-            comp_class = item_action.target_view.get('class', '')
-            component_type = comp_class.split('.')[-1] if comp_class else 'Unknown'
+            comp_class = item_action.target_view.get("class", "")
+            component_type = comp_class.split(".")[-1] if comp_class else "Unknown"
 
         # Get device coordinates and normalize to [0, 1000)
         coords = item_action.coordinates
@@ -67,31 +74,38 @@ def _record_ui_interaction(
                 element_id, matched_type, distance = match
                 if not component_type:
                     component_type = matched_type
-                logger.debug(f"Recording algorithm interaction: {element_id} ({component_type}, dist={distance:.1f}px)")
+                logger.debug(
+                    f"Recording algorithm interaction: {element_id} ({component_type}, dist={distance:.1f}px)"
+                )
             else:
                 # No match - create element_id from normalized coords
                 from rv_agent.memory.element_id import make_element_id
+
                 element_id = make_element_id(norm_x, norm_y)
-                logger.debug(f"Recording algorithm interaction (no match): {element_id}")
+                logger.debug(
+                    f"Recording algorithm interaction (no match): {element_id}"
+                )
 
     # For LLM actions, use proximity matching with NORMALIZED coords
     elif source == "llm":
         # Use original [0,1000) coords to match screen_analyzer registration
         # screen_analyzer.format_ui_elements() registers elements in normalized space
-        original_coords = action.get('original_coords')
+        original_coords = action.get("original_coords")
         if original_coords:
             x, y = original_coords  # [0, 1000) normalized space
         else:
             # Fallback to device coords (shouldn't happen normally)
-            x = action.get('x')
-            y = action.get('y')
+            x = action.get("x")
+            y = action.get("y")
 
         if x is not None and y is not None:
             # Try to find nearest registered element
             match = agent.ui_coverage.find_nearest_element(x, y, screen_hash)
             if match:
                 element_id, component_type, distance = match
-                logger.debug(f"Recording LLM interaction: {element_id} ({component_type}, dist={distance:.1f}px)")
+                logger.debug(
+                    f"Recording LLM interaction: {element_id} ({component_type}, dist={distance:.1f}px)"
+                )
             else:
                 # No match found - use action coordinates directly
                 element_id = make_element_id_from_action(action)
@@ -110,7 +124,7 @@ def _record_ui_interaction(
             action_type=action_type,
             screen_hash=screen_hash,
             success=True,
-            component_type=component_type
+            component_type=component_type,
         )
 
 
@@ -138,7 +152,7 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     source = action.get("source", "unknown")
     action_type = action.get("action_type", "UNKNOWN")
-    coords = (action.get('x'), action.get('y'))
+    coords = (action.get("x"), action.get("y"))
 
     track.execution(iter=iteration, action=action_type, coords=coords, source=source)
 
@@ -165,7 +179,7 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
         # Record interaction for UI coverage tracking (ALL modes)
         # Unified tracking point for both algorithm and LLM actions
-        has_ui_cov = hasattr(agent, 'ui_coverage') and agent.ui_coverage is not None
+        has_ui_cov = hasattr(agent, "ui_coverage") and agent.ui_coverage is not None
         if has_ui_cov:
             try:
                 _record_ui_interaction(
@@ -179,5 +193,5 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     return {
         "current_action": executed_action,
         "action_executed": executed_action,
-        "action_success": result.get("success", False)
+        "action_success": result.get("success", False),
     }

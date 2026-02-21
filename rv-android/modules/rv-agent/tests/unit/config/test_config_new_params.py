@@ -39,20 +39,23 @@ class TestNewConfigFields:
         config = self._make_config()
         assert config.coverage_density_weight == 200.0
 
-    @pytest.mark.parametrize("field,bad_value", [
-        ("backtrack_saturation_threshold", 0.4),
-        ("backtrack_saturation_threshold", 1.1),
-        ("mop_nav_weight", 0.3),
-        ("mop_nav_weight", 5.5),
-        ("mop_max_input_variations", 4),
-        ("mop_max_input_variations", 16),
-        ("reward_gamma", 0.49),
-        ("reward_gamma", 1.0),
-        ("reward_score_weight", 0.05),
-        ("reward_score_weight", 3.5),
-        ("coverage_density_weight", 40.0),
-        ("coverage_density_weight", 450.0),
-    ])
+    @pytest.mark.parametrize(
+        "field,bad_value",
+        [
+            ("backtrack_saturation_threshold", 0.4),
+            ("backtrack_saturation_threshold", 1.1),
+            ("mop_nav_weight", 0.3),
+            ("mop_nav_weight", 5.5),
+            ("mop_max_input_variations", 4),
+            ("mop_max_input_variations", 16),
+            ("reward_gamma", 0.49),
+            ("reward_gamma", 1.0),
+            ("reward_score_weight", 0.05),
+            ("reward_score_weight", 3.5),
+            ("coverage_density_weight", 40.0),
+            ("coverage_density_weight", 450.0),
+        ],
+    )
     def test_range_constraints_reject_out_of_bounds(self, field, bad_value):
         with pytest.raises(ValidationError):
             self._make_config(**{field: bad_value})

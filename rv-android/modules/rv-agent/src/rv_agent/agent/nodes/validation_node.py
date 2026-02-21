@@ -17,8 +17,8 @@ from rv_agent import tracking as track
 logger = logging.getLogger(__name__)
 
 # Screen boundary thresholds (percentage of screen height)
-STATUSBAR_Y_PERCENT = 0.05   # Top 5% is status bar
-NAVBAR_Y_PERCENT = 0.94      # Bottom 6% is navigation bar
+STATUSBAR_Y_PERCENT = 0.05  # Top 5% is status bar
+NAVBAR_Y_PERCENT = 0.94  # Bottom 6% is navigation bar
 
 
 def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
@@ -48,26 +48,28 @@ def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Check screen boundary for LLM actions (prevent clicking outside app area)
     if decision_maker == "llm" and action:
-        device_dims = getattr(agent.screen_processor, 'device_dimensions', (1080, 1920))
+        device_dims = getattr(agent.screen_processor, "device_dimensions", (1080, 1920))
         is_outside, reason = _is_outside_app_boundary(action, device_dims)
         if is_outside:
-            logger.warning(f"LLM action outside app boundary: {reason} -> executing BACK")
+            logger.warning(
+                f"LLM action outside app boundary: {reason} -> executing BACK"
+            )
             return {
                 "current_action": _create_back_action(f"boundary_violation_{reason}"),
                 "loop_detected": True,
-                "decision_maker": decision_maker
+                "decision_maker": decision_maker,
             }
 
     validation_result = agent.routing_manager.validate_action(
-        action=action,
-        recent_actions=recent_actions,
-        decision_maker=decision_maker
+        action=action, recent_actions=recent_actions, decision_maker=decision_maker
     )
 
     final_action = validation_result["current_action"]
     loop_detected = validation_result["loop_detected"]
-    action_type = final_action.get('action_type') if final_action else 'None'
-    coords = (final_action.get('x', 0), final_action.get('y', 0)) if final_action else (0, 0)
+    action_type = final_action.get("action_type") if final_action else "None"
+    coords = (
+        (final_action.get("x", 0), final_action.get("y", 0)) if final_action else (0, 0)
+    )
     reason = "loop_detected" if loop_detected else None
 
     track.validate(
@@ -75,19 +77,18 @@ def validate_action_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         passed=not loop_detected,
         action=action_type,
         coords=coords,
-        reason=reason
+        reason=reason,
     )
 
     return {
         "current_action": final_action,
         "loop_detected": loop_detected,
-        "decision_maker": decision_maker
+        "decision_maker": decision_maker,
     }
 
 
 def _is_outside_app_boundary(
-    action: Dict[str, Any],
-    device_dims: Tuple[int, int]
+    action: Dict[str, Any], device_dims: Tuple[int, int]
 ) -> Tuple[bool, str]:
     """
     Check if action coordinates are outside the app's usable area.
@@ -131,5 +132,5 @@ def _create_back_action(reason: str) -> Dict[str, Any]:
         "y": 0,
         "text": "",
         "source": "validation",
-        "reason": reason
+        "reason": reason,
     }

@@ -47,8 +47,8 @@ class GreedyStrategy(ExplorationStrategy):
         self,
         graph: DynamicStateGraph,
         static_data: Optional[StaticAnalysisData] = None,
-        coordinate_converter = None,
-        target_package: Optional[str] = None
+        coordinate_converter=None,
+        target_package: Optional[str] = None,
     ):
         """
         Initialize greedy exploration strategy.
@@ -70,7 +70,9 @@ class GreedyStrategy(ExplorationStrategy):
         self.action_new_states: Dict[Tuple[Tuple[int, int], str], int] = {}
 
         # Exploration parameters
-        self.exploration_probability = 0.1  # 10% random exploration to avoid local optima
+        self.exploration_probability = (
+            0.1  # 10% random exploration to avoid local optima
+        )
 
         # Visited states tracking
         self.visited_states: Set[str] = set()
@@ -82,9 +84,7 @@ class GreedyStrategy(ExplorationStrategy):
             logger.info(f"Greedy: Filtering actions to package '{target_package}'")
 
     def select_next_action(
-        self,
-        current_hash: str,
-        screen_desc: ScreenDescription
+        self, current_hash: str, screen_desc: ScreenDescription
     ) -> Optional[ItemAction]:
         """
         Select action with highest immediate value using greedy approach.
@@ -110,9 +110,7 @@ class GreedyStrategy(ExplorationStrategy):
         # Create or update graph node
         if current_hash not in self.graph.states:
             node = self.graph.get_or_create_state(
-                current_hash,
-                screen_desc.activity,
-                screen_desc
+                current_hash, screen_desc.activity, screen_desc
             )
             logger.info(f"Greedy: New state, {node.total_actions} actions")
         else:
@@ -141,12 +139,16 @@ class GreedyStrategy(ExplorationStrategy):
         text_action = self._try_generate_text_input(screen_desc, node, probability=0.2)
         if text_action:
             # Mark action as executed before execution
-            action_signature = self._convert_signature_to_optimized(text_action.coords_for_matching)
+            action_signature = self._convert_signature_to_optimized(
+                text_action.coords_for_matching
+            )
             logger.info(f"Greedy SELECT (TEXT): SET_TEXT action")
             logger.info(f"  Signature: {action_signature}")
             logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
-            self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+            self.graph.record_action(
+                screen_hash=current_hash, action_signature=action_signature
+            )
 
             return text_action
 
@@ -157,7 +159,9 @@ class GreedyStrategy(ExplorationStrategy):
             # UNTESTED: Prioritize untested actions with value-based selection
             action_values = {}
             for action in untested_actions:
-                action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+                action_signature = self._convert_signature_to_optimized(
+                    action.coords_for_matching
+                )
                 value = self._calculate_action_value(action, action_signature)
                 action_values[action.id] = value
 
@@ -165,16 +169,22 @@ class GreedyStrategy(ExplorationStrategy):
             if random.random() < self.exploration_probability:
                 # Random exploration
                 selected_action = random.choice(untested_actions)
-                logger.info(f"Greedy EXPLORE: Random UNTESTED action ID={selected_action.id}")
+                logger.info(
+                    f"Greedy EXPLORE: Random UNTESTED action ID={selected_action.id}"
+                )
             else:
                 # Greedy selection (highest value)
                 best_action_id = max(action_values.items(), key=lambda x: x[1])[0]
-                selected_action = next((a for a in untested_actions if a.id == best_action_id), None)
+                selected_action = next(
+                    (a for a in untested_actions if a.id == best_action_id), None
+                )
 
                 if not selected_action:
                     selected_action = untested_actions[0]
 
-                logger.info(f"Greedy SELECT: Highest-value UNTESTED action ID={selected_action.id}")
+                logger.info(
+                    f"Greedy SELECT: Highest-value UNTESTED action ID={selected_action.id}"
+                )
                 logger.info(f"  Value: {action_values[selected_action.id]:.2f}")
                 logger.info(f"  Execution count: 0 (first time)")
 
@@ -185,7 +195,9 @@ class GreedyStrategy(ExplorationStrategy):
                 screen_desc, node, self.scrolled_positions, probability=0.15
             )
             if scroll_action:
-                logger.info(f"Greedy SCROLL: All visible actions tested, scrolling to reveal more content")
+                logger.info(
+                    f"Greedy SCROLL: All visible actions tested, scrolling to reveal more content"
+                )
                 return scroll_action
 
             # No scroll - select LEAST-EXECUTED action
@@ -195,7 +207,9 @@ class GreedyStrategy(ExplorationStrategy):
 
             # If all actions have failed, fall through to BACK
             if selected_action is None:
-                logger.info(f"Greedy: All actions failed on state {current_hash[:8]}, returning BACK")
+                logger.info(
+                    f"Greedy: All actions failed on state {current_hash[:8]}, returning BACK"
+                )
                 back_action = ItemAction(
                     id=999,
                     text="BACK",
@@ -204,18 +218,24 @@ class GreedyStrategy(ExplorationStrategy):
                     directly_reaches_mop=False,
                     target_view={"system_action": True, "class": "SystemAction_BACK"},
                     coordinates=None,
-                    text_input=None
+                    text_input=None,
                 )
                 return back_action
 
-            action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+            action_signature = self._convert_signature_to_optimized(
+                selected_action.coords_for_matching
+            )
             exec_count = node.get_action_execution_count(action_signature)
-            logger.info(f"Greedy CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}")
+            logger.info(
+                f"Greedy CONTINUOUS: Selected LEAST-EXECUTED action ID={selected_action.id}"
+            )
             logger.info(f"  Execution count: {exec_count} -> {exec_count + 1}")
 
         else:
             # No actions available (edge case) - return BACK to navigate
-            logger.info(f"Greedy: No actions available on state {current_hash[:8]}, returning BACK")
+            logger.info(
+                f"Greedy: No actions available on state {current_hash[:8]}, returning BACK"
+            )
             back_action = ItemAction(
                 id=999,
                 text="BACK",
@@ -224,25 +244,24 @@ class GreedyStrategy(ExplorationStrategy):
                 directly_reaches_mop=False,
                 target_view={"system_action": True, "class": "SystemAction_BACK"},
                 coordinates=None,
-                text_input=None
+                text_input=None,
             )
             return back_action
 
         # Mark action as executed before execution
-        action_signature = self._convert_signature_to_optimized(selected_action.coords_for_matching)
+        action_signature = self._convert_signature_to_optimized(
+            selected_action.coords_for_matching
+        )
         logger.info(f"  Signature: {action_signature}")
         logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
 
-        self.graph.record_action(screen_hash=current_hash, action_signature=action_signature)
+        self.graph.record_action(
+            screen_hash=current_hash, action_signature=action_signature
+        )
 
         return selected_action
 
-    def record_transition(
-        self,
-        from_hash: str,
-        to_hash: str,
-        action: ItemAction
-    ):
+    def record_transition(self, from_hash: str, to_hash: str, action: ItemAction):
         """
         Record state transition and update action value estimates.
 
@@ -252,18 +271,28 @@ class GreedyStrategy(ExplorationStrategy):
             action: Action that triggered the transition
         """
         # Convert action to optimized signature
-        action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+        action_signature = self._convert_signature_to_optimized(
+            action.coords_for_matching
+        )
 
         # Increment attempt counter
-        self.action_attempts[action_signature] = self.action_attempts.get(action_signature, 0) + 1
+        self.action_attempts[action_signature] = (
+            self.action_attempts.get(action_signature, 0) + 1
+        )
 
         # Check if this led to a new state
         if to_hash not in self.visited_states:
-            self.action_new_states[action_signature] = self.action_new_states.get(action_signature, 0) + 1
+            self.action_new_states[action_signature] = (
+                self.action_new_states.get(action_signature, 0) + 1
+            )
             logger.debug(f"Greedy: Action {action_signature} discovered new state")
 
         # Update action value based on outcome
-        self._update_action_value(action_signature, success=True, new_state=(to_hash not in self.visited_states))
+        self._update_action_value(
+            action_signature,
+            success=True,
+            new_state=(to_hash not in self.visited_states),
+        )
 
     def should_backtrack(self, current_hash: str) -> bool:
         """
@@ -320,12 +349,12 @@ class GreedyStrategy(ExplorationStrategy):
 
         for action in actions:
             # Skip system actions
-            if action.target_view.get('system_action', False):
+            if action.target_view.get("system_action", False):
                 logger.debug(f"Filtered system action: ID={action.id}")
                 continue
 
             # Filter by package - only include actions from target app
-            action_package = action.target_view.get('package', '')
+            action_package = action.target_view.get("package", "")
             if self.target_package and action_package:
                 if action_package != self.target_package:
                     external_count += 1
@@ -340,13 +369,17 @@ class GreedyStrategy(ExplorationStrategy):
 
             # Skip actions without valid coordinates
             if not coords:
-                logger.debug(f"Filtered action without coordinates: ID={action.id}, class={action.target_view.get('class', 'unknown')}")
+                logger.debug(
+                    f"Filtered action without coordinates: ID={action.id}, class={action.target_view.get('class', 'unknown')}"
+                )
                 continue
 
             # Skip navigation bar actions (above NAVBAR_THRESHOLD_Y in device space)
             x, y = coords
             if y > RVAgentConstants.NAVBAR_THRESHOLD_Y:
-                logger.debug(f"Filtered nav bar action: ID={action.id} coords=({x},{y})")
+                logger.debug(
+                    f"Filtered nav bar action: ID={action.id} coords=({x},{y})"
+                )
                 continue
 
             filtered.append(action)
@@ -357,9 +390,7 @@ class GreedyStrategy(ExplorationStrategy):
         return filtered
 
     def _get_untested_actions(
-        self,
-        node,
-        actions: List[ItemAction]
+        self, node, actions: List[ItemAction]
     ) -> List[ItemAction]:
         """
         Identify actions not yet executed on this state.
@@ -374,7 +405,9 @@ class GreedyStrategy(ExplorationStrategy):
         untested = []
 
         for action in actions:
-            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            action_signature = self._convert_signature_to_optimized(
+                action.coords_for_matching
+            )
 
             if action_signature not in node.executed_actions:
                 untested.append(action)
@@ -382,7 +415,9 @@ class GreedyStrategy(ExplorationStrategy):
 
         return untested
 
-    def _calculate_action_value(self, action: ItemAction, action_signature: Tuple[Tuple[int, int], str]) -> float:
+    def _calculate_action_value(
+        self, action: ItemAction, action_signature: Tuple[Tuple[int, int], str]
+    ) -> float:
         """
         Calculate the greedy value for an action.
 
@@ -403,9 +438,9 @@ class GreedyStrategy(ExplorationStrategy):
         value = self.action_values.get(action_signature, 0.5)
 
         # MOP prioritization (monitored operations)
-        if getattr(action, 'directly_reaches_mop', False):
+        if getattr(action, "directly_reaches_mop", False):
             value += 0.3
-        elif getattr(action, 'reaches_mop', False):
+        elif getattr(action, "reaches_mop", False):
             value += 0.2
 
         # New state discovery bonus
@@ -424,7 +459,12 @@ class GreedyStrategy(ExplorationStrategy):
 
         return value
 
-    def _update_action_value(self, action_signature: Tuple[Tuple[int, int], str], success: bool, new_state: bool):
+    def _update_action_value(
+        self,
+        action_signature: Tuple[Tuple[int, int], str],
+        success: bool,
+        new_state: bool,
+    ):
         """
         Update action value based on execution outcome.
 
@@ -458,7 +498,9 @@ class GreedyStrategy(ExplorationStrategy):
         # Store updated value
         self.action_values[action_signature] = new_value
 
-    def _convert_signature_to_optimized(self, signature: Tuple[Tuple[int, int], str]) -> Tuple[Tuple[int, int], str]:
+    def _convert_signature_to_optimized(
+        self, signature: Tuple[Tuple[int, int], str]
+    ) -> Tuple[Tuple[int, int], str]:
         """
         Convert action signature from device space to optimized space.
 
@@ -485,14 +527,16 @@ class GreedyStrategy(ExplorationStrategy):
         Returns:
             Priority score (3=direct MOP, 2=transitive MOP, 1=none)
         """
-        if getattr(action, 'directly_reaches_mop', False):
+        if getattr(action, "directly_reaches_mop", False):
             return 3
-        elif getattr(action, 'reaches_mop', False):
+        elif getattr(action, "reaches_mop", False):
             return 2
         else:
             return 1
 
-    def _select_least_executed_action(self, node, actions: List[ItemAction]) -> Optional[ItemAction]:
+    def _select_least_executed_action(
+        self, node, actions: List[ItemAction]
+    ) -> Optional[ItemAction]:
         """
         Select action with fewest executions for continuous exploration.
 
@@ -514,7 +558,9 @@ class GreedyStrategy(ExplorationStrategy):
             return None
 
         def sort_key(action: ItemAction):
-            action_signature = self._convert_signature_to_optimized(action.coords_for_matching)
+            action_signature = self._convert_signature_to_optimized(
+                action.coords_for_matching
+            )
             exec_count = node.get_action_execution_count(action_signature)
             mop_priority = self._get_mop_priority(action)
             # Sort by: (exec_count ASC, -mop_priority DESC)

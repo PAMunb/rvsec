@@ -13,7 +13,6 @@ from typing import Dict, Any, Set
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -31,11 +30,7 @@ class CoverageMetrics:
     4. MOP Coverage: Unique MOP methods reached (own tracking)
     """
 
-    def __init__(
-        self,
-        graph: DynamicStateGraph,
-        ui_coverage: UICoverageTracker
-    ):
+    def __init__(self, graph: DynamicStateGraph, ui_coverage: UICoverageTracker):
         """
         Initialize coverage metrics aggregator.
 
@@ -89,21 +84,16 @@ class CoverageMetrics:
             # State metrics (from graph)
             "states_discovered": len(self.graph.states),
             "graph_overall_coverage": graph_coverage.get("overall_coverage", 0.0),
-
             # Action metrics (from graph)
             "total_actions_executed": sum(
-                len(node.executed_actions)
-                for node in self.graph.states.values()
+                len(node.executed_actions) for node in self.graph.states.values()
             ),
-
             # UI metrics (from UI tracker)
             "ui_elements_discovered": ui_stats.get("total_elements", 0),
             "ui_elements_tested": ui_stats.get("tested_elements", 0),
             "ui_coverage_rate": ui_stats.get("coverage_rate", 0.0),
-
             # MOP metrics (own tracking)
             "mop_methods_reached": len(self.mop_methods_reached),
-
             # Transition metrics (from graph)
             "total_transitions": len(self.graph.transitions),
         }
@@ -120,17 +110,20 @@ class CoverageMetrics:
         # Add per-state details
         state_details = []
         for state_hash, node in self.graph.states.items():
-            state_details.append({
-                "hash": state_hash[:12],
-                "activity": node.activity,
-                "total_actions": node.total_actions,
-                "executed_actions": len(node.executed_actions),
-                "coverage": (
-                    len(node.executed_actions) / node.total_actions
-                    if node.total_actions > 0 else 1.0
-                ),
-                "visits": node.visit_count,
-            })
+            state_details.append(
+                {
+                    "hash": state_hash[:12],
+                    "activity": node.activity,
+                    "total_actions": node.total_actions,
+                    "executed_actions": len(node.executed_actions),
+                    "coverage": (
+                        len(node.executed_actions) / node.total_actions
+                        if node.total_actions > 0
+                        else 1.0
+                    ),
+                    "visits": node.visit_count,
+                }
+            )
 
         return {
             **summary,

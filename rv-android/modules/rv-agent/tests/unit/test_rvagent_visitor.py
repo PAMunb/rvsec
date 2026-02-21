@@ -11,17 +11,24 @@ from unittest.mock import MagicMock
 
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription, ScreenItem, Node
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
+    ScreenDescription,
+    ScreenItem,
+    Node,
+)
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.parser_factory import ParserFactory
 from rv_screen_parser.constants import ScreenParserType
 
 from rv_agent.ui.rvagent_visitor import RVAgentVisitor
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def fixtures_path():
@@ -71,6 +78,7 @@ def cipher_activity_xml(screenshots_path):
 # Test: Initialization
 # =============================================================================
 
+
 class TestRVAgentVisitorInit:
     """Test RVAgentVisitor initialization."""
 
@@ -114,6 +122,7 @@ class TestRVAgentVisitorInit:
 # Test: Window Matching
 # =============================================================================
 
+
 class TestWindowMatching:
     """Test activity to static window matching."""
 
@@ -126,14 +135,18 @@ class TestWindowMatching:
 
     def test_exact_match_cipher_activity(self, static_data):
         """Exact match on CipherActivity."""
-        visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.cipher.CipherActivity")
+        visitor = RVAgentVisitor(
+            static_data, "br.unb.cic.cryptoapp.cipher.CipherActivity"
+        )
 
         assert visitor.window is not None
         assert "CipherActivity" in visitor.window.name
 
     def test_exact_match_message_digest_activity(self, static_data):
         """Exact match on MessageDigestActivity."""
-        visitor = RVAgentVisitor(static_data, "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity")
+        visitor = RVAgentVisitor(
+            static_data, "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity"
+        )
 
         assert visitor.window is not None
         assert "MessageDigestActivity" in visitor.window.name
@@ -148,6 +161,7 @@ class TestWindowMatching:
 # =============================================================================
 # Test: Widget Matching
 # =============================================================================
+
 
 class TestWidgetMatching:
     """Test runtime node to static widget matching."""
@@ -182,7 +196,7 @@ class TestWidgetMatching:
 
         assert widget is not None
         # Widgets should have events defined from GESDA
-        assert hasattr(widget, 'events') or hasattr(widget, 'listeners')
+        assert hasattr(widget, "events") or hasattr(widget, "listeners")
 
     def test_no_match_returns_none(self, static_data):
         """No match returns None and updates stats."""
@@ -191,7 +205,7 @@ class TestWidgetMatching:
         node_data = {
             "resource-id": "br.unb.cic.cryptoapp:id/nonexistent_widget",
             "text": "",
-            "bounds": "[(0, 0), (100, 100)]"
+            "bounds": "[(0, 0), (100, 100)]",
         }
 
         widget = visitor.find_matching_widget(node_data)
@@ -206,7 +220,7 @@ class TestWidgetMatching:
         node_data = {
             "resource-id": "br.unb.cic.cryptoapp:id/buttonCipher",
             "text": "CIPHER",
-            "bounds": "[(0, 336), (1080, 462)]"
+            "bounds": "[(0, 336), (1080, 462)]",
         }
 
         cache_key = visitor._generate_cache_key(node_data)
@@ -219,6 +233,7 @@ class TestWidgetMatching:
 # Test: MOP Enrichment
 # =============================================================================
 
+
 class TestMOPEnrichment:
     """Test MOP marker enrichment on actions."""
 
@@ -229,18 +244,16 @@ class TestMOPEnrichment:
         assert len(static_data.classes.methods) > 0
 
         # Find methods that reach MOP
-        mop_methods = [
-            m for m in static_data.classes.methods.values()
-            if m.reaches_mop
-        ]
+        mop_methods = [m for m in static_data.classes.methods.values() if m.reaches_mop]
         assert len(mop_methods) > 0, "Expected some methods to reach MOP"
 
         # Find methods that directly reach MOP
         direct_mop_methods = [
-            m for m in static_data.classes.methods.values()
-            if m.directly_reaches_mop
+            m for m in static_data.classes.methods.values() if m.directly_reaches_mop
         ]
-        assert len(direct_mop_methods) > 0, "Expected some methods to directly reach MOP"
+        assert (
+            len(direct_mop_methods) > 0
+        ), "Expected some methods to directly reach MOP"
 
     def test_main_activity_callbacks_reach_mop(self, static_data):
         """MainActivity button callbacks should reach MOP (transitively)."""
@@ -285,7 +298,7 @@ class TestMOPEnrichment:
         screen_desc = parser.parse(
             main_activity_xml,
             static_data=static_data,
-            activity="br.unb.cic.cryptoapp.MainActivity"
+            activity="br.unb.cic.cryptoapp.MainActivity",
         )
 
         # Find actions with MOP markers
@@ -306,7 +319,7 @@ class TestMOPEnrichment:
         screen_desc = parser.parse(
             main_activity_xml,
             static_data=None,
-            activity="br.unb.cic.cryptoapp.MainActivity"
+            activity="br.unb.cic.cryptoapp.MainActivity",
         )
 
         # All actions should have reaches_mop=False
@@ -319,6 +332,7 @@ class TestMOPEnrichment:
 # =============================================================================
 # Test: WTG Transitions
 # =============================================================================
+
 
 class TestWTGTransitions:
     """Test WTG transition retrieval."""
@@ -355,6 +369,7 @@ class TestWTGTransitions:
 # Test: Integration with Parser
 # =============================================================================
 
+
 class TestParserIntegration:
     """Test RVAgentVisitor integration with UIAutomator2Parser."""
 
@@ -365,7 +380,7 @@ class TestParserIntegration:
         screen_desc = parser.parse(
             main_activity_xml,
             static_data=static_data,
-            activity="br.unb.cic.cryptoapp.MainActivity"
+            activity="br.unb.cic.cryptoapp.MainActivity",
         )
 
         assert screen_desc is not None
@@ -390,7 +405,7 @@ class TestParserIntegration:
         screen_desc = parser.parse(
             main_activity_xml,
             static_data=None,
-            activity="br.unb.cic.cryptoapp.MainActivity"
+            activity="br.unb.cic.cryptoapp.MainActivity",
         )
 
         assert screen_desc is not None
@@ -405,14 +420,13 @@ class TestParserIntegration:
     def test_parse_using_factory(self, static_data, main_activity_xml):
         """Parse using ParserFactory with custom visitor."""
         parser = ParserFactory.create(
-            ScreenParserType.UIAUTOMATOR,
-            visitor_class=RVAgentVisitor
+            ScreenParserType.UIAUTOMATOR, visitor_class=RVAgentVisitor
         )
 
         screen_desc = parser.parse(
             main_activity_xml,
             static_data=static_data,
-            activity="br.unb.cic.cryptoapp.MainActivity"
+            activity="br.unb.cic.cryptoapp.MainActivity",
         )
 
         assert screen_desc is not None
@@ -422,6 +436,7 @@ class TestParserIntegration:
 # =============================================================================
 # Test: Static Data Validation
 # =============================================================================
+
 
 class TestStaticDataValidation:
     """Validate that static analysis data is loaded correctly."""

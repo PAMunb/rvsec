@@ -49,7 +49,9 @@ from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.services.transition_manager import TransitionManager
 from rv_agent.services.navigation_guidance import NavigationGuidance
 from rv_agent.domain.action import ActionNormalizer
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_android_core.domain.static import StaticAnalysisData
 
@@ -125,8 +127,7 @@ class AgentFactory:
 
         # Create transition manager (integrates WTG with dynamic graph)
         transition_manager = TransitionManager(
-            static_data=static_data,
-            dynamic_graph=dynamic_graph
+            static_data=static_data, dynamic_graph=dynamic_graph
         )
         logger.info("Created TransitionManager")
 
@@ -150,7 +151,7 @@ class AgentFactory:
             static_data=static_data,
             ui_coverage=ui_coverage,
             transition_manager=transition_manager,
-            device_dimensions=device_size  # Runtime device size
+            device_dimensions=device_size,  # Runtime device size
         )
         logger.info(f"Created ExplorationStrategy: {config.strategy}")
 
@@ -159,7 +160,7 @@ class AgentFactory:
             output_dir=config.screenshot_dir,
             rotation_limit=config.screenshot_rotation_limit,
             target_size=config.optimized_dimensions,
-            quality=85
+            quality=85,
         )
         logger.info(f"Created ImageHandler: {config.screenshot_dir}")
 
@@ -171,7 +172,7 @@ class AgentFactory:
             ui_coverage=ui_coverage,
             static_data=static_data,
             device_dimensions=config.device_dimensions,
-            max_external_attempts=config.max_external_attempts
+            max_external_attempts=config.max_external_attempts,
         )
         logger.info("Created ScreenProcessor")
 
@@ -189,32 +190,25 @@ class AgentFactory:
         routing_manager = RoutingManager(
             config=config,
             fallback_manager=fallback_manager,
-            exploration_strategy=exploration_strategy
+            exploration_strategy=exploration_strategy,
         )
         logger.info("Created RoutingManager")
 
         # Create tool executor
-        tool_executor = ToolExecutor(
-            device=device,
-            image_handler=image_handler
-        )
+        tool_executor = ToolExecutor(device=device, image_handler=image_handler)
         logger.info("Created ToolExecutor")
 
         # Create action normalizer (unified action format)
         # Converts LLM [0, 1000) coords to device pixels
         action_normalizer = ActionNormalizer(
-            device_width=device_size[0],
-            device_height=device_size[1]
+            device_width=device_size[0], device_height=device_size[1]
         )
         logger.info(f"Created ActionNormalizer: device={device_size}")
 
         # Create memory components (ui_coverage already created above)
         long_term_memory = LongTermMemory(static_data=static_data)
         short_term_memory = ShortTermMemory()
-        agent_memory = AgentMemoryManager(
-            max_action_history=5,
-            max_navigation_path=5
-        )
+        agent_memory = AgentMemoryManager(max_action_history=5, max_navigation_path=5)
         logger.info("Created memory components")
 
         # Create memory coordinator
@@ -224,7 +218,7 @@ class AgentFactory:
             long_term_memory=long_term_memory,
             ui_coverage=ui_coverage,
             agent_memory=agent_memory,
-            action_window_size=10
+            action_window_size=10,
         )
         logger.info("Created MemoryCoordinator")
 
@@ -266,7 +260,9 @@ class AgentFactory:
         # Load prompt module dynamically based on config
         prompt_version = config.prompt_version
         try:
-            prompt_module = importlib.import_module(f"rv_agent.prompts.{prompt_version}")
+            prompt_module = importlib.import_module(
+                f"rv_agent.prompts.{prompt_version}"
+            )
             logger.info(f"Loaded prompt module: {prompt_version}")
         except ImportError as e:
             logger.error(f"Failed to load prompt module '{prompt_version}': {e}")
@@ -274,7 +270,4 @@ class AgentFactory:
             from rv_agent.prompts import v13 as prompt_module
 
         # Create LLM client (creates ChatOpenAI internally)
-        return LLMClient(
-            config=config,
-            prompt_module=prompt_module
-        )
+        return LLMClient(config=config, prompt_module=prompt_module)

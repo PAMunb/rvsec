@@ -6,7 +6,6 @@ Validates configuration loading and SGLang-specific settings.
 
 import pytest
 
-
 pytestmark = pytest.mark.smoke
 
 
@@ -24,8 +23,7 @@ class TestConfigSGLang:
         from rv_agent.config.agent_config import RVAgentConfig
 
         config = RVAgentConfig.create_default(
-            package_name="com.example.app",
-            device_id="emulator-5554"
+            package_name="com.example.app", device_id="emulator-5554"
         )
 
         assert config.package_name == "com.example.app"
@@ -80,10 +78,7 @@ class TestConfigSGLang:
         from rv_agent.config.agent_config import RVAgentConfig
 
         for mode in ["pure_algorithm", "llm_only", "multimode"]:
-            config = RVAgentConfig(
-                package_name="test",
-                agent_mode=mode
-            )
+            config = RVAgentConfig(package_name="test", agent_mode=mode)
             assert config.agent_mode == mode
 
     def test_multimode_probability(self):
@@ -91,9 +86,7 @@ class TestConfigSGLang:
         from rv_agent.config.agent_config import RVAgentConfig
 
         config = RVAgentConfig(
-            package_name="test",
-            agent_mode="multimode",
-            llm_probability=0.7
+            package_name="test", agent_mode="multimode", llm_probability=0.7
         )
 
         assert config.llm_probability == 0.7
@@ -131,10 +124,7 @@ class TestConfigSGLang:
         """Invalid agent mode fails validation."""
         from rv_agent.config.agent_config import RVAgentConfig
 
-        config = RVAgentConfig(
-            package_name="test",
-            agent_mode="invalid_mode"
-        )
+        config = RVAgentConfig(package_name="test", agent_mode="invalid_mode")
 
         # Mode validation happens in validate() method
         is_valid, error = config.validate()

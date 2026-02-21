@@ -20,7 +20,6 @@ from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.agent_factory import AgentFactory
 from rv_agent.agent.device_interface import DeviceInterface
 
-
 # =============================================================================
 # Constants
 # =============================================================================
@@ -35,6 +34,7 @@ SGLANG_MODEL = os.getenv("SGLANG_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
 @dataclass
 class TestApp:
     """Test application metadata."""
+
     name: str
     package_name: str
     apk_path: Path
@@ -58,21 +58,27 @@ APPS_WITH_STATIC = [
     TestApp(
         name="hashpass",
         package_name="byrne.utilities.hashpass",
-        apk_path=DATASET_ROOT / "byrne.utilities.hashpass_2.apk" / "byrne.utilities.hashpass_2.apk",
+        apk_path=DATASET_ROOT
+        / "byrne.utilities.hashpass_2.apk"
+        / "byrne.utilities.hashpass_2.apk",
         static_data_dir=DATASET_ROOT / "byrne.utilities.hashpass_2.apk",
         has_static_analysis=True,
     ),
     TestApp(
         name="ludo",
         package_name="org.secuso.privacyfriendlyludo",
-        apk_path=DATASET_ROOT / "org.secuso.privacyfriendlyludo_5.apk" / "org.secuso.privacyfriendlyludo_5.apk",
+        apk_path=DATASET_ROOT
+        / "org.secuso.privacyfriendlyludo_5.apk"
+        / "org.secuso.privacyfriendlyludo_5.apk",
         static_data_dir=DATASET_ROOT / "org.secuso.privacyfriendlyludo_5.apk",
         has_static_analysis=True,
     ),
     TestApp(
         name="dicer",
         package_name="org.secuso.privacyfriendlydicer",
-        apk_path=DATASET_ROOT / "org.secuso.privacyfriendlydicer_8.apk" / "org.secuso.privacyfriendlydicer_8.apk",
+        apk_path=DATASET_ROOT
+        / "org.secuso.privacyfriendlydicer_8.apk"
+        / "org.secuso.privacyfriendlydicer_8.apk",
         static_data_dir=DATASET_ROOT / "org.secuso.privacyfriendlydicer_8.apk",
         has_static_analysis=True,
     ),
@@ -100,12 +106,15 @@ APPS_WITHOUT_STATIC = [
 # APK Management Functions
 # =============================================================================
 
+
 def is_app_installed(device_id: str, package_name: str) -> bool:
     """Check if app is installed on device."""
     try:
         result = subprocess.run(
             ["adb", "-s", device_id, "shell", "pm", "list", "packages", package_name],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return f"package:{package_name}" in result.stdout
     except Exception:
@@ -144,7 +153,9 @@ def uninstall_app(device_id: str, package_name: str) -> bool:
     try:
         result = subprocess.run(
             ["adb", "-s", device_id, "uninstall", package_name],
-            capture_output=True, text=True, timeout=30
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         return "Success" in result.stdout
     except Exception:
@@ -155,9 +166,21 @@ def launch_app(device_id: str, package_name: str) -> bool:
     """Launch app using monkey command."""
     try:
         result = subprocess.run(
-            ["adb", "-s", device_id, "shell", "monkey", "-p", package_name,
-             "-c", "android.intent.category.LAUNCHER", "1"],
-            capture_output=True, text=True, timeout=10
+            [
+                "adb",
+                "-s",
+                device_id,
+                "shell",
+                "monkey",
+                "-p",
+                package_name,
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "1",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return result.returncode == 0
     except Exception:
@@ -169,7 +192,9 @@ def force_stop_app(device_id: str, package_name: str) -> bool:
     try:
         subprocess.run(
             ["adb", "-s", device_id, "shell", "am", "force-stop", package_name],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return True
     except Exception:
@@ -181,7 +206,9 @@ def go_home(device_id: str) -> bool:
     try:
         subprocess.run(
             ["adb", "-s", device_id, "shell", "input", "keyevent", "KEYCODE_HOME"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         return True
     except Exception:
@@ -191,6 +218,7 @@ def go_home(device_id: str) -> bool:
 # =============================================================================
 # Fixtures - Device
 # =============================================================================
+
 
 @pytest.fixture(scope="session")
 def device_id():
@@ -211,8 +239,7 @@ def device(device_id):
 def check_emulator(device_id):
     """Verify emulator is running."""
     result = subprocess.run(
-        ["adb", "-s", device_id, "get-state"],
-        capture_output=True, text=True
+        ["adb", "-s", device_id, "get-state"], capture_output=True, text=True
     )
     if "device" not in result.stdout:
         pytest.skip(f"Emulator {device_id} not running")
@@ -222,6 +249,7 @@ def check_emulator(device_id):
 # =============================================================================
 # Fixtures - SGLang
 # =============================================================================
+
 
 @pytest.fixture(scope="session")
 def sglang_url():
@@ -239,6 +267,7 @@ def sglang_model():
 def check_sglang(sglang_url):
     """Verify SGLang server is available."""
     import httpx
+
     try:
         response = httpx.get(f"{sglang_url}/models", timeout=10)
         if response.status_code != 200:
@@ -251,6 +280,7 @@ def check_sglang(sglang_url):
 # =============================================================================
 # Fixtures - Test Apps
 # =============================================================================
+
 
 @pytest.fixture(scope="module", params=APPS_WITH_STATIC[:3])  # First 3 apps
 def test_app_with_static(request, device_id, check_emulator) -> TestApp:
@@ -322,6 +352,7 @@ def ludo(device_id, check_emulator) -> TestApp:
 # Fixtures - Agent Configuration
 # =============================================================================
 
+
 @pytest.fixture
 def agent_config_multimode(cryptoapp, sglang_url, sglang_model) -> RVAgentConfig:
     """Create multimode agent config."""
@@ -367,6 +398,7 @@ def agent_config_llm_only(cryptoapp, sglang_url, sglang_model) -> RVAgentConfig:
 # Fixtures - Static Analysis
 # =============================================================================
 
+
 @pytest.fixture
 def static_data_cryptoapp(cryptoapp):
     """Load static analysis data for cryptoapp."""
@@ -386,17 +418,12 @@ def static_data_cryptoapp(cryptoapp):
 # Markers
 # =============================================================================
 
+
 def pytest_configure(config):
     """Register custom markers."""
-    config.addinivalue_line(
-        "markers", "online: tests requiring real emulator"
-    )
-    config.addinivalue_line(
-        "markers", "sglang: tests requiring SGLang server"
-    )
-    config.addinivalue_line(
-        "markers", "slow: tests that take significant time"
-    )
+    config.addinivalue_line("markers", "online: tests requiring real emulator")
+    config.addinivalue_line("markers", "sglang: tests requiring SGLang server")
+    config.addinivalue_line("markers", "slow: tests that take significant time")
     config.addinivalue_line(
         "markers", "static_analysis: tests using static analysis data"
     )

@@ -55,4 +55,12 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     decision_path = agent.routing_manager.route_decision(iteration)
     track.route(iter=iteration, mode=mode, path=decision_path)
 
+    if decision_path == "algorithm":
+        track.strategy(
+            iter=iteration,
+            mode=mode,
+            action_type="algorithm",
+            reason="routing_decision",
+        )
+
     return {"decision_path": decision_path, "decision_maker": decision_path}

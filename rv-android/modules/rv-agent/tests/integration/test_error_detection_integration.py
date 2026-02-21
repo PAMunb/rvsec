@@ -20,16 +20,22 @@ from rv_agent.agent.nodes.algorithm_node import algorithm_node
 from rv_agent.agent.nodes.parse_node import parse_ui_node
 from rv_agent.services.error_detection import ValidationErrorResult
 from rv_screen_parser.parser.screen.visitor.model import (
-    ItemAction, ScreenItem, ScreenDescription, WidgetEventType,
+    ItemAction,
+    ScreenItem,
+    ScreenDescription,
+    WidgetEventType,
 )
 from rv_screen_parser.screenshot.models import (
-    ErrorIndicator, DetectionMethod, ErrorType, BoundingBox,
+    ErrorIndicator,
+    DetectionMethod,
+    ErrorType,
+    BoundingBox,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> RVAgentConfig:
     """Create a default RVAgentConfig with pure_algorithm mode (avoids LLM requirement)."""
@@ -108,7 +114,10 @@ def _make_agent(config=None, **overrides):
 def _make_error_indicator(x=200, y=400, w=20, h=20, confidence=0.85):
     """Create a real ErrorIndicator Pydantic model instance."""
     return ErrorIndicator(
-        x=x, y=y, width=w, height=h,
+        x=x,
+        y=y,
+        width=w,
+        height=h,
         detection_method=DetectionMethod.COLOR,
         confidence=confidence,
         error_type=ErrorType.VALIDATION_ERROR,
@@ -194,6 +203,7 @@ def _apply_updates(state, updates):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestFullFlowEditText:
     """Test 8.1: error -> spatial match EditText -> SET_TEXT action."""
@@ -373,7 +383,10 @@ class TestMaxErrorRecovery:
         # Counter stays at MAX
         assert agent.error_recovery_count == MAX_ERROR_RECOVERY
         # No error-related flags set
-        assert "force_fill_input" not in learn_result or learn_result.get("force_fill_input") is not True
+        assert (
+            "force_fill_input" not in learn_result
+            or learn_result.get("force_fill_input") is not True
+        )
 
         # Stuck detection can accumulate (not suppressed by error detection)
         # Since screen hash repeats and it's not a form action,
@@ -467,9 +480,9 @@ class TestMaxRecoveryRegressionMultipleIterations:
         for expected_count in [1, 2, 3]:
             agent.last_screen_hash = None  # Prevent stuck counting from interfering
             result = learn_node(agent, base)
-            assert agent.error_recovery_count == expected_count, (
-                f"Expected count={expected_count}, got {agent.error_recovery_count}"
-            )
+            assert (
+                agent.error_recovery_count == expected_count
+            ), f"Expected count={expected_count}, got {agent.error_recovery_count}"
             assert result.get("force_fill_input") is True
 
         # Call count after 3 iterations: 3
@@ -507,7 +520,9 @@ class TestLLMModeErrorRecoveryBypass:
             confidence=0.85,
         )
 
-        config = _make_config(agent_mode="pure_algorithm")  # Use pure_algorithm to avoid LLM requirement
+        config = _make_config(
+            agent_mode="pure_algorithm"
+        )  # Use pure_algorithm to avoid LLM requirement
         agent = _make_agent(config=config)
         agent.routing_manager.mode = "llm_only"
 

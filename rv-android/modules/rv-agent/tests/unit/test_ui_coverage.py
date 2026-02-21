@@ -21,12 +21,16 @@ class TestUIElementStats:
 
     def test_coverage_percentage_all_tested(self):
         """Coverage is 100% when all tested."""
-        stats = UIElementStats(total_elements=10, tested_elements=10, untested_elements=0)
+        stats = UIElementStats(
+            total_elements=10, tested_elements=10, untested_elements=0
+        )
         assert stats.coverage_percentage == 100.0
 
     def test_coverage_percentage_half_tested(self):
         """Coverage is 50% when half tested."""
-        stats = UIElementStats(total_elements=10, tested_elements=5, untested_elements=5)
+        stats = UIElementStats(
+            total_elements=10, tested_elements=5, untested_elements=5
+        )
         assert stats.coverage_percentage == 50.0
 
     def test_discovery_rate_zero_elements(self):
@@ -36,7 +40,9 @@ class TestUIElementStats:
 
     def test_discovery_rate_calculation(self):
         """Discovery rate calculation."""
-        stats = UIElementStats(total_elements=10, tested_elements=3, untested_elements=7)
+        stats = UIElementStats(
+            total_elements=10, tested_elements=3, untested_elements=7
+        )
         assert stats.discovery_rate == 0.3
 
 
@@ -194,13 +200,13 @@ class TestRegisterScreenElements:
         screen_desc = MagicMock()
         item1 = MagicMock()
         item1.view = {
-            'class': 'android.widget.Button',
-            'bounds': [[50, 100], [150, 300]]
+            "class": "android.widget.Button",
+            "bounds": [[50, 100], [150, 300]],
         }
         item2 = MagicMock()
         item2.view = {
-            'class': 'android.widget.EditText',
-            'bounds': [[50, 400], [150, 600]]
+            "class": "android.widget.EditText",
+            "bounds": [[50, 400], [150, 600]],
         }
         screen_desc.items = [item1, item2]
 
@@ -217,8 +223,8 @@ class TestRegisterScreenElements:
         screen_desc = MagicMock()
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.Button',
-            'bounds': [[100, 200], [300, 400]]
+            "class": "android.widget.Button",
+            "bounds": [[100, 200], [300, 400]],
         }
         screen_desc.items = [item]
 
@@ -247,8 +253,8 @@ class TestRegisterScreenElements:
         screen_desc = MagicMock()
         item = MagicMock()
         item.view = {
-            'class': 'android.widget.Button',
-            'bounds': [[100, 200], [300, 400]]
+            "class": "android.widget.Button",
+            "bounds": [[100, 200], [300, 400]],
         }
         screen_desc.items = [item]
 
@@ -354,8 +360,11 @@ class TestGetExplorationSuggestions:
 
         # Should suggest the one with fewer tests
         if suggestions:
-            assert any(s.get("suggestion") in ["retest_lightly_tested", "explore_different_actions"]
-                      for s in suggestions)
+            assert any(
+                s.get("suggestion")
+                in ["retest_lightly_tested", "explore_different_actions"]
+                for s in suggestions
+            )
 
     def test_all_well_tested_suggestions(self):
         """Suggests different actions when all well tested."""
@@ -368,7 +377,9 @@ class TestGetExplorationSuggestions:
 
         suggestions = tracker.get_exploration_suggestions("screen1")
 
-        assert any(s.get("suggestion") == "explore_different_actions" for s in suggestions)
+        assert any(
+            s.get("suggestion") == "explore_different_actions" for s in suggestions
+        )
 
 
 class TestGetOverallStatistics:

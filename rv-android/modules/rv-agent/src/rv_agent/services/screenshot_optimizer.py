@@ -57,8 +57,7 @@ class ScreenshotOptimizer:
         """Initialize screenshot optimizer with logging."""
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_agent.screenshot_optimizer",
-            {CONTEXT_COMPONENT: "ScreenshotOptimizer"}
+            "rv_agent.screenshot_optimizer", {CONTEXT_COMPONENT: "ScreenshotOptimizer"}
         )
 
     def optimize(
@@ -66,7 +65,7 @@ class ScreenshotOptimizer:
         image_path: str,
         target_size: Optional[Tuple[int, int]] = None,
         quality: Optional[int] = None,
-        output_format: Optional[str] = None
+        output_format: Optional[str] = None,
     ) -> Optional[str]:
         """
         Optimize screenshot for vision model input.
@@ -94,11 +93,13 @@ class ScreenshotOptimizer:
 
             # Load image
             img = Image.open(image_path)
-            self.logger.debug(f"Loaded screenshot: {img.size[0]}x{img.size[1]}, mode={img.mode}")
+            self.logger.debug(
+                f"Loaded screenshot: {img.size[0]}x{img.size[1]}, mode={img.mode}"
+            )
 
             # Convert RGBA to RGB for JPEG compression
-            if img.mode == 'RGBA' and output_format == "JPEG":
-                background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == "RGBA" and output_format == "JPEG":
+                background = Image.new("RGB", img.size, (255, 255, 255))
                 background.paste(img, mask=img.split()[3])
                 img = background
                 self.logger.debug("Converted RGBA to RGB for JPEG compression")

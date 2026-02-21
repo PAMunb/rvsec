@@ -16,7 +16,11 @@ from rv_android_core.domain.window import Window
 from rv_android_core.domain.widget import Widget
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
+    ScreenDescription,
+    Node,
+)
 
 
 class RVAgentVisitor(DefaultTextVisitor):
@@ -55,7 +59,7 @@ class RVAgentVisitor(DefaultTextVisitor):
 
         # WTG integration
         self.wtg: Optional[WindowTransitionGraph] = None
-        if static_data and hasattr(static_data, 'wtg'):
+        if static_data and hasattr(static_data, "wtg"):
             self.wtg = static_data.wtg
 
         # Cache and stats
@@ -66,7 +70,7 @@ class RVAgentVisitor(DefaultTextVisitor):
             "direct_mop": 0,
             "transitive_mop": 0,
             "widgets_matched": 0,
-            "widgets_not_matched": 0
+            "widgets_not_matched": 0,
         }
 
         self.logger.info(
@@ -105,15 +109,15 @@ class RVAgentVisitor(DefaultTextVisitor):
 
         # Try hint text match in current window
         hint = node_data.get("hint", "") or node_data.get("content-desc", "")
-        if hint and self.window and hasattr(self.window, 'widgets'):
+        if hint and self.window and hasattr(self.window, "widgets"):
             for widget_id, widget in self.window.widgets.items():
-                if hasattr(widget, 'hint') and widget.hint == hint:
+                if hasattr(widget, "hint") and widget.hint == hint:
                     self.widget_cache[cache_key] = widget
                     self.mop_stats["widgets_matched"] += 1
                     return widget
 
         # Try global widget search (all windows)
-        if self.static_info and hasattr(self.static_info, 'windows'):
+        if self.static_info and hasattr(self.static_info, "windows"):
             widget = self._find_widget_globally(node_data)
             if widget:
                 self.widget_cache[cache_key] = widget
@@ -143,10 +147,12 @@ class RVAgentVisitor(DefaultTextVisitor):
         Returns:
             Matching Widget or None
         """
-        if not self.static_info or not hasattr(self.static_info, 'windows'):
+        if not self.static_info or not hasattr(self.static_info, "windows"):
             return None
 
-        resource_id = node_data.get("resource-id", "") or node_data.get("resource_id", "")
+        resource_id = node_data.get("resource-id", "") or node_data.get(
+            "resource_id", ""
+        )
         if not resource_id:
             return None
 
@@ -155,15 +161,17 @@ class RVAgentVisitor(DefaultTextVisitor):
         widget_name = parts[-1] if len(parts) > 1 else parts[0]
 
         # Strategy 1: Try global widgets dict by name
-        if hasattr(self.static_info.windows, 'widgets'):
+        if hasattr(self.static_info.windows, "widgets"):
             if widget_name in self.static_info.windows.widgets:
                 widget = self.static_info.windows.widgets[widget_name]
-                self.logger.debug(f"[WTG_FALLBACK] Found widget '{widget_name}' in global dict")
+                self.logger.debug(
+                    f"[WTG_FALLBACK] Found widget '{widget_name}' in global dict"
+                )
                 return widget
 
         # Strategy 2: Search ALL windows by widget name
         for window in self.static_info.windows.windows:
-            if hasattr(window, 'widgets') and window.widgets:
+            if hasattr(window, "widgets") and window.widgets:
                 widget = window.get_widget_by_name(widget_name)
                 if widget:
                     self.logger.info(
@@ -175,16 +183,22 @@ class RVAgentVisitor(DefaultTextVisitor):
         # Strategy 3: Also check by widget_id in global dict (numeric ID)
         # Some widgets are stored by ID not name
         for wid, widget in self.static_info.windows.widgets.items():
-            if hasattr(widget, 'name') and widget.name == widget_name:
-                self.logger.debug(f"[WTG_FALLBACK] Found widget by name match in global dict: {wid}")
+            if hasattr(widget, "name") and widget.name == widget_name:
+                self.logger.debug(
+                    f"[WTG_FALLBACK] Found widget by name match in global dict: {wid}"
+                )
                 return widget
 
-        self.logger.debug(f"[WTG_FALLBACK] Widget '{widget_name}' not found in any window")
+        self.logger.debug(
+            f"[WTG_FALLBACK] Widget '{widget_name}' not found in any window"
+        )
         return None
 
     def _generate_cache_key(self, node_data: Dict) -> str:
         """Generate a unique cache key for node data."""
-        resource_id = node_data.get("resource-id", "") or node_data.get("resource_id", "")
+        resource_id = node_data.get("resource-id", "") or node_data.get(
+            "resource_id", ""
+        )
         text = node_data.get("text", "")
         bounds = str(node_data.get("bounds", ""))
         return f"{resource_id}|{text}|{bounds}"
@@ -207,19 +221,19 @@ class RVAgentVisitor(DefaultTextVisitor):
         """
         self.mop_stats["total_actions"] += 1
 
-        if not self.static_info or not hasattr(self.static_info, 'classes'):
+        if not self.static_info or not hasattr(self.static_info, "classes"):
             return
 
         widget = self.find_matching_widget(node.data)
         if not widget:
             return
 
-        if not hasattr(widget, 'events') or not widget.events:
+        if not hasattr(widget, "events") or not widget.events:
             return
 
         # Find matching event for this action type
         for event in widget.events:
-            if not hasattr(event, 'type') or not hasattr(event, 'signature'):
+            if not hasattr(event, "type") or not hasattr(event, "signature"):
                 continue
 
             # Match event type to action event
@@ -227,10 +241,14 @@ class RVAgentVisitor(DefaultTextVisitor):
                 # Look up method in Classes
                 method = self.static_info.classes.methods.get(event.signature)
                 if method:
-                    action.reaches_mop = getattr(method, 'reaches_mop', False)
-                    action.directly_reaches_mop = getattr(method, 'directly_reaches_mop', False)
+                    action.reaches_mop = getattr(method, "reaches_mop", False)
+                    action.directly_reaches_mop = getattr(
+                        method, "directly_reaches_mop", False
+                    )
                     action.callback_signature = event.signature
-                    action.widget_id = getattr(widget, 'id', None) or getattr(widget, 'widget_id', None)
+                    action.widget_id = getattr(widget, "id", None) or getattr(
+                        widget, "widget_id", None
+                    )
 
                     # Update stats
                     if action.directly_reaches_mop:
@@ -302,7 +320,7 @@ class RVAgentVisitor(DefaultTextVisitor):
         if not self.wtg or not self.window:
             return []
 
-        window_id = getattr(self.window, 'id', None)
+        window_id = getattr(self.window, "id", None)
         if not window_id:
             return []
 

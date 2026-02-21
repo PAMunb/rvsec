@@ -67,7 +67,9 @@ class StrategyRegistry:
         # Heuristic strategy
         self.register("greedy", GreedyStrategy)
 
-        logger.debug("Registered built-in strategies: rvagent (default), dfs, bfs, greedy")
+        logger.debug(
+            "Registered built-in strategies: rvagent (default), dfs, bfs, greedy"
+        )
 
     def register(self, name: str, strategy_class: Type[ExplorationStrategy]):
         """
@@ -97,7 +99,7 @@ class StrategyRegistry:
         ui_coverage: Optional[Any] = None,
         transition_manager: Optional[TransitionManager] = None,
         coordinate_converter: Optional[Any] = None,
-        device_dimensions: Optional[tuple[int, int]] = None
+        device_dimensions: Optional[tuple[int, int]] = None,
     ) -> ExplorationStrategy:
         """
         Create and return configured strategy instance.
@@ -133,7 +135,9 @@ class StrategyRegistry:
             random.seed(config.seed)
             logger.info(f"Random seed initialized: {config.seed}")
 
-        logger.info(f"Creating strategy instance: {strategy_name} ({strategy_class.__name__})")
+        logger.info(
+            f"Creating strategy instance: {strategy_name} ({strategy_class.__name__})"
+        )
 
         # RVAgentStrategy requires config and ui_coverage
         if strategy_name == "rvagent":
@@ -149,7 +153,7 @@ class StrategyRegistry:
                 static_data=static_data,
                 transition_manager=transition_manager,
                 coordinate_converter=coordinate_converter,
-                device_dimensions=device_dimensions
+                device_dimensions=device_dimensions,
             )
 
         # Standard strategies (DFS, BFS, etc.)
@@ -158,7 +162,7 @@ class StrategyRegistry:
             graph=graph,
             static_data=static_data,
             coordinate_converter=coordinate_converter,
-            target_package=target_package
+            target_package=target_package,
         )
 
     def list_strategies(self) -> list[str]:

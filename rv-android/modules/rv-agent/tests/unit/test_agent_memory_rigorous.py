@@ -9,13 +9,13 @@ import pytest
 
 from rv_agent.memory.agent_memory import AgentMemoryManager
 
-
 pytestmark = pytest.mark.unit
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def memory():
@@ -32,6 +32,7 @@ def small_memory():
 # =============================================================================
 # Initialization Tests
 # =============================================================================
+
 
 class TestAgentMemoryInit:
     """Test AgentMemoryManager initialization."""
@@ -56,6 +57,7 @@ class TestAgentMemoryInit:
 # Record Action Tests
 # =============================================================================
 
+
 class TestRecordAction:
     """Test record_action method."""
 
@@ -78,7 +80,7 @@ class TestRecordAction:
             memory.record_action(
                 {"action_type": f"ACTION_{i}", "explanation": f"Action {i}"},
                 "Main",
-                success=True
+                success=True,
             )
 
         assert len(memory.action_history) == 3
@@ -90,9 +92,7 @@ class TestRecordAction:
         """Action history respects max_action_history limit."""
         for i in range(5):
             small_memory.record_action(
-                {"action_type": f"ACTION_{i}"},
-                "Main",
-                success=True
+                {"action_type": f"ACTION_{i}"}, "Main", success=True
             )
 
         # Should only keep last 2 (max_action_history=2)
@@ -103,11 +103,7 @@ class TestRecordAction:
 
     def test_record_action_failed(self, memory):
         """Record failed action correctly."""
-        memory.record_action(
-            {"action_type": "CLICK"},
-            "Main",
-            success=False
-        )
+        memory.record_action({"action_type": "CLICK"}, "Main", success=False)
 
         assert memory.action_history[0]["success"] is False
 
@@ -123,6 +119,7 @@ class TestRecordAction:
 # =============================================================================
 # Activity Visits Tests
 # =============================================================================
+
 
 class TestActivityVisits:
     """Test activity visit tracking."""
@@ -150,6 +147,7 @@ class TestActivityVisits:
 # =============================================================================
 # Navigation Path Tests
 # =============================================================================
+
 
 class TestNavigationPath:
     """Test navigation path tracking."""
@@ -195,6 +193,7 @@ class TestNavigationPath:
 # Action History Summary Tests
 # =============================================================================
 
+
 class TestActionHistorySummary:
     """Test get_action_history_summary method."""
 
@@ -209,7 +208,7 @@ class TestActionHistorySummary:
         memory.record_action(
             {"action_type": "CLICK", "explanation": "Tap login button"},
             "Main",
-            success=True
+            success=True,
         )
 
         summary = memory.get_action_history_summary()
@@ -219,9 +218,15 @@ class TestActionHistorySummary:
 
     def test_multiple_actions_summary(self, memory):
         """Multiple actions formatted with numbers."""
-        memory.record_action({"action_type": "CLICK", "explanation": "Click A"}, "M", success=True)
-        memory.record_action({"action_type": "SCROLL", "explanation": "Scroll down"}, "M", success=True)
-        memory.record_action({"action_type": "SET_TEXT", "explanation": "Enter text"}, "M", success=True)
+        memory.record_action(
+            {"action_type": "CLICK", "explanation": "Click A"}, "M", success=True
+        )
+        memory.record_action(
+            {"action_type": "SCROLL", "explanation": "Scroll down"}, "M", success=True
+        )
+        memory.record_action(
+            {"action_type": "SET_TEXT", "explanation": "Enter text"}, "M", success=True
+        )
 
         summary = memory.get_action_history_summary()
 
@@ -232,7 +237,9 @@ class TestActionHistorySummary:
 
     def test_failed_action_marker(self, memory):
         """Failed actions marked with [FAILED]."""
-        memory.record_action({"action_type": "CLICK", "explanation": "Failed"}, "M", success=False)
+        memory.record_action(
+            {"action_type": "CLICK", "explanation": "Failed"}, "M", success=False
+        )
 
         summary = memory.get_action_history_summary()
 
@@ -242,6 +249,7 @@ class TestActionHistorySummary:
 # =============================================================================
 # Exploration Summary Tests
 # =============================================================================
+
 
 class TestExplorationSummary:
     """Test get_exploration_summary method."""
@@ -273,6 +281,7 @@ class TestExplorationSummary:
 # =============================================================================
 # Memory Insights Tests
 # =============================================================================
+
 
 class TestMemoryInsights:
     """Test get_memory_insights method."""
@@ -312,12 +321,16 @@ class TestMemoryInsights:
         insights = memory.get_memory_insights("DetailActivity")
 
         # Should not suggest DetailActivity since it's current
-        assert "'DetailActivity'" not in insights or "consider exploring" not in insights.split("DetailActivity")[1]
+        assert (
+            "'DetailActivity'" not in insights
+            or "consider exploring" not in insights.split("DetailActivity")[1]
+        )
 
 
 # =============================================================================
 # Navigation Path Summary Tests
 # =============================================================================
+
 
 class TestNavigationPathSummary:
     """Test get_navigation_path method."""
@@ -352,6 +365,7 @@ class TestNavigationPathSummary:
 # Clear Memory Tests
 # =============================================================================
 
+
 class TestClearMemory:
     """Test clear method."""
 
@@ -371,6 +385,7 @@ class TestClearMemory:
 # =============================================================================
 # Edge Cases Tests
 # =============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
@@ -392,9 +407,7 @@ class TestEdgeCases:
     def test_unicode_in_explanation(self, memory):
         """Handle unicode characters in explanation."""
         memory.record_action(
-            {"action_type": "CLICK", "explanation": "点击按钮 🔘"},
-            "Main",
-            success=True
+            {"action_type": "CLICK", "explanation": "点击按钮 🔘"}, "Main", success=True
         )
 
         summary = memory.get_action_history_summary()
@@ -404,9 +417,7 @@ class TestEdgeCases:
         """Handle very long explanation text."""
         long_text = "A" * 1000
         memory.record_action(
-            {"action_type": "CLICK", "explanation": long_text},
-            "Main",
-            success=True
+            {"action_type": "CLICK", "explanation": long_text}, "Main", success=True
         )
 
         summary = memory.get_action_history_summary()

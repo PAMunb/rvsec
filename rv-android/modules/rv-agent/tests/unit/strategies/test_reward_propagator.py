@@ -142,7 +142,9 @@ class TestRewardPropagator:
         prop.propagate("new_state", graph)
 
         # s0 action should still get reward
-        assert graph.states["s0"].action_cumulative_reward[((30, 40), "CLICK")] == pytest.approx(1.0)
+        assert graph.states["s0"].action_cumulative_reward[
+            ((30, 40), "CLICK")
+        ] == pytest.approx(1.0)
 
     def test_discount_calculation(self):
         """Verify gamma^k discount is correct for N=5."""
@@ -159,15 +161,25 @@ class TestRewardPropagator:
         prop.propagate("mop_reached", graph)
 
         # Most recent (s4): 5.0 * 0.8^0 = 5.0
-        assert graph.states["s4"].action_cumulative_reward[sigs[4]] == pytest.approx(5.0)
+        assert graph.states["s4"].action_cumulative_reward[sigs[4]] == pytest.approx(
+            5.0
+        )
         # s3: 5.0 * 0.8^1 = 4.0
-        assert graph.states["s3"].action_cumulative_reward[sigs[3]] == pytest.approx(4.0)
+        assert graph.states["s3"].action_cumulative_reward[sigs[3]] == pytest.approx(
+            4.0
+        )
         # s2: 5.0 * 0.8^2 = 3.2
-        assert graph.states["s2"].action_cumulative_reward[sigs[2]] == pytest.approx(3.2)
+        assert graph.states["s2"].action_cumulative_reward[sigs[2]] == pytest.approx(
+            3.2
+        )
         # s1: 5.0 * 0.8^3 = 2.56
-        assert graph.states["s1"].action_cumulative_reward[sigs[1]] == pytest.approx(2.56)
+        assert graph.states["s1"].action_cumulative_reward[sigs[1]] == pytest.approx(
+            2.56
+        )
         # s0: 5.0 * 0.8^4 = 2.048
-        assert graph.states["s0"].action_cumulative_reward[sigs[0]] == pytest.approx(2.048)
+        assert graph.states["s0"].action_cumulative_reward[sigs[0]] == pytest.approx(
+            2.048
+        )
 
     def test_cumulative_reward_upper_cap_reached(self):
         """Cumulative reward capped at MAX_CUMULATIVE_REWARD_FACTOR * REWARD_MOP_WEIGHT = 15.0."""
@@ -183,7 +195,9 @@ class TestRewardPropagator:
 
         # 14.0 + 5.0 = 19.0, but capped at 15.0
         expected_cap = MAX_CUMULATIVE_REWARD_FACTOR * REWARD_MOP_WEIGHT
-        assert graph.states["s0"].action_cumulative_reward[sig] == pytest.approx(expected_cap)
+        assert graph.states["s0"].action_cumulative_reward[sig] == pytest.approx(
+            expected_cap
+        )
 
     def test_cumulative_reward_lower_cap_reached(self):
         """Cumulative reward floored at -MAX_CUMULATIVE_REWARD_FACTOR * REWARD_MOP_WEIGHT = -15.0."""
@@ -199,7 +213,9 @@ class TestRewardPropagator:
 
         # -14.95 + (-0.1) = -15.05, but clamped at -15.0
         expected_floor = -MAX_CUMULATIVE_REWARD_FACTOR * REWARD_MOP_WEIGHT
-        assert graph.states["s0"].action_cumulative_reward[sig] == pytest.approx(expected_floor)
+        assert graph.states["s0"].action_cumulative_reward[sig] == pytest.approx(
+            expected_floor
+        )
 
     def test_error_recovery_actions_in_reward_history(self):
         """Error recovery actions participate in reward propagation."""
@@ -215,8 +231,12 @@ class TestRewardPropagator:
         prop.propagate("mop_reached", graph)
 
         # Both should receive reward
-        assert graph.states["s1"].action_cumulative_reward[sig_normal] == pytest.approx(5.0)
-        assert graph.states["s0"].action_cumulative_reward[sig_recovery] == pytest.approx(4.0)
+        assert graph.states["s1"].action_cumulative_reward[sig_normal] == pytest.approx(
+            5.0
+        )
+        assert graph.states["s0"].action_cumulative_reward[
+            sig_recovery
+        ] == pytest.approx(4.0)
 
     def test_form_fill_neutral_reward(self):
         """Form fill (SET_TEXT on same screen) gets 0.0 reward, not -0.1 penalty."""
@@ -228,7 +248,9 @@ class TestRewardPropagator:
         prop.propagate("form_fill", graph)
 
         # form_fill reward is 0.0 — no change to cumulative
-        assert graph.states["s0"].action_cumulative_reward.get(sig, 0.0) == pytest.approx(0.0)
+        assert graph.states["s0"].action_cumulative_reward.get(
+            sig, 0.0
+        ) == pytest.approx(0.0)
 
     def test_concurrent_reward_types_highest_wins(self):
         """When multiple reward types apply, only the highest priority fires."""

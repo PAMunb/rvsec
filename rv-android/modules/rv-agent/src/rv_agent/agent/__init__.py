@@ -16,7 +16,10 @@ dependencies with strategies. Import them directly:
 """
 
 from rv_agent.agent.device_interface import DeviceInterface
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
+from rv_agent.agent.dynamic_state_graph import (
+    DynamicStateGraph,
+    compute_screen_hash_from_description,
+)
 
 __all__ = [
     "DeviceInterface",

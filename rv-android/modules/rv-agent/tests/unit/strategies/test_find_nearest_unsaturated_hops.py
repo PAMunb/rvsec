@@ -35,10 +35,12 @@ class TestFindNearestUnsaturatedHopCount:
 
     def test_returns_hop_count_1(self):
         """Direct parent is unsaturated -> hop_count = 1."""
-        graph = _make_graph_with_nodes({
-            "s0": (5, 5),   # Current: fully saturated
-            "s1": (5, 2),   # Parent: not saturated
-        })
+        graph = _make_graph_with_nodes(
+            {
+                "s0": (5, 5),  # Current: fully saturated
+                "s1": (5, 2),  # Parent: not saturated
+            }
+        )
         config = MagicMock()
         config.backtrack_saturation_threshold = 0.8
         tracker = SuccessorTracker(graph, config=config)
@@ -53,12 +55,14 @@ class TestFindNearestUnsaturatedHopCount:
 
     def test_returns_hop_count_3(self):
         """Unsaturated ancestor 3 hops away."""
-        graph = _make_graph_with_nodes({
-            "s0": (5, 5),   # Current: saturated
-            "s1": (5, 5),   # Parent: saturated
-            "s2": (5, 5),   # Grandparent: saturated
-            "s3": (5, 2),   # Great-grandparent: NOT saturated
-        })
+        graph = _make_graph_with_nodes(
+            {
+                "s0": (5, 5),  # Current: saturated
+                "s1": (5, 5),  # Parent: saturated
+                "s2": (5, 5),  # Grandparent: saturated
+                "s3": (5, 2),  # Great-grandparent: NOT saturated
+            }
+        )
         config = MagicMock()
         config.backtrack_saturation_threshold = 0.8
         tracker = SuccessorTracker(graph, config=config)
@@ -75,10 +79,12 @@ class TestFindNearestUnsaturatedHopCount:
 
     def test_returns_none_all_saturated(self):
         """All reachable states saturated -> None."""
-        graph = _make_graph_with_nodes({
-            "s0": (3, 3),
-            "s1": (3, 3),
-        })
+        graph = _make_graph_with_nodes(
+            {
+                "s0": (3, 3),
+                "s1": (3, 3),
+            }
+        )
         config = MagicMock()
         config.backtrack_saturation_threshold = 0.8
         tracker = SuccessorTracker(graph, config=config)
@@ -89,11 +95,13 @@ class TestFindNearestUnsaturatedHopCount:
 
     def test_picks_nearest_not_deepest(self):
         """BFS picks nearest unsaturated, not deepest."""
-        graph = _make_graph_with_nodes({
-            "s0": (5, 5),   # Current: saturated
-            "s1": (5, 2),   # Parent 1 hop: NOT saturated
-            "s2": (5, 2),   # Grandparent 2 hops: also NOT saturated
-        })
+        graph = _make_graph_with_nodes(
+            {
+                "s0": (5, 5),  # Current: saturated
+                "s1": (5, 2),  # Parent 1 hop: NOT saturated
+                "s2": (5, 2),  # Grandparent 2 hops: also NOT saturated
+            }
+        )
         config = MagicMock()
         config.backtrack_saturation_threshold = 0.8
         tracker = SuccessorTracker(graph, config=config)

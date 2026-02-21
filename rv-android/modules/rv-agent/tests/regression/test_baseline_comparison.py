@@ -15,15 +15,17 @@ from unittest.mock import MagicMock, patch
 
 from rv_agent.config.agent_config import RVAgentConfig
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def v10_baseline():
     """Load V10 baseline aggregate results."""
-    baseline_path = Path(__file__).parent.parent.parent / "test_v10_baseline_10apps_aggregate.json"
+    baseline_path = (
+        Path(__file__).parent.parent.parent / "test_v10_baseline_10apps_aggregate.json"
+    )
 
     if not baseline_path.exists():
         pytest.skip("V10 baseline file not found")
@@ -35,14 +37,13 @@ def v10_baseline():
 @pytest.fixture
 def v10_individual_results(v10_baseline):
     """Extract individual app results from baseline."""
-    return {
-        r["package"]: r for r in v10_baseline.get("individual_results", [])
-    }
+    return {r["package"]: r for r in v10_baseline.get("individual_results", [])}
 
 
 # =============================================================================
 # Baseline Comparison Tests
 # =============================================================================
+
 
 class TestBaselineMetrics:
     """Tests comparing metrics against V10 baseline."""
@@ -82,7 +83,7 @@ class TestBaselineMetrics:
             "org.mariotaku.twidere",
             "app.fedilab.tubelab",
             "com.blogspot.e_kanivets.moneytracker",
-            "asgardius.page.s3manager"
+            "asgardius.page.s3manager",
         ]
 
         for package in successful_apps:
@@ -96,22 +97,24 @@ class TestBaselineMetrics:
                 print(f"  Execution time: {metrics['execution_time_s']:.1f}s")
 
                 # Should have generated actions
-                assert result["validation"]["generated_actions"], \
-                    f"{package} should have generated actions"
+                assert result["validation"][
+                    "generated_actions"
+                ], f"{package} should have generated actions"
 
     def test_failed_apps_identified(self, v10_individual_results):
         """Test that failed apps are correctly identified."""
         failed_packages = [
             "com.amaze.filemanager",
             "com.securefilemanager.app",
-            "com.alienpants.leafpicrevived"
+            "com.alienpants.leafpicrevived",
         ]
 
         for package in failed_packages:
             if package in v10_individual_results:
                 result = v10_individual_results[package]
-                assert not result["validation"]["overall_success"], \
-                    f"{package} should be marked as failed"
+                assert not result["validation"][
+                    "overall_success"
+                ], f"{package} should be marked as failed"
 
 
 class TestRegressionThresholds:
@@ -146,7 +149,8 @@ class TestRegressionThresholds:
     def test_no_new_failures(self, v10_individual_results):
         """Test that previously successful apps don't fail."""
         successful_in_v10 = [
-            pkg for pkg, result in v10_individual_results.items()
+            pkg
+            for pkg, result in v10_individual_results.items()
             if result["validation"]["overall_success"]
         ]
 
@@ -162,15 +166,19 @@ class TestRegressionThresholds:
 # Per-App Regression Tests
 # =============================================================================
 
+
 class TestPerAppRegression:
     """Per-app regression tests."""
 
-    @pytest.mark.parametrize("app_package,min_iterations", [
-        ("org.cryptomator.lite", 5),
-        ("com.android.keepass", 4),
-        ("org.mariotaku.twidere", 8),
-        ("com.blogspot.e_kanivets.moneytracker", 12),
-    ])
+    @pytest.mark.parametrize(
+        "app_package,min_iterations",
+        [
+            ("org.cryptomator.lite", 5),
+            ("com.android.keepass", 4),
+            ("org.mariotaku.twidere", 8),
+            ("com.blogspot.e_kanivets.moneytracker", 12),
+        ],
+    )
     def test_app_iteration_threshold(
         self, v10_individual_results, app_package, min_iterations
     ):
@@ -186,15 +194,19 @@ class TestPerAppRegression:
         print(f"  Minimum threshold: {min_iterations}")
 
         # Baseline should meet threshold
-        assert baseline_iterations >= min_iterations * 0.8, \
-            f"Baseline too low for {app_package}"
+        assert (
+            baseline_iterations >= min_iterations * 0.8
+        ), f"Baseline too low for {app_package}"
 
-    @pytest.mark.parametrize("app_package,min_states", [
-        ("org.cryptomator.lite", 2),
-        ("com.android.keepass", 2),
-        ("org.mariotaku.twidere", 3),
-        ("com.blogspot.e_kanivets.moneytracker", 3),
-    ])
+    @pytest.mark.parametrize(
+        "app_package,min_states",
+        [
+            ("org.cryptomator.lite", 2),
+            ("com.android.keepass", 2),
+            ("org.mariotaku.twidere", 3),
+            ("com.blogspot.e_kanivets.moneytracker", 3),
+        ],
+    )
     def test_app_states_threshold(
         self, v10_individual_results, app_package, min_states
     ):
@@ -209,13 +221,15 @@ class TestPerAppRegression:
         print(f"  Baseline states: {baseline_states}")
         print(f"  Minimum threshold: {min_states}")
 
-        assert baseline_states >= min_states * 0.8, \
-            f"Baseline states too low for {app_package}"
+        assert (
+            baseline_states >= min_states * 0.8
+        ), f"Baseline states too low for {app_package}"
 
 
 # =============================================================================
 # V10 vs V12 Comparison
 # =============================================================================
+
 
 class TestV10V12Comparison:
     """Tests comparing V10 and V12 documented baselines."""
@@ -228,7 +242,7 @@ class TestV10V12Comparison:
             "success_rate": 100,  # percent
             "llm_percentage": 66.3,
             "algorithm_percentage": 33.7,
-            "total_actions": 656
+            "total_actions": 656,
         }
 
         v10_summary = v10_baseline["summary"]

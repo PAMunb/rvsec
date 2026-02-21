@@ -17,7 +17,9 @@ from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.services.vision_service import ImageHandler
 from rv_agent.services.screenshot_optimizer import ScreenshotOptimizer
 from rv_agent.services.action_mapper import map_coordinates_to_action
-from rv_agent.services.coordinate_extractor import extract_clickable_elements_with_coords
+from rv_agent.services.coordinate_extractor import (
+    extract_clickable_elements_with_coords,
+)
 
 __all__ = [
     "ScreenProcessor",

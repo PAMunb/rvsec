@@ -6,7 +6,6 @@ Validates that all rv_agent modules import without error.
 
 import pytest
 
-
 pytestmark = pytest.mark.smoke
 
 

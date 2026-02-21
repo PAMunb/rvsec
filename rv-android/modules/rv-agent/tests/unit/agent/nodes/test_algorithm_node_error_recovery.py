@@ -59,7 +59,9 @@ def _make_item_action(
         copy.directly_reaches_mop = action.directly_reaches_mop
         copy.event = action.event
         copy.coordinates = action.coordinates
-        copy.get_execution_coordinates.return_value = action.get_execution_coordinates.return_value
+        copy.get_execution_coordinates.return_value = (
+            action.get_execution_coordinates.return_value
+        )
         return copy
 
     action.model_copy = mock_model_copy

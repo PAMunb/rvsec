@@ -9,7 +9,6 @@ import time
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-
 pytestmark = [pytest.mark.smoke, pytest.mark.sglang]
 
 
@@ -42,7 +41,9 @@ class TestSGLangConnectivity:
             api_key="not-needed",
         )
 
-        response = llm.invoke([HumanMessage(content="What is 2+2? Answer with just the number.")])
+        response = llm.invoke(
+            [HumanMessage(content="What is 2+2? Answer with just the number.")]
+        )
         assert response.content is not None
         assert "4" in response.content
 

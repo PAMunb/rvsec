@@ -16,7 +16,7 @@ def device_to_optimized(
     device_y: int,
     device_dimensions: Tuple[int, int],
     optimized_dimensions: Tuple[int, int],
-    validate: bool = False
+    validate: bool = False,
 ) -> Tuple[int, int]:
     """
     Convert device coordinates to optimized image coordinates.
@@ -57,7 +57,7 @@ def optimized_to_device(
     optimized_x: int,
     optimized_y: int,
     device_dimensions: Tuple[int, int],
-    optimized_dimensions: Tuple[int, int]
+    optimized_dimensions: Tuple[int, int],
 ) -> Tuple[int, int]:
     """
     Convert optimized image coordinates to device coordinates.
@@ -94,7 +94,7 @@ def optimized_to_device(
 def bounds_device_to_optimized(
     bounds: list,
     device_dimensions: Tuple[int, int],
-    optimized_dimensions: Tuple[int, int]
+    optimized_dimensions: Tuple[int, int],
 ) -> list:
     """
     Convert device bounds to optimized bounds.
@@ -117,8 +117,12 @@ def bounds_device_to_optimized(
     x1, y1 = bounds[0]
     x2, y2 = bounds[1]
 
-    opt_x1, opt_y1 = device_to_optimized(x1, y1, device_dimensions, optimized_dimensions)
-    opt_x2, opt_y2 = device_to_optimized(x2, y2, device_dimensions, optimized_dimensions)
+    opt_x1, opt_y1 = device_to_optimized(
+        x1, y1, device_dimensions, optimized_dimensions
+    )
+    opt_x2, opt_y2 = device_to_optimized(
+        x2, y2, device_dimensions, optimized_dimensions
+    )
 
     return [[opt_x1, opt_y1], [opt_x2, opt_y2]]
 
@@ -126,7 +130,7 @@ def bounds_device_to_optimized(
 def calculate_center_optimized(
     device_bounds: list,
     device_dimensions: Tuple[int, int],
-    optimized_dimensions: Tuple[int, int]
+    optimized_dimensions: Tuple[int, int],
 ) -> Tuple[int, int]:
     """
     Calculate center coordinates in optimized space from device bounds.
@@ -154,13 +158,13 @@ def calculate_center_optimized(
     center_y_dev = (y1 + y2) // 2
 
     # Convert to optimized space
-    return device_to_optimized(center_x_dev, center_y_dev, device_dimensions, optimized_dimensions)
+    return device_to_optimized(
+        center_x_dev, center_y_dev, device_dimensions, optimized_dimensions
+    )
 
 
 def validate_optimized_coords(
-    optimized_x: int,
-    optimized_y: int,
-    optimized_dimensions: Tuple[int, int]
+    optimized_x: int, optimized_y: int, optimized_dimensions: Tuple[int, int]
 ) -> bool:
     """
     Validate that coordinates are within optimized image bounds.
@@ -185,8 +189,7 @@ def validate_optimized_coords(
 
 
 def get_scale_factors(
-    device_dimensions: Tuple[int, int],
-    optimized_dimensions: Tuple[int, int]
+    device_dimensions: Tuple[int, int], optimized_dimensions: Tuple[int, int]
 ) -> dict:
     """
     Calculate scale factors for coordinate conversions.
@@ -215,27 +218,23 @@ def get_scale_factors(
         "device": {
             "width": device_width,
             "height": device_height,
-            "resolution": f"{device_width}x{device_height}"
+            "resolution": f"{device_width}x{device_height}",
         },
         "optimized": {
             "width": optimized_width,
             "height": optimized_height,
-            "resolution": f"{optimized_width}x{optimized_height}"
+            "resolution": f"{optimized_width}x{optimized_height}",
         },
         "scales": {
             "to_optimized_x": optimized_width / device_width,
             "to_optimized_y": optimized_height / device_height,
             "to_device_x": device_width / optimized_width,
-            "to_device_y": device_height / optimized_height
-        }
+            "to_device_y": device_height / optimized_height,
+        },
     }
 
 
-def _validate_optimized_coords(
-    x: int,
-    y: int,
-    optimized_dimensions: Tuple[int, int]
-):
+def _validate_optimized_coords(x: int, y: int, optimized_dimensions: Tuple[int, int]):
     """
     Internal validation with detailed error message.
 
@@ -251,12 +250,10 @@ def _validate_optimized_coords(
 
     if not (0 <= x <= optimized_width):
         raise ValueError(
-            f"X coordinate {x} out of optimized bounds "
-            f"[0, {optimized_width}]"
+            f"X coordinate {x} out of optimized bounds " f"[0, {optimized_width}]"
         )
 
     if not (0 <= y <= optimized_height):
         raise ValueError(
-            f"Y coordinate {y} out of optimized bounds "
-            f"[0, {optimized_height}]"
+            f"Y coordinate {y} out of optimized bounds " f"[0, {optimized_height}]"
         )

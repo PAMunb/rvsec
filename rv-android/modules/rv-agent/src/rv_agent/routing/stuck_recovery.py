@@ -8,7 +8,6 @@ Monitors consecutive same-state iterations and triggers recovery actions
 import logging
 from typing import Optional
 
-
 logger = logging.getLogger(__name__)
 
 

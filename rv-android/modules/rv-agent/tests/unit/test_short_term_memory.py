@@ -20,10 +20,7 @@ class TestIteration:
 
     def test_iteration_creation(self):
         """Creates iteration with required fields."""
-        iteration = Iteration(
-            state_hash="hash123",
-            activity="MainActivity"
-        )
+        iteration = Iteration(state_hash="hash123", activity="MainActivity")
 
         assert iteration.state_hash == "hash123"
         assert iteration.activity == "MainActivity"
@@ -61,11 +58,13 @@ class TestIteration:
     def test_format_for_template_with_actions(self):
         """Formats actions for template."""
         iteration = Iteration(state_hash="hash", activity="Main")
-        iteration.add_action({
-            "element_id": "btn_submit",
-            "action_type": "CLICK",
-            "coordinates": [100, 200]
-        })
+        iteration.add_action(
+            {
+                "element_id": "btn_submit",
+                "action_type": "CLICK",
+                "coordinates": [100, 200],
+            }
+        )
 
         result = iteration.format_for_template()
 
@@ -128,8 +127,8 @@ class TestIteration:
 class TestShortTermMemoryInit:
     """Test ShortTermMemory initialization."""
 
-    @patch('rv_agent.memory.short_term.LoggingManager')
-    @patch('rv_agent.memory.short_term.ErrorHandler')
+    @patch("rv_agent.memory.short_term.LoggingManager")
+    @patch("rv_agent.memory.short_term.ErrorHandler")
     def test_initialization_defaults(self, mock_error, mock_logging):
         """Initializes with default max iterations."""
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
@@ -140,8 +139,8 @@ class TestShortTermMemoryInit:
         assert memory.iterations == []
         assert memory.current_activity is None
 
-    @patch('rv_agent.memory.short_term.LoggingManager')
-    @patch('rv_agent.memory.short_term.ErrorHandler')
+    @patch("rv_agent.memory.short_term.LoggingManager")
+    @patch("rv_agent.memory.short_term.ErrorHandler")
     def test_initialization_custom_max(self, mock_error, mock_logging):
         """Accepts custom max iterations."""
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
@@ -157,9 +156,11 @@ class TestRecordIteration:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
@@ -178,11 +179,11 @@ class TestRecordIteration:
         """Clears memory when activity changes."""
         memory.record_iteration(
             {"activity": "MainActivity", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}]
+            [{"action_type": "CLICK"}],
         )
         memory.record_iteration(
             {"activity": "SecondActivity", "hash_screen": "hash2"},
-            [{"action_type": "SCROLL"}]
+            [{"action_type": "SCROLL"}],
         )
 
         assert len(memory.iterations) == 1
@@ -191,12 +192,10 @@ class TestRecordIteration:
     def test_inserts_recent_first(self, memory):
         """Inserts most recent iteration first."""
         memory.record_iteration(
-            {"activity": "Main", "hash_screen": "hash1"},
-            [{"element_id": "first"}]
+            {"activity": "Main", "hash_screen": "hash1"}, [{"element_id": "first"}]
         )
         memory.record_iteration(
-            {"activity": "Main", "hash_screen": "hash2"},
-            [{"element_id": "second"}]
+            {"activity": "Main", "hash_screen": "hash2"}, [{"element_id": "second"}]
         )
 
         assert memory.iterations[0].actions[0]["element_id"] == "second"
@@ -207,7 +206,7 @@ class TestRecordIteration:
         for i in range(10):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"element_id": f"action{i}"}]
+                [{"element_id": f"action{i}"}],
             )
 
         assert len(memory.iterations) == 5
@@ -217,7 +216,7 @@ class TestRecordIteration:
         memory.record_iteration(
             {"activity": "Main", "hash_screen": "hash1"},
             [],
-            llm_reasoning="Testing element visibility"
+            llm_reasoning="Testing element visibility",
         )
 
         assert memory.iterations[0].llm_reasoning == "Testing element visibility"
@@ -235,17 +234,18 @@ class TestRecordExecutionResults:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
     def test_records_results_to_latest(self, memory):
         """Records results to most recent iteration."""
         memory.record_iteration(
-            {"activity": "Main", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}]
+            {"activity": "Main", "hash_screen": "hash1"}, [{"action_type": "CLICK"}]
         )
 
         memory.record_execution_results([{"success": True}])
@@ -264,13 +264,10 @@ class TestRecordExecutionResults:
         """Records multiple results at once."""
         memory.record_iteration(
             {"activity": "Main", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}, {"action_type": "TYPE"}]
+            [{"action_type": "CLICK"}, {"action_type": "TYPE"}],
         )
 
-        memory.record_execution_results([
-            {"success": True},
-            {"success": False}
-        ])
+        memory.record_execution_results([{"success": True}, {"success": False}])
 
         assert len(memory.iterations[0].execution_results) == 2
 
@@ -280,9 +277,11 @@ class TestGetRecentActionsSummary:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
@@ -296,7 +295,7 @@ class TestGetRecentActionsSummary:
         """Formats recent iterations with timestamps."""
         memory.record_iteration(
             {"activity": "Main", "hash_screen": "hash1"},
-            [{"element_id": "btn_submit", "coordinates": [100, 200]}]
+            [{"element_id": "btn_submit", "coordinates": [100, 200]}],
         )
 
         result = memory.get_recent_actions_summary(count=1)
@@ -309,7 +308,7 @@ class TestGetRecentActionsSummary:
         for i in range(3):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"element_id": f"btn{i}", "coordinates": []}]
+                [{"element_id": f"btn{i}", "coordinates": []}],
             )
 
         result = memory.get_recent_actions_summary(count=3)
@@ -321,8 +320,7 @@ class TestGetRecentActionsSummary:
     def test_handles_empty_format(self, memory):
         """Returns message when iterations have no formatted text."""
         memory.record_iteration(
-            {"activity": "Main", "hash_screen": "hash1"},
-            []  # No actions
+            {"activity": "Main", "hash_screen": "hash1"}, []  # No actions
         )
 
         result = memory.get_recent_actions_summary()
@@ -335,9 +333,11 @@ class TestGetCurrentScreenContext:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
@@ -352,8 +352,7 @@ class TestGetCurrentScreenContext:
     def test_partially_explored_screen(self, memory):
         """Single iteration returns partially explored."""
         memory.record_iteration(
-            {"activity": "Main", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}]
+            {"activity": "Main", "hash_screen": "hash1"}, [{"action_type": "CLICK"}]
         )
 
         context = memory.get_current_screen_context()
@@ -366,7 +365,7 @@ class TestGetCurrentScreenContext:
         for i in range(3):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"action_type": "CLICK"}]
+                [{"action_type": "CLICK"}],
             )
 
         context = memory.get_current_screen_context()
@@ -378,7 +377,7 @@ class TestGetCurrentScreenContext:
         for i in range(3):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"action_type": "CLICK"}]
+                [{"action_type": "CLICK"}],
             )
             memory.record_execution_results([{"success": False}])
 
@@ -391,7 +390,7 @@ class TestGetCurrentScreenContext:
         for i in range(5):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"action_type": "CLICK"}]
+                [{"action_type": "CLICK"}],
             )
             memory.record_execution_results([{"success": True}])
 
@@ -403,7 +402,7 @@ class TestGetCurrentScreenContext:
         """Includes total actions count."""
         memory.record_iteration(
             {"activity": "Main", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}, {"action_type": "TYPE"}]
+            [{"action_type": "CLICK"}, {"action_type": "TYPE"}],
         )
 
         context = memory.get_current_screen_context()
@@ -416,9 +415,11 @@ class TestFormatForTemplate:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
@@ -432,7 +433,7 @@ class TestFormatForTemplate:
         """Includes recent actions in template."""
         memory.record_iteration(
             {"activity": "Main", "hash_screen": "hash1"},
-            [{"element_id": "btn_submit", "coordinates": [100, 200]}]
+            [{"element_id": "btn_submit", "coordinates": [100, 200]}],
         )
 
         result = memory.format_for_template()
@@ -445,7 +446,7 @@ class TestFormatForTemplate:
         for i in range(3):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"action_type": "CLICK"}]
+                [{"action_type": "CLICK"}],
             )
             memory.record_execution_results([{"success": False}])
 
@@ -459,7 +460,7 @@ class TestFormatForTemplate:
         for i in range(5):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"action_type": "CLICK"}]
+                [{"action_type": "CLICK"}],
             )
             memory.record_execution_results([{"success": True}])
 
@@ -474,17 +475,18 @@ class TestClear:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
     def test_clears_all_iterations(self, memory):
         """Clear removes all iterations."""
         memory.record_iteration(
-            {"activity": "Main", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}]
+            {"activity": "Main", "hash_screen": "hash1"}, [{"action_type": "CLICK"}]
         )
 
         memory.clear()
@@ -497,9 +499,11 @@ class TestGetStatistics:
 
     @pytest.fixture
     def memory(self):
-        with patch('rv_agent.memory.short_term.LoggingManager') as mock_logging:
-            with patch('rv_agent.memory.short_term.ErrorHandler') as mock_error:
-                mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        with patch("rv_agent.memory.short_term.LoggingManager") as mock_logging:
+            with patch("rv_agent.memory.short_term.ErrorHandler") as mock_error:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
                 mock_error.get_instance.return_value = MagicMock()
                 return ShortTermMemory(max_iterations=5)
 
@@ -514,7 +518,7 @@ class TestGetStatistics:
         """Returns comprehensive statistics with data."""
         memory.record_iteration(
             {"activity": "MainActivity", "hash_screen": "hash1"},
-            [{"action_type": "CLICK"}, {"action_type": "TYPE"}]
+            [{"action_type": "CLICK"}, {"action_type": "TYPE"}],
         )
         memory.record_execution_results([{"success": True}, {"success": False}])
 
@@ -534,7 +538,7 @@ class TestGetStatistics:
         for i in range(3):
             memory.record_iteration(
                 {"activity": "Main", "hash_screen": f"hash{i}"},
-                [{"action_type": "CLICK"}]
+                [{"action_type": "CLICK"}],
             )
             memory.record_execution_results([{"success": i % 2 == 0}])
 

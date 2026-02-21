@@ -53,9 +53,7 @@ class SuccessorTracker:
     DEFAULT_UI_COVERAGE_THRESHOLD = 0.9
 
     def __init__(
-        self,
-        graph: DynamicStateGraph,
-        config: Optional["RVAgentConfig"] = None
+        self, graph: DynamicStateGraph, config: Optional["RVAgentConfig"] = None
     ):
         """
         Initialize successor tracker.
@@ -94,12 +92,7 @@ class SuccessorTracker:
             f"coverage_threshold={self.ui_coverage_threshold}"
         )
 
-    def record_successor(
-        self,
-        from_hash: str,
-        action_signature: Tuple,
-        to_hash: str
-    ):
+    def record_successor(self, from_hash: str, action_signature: Tuple, to_hash: str):
         """
         Record that action_signature from from_hash leads to to_hash.
 
@@ -253,7 +246,10 @@ class SuccessorTracker:
             # Check re-enable limits and UI coverage threshold
             current_count = self.re_enable_counts.get(key, 0)
 
-            if current_count < self.max_re_enables and ui_coverage < self.ui_coverage_threshold:
+            if (
+                current_count < self.max_re_enables
+                and ui_coverage < self.ui_coverage_threshold
+            ):
                 node.executed_actions.discard(action_sig)
                 self.re_enable_counts[key] = current_count + 1
                 re_enabled += 1
@@ -291,10 +287,13 @@ class SuccessorTracker:
             "complete_successors": total_tracked - incomplete_count,
             "successor_re_enables": total_re_enables,
             "actions_at_max_re_enables": sum(
-                1 for count in self.re_enable_counts.values()
+                1
+                for count in self.re_enable_counts.values()
                 if count >= self.max_re_enables
             ),
-            "back_transitions_tracked": sum(len(s) for s in self.back_successors.values()),
+            "back_transitions_tracked": sum(
+                len(s) for s in self.back_successors.values()
+            ),
         }
 
     def record_back_transition(self, from_hash: str, to_hash: str) -> None:
@@ -385,6 +384,25 @@ class SuccessorTracker:
 
         # Use ScreenNode's saturation rate method
         return node.get_saturation_rate(threshold=2) >= 1.0
+
+    def get_action_destination(
+        self, state_hash: str, action_signature: Tuple
+    ) -> Optional[str]:
+        """
+        Get the destination state hash for an action from a given state.
+
+        Looks up the recorded successor for the (state_hash, action_signature) pair.
+        Returns None if the transition has not been observed yet.
+
+        Args:
+            state_hash: Source state hash
+            action_signature: Action signature (coords, action_type)
+
+        Returns:
+            Destination state hash, or None if transition is unknown
+        """
+        key = (state_hash, action_signature)
+        return self.successors.get(key)
 
     def has_unsaturated_actions(self, state_hash: str) -> bool:
         """

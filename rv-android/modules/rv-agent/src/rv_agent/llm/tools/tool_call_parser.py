@@ -85,7 +85,11 @@ class ParserStats:
             "total_calls": self.total_calls,
             "successful_parses": self.successful_parses,
             "failed_parses": self.failed_parses,
-            "success_rate": self.successful_parses / self.total_calls if self.total_calls > 0 else 0.0,
+            "success_rate": (
+                self.successful_parses / self.total_calls
+                if self.total_calls > 0
+                else 0.0
+            ),
             "strategy_success_counts": dict(self.strategy_success_counts),
             "strategy_attempt_counts": dict(self.strategy_attempt_counts),
             "json_fixes_applied": self.json_fixes_applied,
@@ -127,33 +131,37 @@ def normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]:
 
     # Handle nested 'arguments' dict (Fara-7B alternative format)
     # Format: {"name": "Deny", "arguments": {"type": "left_click", "coordinate": [x, y]}}
-    if 'arguments' in args and isinstance(args['arguments'], dict):
-        nested_args = args['arguments']
+    if "arguments" in args and isinstance(args["arguments"], dict):
+        nested_args = args["arguments"]
         # Recursively normalize the nested arguments
         nested_normalized = normalize_tool_args(nested_args)
         # Extract x, y from nested, keep name from outer
-        if 'x' in nested_normalized and 'y' in nested_normalized:
-            normalized['x'] = nested_normalized['x']
-            normalized['y'] = nested_normalized['y']
+        if "x" in nested_normalized and "y" in nested_normalized:
+            normalized["x"] = nested_normalized["x"]
+            normalized["y"] = nested_normalized["y"]
             # Also copy action type if present
-            if 'type' in nested_args:
-                normalized['name'] = nested_args['type']
+            if "type" in nested_args:
+                normalized["name"] = nested_args["type"]
             # Copy other top-level keys except 'arguments'
             for key, value in args.items():
-                if key != 'arguments' and key not in normalized:
+                if key != "arguments" and key not in normalized:
                     normalized[key] = value
             return normalized
 
     # Handle x as [x, y] array (Qwen3-VL format) - even if y is also present
     # This happens when SGLang parses malformed JSON like {"x": 875, 235} as {"x": [875, 235]}
-    if 'x' in args and isinstance(args['x'], list) and len(args['x']) >= 2:
-        coord = args['x']
-        normalized['x'] = int(coord[0]) if isinstance(coord[0], (int, float, str)) else coord[0]
+    if "x" in args and isinstance(args["x"], list) and len(args["x"]) >= 2:
+        coord = args["x"]
+        normalized["x"] = (
+            int(coord[0]) if isinstance(coord[0], (int, float, str)) else coord[0]
+        )
         # Only set y from array if not already present
-        if 'y' not in args:
-            normalized['y'] = int(coord[1]) if isinstance(coord[1], (int, float, str)) else coord[1]
+        if "y" not in args:
+            normalized["y"] = (
+                int(coord[1]) if isinstance(coord[1], (int, float, str)) else coord[1]
+            )
         for key, value in args.items():
-            if key != 'x':
+            if key != "x":
                 normalized[key] = value
         return normalized
 
@@ -161,8 +169,12 @@ def normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]:
     def extract_coords_from_array(coord: list, key_to_skip: str) -> dict:
         result = {}
         if len(coord) >= 2:
-            result['x'] = int(coord[0]) if isinstance(coord[0], (int, float, str)) else coord[0]
-            result['y'] = int(coord[1]) if isinstance(coord[1], (int, float, str)) else coord[1]
+            result["x"] = (
+                int(coord[0]) if isinstance(coord[0], (int, float, str)) else coord[0]
+            )
+            result["y"] = (
+                int(coord[1]) if isinstance(coord[1], (int, float, str)) else coord[1]
+            )
         for k, v in args.items():
             if k != key_to_skip:
                 result[k] = v
@@ -170,7 +182,15 @@ def normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]:
 
     # Handle various coordinate array formats (Fara-7B uses multiple)
     # Priority order: coordinate > coordinates > bbox > bbox_2d > bounds > bndbox > center
-    for coord_key in ('coordinate', 'coordinates', 'bbox', 'bbox_2d', 'bounds', 'bndbox', 'center'):
+    for coord_key in (
+        "coordinate",
+        "coordinates",
+        "bbox",
+        "bbox_2d",
+        "bounds",
+        "bndbox",
+        "center",
+    ):
         if coord_key in args and isinstance(args[coord_key], list):
             coord = args[coord_key]
             if len(coord) >= 2:
@@ -179,7 +199,7 @@ def normalize_tool_args(args: dict[str, Any]) -> dict[str, Any]:
     # Standard processing for x, y format
     for key, value in args.items():
         # Convert string/float numbers to integers for coordinate fields
-        if key in ('x', 'y'):
+        if key in ("x", "y"):
             if isinstance(value, str):
                 try:
                     normalized[key] = int(float(value))
@@ -235,8 +255,7 @@ def denormalize_qwen_coords(
 
 
 def parse_tool_calls_from_text_with_strategy(
-    response_content: str,
-    track_stats: bool = True
+    response_content: str, track_stats: bool = True
 ) -> tuple[list[dict[str, Any]], str]:
     """
     Extract tool calls from LLM text response, returning the strategy used.
@@ -263,7 +282,7 @@ def parse_tool_calls_from_text_with_strategy(
     try:
         if track_stats:
             parser_stats.record_attempt("xml_tool_call")
-        xml_pattern = r'<tool_call>\s*(.+?)\s*</tool_call>'
+        xml_pattern = r"<tool_call>\s*(.+?)\s*</tool_call>"
         xml_matches = re.finditer(xml_pattern, response_content, re.DOTALL)
 
         for match in xml_matches:
@@ -282,12 +301,18 @@ def parse_tool_calls_from_text_with_strategy(
                 else:
                     continue
 
-            if isinstance(parsed, dict) and 'name' in parsed:
-                args = parsed.get('arguments', parsed.get('parameters', parsed.get('args', {})))
-                tool_calls.append({
-                    'name': parsed['name'],
-                    'args': normalize_tool_args(args) if isinstance(args, dict) else {}
-                })
+            if isinstance(parsed, dict) and "name" in parsed:
+                args = parsed.get(
+                    "arguments", parsed.get("parameters", parsed.get("args", {}))
+                )
+                tool_calls.append(
+                    {
+                        "name": parsed["name"],
+                        "args": (
+                            normalize_tool_args(args) if isinstance(args, dict) else {}
+                        ),
+                    }
+                )
 
         if tool_calls:
             logger.info(f"Extracted {len(tool_calls)} tool calls (XML format)")
@@ -302,19 +327,27 @@ def parse_tool_calls_from_text_with_strategy(
     try:
         if track_stats:
             parser_stats.record_attempt("json_array")
-        array_pattern = r'\[\s*\{[^\]]+\}\s*(?:,\s*\{[^\]]+\}\s*)*\]'
+        array_pattern = r"\[\s*\{[^\]]+\}\s*(?:,\s*\{[^\]]+\}\s*)*\]"
         array_match = re.search(array_pattern, response_content, re.DOTALL)
 
         if array_match:
             parsed = json.loads(array_match.group())
             if isinstance(parsed, list):
                 for item in parsed:
-                    if isinstance(item, dict) and 'name' in item:
-                        args = item.get('parameters', item.get('arguments', item.get('args', {})))
-                        tool_calls.append({
-                            'name': item['name'],
-                            'args': normalize_tool_args(args) if isinstance(args, dict) else {}
-                        })
+                    if isinstance(item, dict) and "name" in item:
+                        args = item.get(
+                            "parameters", item.get("arguments", item.get("args", {}))
+                        )
+                        tool_calls.append(
+                            {
+                                "name": item["name"],
+                                "args": (
+                                    normalize_tool_args(args)
+                                    if isinstance(args, dict)
+                                    else {}
+                                ),
+                            }
+                        )
 
             if tool_calls:
                 logger.info(f"Extracted {len(tool_calls)} tool calls (JSON array)")
@@ -332,12 +365,18 @@ def parse_tool_calls_from_text_with_strategy(
         object_pattern = r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"(?:parameters|arguments)"\s*:\s*\{[^}]*\}\s*\}'
         for match in re.finditer(object_pattern, response_content, re.DOTALL):
             parsed = json.loads(match.group())
-            if isinstance(parsed, dict) and 'name' in parsed:
-                args = parsed.get('parameters', parsed.get('arguments', parsed.get('args', {})))
-                tool_calls.append({
-                    'name': parsed['name'],
-                    'args': normalize_tool_args(args) if isinstance(args, dict) else {}
-                })
+            if isinstance(parsed, dict) and "name" in parsed:
+                args = parsed.get(
+                    "parameters", parsed.get("arguments", parsed.get("args", {}))
+                )
+                tool_calls.append(
+                    {
+                        "name": parsed["name"],
+                        "args": (
+                            normalize_tool_args(args) if isinstance(args, dict) else {}
+                        ),
+                    }
+                )
 
         if tool_calls:
             logger.info(f"Extracted {len(tool_calls)} tool calls (JSON object)")
@@ -352,32 +391,45 @@ def parse_tool_calls_from_text_with_strategy(
     try:
         if track_stats:
             parser_stats.record_attempt("markdown_code_block")
-        code_block_pattern = r'```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```'
+        code_block_pattern = r"```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```"
         for match in re.finditer(code_block_pattern, response_content, re.DOTALL):
             parsed = json.loads(match.group(1))
 
             if isinstance(parsed, list):
                 for item in parsed:
-                    if isinstance(item, dict) and 'name' in item:
-                        args = item.get('parameters', item.get('arguments', item.get('args', {})))
-                        tool_calls.append({
-                            'name': item['name'],
-                            'args': normalize_tool_args(args) if isinstance(args, dict) else {}
-                        })
-            elif isinstance(parsed, dict) and 'name' in parsed:
-                args = parsed.get('parameters', parsed.get('arguments', parsed.get('args', {})))
-                tool_calls.append({
-                    'name': parsed['name'],
-                    'args': normalize_tool_args(args) if isinstance(args, dict) else {}
-                })
+                    if isinstance(item, dict) and "name" in item:
+                        args = item.get(
+                            "parameters", item.get("arguments", item.get("args", {}))
+                        )
+                        tool_calls.append(
+                            {
+                                "name": item["name"],
+                                "args": (
+                                    normalize_tool_args(args)
+                                    if isinstance(args, dict)
+                                    else {}
+                                ),
+                            }
+                        )
+            elif isinstance(parsed, dict) and "name" in parsed:
+                args = parsed.get(
+                    "parameters", parsed.get("arguments", parsed.get("args", {}))
+                )
+                tool_calls.append(
+                    {
+                        "name": parsed["name"],
+                        "args": (
+                            normalize_tool_args(args) if isinstance(args, dict) else {}
+                        ),
+                    }
+                )
             # Gemma format: {"action": "android_click", "x": 480, "y": 1600}
-            elif isinstance(parsed, dict) and 'action' in parsed:
-                action = parsed.get('action', '')
-                args = {k: v for k, v in parsed.items() if k != 'action'}
-                tool_calls.append({
-                    'name': action,
-                    'args': normalize_tool_args(args) if args else {}
-                })
+            elif isinstance(parsed, dict) and "action" in parsed:
+                action = parsed.get("action", "")
+                args = {k: v for k, v in parsed.items() if k != "action"}
+                tool_calls.append(
+                    {"name": action, "args": normalize_tool_args(args) if args else {}}
+                )
                 if tool_calls:
                     if track_stats:
                         parser_stats.record_success("markdown_code_block")
@@ -396,7 +448,7 @@ def parse_tool_calls_from_text_with_strategy(
     try:
         if track_stats:
             parser_stats.record_attempt("pythonic_function")
-        func_pattern = r'(android_click|android_type_text|android_long_click|android_swipe|android_scroll|android_back|android_home)\s*\(\s*([^)]*)\s*\)'
+        func_pattern = r"(android_click|android_type_text|android_long_click|android_swipe|android_scroll|android_back|android_home)\s*\(\s*([^)]*)\s*\)"
         for match in re.finditer(func_pattern, response_content, re.DOTALL):
             func_name = match.group(1)
             args_str = match.group(2)
@@ -407,15 +459,14 @@ def parse_tool_calls_from_text_with_strategy(
                 value = arg_match.group(2) or arg_match.group(3) or arg_match.group(4)
                 if value:
                     try:
-                        args[key] = float(value) if '.' in value else int(value)
+                        args[key] = float(value) if "." in value else int(value)
                     except ValueError:
                         args[key] = value
 
             if func_name:
-                tool_calls.append({
-                    'name': func_name,
-                    'args': normalize_tool_args(args)
-                })
+                tool_calls.append(
+                    {"name": func_name, "args": normalize_tool_args(args)}
+                )
 
         if tool_calls:
             logger.info(f"Extracted {len(tool_calls)} tool calls (pythonic)")
@@ -433,7 +484,10 @@ def parse_tool_calls_from_text_with_strategy(
             parser_stats.record_failure("response_too_short")
         elif "I cannot" in response_content or "I'm sorry" in response_content:
             parser_stats.record_failure("refusal")
-        elif "android_click" not in response_content.lower() and "click" not in response_content.lower():
+        elif (
+            "android_click" not in response_content.lower()
+            and "click" not in response_content.lower()
+        ):
             parser_stats.record_failure("no_tool_mention")
         else:
             parser_stats.record_failure("parse_failed")
@@ -459,74 +513,42 @@ def _fix_malformed_json(s: str) -> str | None:
 
     # Pattern 0: Fix missing leading zero in floats: .91 -> 0.91 (Qwen3-VL)
     # This must come FIRST before other patterns
-    s = re.sub(
-        r':\s*\.(\d+)',
-        r': 0.\1',
-        s
-    )
+    s = re.sub(r":\s*\.(\d+)", r": 0.\1", s)
 
     # Pattern 0b: Fix double colon: "x":": 541 -> "x": 541
     # Qwen3-VL sometimes outputs ":": instead of ":"
-    s = re.sub(
-        r'"([xy])":\s*"?:\s*(\d+)',
-        r'"\1": \2',
-        s
-    )
+    s = re.sub(r'"([xy])":\s*"?:\s*(\d+)', r'"\1": \2', s)
 
     # Pattern 0c: Fix numeric value with trailing quote only: "y": 473" -> "y": 473
     # Model outputs integer followed by errant quote (not a string, just trailing quote)
     # Must match: comma or closing brace after the trailing quote to avoid false positives
-    s = re.sub(
-        r'"([xy])":\s*(\d+)"(\s*[,}])',
-        r'"\1": \2\3',
-        s
-    )
+    s = re.sub(r'"([xy])":\s*(\d+)"(\s*[,}])', r'"\1": \2\3', s)
 
     # Pattern 0d: "x": 867 335 -> "x": 867 (MiniCPM-V outputs two numbers with space)
     # Take only the first number when there are two separated by space
-    s = re.sub(
-        r'"([xy])":\s*(\d+)\s+\d+',
-        r'"\1": \2',
-        s
-    )
+    s = re.sub(r'"([xy])":\s*(\d+)\s+\d+', r'"\1": \2', s)
 
     # Pattern 1: "x": 352, 782 -> "x": 352, "y": 782
-    s = re.sub(
-        r'"x":\s*(\d+),\s*(\d+)',
-        r'"x": \1, "y": \2',
-        s
-    )
+    s = re.sub(r'"x":\s*(\d+),\s*(\d+)', r'"x": \1, "y": \2', s)
 
     # Pattern 2: "x": [352, 782] -> "x": 352, "y": 782
     # Model sometimes outputs coordinates as array instead of separate x,y
-    s = re.sub(
-        r'"x":\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]',
-        r'"x": \1, "y": \2',
-        s
-    )
+    s = re.sub(r'"x":\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]', r'"x": \1, "y": \2', s)
 
     # Pattern 3: "x": [499", "499"] -> "x": 499, "y": 499
     # vLLM malformed array with quotes inside
-    s = re.sub(
-        r'"x":\s*\[\s*(\d+)"?,\s*"?(\d+)"?\s*\]',
-        r'"x": \1, "y": \2',
-        s
-    )
+    s = re.sub(r'"x":\s*\[\s*(\d+)"?,\s*"?(\d+)"?\s*\]', r'"x": \1, "y": \2', s)
 
     # Pattern 4: "x": = 100 -> "x": 100
     # vLLM equals sign instead of just colon
-    s = re.sub(
-        r'"([xy])":\s*=\s*(\d+)',
-        r'"\1": \2',
-        s
-    )
+    s = re.sub(r'"([xy])":\s*=\s*(\d+)', r'"\1": \2', s)
 
     # Pattern 5: Fix truncated JSON - add missing closing braces
     # Count open vs close braces and add missing ones
-    open_braces = s.count('{')
-    close_braces = s.count('}')
+    open_braces = s.count("{")
+    close_braces = s.count("}")
     if open_braces > close_braces:
-        s = s + '}' * (open_braces - close_braces)
+        s = s + "}" * (open_braces - close_braces)
 
     return s if s != original else None
 

@@ -7,7 +7,11 @@ ScreenDescription model, handling coordinate conversion and action selection.
 
 import logging
 from typing import Tuple, Optional
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ScreenItem, ItemAction
+from rv_screen_parser.parser.screen.visitor.model import (
+    ScreenDescription,
+    ScreenItem,
+    ItemAction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +21,7 @@ def map_coordinates_to_action(
     action_type: str,
     screen_description: ScreenDescription,
     optimized_dims: Tuple[int, int],
-    device_dims: Tuple[int, int]
+    device_dims: Tuple[int, int],
 ) -> int:
     """
     Map LLM coordinates and action type to ItemAction ID.
@@ -71,7 +75,7 @@ def map_coordinates_to_action(
     # Step 2: Find ScreenItem containing coordinates
     containing_items = []
     for item in screen_description.items:
-        bounds = item.view.get('bounds')
+        bounds = item.view.get("bounds")
         if not bounds or not isinstance(bounds, list) or len(bounds) != 2:
             continue
 
@@ -101,12 +105,13 @@ def map_coordinates_to_action(
 
     # Filter by action type
     matching_actions = [
-        action for action in target_item.actions
-        if action.action_type == action_type
+        action for action in target_item.actions if action.action_type == action_type
     ]
 
     # Fallback to first action if no match
-    selected_action = matching_actions[0] if matching_actions else target_item.actions[0]
+    selected_action = (
+        matching_actions[0] if matching_actions else target_item.actions[0]
+    )
 
     # Log the mapping
     logger.info(
@@ -126,8 +131,7 @@ def map_coordinates_to_action(
 
 
 def get_action_by_id(
-    action_id: int,
-    screen_description: ScreenDescription
+    action_id: int, screen_description: ScreenDescription
 ) -> Optional[ItemAction]:
     """
     Retrieve ItemAction by ID from ScreenDescription.
@@ -154,7 +158,7 @@ def get_action_by_id(
 def get_device_coordinates(
     llm_coords: Tuple[int, int],
     optimized_dims: Tuple[int, int],
-    device_dims: Tuple[int, int]
+    device_dims: Tuple[int, int],
 ) -> Tuple[int, int]:
     """
     Convert LLM coordinates to device coordinates.

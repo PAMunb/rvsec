@@ -75,8 +75,8 @@ def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
     Returns:
         Dynamic threshold: max(base, num_elements * factor)
     """
-    base = getattr(agent, 'BASE_STUCK_THRESHOLD', 8)
-    factor = getattr(agent, 'STUCK_THRESHOLD_FACTOR', 1.5)
+    base = getattr(agent, "BASE_STUCK_THRESHOLD", 8)
+    factor = getattr(agent, "STUCK_THRESHOLD_FACTOR", 1.5)
 
     # Get number of available actions (interactive elements)
     available_actions = state.get("available_actions", [])
@@ -144,7 +144,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         action=state.get("current_action"),
         llm_reasoning=state.get("llm_reasoning", ""),
         iteration=state.get("iteration", 0),
-        recent_action_window=state.get("recent_action_window", [])
+        recent_action_window=state.get("recent_action_window", []),
     )
 
     # Generate summaries
@@ -152,7 +152,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         action=state.get("current_action"),
         current_activity=state.get("current_activity", "unknown"),
         visited_states=state.get("visited_states", []),
-        state_transitions=state.get("state_transitions", [])
+        state_transitions=state.get("state_transitions", []),
     )
 
     # Track state discovery
@@ -160,7 +160,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         current_hash=state.get("current_screen_hash"),
         previous_hash=state.get("previous_screen_hash"),
         visited_states=state.get("visited_states", []),
-        state_transitions=state.get("state_transitions", [])
+        state_transitions=state.get("state_transitions", []),
     )
 
     # Record BACK transitions for Backtrack BFS
@@ -171,6 +171,14 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Propagate reward based on action outcome
     _propagate_reward(agent, state)
+
+    # --- PathBuffer invalidation ---
+    # If the path buffer is active (executing a multi-hop navigation plan)
+    # and the screen didn't change after the last action, the planned path
+    # is stale -- the BACK action didn't navigate as expected. Invalidate
+    # the buffer to stop executing stale actions and let the strategy
+    # fall back to normal action selection.
+    _invalidate_stale_path_buffer(agent, state)
 
     # --- Validation error detection (before stuck detection) ---
     #
@@ -215,7 +223,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             agent.stuck_screen_count = 0  # Suppress stuck detection for this iteration
 
             error_result_updates["force_fill_input"] = True
-            error_result_updates["error_indicators"] = validation_result.error_indicators
+            error_result_updates["error_indicators"] = (
+                validation_result.error_indicators
+            )
 
             track.error(
                 iter=iteration,
@@ -238,12 +248,14 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Get current action info for stuck detection logic
     current_action = state.get("current_action", {})
-    action_type = (current_action.get("action_type", "") if current_action else "").upper()
+    action_type = (
+        current_action.get("action_type", "") if current_action else ""
+    ).upper()
 
     # Check if action was on a checkable element (checkbox, radio, toggle)
     item_action = state.get("current_item_action")
     is_checkable = False
-    if item_action and hasattr(item_action, 'target_view'):
+    if item_action and hasattr(item_action, "target_view"):
         is_checkable = item_action.target_view.get("checkable", False)
 
     # Level 1: Screen unchanged detection (quick recovery via BACK)
@@ -256,7 +268,11 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     dynamic_threshold = _get_dynamic_stuck_threshold(agent, state)
 
     is_form_action = action_type in ("SET_TEXT", "TEXT_CHANGE") or is_checkable
-    if current_hash == agent.last_screen_hash and not is_form_action and not error_detected:
+    if (
+        current_hash == agent.last_screen_hash
+        and not is_form_action
+        and not error_detected
+    ):
         agent.stuck_screen_count += 1
         if agent.stuck_screen_count >= dynamic_threshold:
             force_back = True
@@ -267,13 +283,13 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     agent.last_screen_hash = current_hash
 
     # Level 2: StuckRecovery check (persistent stuck state)
-    stuck_recovery = getattr(agent, 'stuck_recovery', None)
+    stuck_recovery = getattr(agent, "stuck_recovery", None)
     if stuck_recovery and current_hash:
         recovery_action = stuck_recovery.check(current_hash)
 
         if recovery_action == "restart":
             # Try Backtrack BFS first
-            successor_tracker = getattr(agent.strategy, 'successor_tracker', None)
+            successor_tracker = getattr(agent.strategy, "successor_tracker", None)
             if successor_tracker:
                 bfs_result = successor_tracker.find_nearest_unsaturated(current_hash)
                 if bfs_result:
@@ -288,7 +304,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                         iter=iteration,
                         from_state=current_hash,
                         to_state=unsaturated_target,
-                        reason="bfs_unsaturated"
+                        reason="bfs_unsaturated",
                     )
                 else:
                     logger.warning(
@@ -301,7 +317,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                         iter=iteration,
                         from_state=current_hash,
                         to_state="restart",
-                        reason="no_unsaturated"
+                        reason="no_unsaturated",
                     )
             else:
                 logger.warning(
@@ -312,21 +328,22 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Check continuation
     continuation = agent.memory_coordinator.check_continuation(
-        start_time=state.get("start_time"),
-        timeout=state.get("timeout")
+        start_time=state.get("start_time"), timeout=state.get("timeout")
     )
 
     # Track state changes
     previous_activity = state.get("previous_activity")
     current_activity = state.get("current_activity")
-    activity_changed = previous_activity != current_activity and previous_activity is not None
+    activity_changed = (
+        previous_activity != current_activity and previous_activity is not None
+    )
 
     track.state(
         iter=iteration,
         changed=activity_changed,
         activity_from=previous_activity,
         activity_to=current_activity,
-        hash=current_hash
+        hash=current_hash,
     )
 
     # Track learning/stuck detection
@@ -357,11 +374,13 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "state_transitions": tracking["state_transitions"],
         "previous_screen_hash": state.get("current_screen_hash"),
         "should_continue": continuation["should_continue"],
-        "loop_detected": False
+        "loop_detected": False,
     }
 
     if force_restart:
         result["force_restart_app"] = True
+        # Invalidate screen_desc cache: after app restart the UI state is unknown
+        agent._cached_screen_desc = None
     elif force_back:
         result["force_back_action"] = True
 
@@ -404,7 +423,7 @@ def _record_back_transition(agent: "RVAgent", state: AgentState) -> None:
         if previous_hash == current_hash:
             return
 
-        successor_tracker = getattr(agent.strategy, 'successor_tracker', None)
+        successor_tracker = getattr(agent.strategy, "successor_tracker", None)
         if successor_tracker:
             successor_tracker.record_back_transition(previous_hash, current_hash)
             logger.debug(
@@ -449,20 +468,27 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
             return
 
         # Convert to optimized space (same as scorers)
-        converter = getattr(agent.strategy, 'converter', None)
+        converter = getattr(agent.strategy, "converter", None)
         if converter:
             opt_x, opt_y = converter.device_to_optimized(x, y)
         else:
             opt_x, opt_y = device_to_optimized(
-                x, y,
-                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
-                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+                x,
+                y,
+                (
+                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
+                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
+                ),
+                (
+                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
+                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
+                ),
             )
 
         action_signature = ((opt_x, opt_y), action_type)
 
         # Get the node where the action was executed (previous state)
-        graph = getattr(agent.strategy, 'graph', None)
+        graph = getattr(agent.strategy, "graph", None)
         if not graph:
             return
 
@@ -487,7 +513,7 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
             coords=(x, y),
             strength_val=strength_val,
             executions=executions,
-            successes=successes
+            successes=successes,
         )
 
         logger.debug(
@@ -511,7 +537,7 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
     5. same_state: screen unchanged AND action was not text input
     """
     try:
-        reward_propagator = getattr(agent.strategy, 'reward_propagator', None)
+        reward_propagator = getattr(agent.strategy, "reward_propagator", None)
         if not reward_propagator:
             return
 
@@ -530,14 +556,21 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
             return
 
         # Convert to optimized space (same as _record_action_success)
-        converter = getattr(agent.strategy, 'converter', None)
+        converter = getattr(agent.strategy, "converter", None)
         if converter:
             opt_x, opt_y = converter.device_to_optimized(x, y)
         else:
             opt_x, opt_y = device_to_optimized(
-                x, y,
-                (RVAgentConstants.DEFAULT_DEVICE_WIDTH, RVAgentConstants.DEFAULT_DEVICE_HEIGHT),
-                (RVAgentConstants.SCREENSHOT_TARGET_WIDTH, RVAgentConstants.SCREENSHOT_TARGET_HEIGHT)
+                x,
+                y,
+                (
+                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
+                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
+                ),
+                (
+                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
+                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
+                ),
             )
 
         action_signature = ((opt_x, opt_y), action_type)
@@ -547,7 +580,7 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
         selected_action = state.get("current_item_action")
         has_mop = (
             selected_action
-            and hasattr(selected_action, 'callback_signature')
+            and hasattr(selected_action, "callback_signature")
             and selected_action.callback_signature
         )
 
@@ -556,7 +589,9 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
         elif previous_hash != current_hash:
             # Screen changed — check if it's a new activity
             current_activity = state.get("current_activity", "")
-            visited_activities = getattr(agent.strategy, '_get_visited_activities', lambda: set())()
+            visited_activities = getattr(
+                agent.strategy, "_get_visited_activities", lambda: set()
+            )()
             if current_activity and current_activity not in visited_activities:
                 reward_type = "new_activity"
             else:
@@ -568,12 +603,47 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
             else:
                 reward_type = "same_state"
 
-        graph = getattr(agent.strategy, 'graph', None)
+        graph = getattr(agent.strategy, "graph", None)
         if graph:
             reward_propagator.propagate(reward_type, graph)
 
     except Exception as e:
         logger.warning(f"Failed to propagate reward: {e}")
+
+
+def _invalidate_stale_path_buffer(agent: "RVAgent", state: AgentState) -> None:
+    """
+    Invalidate PathBuffer if the screen didn't change after a buffered action.
+
+    When the PathBuffer is active (executing a multi-hop plan), each action
+    should produce a screen change. If the current_hash equals the previous_hash,
+    the navigation didn't work (e.g., BACK had no effect on a root screen).
+    Continuing the buffered plan would waste iterations, so we clear it.
+
+    Args:
+        agent: RVAgent instance with strategy that may have path_buffer.
+        state: Current agent state with previous/current hash info.
+    """
+    try:
+        path_buffer = getattr(agent.strategy, "path_buffer", None)
+        if path_buffer is None:
+            return
+
+        if not path_buffer.is_active:
+            return
+
+        current_hash = state.get("current_screen_hash")
+        previous_hash = state.get("previous_screen_hash")
+
+        if current_hash and previous_hash and current_hash == previous_hash:
+            path_buffer.invalidate()
+            logger.warning(
+                "PathBuffer invalidated: screen unchanged after buffered action "
+                f"(hash={current_hash[:8]}...)"
+            )
+
+    except Exception as e:
+        logger.warning(f"Failed to check path buffer invalidation: {e}")
 
 
 def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
@@ -606,7 +676,7 @@ def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
 
         # Get element ID from item_action or coordinates
         item_action = state.get("current_item_action")
-        if item_action and hasattr(item_action, 'widget_id') and item_action.widget_id:
+        if item_action and hasattr(item_action, "widget_id") and item_action.widget_id:
             element_id = item_action.widget_id
         else:
             x = current_action.get("x")
@@ -616,7 +686,7 @@ def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
             else:
                 return
 
-        value_generator = getattr(agent.strategy, 'value_generator', None)
+        value_generator = getattr(agent.strategy, "value_generator", None)
         if not value_generator:
             return
 

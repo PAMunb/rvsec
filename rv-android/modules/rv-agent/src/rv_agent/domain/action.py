@@ -24,7 +24,7 @@ TOOL_TO_ACTION = {
     "android_back": "BACK",
     "android_home": "HOME",
     "android_press_enter": "PRESS_ENTER",
-    "android_restart": "RESTART_APP"
+    "android_restart": "RESTART_APP",
 }
 
 
@@ -99,9 +99,7 @@ class ActionNormalizer:
 
         # Convert from [0, 1000) normalized to device pixels
         x_dev, y_dev = denormalize_qwen_coords(
-            x_raw, y_raw,
-            image_width=self.device_width,
-            image_height=self.device_height
+            x_raw, y_raw, image_width=self.device_width, image_height=self.device_height
         )
 
         logger.debug(
@@ -147,14 +145,16 @@ class ActionNormalizer:
 
         # Convert from [0, 1000) normalized to device pixels
         start_x, start_y = denormalize_qwen_coords(
-            start_x_raw, start_y_raw,
+            start_x_raw,
+            start_y_raw,
             image_width=self.device_width,
-            image_height=self.device_height
+            image_height=self.device_height,
         )
         end_x, end_y = denormalize_qwen_coords(
-            end_x_raw, end_y_raw,
+            end_x_raw,
+            end_y_raw,
             image_width=self.device_width,
-            image_height=self.device_height
+            image_height=self.device_height,
         )
 
         logger.info(

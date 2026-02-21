@@ -30,7 +30,9 @@ def _make_strategy(backtrack_threshold=0.8, has_incomplete=False):
         config=config,
     )
     # Patch the real successor_tracker's method
-    strategy.successor_tracker.has_incomplete_successors = MagicMock(return_value=has_incomplete)
+    strategy.successor_tracker.has_incomplete_successors = MagicMock(
+        return_value=has_incomplete
+    )
     return strategy
 
 

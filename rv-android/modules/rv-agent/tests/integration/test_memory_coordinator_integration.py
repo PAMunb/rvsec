@@ -10,17 +10,21 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph, compute_screen_hash_from_description
+from rv_agent.agent.dynamic_state_graph import (
+    DynamicStateGraph,
+    compute_screen_hash_from_description,
+)
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.memory.agent_memory import AgentMemoryManager
-
 
 pytestmark = pytest.mark.integration
 
@@ -39,7 +43,9 @@ def load_fixture(app_name: str, screen_num: str) -> Tuple[str, ScreenDescription
         xml_content = f.read()
 
     parser = UIAutomator2Parser(visitor_class=DefaultTextVisitor)
-    screen_desc = parser.parse(xml_content, activity=f"com.example.{app_name}.MainActivity")
+    screen_desc = parser.parse(
+        xml_content, activity=f"com.example.{app_name}.MainActivity"
+    )
 
     return xml_content, screen_desc
 
@@ -83,7 +89,7 @@ def memory_coordinator(graph, short_term, long_term, ui_coverage, agent_memory):
         long_term_memory=long_term,
         ui_coverage=ui_coverage,
         agent_memory=agent_memory,
-        action_window_size=10
+        action_window_size=10,
     )
 
 
@@ -96,13 +102,14 @@ def memory_coordinator_no_long_term(graph, short_term, ui_coverage, agent_memory
         long_term_memory=None,
         ui_coverage=ui_coverage,
         agent_memory=agent_memory,
-        action_window_size=10
+        action_window_size=10,
     )
 
 
 # =============================================================================
 # Memory Update Tests
 # =============================================================================
+
 
 class TestMemoryUpdates:
     """Test memory update functionality."""
@@ -122,7 +129,7 @@ class TestMemoryUpdates:
             action=action,
             llm_reasoning="Testing click action",
             iteration=1,
-            recent_action_window=recent_window
+            recent_action_window=recent_window,
         )
 
         assert result["success"] is True
@@ -141,7 +148,7 @@ class TestMemoryUpdates:
             action=None,
             llm_reasoning="Observing screen",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -153,10 +160,7 @@ class TestMemoryUpdates:
         screen_hash = compute_screen_hash_from_description(screen_desc)
 
         # Start with pre-filled window
-        recent_window = [
-            {"action_type": "CLICK", "x": i, "y": i}
-            for i in range(10)
-        ]
+        recent_window = [{"action_type": "CLICK", "x": i, "y": i} for i in range(10)]
 
         new_action = {"action_type": "CLICK", "x": 999, "y": 999}
 
@@ -167,7 +171,7 @@ class TestMemoryUpdates:
             action=new_action,
             llm_reasoning="Test",
             iteration=11,
-            recent_action_window=recent_window
+            recent_action_window=recent_window,
         )
 
         # Window should still be max 10
@@ -189,7 +193,7 @@ class TestMemoryUpdates:
             action={"action_type": "CLICK", "x": 100, "y": 200},
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert len(graph.states) == 1
@@ -209,13 +213,15 @@ class TestMemoryUpdates:
             action={"action_type": "CLICK", "x": 100, "y": 200},
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         new_count = short_term.get_statistics().get("iteration_count", 0)
         assert new_count == initial_count + 1
 
-    def test_ui_coverage_updated_on_memory_update(self, memory_coordinator, ui_coverage):
+    def test_ui_coverage_updated_on_memory_update(
+        self, memory_coordinator, ui_coverage
+    ):
         """UICoverageTracker updated on memory update."""
         _, screen_desc = load_fixture("cryptoapp", "001")
         screen_hash = compute_screen_hash_from_description(screen_desc)
@@ -230,7 +236,7 @@ class TestMemoryUpdates:
             action=None,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         new_stats = ui_coverage.get_overall_statistics()
@@ -251,7 +257,7 @@ class TestMemoryUpdates:
             action=None,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         stats = long_term.get_statistics()
@@ -269,7 +275,7 @@ class TestMemoryUpdates:
             action={"action_type": "CLICK", "x": 100, "y": 200},
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -278,6 +284,7 @@ class TestMemoryUpdates:
 # =============================================================================
 # Summary Generation Tests
 # =============================================================================
+
 
 class TestSummaryGeneration:
     """Test summary generation functionality."""
@@ -290,7 +297,7 @@ class TestSummaryGeneration:
             action=action,
             current_activity="MainActivity",
             visited_states=["hash1", "hash2"],
-            state_transitions=[("hash1", "hash2")]
+            state_transitions=[("hash1", "hash2")],
         )
 
         assert "action_history_summary" in summaries
@@ -304,7 +311,7 @@ class TestSummaryGeneration:
             action=None,
             current_activity="MainActivity",
             visited_states=[],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         assert "action_history_summary" in summaries
@@ -316,7 +323,7 @@ class TestSummaryGeneration:
             action={"action_type": "CLICK", "x": 100, "y": 200},
             current_activity="MainActivity",
             visited_states=["hash1"],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         for key, value in summaries.items():
@@ -332,7 +339,7 @@ class TestSummaryGeneration:
             action=action,
             current_activity="MainActivity",
             visited_states=[],
-            state_transitions=[]
+            state_transitions=[],
         )
 
         after = agent_memory.get_action_history_summary()
@@ -344,6 +351,7 @@ class TestSummaryGeneration:
 # =============================================================================
 # State Discovery Tracking Tests
 # =============================================================================
+
 
 class TestStateDiscoveryTracking:
     """Test state discovery and transition tracking."""
@@ -357,7 +365,7 @@ class TestStateDiscoveryTracking:
             current_hash="new_hash",
             previous_hash=None,
             visited_states=visited,
-            state_transitions=transitions
+            state_transitions=transitions,
         )
 
         assert result["new_state_discovered"] is True
@@ -373,7 +381,7 @@ class TestStateDiscoveryTracking:
             current_hash="existing_hash",
             previous_hash=None,
             visited_states=visited,
-            state_transitions=transitions
+            state_transitions=transitions,
         )
 
         assert result["new_state_discovered"] is False
@@ -388,7 +396,7 @@ class TestStateDiscoveryTracking:
             current_hash="hash2",
             previous_hash="hash1",
             visited_states=visited,
-            state_transitions=transitions
+            state_transitions=transitions,
         )
 
         assert result["new_transition_discovered"] is True
@@ -403,7 +411,7 @@ class TestStateDiscoveryTracking:
             current_hash="hash1",
             previous_hash="hash1",
             visited_states=visited,
-            state_transitions=transitions
+            state_transitions=transitions,
         )
 
         assert result["new_transition_discovered"] is False
@@ -418,7 +426,7 @@ class TestStateDiscoveryTracking:
             current_hash="hash2",
             previous_hash="hash1",
             visited_states=visited,
-            state_transitions=transitions
+            state_transitions=transitions,
         )
 
         assert result["new_transition_discovered"] is False
@@ -438,7 +446,7 @@ class TestStateDiscoveryTracking:
                 current_hash=current,
                 previous_hash=prev,
                 visited_states=visited,
-                state_transitions=transitions
+                state_transitions=transitions,
             )
             visited = result["visited_states"]
             transitions = result["state_transitions"]
@@ -454,6 +462,7 @@ class TestStateDiscoveryTracking:
 # Continuation Check Tests
 # =============================================================================
 
+
 class TestContinuationCheck:
     """Test exploration continuation checks."""
 
@@ -462,8 +471,7 @@ class TestContinuationCheck:
         start_time = time.time()
 
         result = memory_coordinator.check_continuation(
-            start_time=start_time,
-            timeout=60.0
+            start_time=start_time, timeout=60.0
         )
 
         assert result["should_continue"] is True
@@ -475,8 +483,7 @@ class TestContinuationCheck:
         start_time = time.time() - 100  # 100 seconds ago
 
         result = memory_coordinator.check_continuation(
-            start_time=start_time,
-            timeout=60.0
+            start_time=start_time, timeout=60.0
         )
 
         assert result["should_continue"] is False
@@ -488,8 +495,7 @@ class TestContinuationCheck:
         start_time = time.time() - 30  # 30 seconds ago
 
         result = memory_coordinator.check_continuation(
-            start_time=start_time,
-            timeout=60.0
+            start_time=start_time, timeout=60.0
         )
 
         assert result["should_continue"] is True
@@ -499,6 +505,7 @@ class TestContinuationCheck:
 # =============================================================================
 # Statistics Collection Tests
 # =============================================================================
+
 
 class TestStatisticsCollection:
     """Test unified statistics collection."""
@@ -525,7 +532,7 @@ class TestStatisticsCollection:
             action=None,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         stats = memory_coordinator.get_all_statistics()
@@ -551,7 +558,7 @@ class TestStatisticsCollection:
                 action=action,
                 llm_reasoning=f"Iteration {i}",
                 iteration=i + 1,
-                recent_action_window=recent_window
+                recent_action_window=recent_window,
             )
             recent_window = result["recent_action_window"]
 
@@ -571,6 +578,7 @@ class TestStatisticsCollection:
 # =============================================================================
 # Multi-Screen Integration Tests
 # =============================================================================
+
 
 class TestMultiScreenIntegration:
     """Test integration across multiple screens."""
@@ -597,7 +605,7 @@ class TestMultiScreenIntegration:
                 action=action,
                 llm_reasoning=f"Exploring screen {screen_num}",
                 iteration=i + 1,
-                recent_action_window=recent_window
+                recent_action_window=recent_window,
             )
             recent_window = result["recent_action_window"]
 
@@ -606,7 +614,7 @@ class TestMultiScreenIntegration:
                 current_hash=screen_hash,
                 previous_hash=prev_hash,
                 visited_states=visited_states,
-                state_transitions=state_transitions
+                state_transitions=state_transitions,
             )
             visited_states = discovery["visited_states"]
             state_transitions = discovery["state_transitions"]
@@ -617,7 +625,7 @@ class TestMultiScreenIntegration:
                 action=action,
                 current_activity="MainActivity",
                 visited_states=visited_states,
-                state_transitions=state_transitions
+                state_transitions=state_transitions,
             )
 
         # Verify final state
@@ -645,7 +653,7 @@ class TestMultiScreenIntegration:
                 action={"action_type": "CLICK", "x": 100, "y": 200},
                 llm_reasoning=f"Exploring {app_name}",
                 iteration=1,
-                recent_action_window=recent_window
+                recent_action_window=recent_window,
             )
             recent_window = result["recent_action_window"]
 
@@ -658,6 +666,7 @@ class TestMultiScreenIntegration:
 # =============================================================================
 # Action Type Mapping Tests
 # =============================================================================
+
 
 class TestActionTypeMapping:
     """Test action type mapping from execution to internal format."""
@@ -679,7 +688,7 @@ class TestActionTypeMapping:
                 action=action,
                 llm_reasoning="Test",
                 iteration=1,
-                recent_action_window=[]
+                recent_action_window=[],
             )
 
             assert result["success"] is True
@@ -701,7 +710,7 @@ class TestActionTypeMapping:
                 action=action,
                 llm_reasoning="Test",
                 iteration=1,
-                recent_action_window=[]
+                recent_action_window=[],
             )
 
             assert result["success"] is True
@@ -715,7 +724,7 @@ class TestActionTypeMapping:
             "action_type": "CLICK",
             "llm_coords": (352, 273),
             "x": 100,  # These should be ignored
-            "y": 200
+            "y": 200,
         }
 
         memory_coordinator.update_memories(
@@ -725,7 +734,7 @@ class TestActionTypeMapping:
             action=action,
             llm_reasoning="Test",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         node = graph.states.get(screen_hash)
@@ -742,6 +751,7 @@ class TestActionTypeMapping:
 # Edge Cases Tests
 # =============================================================================
 
+
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
@@ -756,7 +766,7 @@ class TestEdgeCases:
             action=None,
             llm_reasoning="Empty screen",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -775,7 +785,7 @@ class TestEdgeCases:
             action=action,
             llm_reasoning="Go back",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -794,7 +804,7 @@ class TestEdgeCases:
             action={"action_type": "CLICK", "x": 100, "y": 200},
             llm_reasoning=long_reasoning,
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True
@@ -811,7 +821,7 @@ class TestEdgeCases:
             action={"action_type": "CLICK", "x": 100, "y": 200},
             llm_reasoning="High iteration",
             iteration=10000,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         assert result["success"] is True

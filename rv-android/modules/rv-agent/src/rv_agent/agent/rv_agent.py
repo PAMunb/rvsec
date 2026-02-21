@@ -163,11 +163,16 @@ class RVAgent:
         self.stuck_screen_count = 0
         self.error_recovery_count = 0
         self.BASE_STUCK_THRESHOLD = 8  # Minimum threshold for simple screens
-        self.STUCK_THRESHOLD_FACTOR = 1.5  # Multiplier: threshold = max(base, elements * factor)
+        self.STUCK_THRESHOLD_FACTOR = (
+            1.5  # Multiplier: threshold = max(base, elements * factor)
+        )
 
         # Level 2 stuck detection (persistent same state)
         # Uses Backtrack BFS to find unsaturated ancestors, then RESTART if none found
         self.stuck_recovery = StuckRecovery(max_blocks=10)
+
+        # Screen description cache: reuse when screen_hash is unchanged
+        self._cached_screen_desc = None
 
         # Deadlock detection (no action available)
         self.consecutive_no_action = 0
@@ -225,7 +230,9 @@ class RVAgent:
         workflow.add_node("parse_ui", lambda s: parse_ui_node(self, s))
         workflow.add_node("decision_router", lambda s: decision_router_node(self, s))
         workflow.add_node("algorithm_node", lambda s: algorithm_node(self, s))
-        workflow.add_node("capture_screenshot", lambda s: capture_screenshot_node(self, s))
+        workflow.add_node(
+            "capture_screenshot", lambda s: capture_screenshot_node(self, s)
+        )
         workflow.add_node("llm_generate", lambda s: llm_generate_node(self, s))
         workflow.add_node("validate_action", lambda s: validate_action_node(self, s))
         workflow.add_node("execute", lambda s: execute_node(self, s))
@@ -239,11 +246,7 @@ class RVAgent:
         workflow.add_conditional_edges(
             "decision_router",
             lambda s: s.get("decision_path", "end"),
-            {
-                "llm": "capture_screenshot",
-                "algorithm": "algorithm_node",
-                "end": END
-            }
+            {"llm": "capture_screenshot", "algorithm": "algorithm_node", "end": END},
         )
 
         # LLM path
@@ -319,9 +322,11 @@ class RVAgent:
             try:
                 from pathlib import Path
                 from rv_agent.metrics import MetricsExporter
+
                 trace_filename = MetricsExporter.build_filename(
-                    self.config.package_name, self.config.agent_mode,
-                    self.config.timeout
+                    self.config.package_name,
+                    self.config.agent_mode,
+                    self.config.timeout,
                 ).replace(".rvagent_metrics.json", ".trace")
                 trace_path = Path(self.config.metrics_output_dir) / trace_filename
                 trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -363,7 +368,7 @@ class RVAgent:
             # Error detection fields
             "force_fill_input": False,
             "error_detection_screenshot": None,
-            "error_indicators": None
+            "error_indicators": None,
         }
 
         # External execution loop
@@ -398,10 +403,14 @@ class RVAgent:
                 break
             except Exception as e:
                 consecutive_errors += 1
-                logger.error(f"Iteration {iteration} error ({consecutive_errors}/{max_consecutive_errors}): {e}")
+                logger.error(
+                    f"Iteration {iteration} error ({consecutive_errors}/{max_consecutive_errors}): {e}"
+                )
 
                 if consecutive_errors >= max_consecutive_errors:
-                    logger.error(f"❌ Too many consecutive errors ({max_consecutive_errors}), but continuing until timeout")
+                    logger.error(
+                        f"❌ Too many consecutive errors ({max_consecutive_errors}), but continuing until timeout"
+                    )
                     consecutive_errors = 0  # Reset to allow more attempts
 
                 time.sleep(1)  # Brief pause before retry
@@ -417,7 +426,7 @@ class RVAgent:
 
         # Collect UI coverage metrics
         ui_coverage_metrics = {}
-        if hasattr(self, 'ui_coverage'):
+        if hasattr(self, "ui_coverage"):
             try:
                 ui_coverage_metrics = self.ui_coverage.get_comprehensive_metrics()
             except Exception as e:
@@ -440,18 +449,19 @@ class RVAgent:
             "llm_validation_failed": counters["llm_validation_failed"],
             "forced_back": counters["forced_back"],
             "memory_stats": memory_stats,
-            "ui_coverage": ui_coverage_metrics
+            "ui_coverage": ui_coverage_metrics,
         }
 
         # Save metrics to file if output directory is configured
         if self.config.metrics_output_dir:
             from rv_agent.metrics import MetricsExporter
+
             MetricsExporter.export(
                 results=results,
                 output_dir=self.config.metrics_output_dir,
                 package_name=self.config.package_name,
                 agent_mode=self.config.agent_mode,
-                timeout=self.config.timeout
+                timeout=self.config.timeout,
             )
 
         # Clean up trace file handler

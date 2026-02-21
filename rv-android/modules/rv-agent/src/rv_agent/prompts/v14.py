@@ -38,7 +38,9 @@ SPECIAL ELEMENTS:
 Call the appropriate tool after your analysis."""
 
 
-def build_user_message(state_info: dict, navigation_hint: str = "", screen_line: str = "") -> str:
+def build_user_message(
+    state_info: dict, navigation_hint: str = "", screen_line: str = ""
+) -> str:
     """
     Build user message with context for LLM.
 
@@ -50,9 +52,9 @@ def build_user_message(state_info: dict, navigation_hint: str = "", screen_line:
         navigation_hint: Optional navigation guidance from WTG analysis
         screen_line: Screen info (unused in v14, kept for interface consistency)
     """
-    ui_elements = state_info.get('ui_elements', [])
-    last_action = state_info.get('last_action')
-    iteration = state_info.get('iteration', 0)
+    ui_elements = state_info.get("ui_elements", [])
+    last_action = state_info.get("last_action")
+    iteration = state_info.get("iteration", 0)
 
     # UI elements is already formatted string from _format_ui_elements
     if ui_elements and len(ui_elements) > 0:

@@ -14,6 +14,8 @@ import logging
 from collections import deque
 from typing import Tuple, Optional, TYPE_CHECKING
 
+from rv_agent import tracking as track
+
 if TYPE_CHECKING:
     from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
     from rv_agent.config.agent_config import RVAgentConfig
@@ -35,7 +37,13 @@ REWARD_VALUES = {
 }
 
 # Priority order for reward types (highest first)
-REWARD_PRIORITY = ["mop_reached", "new_activity", "new_state", "form_fill", "same_state"]
+REWARD_PRIORITY = [
+    "mop_reached",
+    "new_activity",
+    "new_state",
+    "form_fill",
+    "same_state",
+]
 
 
 class RewardPropagator:
@@ -58,7 +66,9 @@ class RewardPropagator:
         self._upper_cap = MAX_CUMULATIVE_REWARD_FACTOR * REWARD_MOP_WEIGHT
         self._lower_cap = -MAX_CUMULATIVE_REWARD_FACTOR * REWARD_MOP_WEIGHT
 
-    def record_action(self, state_hash: str, action_signature: Tuple[Tuple[int, int], str]) -> None:
+    def record_action(
+        self, state_hash: str, action_signature: Tuple[Tuple[int, int], str]
+    ) -> None:
         """
         Record a (state, action) pair in the history window.
 
@@ -88,7 +98,7 @@ class RewardPropagator:
             return
 
         for k, (state_hash, action_sig) in enumerate(reversed(history)):
-            discounted_reward = base_reward * (self.gamma ** k)
+            discounted_reward = base_reward * (self.gamma**k)
 
             node = graph.states.get(state_hash)
             if not node:
@@ -101,6 +111,12 @@ class RewardPropagator:
             new_value = max(self._lower_cap, min(self._upper_cap, new_value))
             node.action_cumulative_reward[action_sig] = new_value
 
+        track.reward_propagation(
+            iter=0,
+            reward_type=reward_type,
+            reward_value=base_reward,
+            steps_propagated=len(history),
+        )
         logger.debug(
             f"Reward propagated: type={reward_type}, base={base_reward}, "
             f"history_len={len(history)}, gamma={self.gamma}"
@@ -111,4 +127,6 @@ class RewardPropagator:
         self._action_history.clear()
 
     def __repr__(self) -> str:
-        return f"RewardPropagator(gamma={self.gamma}, history={len(self._action_history)})"
+        return (
+            f"RewardPropagator(gamma={self.gamma}, history={len(self._action_history)})"
+        )

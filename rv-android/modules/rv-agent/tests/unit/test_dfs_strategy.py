@@ -9,10 +9,10 @@ from dataclasses import dataclass
 from rv_agent.strategies.dfs_strategy import DFSStrategy, DFSState
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_graph():
@@ -40,7 +40,7 @@ def mock_action():
     action.id = 1
     action.action_type = "CLICK"
     action.bounds = [[100, 100], [200, 200]]
-    action.target_view = {'class': 'android.widget.Button', 'system_action': False}
+    action.target_view = {"class": "android.widget.Button", "system_action": False}
     action.get_execution_coordinates.return_value = (150, 150)
     action.coords_for_matching = ((150, 150), "CLICK")
     action.directly_reaches_mop = False
@@ -68,16 +68,14 @@ def dfs_strategy(mock_graph):
 # DFSState Dataclass Tests
 # =============================================================================
 
+
 class TestDFSState:
     """Tests for DFSState dataclass."""
 
     def test_creation(self):
         """Test DFSState creation."""
         state = DFSState(
-            screen_hash="abc123",
-            depth=3,
-            parent_hash="parent123",
-            untested_count=5
+            screen_hash="abc123", depth=3, parent_hash="parent123", untested_count=5
         )
 
         assert state.screen_hash == "abc123"
@@ -88,10 +86,7 @@ class TestDFSState:
     def test_creation_no_parent(self):
         """Test DFSState creation without parent."""
         state = DFSState(
-            screen_hash="root",
-            depth=0,
-            parent_hash=None,
-            untested_count=10
+            screen_hash="root", depth=0, parent_hash=None, untested_count=10
         )
 
         assert state.parent_hash is None
@@ -101,6 +96,7 @@ class TestDFSState:
 # =============================================================================
 # DFSStrategy Initialization Tests
 # =============================================================================
+
 
 class TestDFSStrategyInit:
     """Tests for DFSStrategy initialization."""
@@ -135,6 +131,7 @@ class TestDFSStrategyInit:
 # Reset Tests
 # =============================================================================
 
+
 class TestDFSStrategyReset:
     """Tests for DFSStrategy.reset()."""
 
@@ -156,6 +153,7 @@ class TestDFSStrategyReset:
 # Filter Actions Tests
 # =============================================================================
 
+
 class TestDFSStrategyFilterActions:
     """Tests for DFSStrategy._filter_actions()."""
 
@@ -170,7 +168,7 @@ class TestDFSStrategyFilterActions:
     def test_filter_removes_system_actions(self, dfs_strategy):
         """Test that system actions are filtered."""
         action = MagicMock()
-        action.target_view = {'system_action': True}
+        action.target_view = {"system_action": True}
         action.get_execution_coordinates.return_value = (100, 100)
 
         actions = [action]
@@ -181,7 +179,7 @@ class TestDFSStrategyFilterActions:
     def test_filter_removes_actions_without_coords(self, dfs_strategy):
         """Test that actions without coordinates are filtered."""
         action = MagicMock()
-        action.target_view = {'system_action': False}
+        action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = None
 
         actions = [action]
@@ -192,7 +190,7 @@ class TestDFSStrategyFilterActions:
     def test_filter_removes_navbar_actions(self, dfs_strategy):
         """Test that navigation bar actions are filtered (y > 1794)."""
         action = MagicMock()
-        action.target_view = {'system_action': False}
+        action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = (540, 1850)  # In navbar
 
         actions = [action]
@@ -203,7 +201,7 @@ class TestDFSStrategyFilterActions:
     def test_filter_keeps_above_navbar(self, dfs_strategy):
         """Test that actions above navbar are kept."""
         action = MagicMock()
-        action.target_view = {'system_action': False}
+        action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = (540, 1700)  # Above navbar
 
         actions = [action]
@@ -215,6 +213,7 @@ class TestDFSStrategyFilterActions:
 # =============================================================================
 # Get Untested Actions Tests
 # =============================================================================
+
 
 class TestDFSStrategyGetUntestedActions:
     """Tests for DFSStrategy._get_untested_actions()."""
@@ -249,7 +248,9 @@ class TestDFSStrategyGetUntestedActions:
         optimized_sig1 = ((65, 65), "CLICK")  # 100 * 704/1080, 100 * 1248/1920
         mock_screen_node.executed_actions = {optimized_sig1}
 
-        untested = dfs_strategy._get_untested_actions(mock_screen_node, [action1, action2])
+        untested = dfs_strategy._get_untested_actions(
+            mock_screen_node, [action1, action2]
+        )
 
         assert len(untested) == 1
         assert untested[0] == action2
@@ -258,6 +259,7 @@ class TestDFSStrategyGetUntestedActions:
 # =============================================================================
 # MOP Priority Tests
 # =============================================================================
+
 
 class TestDFSStrategyMOPPriority:
     """Tests for DFSStrategy._get_mop_priority()."""
@@ -297,6 +299,7 @@ class TestDFSStrategyMOPPriority:
 # Select Priority Action Tests
 # =============================================================================
 
+
 class TestDFSStrategySelectPriorityAction:
     """Tests for DFSStrategy._select_priority_action()."""
 
@@ -330,6 +333,7 @@ class TestDFSStrategySelectPriorityAction:
 # =============================================================================
 # Convert Signature Tests
 # =============================================================================
+
 
 class TestDFSStrategyConvertSignature:
     """Tests for DFSStrategy._convert_signature_to_optimized()."""
@@ -369,10 +373,13 @@ class TestDFSStrategyConvertSignature:
 # Should Backtrack Tests
 # =============================================================================
 
+
 class TestDFSStrategyShouldBacktrack:
     """Tests for DFSStrategy.should_backtrack()."""
 
-    def test_should_backtrack_when_exhausted(self, dfs_strategy, mock_graph, mock_screen_node):
+    def test_should_backtrack_when_exhausted(
+        self, dfs_strategy, mock_graph, mock_screen_node
+    ):
         """Test backtrack when all actions executed."""
         mock_screen_node.total_actions = 3
         mock_screen_node.executed_actions = {("a",), ("b",), ("c",)}  # 3 executed
@@ -382,7 +389,9 @@ class TestDFSStrategyShouldBacktrack:
 
         assert result is True
 
-    def test_should_not_backtrack_with_untested(self, dfs_strategy, mock_graph, mock_screen_node):
+    def test_should_not_backtrack_with_untested(
+        self, dfs_strategy, mock_graph, mock_screen_node
+    ):
         """Test no backtrack when actions remain."""
         mock_screen_node.total_actions = 5
         mock_screen_node.executed_actions = {("a",), ("b",)}  # 2 of 5 executed
@@ -405,42 +414,51 @@ class TestDFSStrategyShouldBacktrack:
 # Select Next Action Tests
 # =============================================================================
 
+
 class TestDFSStrategySelectNextAction:
     """Tests for DFSStrategy.select_next_action()."""
 
-    def test_new_state_creates_node(self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node):
+    def test_new_state_creates_node(
+        self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node
+    ):
         """Test that new state creates graph node."""
         mock_graph.states = {}
         mock_graph.get_or_create_state.return_value = mock_screen_node
 
-        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(dfs_strategy, "_try_generate_text_input", return_value=None):
             result = dfs_strategy.select_next_action("new_hash", mock_screen_desc)
 
         mock_graph.get_or_create_state.assert_called_once()
         assert "new_hash" in dfs_strategy.visited_states
         assert len(dfs_strategy.state_stack) == 1
 
-    def test_new_state_selects_action(self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node):
+    def test_new_state_selects_action(
+        self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node
+    ):
         """Test that action is selected for new state."""
         mock_graph.states = {}
         mock_graph.get_or_create_state.return_value = mock_screen_node
 
-        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(dfs_strategy, "_try_generate_text_input", return_value=None):
             result = dfs_strategy.select_next_action("new_hash", mock_screen_desc)
 
         assert result == mock_action
         assert dfs_strategy.current_depth == 1
 
-    def test_revisited_state_uses_existing_node(self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node):
+    def test_revisited_state_uses_existing_node(
+        self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node
+    ):
         """Test that revisited state uses existing node."""
         mock_graph.states = {"existing_hash": mock_screen_node}
 
-        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(dfs_strategy, "_try_generate_text_input", return_value=None):
             result = dfs_strategy.select_next_action("existing_hash", mock_screen_desc)
 
         mock_graph.get_or_create_state.assert_not_called()
 
-    def test_exhausted_state_returns_back_action(self, dfs_strategy, mock_graph, mock_screen_desc, mock_screen_node):
+    def test_exhausted_state_returns_back_action(
+        self, dfs_strategy, mock_graph, mock_screen_desc, mock_screen_node
+    ):
         """Test that exhausted state (no available actions) returns BACK action.
 
         With continuous exploration mode, when no actions are available,
@@ -452,8 +470,9 @@ class TestDFSStrategySelectNextAction:
         mock_screen_node.total_actions = 0
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
-        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None), \
-             patch.object(dfs_strategy, '_try_generate_scroll_action', return_value=None):
+        with patch.object(
+            dfs_strategy, "_try_generate_text_input", return_value=None
+        ), patch.object(dfs_strategy, "_try_generate_scroll_action", return_value=None):
             result = dfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
         # With continuous exploration, BACK is returned when no actions available
@@ -461,12 +480,14 @@ class TestDFSStrategySelectNextAction:
         assert result.text == "BACK"
         assert result.id == 999
 
-    def test_records_action_before_returning(self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node):
+    def test_records_action_before_returning(
+        self, dfs_strategy, mock_graph, mock_screen_desc, mock_action, mock_screen_node
+    ):
         """Test that action is recorded before returning."""
         mock_graph.states = {}
         mock_graph.get_or_create_state.return_value = mock_screen_node
 
-        with patch.object(dfs_strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(dfs_strategy, "_try_generate_text_input", return_value=None):
             dfs_strategy.select_next_action("hash", mock_screen_desc)
 
         mock_graph.record_action.assert_called_once()
@@ -475,6 +496,7 @@ class TestDFSStrategySelectNextAction:
 # =============================================================================
 # Record Transition Tests
 # =============================================================================
+
 
 class TestDFSStrategyRecordTransition:
     """Tests for DFSStrategy.record_transition()."""
@@ -491,6 +513,7 @@ class TestDFSStrategyRecordTransition:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestDFSStrategyIntegration:
     """Integration tests for DFSStrategy."""
@@ -517,7 +540,7 @@ class TestDFSStrategyIntegration:
         action1 = MagicMock()
         action1.id = 1
         action1.coords_for_matching = ((100, 100), "CLICK")
-        action1.target_view = {'system_action': False}
+        action1.target_view = {"system_action": False}
         action1.get_execution_coordinates.return_value = (100, 100)
         action1.directly_reaches_mop = False
         action1.reaches_mop = False
@@ -525,7 +548,7 @@ class TestDFSStrategyIntegration:
         action2 = MagicMock()
         action2.id = 2
         action2.coords_for_matching = ((200, 200), "CLICK")
-        action2.target_view = {'system_action': False}
+        action2.target_view = {"system_action": False}
         action2.get_execution_coordinates.return_value = (200, 200)
         action2.directly_reaches_mop = False
         action2.reaches_mop = False
@@ -536,20 +559,22 @@ class TestDFSStrategyIntegration:
         screen_desc.items = []
 
         # First call - should select first action
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
             result1 = strategy.select_next_action("state1", screen_desc)
 
         assert result1 is not None
         assert strategy.current_depth == 1
         assert len(strategy.visited_states) == 1
 
-    def test_depth_tracking(self, mock_graph, mock_screen_desc, mock_action, mock_screen_node):
+    def test_depth_tracking(
+        self, mock_graph, mock_screen_desc, mock_action, mock_screen_node
+    ):
         """Test that depth is tracked correctly."""
         strategy = DFSStrategy(graph=mock_graph)
         mock_graph.states = {}
         mock_graph.get_or_create_state.return_value = mock_screen_node
 
-        with patch.object(strategy, '_try_generate_text_input', return_value=None):
+        with patch.object(strategy, "_try_generate_text_input", return_value=None):
             # First action
             strategy.select_next_action("state1", mock_screen_desc)
             assert strategy.current_depth == 1

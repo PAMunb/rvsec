@@ -13,14 +13,16 @@ import pytest
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
     ScreenNode,
-    compute_screen_hash_from_description
+    compute_screen_hash_from_description,
 )
 from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.memory.agent_memory import AgentMemoryManager
@@ -28,7 +30,6 @@ from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.long_term import LongTermMemory
-
 
 pytestmark = pytest.mark.integration
 
@@ -58,8 +59,7 @@ def load_fixture(app_name: str, screen_num: str) -> Tuple[str, ScreenDescription
 
     parser = UIAutomator2Parser(visitor_class=DefaultTextVisitor)
     screen_desc = parser.parse(
-        xml_content,
-        activity=f"com.example.{app_name}.MainActivity"
+        xml_content, activity=f"com.example.{app_name}.MainActivity"
     )
 
     return xml_content, screen_desc
@@ -81,6 +81,7 @@ def get_available_fixtures(app_name: str) -> List[str]:
 # =============================================================================
 # Test Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def parser():
@@ -125,20 +126,23 @@ def long_term_memory():
 
 
 @pytest.fixture
-def memory_coordinator(graph, short_term_memory, long_term_memory, ui_coverage, agent_memory):
+def memory_coordinator(
+    graph, short_term_memory, long_term_memory, ui_coverage, agent_memory
+):
     """Memory coordinator with all systems."""
     return MemoryCoordinator(
         dynamic_graph=graph,
         short_term_memory=short_term_memory,
         long_term_memory=long_term_memory,
         ui_coverage=ui_coverage,
-        agent_memory=agent_memory
+        agent_memory=agent_memory,
     )
 
 
 # =============================================================================
 # Cryptoapp Fixture Loading Tests
 # =============================================================================
+
 
 class TestFixtureLoading:
     """Test that fixtures can be loaded correctly."""
@@ -182,6 +186,7 @@ class TestFixtureLoading:
 # Screen Hash and State Tracking Tests
 # =============================================================================
 
+
 class TestScreenHashComputation:
     """Test screen hash computation with real fixtures."""
 
@@ -218,6 +223,7 @@ class TestScreenHashComputation:
 # DFS Strategy Exploration Tests
 # =============================================================================
 
+
 class TestDFSExplorationOrder:
     """Test DFS algorithm selects actions in correct order."""
 
@@ -250,11 +256,14 @@ class TestDFSExplorationOrder:
         screen_hash = compute_screen_hash_from_description(screen_desc)
 
         # Get available actions
-        total_actions = len([
-            a for a in screen_desc.get_all_actions()
-            if not a.target_view.get('system_action', False)
-            and a.get_execution_coordinates()
-        ])
+        total_actions = len(
+            [
+                a
+                for a in screen_desc.get_all_actions()
+                if not a.target_view.get("system_action", False)
+                and a.get_execution_coordinates()
+            ]
+        )
 
         selected_signatures = set()
 
@@ -287,17 +296,22 @@ class TestDFSExplorationOrder:
         screen_hash = compute_screen_hash_from_description(screen_desc)
 
         # Get unique action count
-        unique_actions = len([
-            a for a in screen_desc.get_all_actions()
-            if not a.target_view.get('system_action', False)
-            and a.get_execution_coordinates()
-        ])
+        unique_actions = len(
+            [
+                a
+                for a in screen_desc.get_all_actions()
+                if not a.target_view.get("system_action", False)
+                and a.get_execution_coordinates()
+            ]
+        )
 
         # Execute more than unique actions to trigger continuous exploration
         for i in range(unique_actions + 5):
             action = dfs_strategy.select_next_action(screen_hash, screen_desc)
             # In continuous mode, should always get an action (or BACK)
-            assert action is not None, f"Iteration {i}: Expected action in continuous mode"
+            assert (
+                action is not None
+            ), f"Iteration {i}: Expected action in continuous mode"
 
 
 class TestDFSCoverageAchievement:
@@ -356,8 +370,9 @@ class TestDFSCoverageAchievement:
             node = graph.states[screen_hash]
             current_coverage = node.get_coverage()
 
-            assert current_coverage >= prev_coverage, \
-                f"Coverage decreased from {prev_coverage} to {current_coverage}"
+            assert (
+                current_coverage >= prev_coverage
+            ), f"Coverage decreased from {prev_coverage} to {current_coverage}"
 
             prev_coverage = current_coverage
 
@@ -369,6 +384,7 @@ class TestDFSCoverageAchievement:
 # =============================================================================
 # Memory Population Tests
 # =============================================================================
+
 
 class TestMemoryPopulation:
     """Test memory systems are populated during exploration."""
@@ -421,7 +437,7 @@ class TestMemoryPopulation:
             "action_type": "CLICK",
             "x": 540,
             "y": 273,
-            "explanation": "Click button"
+            "explanation": "Click button",
         }
 
         memory_coordinator.update_memories(
@@ -431,7 +447,7 @@ class TestMemoryPopulation:
             action=action,
             llm_reasoning="Test reasoning",
             iteration=1,
-            recent_action_window=[]
+            recent_action_window=[],
         )
 
         # Verify short term memory updated
@@ -441,6 +457,7 @@ class TestMemoryPopulation:
 # =============================================================================
 # Multi-Screen Exploration Tests
 # =============================================================================
+
 
 class TestMultiScreenExploration:
     """Test exploration across multiple screens."""
@@ -478,6 +495,7 @@ class TestMultiScreenExploration:
 # =============================================================================
 # Coordinate-Based Tracking Tests
 # =============================================================================
+
 
 class TestCoordinateTracking:
     """Test coordinate-based action tracking."""
@@ -519,6 +537,7 @@ class TestCoordinateTracking:
 # =============================================================================
 # App-Specific Fixture Tests
 # =============================================================================
+
 
 class TestLudoFixtures:
     """Test with Ludo app fixtures (different UI patterns)."""
@@ -586,6 +605,7 @@ class TestHashpassFixtures:
 # End-to-End Exploration Simulation
 # =============================================================================
 
+
 class TestExplorationSimulation:
     """Simulate complete exploration session."""
 
@@ -618,7 +638,7 @@ class TestExplorationSimulation:
                     agent_memory.record_action(
                         {"action_type": "CLICK", "x": coords[0], "y": coords[1]},
                         screen_desc.activity,
-                        success=True
+                        success=True,
                     )
 
         # Verify exploration results
@@ -662,6 +682,8 @@ class TestExplorationSimulation:
         # Verify coverage on each screen
         for screen_hash, node in graph.states.items():
             # Each screen should have some actions tested
-            assert len(node.executed_actions) > 0, f"Screen {screen_hash} has no actions"
+            assert (
+                len(node.executed_actions) > 0
+            ), f"Screen {screen_hash} has no actions"
             # Coverage should be significant
             assert node.get_coverage() >= 0.5, f"Screen {screen_hash} coverage too low"

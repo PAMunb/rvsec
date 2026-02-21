@@ -31,8 +31,7 @@ def capture_screenshot_node(agent: "RVAgent", state: AgentState) -> Dict[str, An
     try:
         screenshot_path = agent.device.take_screenshot()
         screenshot_b64 = agent.image_handler.optimize(
-            image_path=screenshot_path,
-            quality=90
+            image_path=screenshot_path, quality=90
         )
 
         if not screenshot_b64:

@@ -28,9 +28,7 @@ def _make_mock_agent(
 ):
     """Create a mock agent with the standard memory coordinator stubs."""
     mock_memory_coordinator = MagicMock()
-    mock_memory_coordinator.update_memories.return_value = {
-        "recent_action_window": []
-    }
+    mock_memory_coordinator.update_memories.return_value = {"recent_action_window": []}
     mock_memory_coordinator.generate_summaries.return_value = {
         "action_history_summary": "",
         "exploration_summary": "",
@@ -41,9 +39,7 @@ def _make_mock_agent(
         "visited_states": [],
         "state_transitions": [],
     }
-    mock_memory_coordinator.check_continuation.return_value = {
-        "should_continue": True
-    }
+    mock_memory_coordinator.check_continuation.return_value = {"should_continue": True}
 
     mock_config = MagicMock()
     mock_config.error_detection_enabled = error_detection_enabled
@@ -189,7 +185,10 @@ class TestLearnNodeErrorDetection:
         # Counter stays at max
         assert agent.error_recovery_count == MAX_ERROR_RECOVERY
         # force_fill_input NOT set in result
-        assert "force_fill_input" not in result or result.get("force_fill_input") is not True
+        assert (
+            "force_fill_input" not in result
+            or result.get("force_fill_input") is not True
+        )
 
     @patch("rv_agent.agent.nodes.learn_node._detect_validation_error")
     def test_screen_changes_after_max_recovery_resets(self, mock_detect):
@@ -233,7 +232,10 @@ class TestLearnNodeErrorDetection:
         # Counter resets since no error found
         assert agent.error_recovery_count == 0
         # force_fill_input NOT set
-        assert "force_fill_input" not in result or result.get("force_fill_input") is not True
+        assert (
+            "force_fill_input" not in result
+            or result.get("force_fill_input") is not True
+        )
 
     @patch("rv_agent.agent.nodes.learn_node._detect_validation_error")
     def test_track_learn_called_with_error_detected_true(self, mock_detect):

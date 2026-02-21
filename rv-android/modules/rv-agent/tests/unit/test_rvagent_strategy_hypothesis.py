@@ -1,13 +1,18 @@
 """
 Property-based tests for the RVAgentStrategy using Hypothesis.
 """
+
 import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
 from unittest.mock import MagicMock, patch
 
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction, WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import (
+    ScreenDescription,
+    ItemAction,
+    WidgetEventType,
+)
 
 # --- Strategies for generating strategy components ---
 
@@ -21,9 +26,12 @@ item_action_strategy = st.builds(
     reaches_mop=st.booleans(),
     directly_reaches_mop=st.booleans(),
     target_view=st.fixed_dictionaries({}),
-    coordinates=st.tuples(st.integers(min_value=0, max_value=1080), st.integers(min_value=0, max_value=1920)),
-    text_input=st.none()
-).map(lambda action: action.model_copy(update={'action_type': action.event.name}))
+    coordinates=st.tuples(
+        st.integers(min_value=0, max_value=1080),
+        st.integers(min_value=0, max_value=1920),
+    ),
+    text_input=st.none(),
+).map(lambda action: action.model_copy(update={"action_type": action.event.name}))
 
 
 @pytest.mark.hypothesis
@@ -34,6 +42,7 @@ class TestRVAgentStrategyHypothesis:
         """Helper method to create a fresh RVAgentStrategy instance."""
         from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
         from rv_agent.memory.ui_coverage import UICoverageTracker
+
         graph = DynamicStateGraph()
         ui_coverage = UICoverageTracker()
         config = RVAgentConfig.create_default(package_name="com.example.app")
@@ -81,7 +90,10 @@ class TestRVAgentStrategyHypothesis:
         assert selected.reaches_mop is True
         assert selected.directly_reaches_mop is False
 
-    @given(x=st.integers(min_value=0, max_value=1080), y=st.integers(min_value=0, max_value=2000))
+    @given(
+        x=st.integers(min_value=0, max_value=1080),
+        y=st.integers(min_value=0, max_value=2000),
+    )
     @settings(deadline=500, max_examples=20)
     def test_is_system_action(self, x, y):
         """Tests the logic for identifying system actions based on coordinates."""

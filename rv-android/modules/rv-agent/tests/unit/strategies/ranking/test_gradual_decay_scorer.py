@@ -51,7 +51,7 @@ class TestGradualDecayScorer:
         action = _make_action()
         context.ui_coverage.get_element_test_count.return_value = 3
         score = scorer.score(action, context)
-        assert score == pytest.approx(200.0 * 0.7 ** 3, rel=0.01)
+        assert score == pytest.approx(200.0 * 0.7**3, rel=0.01)
 
     def test_gradual_decay_min_visits_cutoff(self, scorer, context):
         """Visits >= min_visits (5) should return 0.0."""
@@ -79,10 +79,17 @@ class TestGradualDecayScorer:
     def test_gradual_decay_registered_in_ranker(self):
         """GradualDecayScorer should be registered as one of 8 active scorers."""
         from rv_agent.config.agent_config import RVAgentConfig
-        from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import ActionRanker
+        from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import (
+            ActionRanker,
+        )
         from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
-            MopScorer, WtgScorer, SaturationScorer, ComponentPriorityScorer,
-            StrengthScorer, SystemElementFilter, VisitationPenaltyScorer,
+            MopScorer,
+            WtgScorer,
+            SaturationScorer,
+            ComponentPriorityScorer,
+            StrengthScorer,
+            SystemElementFilter,
+            VisitationPenaltyScorer,
             GradualDecayScorer,
         )
 

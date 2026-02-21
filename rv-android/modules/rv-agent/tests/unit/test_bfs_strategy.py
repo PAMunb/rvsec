@@ -18,10 +18,10 @@ from rv_agent.strategies.bfs_strategy import BFSState, BFSStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_graph():
@@ -73,16 +73,14 @@ def bfs_strategy(mock_graph):
 # BFSState Tests
 # =============================================================================
 
+
 class TestBFSState:
     """Tests for BFSState dataclass."""
 
     def test_creation(self):
         """Test BFSState creation with all fields."""
         state = BFSState(
-            screen_hash="hash123",
-            depth=2,
-            parent_hash="parent_hash",
-            untested_count=5
+            screen_hash="hash123", depth=2, parent_hash="parent_hash", untested_count=5
         )
 
         assert state.screen_hash == "hash123"
@@ -93,10 +91,7 @@ class TestBFSState:
     def test_creation_no_parent(self):
         """Test BFSState creation for root state (no parent)."""
         state = BFSState(
-            screen_hash="root_hash",
-            depth=0,
-            parent_hash=None,
-            untested_count=10
+            screen_hash="root_hash", depth=0, parent_hash=None, untested_count=10
         )
 
         assert state.screen_hash == "root_hash"
@@ -108,6 +103,7 @@ class TestBFSState:
 # =============================================================================
 # BFSStrategy Initialization Tests
 # =============================================================================
+
 
 class TestBFSStrategyInit:
     """Tests for BFSStrategy initialization."""
@@ -144,6 +140,7 @@ class TestBFSStrategyInit:
 # BFSStrategy Reset Tests
 # =============================================================================
 
+
 class TestBFSStrategyReset:
     """Tests for BFSStrategy.reset()."""
 
@@ -168,6 +165,7 @@ class TestBFSStrategyReset:
 # =============================================================================
 # BFSStrategy Filter Actions Tests
 # =============================================================================
+
 
 class TestBFSStrategyFilterActions:
     """Tests for BFSStrategy._filter_actions()."""
@@ -217,7 +215,10 @@ class TestBFSStrategyFilterActions:
         """Test that actions above navigation bar pass filter."""
         above_navbar_action = MagicMock(spec=ItemAction)
         above_navbar_action.target_view = {}
-        above_navbar_action.get_execution_coordinates.return_value = (540, 1790)  # Just above nav bar
+        above_navbar_action.get_execution_coordinates.return_value = (
+            540,
+            1790,
+        )  # Just above nav bar
 
         filtered = bfs_strategy._filter_actions([above_navbar_action])
 
@@ -239,7 +240,9 @@ class TestBFSStrategyFilterActions:
         navbar_action.target_view = {}
         navbar_action.get_execution_coordinates.return_value = (540, 1900)
 
-        filtered = bfs_strategy._filter_actions([valid_action, system_action, navbar_action])
+        filtered = bfs_strategy._filter_actions(
+            [valid_action, system_action, navbar_action]
+        )
 
         assert len(filtered) == 1
         assert filtered[0] is valid_action
@@ -248,6 +251,7 @@ class TestBFSStrategyFilterActions:
 # =============================================================================
 # BFSStrategy Get Untested Actions Tests
 # =============================================================================
+
 
 class TestBFSStrategyGetUntestedActions:
     """Tests for BFSStrategy._get_untested_actions()."""
@@ -285,7 +289,9 @@ class TestBFSStrategyGetUntestedActions:
         sig1 = ((int(100 * 704 / 1080), int(200 * 1248 / 1920)), "CLICK")
         mock_screen_node.executed_actions = {sig1}
 
-        untested = bfs_strategy._get_untested_actions(mock_screen_node, [action1, action2])
+        untested = bfs_strategy._get_untested_actions(
+            mock_screen_node, [action1, action2]
+        )
 
         assert len(untested) == 1
         assert untested[0] is action2
@@ -294,6 +300,7 @@ class TestBFSStrategyGetUntestedActions:
 # =============================================================================
 # BFSStrategy MOP Priority Tests
 # =============================================================================
+
 
 class TestBFSStrategyMOPPriority:
     """Tests for BFSStrategy._get_mop_priority()."""
@@ -338,6 +345,7 @@ class TestBFSStrategyMOPPriority:
 # =============================================================================
 # BFSStrategy Select Priority Action Tests
 # =============================================================================
+
 
 class TestBFSStrategySelectPriorityAction:
     """Tests for BFSStrategy._select_priority_action()."""
@@ -405,6 +413,7 @@ class TestBFSStrategySelectPriorityAction:
 # BFSStrategy Convert Signature Tests
 # =============================================================================
 
+
 class TestBFSStrategyConvertSignature:
     """Tests for BFSStrategy._convert_signature_to_optimized()."""
 
@@ -438,7 +447,9 @@ class TestBFSStrategyConvertSignature:
         long_click_sig = ((100, 200), "LONG_CLICK")
 
         click_converted = bfs_strategy._convert_signature_to_optimized(click_sig)
-        long_click_converted = bfs_strategy._convert_signature_to_optimized(long_click_sig)
+        long_click_converted = bfs_strategy._convert_signature_to_optimized(
+            long_click_sig
+        )
 
         assert click_converted[1] == "CLICK"
         assert long_click_converted[1] == "LONG_CLICK"
@@ -448,10 +459,13 @@ class TestBFSStrategyConvertSignature:
 # BFSStrategy Should Backtrack Tests
 # =============================================================================
 
+
 class TestBFSStrategyShouldBacktrack:
     """Tests for BFSStrategy.should_backtrack()."""
 
-    def test_should_backtrack_when_exhausted(self, bfs_strategy, mock_graph, mock_screen_node):
+    def test_should_backtrack_when_exhausted(
+        self, bfs_strategy, mock_graph, mock_screen_node
+    ):
         """Test returns True when all actions executed."""
         mock_screen_node.total_actions = 3
         mock_screen_node.executed_actions = {"sig1", "sig2", "sig3"}  # All executed
@@ -461,7 +475,9 @@ class TestBFSStrategyShouldBacktrack:
 
         assert should_backtrack is True
 
-    def test_should_not_backtrack_with_untested(self, bfs_strategy, mock_graph, mock_screen_node):
+    def test_should_not_backtrack_with_untested(
+        self, bfs_strategy, mock_graph, mock_screen_node
+    ):
         """Test returns False when untested actions exist."""
         mock_screen_node.total_actions = 5
         mock_screen_node.executed_actions = {"sig1", "sig2"}  # Only 2 of 5 executed
@@ -483,6 +499,7 @@ class TestBFSStrategyShouldBacktrack:
 # =============================================================================
 # BFSStrategy Record Transition Tests
 # =============================================================================
+
 
 class TestBFSStrategyRecordTransition:
     """Tests for BFSStrategy.record_transition()."""
@@ -512,10 +529,13 @@ class TestBFSStrategyRecordTransition:
 # BFSStrategy Select Next Action Tests
 # =============================================================================
 
+
 class TestBFSStrategySelectNextAction:
     """Tests for BFSStrategy.select_next_action()."""
 
-    def test_new_state_creates_node(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_new_state_creates_node(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that new state creates graph node."""
         mock_graph.get_or_create_state.return_value = mock_screen_node
         mock_graph.states = {}
@@ -524,7 +544,9 @@ class TestBFSStrategySelectNextAction:
 
         mock_graph.get_or_create_state.assert_called_once()
 
-    def test_new_state_added_to_queue(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_new_state_added_to_queue(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that new state is added to BFS queue."""
         mock_graph.get_or_create_state.return_value = mock_screen_node
         mock_graph.states = {}
@@ -534,7 +556,9 @@ class TestBFSStrategySelectNextAction:
         assert len(bfs_strategy.state_queue) == 1
         assert bfs_strategy.state_queue[0].screen_hash == "new_hash"
 
-    def test_new_state_selects_action(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_new_state_selects_action(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that untested action is selected for new state."""
         mock_screen_node.executed_actions = set()
         mock_graph.get_or_create_state.return_value = mock_screen_node
@@ -544,7 +568,9 @@ class TestBFSStrategySelectNextAction:
 
         assert selected is mock_action
 
-    def test_revisited_state_uses_existing_node(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_revisited_state_uses_existing_node(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that revisited state uses existing graph node."""
         mock_screen_node.executed_actions = set()
         mock_graph.states = {"existing_hash": mock_screen_node}
@@ -553,7 +579,9 @@ class TestBFSStrategySelectNextAction:
 
         mock_graph.get_or_create_state.assert_not_called()
 
-    def test_exhausted_state_returns_back_action(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_exhausted_state_returns_back_action(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that exhausted state (no available actions) returns BACK action.
 
         With continuous exploration mode, when no actions are available,
@@ -565,16 +593,21 @@ class TestBFSStrategySelectNextAction:
         mock_screen_node.total_actions = 0
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
-        with patch.object(bfs_strategy, '_try_generate_text_input', return_value=None), \
-             patch.object(bfs_strategy, '_try_generate_scroll_action', return_value=None):
-            selected = bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
+        with patch.object(
+            bfs_strategy, "_try_generate_text_input", return_value=None
+        ), patch.object(bfs_strategy, "_try_generate_scroll_action", return_value=None):
+            selected = bfs_strategy.select_next_action(
+                "exhausted_hash", mock_screen_desc
+            )
 
         # With continuous exploration, BACK is returned when no actions available
         assert selected is not None
         assert selected.text == "BACK"
         assert selected.id == 999
 
-    def test_exhausted_state_stays_in_queue_with_continuous_exploration(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_exhausted_state_stays_in_queue_with_continuous_exploration(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that state stays in queue with continuous exploration.
 
         With continuous exploration mode, states are not removed from queue when
@@ -590,14 +623,17 @@ class TestBFSStrategySelectNextAction:
         mock_screen_node.total_actions = 0
         mock_graph.states = {"exhausted_hash": mock_screen_node}
 
-        with patch.object(bfs_strategy, '_try_generate_text_input', return_value=None), \
-             patch.object(bfs_strategy, '_try_generate_scroll_action', return_value=None):
+        with patch.object(
+            bfs_strategy, "_try_generate_text_input", return_value=None
+        ), patch.object(bfs_strategy, "_try_generate_scroll_action", return_value=None):
             bfs_strategy.select_next_action("exhausted_hash", mock_screen_desc)
 
         # With continuous exploration, state stays in queue for potential re-exploration
         assert len(bfs_strategy.state_queue) == 1
 
-    def test_records_action_before_returning(self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action):
+    def test_records_action_before_returning(
+        self, bfs_strategy, mock_graph, mock_screen_node, mock_screen_desc, mock_action
+    ):
         """Test that selected action is recorded before returning."""
         mock_screen_node.executed_actions = set()
         mock_graph.get_or_create_state.return_value = mock_screen_node
@@ -611,6 +647,7 @@ class TestBFSStrategySelectNextAction:
 # =============================================================================
 # BFSStrategy Queue Behavior Tests (Key Difference from DFS)
 # =============================================================================
+
 
 class TestBFSStrategyQueueBehavior:
     """Tests for BFS queue behavior (FIFO - First In First Out)."""
@@ -629,7 +666,9 @@ class TestBFSStrategyQueueBehavior:
         second_out = bfs_strategy.state_queue.popleft()
         assert second_out.screen_hash == "second"
 
-    def test_queue_level_order_traversal(self, bfs_strategy, mock_graph, mock_screen_node):
+    def test_queue_level_order_traversal(
+        self, bfs_strategy, mock_graph, mock_screen_node
+    ):
         """Test that BFS explores level-by-level."""
         # Simulate exploration: root -> child1, child2 -> grandchild1
         # BFS should visit in order: root, child1, child2, grandchild1
@@ -665,6 +704,7 @@ class TestBFSStrategyQueueBehavior:
 # =============================================================================
 # BFSStrategy Integration Tests
 # =============================================================================
+
 
 class TestBFSStrategyIntegration:
     """Integration tests for BFSStrategy."""

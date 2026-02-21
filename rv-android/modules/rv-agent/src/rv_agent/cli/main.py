@@ -29,11 +29,12 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     """Configure logging for CLI."""
     log_level = logging.DEBUG if debug else logging.INFO
     log_format = (
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        if debug else '%(message)s'
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        if debug
+        else "%(message)s"
     )
     logging.basicConfig(level=log_level, format=log_format, force=True)
-    return logging.getLogger('rv_agent.cli')
+    return logging.getLogger("rv_agent.cli")
 
 
 @click.group()
@@ -43,23 +44,61 @@ def cli():
 
 
 @cli.command()
-@click.option('--package', '-p', required=True,
-              help='Android package name (e.g., br.unb.cic.cryptoapp)')
-@click.option('--device', '-d', default=RVAgentConstants.DEFAULT_DEVICE_ID,
-              help=f'Device ID (default: {RVAgentConstants.DEFAULT_DEVICE_ID})')
-@click.option('--timeout', '-t', type=int, default=300,
-              help='Execution timeout in seconds (default: 300)')
-@click.option('--mode', '-m', type=click.Choice(['multimode', 'pure_algorithm', 'llm_only']),
-              default='multimode', help='Agent execution mode (default: multimode)')
-@click.option('--strategy', '-s', default='rvagent',
-              help='Exploration strategy (default: rvagent)')
-@click.option('--results-dir', '-o', default='./rvagent_results',
-              help='Output directory for results')
-@click.option('--debug', '-v', is_flag=True, help='Enable debug logging')
-@click.option('--llm-probability', type=float, default=0.7,
-              help='LLM probability for multimode (default: 0.7)')
-def run(package: str, device: str, timeout: int, mode: str, strategy: str,
-        results_dir: str, debug: bool, llm_probability: float):
+@click.option(
+    "--package",
+    "-p",
+    required=True,
+    help="Android package name (e.g., br.unb.cic.cryptoapp)",
+)
+@click.option(
+    "--device",
+    "-d",
+    default=RVAgentConstants.DEFAULT_DEVICE_ID,
+    help=f"Device ID (default: {RVAgentConstants.DEFAULT_DEVICE_ID})",
+)
+@click.option(
+    "--timeout",
+    "-t",
+    type=int,
+    default=300,
+    help="Execution timeout in seconds (default: 300)",
+)
+@click.option(
+    "--mode",
+    "-m",
+    type=click.Choice(["multimode", "pure_algorithm", "llm_only"]),
+    default="multimode",
+    help="Agent execution mode (default: multimode)",
+)
+@click.option(
+    "--strategy",
+    "-s",
+    default="rvagent",
+    help="Exploration strategy (default: rvagent)",
+)
+@click.option(
+    "--results-dir",
+    "-o",
+    default="./rvagent_results",
+    help="Output directory for results",
+)
+@click.option("--debug", "-v", is_flag=True, help="Enable debug logging")
+@click.option(
+    "--llm-probability",
+    type=float,
+    default=0.7,
+    help="LLM probability for multimode (default: 0.7)",
+)
+def run(
+    package: str,
+    device: str,
+    timeout: int,
+    mode: str,
+    strategy: str,
+    results_dir: str,
+    debug: bool,
+    llm_probability: float,
+):
     """
     Run autonomous Android testing.
 
@@ -91,7 +130,7 @@ def run(package: str, device: str, timeout: int, mode: str, strategy: str,
     click.echo(f"Mode: {mode}")
     click.echo(f"Strategy: {strategy}")
     click.echo(f"Results: {results_dir}")
-    if mode == 'multimode':
+    if mode == "multimode":
         click.echo(f"LLM Probability: {llm_probability}")
     if debug:
         click.echo("Debug: ENABLED")
@@ -113,7 +152,7 @@ def run(package: str, device: str, timeout: int, mode: str, strategy: str,
             strategy=strategy,
             metrics_output_dir=results_dir,
             llm_probability=llm_probability,
-            debug_mode=debug
+            debug_mode=debug,
         )
 
         # Validate
@@ -141,21 +180,21 @@ def run(package: str, device: str, timeout: int, mode: str, strategy: str,
         click.echo("RESULTS")
         click.echo("=" * 60)
 
-        status = results.get('status', 'unknown')
-        iterations = results.get('iterations', 0)
-        unique_states = results.get('unique_states', 0)
-        execution_time = results.get('execution_time', 0)
+        status = results.get("status", "unknown")
+        iterations = results.get("iterations", 0)
+        unique_states = results.get("unique_states", 0)
+        execution_time = results.get("execution_time", 0)
 
         click.echo(f"Status: {status}")
         click.echo(f"Iterations: {iterations}")
         click.echo(f"Unique states: {unique_states}")
         click.echo(f"Execution time: {execution_time:.1f}s")
 
-        if 'error' in results:
+        if "error" in results:
             click.echo(f"Error: {results['error']}")
 
         click.echo("\nRVAgent execution completed")
-        sys.exit(0 if status in ['completed', 'timeout'] else 1)
+        sys.exit(0 if status in ["completed", "timeout"] else 1)
 
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=debug)
@@ -164,8 +203,12 @@ def run(package: str, device: str, timeout: int, mode: str, strategy: str,
 
 
 @cli.command()
-@click.option('--device', '-d', default=RVAgentConstants.DEFAULT_DEVICE_ID,
-              help=f'Device ID (default: {RVAgentConstants.DEFAULT_DEVICE_ID})')
+@click.option(
+    "--device",
+    "-d",
+    default=RVAgentConstants.DEFAULT_DEVICE_ID,
+    help=f"Device ID (default: {RVAgentConstants.DEFAULT_DEVICE_ID})",
+)
 def test(device: str):
     """Test device connection and configuration."""
     logger = setup_logging(False)
@@ -192,9 +235,13 @@ def test(device: str):
 
 
 @cli.command()
-@click.argument('apk_path', type=click.Path(exists=True))
-@click.option('--device', '-d', default=RVAgentConstants.DEFAULT_DEVICE_ID,
-              help=f'Device ID (default: {RVAgentConstants.DEFAULT_DEVICE_ID})')
+@click.argument("apk_path", type=click.Path(exists=True))
+@click.option(
+    "--device",
+    "-d",
+    default=RVAgentConstants.DEFAULT_DEVICE_ID,
+    help=f"Device ID (default: {RVAgentConstants.DEFAULT_DEVICE_ID})",
+)
 def install(apk_path: str, device: str):
     """Install APK on device (convenience command)."""
     import subprocess
@@ -203,10 +250,10 @@ def install(apk_path: str, device: str):
 
     try:
         result = subprocess.run(
-            ['adb', '-s', device, 'install', '-r', apk_path],
+            ["adb", "-s", device, "install", "-r", apk_path],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
         if result.returncode == 0:

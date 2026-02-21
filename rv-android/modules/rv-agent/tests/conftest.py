@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 # Configuration Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sglang_url():
     """SGLang server URL."""
@@ -63,6 +64,7 @@ def optimized_dimensions():
 # Agent Config Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def agent_config(test_package, test_device_id, sglang_url, sglang_model):
     """RVAgentConfig with SGLang settings."""
@@ -100,6 +102,7 @@ def llm_only_config(agent_config):
 # Mock Device Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_device():
     """Mock device interface for offline testing."""
@@ -131,6 +134,7 @@ def mock_screen_processor():
 # Sample Data Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_screenshot_b64():
     """Sample base64 encoded screenshot (1x1 white pixel)."""
@@ -155,9 +159,9 @@ Available UI Elements:
 @pytest.fixture
 def sample_tool_call_xml():
     """Sample Qwen XML format tool call."""
-    return '''<tool_call>
+    return """<tool_call>
 {"name": "android_click", "arguments": {"x": 352, "y": 624, "element_description": "OK button"}}
-</tool_call>'''
+</tool_call>"""
 
 
 @pytest.fixture
@@ -176,6 +180,7 @@ def sample_tool_call_json_array():
 # LLM Response Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_llm_response():
     """Mock LangChain AIMessage response."""
@@ -185,7 +190,7 @@ def mock_llm_response():
         {
             "name": "android_click",
             "args": {"x": 352, "y": 624, "element_description": "OK button"},
-            "id": "call_123"
+            "id": "call_123",
         }
     ]
     response.response_metadata = {
@@ -201,9 +206,9 @@ def mock_llm_response():
 def mock_llm_response_text_only():
     """Mock AIMessage with tool call in text content."""
     response = Mock()
-    response.content = '''<tool_call>
+    response.content = """<tool_call>
 {"name": "android_click", "arguments": {"x": 352, "y": 624}}
-</tool_call>'''
+</tool_call>"""
     response.tool_calls = []
     response.response_metadata = {
         "token_usage": {
@@ -217,6 +222,7 @@ def mock_llm_response_text_only():
 # =============================================================================
 # Strategy Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_ui_elements():
@@ -252,6 +258,7 @@ def mock_ui_elements():
 # Dataset Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def apks_base_path():
     """Path to APKs dataset."""
@@ -279,6 +286,7 @@ def tier1_apps():
 # Validation Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def v10_baseline_path():
     """Path to V10 baseline results."""
@@ -302,6 +310,7 @@ def validation_thresholds():
 # Markers
 # =============================================================================
 
+
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
@@ -311,7 +320,8 @@ def pytest_configure(config):
         "markers", "unit: marks tests as unit tests (isolated, mocked)"
     )
     config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests (component interaction)"
+        "markers",
+        "integration: marks tests as integration tests (component interaction)",
     )
     config.addinivalue_line(
         "markers", "system: marks tests as system tests (end-to-end)"
@@ -319,18 +329,10 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "performance: marks tests as performance benchmarks"
     )
-    config.addinivalue_line(
-        "markers", "regression: marks tests as regression tests"
-    )
-    config.addinivalue_line(
-        "markers", "online: marks tests requiring emulator (slow)"
-    )
-    config.addinivalue_line(
-        "markers", "sglang: marks tests requiring SGLang server"
-    )
-    config.addinivalue_line(
-        "markers", "slow: marks tests that take significant time"
-    )
+    config.addinivalue_line("markers", "regression: marks tests as regression tests")
+    config.addinivalue_line("markers", "online: marks tests requiring emulator (slow)")
+    config.addinivalue_line("markers", "sglang: marks tests requiring SGLang server")
+    config.addinivalue_line("markers", "slow: marks tests that take significant time")
     config.addinivalue_line(
         "markers", "dataset: marks tests that use the full app dataset"
     )

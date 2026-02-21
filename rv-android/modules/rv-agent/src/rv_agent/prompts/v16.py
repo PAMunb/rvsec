@@ -36,7 +36,9 @@ AVOID:
 Use android_type_text() for EditText fields."""
 
 
-def build_user_message(state_info: dict, navigation_hint: str = "", screen_line: str = "") -> str:
+def build_user_message(
+    state_info: dict, navigation_hint: str = "", screen_line: str = ""
+) -> str:
     """
     Build context message for LLM.
 
@@ -48,9 +50,9 @@ def build_user_message(state_info: dict, navigation_hint: str = "", screen_line:
         navigation_hint: Optional navigation guidance from WTG analysis
         screen_line: Screen info (activity, coverage, visit count)
     """
-    ui_elements = state_info.get('ui_elements', [])
-    last_action = state_info.get('last_action')
-    iteration = state_info.get('iteration', 0)
+    ui_elements = state_info.get("ui_elements", [])
+    last_action = state_info.get("last_action")
+    iteration = state_info.get("iteration", 0)
 
     elements_text = ui_elements[0] if ui_elements else "No interactive elements found."
 
