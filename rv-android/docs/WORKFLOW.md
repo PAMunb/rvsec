@@ -814,6 +814,8 @@ Add skill invocation tasks at the end of each group where a skill adds value. Fo
 - **Orchestrator skills per group**: Do not annotate `/rv-tdd`, `/rv-feature`, `/rv-refactor`, `/rv-cleanup` per task group — their analysis/planning phases duplicate what OpenSpec artifacts already cover (see "Orchestrators vs Component Skills" below). Use component skills in tasks.md instead.
 - **Redundant verification**: If the group already has "Run `uv run pytest ...`" as a task, don't add `/rv-test-run` — the explicit command is equivalent
 
+**Schema encoding**: These skill annotation conventions are encoded in the OpenSpec schema instructions and templates (`openspec/schemas/rv-sdd/schema.yaml`, `openspec/schemas/quick-path/schema.yaml`) and in the global config rules (`openspec/config.yaml` `rules.tasks`). When generating tasks.md via `/opsx:continue` or `/opsx:ff`, the schema instructions guide the AI to follow the patterns documented here. Edit the schemas to update the conventions.
+
 ### Orchestrators vs Component Skills in OpenSpec Workflows
 
 Orchestrators (`/rv-tdd`, `/rv-feature`, `/rv-refactor`, `/rv-cleanup`) have multi-phase workflows that include analysis, planning, and user checkpoints. These phases overlap with OpenSpec's proposal → specs → design → tasks workflow. No orchestrator supports a `--skip-analysis` or `--from-plan` flag.

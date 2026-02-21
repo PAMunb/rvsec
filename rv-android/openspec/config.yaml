@@ -37,6 +37,12 @@ context: |
   Workflow: docs/WORKFLOW.md
 
 rules:
+  tasks:
+    - Include a final Verification group with /rv-qa-lint-fix, /rv-verify, and acceptance criteria
+    - Annotate skill invocations (/rv-doc-code, /rv-test-run, /rv-qa-lint-fix, /rv-verify) as checkbox items where they add value
+    - For changes touching 20+ files, include subagent dispatch hints as HTML comments at the top
+    - In rv-sdd changes, use component skills directly (not orchestrators) — OpenSpec artifacts cover analysis and planning
+    - In quick-path changes, orchestrators are appropriate when their structured workflow adds value over plan.md
   adr:
     - Follow template structure from .claude/skills/rv-doc-adr/templates/adr.md
     - English language throughout

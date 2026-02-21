@@ -140,6 +140,17 @@ artifacts:
       - [ ] 2.2 Add integration tests
       ```
 
+      Skill annotations (see docs/WORKFLOW.md Section 9):
+      - After creating a new Python module or class: `- [ ] X.N Run /rv-doc-code <file-path>`
+      - After completing a test group: `- [ ] X.N Run /rv-test-run <module>`
+      - After bulk edits (many files): `- [ ] X.N Run /rv-qa-lint-fix <module>`
+      - Intermediate checkpoints between major groups: `- [ ] X.N Run /rv-verify <module>`
+      - Do NOT annotate orchestrators (/rv-tdd, /rv-feature, /rv-refactor, /rv-cleanup) per task group —
+        their analysis phases duplicate what OpenSpec artifacts already cover. Use component skills directly.
+      - Final group MUST be: `/rv-qa-lint-fix <module>` -> `/rv-verify <module>` -> `/rv-code-reviewer`
+      - For changes touching 20+ files: add subagent dispatch hints as HTML comments at the top of tasks.md
+        (group dependencies, parallel vs sequential, critical path). See docs/WORKFLOW.md Section 5.
+
       Rules:
       - English language throughout
       - Reference specs for what needs to be built, design for how to build it
@@ -155,10 +166,18 @@ apply:
     Read context files (proposal, specs, design), work through pending tasks in tasks.md.
     Mark each task complete (`- [x]`) as you go.
 
-    For each task, choose the appropriate rv-* orchestrator:
-    - /rv-tdd — when adding new functionality (test-first)
-    - /rv-refactor — when restructuring existing code
-    - /rv-feature — when implementing a new capability
+    Use component skills directly — OpenSpec artifacts already cover the analysis, planning, and
+    design that orchestrators (/rv-tdd, /rv-feature, /rv-refactor, /rv-cleanup) would redo.
+    Common component skills for task execution:
+    - /rv-test-run <module> — run tests after each group
+    - /rv-doc-code <file> — generate docstrings for new modules/classes
+    - /rv-qa-lint-fix <module> — auto-fix formatting after bulk edits
+    - /rv-verify <module> — full verification (tests + lint + types) at intermediate checkpoints
+
+    Final verification sequence (after all task groups):
+    1. /rv-qa-lint-fix <module> — auto-fix formatting and imports
+    2. /rv-verify <module> — tests + lint + type checks
+    3. /rv-code-reviewer — invoke via Skill tool for code review
 
     For changes with 3+ independent task groups touching 20+ files, use subagent orchestration
     (see docs/WORKFLOW.md Section 5).

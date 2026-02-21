@@ -366,6 +366,27 @@ ANALYSIS → PLANNING → [CHECKPOINT #1] → EXECUTION (per group with rollback
 
 ---
 
+## OpenSpec Skills (Process Layer)
+
+Located in `.claude/skills/openspec-*/`. Invoke with `/opsx:name`. These manage the SDD change lifecycle — they invoke rv-* skills (execution layer) but are never invoked by them.
+
+| Skill | Command | Purpose | Workflow Phase |
+|-------|---------|---------|----------------|
+| `openspec-explore` | `/opsx:explore` | Think through approach, explore problem space | Full SDD Phase 1, FF SDD Phase 1 |
+| `openspec-new-change` | `/opsx:new` | Create new change with proposal | Full SDD Phase 2 |
+| `openspec-ff-change` | `/opsx:ff` | Fast-forward: generate all artifacts at once | FF SDD Phase 2 |
+| `openspec-continue-change` | `/opsx:continue` | Advance to next artifact (specs, design, tasks) | Full SDD Phases 2-3 |
+| `openspec-apply-change` | `/opsx:apply` | Execute tasks from tasks.md | Full SDD Phase 4, FF SDD Phase 3 |
+| `openspec-verify-change` | `/opsx:verify` | Validate implementation against specs | Full SDD Phase 5, FF SDD Phase 4 |
+| `openspec-sync-specs` | `/opsx:sync` | Sync delta specs to main specs | Full SDD Phase 6 |
+| `openspec-archive-change` | `/opsx:archive` | Archive completed change | Full SDD Phase 6, FF SDD Phase 4 |
+| `openspec-bulk-archive-change` | `/opsx:bulk-archive` | Archive multiple completed changes | Maintenance |
+| `openspec-onboard` | `/opsx:onboard` | Guided onboarding for the SDD workflow | First-time setup |
+
+**Relationship to rv-* skills**: OpenSpec skills manage *what* and *why* (change lifecycle). rv-* skills handle *how* (technical execution). During `/opsx:apply`, OpenSpec delegates to rv-* component skills as annotated in tasks.md. In Full/FF SDD, use component skills directly (not orchestrators) because OpenSpec artifacts already cover analysis and planning. In Quick Path, orchestrators are appropriate when their structured workflow adds value over `plan.md`. See `docs/WORKFLOW.md` Section 9 for the full convention.
+
+---
+
 ## Component Skills
 
 Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigger.
@@ -402,7 +423,7 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 | `rv-refactor-cleanup` | `/rv-refactor-cleanup [module]` | Quick automated cleanup (imports, formatting) |
 | `rv-refactor-constants` | `/rv-refactor-constants [path]` | Extract magic values |
 
-**Note**: `/rv-refactor-cleanup` is for quick fixes. Use `/rv-cleanup` orchestrator for comprehensive dead code removal with safety controls.
+**Note**: `/rv-refactor-cleanup` is for quick fixes. Use `/rv-cleanup` orchestrator for comprehensive dead code removal with safety controls. For full restructuring workflows with analysis, planning, and code review, use the `/rv-refactor` orchestrator (see [Orchestrator Skills](#orchestrator-skills)).
 
 ---
 
@@ -683,16 +704,18 @@ Thought 3: Root cause analysis...
 5. Save results to memory with git_hash observation
 ```
 
+**Entity naming**: `analysis:{type}:{scope}` — e.g., `analysis:complexity:rv-agent`, `analysis:file:src/rv_agent/config.py`. Invalidation uses scope-specific git hash comparison: file-scoped entities use `git log -1 --format=%h -- <file-path>`, module-scoped entities use `git log -1 --format=%h -- modules/<module>/`.
+
 **Entity Types Used**:
 | Entity Pattern | Type | When Created | Invalidation |
 |----------------|------|--------------|--------------|
-| `analysis:file-complexity:<path>` | file-complexity-analysis | After rv-analyze-file-complexity | git hash change |
-| `analysis:file-dead-code:<path>` | file-dead-code-analysis | After rv-analyze-file-dead-code | git hash change |
-| `analysis:file:<path>` | file-analysis | After rv-analyze-file | git hash change |
-| `analysis:complexity:<module>` | complexity-analysis | After rv-analyze-complexity | git hash change |
-| `analysis:dependencies:<module>` | dependency-analysis | After rv-analyze-dependencies | git hash change |
-| `analysis:dead-code:<module>` | dead-code-analysis | After rv-analyze-dead-code | git hash change |
-| `analysis:module:<module>` | module-analysis | After rv-analyze-module | git hash change |
+| `analysis:file-complexity:<path>` | file-complexity-analysis | After rv-analyze-file-complexity | git hash of file |
+| `analysis:file-dead-code:<path>` | file-dead-code-analysis | After rv-analyze-file-dead-code | git hash of file |
+| `analysis:file:<path>` | file-analysis | After rv-analyze-file | git hash of file |
+| `analysis:complexity:<module>` | complexity-analysis | After rv-analyze-complexity | git hash of module dir |
+| `analysis:dependencies:<module>` | dependency-analysis | After rv-analyze-dependencies | git hash of module dir |
+| `analysis:dead-code:<module>` | dead-code-analysis | After rv-analyze-dead-code | git hash of module dir |
+| `analysis:module:<module>` | module-analysis | After rv-analyze-module | git hash of module dir |
 | `refactor-[date]-[target]` | refactoring-operation | After rv-refactor | permanent |
 | `feature-[date]-[name]` | feature-implementation | After rv-feature | permanent |
 | `tdd-[date]-[feature]` | tdd-implementation | After rv-tdd | permanent |
