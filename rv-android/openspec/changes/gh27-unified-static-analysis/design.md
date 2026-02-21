@@ -9,7 +9,7 @@
 
 Three separate Java tools (GESDA, GATOR, REACH) each initialize Soot independently for every APK analyzed, producing three separate output files (`.gesda`, `.wtg`, `.reach`). This 3x redundancy, combined with the `cg all-reachable` misconfiguration, causes static analysis to timeout in gh26 experiments. See `plan.md` Section 1 for the full root cause analysis.
 
-This design consolidates all three tools into a single GATOR client (`RvsecUnifiedClient`) that produces one unified JSON file. The Python side is updated with a single `UnifiedParser`, simplified `StaticAnalyzer`, and updated configuration. References: FR04 (GATOR), FR05 (GESDA), FR06 (REACH), NFR01 (Performance).
+This design consolidates all three tools into a single GATOR client (`RvsecAnalysisClient`) that produces one analysis JSON file. The Python side is updated with a single `StaticAnalysisParser`, simplified `StaticAnalyzer`, and updated configuration. References: FR04 (GATOR), FR05 (GESDA), FR06 (REACH), NFR01 (Performance).
 
 **Constraints**:
 - GATOR uses Soot 3.3.0 (OSU fork); all Java dependencies must exclude their Soot transitive deps
@@ -41,9 +41,9 @@ flowchart LR
 
     subgraph AFTER["After (1 tool, 1 Soot init)"]
         SA2[StaticAnalyzer]
-        SA2 -->|_run_unified| GATOR2["python gator<br/>RvsecUnifiedClient<br/>Soot init #1 only"]
+        SA2 -->|_run_analysis| GATOR2["python gator<br/>RvsecAnalysisClient<br/>Soot init #1 only"]
         GATOR2 --> F4[".json<br/>(reachability → windows<br/>→ transitions)"]
-        F4 --> UP[UnifiedParser]
+        F4 --> UP[StaticAnalysisParser]
         UP --> SAD2[StaticAnalysisData]
     end
 
@@ -80,10 +80,10 @@ flowchart TD
         L_APK[apktool/]
         L_MOP[mop-extractor/]
         L_ME[methods-extractor/]
-        L_GESDA["gesda/<br/><i>keep as baseline</i>"]
-        L_REACH["reach/<br/><i>keep as baseline</i>"]
+        L_GESDA["gesda/<br/><i>baseline → delete (7.8a)</i>"]
+        L_REACH["reach/<br/><i>baseline → delete (7.8b)</i>"]
         L_GATOR[gator/]
-        L_UNIFIED["unified/<br/>⭐ NEW"]
+        L_ANALYSIS["analysis-client/<br/>⭐ NEW"]
     end
 
     APK -->|install| L_APK
@@ -92,44 +92,43 @@ flowchart TD
     GCO -->|install| L_GESDA
     REACH_MOD -->|install| L_REACH
     SOOT -->|install| L_GATOR
-    CLIENT -->|"install (override outputDir)"| L_UNIFIED
+    CLIENT -->|"install (override outputDir)"| L_ANALYSIS
 
     style CLIENT fill:#ffd,stroke:#cc0
-    style L_UNIFIED fill:#ffd,stroke:#cc0
-    style L_GESDA fill:#eee,stroke:#999
-    style L_REACH fill:#eee,stroke:#999
+    style L_ANALYSIS fill:#ffd,stroke:#cc0
+    style L_GESDA fill:#fed,stroke:#c93
+    style L_REACH fill:#fed,stroke:#c93
 ```
 
 ### Key Components
 
 | Component | Responsibility | Location |
 |-----------|---------------|----------|
-| `RvsecUnifiedClient` | GATOR client: extracts reachability (first), windows, WTG in single pass with incremental JSON output | `$RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client/` (Java) |
-| `UnifiedParser` | Parses unified JSON into StaticAnalysisData | `modules/rv-static-analysis/src/rv_static_analysis/parser/static/unified_parser.py` |
+| `RvsecAnalysisClient` | GATOR client: extracts reachability (first), windows, WTG in single pass with incremental JSON output | `$RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client/` (Java) |
+| `StaticAnalysisParser` | Parses analysis JSON into StaticAnalysisData | `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py` |
 | `StaticAnalyzer` | Orchestrates single tool invocation | `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py` |
-| `RVStaticAnalysisConfig` | Configuration with unified tool paths and timeouts | `modules/rv-static-analysis/src/rv_static_analysis/config.py` |
-| `StaticAnalysisParser` | Facade delegating to UnifiedParser | `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py` |
+| `RVStaticAnalysisConfig` | Configuration with analysis tool paths and timeouts | `modules/rv-static-analysis/src/rv_static_analysis/config.py` |
 | `StaticAnalysisComponent` | rv-platform integration, file copy | `modules/rv-platform/src/rv_platform/components/static_analysis.py` |
 
 ## Mapping: Spec → Implementation → Test
 
 | Requirement / Invariant | Implementation | Test |
 |------------------------|----------------|------|
-| FR04+05+06 unified: Successful analysis | `StaticAnalyzer._run_unified()` | `test_run_unified_success` |
-| FR04+05+06 unified: Windows parsing | `UnifiedParser._parse_windows()` | `test_parse_windows_*` |
-| FR04+05+06 unified: Transitions parsing | `UnifiedParser._parse_transitions()` | `test_parse_transitions_*` |
-| FR04+05+06 unified: Reachability parsing | `UnifiedParser._parse_classes()` | `test_parse_classes_*` |
-| FR04+05+06 unified: Inner class normalization | `UnifiedParser` + `SignatureNormalizer` | `test_inner_class_normalization` |
-| FR04+05+06 unified: Missing file | `UnifiedParser.parse_file()` | `test_parse_missing_file` |
-| FR04+05+06 unified: Partial failure | `UnifiedParser._parse_*()` try/except | `test_partial_parse_failure` |
+| FR04+05+06 unified: Successful analysis | `StaticAnalyzer._run_analysis()` | `test_run_analysis_success` |
+| FR04+05+06 unified: Windows parsing | `StaticAnalysisParser._parse_windows()` | `test_parse_windows_*` |
+| FR04+05+06 unified: Transitions parsing | `StaticAnalysisParser._parse_transitions()` | `test_parse_transitions_*` |
+| FR04+05+06 unified: Reachability parsing | `StaticAnalysisParser._parse_classes()` | `test_parse_classes_*` |
+| FR04+05+06 unified: Inner class normalization | `StaticAnalysisParser` + `SignatureNormalizer` | `test_inner_class_normalization` |
+| FR04+05+06 unified: Missing file | `StaticAnalysisParser.parse_file()` | `test_parse_missing_file` |
+| FR04+05+06 unified: Partial failure | `StaticAnalysisParser._parse_*()` try/except | `test_partial_parse_failure` |
 | FR04+05+06 unified: Caching | `StaticAnalyzer._execute_command()` | `test_cached_result` |
 | FR04+05+06 unified: Timeout | `Command.timeout` + `kill_process_tree()` | `test_timeout_handling` |
-| FR04+05+06 unified: Timeout with partial JSON | `UnifiedParser` per-section parsing of truncated file | `test_partial_json_from_timeout` |
-| FR04+05+06 unified: Baseline equivalence | Unified output vs 3-tool baseline comparison | `test_baseline_equivalence` (Task 8.7) |
+| FR04+05+06 unified: Timeout with partial JSON | `StaticAnalysisParser` per-section parsing of truncated file | `test_partial_json_from_timeout` |
+| FR04+05+06 unified: Baseline equivalence | Analysis output vs 3-tool baseline comparison | `test_baseline_equivalence` (Task 8.7) |
 | FR04+05+06 unified: Coverage denominator | `CoverageTracker` init with `StaticAnalysisData` | Existing tests (unchanged) |
-| INV-ANA-02: SignatureNormalizer | `UnifiedParser._normalize()` calls | `test_signature_normalization` |
-| INV-ANA-03: code_package filtering | `UnifiedParser._parse_windows()`, `_parse_classes()` | `test_code_package_filter` |
-| INV-ANA-06: Graceful degradation | Per-section try/except in `UnifiedParser` | `test_partial_parse_failure` |
+| INV-ANA-02: SignatureNormalizer | `StaticAnalysisParser._normalize()` calls | `test_signature_normalization` |
+| INV-ANA-03: code_package filtering | `StaticAnalysisParser._parse_windows()`, `_parse_classes()` | `test_code_package_filter` |
+| INV-ANA-06: Graceful degradation | Per-section try/except in `StaticAnalysisParser` | `test_partial_parse_failure` |
 | INV-ANA-11: Caching | `StaticAnalyzer._execute_command()` file existence check | `test_cached_result` |
 
 ## Goals / Non-Goals
@@ -139,7 +138,7 @@ flowchart TD
 - Remove `cg all-reachable` misconfiguration
 - Add process-level timeout (600s) to prevent indefinite hangs
 - Produce identical `StaticAnalysisData` for downstream consumers
-- Simplify the Python parsing pipeline (1 parser instead of 3)
+- Simplify the Python parsing pipeline to a single parser
 - Delete old parsers and tool-specific code (P3)
 
 **Non-Goals:**
@@ -153,7 +152,7 @@ flowchart TD
 
 ### D1: Remove `cg all-reachable` — use GATOR's default call graph
 
-**Choice**: Use `Scene.v().getCallGraph()` inside the unified client without `all-reachable`.
+**Choice**: Use `Scene.v().getCallGraph()` inside the analysis client without `all-reachable`.
 
 **Rationale**: `all-reachable` forces every concrete method as a CG entry point, producing a graph 10-100x larger than necessary. JCA framework classes (`javax.crypto.Cipher`, etc.) appear as call **targets** in any call graph where application code invokes them — they do not need to be entry points. FlowDroid's callback-based entry point discovery already covers all Android lifecycle callbacks.
 
@@ -161,13 +160,27 @@ flowchart TD
 
 **Fallback**: If testing reveals missing reachability for specific APKs, GATOR supports `-withCHA` which enables CHA (resolves all virtual calls via class hierarchy, no entry points needed, fast).
 
-### D2: JGraphT Dijkstra instead of independent BFS
+### D2: Multi-source BFS on JGraphT graph — boolean-only reachability
 
-**Choice**: Build a JGraphT `DirectedGraph` from Soot's `CallGraph` and use `DijkstraShortestPath` with caching.
+**Choice**: Build a JGraphT `DefaultDirectedGraph` from Soot's `CallGraph` and compute all three reachability flags via multi-source BFS. No paths stored — only boolean flags per method.
 
-**Rationale**: REACH's `SootReachabilityStrategy` performs independent BFS traversals for each method. With M methods, K MOP signatures, and E edges, this is O(M*E + M*K). JGraphT's Dijkstra with caching amortizes path computation across queries. REACH already has a `JGraphReachabilityStrategy` (commented out) that uses this approach.
+**Rationale**: Downstream consumers (rv-agent, rv-coverage) only use boolean flags (`reachable`, `reachesMop`, `directlyReachesMop`). Paths were never consumed outside the REACH tool itself. Without path requirements, the optimal algorithm is multi-source BFS — not Dijkstra shortest path:
 
-**Alternative considered**: Port REACH's `SootReachabilityStrategy` directly. Rejected because it doesn't benefit from caching and operates on the inflated `all-reachable` graph.
+1. **`reachable`**: Multi-source BFS forward from ALL entry points simultaneously. Every visited node is reachable. Single traversal: O(V + E).
+2. **`reachesMop`**: Multi-source BFS on the **reverse graph** (`EdgeReversedGraph`) from ALL MOP methods. Every visited node reaches MOP. Single traversal: O(V + E).
+3. **`directlyReachesMop`**: For each app method, check if any outgoing edge targets a MOP method. Single scan: O(E).
+
+Total: O(V + E) — optimal for graph reachability. No `ReachabilityStrategy` interface needed (P1: single known-best algorithm, no abstraction for one implementation).
+
+| Approach | Complexity | Context |
+|----------|-----------|---------|
+| REACH (SootBFS per method) | O(M × E) | M methods × independent BFS each |
+| Dijkstra with caching | O(V × (V + E log V)) | All-pairs shortest path — overkill for boolean queries |
+| **Multi-source BFS** | **O(V + E)** | 2 traversals + 1 scan — **optimal** |
+
+JGraphT provides `DefaultDirectedGraph` (efficient adjacency structure), `EdgeReversedGraph` (O(1) reverse view without copying), and `Graphs.successorListOf()` (clean iteration API).
+
+**Alternative considered**: JGraphT `DijkstraShortestPath` with caching. Rejected because Dijkstra computes paths, not just reachability — unnecessary overhead when only boolean flags are needed.
 
 ### D3: Extract inputType/entries from decoded layout XMLs
 
@@ -177,31 +190,32 @@ flowchart TD
 
 **Alternative considered**: Skip these fields entirely. Rejected because the user explicitly requested retaining them for LLM prompt enrichment.
 
-### D4: Fat JAR via maven-shade-plugin
+### D4: Fat JAR via maven-assembly-plugin
 
-**Choice**: Bundle JGraphT, rvsec-mop-extractor, and rvsec-apk into a single `rvsec-unified-client.jar`.
+**Choice**: Bundle JGraphT, rvsec-mop-extractor, and rvsec-apk into a single `rvsec-analysis-client.jar` using `maven-assembly-plugin` with `jar-with-dependencies`.
 
-**Rationale**: The GATOR launcher passes a single `--client-jar` path. A fat JAR avoids classpath complexity. All dependencies exclude Soot transitively to prevent version conflicts with GATOR's Soot 3.3.0.
+**Rationale**: The GATOR launcher passes a single `--client-jar` path. A fat JAR avoids classpath complexity. The project uses `maven-assembly-plugin` (same pattern as `rvsec-reachability`). Dependencies already on GATOR's classpath (`rvsec-gator-sootandroid` and its transitive Soot 3.3.0) are declared as `<scope>provided</scope>` — the assembly plugin excludes `provided` scope by default.
 
-**Implementation**: Modify `rvsec-gator/client/pom.xml`. The current client is a thin JAR (10KB) with only `rvsec-gator-sootandroid` + Gson. The unified client needs additional dependencies and a shade plugin to produce a fat JAR. The `maven-resources-plugin` output directory must be overridden from the parent's `lib/gator/` to `lib/unified/`.
+**Implementation**: Modify `rvsec-gator/client/pom.xml`. The current client is a thin JAR (10KB) with only `rvsec-gator-sootandroid` + Gson. The analysis client adds JGraphT, mop-extractor, and apk-reader. The `maven-resources-plugin` output directory is overridden from the parent's `lib/gator/` to `lib/analysis-client/`.
 
 ```xml
 <!-- rvsec-gator/client/pom.xml changes -->
 <properties>
-    <final.jar.name>rvsec-unified-client</final.jar.name>
+    <final.jar.name>rvsec-analysis-client</final.jar.name>
 </properties>
 
 <dependencies>
-    <!-- existing -->
+    <!-- On GATOR's classpath at runtime (provided = compile-only, not packaged) -->
     <dependency>
         <groupId>br.unb.cic</groupId>
         <artifactId>rvsec-gator-sootandroid</artifactId>
+        <scope>provided</scope>
     </dependency>
     <dependency>
         <groupId>com.google.code.gson</groupId>
         <artifactId>gson</artifactId>
     </dependency>
-    <!-- new for gh27 -->
+    <!-- New dependencies (bundled in fat JAR) -->
     <dependency>
         <groupId>org.jgrapht</groupId>
         <artifactId>jgrapht-core</artifactId>
@@ -235,37 +249,27 @@ flowchart TD
 <build>
     <finalName>${final.jar.name}</finalName>
     <plugins>
-        <!-- Fat JAR: bundles JGraphT + mop-extractor + apk, excludes Soot -->
+        <!-- Fat JAR (same pattern as rvsec-reachability) -->
         <plugin>
             <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-shade-plugin</artifactId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <configuration>
+                <descriptorRefs>
+                    <descriptorRef>jar-with-dependencies</descriptorRef>
+                </descriptorRefs>
+                <finalName>${final.jar.name}</finalName>
+                <appendAssemblyId>false</appendAssemblyId>
+            </configuration>
             <executions>
                 <execution>
                     <phase>package</phase>
-                    <goals><goal>shade</goal></goals>
-                    <configuration>
-                        <filters>
-                            <filter>
-                                <artifact>*:*</artifact>
-                                <excludes>
-                                    <exclude>META-INF/*.SF</exclude>
-                                    <exclude>META-INF/*.DSA</exclude>
-                                    <exclude>META-INF/*.RSA</exclude>
-                                </excludes>
-                            </filter>
-                        </filters>
-                        <artifactSet>
-                            <excludes>
-                                <exclude>ca.mcgill.sable:soot</exclude>
-                                <exclude>org.soot-oss:soot</exclude>
-                                <exclude>presto.android:*</exclude>
-                            </excludes>
-                        </artifactSet>
-                    </configuration>
+                    <goals>
+                        <goal>single</goal>
+                    </goals>
                 </execution>
             </executions>
         </plugin>
-        <!-- Override parent copy target: lib/gator/ → lib/unified/ -->
+        <!-- Override parent copy target: lib/gator/ → lib/analysis-client/ -->
         <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-resources-plugin</artifactId>
@@ -275,7 +279,7 @@ flowchart TD
                     <phase>install</phase>
                     <goals><goal>copy-resources</goal></goals>
                     <configuration>
-                        <outputDirectory>${main.basedir}/rv-android/lib/unified</outputDirectory>
+                        <outputDirectory>${main.basedir}/rv-android/lib/analysis-client</outputDirectory>
                         <overwrite>true</overwrite>
                         <resources>
                             <resource>
@@ -293,8 +297,8 @@ flowchart TD
 </build>
 ```
 
-**Build command**: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn clean package install -DskipTests`
-**Result**: `rv-android/lib/unified/rvsec-unified-client.jar`
+**Build command**: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn clean install -DskipTests`
+**Result**: `rv-android/lib/analysis-client/rvsec-analysis-client.jar`
 
 ### D5: JSON section ordering — reachability first
 
@@ -304,32 +308,32 @@ flowchart TD
 
 By writing `reachability` first, a timeout that interrupts the tool after the first section still preserves the most critical data: the complete method universe. Windows and transitions are used by rv-agent for navigation guidance, but the agent can function (less optimally) without them. Coverage cannot function at all without the method universe.
 
-The Java client uses `JsonWriter` with explicit `flush()` after each section's closing bracket. On timeout, the outer JSON object may be unclosed (e.g., `{"reachability": [...], "windows": [`), making the file not strictly valid JSON. The `UnifiedParser` must handle this: attempt `json.loads()` first; on `JSONDecodeError`, find the position of the last complete `]` bracket, truncate the content there, close the JSON object with `}`, and retry parsing. This recovers all fully-written sections from a truncated file with ~10 lines of code and no external dependencies.
+The Java client uses `JsonWriter` with explicit `flush()` after each section's closing bracket. On timeout, the outer JSON object may be unclosed (e.g., `{"reachability": [...], "windows": [`), making the file not strictly valid JSON. The `StaticAnalysisParser` must handle this: attempt `json.loads()` first; on `JSONDecodeError`, find the position of the last complete `]` bracket, truncate the content there, close the JSON object with `}`, and retry parsing. This recovers all fully-written sections from a truncated file with ~10 lines of code and no external dependencies.
 
 **Signature format compatibility**: Coverage.aj uses `method.getDeclaringClass().getName()` which produces the same format as `SootMethod.getSignature()`: `<class: returnType name(params)>`. This ensures the runtime-logged signatures match the static analysis signatures exactly, with `SignatureNormalizer` handling inner class dot-to-dollar conversion.
 
-### D6: Single `.json` extension for unified output
+### D6: Single `.json` extension for analysis output
 
-**Choice**: Use `.json` extension for the unified output file.
+**Choice**: Use `.json` extension for the analysis output file.
 
-**Rationale**: The unified JSON contains all three data sections. Using a descriptive extension avoids confusion with the previous `.gesda`/`.wtg`/`.reach` extensions. The `EXTENSION_UNIFIED = ".json"` constant is added to `rv-android-core/constants.py`.
+**Rationale**: The analysis JSON contains all three data sections. Using a descriptive extension avoids confusion with the previous `.gesda`/`.wtg`/`.reach` extensions. The `EXTENSION_STATIC_ANALYSIS = ".json"` constant is added to `rv-android-core/constants.py`.
 
 ## API Design
 
-### `UnifiedParser.parse_file(file_path: str, package: str) -> StaticAnalysisData`
+### `StaticAnalysisParser.parse_file(file_path: str, package: str) -> StaticAnalysisData`
 
-Parses the unified JSON into `StaticAnalysisData`. Extends `BaseStaticAnalysisParser`.
+Parses the static analysis JSON into `StaticAnalysisData`. Standalone class with `LoggingManager` for logging.
 
 - **Preconditions**: `file_path` is a string path (may not exist), `package` is the `code_package` from `App.code_package`
 - **Postconditions**: Returns a valid `StaticAnalysisData` (possibly with empty sections on failure)
 - **Error behavior**: Missing file → warning log + empty `StaticAnalysisData`. Truncated JSON (from timeout) → attempt recovery by closing at last complete `]` bracket, parse recovered content. Malformed section → error log + empty domain object for that section, other sections parsed normally (INV-ANA-06).
 
-### `StaticAnalyzer._run_unified() -> None`
+### `StaticAnalyzer._run_analysis() -> None`
 
-Executes the unified tool as a single `Command` invocation.
+Executes the analysis tool as a single `Command` invocation.
 
-- **Preconditions**: `self.config.unified_jar` exists, `self.config.mop_dir` exists
-- **Postconditions**: `self.unified_file` points to the output JSON path (may or may not exist depending on success/timeout)
+- **Preconditions**: `self.config.analysis_client_jar` exists, `self.config.mop_dir` exists
+- **Postconditions**: `self.analysis_file` points to the output JSON path (may or may not exist depending on success/timeout)
 - **Error behavior**: Non-zero exit → `StaticAnalysisException`. Timeout → `RVCommandTimeoutError` caught, `result.timed_out = True`.
 
 ### `RVStaticAnalysisConfig` (Pydantic model changes)
@@ -341,9 +345,9 @@ Executes the unified tool as a single `Command` invocation.
 # reach_jar: Optional[str]
 
 # ADDED fields:
-unified_jar: Optional[str] = Field(default=None, description="Path to unified client JAR")
-jvm_memory: str = Field(default="8g", description="JVM max heap for unified tool")
-unified_timeout: float = Field(default=600.0, description="Timeout in seconds")
+analysis_client_jar: Optional[str] = Field(default=None, description="Path to analysis client JAR")
+jvm_memory: str = Field(default="8g", description="JVM max heap for analysis tool")
+analysis_timeout: float = Field(default=600.0, description="Timeout in seconds")
 ```
 
 ### `StaticAnalysisResult` (Pydantic model changes)
@@ -355,7 +359,7 @@ unified_timeout: float = Field(default=600.0, description="Timeout in seconds")
 # reach_file: str
 
 # ADDED fields:
-unified_file: str      # Path to unified JSON output
+analysis_file: str      # Path to analysis JSON output
 timed_out: bool        # True if analysis exceeded timeout
 ```
 
@@ -367,13 +371,13 @@ sequenceDiagram
     participant CMD as Command
     participant GL as GATOR Launcher<br/>(Python script)
     participant GATOR as GATOR Engine<br/>(Soot 3.3.0)
-    participant UC as RvsecUnifiedClient<br/>(Java)
+    participant UC as RvsecAnalysisClient<br/>(Java)
     participant FS as File System
-    participant UP as UnifiedParser<br/>(Python)
+    participant UP as StaticAnalysisParser<br/>(Python)
     participant DS as Downstream<br/>(rv-agent, rv-coverage)
 
-    SA->>SA: _run_unified()
-    SA->>CMD: execute(python gator a -p apk<br/>--client-jar unified.jar --out output.json<br/>-client RvsecUnifiedClient<br/>-clientParam mopDir=... --timeout 600)
+    SA->>SA: _run_analysis()
+    SA->>CMD: execute(python gator a -p apk<br/>--client-jar analysis-client.jar --out output.json<br/>-client RvsecAnalysisClient<br/>-clientParam mopDir=... --timeout 600)
 
     CMD->>GL: subprocess with timeout
 
@@ -382,7 +386,7 @@ sequenceDiagram
     GATOR->>UC: run(GUIAnalysisOutput)
 
     UC->>UC: 1. extractClasses(output)<br/>Scene.v().getApplicationClasses()
-    UC->>UC: 2. runReachability(mopDir)<br/>CallGraph + JGraphT flags
+    UC->>UC: 2. runReachability(mopDir)<br/>CallGraph + multi-source BFS
     UC->>FS: Write reachability section (flush)
     Note over UC,FS: Coverage denominator secured
     UC->>UC: 3. extractWindows(output)<br/>GATOR APIs + enrichFromXml()
@@ -409,22 +413,22 @@ flowchart LR
     subgraph INPUT["Input"]
         APK[APK file]
         MOP[MOP specs<br/>.mop files]
-        CFG[Config<br/>unified_jar, mop_dir<br/>timeout, jvm_memory]
+        CFG[Config<br/>analysis_client_jar, mop_dir<br/>timeout, jvm_memory]
     end
 
     subgraph JAVA["Java (single GATOR invocation)"]
         SOOT[Soot init<br/>1x only]
         CLASSES["extractClasses<br/>Scene.v().getApplicationClasses()"]
-        REACH[runReachability<br/>CallGraph + JGraphT]
+        REACH[runReachability<br/>CallGraph + multi-source BFS]
         WIN[extractWindows<br/>GATOR APIs + XML]
         WTG[extractTransitions<br/>WTGBuilder]
     end
 
     subgraph OUTPUT_FILE["Output (section order = priority)"]
-        JSON["unified.json<br/>1. reachability (flush)<br/>2. windows (flush)<br/>3. transitions (flush)"]
+        JSON["analysis.json<br/>1. reachability (flush)<br/>2. windows (flush)<br/>3. transitions (flush)"]
     end
 
-    subgraph PYTHON["Python (UnifiedParser)"]
+    subgraph PYTHON["Python (StaticAnalysisParser)"]
         PC[_parse_classes]
         PW[_parse_windows]
         PT[_parse_transitions]
@@ -451,12 +455,12 @@ flowchart LR
 
 | Error | Source | Strategy | Recovery |
 |-------|--------|----------|----------|
-| `StaticAnalysisException` | Non-zero exit code from unified tool | Log error, set `result.success = False` | Experiment continues without static data; rv-agent falls back to algorithmic exploration |
+| `StaticAnalysisException` | Non-zero exit code from analysis tool | Log error, set `result.success = False` | Experiment continues without static data; rv-agent falls back to algorithmic exploration |
 | `RVCommandTimeoutError` | `Command.timeout` exceeded | Kill process tree, set `result.timed_out = True` | Same as above |
-| `ConfigurationError` | Missing `unified_jar` or `mop_dir` | Raised during config validation | Fail fast — cannot proceed without tool |
-| `JSONDecodeError` | Malformed unified JSON | Catch in `UnifiedParser`, log error | Return empty `StaticAnalysisData` |
+| `ConfigurationError` | Missing `analysis_client_jar` or `mop_dir` | Raised during config validation | Fail fast — cannot proceed without tool |
+| `JSONDecodeError` | Malformed analysis JSON | Catch in `StaticAnalysisParser`, log error | Return empty `StaticAnalysisData` |
 | Per-section parse error | Malformed data in one JSON section | Catch per-section, log error (INV-ANA-06) | Return empty domain object for that section; other sections parsed normally |
-| File not found | `.json` output does not exist | Log warning in `UnifiedParser` | Return empty `StaticAnalysisData` |
+| File not found | `.json` output does not exist | Log warning in `StaticAnalysisParser` | Return empty `StaticAnalysisData` |
 
 ## Risks / Trade-offs
 
@@ -493,27 +497,27 @@ grep -r "EXTENSION_GESDA\|EXTENSION_GATOR\|EXTENSION_REACH" modules/
 grep -r "gesda_file\|gator_file\|reach_file" modules/
 ```
 
-Critical modules to verify: `rv-static-analysis` (parser + tests), `rv-platform` (StaticAnalysisComponent), `rv-experiment` (orchestration), `rv-coverage` (static data consumer), `rv-agent` (WTG consumer).
+Critical modules to verify: `rv-static-analysis` (parser + tests), `rv-platform` (StaticAnalysisComponent), `rv-experiment` (orchestration — **known hit**: `constants.py` re-exports `EXTENSION_GESDA`/`EXTENSION_REACH` and defines inconsistent `EXTENSION_GATOR = ".gator"`; also `get_static_analysis_source_path()` uses extension args), `rv-coverage` (static data consumer), `rv-agent` (WTG consumer), `rv-agent-validation` (uses deprecated `parse_all()`).
 
 ## Testing Strategy
 
 | Layer | What | How | Count |
 |-------|------|-----|-------|
-| Unit | `UnifiedParser` parsing logic | JSON fixtures, mock file paths | ~12 tests |
+| Unit | `StaticAnalysisParser` parsing logic | JSON fixtures, mock file paths | ~12 tests |
 | Unit | `RVStaticAnalysisConfig` validation | Direct instantiation with valid/invalid configs | ~4 tests |
-| Unit | `StaticAnalyzer._run_unified()` command construction | Mock `Command`, verify args | ~3 tests |
+| Unit | `StaticAnalyzer._run_analysis()` command construction | Mock `Command`, verify args | ~3 tests |
 | Integration | Full parse pipeline (JSON → StaticAnalysisData) | Real `cryptoapp.apk.json` fixture | ~3 tests |
-| Integration | `StaticAnalysisParser` facade delegation | End-to-end with fixture | ~2 tests |
-| Baseline comparison | Unified output vs 3-tool output | Compare counts (windows, transitions, methods, reachable, reachesMop, directlyReachesMop) against saved 3-tool output for `cryptoapp.apk`. Exact match for windows/transitions/methods/directlyReachesMop; ±10% tolerance for reachable/reachesMop due to no `all-reachable` | ~3 assertions |
+| Integration | `StaticAnalysisParser` full pipeline | End-to-end with fixture | ~2 tests |
+| Baseline comparison | Analysis output vs 3-tool output | Compare counts (windows, transitions, methods, reachable, reachesMop, directlyReachesMop) against saved 3-tool output for `cryptoapp.apk`. Exact match for windows/transitions/methods/directlyReachesMop; ±10% tolerance for reachable/reachesMop due to no `all-reachable` | ~3 assertions |
 | Baseline comparison | Timeout with partial output | Truncated JSON fixture with missing reachability section — verify valid sections parsed, empty objects for missing sections | ~2 tests |
 | Batch | 5 diverse APKs from gh26 | Full pipeline execution, measure timing | Manual verification |
 | **E2E** | **Full rv-experiment run** | **Run complete experiment on `cryptoapp.apk` via Docker, validate entire pipeline** | **Final validation** |
 
-**Test fixture**: `tests/resources/cryptoapp.apk.json` — generated from a real unified tool run on `cryptoapp.apk`. This fixture drives all unit and integration tests for the parser.
+**Test fixture**: `tests/resources/cryptoapp.apk.json` — generated from a real analysis tool run on `cryptoapp.apk`. This fixture drives all unit and integration tests for the parser.
 
 ### E2E Validation (Final Gate)
 
-The last validation step before closing gh27 is a full `rv-experiment` run using the unified tool. This exercises the entire pipeline: pre-processing (instrumentation + unified static analysis) → execution (rv-agent with coverage logging) → post-processing (logcat parsing + coverage calculation + result aggregation).
+The last validation step before closing gh27 is a full `rv-experiment` run using the analysis tool. This exercises the entire pipeline: pre-processing (instrumentation + static analysis) → execution (rv-agent with coverage logging) → post-processing (logcat parsing + coverage calculation + result aggregation).
 
 **What to run**:
 ```bash
@@ -525,13 +529,13 @@ uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_exampl
 
 | Check | Criteria | How to verify |
 |-------|----------|---------------|
-| Unified JSON created | `.json` file exists in `out/static/` | `ls out/static/cryptoapp.apk.json` |
+| Analysis JSON created | `.json` file exists in `out/static/` | `ls out/static/cryptoapp.apk.json` |
 | Coverage denominator > 0 | `StaticAnalysisData.classes` has methods | Check experiment log: `static_analysis_data` summary |
 | Coverage > 0% | At least some methods logged by Coverage.aj | Check `results/<id>/cryptoapp.apk/*.logcat` for `RVSEC-COV` lines |
 | Coverage calculation correct | `method_coverage` and `mop_method_coverage` computed | Check `results/<id>/cryptoapp.apk/*_results.json` |
 | MOP violations detected | `RVSEC` tag lines in logcat (if JCA spec violations present) | `grep "RVSEC" results/<id>/cryptoapp.apk/*.logcat` |
 | No regressions vs 3-tool run | Coverage numbers comparable to previous experiment (`cli_experiment_20260219`) | Compare `method_coverage` values |
-| Timing improvement | Unified run < sum of 3 individual tools | Compare `static_analysis_duration` in results |
+| Timing improvement | Analysis run < sum of 3 individual tools | Compare `static_analysis_duration` in results |
 
 **Comparison baseline**: `docker/data/results/cli_experiment_20260219_095634_21537073/cryptoapp.apk/` — the most recent experiment run using the 3-tool pipeline. The `.logcat` file there shows 8 methods logged for a 60s run with `rvagent:pure_algorithm`.
 

@@ -1,4 +1,4 @@
-# Unified Static Analysis Tool — Implementation Plan
+# Static Analysis Client — Implementation Plan
 
 **Date**: 2026-02-20
 **Track**: Full SDD (Explore → Propose → Specs → Design → Tasks → Implement → Verify → Archive)
@@ -27,9 +27,9 @@ The gh26 experiments show very low static analysis success rates. Three separate
 
 ### Decision
 
-Skip incremental quick fixes (Phase 1 from `plano_analise_estatica.md`). Go directly to a **unified GATOR client** that replaces all three tools with a single Soot initialization, producing a single unified JSON output file.
+Skip incremental quick fixes (Phase 1 from `plano_analise_estatica.md`). Go directly to a **single GATOR-based analysis client** that performs all static analysis (windows, widgets, reachability) in one Soot initialization, producing a single JSON output file.
 
-Rationale: The quick fixes address symptoms but maintain the fundamental 3x redundancy. The unified approach eliminates root cause and simplifies the architecture per P1 (Simplicity).
+Rationale: The quick fixes address symptoms but maintain the fundamental 3x redundancy. A single analysis client eliminates the root cause and simplifies the architecture per P1 (Simplicity).
 
 ---
 
@@ -45,10 +45,10 @@ REACH (Soot init #3, call graph + BFS)       → .reach CSV
 
 Total: 3 Soot initializations, 3 class loading passes, up to 2 call graph constructions.
 
-### After (1 unified run)
+### After (1 analysis client run)
 
 ```
-GATOR + RvsecUnifiedClient (Soot init #1) → unified .json
+GATOR + RvsecAnalysisClient (Soot init #1) → analysis .json
 ```
 
 Total: 1 Soot initialization, 1 class loading pass, 1 call graph (GATOR's default CG via SPARK).
@@ -87,7 +87,7 @@ The concern: if we don't make "all methods reachable", JCA classes (Cipher, Mess
 
 ### Decision: Use GATOR's Default Call Graph
 
-Inside the unified GATOR client:
+Inside the GATOR analysis client:
 
 - `Scene.v().getCallGraph()` provides the call graph built during GATOR's analysis phase
 - GATOR runs Soot in whole-program mode (`-w`) without `all-reachable`
@@ -97,7 +97,7 @@ Inside the unified GATOR client:
 
 ### Fallback (if CG is insufficient)
 
-If testing reveals missing reachability for specific APKs, the unified client can optionally enable CHA mode via the GATOR `-withCHA` flag, which adds `cg.cha enabled:true`. CHA is conservative (every call site resolved to all possible targets) and fast (no points-to analysis needed). This provides a complete call graph without the `all-reachable` performance cost.
+If testing reveals missing reachability for specific APKs, the analysis client can optionally enable CHA mode via the GATOR `-withCHA` flag, which adds `cg.cha enabled:true`. CHA is conservative (every call site resolved to all possible targets) and fast (no points-to analysis needed). This provides a complete call graph without the `all-reachable` performance cost.
 
 ---
 
@@ -156,7 +156,7 @@ Based on comprehensive field-by-field usage analysis tracing every field from st
 
 ---
 
-## 5. Unified JSON Schema
+## 5. Analysis JSON Schema
 
 Single output file replacing `.gesda` + `.wtg` + `.reach`:
 
@@ -233,16 +233,16 @@ Single output file replacing `.gesda` + `.wtg` + `.reach`:
 
 ---
 
-## 6. Java Implementation: `RvsecUnifiedClient`
+## 6. Java Implementation: `RvsecAnalysisClient`
 
 ### Location
 
-`$RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/RvsecUnifiedClient.java`
+`$RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/RvsecAnalysisClient.java`
 
 ### Class Structure
 
 ```java
-public class RvsecUnifiedClient implements GUIAnalysisClient {
+public class RvsecAnalysisClient implements GUIAnalysisClient {
     @Override
     public void run(GUIAnalysisOutput output) {
         // 1. Read parameters from Configs.clientParams
@@ -255,7 +255,7 @@ public class RvsecUnifiedClient implements GUIAnalysisClient {
         WTG wtg = wtgAO.getWTG();
 
         // 3. Extract windows + widgets (replaces GESDA)
-        List<UnifiedWindow> windows = extractWindows(output);
+        List<AnalysisWindow> windows = extractWindows(output);
 
         // 4. Extract WTG transitions
         TransitionData transitions = extractTransitions(wtg);
@@ -263,8 +263,8 @@ public class RvsecUnifiedClient implements GUIAnalysisClient {
         // 5. Run reachability analysis (replaces REACH)
         ReachabilityData reachability = runReachability(mopDir);
 
-        // 6. Build unified result and save as JSON
-        UnifiedResult result = new UnifiedResult(...);
+        // 6. Build analysis result and save as JSON
+        AnalysisResult result = new AnalysisResult(...);
         saveResult(result);
     }
 }
@@ -289,7 +289,7 @@ Uses GATOR's internal APIs which are richer than GESDA's intra-procedural patter
 
 ### `inputType` and `entries` Extraction
 
-These two fields are GESDA-exclusive (GATOR doesn't expose them). The unified client extracts them from decoded layout XMLs:
+These two fields are GESDA-exclusive (GATOR doesn't expose them). The analysis client extracts them from decoded layout XMLs:
 
 1. GATOR already decodes APK resources with apktool (`lib/gator/gator` calls `decode_res_from_apk()`). Decoded XML files are available at `Configs.resourceLocation`.
 2. For each activity, find its layout file via `setContentView(R.layout.X)` pattern in Soot method bodies.
@@ -300,7 +300,7 @@ These two fields are GESDA-exclusive (GATOR doesn't expose them). The unified cl
 
 ### Reachability Analysis (replaces REACH)
 
-Implemented directly inside the unified client using Soot's Scene (already loaded by GATOR) + JGraphT:
+Implemented directly inside the analysis client using Soot's Scene (already loaded by GATOR) + JGraphT:
 
 ```java
 private ReachabilityData runReachability(String mopDir) {
@@ -328,7 +328,7 @@ Key differences from current REACH:
 - **No `all-reachable`**: Uses GATOR's default CG (see Section 3)
 - **JGraphT instead of SootReachabilityStrategy**: Cached Dijkstra instead of thousands of independent BFS traversals (fixes R3, R4)
 - **GATOR-based entry points**: Uses `getAllEventsAndTheirHandlers()` + `getLifecycleHandlers()` for automatic discovery of Android lifecycle and event handlers
-- **No GESDA dependency**: REACH currently reads GESDA output for activity/lifecycle info. The unified client has this directly from GATOR
+- **No GESDA dependency**: REACH currently reads GESDA output for activity/lifecycle info. The analysis client has this directly from GATOR
 
 ### Parameter Passing
 
@@ -336,9 +336,9 @@ Uses GATOR's existing `-clientParam` mechanism (`Configs.clientParams`):
 
 ```bash
 python gator a -p app.apk \
-  --client-jar rvsec-unified-client.jar \
+  --client-jar rvsec-analysis-client.jar \
   --out result.json \
-  -client RvsecUnifiedClient \
+  -client RvsecAnalysisClient \
   -clientParam mopDir=/path/to/jca/specs \
   --timeout 600
 ```
@@ -376,28 +376,32 @@ Add to `rvsec-gator-client/pom.xml`:
 </dependency>
 ```
 
-Build as fat JAR using `maven-shade-plugin` to bundle JGraphT + mop-extractor + apk-reader into a single `rvsec-unified-client.jar`. This avoids classpath complexity at invocation time.
+Build as fat JAR using `maven-shade-plugin` to bundle JGraphT + mop-extractor + apk-reader into a single `rvsec-analysis-client.jar`. This avoids classpath complexity at invocation time.
 
 ### Soot Version Consideration
 
-GATOR uses Soot 3.3.0 (OSU fork), while REACH uses FlowDroid's Soot ~4.3.0. The unified client runs inside GATOR, so it uses Soot 3.3.0. Core Soot APIs (`Scene.v()`, `CallGraph`, `SootClass`, `SootMethod`) are stable across versions. The `rvsec-mop-extractor` and `rvsec-apk` dependencies exclude their Soot transitive deps to avoid conflicts.
+GATOR uses Soot 3.3.0 (OSU fork), while REACH uses FlowDroid's Soot ~4.3.0. The analysis client runs inside GATOR, so it uses Soot 3.3.0. Core Soot APIs (`Scene.v()`, `CallGraph`, `SootClass`, `SootMethod`) are stable across versions. The `rvsec-mop-extractor` and `rvsec-apk` dependencies exclude their Soot transitive deps to avoid conflicts.
 
 ---
 
 ## 7. Python Implementation
 
-### 7.1 New File: `UnifiedParser`
+### 7.1 Rewrite: `StaticAnalysisParser`
 
-**Path**: `modules/rv-static-analysis/src/rv_static_analysis/parser/static/unified_parser.py`
+**Path**: `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`
 
-Replaces the three separate parsers (GesdaParser, GatorParser, ReachParser) with a single parser that reads the unified JSON.
+Parses the static analysis JSON into domain objects (Classes, Windows, WindowTransitionGraph).
 
 ```python
-class UnifiedParser(BaseStaticAnalysisParser):
-    """Parser for the unified static analysis JSON output."""
+class StaticAnalysisParser:
+    """Parses the static analysis JSON into StaticAnalysisData.
+
+    Uses LoggingManager directly for logging. Reads JSON sections
+    (reachability, windows, transitions) and creates domain objects.
+    """
 
     def parse_file(self, file_path, package) -> StaticAnalysisData:
-        """Parse unified JSON into StaticAnalysisData."""
+        """Parse analysis JSON into StaticAnalysisData."""
         # Read JSON, handle missing file (return empty StaticAnalysisData)
         # Call _parse_classes(), _parse_windows(), _parse_transitions()
         # Return StaticAnalysisData(classes, windows, wtg)
@@ -414,28 +418,28 @@ Error handling (INV-ANA-06): Each section parsed in try/except. On failure, retu
 
 **Path**: `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`
 
-Remove `_run_gesda()`, `_run_gator()`, `_run_reachability()`. Replace with single `_run_unified()`:
+Remove `_run_gesda()`, `_run_gator()`, `_run_reachability()`. Replace with single `_run_analysis()`:
 
 ```python
-def _run_unified(self) -> None:
-    """Execute the unified static analysis tool."""
+def _run_analysis(self) -> None:
+    """Execute the static analysis tool."""
     cmd_args = self.config.get_tool_command(
-        'unified', self.app.path, self.unified_file,
+        'analysis', self.app.path, self.analysis_file,
         mop_dir=self.config.mop_dir
     )
-    unified_cmd = Command(
+    analysis_cmd = Command(
         cmd_args[0], cmd_args[1:],
-        timeout=self.config.unified_timeout
+        timeout=self.config.analysis_timeout
     )
-    self._execute_command("UNIFIED", self.unified_file, unified_cmd)
+    self._execute_command("ANALYSIS", self.analysis_file, analysis_cmd)
 ```
 
 `StaticAnalysisResult` changes:
 - Remove `gesda_file`, `gator_file`, `reach_file`
-- Add `unified_file: str` and `timed_out: bool`
+- Add `analysis_file: str` and `timed_out: bool`
 
 `get_static_data()` changes:
-- Use UnifiedParser instead of three separate parsers
+- Use StaticAnalysisParser instead of three separate parsers
 
 ### 7.3 `RVStaticAnalysisConfig` Changes
 
@@ -445,41 +449,39 @@ Remove: `gesda_jar`, `gator_dir`, `reach_jar` path resolution.
 
 Add:
 ```python
-unified_jar: Optional[str] = Field(default=None, description="Path to unified client JAR")
-jvm_memory: str = Field(default="8g", description="JVM max heap for unified tool")
-unified_timeout: float = Field(default=600.0, description="Timeout in seconds")
+analysis_client_jar: Optional[str] = Field(default=None, description="Path to analysis client JAR")
+jvm_memory: str = Field(default="8g", description="JVM max heap for analysis tool")
+analysis_timeout: float = Field(default=600.0, description="Timeout in seconds")
 ```
 
-`get_tool_command('unified', ...)`:
+`get_tool_command('analysis', ...)`:
 ```python
 return [
     'python', components['gator_python'], 'a',
     '-p', apk_path,
-    '--client-jar', self.unified_jar,
+    '--client-jar', self.analysis_client_jar,
     '--out', output_file,
-    '-client', 'RvsecUnifiedClient',
+    '-client', 'RvsecAnalysisClient',
     '-clientParam', f'mopDir={mop_dir}',
-    '--timeout', str(int(self.unified_timeout))
+    '--timeout', str(int(self.analysis_timeout))
 ]
 ```
 
-### 7.4 `StaticAnalysisParser` Changes
+### 7.4 `StaticAnalysisParser` Caller Updates
 
-**Path**: `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`
-
-Replace three parser instances with UnifiedParser. Add `parse_unified()` method. Update `read_static_analysis_files()` to use `.json` extension.
+Update `read_static_analysis_files()` and any callers that used the old multi-parser API to use `StaticAnalysisParser.parse_file()` with `.json` extension.
 
 ### 7.5 rv-platform `StaticAnalysisComponent` Changes
 
 **Path**: `modules/rv-platform/src/rv_platform/components/static_analysis.py`
 
-Update `copy_static_analysis_files()`: change extensions list from `[EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH]` to `[EXTENSION_METHODS, EXTENSION_UNIFIED]`.
+Update `copy_static_analysis_files()`: change extensions list from `[EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH]` to `[EXTENSION_METHODS, EXTENSION_STATIC_ANALYSIS]`.
 
 ### 7.6 Constants
 
 **Path**: `modules/rv-android-core/src/rv_android_core/constants.py`
 
-Add: `EXTENSION_UNIFIED = ".json"`
+Add: `EXTENSION_STATIC_ANALYSIS = ".json"`
 
 ### 7.7 Files to Delete (P3)
 
@@ -506,26 +508,26 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 - Field-by-field usage matrix across all consumer modules
 
 ### Phase 2: Propose
-- Create `openspec/changes/gh-unified-static-analysis/proposal.md`
-- Summary: Unify GESDA + GATOR + REACH into single GATOR client
-- Scope: Java (unified client), Python (unified parser, config, analyzer)
+- Create `openspec/changes/gh27-unified-static-analysis/proposal.md`
+- Summary: Consolidate GESDA + GATOR + REACH into single GATOR analysis client
+- Scope: Java (analysis client), Python (static analysis parser, config, analyzer)
 
 ### Phase 3: Specs (delta spec)
-- Create `openspec/changes/gh-unified-static-analysis/specs.md`
+- Create `openspec/changes/gh27-unified-static-analysis/specs.md`
 - Update analysis domain spec invariants:
   - INV-ANA-01: Remove GESDA-before-REACH ordering (single tool, no dependencies)
-  - INV-ANA-02: Keep SignatureNormalizer requirement, update to reference UnifiedParser
-  - INV-ANA-03: Keep code_package requirement, update to reference UnifiedParser
+  - INV-ANA-02: Keep SignatureNormalizer requirement, update to reference StaticAnalysisParser
+  - INV-ANA-03: Keep code_package requirement, update to reference StaticAnalysisParser
   - INV-ANA-06: Update graceful degradation to reference per-section JSON parsing
-  - INV-ANA-11: Update from "three output files" to "one unified JSON"
-- Update FR04 (GATOR), FR05 (GESDA), FR06 (REACH) → unified FR
+  - INV-ANA-11: Update from "three output files" to "one analysis JSON"
+- Update FR04 (GATOR), FR05 (GESDA), FR06 (REACH) → single FR
 
 ### Phase 4: Design
-- Create `openspec/changes/gh-unified-static-analysis/design.md`
+- Create `openspec/changes/gh27-unified-static-analysis/design.md`
 - This plan document serves as the design input
 
 ### Phase 5: Tasks
-- Create `openspec/changes/gh-unified-static-analysis/tasks.md`
+- Create `openspec/changes/gh27-unified-static-analysis/tasks.md`
 - Task groups (see Section 9)
 
 ### Phase 6: Implement
@@ -542,20 +544,20 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ## 9. Implementation Tasks
 
-### Task Group 1: Java — RvsecUnifiedClient Core (WTG + Windows)
+### Task Group 1: Java — RvsecAnalysisClient Core (WTG + Windows)
 
-**Files**: `RvsecUnifiedClient.java` (new), `pom.xml` (update)
+**Files**: `RvsecAnalysisClient.java` (new), `pom.xml` (update)
 
-1. Create `RvsecUnifiedClient.java` in GATOR client module
+1. Create `RvsecAnalysisClient.java` in GATOR client module
 2. Port WTG extraction from `RvsecWtgClient.run()` into `extractTransitions()`
 3. Implement `extractWindows()` using GATOR's internal APIs (getActivities, getActivityRoots, PropertyManager)
 4. Implement JSON serialization for windows + transitions sections
 5. Update `pom.xml` with maven-shade-plugin for fat JAR
-6. Test: unified client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk`
+6. Test: analysis client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk`
 
 ### Task Group 2: Java — inputType and entries Extraction
 
-**Files**: `RvsecUnifiedClient.java`
+**Files**: `RvsecAnalysisClient.java`
 
 1. Implement layout file resolution: find `setContentView(R.layout.X)` in Soot method bodies, resolve to layout filename
 2. Implement decoded XML parsing: read `Configs.resourceLocation/layout/{name}.xml` with DOM parser
@@ -566,7 +568,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Task Group 3: Java — Reachability Analysis
 
-**Files**: `RvsecUnifiedClient.java`, `pom.xml`
+**Files**: `RvsecAnalysisClient.java`, `pom.xml`
 
 1. Add JGraphT, rvsec-mop-extractor, rvsec-apk dependencies with Soot exclusions
 2. Implement `loadMopMethods()`: load MOP spec signatures using JavamopFacade
@@ -578,16 +580,16 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Task Group 4: Java — Build and Deploy
 
-1. Build unified client JAR: `mvn package` with shade plugin
-2. Copy `rvsec-unified-client.jar` to `rv-android/lib/unified/`
+1. Build analysis client JAR: `mvn package` with shade plugin
+2. Copy `rvsec-analysis-client.jar` to `rv-android/lib/analysis-client/`
 3. Verify JAR runs correctly via GATOR launcher command
 
-### Task Group 5: Python — Constants and UnifiedParser
+### Task Group 5: Python — Constants and StaticAnalysisParser
 
-**Files**: `constants.py`, `unified_parser.py` (new)
+**Files**: `constants.py`, `static_analysis_parser.py` (rewrite)
 
-1. Add `EXTENSION_UNIFIED = ".json"` to constants
-2. Create `UnifiedParser` class extending BaseStaticAnalysisParser
+1. Add `EXTENSION_STATIC_ANALYSIS = ".json"` to constants
+2. Rewrite `StaticAnalysisParser` — standalone class that parses the JSON into StaticAnalysisData
 3. Implement `_parse_classes()` from `reachability` section
 4. Implement `_parse_windows()` from `windows` section
 5. Implement `_parse_transitions()` from `transitions` section
@@ -599,19 +601,19 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 **Files**: `config.py`, `static_analysis.py`
 
-1. Update `RVStaticAnalysisConfig`: remove old tool paths, add `unified_jar`, `jvm_memory`, `unified_timeout`
-2. Update `get_tool_command()` for unified tool
-3. Update `StaticAnalyzer`: replace 3-tool pipeline with single `_run_unified()`
-4. Update `StaticAnalysisResult`: `unified_file`, `timed_out`
+1. Update `RVStaticAnalysisConfig`: remove old tool paths, add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
+2. Update `get_tool_command()` for analysis tool
+3. Update `StaticAnalyzer`: replace 3-tool pipeline with single `_run_analysis()`
+4. Update `StaticAnalysisResult`: `analysis_file`, `timed_out`
 5. Handle `RVCommandTimeoutError` in `_execute_command()`
-6. Update `get_static_data()` to use UnifiedParser
+6. Update `get_static_data()` to use StaticAnalysisParser
 7. Unit tests: config validation, command generation, timeout handling
 
-### Task Group 7: Python — StaticAnalysisParser and Platform
+### Task Group 7: Python — Parser Cleanup and Platform
 
 **Files**: `static_analysis_parser.py`, `static_analysis.py` (rv-platform)
 
-1. Update `StaticAnalysisParser` facade to use UnifiedParser
+1. Verify `StaticAnalysisParser.parse_file()` is compatible with all callers
 2. Update `read_static_analysis_files()` for `.json` extension
 3. Update rv-platform `StaticAnalysisComponent.copy_static_analysis_files()` extensions
 4. Delete old parsers (backup to `backup/` first per P3)
@@ -620,9 +622,9 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Task Group 8: Test Resources and Integration
 
-1. Create `tests/resources/cryptoapp.apk.json` test resource from real unified output
-2. Create `test_unified_parser.py` with comprehensive tests
-3. Update `test_static_analysis_parser.py` for unified flow
+1. Create `tests/resources/cryptoapp.apk.json` test resource from real analysis output
+2. Create `test_static_analysis_parser.py` with comprehensive tests
+3. Update `test_static_analysis_parser.py` for single-parser flow
 4. Update `test_static_analysis.py` for single-tool pipeline
 5. Update `test_config.py` for new configuration fields
 6. Update `conftest.py` fixtures
@@ -639,15 +641,15 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Unit Verification
 
-1. **Unified parser**: parse well-formed JSON → correct `StaticAnalysisData` (classes, windows, wtg match expected values)
-2. **Config**: `get_tool_command('unified', ...)` produces correct command with all parameters
-3. **StaticAnalyzer**: `_run_unified()` dispatches single Command with timeout; handles timeout and errors correctly
+1. **StaticAnalysisParser**: parse well-formed JSON → correct `StaticAnalysisData` (classes, windows, wtg match expected values)
+2. **Config**: `get_tool_command('analysis', ...)` produces correct command with all parameters
+3. **StaticAnalyzer**: `_run_analysis()` dispatches single Command with timeout; handles timeout and errors correctly
 4. **Old parser deletion**: no dangling imports across all modules
 
 ### Integration Verification
 
 1. **Baseline capture**: Run current 3-tool pipeline on `cryptoapp.apk`, save outputs
-2. **Unified tool output**: Run unified client on `cryptoapp.apk`, save unified JSON
+2. **Analysis client output**: Run analysis client on `cryptoapp.apk`, save analysis JSON
 3. **Compare**:
    - Windows: count, names, widget counts, widget IDs, text, hint, inputType, entries, listeners
    - Transitions: count, source/target IDs, event types, handler signatures
@@ -656,14 +658,14 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Batch Verification
 
-1. Run unified pipeline on 5 diverse APKs from gh26 batch
+1. Run analysis pipeline on 5 diverse APKs from gh26 batch
 2. Measure total execution time vs 3-tool baseline
 3. Expected: ~1/3 of pre-fix time per APK
 4. Verify no crashes, clean timeout handling for problematic APKs
 
 ### End-to-End Verification
 
-1. Run full rv-experiment with unified tool on `cryptoapp.apk`
+1. Run full rv-experiment with analysis tool on `cryptoapp.apk`
 2. Verify: static analysis completes, rv-agent receives correct `StaticAnalysisData`, MOP scoring works, WTG navigation works, coverage tracking works
 
 ---
@@ -676,7 +678,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 | GATOR's widget tree missing some GESDA widgets | Reduced widget matching accuracy | GATOR's interprocedural analysis is actually MORE complete for event-triggered widgets |
 | Soot version conflict (GATOR 3.3.0 vs rvsec-mop-extractor) | Build failure or runtime ClassNotFoundException | Exclude Soot from all transitive deps; test at build time |
 | MopFacade dependency on JavaMOP creates transitive conflicts | Build failure | Fallback: simpler regex-based `.mop` file parser |
-| GATOR fixpoint solver timeout on complex APKs | Unified tool hangs | Process-level timeout (600s) via Command.timeout + GATOR's `--timeout` flag |
+| GATOR fixpoint solver timeout on complex APKs | Analysis tool hangs | Process-level timeout (600s) via Command.timeout + GATOR's `--timeout` flag |
 | Combined inputType flags in decoded XML (e.g., `"textPassword\|textVisiblePassword"`) | Incorrect inputType parsing | Handle pipe-separated flags, take first value |
 
 ---
@@ -687,7 +689,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 | File | Action |
 |------|--------|
-| `rvsec-gator/client/.../RvsecUnifiedClient.java` | **NEW** — unified client |
+| `rvsec-gator/client/.../RvsecAnalysisClient.java` | **NEW** — analysis client |
 | `rvsec-gator/client/pom.xml` | **MODIFY** — add JGraphT, mop-extractor, apk-reader deps + shade plugin |
 | `rvsec-gator/client/.../RvsecWtgClient.java` | Reference only (port WTG logic) |
 | `rvsec-reachability/.../JGraphReachabilityStrategy.java` | Reference only (port reachability logic) |
@@ -700,20 +702,20 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 | File | Action |
 |------|--------|
-| `rv-android-core/.../constants.py` | **MODIFY** — add EXTENSION_UNIFIED |
-| `rv-static-analysis/.../parser/static/unified_parser.py` | **NEW** — unified JSON parser |
+| `rv-android-core/.../constants.py` | **MODIFY** — add EXTENSION_STATIC_ANALYSIS |
+| `rv-static-analysis/.../parser/static/static_analysis_parser.py` | **REWRITE** — analysis JSON parser |
 | `rv-static-analysis/.../analysis/static/static_analysis.py` | **MODIFY** — single tool pipeline |
-| `rv-static-analysis/.../config.py` | **MODIFY** — unified tool config |
-| `rv-static-analysis/.../parser/static/static_analysis_parser.py` | **MODIFY** — delegate to UnifiedParser |
+| `rv-static-analysis/.../config.py` | **MODIFY** — analysis tool config |
+| `rv-static-analysis/.../parser/static/base_parser.py` | **DELETE** — no longer needed |
 | `rv-platform/.../components/static_analysis.py` | **MODIFY** — update file extensions |
 
 ### Python (rv-android) — Delete (backup to `backup/` first)
 
 | File | Reason |
 |------|--------|
-| `rv-static-analysis/.../parser/static/gesda_parser.py` | Replaced by UnifiedParser |
-| `rv-static-analysis/.../parser/static/gator_parser.py` | Replaced by UnifiedParser |
-| `rv-static-analysis/.../parser/static/reach_parser.py` | Replaced by UnifiedParser |
+| `rv-static-analysis/.../parser/static/gesda_parser.py` | Deleted (P3) |
+| `rv-static-analysis/.../parser/static/gator_parser.py` | Deleted (P3) |
+| `rv-static-analysis/.../parser/static/reach_parser.py` | Deleted (P3) |
 | `rv-static-analysis/tests/.../test_gesda_parser.py` | Tests for deleted parser |
 | `rv-static-analysis/tests/.../test_gator_parser.py` | Tests for deleted parser |
 | `rv-static-analysis/tests/.../test_reach_parser.py` | Tests for deleted parser |
@@ -722,7 +724,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 | File | Action |
 |------|--------|
-| `rv-android/lib/unified/rvsec-unified-client.jar` | **NEW** — fat JAR from maven-shade |
+| `rv-android/lib/analysis-client/rvsec-analysis-client.jar` | **NEW** — fat JAR from maven-shade |
 | `rv-android/lib/gesda/rvsec-gesda.jar` | Keep until verified, then remove |
 | `rv-android/lib/reach/rvsec-reach.jar` | Keep until verified, then remove |
 
@@ -733,18 +735,18 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 ```bash
 source /etc/profile
 
-# Build unified client fat JAR
+# Build analysis client fat JAR
 cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client
 mvn package -DskipTests
-cp target/rvsec-unified-client.jar $RVSEC_HOME/rv-android/lib/unified/
+cp target/rvsec-analysis-client.jar $RVSEC_HOME/rv-android/lib/analysis-client/
 
-# Run unified analysis on test APK
+# Run static analysis on test APK
 cd $RVSEC_HOME/rv-android
 python lib/gator/gator a \
   -p apks_examples/cryptoapp.apk \
-  --client-jar lib/unified/rvsec-unified-client.jar \
+  --client-jar lib/analysis-client/rvsec-analysis-client.jar \
   --out /tmp/cryptoapp.json \
-  -client RvsecUnifiedClient \
+  -client RvsecAnalysisClient \
   -clientParam mopDir=$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
   --timeout 600
 ```
