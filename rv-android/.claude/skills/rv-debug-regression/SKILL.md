@@ -43,20 +43,17 @@ REPORT ────────────────────────�
 
 ## Steps
 
-### Step 1: Confirm Failure
+### Step 1: Confirm Failure (mandatory: use rv-test-run)
 
-First, reproduce the failure:
+Reproduce the failure using the **Skill tool**:
 
-```bash
-# Run the failing test
-cd modules/[module]
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/[path]::$ARGUMENTS -v
-
-# Capture error output
-uv run pytest tests/[path]::$ARGUMENTS -v 2>&1 | tee /tmp/test_failure.log
+```
+Skill tool: skill="rv-test-run", args="[module] [test-path]::$ARGUMENTS"
 ```
 
-**Document**:
+The sub-skill will run the test and report pass/fail with output.
+
+**Document** from the rv-test-run output:
 - Test name and location
 - Error message
 - Stack trace

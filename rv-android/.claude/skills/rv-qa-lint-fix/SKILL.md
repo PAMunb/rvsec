@@ -33,18 +33,13 @@ allowed-tools: Read, Bash, Skill
    uv run mypy src/ --ignore-missing-imports
    ```
 
-4. **Run tests** to ensure no breakage:
-   ```bash
-   uv run pytest tests/unit/ -v
-   ```
-
-5. **Run full verification** - Use the **Skill tool**:
+4. **Run full verification** (mandatory) - Use the **Skill tool**:
    ```
    Skill tool: skill="rv-verify", args="$MODULE"
    ```
-   This ensures all checks pass after auto-fixes (tests, lint, types, formatting).
+   This runs tests, lint, types, and formatting checks — ensuring auto-fixes caused no breakage.
 
-6. **Report changes**
+5. **Report changes**
 
 ## Fix Order
 

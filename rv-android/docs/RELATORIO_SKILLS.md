@@ -663,9 +663,9 @@ Cross-referencing all 8 L1 skills against their chain instructions revealed:
 
 **Conclusion**: Only rv-code-reviewer has a broken chain pattern. All other L1 skills use mandatory `Step N: Skill tool: skill="..."` format.
 
-### Fix Applied
+### Fixes Applied
 
-**rv-code-reviewer SKILL.md** was updated to make analysis **mandatory** (Step 2: Gather Metrics):
+**1. rv-code-reviewer SKILL.md** — analysis mandatory (Step 2: Gather Metrics):
 
 | Aspect | Before | After |
 |--------|--------|-------|
@@ -673,6 +673,21 @@ Cross-referencing all 8 L1 skills against their chain instructions revealed:
 | Trigger | Conditional — "If issues are unclear or complex" | Mandatory — always runs before review |
 | Scope detection | None | Module-scoped vs file-scoped with different skill sets |
 | Parallelism | Not mentioned | Explicit: "Invoke **in parallel** (multiple Skill calls in one response)" |
+
+**2. rv-debug-regression SKILL.md** — Step 1 uses rv-test-run:
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Step 1 | Raw bash: `uv run pytest tests/[path]::$ARGUMENTS -v` | Skill tool: `skill="rv-test-run", args="[module] [test-path]"` |
+| Step 2 bisect | Raw bash (kept) | Raw bash (kept — speed needed for binary search) |
+| Step 5 post-fix | Skill tool: rv-test-run (kept) | Skill tool: rv-test-run (kept) |
+
+**3. rv-qa-lint-fix SKILL.md** — redundant Step 4 removed:
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Step 4 | `uv run pytest tests/unit/ -v` (raw bash) | Removed — rv-verify in next step already runs tests |
+| Step 5 → Step 4 | rv-verify (optional feel) | rv-verify **(mandatory)** — renumbered |
 
 ### hello-claude-code Findings
 
@@ -689,6 +704,8 @@ Cross-referenced with empirical validation from `hello-claude-code` project (11 
 
 **O42 (rv-code-reviewer chain failure)**: The skill produced an excellent review (found DynamicTransition.__hash__ bug, 11 stale path comments, MOP terminology violations, P1/P4 violations) but did ALL analysis manually via Read/Grep/Bash instead of chaining to analysis sub-skills. The "when needed" conditional gave the model discretion to bypass the chain. Fixed by making Step 2 mandatory.
 
-**O43 (rv-debug-regression correct behavior)**: The skill correctly identified that commit b652652a was a fix for a latent bug (not a regression). Step 5 (chain to rv-test-run) was correctly skipped because no fix needed to be applied — the fix was already in HEAD. The skill ran tests directly via Bash in Step 1 (Confirm Failure), which is appropriate for the bisect workflow.
+**O43 (rv-debug-regression chain alignment)**: The skill ran tests directly via Bash in Step 1 instead of chaining to rv-test-run. Step 5 (post-fix chain) was correctly skipped because no fix was needed. Step 1 was updated to use rv-test-run; Step 2 (bisect) kept raw bash for speed. Re-test needed in next session.
 
-**O44 (chain pattern taxonomy)**: L1 skills use 3 chain patterns: (1) **Pre-analysis** — invoke analysis before main work (rv-refactor-*, rv-test-add, rv-security, rv-code-reviewer FIXED); (2) **Post-verification** — invoke verification after changes (rv-qa-lint-fix, rv-debug-regression); (3) **Conditional** — invoke only when specific conditions met (BROKEN in rv-code-reviewer, now fixed).
+**O44 (rv-qa-lint-fix redundant step)**: Step 4 ran `uv run pytest tests/unit/ -v` before Step 5's rv-verify. Since rv-verify already runs full tests, Step 4 was redundant and could short-circuit the chain — if tests pass in Step 4, the model might skip Step 5. Removed Step 4. Re-test needed in next session.
+
+**O45 (chain pattern taxonomy)**: L1 skills use 2 chain patterns: (1) **Pre-analysis** — invoke analysis before main work (rv-refactor-*, rv-test-add, rv-security, rv-code-reviewer); (2) **Post-verification** — invoke verification after changes (rv-qa-lint-fix, rv-debug-regression). All chains are now mandatory numbered steps. The failed "conditional" pattern ("when needed") was eliminated.
