@@ -1,5 +1,5 @@
-# GH26 Baseline Experiment: 21 APKs × 3 tools × 3 reps = 189 tasks.
-# Two containers run in parallel (11 + 10 APKs).
+# GH26 Baseline Experiment: 19 APKs × 3 tools × 3 reps = 171 tasks.
+# Two containers run in parallel (9 + 10 APKs).
 # SA skipped — pre-computed files copied from RV_SA_DIR by entrypoint.
 # Pipeline: monitors + instrumentation + execution (no static analysis).
 #
