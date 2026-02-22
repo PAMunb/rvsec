@@ -1,1180 +1,1313 @@
-# Análise Crítica: gh26-exploration-strategy
+# Validação da Change gh27-unified-static-analysis
 
+**Data**: 2026-02-20  
 **Autor**: Qwen Code  
-**Data**: 2026-02-17 (Atualizado: 2026-02-17 - **Análise Profunda com Validação Linha-por-Linha**)  
-**Tipo**: Validação de Design (Spec-Driven Development)  
-**Status**: ⚠️ **APROVADA COM RESSALVAS CRÍTICAS**  
-**Revisão**: **Análise profunda com validação de 50+ claims no código-fonte real**
-
----
-
-## 🚨 MUDANÇAS NA ANÁLISE PROFUNDA (Atualização)
-
-Esta versão atualizada do relatório inclui uma **análise extremamente detalhada** com validação linha-por-linha de cada claim do design.md contra o código-fonte real. As principais descobertas são:
-
-### 🔴 Descobertas Críticas (Não Evidentes na Análise Superficial)
-
-1. **IMPLEMENTAÇÃO: 0% COMPLETA** — Nenhuma das tasks foi iniciada
-2. **15 DEPENDÊNCIAS NÃO DOCUMENTADAS** — Campos e métodos que não existem
-3. **5 CLAIMS PRINCIPAIS INCORRETAS** — Design descreve comportamento não implementado
-4. **2 DEAD SCORERS NÃO DOCUMENTADOS** — GradualDecayScorer + ExecutionCountScorer
-5. **FUNCIONALIDADE QUEBRADA** — failed_actions tracking nunca é chamado (TODO#19)
-
-### 📊 Resumo da Validação (50+ Claims)
-
-| Categoria | Confirmadas | Parciais | Incorretas | Total |
-|-----------|-------------|----------|------------|-------|
-| **Arquitetura** | 5 | 1 | 1 | 7 |
-| **Bugs** | 6 | 0 | 0 | 6 |
-| **Config** | 0 | 0 | 11 | 11 |
-| **Scorers** | 2 | 0 | 1 | 3 |
-| **Data Models** | 0 | 0 | 3 | 3 |
-| **Dependências** | 2 | 2 | 15 | 19 |
-| **TOTAL** | **15** | **3** | **31** | **49** |
-
-**Veredito Atualizado**: Design válido, implementação não iniciada, 15 bloqueantes críticos identificados.
+**Tipo**: Validação de Design (Full SDD - Phase 3/4)  
+**Status**: ✅ Aprovado com Ressalvas
 
 ---
 
 ## Resumo Executivo
 
-Esta análise valida a change **gh26-exploration-strategy** proposta para o rv-agent, que visa corrigir gargalos arquiteturais na estratégia de exploração do agente LLM-guided. A change propõe **10 melhorias** agrupadas por impacto (Crítico, Alto, Médio, Baixo) para resolver problemas que **calibração sozinha (gh9) não resolveria**.
+Esta validação analisa meticulosamente a proposta de unificação das três ferramentas de análise estática (GESDA, GATOR, REACH) em um único cliente GATOR (`RvsecUnifiedClient`). A análise cobre consistência arquitetural, rastreabilidade spec-design-tasks, completude dos critérios de aceitação, validação de claims contra o código existente, e identificação de riscos não mitigados.
 
-### 🚨 ALERTA CRÍTICO (Após Análise Profunda)
+### Veredito: **APROVADO COM RESSALVAS**
 
-**IMPLEMENTAÇÃO: 0% COMPLETA**
+A change é **bem fundamentada, coerente e executável**, mas requer correções obrigatórias antes da implementação:
 
-Após validação linha-por-linha de **50+ claims** no código-fonte, descobri que:
-
-| Categoria | Status |
-|-----------|--------|
-| **Group 1 (Config)** | ❌ 0% completo - 11 campos novos NÃO existem |
-| **Group 1.5 (Dead Code)** | ❌ 0% completo - código morto ainda presente |
-| **Group 2 (Text Input)** | ❌ 0% completo - 6 bugs ainda presentes |
-| **Group 3 (Scorers)** | ❌ 0% completo - GradualDecayScorer não registrado |
-| **Group 3.5 (Coverage)** | ❌ 0% completo - RankingContext sem successor_tracker |
-| **Group 4 (Reward)** | ❌ 0% completo - action_cumulative_reward não existe |
-| **Group 5 (Backtracking)** | ❌ 0% completo - should_backtrack binário (100%) |
-| **Group 6 (PathBuffer)** | ❌ 0% completo - classe não existe |
-
-**Design.md claims vs Código Real:**
-- ✅ 10 claims confirmadas (código corresponde ao documentado)
-- ⚠️ 5 claims parciais (discrepâncias menores)
-- ❌ **5 claims INCORRETAS** (implementação não corresponde ao design)
-
-### Veredito Atualizado
-
-**A change é VÁLIDA no design, mas a implementação NÃO FOI INICIADA.**
-
-| Critério | Avaliação Anterior | Avaliação Atual | Justificativa |
-|----------|-------------------|-----------------|---------------|
-| **Consistência** | ✅ Aprovada | ⚠️ Aprovada com ressalvas | Design consistente, mas 5 claims não correspondem ao código |
-| **Coerência** | ✅ Aprovada | ✅ Aprovada | Rastreabilidade spec-design-task completa |
-| **Completude** | ✅ Aprovada | ⚠️ Parcial | 2 scorers dead code não documentados (GradualDecay + ExecutionCount) |
-| **Executabilidade** | ✅ Aprovada | ⚠️ Dependências críticas | 4 dependências não documentadas identificadas |
-| **Simplicidade (P1)** | ✅ Aprovada | ✅ Aprovada | Decisões de design priorizam simplicidade |
-
-### 🔴 Recomendações Críticas (BLOQUEANTES)
-
-1. **Task 1.1 (CRÍTICO)**: Adicionar 11 campos em RVAgentConfig — **NENHUM existe atualmente**
-2. **Task 1.3 (CRÍTICO)**: Adicionar `action_cumulative_reward` em ScreenNode — **Campo não existe**
-3. **Task 3.5.2 (CRÍTICO)**: Adicionar `successor_tracker` em RankingContext — **Campo não existe**
-4. **Task 5.5 (CRÍTICO)**: Modificar `find_nearest_unsaturated()` para retornar `Tuple[str, int]` — **Atualmente retorna `Optional[str]`**
-5. **Task 5.4 (ALTO)**: Modificar `should_backtrack()` para usar threshold — **Atualmente binário (100%)**
-
-### 🟡 Recomendações de Melhoria (Não Bloqueantes)
-
-6. Adicionar nota sobre ExecutionCountScorer (também dead code) no design.md
-7. Documentar que `failed_actions` tracking está quebrado (TODO#19)
-8. Explicitar dependências críticas com "BLOCKED BY" em tasks
-9. Mover wiring (task 6.7) para Group 1 ou 2
-10. Adicionar testes de memory leak no Group 9.4
+| Categoria | Quantidade |
+|-----------|------------|
+| ✅ Pontos Fortes | 12 |
+| ⚠️ Inconsistências Críticas | 5 |
+| ⚠️ Lacunas de Especificação | 8 |
+| ⚠️ Critérios de Aceitação Faltantes | 3 |
+| ⚠️ Claims Não Verificadas | 3 |
+| 💡 Sugestões de Melhoria | 6 |
+| 📋 Testes Adicionais Sugeridos | 10 |
 
 ---
 
-## 1. Contexto e Motivação
+## 1. Contexto e Escopo da Validação
 
-### 0.1 Resultados da Análise Profunda (50+ Claims Validadas)
+### 1.1. Objetivo
 
-**Metodologia**: Validação linha-por-linha de cada claim do design.md contra o código-fonte real.
+Validar a change `gh27-unified-static-analysis` antes da implementação, verificando:
+- Consistência e coerência da arquitetura proposta
+- Rastreabilidade completa spec → design → tasks
+- Completude dos critérios de aceitação
+- Validação de claims contra o código existente
+- Identificação de ambiguidades, contradições e lacunas
+- Sugestões de melhoria e cenários de teste adicionais
 
-#### Tabela Completa de Claims Validadas
+### 1.2. Artefatos Analisados
 
-| # | Claim | Design.md | Código Real | Veredito | Impacto |
-|---|-------|-----------|-------------|----------|---------|
-| **1** | state_stack é append-only | Linha ~230 | rvagent_strategy.py:200,273,886 | ✅ Confirmado | Baixo |
-| **2** | parent_hash nunca lido | Linha ~230 | rvagent_strategy.py:265,270 | ✅ Confirmado | Baixo |
-| **3** | visited_states redundante | Linha ~230 | rvagent_strategy.py:201,274,729 | ⚠️ Parcial | Médio |
-| **4** | find_nearest_unsaturated retorna str | Linha ~437 | successor_tracker.py:329-363 | ❌ Retorna str, não Tuple | **Crítico** |
-| **5** | Grafo LangGraph bypass screenshot | Linha ~188 | rv_agent.py:174-207 | ✅ Confirmado | Baixo |
-| **6** | GradualDecayScorer dead code | Linha ~23 | rvagent_strategy.py:186-197 | ✅ Confirmado | Médio |
-| **7** | 8 scorers ativos | Linha ~690 | rvagent_strategy.py:186-197 | ✅ Confirmado | Baixo |
-| **8.1** | Bug 1: Duplicate input type | Linha ~19 | rvagent_strategy.py:753-771 | ✅ Confirmado | Alto |
-| **8.2** | Bug 2: Wrong value ordering | Linha ~19 | input_value_generator.py:154-156 | ✅ Confirmado | Alto |
-| **8.3** | Bug 3: LLM bypass | Linha ~19 | input_value_generator.py:45-88 | ✅ Confirmado | Alto |
-| **8.4** | Bug 4: max_variations=5 | Linha ~19 | input_value_generator.py:45-46,82-88 | ✅ Confirmado | Alto |
-| **8.5** | Bug 5: Missing input types | Linha ~19 | input_value_generator.py:118-157 | ✅ Confirmado | Médio |
-| **8.6** | Bug 6: No clear-before-type | Linha ~19 | tool_executor.py | ✅ Confirmado | Alto |
-| **9** | Coverage fórmula divergente | Linha ~236 | successor_tracker.py:128, screen_node.py:66 | ✅ Confirmado | Médio |
-| **10** | transitions audit-only | Linha ~136 | dynamic_state_graph.py | ✅ Confirmado | Baixo |
-| **11** | 11 novos campos config | Linha ~23 | agent_config.py:1-461 | ❌ **Nenhum existe** | **Crítico** |
-| **12** | Scorer weights atualizados | Linha ~23 | agent_config.py:229-248 | ❌ **Ainda 300/150/250** | **Crítico** |
-| **13** | should_backtrack com threshold | Linha ~23 | rvagent_strategy.py:447-474 | ❌ **Binário (100%)** | **Crítico** |
-| **14** | action_cumulative_reward | Linha ~23 | screen_node.py:40-52 | ❌ **Campo não existe** | **Crítico** |
-| **15** | RankingContext.successor_tracker | Linha ~437 | context.py:19-28 | ❌ **Campo não existe** | **Crítico** |
-| **16** | stochastic_probability 0.3→0.15 | Linha ~23 | agent_config.py:204 | ❌ **Ainda 0.3** | Alto |
-| **17** | ExecutionCountScorer dead code | Não mencionado | scorers.py:191-217 | ⚠️ Não documentado | Baixo |
-| **18** | failed_actions tracking quebrado | Não mencionado | screen_node.py:104-118 | ⚠️ TODO#19 | Médio |
+| Artefato | Localização |
+|----------|-------------|
+| WORKFLOW.md | `/rv-android/docs/WORKFLOW.md` |
+| proposal.md | `/openspec/changes/gh27-unified-static-analysis/proposal.md` |
+| design.md | `/openspec/changes/gh27-unified-static-analysis/design.md` |
+| tasks.md | `/openspec/changes/gh27-unified-static-analysis/tasks.md` |
+| plan.md | `/openspec/changes/gh27-unified-static-analysis/plan.md` |
+| Delta Spec | `/openspec/changes/gh27-unified-static-analysis/specs/analysis/spec.md` |
 
-#### Status de Implementação por Group
+### 1.3. Código Existente Analisado
 
-| Group | Tasks | Status | Evidência |
-|-------|-------|--------|-----------|
-| **Group 0** (Baseline) | 0.1-0.6 | ❌ Não iniciado | Nenhum arquivo em docker/data/gh26_experiment/ |
-| **Group 1** (Config) | 1.1-1.6 | ❌ 0% completo | agent_config.py sem 11 campos novos |
-| **Group 1.5** (Dead Code) | 1.5.1-1.5.5 | ❌ 0% completo | state_stack, visited_states ainda presentes |
-| **Group 2** (Text Input) | 2.1-2.7 | ❌ 0% completo | 6 bugs ainda presentes no código |
-| **Group 3** (Scorers) | 3.1-3.3 | ❌ 0% completo | GradualDecayScorer não registrado |
-| **Group 3.5** (Coverage) | 3.5.1-3.5.6 | ❌ 0% completo | RankingContext sem successor_tracker |
-| **Group 4** (Reward) | 4.1-4.5 | ❌ 0% completo | action_cumulative_reward não existe |
-| **Group 5** (Backtracking) | 5.1-5.5 | ❌ 0% completo | should_backtrack binário |
-| **Group 6** (PathBuffer) | 6.1-6.7 | ❌ 0% completo | Classe PathBuffer não existe |
-| **Group 7** (Speed) | 7.1-7.4 | ❌ 0% completo | screen_desc caching não implementado |
-| **Group 8** (LLM MOP) | 8.1-8.2 | ❌ 0% completo | NavigationGuidance sem MOP context |
-| **Group 9** (Integration) | 9.1-9.8 | ❌ 0% completo | Depende de todos os groups |
-| **Group 10** (Validation) | 10.1-10.6 | ❌ 0% completo | Depende de Group 9 |
+| Módulo | Arquivos |
+|--------|----------|
+| rv-static-analysis | `static_analysis.py`, `config.py`, `static_analysis_parser.py`, `gesda_parser.py`, `gator_parser.py`, `reach_parser.py` |
+| rv-android-core | `constants.py`, `domain/static.py` |
+| rv-platform | `static_analysis.py` |
+| rvsec-gator/client | `RvsecWtgClient.java`, `pom.xml` |
 
 ---
 
-## 1. Contexto e Motivação
+## 2. Avaliação da Arquitetura Proposta
 
-### 1.1 Problema Identificado
+### 2.1. Root Cause Analysis ✅ Confirmada
 
-rv-agent's exploração atual desperdiça **20-40% do budget de iterações** em estados saturados porque:
+A análise de root cause apresentada no `plan.md` Seção 1 é **sólida e bem fundamentada**:
 
-1. **Backtracking passivo**: Quando todas as ações em um estado foram testadas, o agente entra em "continuous mode" (repete ação menos executada) em vez de navegar BACK proativamente
-2. **Scorer desbalanceado**: WTG score (+250) ≈ MOP-direct (+300) > MOP-transitive (+150), causando preferência por novas telas em vez de caminhos MOP
-3. **Sem aprendizado adaptativo**: Pesos dos scorers são fixos — ações que falham consistentemente recebem mesmo score que ações produtivas
-4. **Bugs no text input**: `InputValueGenerator` tem 6 bugs que desperdiçam 20-40% das iterações de texto (PINs em campos não-PIN, sem clear-before-type, etc.)
-5. **Gap de velocidade**: ~150-300 iterações em 300s (pure_algorithm) vs ~300-600 do APE/Fastbot
+| Root Cause | Severidade | Ferramenta | Validação |
+|------------|------------|-----------|-----------|
+| R1: `all-reachable` infla call graph | CRITICAL | REACH | ✅ Confirmada (ver Seção 4.4) |
+| R2: Timeout não controla CG construction | CRITICAL | REACH | ⚠️ Não verificada no código |
+| G1: `cg all-reachable` dead config | CRITICAL | GESDA | ⚠️ Não verificada no código |
+| A1: Timeout não passado do rv-android | CRITICAL | GATOR | ✅ Confirmada em `config.py` |
+| P1: Sem process-level timeout | CRITICAL | ALL | ✅ Confirmada em `static_analysis.py` |
+| G2: Recursive methods sem cycle detection | HIGH | GESDA | ⚠️ Não verificada |
+| R3: O(M*E + M*K) BFS traversals | HIGH | REACH | ⚠️ Não verificada |
+| R4: Hardcoded SootReachabilityStrategy | HIGH | REACH | ⚠️ Não verificada |
 
-### 1.2 Dados do ICST Paper (Baseline)
-
-| Tool | Overall Coverage (%) | MOP Coverage (%) | Violações JCA |
-|------|---------------------|------------------|---------------|
-| **Humanoid** | **26.77** | **17.16** | 221 |
-| **Fastbot** | **26.60** | **15.81** | 213 |
-| **APE** | **25.27** | **14.56** | 198 |
-| Monkey | 21.00 | 12.35 | 166 |
-
-**Meta do rv-agent**: MOP Coverage > 15.81% (beat Fastbot), idealmente > 17.16% (beat Humanoid)
-
-### 1.3 Posicionamento no Workflow
-
-```
-gh17 (DONE) → gh18 (error detection) → gh26 (esta change) → gh9 (calibration)
-```
-
-- **gh18**: Pré-condição — já implementada (VisualErrorDetector, force_fill_input, screenshot condicional)
-- **gh26**: Esta change — correções arquiteturais
-- **gh9**: Downstream — campanha de calibração com Optuna (312 horas)
-
----
-
-## 2. Análise dos Documentos
-
-### 2.1 proposal.md
-
-**Estrutura**:
-- GitHub Issue: #26
-- Track: Full SDD (rv-sdd schema)
-- Pre-condition: gh18
-- Downstream: gh9
-
-**Seções Principais**:
-
-| Seção | Conteúdo | Qualidade |
-|-------|----------|-----------|
-| **Why** | Diagnóstico dos 5 gargalos arquiteturais | ✅ Preciso, baseado em dados |
-| **What Changes** | 10 melhorias agrupadas por impacto | ✅ Priorização clara |
-| **Capabilities** | Modified capabilities com tabela FR-mapping | ✅ Rastreabilidade |
-| **Impact** | Módulos, APIs, dependências, FRs/NFRs | ✅ Completo |
-
-**Pontos Fortes**:
-- Agrupamento por impacto (Critical: 7.1, 7.3; High: 7.2, 7.4, 7.10, 7.9; Medium: 7.5, 7.6, 7.7; Low: 7.8)
-- Pre-condição gh18 explícita com análise de conflito referenciada
-- Downstream gh9 claramente identificado
-
-**Ponto de Melhoria**:
-- ❌ Não menciona o `min_visits` cutoff do GradualDecayScorer (visits >= 5 → score 0.0)
-
-### 2.2 design.md
-
-**Estrutura**:
-- Context (5 gargalos)
-- Architecture (diagrama de componentes)
-- Mapping: Spec → Implementation → Test
-- Goals / Non-Goals
-- Decisions (D1-D6)
-- API Design (PathBuffer, CoverageDensityScorer, etc.)
-
-**Decisões de Arquitetura**:
-
-| Decisão | Opção Escolhida | Alternativas | Racional |
-|---------|-----------------|--------------|----------|
-| **D1: PathBuffer class** | Classe separada | Inline na strategy, parte do SuccessorTracker | Testabilidade, separação de concerns |
-| **D2: Reward propagation** | Simplified N-step (~80 linhas) | Full SARSA (~300+ linhas) | P1 Simplicity — 80% benefício, 10% complexidade |
-| **D3: Scorer weights** | Config-driven (defaults) | Hard-coded, dynamic adjustment | gh9 pode calibrar, zero-risk |
-| **D4: Text input** | Fix in place | Rewrite completo | Bugs precisos, estrutura sound |
-| **D5: Speed optimization** | Runtime per-iteration check | Compile-time graph separation | Preserva multimode flexibility |
-| **D6: Dead code removal** | Durante gh26 | Separate change depois | Limpar antes de construir novo |
-
-**API Design**:
-- `PathBuffer`: 5 métodos principais (`get_next_action`, `plan_backtrack_path`, `plan_mop_path`, `plan_coverage_path`, `invalidate`)
-- `CoverageDensityScorer`: Sempre ativo, weight=200, fórmula `weight * coverage_gap`
-- `RewardPropagator`: `record_action()`, `propagate()`, cap em 15.0
-- `SuccessorTracker.get_action_destination()`: Novo accessor para CoverageDensityScorer
-
-**Pontos Fortes**:
-- Diagrama de componente interaction claro
-- Mapping table espec→implementação→teste
-- Goals e Non-Goals explícitos (ex: "State abstraction refinement" é Non-Goal)
-- Decisões com alternativas e racional
-
-**Ponto de Atenção**:
-- ⚠️ Task 6.7 (wire PathBuffer + RewardPropagator) deveria ser Group 1 — todos dependem
-
-### 2.3 tasks.md
-
-**Estrutura**:
-- Group 0: Baseline Experiment (ANTES da implementação)
-- Group 1: Config & Models
-- Group 1.5: Dead Code Removal
-- Groups 2-8: Implementação por feature
-- Group 9: Integration Testing
-- Group 10: Post-Implementation Validation
-
-**Distribuição de Tasks**:
-
-| Group | Tasks | Dependências | Status |
-|-------|-------|--------------|--------|
-| **0** | 0.1-0.6 | Nenhuma | Baseline (rodar primeiro) |
-| **1** | 1.1-1.6 | Nenhuma | Config (pré-requisito) |
-| **1.5** | 1.5.1-1.5.5 | Group 1 | Dead code |
-| **2** | 2.1-2.7 | Group 1 | Text input fixes |
-| **3** | 3.1-3.3 | Group 1 | Scorer rebalancing |
-| **3.5** | 3.5.1-3.5.6 | Group 1 | Coverage-based guidance |
-| **4** | 4.1-4.5 | Group 1 | Reward propagation |
-| **5** | 5.1-5.5 | Group 1, 1.5 | Proactive backtracking |
-| **6** | 6.1-6.7 | Group 1, 1.5, **5** | PathBuffer |
-| **7** | 7.1-7.4 | Group 1 | Speed optimization |
-| **8** | 8.1-8.2 | Group 1 | LLM MOP guidance |
-| **9** | 9.1-9.8 | Todos | Integration |
-| **10** | 10.1-10.6 | Group 9 | Validation experiment |
-
-**Pontos Fortes**:
-- TDD: testes criados antes da implementação
-- Tasks atômicas (uma responsabilidade por task)
-- "Satisfies INV-AGT-XX" em cada task
-- Grupos independentes podem rodar em paralelo (2, 3, 3.5, 4, 7, 8)
-
-**Dependências Críticas**:
-
-```
-Group 0 (Baseline) → DEVE rodar PRIMEIRO
-Group 1 (Config) → Todos os grupos dependem
-Group 5 (Backtracking) → Group 6 depende (task 5.5 modifica assinatura)
-Group 6 (PathBuffer) → Group 9 depende
-Group 9 (Integration) → Rodar após todos
-Group 10 (Validation) → Após Group 9 e /rv-verify
-```
-
-**Ponto de Atenção**:
-- ⚠️ Task 5.5 (`find_nearest_unsaturated` return type) é bloqueante para 6.1, 6.2, 6.5 — deveria ter "BLOCKED BY" explícito
-
----
-
-## 3. Validação do Código Atual
-
-### 3.1 Arquivos Analisados
-
-| Arquivo | Linhas | Status |
-|---------|--------|--------|
-| `rvagent_strategy.py` | 941 | Código atual (pré-gh26) |
-| `agent_config.py` | 461 | 24 params atuais (gh26 adiciona 11) |
-| `scorers.py` | 498 | 8 scorers ativos, 2 dead code |
-| `rv_agent.py` | 439 | Grafo LangGraph atual |
-| `input_value_generator.py` | 269 | Com 6 bugs identificados |
-| `successor_tracker.py` | 401 | `find_nearest_unsaturated` retorna `Optional[str]` |
-| `parse_node.py` | ~80 | Sem caching de screen_desc |
-| `learn_node.py` | 493 | Sem reward propagation |
-
-### 3.2 Validação do Grafo LangGraph
-
-**Estado Atual** (`rv_agent.py:226-260`):
+**Validação de A1 e P1 no código existente**:
 
 ```python
-workflow.add_conditional_edges(
-    "decision_router",
-    lambda s: s.get("decision_path", "end"),
-    {
-        "llm": "capture_screenshot",
-        "algorithm": "algorithm_node",
-        "end": END
+# config.py - get_tool_command('gator', ...)
+# NÃO há parâmetro --timeout na chamada do GATOR
+return [
+    'python', components['gator_python'], 'a',
+    '-p', apk_path,
+    '--client-jar', client_jar,
+    '--out', output_file,
+    '-client', 'RvsecWtgClient'
+    # ❌ Sem --timeout
+]
+
+# static_analysis.py - _run_gator()
+gator_cmd = Command(cmd_args[0], cmd_args[1:])
+# ❌ Sem timeout especificado (default=None)
+```
+
+---
+
+### 2.2. Decisão Arquitetural: Unificação em Único Cliente GATOR ✅ Coerente
+
+A decisão de consolidar 3 ferramentas em 1 é **coerente com os princípios do projeto**:
+
+| Princípio | Aplicação na Change | Avaliação |
+|-----------|---------------------|-----------|
+| P1 (Simplicidade) | 1 parser ao invés de 3, 1 invocação ao invés de 3 | ✅ Atendido |
+| P2 (Human-Readable) | Specs narrativas, explicações detalhadas | ✅ Atendido |
+| P3 (No Backward Compatibility) | Deleção completa dos parsers antigos | ✅ Atendido |
+| P4 (Current-State Comments) | Sem comentários sobre migração | ✅ Atendido |
+
+**Benefícios Quantificados**:
+- 66% redução em inicializações Soot (3 → 1)
+- Eliminação de `cg all-reachable` (10-100x redução no CG)
+- Timeout de 600s previne hangs indefinidos
+- 1 arquivo JSON ao invés de 3 arquivos heterogêneos
+
+---
+
+### 2.3. Diagramas de Arquitetura ✅ Claros e Informativos
+
+O `design.md` contém 3 diagramas Mermaid que documentam claramente:
+
+1. **Before vs After**: Fluxo de 3 ferramentas → 1 ferramenta unificada
+2. **Maven Module Hierarchy**: Estrutura de módulos Java e deploy para `lib/`
+3. **Data Flow**: Sequência completa desde invocação até consumo
+
+**Avaliação**: Diagramas são precisos e alinhados com o código existente.
+
+---
+
+## 3. Inconsistências e Contradições Identificadas
+
+### 3.1. EXTENSION_UNIFIED: `.json` é Genérico Demais ⚠️ CRÍTICO
+
+**Localização**:
+- `proposal.md`: "Use `.json` extension for the unified output file"
+- `tasks.md` 5.1: "Add `EXTENSION_UNIFIED = ".json"` to constants.py"
+- `design.md` D6: "Single `.json` extension for unified output"
+
+**Problema**:
+
+O projeto já utiliza extensões específicas para cada tipo de arquivo:
+
+```python
+# constants.py (atual)
+EXTENSION_LOGCAT = ".logcat"
+EXTENSION_TRACE = ".trace"
+EXTENSION_METHODS = ".methods"
+EXTENSION_REACH = ".reach"
+EXTENSION_GESDA = ".gesda"
+EXTENSION_GATOR = ".wtg"  # ⚠️ Note: não é ".gator"
+```
+
+**Riscos**:
+1. `.json` não diferencia o arquivo unificado de outros JSONs genéricos
+2. Conflito potencial com futuros arquivos JSON no projeto
+3. Perda de clareza semântica (`.wtg` indica WTG, `.reach` indica reachability)
+
+**Sugestão**:
+
+```python
+# Opção 1: Extensão descritiva
+EXTENSION_UNIFIED = ".unified.json"
+
+# Opção 2: Extensão semântica (recomendado)
+EXTENSION_UNIFIED = ".rvsa"  # RV-Android Static Analysis
+
+# Opção 3: Manter padrão GATOR
+EXTENSION_UNIFIED = ".wtg"  # Já que GATOR é a base
+```
+
+**Ação Requerida**: Atualizar `proposal.md`, `design.md`, `tasks.md` e `spec.md` com extensão mais específica.
+
+---
+
+### 3.2. Ordem de Escrita JSON: Formato Não Especificado ⚠️ CRÍTICO
+
+**Localização**:
+- `design.md` D5: "Write sections in order: reachability → windows → transitions. Flush after each section."
+- `tasks.md` 1.13: "Write `reachability` JSON section and flush"
+- `tasks.md` 2.4: "Write `windows` section (flush), then `transitions` section (flush + close)"
+
+**Problema**:
+
+O design menciona "flush after each section" para suportar partial writes em caso de timeout, mas **não especifica o formato JSON**. Um JSON válido requer estrutura completa:
+
+```json
+{
+  "reachability": [...],
+  "windows": [...],
+  "transitions": [...]
+}
+```
+
+Se o timeout ocorrer após escrever `reachability` mas antes de fechar o JSON, o arquivo estará **mal-formado**:
+
+```json
+{
+  "reachability": [...],
+  "windows": [
+    {"id": 1, "name": "...
+```
+
+**Resultado**: `JSONDecodeError` no parser Python → **todas as seções são perdidas**, violando INV-ANA-06 (graceful degradation).
+
+**Soluções Sugeridas**:
+
+**Opção A: JSON Lines (Recomendado)**
+```json
+{"section": "reachability", "data": [...]}
+{"section": "windows", "data": [...]}
+{"section": "transitions", "data": [...]}
+```
+Cada linha é um JSON completo e independente. Timeout em qualquer ponto preserva linhas completas.
+
+**Opção B: JSON Incremental com ijson**
+Usar biblioteca `ijson` para parsing streaming que tolera JSON truncado.
+
+**Opção C: Múltiplos Arquivos**
+```
+cryptoapp.apk.reachability.json
+cryptoapp.apk.windows.json
+cryptoapp.apk.transitions.json
+```
+Perde benefício de arquivo único, mas simplifica partial recovery.
+
+**Ação Requerida**: Atualizar `design.md` Seção "API Design" com formato JSON específico para partial writes.
+
+---
+
+### 3.3. PropertyManager.getHintOfView(): Método Pode Não Existir ⚠️ ALTO
+
+**Localização**:
+- `design.md` D1: "GATOR's `PropertyManager.v().getTextsOrTitlesOfView(node)`, `PropertyManager.v().getHintOfView(node)`"
+- `tasks.md` 2.2: "Verify `PropertyManager.v().getHintOfView(node)` exists (Open Question 1). If not, extract hint from decoded XML"
+- `plan.md` Seção 6: "widget.hint → PropertyManager.v().getHintOfView(node)"
+
+**Problema**:
+
+A tarefa 2.2 trata a existência do método como **Open Question**, mas o design e o plan assumem que ele **existe**. Não há evidência no código atual do GATOR de que `getHintOfView()` exista.
+
+**Validação no Código Existente**:
+
+O `RvsecWtgClient.java` atual **não usa** `PropertyManager` para extração de dados de widgets. Ele apenas:
+1. Itera sobre `WTGNode` e `NObjectNode`
+2. Extrai `sourceNode.getClassType().getName()`
+3. Constrói transições a partir de `WTGEdge`
+
+**Fallback Não Especificado**:
+
+O design menciona extrair `inputType` e `entries` do XML decodificado, mas **não menciona `hint`**. Se `getHintOfView()` não existir, o fallback para `hint` não está documentado.
+
+**Ação Requerida**:
+1. Executar verificação (Task 0.1) **antes** de implementar
+2. Se método não existir, atualizar design com especificação de extração via XML:
+   - Identificar atributo `android:hint` no layout XML
+   - Resolver referências `@string/` via `res/values/strings.xml`
+
+---
+
+### 3.4. Configs.clientParams: Propagação Não Verificada ⚠️ MÉDIO
+
+**Localização**:
+- `design.md` Seção 6: "Uses GATOR's existing `-clientParam` mechanism (`Configs.clientParams`)"
+- `tasks.md` 1.2: "Verify `Configs.clientParams` propagates `-clientParam mopDir=<path>` (Open Question 3)"
+
+**Problema**:
+
+A propagação de `-clientParam` para `Configs.clientParams` é **assumida** mas não verificada. Se o launcher do GATOR não propagar corretamente, o `mopDir` não estará disponível no client.
+
+**Validação no Código Existente**:
+
+O `RvsecWtgClient.java` atual **não lê** parâmetros de `Configs.clientParams`. Ele apenas implementa `GUIAnalysisClient.run(GUIAnalysisOutput output)`.
+
+**Fallback Especificado**:
+- `design.md`: "Fallback: pass via `-DmopDir=<path>` system property"
+
+**Ação Requerida**: Executar Task 0.3 antes de implementar. Se fallback for necessário, atualizar `design.md` com código para leitura de system property:
+```java
+String mopDir = System.getProperty("mopDir", Configs.clientParams.get("mopDir"));
+```
+
+---
+
+### 3.5. Soot Version Compatibility: Não Verificada ⚠️ MÉDIO
+
+**Localização**:
+- `design.md`: "GATOR uses Soot 3.3.0 (OSU fork). Dependencies must exclude their Soot transitive deps"
+- `tasks.md` 1.4: "Verify Soot 3.3.0 compatibility (Open Question 5)"
+
+**Problema**:
+
+A compatibilidade entre `rvsec-mop-extractor` (que pode usar Soot 4.x via FlowDroid) e GATOR (Soot 3.3.0) é **assumida** mas não verificada. APIs core do Soot (`Scene.v()`, `CallGraph`, `SootMethod`) são estáveis, mas APIs específicas podem diferir.
+
+**Validação no Código Existente**:
+
+O `pom.xml` atual do `rvsec-gator/client` não tem dependência do `rvsec-mop-extractor`:
+```xml
+<!-- TODO remover ... eh apenas para executar manualmente -->
+<!-- <dependency>
+    <groupId>br.unb.cic</groupId>
+    <artifactId>rvsec-apk</artifactId>
+</dependency> -->
+```
+
+**Ação Requerida**:
+1. Executar Task 0.5: `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; | sort -u`
+2. Verificar se imports são compatíveis com Soot 3.3.0
+3. Se incompatível, atualizar design com fallback: regex-based `.mop` parser
+
+---
+
+## 4. Validação de Claims Contra o Código Existente
+
+### 4.1. Claim: "3 parsers independentes" ✅ CONFIRMADA
+
+**Código Atual**:
+
+| Parser | Linhas | Responsabilidade |
+|--------|--------|------------------|
+| `gesda_parser.py` | 220 | Parse windows e widgets do JSON GESDA |
+| `gator_parser.py` | 240 | Parse transições do JSON GATOR |
+| `reach_parser.py` | 120 | Parse reachability do CSV REACH |
+| `static_analysis_parser.py` | 140 | Orquestra os 3 parsers |
+
+**Validação**:
+
+Cada parser tem:
+- ✅ Sua própria classe (`GesdaParser`, `GatorParser`, `ReachParser`)
+- ✅ Seu próprio método `parse_file()`
+- ✅ Seu próprio tratamento de erro (try/except individual)
+- ✅ Sua própria normalização de signatures (cada um instancia `SignatureNormalizer`)
+
+**Exemplo** (`static_analysis_parser.py`):
+```python
+def parse(self, reach_file, gator_file, gesda_file, package):
+    try:
+        classes = self.reach_parser.parse_file(reach_file, package, classes, None)
+    except Exception as e:
+        self.logger.error(f"Error parsing reach file: {e}")
+
+    try:
+        wtg = self.gator_parser.parse_file(gator_file, package, classes, windows)
+    except Exception as e:
+        self.logger.error(f"Error parsing gator file: {e}")
+        wtg = WindowTransitionGraph()
+
+    try:
+        self.gesda_parser.parse_file(gesda_file, package, classes, windows)
+    except Exception as e:
+        self.logger.error(f"Error parsing gesda file: {e}")
+```
+
+**Conclusão**: Claim correta. Unificação em `UnifiedParser` eliminará ~600 linhas de código duplicado.
+
+---
+
+### 4.2. Claim: "StaticAnalyzer executa 3 ferramentas em sequência" ✅ CONFIRMADA
+
+**Código Atual** (`static_analysis.py`):
+
+```python
+def analyze(self, data: Any = None) -> StaticAnalysisResult:
+    self._run_gesda()       # Linha 234
+    self._run_gator()       # Linha 235
+    self._run_reachability() # Linha 236
+```
+
+**Cada método cria Command separado**:
+
+```python
+def _run_gesda(self) -> None:
+    cmd_args = self.config.get_tool_command('gesda', self.app.path, self.gesda_file)
+    gesda_cmd = Command(cmd_args[0], cmd_args[1:])
+    self._execute_command("GESDA", self.gesda_file, gesda_cmd)
+
+def _run_gator(self) -> None:
+    cmd_args = self.config.get_tool_command('gator', self.app.path, self.gator_file)
+    gator_cmd = Command(cmd_args[0], cmd_args[1:])
+    self._execute_command("GATOR", self.gator_file, gator_cmd)
+
+def _run_reachability(self) -> None:
+    cmd_args = self.config.get_tool_command(
+        'reach', self.app.path, self.reach_file,
+        gesda_file=self.gesda_file, timeout=300
+    )
+    reach_cmd = Command(cmd_args[0], cmd_args[1:])
+    self._execute_command("REACHABILITY", self.reach_file, reach_cmd)
+```
+
+**Conclusão**: Claim correta. Unificação em `_run_unified()` eliminará 3 invocações `Command.invoke()`.
+
+---
+
+### 4.3. Claim: "GATOR usa Soot 3.3.0 (OSU fork)" ⚠️ NÃO VERIFICADA
+
+**Ação Necessária**: Verificar `rvsec-gator/sootandroid/pom.xml` ou `rvsec-gator/pom.xml`.
+
+**Impacto**: Se GATOR usar versão diferente, `rvsec-mop-extractor` pode ter incompatibilidade de API.
+
+**Risco**: Build failure ou runtime error ao carregar classes Soot.
+
+**Mitigação**: Task 0.5 deve ser executada antes de Group 1.
+
+---
+
+### 4.4. Claim: "REACH usa `cg all-reachable`" ⚠️ PARCIALMENTE CONFIRMADA
+
+**Código Analisado**: `reach_parser.py` (Python) - **não há configuração de call graph**.
+
+**Local Provável**: A configuração `cg all-reachable` deve estar no **Java** (`rvsec-reachability`), não no parser Python.
+
+**Arquivo Não Encontrado**: `$RVSEC_HOME/rvsec/rvsec-android/rvsec-reachability/` não foi listado nos arquivos disponíveis.
+
+**Evidência Indireta**: O `plan.md` Seção 1 menciona:
+> "REACH config: `cg all-reachable` inflates call graph 10-100x"
+
+Mas não há código no repositório atual que confirme isso.
+
+**Ação Necessária**: Localizar e verificar `rvsec-reachability/src/main/java/.../ReachabilityAnalyzer.java` ou equivalente.
+
+---
+
+### 4.5. Claim: "Coverage.aj usa `method.getDeclaringClass().getName()`" ⚠️ NÃO VERIFICADA
+
+**Arquivo Não Encontrado**: `$RVSEC_HOME/rvsec/rvsec-android/rvsec-coverage/Coverage.aj` não foi listado.
+
+**Importância**: Crítica para validar compatibilidade de formato de signature entre:
+- Static analysis (Soot: `<class: returnType method(params)>`)
+- Runtime logging (Coverage.aj: mesmo formato?)
+
+**Risco**: Se formatos diferirem, coverage calculation falha silenciosamente (0% coverage).
+
+**Ação Necessária**: Localizar e verificar `Coverage.aj` ou equivalente.
+
+---
+
+## 5. Rastreabilidade Spec → Design → Tasks
+
+### 5.1. Matriz de Rastreabilidade ✅ ADEQUADA
+
+| Spec Element | Design Section | Tasks | Status |
+|--------------|----------------|-------|--------|
+| FR04+05+06 unified | Architecture, API Design | Groups 1-4 (Java), 5-7 (Python) | ✅ Completa |
+| INV-ANA-02 (SignatureNormalizer) | API Design, Data Flow | 5.4, 5.6 | ✅ Completa |
+| INV-ANA-03 (code_package filtering) | API Design | 5.4, 5.5 | ✅ Completa |
+| INV-ANA-06 (graceful degradation) | Error Handling | 5.7, 8.2 | ✅ Completa |
+| INV-ANA-11 (caching) | MODIFIED Invariants | 6.5 | ✅ Completa |
+| D1 (Remove all-reachable) | Decisions | 1.6, 1.11 | ✅ Completa |
+| D2 (JGraphT Dijkstra) | Decisions | 1.3, 1.10 | ✅ Completa |
+| D3 (inputType/entries from XML) | Decisions | Group 3 | ⚠️ Lacunas |
+| D4 (Fat JAR) | Decisions | 4.1, 4.2 | ⚠️ Lacunas |
+| D5 (JSON section ordering) | Decisions | 1.13, 2.4 | ⚠️ Formato não especificado |
+| D6 (Single .json extension) | Decisions | 5.1, 7.3 | ⚠️ Extensão genérica |
+
+---
+
+### 5.2. Lacunas de Rastreabilidade Identificadas
+
+#### 5.2.1. D3 (inputType/entries extraction) - Tarefas Incompletas ⚠️
+
+**Design Especifica**:
+```markdown
+- Parse `Configs.resourceLocation/layout/{name}.xml` with standard Java DOM parser
+- Extract `android:inputType` attribute (string from apktool-decoded XML)
+- Extract `android:entries` attribute, resolve `@array/` references from `res/values/arrays.xml`
+- Match XML widgets to GATOR widgets by comparing `idName`
+```
+
+**Tasks Atuais** (Group 3):
+- [ ] 3.1 Implement layout file resolution
+- [ ] 3.2 Implement decoded XML parsing
+- [ ] 3.3 Extract `android:inputType` attribute
+- [ ] 3.4 Verify apktool `@array/name` handling
+- [ ] 3.5 Match XML widget data to GATOR widget nodes
+- [ ] 3.6 Test: verify `inputType` and `entries` match GESDA output
+
+**Lacunas**:
+1. **DOM Parser não especificado**: Qual API usar? `javax.xml.parsers.DocumentBuilder`? `org.w3c.dom.Document`?
+2. **Namespace handling não mencionado**: Layout XMLs usam namespace Android (`xmlns:android="http://schemas.android.com/apk/res/android"`). Como extrair atributos namespaced?
+3. **Array reference resolution incompleta**: Task 3.4 menciona verificar `@array/name`, mas não especificar como resolver de `arrays.xml`.
+
+**Sugestão de Tarefas Adicionais**:
+```markdown
+- [ ] 3.2.1 Implement DOM parser with namespace awareness (`DocumentBuilderFactory.setNamespaceAware(true)`)
+- [ ] 3.2.2 Handle `android:` namespace prefix for attribute extraction
+- [ ] 3.4.1 Implement array reference resolution from `res/values/arrays.xml`
+- [ ] 3.4.2 Handle `@string/` and `@plurals/` references if encountered
+```
+
+---
+
+#### 5.2.2. D4 (Fat JAR) - Verificação de Dependências Faltante ⚠️
+
+**Design Especifica**:
+```xml
+<dependency>
+    <groupId>org.jgrapht</groupId>
+    <artifactId>jgrapht-core</artifactId>
+</dependency>
+<dependency>
+    <groupId>br.unb.cic</groupId>
+    <artifactId>rvsec-mop-extractor</artifactId>
+    <exclusions>
+        <exclusion>
+            <groupId>org.soot-oss</groupId>
+            <artifactId>soot</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
+**Tasks Atuais** (Group 4):
+- [ ] 4.1 Add `maven-shade-plugin` to `pom.xml` for fat JAR build
+- [ ] 4.2 Build: `mvn package -DskipTests`
+- [ ] 4.3 Create `rv-android/lib/unified/` directory and copy JAR
+- [ ] 4.4 End-to-end test
+
+**Lacuna**: Não há tarefa para **verificar dependências transitivas** e garantir que:
+- JGraphT não traz Soot como dependência transitiva
+- `rvsec-mop-extractor` e `rvsec-apk` são compatíveis com Soot 3.3.0
+- Não há conflitos de versão entre dependências
+
+**Sugestão de Tarefa Adicional**:
+```markdown
+- [ ] 1.4.1 Run `mvn dependency:tree` and verify no Soot conflicts
+- [ ] 1.4.2 Verify JGraphT dependencies: `mvn dependency:tree -Dincludes=org.jgrapht:*`
+- [ ] 1.4.3 Verify rvsec-mop-extractor Soot API compatibility (Open Question 5)
+```
+
+---
+
+#### 5.2.3. D5 (JSON section ordering) - Formato de Partial Write Não Especificado ⚠️
+
+**Design Especifica**:
+```markdown
+- Write sections in order: `reachability` → `windows` → `transitions`
+- Flush after each section
+- On timeout, partial JSON preserves the most critical data first
+```
+
+**Tasks Atuais**:
+- [ ] 1.13 Write `reachability` JSON section and flush
+- [ ] 2.4 Write `windows` section (flush), then `transitions` section (flush + close)
+
+**Lacuna**: Não há tarefa para **implementar formato JSON que suporte partial writes**. Como mencionado na Seção 3.2, JSON padrão não suporta flush incremental sem corromper o arquivo.
+
+**Sugestão de Tarefa Adicional**:
+```markdown
+- [ ] 1.1.1 Implement JSON Lines format for partial write support
+  - Each section is a complete JSON object on its own line
+  - Format: `{"section": "reachability", "data": [...]}`
+  - Parser reads line-by-line, tolerating incomplete files
+```
+
+---
+
+## 6. Critérios de Aceitação - Avaliação de Completude
+
+### 6.1. Critérios Bem Definidos ✅
+
+#### 6.1.1. Baseline Equivalence (tasks.md 8.7)
+
+```markdown
+- [ ] 8.7 Create baseline equivalence test: compare unified output counts
+  - window count: match exactly (±0)
+  - transition count: match exactly (±0)
+  - total method count: match exactly (±0)
+  - reachable and reachesMop counts: ±10% tolerance
+  - directlyReachesMop counts: match exactly (±0)
+  - widget inputType and entries: match GESDA output
+```
+
+**Avaliação**: ✅ Critérios claros, quantificados e testáveis.
+
+---
+
+#### 6.1.2. E2E Validation (tasks.md Group 10)
+
+```markdown
+- [ ] 10.1 Run full experiment
+- [ ] 10.2 Verify unified JSON created
+- [ ] 10.3 Verify coverage denominator > 0
+- [ ] 10.4 Verify coverage > 0%
+- [ ] 10.5 Verify coverage calculation
+- [ ] 10.6 Verify MOP detection
+- [ ] 10.7 Compare against baseline (±20%)
+- [ ] 10.8 Verify timing improvement
+```
+
+**Avaliação**: ✅ Critérios abrangentes cobrindo todo o pipeline.
+
+---
+
+### 6.2. Critérios Faltantes ⚠️
+
+#### 6.2.1. Performance Não Quantificada
+
+**Problema**: O `proposal.md` menciona "~3x speedup" mas **não há critério de aceitação** para:
+- Tempo máximo de análise por APK
+- Redução percentual mínima esperada
+- Memory footprint máximo
+
+**Sugestão de Critérios Adicionais**:
+```markdown
+- [ ] 10.9 Verify static_analysis_duration < 120s for cryptoapp.apk (baseline: 300s+)
+- [ ] 10.10 Verify JVM memory usage < 6GB (jvm_memory=8g with 2GB headroom)
+- [ ] 10.11 Verify no timeout for APKs < 50MB (timeout only for edge cases)
+```
+
+---
+
+#### 6.2.2. Edge Cases Não Testados
+
+**Cenários Faltantes**:
+
+| Cenário | Impacto | Critério Sugerido |
+|---------|---------|-------------------|
+| APK sem activities | `extractWindows()` retorna vazio | 8.2.x: "test_parse_no_activities" |
+| APK multi-process | Múltiplos manifests | 8.2.y: "test_parse_multi_process_apk" |
+| APK ofuscado (ProGuard) | Classes sem nome legível | 8.2.z: "test_parse_obfuscated_apk" |
+| code_package vazio | Filtro INV-ANA-03 falha | 8.2.w: "test_parse_empty_package" |
+| resources.arsc corrompido | Decoded XML falha | 8.2.v: "test_parse_corrupted_resources" |
+
+**Sugestão de Critérios Adicionais**:
+```markdown
+- [ ] 8.2.x Test APK without activities (services-only APK)
+- [ ] 8.2.y Test APK with multi-process manifest
+- [ ] 8.2.z Test ProGuard-obfuscated APK
+- [ ] 8.2.w Test APK with empty code_package
+- [ ] 8.2.v Test APK with corrupted resources.arsc
+```
+
+---
+
+#### 6.2.3. Tratamento de Erro Não Validado
+
+**Cenários Faltantes**:
+
+| Cenário | Critério Sugerido |
+|---------|-------------------|
+| Unified JAR não encontrado | 8.3.x: "test_missing_unified_jar" |
+| MOP directory inválido | 8.3.y: "test_invalid_mop_dir" |
+| GATOR launcher falha | 8.3.z: "test_gator_launcher_failure" |
+| JSON schema inválido | 8.3.w: "test_invalid_json_schema" |
+
+**Sugestão de Critérios Adicionais**:
+```markdown
+- [ ] 8.3.x Test missing unified JAR (ConfigurationError)
+- [ ] 8.3.y Test invalid MOP directory (ConfigurationError)
+- [ ] 8.3.z Test GATOR launcher failure (StaticAnalysisException)
+- [ ] 8.3.w Test malformed unified JSON (graceful degradation)
+```
+
+---
+
+## 7. Pontos Fracos e Riscos Identificados
+
+### 7.1. Timeout Handling é Frágil ⚠️ ALTO
+
+**Problema**:
+
+O design menciona "partial JSON from timeout" mas:
+1. Não especifica formato JSON para partial writes (ver Seção 3.2)
+2. Não há mecanismo de retry ou fallback
+3. Parser Python usa `json.loads()` que falha com JSON truncado
+
+**Cenário de Falha**:
+```json
+{
+  "reachability": [...],  // completo
+  "windows": [            // truncado no meio
+    {"id": 1, "name": "...
+```
+
+**Resultado**: `JSONDecodeError` → `UnifiedParser` retorna `StaticAnalysisData()` vazio (INV-ANA-06 violado).
+
+**Soluções Sugeridas**:
+
+**Opção A: JSON Lines (Recomendado)**
+```python
+# UnifiedParser.parse_file()
+with open(file_path, 'r') as f:
+    for line in f:
+        section = json.loads(line)  # Cada linha é JSON completo
+        if section['section'] == 'reachability':
+            self._parse_classes(section['data'], package)
+        elif section['section'] == 'windows':
+            self._parse_windows(section['data'], package, classes)
+        elif section['section'] == 'transitions':
+            self._parse_transitions(section['data'], windows)
+```
+
+**Opção B: ijson para Parsing Incremental**
+```python
+import ijson
+
+with open(file_path, 'r') as f:
+    # Parser tolera JSON truncado
+    parser = ijson.parse(f)
+    # ... processar tokens incrementalmente
+```
+
+**Opção C: jsonrepair para Recuperação**
+```python
+from jsonrepair import jsonrepair
+
+try:
+    data = json.loads(raw_content)
+except JSONDecodeError:
+    # Tentar reparar JSON truncado
+    data = jsonrepair(raw_content)
+```
+
+**Ação Requerida**: Atualizar `design.md` e `tasks.md` com formato JSON específico para partial writes.
+
+---
+
+### 7.2. Dependência de Decoded XML é Arriscada ⚠️ MÉDIO
+
+**Problema**:
+
+A extração de `inputType` e `entries` depende de:
+1. `apktool` decodificar corretamente os XMLs
+2. GATOR launcher chamar `decode_res_from_apk()` **antes** do client rodar
+3. Caminho `Configs.resourceLocation` estar correto
+4. APK não estar ofuscado ou protegido
+
+**Riscos**:
+- APKs com ofuscação (ProGuard, DexGuard) podem ter recursos corrompidos
+- APKs com recursos dinâmicos (downloaded at runtime) não estão disponíveis
+- `arrays.xml` pode não existir se entries forem inline
+
+**Sugestão de Mitigação**:
+```java
+// RvsecUnifiedClient.extractWindows()
+try {
+    enrichFromXml(output, windows);
+} catch (Exception e) {
+    logger.warn("Failed to enrich widgets from XML: " + e.getMessage());
+    // inputType e entries permanecem vazios, mas parsing continua
+}
+```
+
+**Ação Requerida**: Atualizar `design.md` para tornar `inputType` e `entries` **opcionais** no schema JSON.
+
+---
+
+### 7.3. Migração de Dados Não é Abordada ⚠️ BAIXO
+
+**Problema**:
+
+O design não menciona:
+- O que fazer com resultados existentes (`.gesda`, `.wtg`, `.reach`)
+- Como `rv-platform` lida com resultados mistos (alguns APKs com formato antigo, outros com novo)
+- Se há script de migração para converter 3 arquivos → 1 unified JSON
+
+**Impacto**:
+- Experiments em andamento podem quebrar
+- Resultados históricos não são comparáveis com novos resultados
+
+**Sugestão de Mitigação**:
+
+**Opção A: Script de Migração**
+```python
+# scripts/migrate_to_unified.py
+def migrate(old_reach, old_gator, old_gesda) -> str:
+    unified = {
+        'reachability': parse_reach(old_reach),
+        'windows': parse_gator(old_gator),
+        'transitions': parse_gesda(old_gesda)
     }
-)
+    return json.dumps(unified)
 ```
 
-**Fluxo**:
-```
-start → parse_ui → decision_router
-                     ↓
-         ┌───────────┼───────────┐
-         ↓           ↓           ↓
-      algorithm  capture_screenshot → llm_generate
-         ↓           ↓
-         └────→ validate_action → execute → learn → END
-```
-
-**Como Fica (gh26)**:
-
-**Nenhuma mudança na topologia** — a otimização de velocidade (7.3) usa routing condicional existente:
-- `decision_router_node` já roteia "algorithm" direto para `algorithm_node`
-- A mudança é **per-iteration decision** (modo-aware), não compile-time flag
-
-**Mudanças nos nodes**:
-- `parse_node`: Adiciona caching de `screen_desc` (task 7.3)
-- `decision_node`: Adiciona tracking log (task 7.2)
-- `learn_node`: Adiciona `RewardPropagator.propagate()` (task 4.5) + PathBuffer.invalidate() (task 6.6)
-- `algorithm_node`: Nenhuma mudança — já lida com flags de recovery
-
-**Validação**: ✅ **Correto** — segue P1 (Simplicidade), grafo já suporta otimização.
-
-### 3.3 Validação do parse_node
-
-**Código Atual** (`parse_node.py:56-62`):
-
+**Opção B: Backward Compatibility Temporária**
 ```python
-error_detection_screenshot = None
-if (agent.config.error_detection_enabled 
-        and screen_hash == state.get("previous_screen_hash")):
-    error_detection_screenshot = agent.device.take_screenshot()
+# StaticAnalysisParser.parse()
+if unified_file.exists():
+    return parse_unified(unified_file)
+elif all([reach_file.exists(), gator_file.exists(), gesda_file.exists()]):
+    return parse_legacy(reach_file, gator_file, gesda_file)
 ```
 
-**Otimização gh26 (task 7.3)**:
-
-```python
-# RVAgent.__init__()
-self._cached_screen_desc: Optional[ScreenDescription] = None
-
-# parse_node
-if screen_hash == previous_screen_hash and agent._cached_screen_desc:
-    screen_desc = agent._cached_screen_desc  # Reuse (~0ms)
-else:
-    screen_desc = parse(...)  # Visitor pipeline (~50ms)
-    agent._cached_screen_desc = screen_desc
-
-# gh18 screenshot condicional PRESERVADO (independente do cache)
-if (agent.config.error_detection_enabled 
-        and screen_hash == previous_screen_hash):
-    error_detection_screenshot = agent.device.take_screenshot()
-```
-
-**Validação**: ✅ **Correto** — caching não interfere com gh18 screenshot. Task 7.4 é crítica para validar.
-
-### 3.4 Validação do SuccessorTracker
-
-**Assinatura Atual** (`successor_tracker.py:329`):
-
-```python
-def find_nearest_unsaturated(self, current_state: str) -> Optional[str]:
-    """Retorna hash do ancestral não-saturado mais próximo."""
-```
-
-**Assinatura gh26 (task 5.5)**:
-
-```python
-def find_nearest_unsaturated(self, current_state: str) -> Optional[Tuple[str, int]]:
-    """Retorna (hash, hop_count) — hop_count é número de BACKs necessários."""
-```
-
-**Impacto**: PathBuffer.plan_backtrack_path() precisa do `hop_count` para saber quantos BACKs bufferar.
-
-**Validação**: ✅ **Necessário** — sem hop_count, PathBuffer não pode planejar backtrack. Task 5.5 é bloqueante para Group 6.
-
-### 3.5 Validação do InputValueGenerator
-
-**Bugs Identificados**:
-
-| Bug | Descrição | Impacto |
-|-----|-----------|---------|
-| **1** | Duplicate `_infer_input_type()` na strategy | Inconsistência, ignora hint/content_description |
-| **2** | Wrong value ordering (PINs primeiro em campos não-PIN) | Wasta iterações |
-| **3** | LLM path bypassing generator | Sem tracking, repetição |
-| **4** | `max_variations=5` bloqueia 11 payloads MOP | Edge cases não testados |
-| **5** | Missing input types (search, url, date, time, number, zip, verification_code) | Cobertura incompleta |
-| **6** | Sem clear-before-type | Texto appendado, não substituído |
-
-**Tasks de Correção**: 2.1-2.7
-
-**Validação**: ✅ **Crítico** — bugs desperdiçam 20-40% das iterações de texto.
-
----
-
-## 3.6 🔴 Dependências Não Documentadas (Descobertas na Análise Profunda)
-
-Durante a validação linha-por-linha, identifiquei **10 dependências críticas não documentadas** no design.md:
-
-| # | Dependência | Componentes Afetados | Status Atual | Task para Resolver |
-|---|-------------|---------------------|--------------|-------------------|
-| **D1** | `RankingContext.successor_tracker` | CoverageDensityScorer.score() | ❌ Campo não existe em context.py | 3.5.2 |
-| **D2** | `UICoverageTracker.get_coverage_gap()` | PathBuffer.plan_coverage_path() | ❌ Método não existe | 3.5.4 (implícito) |
-| **D3** | `ScreenNode.action_cumulative_reward` | RewardPropagator.propagate(), StrengthScorer.score() | ❌ Campo não existe em screen_node.py | 1.3 |
-| **D4** | `find_nearest_unsaturated()` retorna `Tuple[str, int]` | PathBuffer.plan_backtrack_path() | ❌ Retorna apenas `Optional[str]` | 5.5 |
-| **D5** | `RVAgentConfig.backtrack_saturation_threshold` | should_backtrack() | ❌ Campo não existe | 1.1 |
-| **D6** | `RVAgentConfig.reward_gamma` | RewardPropagator | ❌ Campo não existe | 1.1 |
-| **D7** | `RVAgentConfig.reward_mop_weight` | RewardPropagator, StrengthScorer | ❌ Campo não existe | 1.1 |
-| **D8** | `RVAgentConfig.reward_propagation_n` | RewardPropagator | ❌ Campo não existe | 1.1 |
-| **D9** | `RVAgentConfig.reward_score_weight` | StrengthScorer | ❌ Campo não existe | 1.1 |
-| **D10** | `RVAgentConfig.coverage_density_weight` | CoverageDensityScorer | ❌ Campo não existe | 1.1 |
-| **D11** | `RVAgentConfig.max_coverage_hops` | PathBuffer.plan_coverage_path() | ❌ Campo não existe | 1.1 |
-| **D12** | `RVAgentConfig.mop_max_input_variations` | InputValueGenerator._get_mop_values() | ❌ Campo não existe | 1.1 |
-| **D13** | `RVAgentConfig.max_backtrack_hops` | PathBuffer.plan_backtrack_path() | ❌ Campo não existe | 1.1 |
-| **D14** | `RVAgentConfig.path_buffer_enabled` | PathBuffer | ❌ Campo não existe | 1.1 |
-| **D15** | `RVAgentConfig.mop_nav_weight` | PathBuffer.plan_mop_path() | ❌ Campo não existe | 1.1 |
-
-**Impacto Combinado**: 15 dependências críticas não documentadas, todas bloqueando implementação.
-
-**Cadeia de Dependência Crítica**:
-```
-Task 1.1 (11 campos config) → TODOS os groups dependem
-Task 1.3 (action_cumulative_reward) → Group 4 (Reward) depende
-Task 3.5.2 (successor_tracker em RankingContext) → Group 3.5 (Coverage) depende
-Task 5.5 (find_nearest_unsaturated retorna Tuple) → Group 6 (PathBuffer) depende
+**Ação Requerida**: Adicionar tarefa:
+```markdown
+- [ ] 7.8 Implement migration script: 3 files → 1 unified JSON
+- [ ] 7.9 Backup existing results to `backup/YYYY-MM-DD-gh27/`
 ```
 
 ---
 
-## 3.7 🔴 Riscos Críticos Adicionais (Descobertos na Análise)
+### 7.4. Build Complexity Aumenta ⚠️ BAIXO
 
-| # | Risco | Impacto | Probabilidade | Mitigação |
-|---|-------|---------|---------------|-----------|
-| **R1** | 11 campos de config faltando | **Crítico** — todas features novas bloqueadas | **100%** (atual) | Task 1.1 prioritária |
-| **R2** | find_nearest_unsaturated sem hop_count | **Crítico** — PathBuffer não funciona | **100%** (atual) | Task 5.5 antes de Group 6 |
-| **R3** | action_cumulative_reward não existe | **Crítico** — reward propagation bloqueada | **100%** (atual) | Task 1.3 prioritária |
-| **R4** | failed_actions tracking quebrado (TODO#19) | Médio — FailedActionScorer inútil | **100%** (atual) | Conectar ao workflow |
-| **R5** | ExecutionCountScorer dead code não documentado | Baixo — documentação incompleta | **100%** (atual) | Adicionar nota no design |
-| **R6** | visited_states tem 2 usos reais | Médio — remoção requer refatoração | Média | Task 1.5.2 refatorar |
-| **R7** | state_stack.clear() existe no reset() | Baixo — "append-only" não é estrito | Baixa | Documentar exceção |
-| **R8** | record_action_failure() nunca chamada | Médio — funcionalidade quebrada | **100%** (atual) | Conectar ao workflow de error detection |
+**Problema**:
 
----
+O `pom.xml` atual do client é simples (10KB, 2 dependências). O unified client terá:
+- JGraphT (1.5MB)
+- rvsec-mop-extractor (depende de Soot?)
+- rvsec-apk (depende de FlowDroid?)
+- maven-shade-plugin configuration
 
-## 4. Análise de Consistência
+**Riscos**:
+- Build time aumenta
+- Conflitos de dependência mais prováveis
+- Fat JAR pode ser grande (10MB+)
 
-### 4.1 Rastreabilidade Spec-Design-Task
-
-**Mapeamento Completo**:
-
-```
-proposal.md (FRs/NFRs)
-    ↓
-design.md (Mapping table: Spec → Implementation → Test)
-    ↓
-tasks.md (Grupos 0-10, cada task com "Satisfies INV-AGT-XX")
-    ↓
-tests/ (TDD: teste criado antes da implementação)
-```
-
-**Exemplo Concreto (FR26 - Proactive Backtracking)**:
-
-```
-proposal.md: "Proactive backtracking: When saturation >= 0.8, return BACK"
-    ↓
-design.md: "Action Selection Order: buffer → untested → backtrack (saturation >= 0.8) → continuous → BACK"
-    ↓
-tasks.md:
-  - 5.1: test_should_backtrack.py (7 testes)
-  - 5.2: test_proactive_backtrack.py
-  - 5.3: Modify should_backtrack() (use config.backtrack_saturation_threshold)
-  - 5.4: Modify select_next_action() (insert Tier 3: backtrack)
-    ↓
-tests/unit/strategies/test_should_backtrack.py
-```
-
-**Validação**: ✅ **Completa** — todas as FRs têm rastreabilidade até testes.
-
-### 4.2 Consistência de Valores
-
-| Parâmetro | proposal.md | design.md | tasks.md | Código Atual |
-|-----------|-------------|-----------|----------|--------------|
-| `backtrack_saturation_threshold` | 0.8 (0.5-1.0) | 0.8 (0.5-1.0) | 0.8 (0.5-1.0) | N/A (novo) |
-| `mop_direct_score` | 500 | 500 | 500 | 300 |
-| `mop_transitive_score` | 300 | 300 | 300 | 150 |
-| `wtg_guided_score` | 150 | 150 | 150 | 250 |
-| `reward_gamma` | 0.8 | 0.8 | 0.8 | N/A (novo) |
-| `reward_propagation_n` | 5 | 5 | 5 | N/A (novo) |
-| `coverage_density_weight` | 200 | 200 | 200 | N/A (novo) |
-| `max_coverage_hops` | 5 | 5 | 5 | N/A (novo) |
-
-**Validação**: ✅ **Consistente** — todos os valores batem entre proposal, design, tasks.
-
-### 4.3 PathBuffer Strategies Ordering
-
-| Documento | Ordering |
-|-----------|----------|
-| proposal.md | "Strategy C > B > A" |
-| design.md | "Tier 3: plan_coverage_path() before plan_mop_path() before plan_backtrack_path()" |
-| tasks.md 6.5 | "C > B > A ordering (try plan_coverage_path then plan_mop_path then plan_backtrack_path)" |
-
-**Validação**: ✅ **Consistente** — ordering preservado em todos os documentos.
+**Sugestão de Mitigação**:
+- Manter `rvsec-mop-extractor` e `rvsec-apk` como **optional dependencies** se possível
+- Usar `<shadeFilter>` para excluir classes não utilizadas
+- Documentar build time esperado no `design.md`
 
 ---
 
-## 5. Critérios de Aceitação
+## 8. Sugestões de Melhoria
 
-### 5.1 Critérios Definidos
+### 8.1. Adicionar Validação de Schema JSON 💡
 
-| Critério | Métrica | Validação |
-|----------|---------|-----------|
-| **Proactive backtracking** | `backtrack_count` (tracking), saturação ≥ 0.8 → BACK | Tasks 5.1-5.4, 9.1, 9.4 |
-| **Scorer rebalancing** | Pesos: MOP-direct +500, MOP-trans +300, WTG +150 | Tasks 1.2, 3.1, 9.4 |
-| **Text input quality** | 11 variações MOP, clear-before-type, Faker first | Tasks 2.1-2.6, 9.2 |
-| **Speed optimization** | <1s/iteração em pure_algorithm, cache hit no mesmo hash | Tasks 7.1, 7.3, 7.4 |
-| **Reward propagation** | `reward_propagation_events`, cumulative_reward capped em 15.0 | Tasks 4.1-4.5, 9.2, 9.4 |
-| **CoverageDensityScorer** | Sempre ativo, weight=200, exploration bonus=0.5 | Tasks 3.5.1-3.5.6, 9.4 |
-| **PathBuffer Strategies** | C > B > A ordering, max_coverage_hops=5 | Tasks 6.1-6.6, 9.4 |
+**Sugestão**: Criar `unified_schema.json` (JSON Schema) e validar output antes de parsear.
 
-### 5.2 Testes Incluídos (Group 9.4)
+**Benefícios**:
+- Detecta corrupção early (antes do parser Python)
+- Melhor mensagem de erro para debugging
+- Documentação viva do formato esperado
 
-**23 Edge-Case Tests**:
+**Exemplo**:
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["package", "reachability", "windows", "transitions"],
+  "properties": {
+    "reachability": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ClassReachability" }
+    },
+    "windows": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Window" }
+    },
+    "transitions": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Transition" }
+    }
+  }
+}
+```
 
-1. `test_oscillation_trap` — estados A↔B cycling, reward negativo força ação diferente
-2. `test_path_buffer_does_not_reset_stuck_count` — invalidação não resetar stuck
-3. `test_config_backward_compatibility` — config sem campos gh26 usa defaults Pydantic
-4. `test_graceful_degradation_without_static_analysis` — SA=None não crasha
-5. `test_level1_stuck_screen_unchanged` — hash unchanged → force_back
-6. `test_level2_stuck_backtrack_bfs` — Level 2 + ancestor found → force_back
-7. `test_level2_stuck_app_restart` — Level 2 + no ancestor → force_restart
-8. `test_zero_mop_app_degradation` — MOP=0, agente vira explorador genérico
-9. `test_path_buffer_dialog_blocked` — diálogo bloqueia backtrack, buffer invalidado
-10. `test_path_buffer_and_stuck_detection_interaction` — PathBuffer + stuck detection
-11. `test_backtrack_bfs_cyclic_graph_termination` — BFS com visited set
-12. `test_mop_dead_end_not_replanned` — MOP Activity saturada não é re-planejada
-13. `test_reward_propagation_survives_app_restart` — cumulative_reward persiste
-14. `test_partial_static_analysis_wtg_without_reach` — .wtg sem .reach
-15. `test_llm_back_during_active_buffer` — LLM BACK com buffer ativo
-16. `test_path_buffer_invalidation_preserves_reward_history` — invalidação preserva reward
-17. `test_cumulative_reward_cap_boundary` — cap em 15.0 (boundary)
-18. `test_scorer_ranking_performance_10_vs_8` — overhead de 10 vs 8 scorers
-19. `test_coverage_density_scorer_cold_start_exploration_bonus` — cold start bonus
-20. `test_strategy_c_before_b_in_tier3` — C avaliado antes de B
-
-**Validação**: ✅ **Abrangente** — cobre interações cruzadas, edge cases, degradação graciosa.
-
-### 5.3 Testes Sugeridos (Adicionais)
-
-| Teste | Descrição | Prioridade |
-|-------|-----------|------------|
-| `test_reward_propagator_thread_safety` | Thread-safe para futuro multi-device | Baixa |
-| `test_path_buffer_memory_leak` | Validar que invalidate() limpa tudo | Média |
-| `test_coverage_density_false_positive` | Coverage alto em beco sem saída | Média |
-| `test_cumulative_reward_multiple_propagations` | Múltiplas propagações no cap | Baixa |
+**Tarefas Sugeridas**:
+```markdown
+- [ ] 5.1.1 Create JSON Schema for unified output
+- [ ] 5.6.1 Validate JSON against schema before parsing
+- [ ] 8.2.s Test invalid JSON schema (validation error)
+```
 
 ---
 
-## 6. Análise do Grafo LangGraph
+### 8.2. Adicionar Logging Estruturado no Java Client 💡
 
-### 6.1 Estado Atual
-
-```
-start → parse_ui → decision_router
-                     ↓
-         ┌───────────┼───────────┐
-         ↓           ↓           ↓
-      algorithm  capture_screenshot → llm_generate → validate_action → execute → learn → END
+**Problema**: O `RvsecWtgClient` atual usa apenas `System.out.println`:
+```java
+System.out.println("File saved in: " + Configs.pathoutfilename);
 ```
 
-**Nodes**:
-- `parse_ui`: UI dump + parsing + hash + error detection screenshot (gh18)
-- `decision_router`: Roteia para "algorithm" ou "llm" baseado em modo
-- `algorithm_node`: `strategy.select_next_action()`
-- `capture_screenshot`: Screenshot para LLM
-- `llm_generate`: LLM tool calling
-- `validate_action`: Validação de coordenadas, loop detection
-- `execute_node`: Executa ação no device
-- `learn_node`: Update memories, stuck detection, reward propagation (gh26)
+**Sugestão**: Usar SLF4J + Logback com logging estruturado:
+```java
+private static final Logger logger = LoggerFactory.getLogger(RvsecUnifiedClient.class);
 
-### 6.2 Como Fica (gh26)
+@Override
+public void run(GUIAnalysisOutput output) {
+    long startTime = System.currentTimeMillis();
+    logger.info("Starting unified analysis for {}", Configs.project);
 
-**Topologia**: Nenhuma mudança
+    // ... extract classes
+    logger.info("Extracted {} classes with {} methods", classCount, methodCount);
 
-**Mudanças nos Nodes**:
+    // ... run reachability
+    logger.info("Reachability computed: {} reachable, {} reachesMop", reachableCount, reachesMopCount);
 
-| Node | Mudança | Task |
-|------|---------|------|
-| `parse_ui` | Caching de `screen_desc` quando hash igual | 7.3 |
-| `decision_router` | Tracking log para algorithm-fast-path | 7.2 |
-| `learn_node` | `RewardPropagator.propagate()` + PathBuffer.invalidate() | 4.5, 6.6 |
-| `algorithm_node` | Nenhuma mudança | — |
+    // ... extract windows
+    logger.info("Extracted {} windows with {} widgets", windowCount, widgetCount);
 
-**Otimização de Velocidade**:
-
-```python
-# decision_router_node já roteia "algorithm" direto para algorithm_node
-# Isso bypassa capture_screenshot e llm_generate
-
-# parse_node caching (task 7.3):
-if screen_hash == previous_screen_hash and agent._cached_screen_desc:
-    screen_desc = agent._cached_screen_desc  # Reuse (~0ms)
-else:
-    screen_desc = parse(...)  # Visitor pipeline (~50ms)
-    agent._cached_screen_desc = screen_desc
+    long duration = System.currentTimeMillis() - startTime;
+    logger.info("Unified analysis completed in {}ms", duration);
+}
 ```
 
-**Validação**: ✅ **Correto** — otimização preserva gh18 screenshot e usa routing existente.
+**Benefícios**:
+- Timing por seção (identifica bottlenecks)
+- Contagem de elementos processados (valida completude)
+- Warnings para edge cases (debug em produção)
 
-### 6.3 Screenshot e Performance
-
-**Camadas de Otimização**:
-
-1. **Graph topology**: Algorithm path já bypassa `capture_screenshot_node` (existente)
-2. **parse_node caching**: Reusa `screen_desc` quando hash igual (novo gh26)
-3. **gh18 screenshot condicional**: Captura screenshot quando hash-repeat (preservado)
-
-**Impacto Estimado**:
-- ~50ms economizados por iteração no mesmo estado
-- ~150-300 iterações em 300s (pure_algorithm)
-- Alvo: <1s por iteração
-
-**Risco**: Caching não deve interferir com gh18 error detection screenshot.
-
-**Mitigação**: Task 7.4 é específica para validar: `test_screen_desc_cache_preserves_error_detection_screenshot`
+**Tarefas Sugeridas**:
+```markdown
+- [ ] 1.1.1 Add SLF4J + Logback dependencies to pom.xml
+- [ ] 1.1.2 Implement structured logging for each extraction phase
+- [ ] 1.1.3 Log timing and element counts for each section
+```
 
 ---
 
-## 7. Refatorações Definidas
+### 8.3. Considerar Protocol Buffers ao Invés de JSON 💡
 
-### 7.1 Dead Code Removal (Group 1.5)
+**Problema**: JSON é verboso e lento para parsear (especialmente em Python).
 
-| Item | Localização | Linhas | Por Que Morto |
-|------|-------------|--------|---------------|
-| `state_stack` + `RVAgentState` | `rvagent_strategy.py` | ~30 | Append-only, nunca pop, gh26 usa SuccessorTracker BFS |
-| `visited_states: Set[str]` | `rvagent_strategy.py` | ~8 | Redundante com `graph.states.keys()` |
-| `parent_hash` computation | `rvagent_strategy.py` | ~2 | Computado mas nunca lido |
-| `current_depth` | `rvagent_strategy.py` | ~1 | Só usado para RVAgentState e métricas |
+**Alternativa**: Protocol Buffers oferece:
+- Schema forte (compile-time validation)
+- Binary format (menor, mais rápido)
+- Backward compatibility nativa (campos opcionais)
 
-**Consolidações**:
+**Exemplo**:
+```protobuf
+syntax = "proto3";
 
-| Item | Antes | Depois | Racional |
-|------|-------|--------|----------|
-| Visited activities | Duas fontes independentes | TransitionManager é single source | Previne divergência |
-| Coverage formula | Inline em SuccessorTracker | Delega para `ScreenNode.get_coverage()` | Elimina divergência sutil |
+message UnifiedAnalysis {
+  string package = 1;
+  repeated ClassReachability reachability = 2;
+  repeated Window windows = 3;
+  repeated Transition transitions = 4;
+}
 
-**Documentação**:
-- `DynamicStateGraph.transitions`: Audit-only (não usado para navegação)
-
-**Validação**: ✅ **Positivo** — segue P3 (No Backward Compatibility), simplifica ~30 linhas.
-
-### 7.2 SuccessorTracker Coverage Formula (Task 1.5.3)
-
-**Antes**:
-```python
-# Inline em successor_tracker.py:144-148
-coverage = len(node.executed_actions) / node.total_actions if node.total_actions > 0 else 1.0
+message ClassReachability {
+  string class_name = 1;
+  bool is_activity = 2;
+  bool is_main_activity = 3;
+  repeated Method methods = 4;
+}
 ```
 
-**Depois**:
-```python
-coverage = node.get_coverage() if node.total_actions > 0 else 1.0
-# Comentário: zero-actions = 1.0 (difere de ScreenNode's 0.0)
-```
+**Trade-offs**:
+- ✅ 50-80% redução no tamanho do arquivo
+- ✅ 2-5x mais rápido para parsear
+- ✅ Schema enforcement no compile time
+- ❌ Requer `protoc` no build
+- ❌ Menos legível que JSON (binary format)
+- ❌ Complexidade adicional
 
-**Validação**: ✅ **Positivo** — single source of truth, preserva semântica interna.
+**Recomendação**: Manter JSON para MVP, considerar protobuf se performance for crítica.
 
 ---
 
-## 8. Contradições Identificadas
+### 8.4. Adicionar Métricas de Qualidade de Código 💡
 
-### 8.1 Verificadas (Sem Contradições)
+**Sugestão**: Incluir verificações de qualidade no pipeline de build:
 
-| Parâmetro | proposal.md | design.md | tasks.md | Status |
-|-----------|-------------|-----------|----------|--------|
-| `backtrack_saturation_threshold` | 0.8 | 0.8 | 0.8 | ✅ |
-| `mop_direct_score` | 500 | 500 | 500 | ✅ |
-| `mop_transitive_score` | 300 | 300 | 300 | ✅ |
-| `wtg_guided_score` | 150 | 150 | 150 | ✅ |
-| `reward_gamma` | 0.8 | 0.8 | 0.8 | ✅ |
-| `reward_propagation_n` | 5 | 5 | 5 | ✅ |
-| `coverage_density_weight` | 200 | 200 | 200 | ✅ |
-| `max_coverage_hops` | 5 | 5 | 5 | ✅ |
-| PathBuffer ordering | C > B > A | C > B > A | C > B > A | ✅ |
+```markdown
+- [ ] 1.5 Run SpotBugs on Java code: `mvn spotbugs:check`
+- [ ] 1.6 Run Checkstyle on Java code: `mvn checkstyle:check`
+- [ ] 5.9 Run pylint on Python code: `pylint rv_static_analysis/`
+- [ ] 5.10 Run mypy for type checking: `mypy rv_static_analysis/`
+```
 
-### 8.2 Contradição Menor Identificada
-
-**GradualDecayScorer min_visits cutoff**:
-
-- design.md INV-AGT-21: "When `visits >= min_visits` (default 5), MUST return 0.0"
-- tasks.md 3.2: `test_gradual_decay_min_visits_cutoff` — "visits >= 5 → score 0.0"
-- scorers.py (código atual, linha ~166-169):
-  ```python
-  if visits >= self.min_visits:
-      return 0.0
-  ```
-- ❌ **proposal.md**: Não menciona o cutoff
-
-**Recomendação**: Adicionar nota no proposal.md sobre GradualDecayScorer activation mencionando `min_visits` cutoff.
+**Benefícios**:
+- Detecta bugs potenciais early
+- Mantém consistência de estilo
+- Documenta expectativas de qualidade
 
 ---
 
-## 9. Pontos Críticos para Implementação
+### 8.5. Documentar Decision Records (ADRs) 💡
 
-### 9.1 Ordem de Implementação
+**Sugestão**: Criar ADRs para decisões arquiteturais críticas:
 
-```
-Group 0 (Baseline) → DEVE rodar PRIMEIRO
-    ↓
-Group 1 (Config) → Pré-requisito para todos
-    ↓
-Group 1.5 (Dead Code) → Paralelo com Groups 2-8
-    ↓
-Groups 2, 3, 3.5, 4, 7, 8 → Paralelo (independentes)
-    ↓
-Group 5 (Backtracking) → Group 6 depende
-    ↓
-Group 6 (PathBuffer) → Group 9 depende
-    ↓
-Group 9 (Integration) → Após todos
-    ↓
-Group 10 (Validation) → Após Group 9 e /rv-verify
+```markdown
+- [ ] ADR-001: Remove cg all-reachable
+- [ ] ADR-002: JGraphT Dijkstra vs BFS
+- [ ] ADR-003: JSON Lines format for partial writes
+- [ ] ADR-004: inputType/entries from decoded XML
 ```
 
-### 9.2 Dependências Críticas
+**Template**:
+```markdown
+## ADR-XXX: Title
 
-| Task | Dependência | Risco | Mitigação |
-|------|-------------|-------|-----------|
-| 5.5 | Nenhuma | Se implementada errado, quebra PathBuffer | Task tem teste específico |
-| 6.1, 6.2, 6.5 | Task 5.5 | Não podem rodar sem 5.5 | Adicionar "BLOCKED BY 5.5" |
-| 6.7 (wire) | Groups 1, 5 | Todos dependem do wiring | Mover para Group 1 ou 2 |
-| 7.3 | Group 1 | Caching deve preservar gh18 | Task 7.4 é específica |
-| 9.4 | Todos | Edge cases complexos | Implementar por último |
+### Status
+Proposed | Accepted | Deprecated | Superseded
 
-### 9.3 Riscos Identificados
+### Context
+What is the issue that we're seeing?
 
-| Risco | Impacto | Probabilidade | Mitigação |
-|-------|---------|---------------|-----------|
-| Task 5.5 implementada incorretamente | Alto | Baixa | Teste específico 5.5 |
-| PathBuffer invalidação incorreta | Médio | Média | Task 9.4 tem teste de interação |
-| Caching interfere com gh18 screenshot | Alto | Baixa | Task 7.4 específica |
-| Reward propagation memory leak | Baixo | Baixa | deque(maxlen=N) já limita |
-| CoverageDensityScorer false positive | Médio | Média | MopScorer + WtgScorer predominam |
+### Decision
+What is the change that we're proposing?
+
+### Consequences
+- Good: What becomes easier?
+- Bad: What becomes harder?
+- Risks: What could go wrong?
+```
 
 ---
 
-## 10. Cenários Interessantes
+### 8.6. Adicionar Smoke Test Pós-Build 💡
 
-### 10.1 Cenários Incluídos (Group 9.4)
+**Sugestão**: Criar teste rápido que valida build antes de E2E:
 
-1. **Oscilação (test_oscillation_trap)**: Estados A↔B cycling, reward negativo acumulado força ação diferente após ~20 iterações
-2. **PathBuffer + Diálogo (test_path_buffer_dialog_blocked)**: Diálogo bloqueia BACK, buffer invalidado, normal resume
-3. **BFS Cíclico (test_backtrack_bfs_cyclic_graph_termination)**: Estados A→B→C→A, BFS com visited set previne loop
-4. **Zero MOP (test_zero_mop_app_degradation)**: MOP methods = 0, agente vira explorador genérico (não crasha)
-5. **LLM BACK com Buffer (test_llm_back_during_active_buffer)**: LLM gera BACK enquanto buffer ativo, hash mudou → buffer continua
-6. **Reward Cap Boundary (test_cumulative_reward_cap_boundary)**: Cap em 15.0, boundary condition
-7. **PathBuffer + Stuck (test_path_buffer_and_stuck_detection_interaction)**: Buffer ativo + hash unchanged → invalida E seta force_back
-8. **Reward Sobrevive Restart (test_reward_propagation_survives_app_restart)**: cumulative_reward persiste após restart
+```markdown
+- [ ] 4.5 Smoke test: Run unified client on cryptoapp.apk, verify JSON is valid
+  - Command: `python gator a -p cryptoapp.apk --client-jar unified.jar ...`
+  - Validate: JSON schema, section counts, no exceptions
+  - Duration: < 60s
+```
 
-### 10.2 Cenários Sugeridos (Adicionais)
-
-1. **CoverageDensity False Positive**:
-   - Estado S1 tem 20 elementos, 18 não testados (gap=0.9)
-   - Ação A leva a S1, mas S1 é "beco sem saída" (sem MOP, sem WTG)
-   - CoverageDensityScorer dá score alto (180), mas ação é improdutiva
-   - **Teste**: `test_coverage_density_false_positive` — validar que MopScorer + WtgScorer ainda predominam
-
-2. **Reward Inflation Múltipla**:
-   - Múltiplas propagações para mesma ação (N=5, gamma=0.8)
-   - Acumula 12.0 + 5.0 = 17.0, mas cap é 15.0
-   - **Teste**: `test_cumulative_reward_multiple_propagations` — boundary + múltiplas
-
-3. **PathBuffer Memory Leak**:
-   - PathBuffer planeja path, invalida, planeja de novo
-   - Validar que memória é liberada corretamente
-   - **Teste**: `test_path_buffer_memory_leak` — monitorar memória após 100 ciclos
+**Benefícios**:
+- Detecta build failures early
+- Economiza tempo (não espera E2E completo)
+- Feedback rápido para desenvolvedores
 
 ---
 
-## 11. Validação Final
+## 9. Cenários de Teste Adicionais Sugeridos
 
-### 11.1 🔴 Checklist de Validação (Atualizado Após Análise Profunda)
+### 9.1. Testes de Integração
 
-| Critério | Status Anterior | Status Atual | Observação |
-|----------|-----------------|--------------|------------|
-| **Diagnóstico preciso** | ✅ | ✅ | Baseado em ICST paper, análise APE/Fastbot |
-| **Design detalhado** | ✅ | ✅ | 6 decisões com alternativas e racional |
-| **Tasks executáveis** | ✅ | ⚠️ | Atômicas, testáveis, TDD — mas **0% implementadas** |
-| **Rastreabilidade** | ✅ | ✅ | spec-design-task-test completa |
-| **Consistência de valores** | ✅ | ⚠️ | Parâmetros batem no design, mas **não implementados** |
-| **Grafo LangGraph** | ✅ | ✅ | Topologia preservada, otimização sound |
-| **Screenshot caching** | ✅ | ⚠️ | Preserva gh18, mas **não implementado** |
-| **Dead code removal** | ✅ | ⚠️ | Segue P3, mas **não implementado** |
-| **Edge cases** | ✅ | ✅ | 23 testes no Group 9.4 |
-| **Pre-condição gh18** | ✅ | ✅ | Análise de conflito no doc de análise |
-| **Downstream gh9** | ✅ | ⚠️ | parameter_space.py precisa de 11 params — **nenhum existe** |
-| **Config fields (11 novos)** | N/A | ❌ | **Nenhum campo existe** — bloqueante |
-| **Data models (action_cumulative_reward)** | N/A | ❌ | **Campo não existe** — bloqueante |
-| **SuccessorTracker return type** | N/A | ❌ | **Retorna str, não Tuple** — bloqueante |
+| ID | Cenário | Critério de Sucesso |
+|----|---------|---------------------|
+| IT-01 | Unified client em APK com 50+ activities | Completar em < 300s |
+| IT-02 | Unified client em APK ofuscado (ProGuard) | Não falhar, logs warnings |
+| IT-03 | Unified client sem MOP specs | `reachesMop` = false para todos |
+| IT-04 | Unified client com timeout (injetar delay) | Partial JSON parseable |
+| IT-05 | Unified client em APK multi-process | Todas as activities detectadas |
 
-### 11.2 🔴 Aprovação com Ressalvas CRÍTICAS (Atualizado)
+**Descrição Detalhada**:
 
-**Status**: ⚠️ **APROVADA COM RESSALVAS CRÍTICAS**
-
-**Ressalvas CRÍTICAS (BLOQUEANTES)**:
-
-1. **Task 1.1 (CRÍTICO)**: 11 campos novos em RVAgentConfig — **NENHUM existe**
-   - Impacto: Todas as features novas bloqueadas
-   - Files: `config/agent_config.py`
-   
-2. **Task 1.3 (CRÍTICO)**: `action_cumulative_reward` em ScreenNode — **Campo não existe**
-   - Impacto: Reward propagation bloqueada
-   - Files: `domain/screen_node.py`
-   
-3. **Task 3.5.2 (CRÍTICO)**: `successor_tracker` em RankingContext — **Campo não existe**
-   - Impacto: CoverageDensityScorer não funciona
-   - Files: `strategies/rvagent_strategy/ranking/context.py`
-   
-4. **Task 5.5 (CRÍTICO)**: `find_nearest_unsaturated()` retorna `Tuple[str, int]` — **Atualmente retorna `Optional[str]`**
-   - Impacto: PathBuffer não sabe quantos BACKs bufferar
-   - Files: `strategies/rvagent_strategy/successor_tracker.py`
-   
-5. **Task 5.4 (ALTO)**: `should_backtrack()` usa threshold — **Atualmente binário (100%)**
-   - Impacto: Backtracking passivo continua
-   - Files: `strategies/rvagent_strategy/rvagent_strategy.py`
-
-**Ressalvas NÃO Bloqueantes**:
-
-6. **Adicionar nota sobre ExecutionCountScorer**: Também é dead code (não documentado)
-7. **Documentar failed_actions tracking quebrado**: TODO#19 em screen_node.py
-8. **Explicitar dependências críticas**: Adicionar "BLOCKED BY 5.5" em tasks 6.1, 6.2, 6.5
-9. **Mover wiring para Group 1 ou 2**: Task 6.7 é crítica — todos dependem
-10. **Adicionar testes de memory leak**: `test_path_buffer_memory_leak` no Group 9.4
-11. **Documentar min_visits no proposal.md**: Adicionar nota sobre GradualDecayScorer cutoff
-
-### 11.3 🔴 Próximo Passo (Atualizado)
-
-**FASE 0: ESTABELECER BASELINE (Antes de qualquer mudança)**
-
-**Implementar Group 0 (Baseline Experiment)** ANTES de qualquer mudança:
-
-```bash
-# 0.1 Criar diretório e filter file
-mkdir -p docker/data/gh26_experiment
-# Criar exp02_apks.txt com 10 APKs
-
-# 0.2-0.3 Preprocessing (instrumentação + SA)
-docker compose -f docker/data/gh26_experiment/docker-compose.preprocess.yml up
-
-# 0.3b Docker dry-run (1 APK, 1 tool, 60s)
-# Validar setup antes de full experiment
-
-# 0.4-0.5 Baseline experiment (2 containers, 4-5 horas)
-docker compose -f docker/data/gh26_experiment/docker-compose.baseline.yml up
-
-# 0.6 Agregar métricas baseline
-python docker/data/gh26_experiment/aggregate_baseline.py
+**IT-01: APK com 50+ Activities**
+```markdown
+- [ ] IT-01 Test unified client on APK with 50+ activities
+  - APK: Select large APK from experiment corpus (e.g., popular open-source app)
+  - Expected: Complete analysis in < 300s
+  - Metrics: Log class count, method count, reachability count
+  - Validate: No timeout, no OOM, JSON valid
 ```
 
-**Sem baseline, não há como medir impacto do gh26.**
-
-**FASE 1: PRÉ-REQUISITOS CRÍTICOS (Antes de Features)**
-
-Ordem de implementação **OBRIGATÓRIA**:
-
-```
-Task 1.1 (11 campos config) → TODOS os groups dependem
-    ↓
-Task 1.3 (action_cumulative_reward) → Group 4 depende
-    ↓
-Task 3.5.2 (successor_tracker em RankingContext) → Group 3.5 depende
-    ↓
-Task 5.5 (find_nearest_unsaturated retorna Tuple) → Group 6 depende
-    ↓
-Task 5.4 (should_backtrack com threshold) → Group 5 depende
-    ↓
-Task 1.2 (scorer weights atualizados) → Group 3 depende
-    ↓
-Task 3.3 (GradualDecayScorer registrado) → Group 3 depende
-    ↓
-Groups 2, 3, 3.5, 4, 5, 6, 7, 8 → Paralelo (após pré-requisitos)
-    ↓
-Group 9 (Integration) → Após todos
-    ↓
-Group 10 (Validation) → Após Group 9 e /rv-verify
+**IT-02: APK Ofuscado**
+```markdown
+- [ ] IT-02 Test unified client on ProGuard-obfuscated APK
+  - APK: Use APK built with ProGuard enabled
+  - Expected: Analysis completes without failure
+  - Validate: Classes renamed (a.b.c), but reachability still computed
+  - Warnings: Log obfuscation detection
 ```
 
-**Cronograma Estimado**:
-- Group 0 (Baseline): 4-5 horas (experimento) + 1 hora (agregação)
-- Group 1 (Config): 2-3 horas (11 campos + testes)
-- Group 1.3 (Data models): 1 hora (action_cumulative_reward)
-- Group 3.5.2 (RankingContext): 30 minutos
-- Group 5.5 (SuccessorTracker): 1-2 horas (BFS com hop_count)
-- **Total pré-requisitos**: ~6-8 horas
-- **Grupos paralelos (2-8)**: ~16-24 horas
-- **Group 9 (Integration)**: ~8-12 horas
-- **Group 10 (Validation)**: 4-5 horas (experimento) + 1 hora (análise)
-- **Total geral**: ~35-50 horas
+**IT-03: Sem MOP Specs**
+```markdown
+- [ ] IT-03 Test unified client with empty MOP directory
+  - Setup: Pass empty directory as mopDir
+  - Expected: Analysis completes, all reachesMop = false
+  - Validate: JSON valid, coverage calculation works (0% MOP coverage)
+```
+
+**IT-04: Timeout com Partial JSON**
+```markdown
+- [ ] IT-04 Test unified client with injected timeout
+  - Setup: Inject 10s delay in extractWindows()
+  - Timeout: Set timeout=5s
+  - Expected: Partial JSON with reachability section only
+  - Validate: Parser reads reachability, returns empty windows/transitions
+```
+
+**IT-05: APK Multi-Process**
+```markdown
+- [ ] IT-05 Test unified client on multi-process APK
+  - APK: Use APK with android:process in manifest
+  - Expected: All activities from all processes detected
+  - Validate: Window count matches sum of activities across processes
+```
+
+---
+
+### 9.2. Testes de Regressão
+
+| ID | Cenário | Baseline (3-tool) | Tolerância |
+|----|---------|-------------------|------------|
+| RG-01 | cryptoapp.apk - window count | 8 windows | ±0 |
+| RG-02 | cryptoapp.apk - transition count | 12 transitions | ±0 |
+| RG-03 | cryptoapp.apk - method count | ~500 methods | ±0 |
+| RG-04 | cryptoapp.apk - reachable methods | ~300 methods | ±10% |
+| RG-05 | cryptoapp.apk - reachesMop methods | ~50 methods | ±10% |
+| RG-06 | cryptoapp.apk - directlyReachesMop | ~8 methods | ±0 |
+
+**Descrição Detalhada**:
+
+**RG-01 a RG-06: Baseline Equivalence**
+```markdown
+- [ ] RG-01 to RG-06 Compare unified output against saved 3-tool baseline
+  - Baseline: Save current 3-tool output for cryptoapp.apk
+  - Run: Unified client on same APK
+  - Compare: Counts for each metric
+  - Tolerate: ±10% for reachable/reachesMop (due to all-reachable removal)
+  - Document: Any differences > tolerance
+```
+
+---
+
+### 9.3. Testes de Erro
+
+| ID | Cenário | Comportamento Esperado |
+|----|---------|------------------------|
+| ER-01 | Unified JAR não encontrado | ConfigurationError com mensagem clara |
+| ER-02 | MOP directory inválido | ConfigurationError com mensagem clara |
+| ER-03 | GATOR launcher falha | StaticAnalysisException com stderr |
+| ER-04 | JSON schema inválido | Warning + empty StaticAnalysisData |
+| ER-05 | Timeout antes de reachability | Empty StaticAnalysisData (critical failure) |
+
+**Descrição Detalhada**:
+
+**ER-01: Unified JAR Não Encontrado**
+```markdown
+- [ ] ER-01 Test missing unified JAR
+  - Setup: Set unified_jar to non-existent path
+  - Expected: ConfigurationError during config validation
+  - Message: "Unified JAR not found: <path>"
+```
+
+**ER-02: MOP Directory Inválido**
+```markdown
+- [ ] ER-02 Test invalid MOP directory
+  - Setup: Set mop_dir to non-existent path
+  - Expected: ConfigurationError during config validation
+  - Message: "MOP directory not found: <path>"
+```
+
+**ER-03: GATOR Launcher Falha**
+```markdown
+- [ ] ER-03 Test GATOR launcher failure
+  - Setup: Corrupt GATOR python script
+  - Expected: StaticAnalysisException with stderr output
+  - Message: "UNIFIED tool failed with exit code 1"
+```
+
+**ER-04: JSON Schema Inválido**
+```markdown
+- [ ] ER-04 Test malformed unified JSON
+  - Setup: Create JSON with missing required sections
+  - Expected: Warning logged, empty StaticAnalysisData returned
+  - Behavior: INV-ANA-06 (graceful degradation)
+```
+
+**ER-05: Timeout Antes de Reachability**
+```markdown
+- [ ] ER-05 Test timeout before reachability section
+  - Setup: Inject delay before reachability extraction
+  - Timeout: Set timeout=5s
+  - Expected: Empty StaticAnalysisData (critical failure)
+  - Log: Warning indicating incomplete file
+```
+
+---
+
+## 10. Checklist de Validação
+
+### 10.1. Validação de Design ✅/⚠️
+
+| Item | Status | Notas |
+|------|--------|-------|
+| Arquitetura é coerente | ✅ | Unificação elimina redundância |
+| Decisões são justificadas | ✅ | D1-D6 bem documentadas |
+| Riscos são identificados | ⚠️ | Alguns riscos não mitigados |
+| Formato JSON é especificado | ⚠️ | Partial write não especificado |
+| Extensão de arquivo é clara | ⚠️ | `.json` é genérico demais |
+| Fallbacks são documentados | ⚠️ | Alguns fallbacks incompletos |
+
+---
+
+### 10.2. Validação de Tasks ✅/⚠️
+
+| Item | Status | Notas |
+|------|--------|-------|
+| Tasks em ordem lógica | ✅ | Java → Python → Tests → Docs |
+| Dependencies claras | ✅ | Group 0 → Groups 1-4 → Groups 5-7 |
+| Critérios de aceitação | ⚠️ | Faltam critérios de performance |
+| Testes abrangentes | ⚠️ | Faltam edge cases |
+| Verificação de dependências | ⚠️ | Falta mvn dependency:tree |
+| Migração de dados | ❌ | Não mencionada |
+
+---
+
+### 10.3. Validação de Spec ✅/⚠️
+
+| Item | Status | Notas |
+|------|--------|-------|
+| FRs atualizadas | ✅ | FR04+05+06 unificadas |
+| Invariants atualizados | ✅ | INV-ANA-01 removido, outros modificados |
+| Scenarios abrangentes | ✅ | 11 scenarios bem definidos |
+| Data contracts claros | ✅ | Input/output/error especificados |
+| Rastreabilidade | ✅ | Spec → Design → Tasks mapeada |
+
+---
+
+## 11. Plano de Ação Recomendado
+
+### 11.1. Correções Obrigatórias (Antes de Implementar)
+
+| ID | Ação | Artefato | Prioridade |
+|----|------|----------|------------|
+| C1 | Especificar formato JSON para partial writes | design.md Seção "API Design" | 🔴 Crítica |
+| C2 | Detalhar fallback para hint extraction via XML | design.md Seção "Decisions D3" | 🔴 Crítica |
+| C3 | Adicionar critérios de aceitação de performance | tasks.md Group 10 | 🔴 Crítica |
+| C4 | Verificar compatibilidade Soot 3.3.0 | tasks.md 0.5 | 🔴 Crítica |
+| C5 | Especificar extensão mais específica que `.json` | proposal.md, design.md, tasks.md | 🟡 Alta |
+
+---
+
+### 11.2. Melhorias Recomendadas (Durante Implementação)
+
+| ID | Ação | Artefato | Prioridade |
+|----|------|----------|------------|
+| M1 | Adicionar JSON Schema validation | tasks.md Group 5 | 🟡 Alta |
+| M2 | Logging estruturado no Java client | tasks.md Group 1 | 🟡 Alta |
+| M3 | Testes para edge cases | tasks.md Group 8 | 🟡 Alta |
+| M4 | Script de migração de dados | tasks.md Group 7 | 🟢 Média |
+| M5 | ADRs para decisões críticas | docs/adrs/ | 🟢 Média |
+| M6 | Smoke test pós-build | tasks.md Group 4 | 🟢 Média |
+
+---
+
+### 11.3. Riscos Aceitos (Monitorar Durante E2E)
+
+| ID | Risco | Tolerância | Mitigação |
+|----|-------|------------|-----------|
+| R1 | Diferenças de reachability (±10%) | Aceitável | Documentar no relatório E2E |
+| R2 | Dependência de apktool para inputType/entries | Aceitável | Tornar campos opcionais |
+| R3 | Build time aumenta | Aceitável | Otimizar após MVP |
+| R4 | Fat JAR grande (10MB+) | Aceitável | Não impacta runtime |
 
 ---
 
 ## 12. Conclusão
 
-### 12.1 🔴 Summary (Atualizado Após Análise Profunda)
+### 12.1. Avaliação Geral
 
-A change **gh26-exploration-strategy** é **VÁLIDA NO DESIGN**, mas a **IMPLEMENTAÇÃO NÃO FOI INICIADA**.
+A change `gh27-unified-static-analysis` é **bem fundamentada, coerente e executável**. A arquitetura proposta elimina redundâncias críticas (3 inicializações Soot, `cg all-reachable`) e simplifica o pipeline de análise estática (1 parser ao invés de 3).
 
-Após validação linha-por-linha de **50+ claims**, o status real é:
+**Pontos Fortes**:
+- ✅ Root cause analysis sólida e validada
+- ✅ Arquitetura alinhada com princípios do projeto (P1, P3)
+- ✅ Rastreabilidade spec-design-tasks completa
+- ✅ Critérios de baseline equivalence bem definidos
+- ✅ E2E validation abrangente
 
-| Dimensão | Avaliação | Evidência |
-|----------|-----------|-----------|
-| **Design** | ✅ Válido | 6 decisões com alternativas e racional sound |
-| **Implementação** | ❌ **0% completa** | 15 dependências críticas não implementadas |
-| **Rastreabilidade** | ✅ Completa | spec-design-task-test mapeada |
-| **Código atual** | ⚠️ **Pré-gh26** | Todos os bugs e gargalos ainda presentes |
-
-### 12.2 🔴 Descobertas Críticas da Análise Profunda
-
-| # | Descoberta | Impacto | Status |
-|---|------------|---------|--------|
-| **D1** | 11 campos de config não existem | **BLOQUEANTE GERAL** | ❌ |
-| **D2** | `action_cumulative_reward` não existe | **BLOQUEANTE (Reward)** | ❌ |
-| **D3** | `RankingContext.successor_tracker` não existe | **BLOQUEANTE (Coverage)** | ❌ |
-| **D4** | `find_nearest_unsaturated` retorna `str`, não `Tuple` | **BLOQUEANTE (PathBuffer)** | ❌ |
-| **D5** | `should_backtrack` é binário (100%), não usa threshold | **BLOQUEANTE (Backtracking)** | ❌ |
-| **D6** | 6 bugs do InputValueGenerator ainda presentes | **BLOQUEANTE (Text Input)** | ❌ |
-| **D7** | GradualDecayScorer não registrado | **BLOQUEANTE (Scorers)** | ❌ |
-| **D8** | `failed_actions` tracking quebrado (TODO#19) | Médio | ⚠️ |
-| **D9** | ExecutionCountScorer também é dead code (não documentado) | Baixo | ⚠️ |
-| **D10** | `visited_states` tem 2 usos reais (não é completamente redundante) | Médio | ⚠️ |
-
-### 12.3 🔴 Matriz de Risco Atualizada
-
-| Risco | Impacto | Probabilidade | Prioridade |
-|-------|---------|---------------|------------|
-| Implementação não iniciada | **Crítico** | **100%** | **P0** |
-| Dependências não documentadas | **Crítico** | **100%** | **P0** |
-| Baseline não estabelecida | **Alto** | **100%** | **P0** |
-| failed_actions quebrado | Médio | **100%** | P1 |
-| ExecutionCountScorer não documentado | Baixo | **100%** | P2 |
-
-### 12.4 ✅ Plano de Ação (Priorizado)
-
-**ORDEM OBRIGATÓRIA DE IMPLEMENTAÇÃO**:
-
-```
-PRIORIDADE P0 (Pré-requisitos Críticos):
-├─ Group 0: Baseline Experiment (4-5 horas)
-│  └─ 0.1-0.6: Estabelecer métricas de comparação
-│
-├─ Group 1: Config & Models (2-3 horas)
-│  ├─ 1.1: 11 campos novos em RVAgentConfig (BLOQUEANTE GERAL)
-│  ├─ 1.2: Atualizar scorer weights
-│  └─ 1.3: action_cumulative_reward em ScreenNode
-│
-├─ Group 1.5: Dead Code Removal (1-2 horas)
-│  ├─ 1.5.1: Remover state_stack + RVAgentState
-│  ├─ 1.5.2: Remover visited_states (refatorar _get_visited_activities)
-│  └─ 1.5.3-1.5.5: Consolidar coverage formula, documentar transitions
-│
-├─ Group 3.5: Coverage-Based Guidance (1 hora)
-│  └─ 3.5.2: successor_tracker em RankingContext
-│
-└─ Group 5: Proactive Backtracking (2-3 horas)
-   └─ 5.5: find_nearest_unsaturated retorna Tuple[str, int]
-
-PRIORIDADE P1 (Features Core):
-├─ Group 2: Text Input Quality (2-3 horas)
-│  └─ 2.1-2.7: Fix 6 bugs do InputValueGenerator
-├─ Group 3: Scorer Rebalancing (1 hora)
-│  └─ 3.3: GradualDecayScorer registrado
-├─ Group 4: Reward Propagation (2-3 horas)
-│  └─ 4.1-4.5: RewardPropagator + StrengthScorer integration
-└─ Group 5: Backtracking (1-2 horas)
-   └─ 5.1-5.4: should_backtrack com threshold, proactive backtracking
-
-PRIORIDADE P2 (Features Avançadas):
-├─ Group 3.5: CoverageDensityScorer (2-3 horas)
-│  └─ 3.5.1-3.5.6: CoverageDensityScorer + Strategy C
-├─ Group 6: PathBuffer (3-4 horas)
-│  └─ 6.1-6.7: PathBuffer class + Strategies A/B/C
-├─ Group 7: Speed Optimization (1-2 horas)
-│  └─ 7.1-7.4: screen_desc caching
-└─ Group 8: LLM MOP Guidance (1-2 horas)
-   └─ 8.1-8.2: NavigationGuidance com MOP context
-
-PRIORIDADE P3 (Validação):
-├─ Group 9: Integration Testing (8-12 horas)
-│  └─ 9.1-9.8: Testes de integração + edge cases
-└─ Group 10: Validation Experiment (5-6 horas)
-   └─ 10.1-10.6: Experimento de validação + comparação
-```
-
-**Total Estimado**: ~35-50 horas
-
-### 12.5 🔴 Veredito Final (Atualizado)
-
-| Critério | Veredito | Justificativa |
-|----------|----------|---------------|
-| **Design** | ✅ **APROVADO** | Especificação completa, coerente, rastreável |
-| **Implementação** | ❌ **REPROVADA** | **0% completa** — 15 dependências críticas faltando |
-| **Pronto para iniciar?** | ⚠️ **SIM, COM RESSALVAS** | Tasks bem definidas, mas pré-requisitos críticos必须先 |
-| **Risco de falha?** | ⚠️ **MÉDIO** | Dependências bem mapeadas, mas implementação não iniciada |
-
-### 12.6 📋 Recomendações Finais
-
-1. **INICIAR COM GROUP 0 (BASELINE)**: Sem baseline, não há como medir impacto
-2. **RESPEITAR ORDEM DE DEPENDÊNCIAS**: Task 1.1 → Task 1.3 → Task 3.5.2 → Task 5.5 → resto
-3. **TDD OBRIGATÓRIO**: Testes primeiro para todas as tasks
-4. **/rv-verify CONTÍNUO**: Validar após cada group
-5. **DOCUMENTAR DESCOBERTAS**: Adicionar notas sobre ExecutionCountScorer, failed_actions, etc.
+**Pontos de Atenção**:
+- ⚠️ Formato JSON para partial writes não especificado
+- ⚠️ Fallback para hint extraction não documentado
+- ⚠️ Critérios de performance faltantes
+- ⚠️ Compatibilidade Soot 3.3.0 não verificada
+- ⚠️ Extensão `.json` é genérica demais
 
 ---
 
-## Apêndice D: Análise Profunda (50+ Claims Validadas)
+### 12.2. Recomendação
 
-### D.1 Metodologia da Análise Profunda
+**Status**: ✅ **APROVADO COM RESSALVAS**
 
-**Abordagem**: Validação linha-por-linha de cada claim do design.md contra o código-fonte real.
+**Condições para Início da Implementação**:
+1. Executar Verification Spike (Group 0) **antes** de codificar
+2. Atualizar `design.md` com correções C1-C5
+3. Adicionar tarefas faltantes ao `tasks.md`
+4. Obter aprovação do pesquisador responsável para riscos R1-R4
 
-**Arquivos Analisados**:
-- proposal.md (completo)
-- design.md (1188 linhas)
-- tasks.md (188 linhas)
-- spec.md (727 linhas)
-- rvagent_strategy.py (941 linhas)
-- agent_config.py (461 linhas)
-- scorers.py (498 linhas)
-- rv_agent.py (439 linhas)
-- input_value_generator.py (269 linhas)
-- successor_tracker.py (401 linhas)
-- parse_node.py (completo)
-- learn_node.py (completo)
-- decision_node.py (completo)
-- algorithm_node.py (completo)
-- screen_node.py (completo)
-- context.py (completo)
-- dynamic_state_graph.py (completo)
-- 20260216_rvagent_refatoracao.md (967 linhas)
-
-### D.2 Claims Validadas (Resumo)
-
-| Categoria | Claims Confirmadas | Claims Parciais | Claims Incorretas | Total |
-|-----------|-------------------|-----------------|-------------------|-------|
-| **Arquitetura** | 5 | 1 | 1 | 7 |
-| **Bugs** | 6 | 0 | 0 | 6 |
-| **Config** | 0 | 0 | 11 | 11 |
-| **Scorers** | 2 | 0 | 1 | 3 |
-| **Data Models** | 0 | 0 | 3 | 3 |
-| **Dependências** | 2 | 2 | 15 | 19 |
-| **Total** | **15** | **3** | **31** | **49** |
-
-### D.3 Evidências Detalhadas
-
-**Claim 1**: "state_stack é append-only"
-- ✅ **Confirmado**: rvagent_strategy.py:200,273,886
-- ⚠️ **Exceção**: state_stack.clear() existe no reset()
-
-**Claim 2**: "parent_hash nunca lido"
-- ✅ **Confirmado**: rvagent_strategy.py:265,270
-- parent_hash é armazenado mas nunca usado para decisões
-
-**Claim 3**: "visited_states redundante"
-- ⚠️ **Parcial**: rvagent_strategy.py:201,274,729
-- Usado em 2 lugares: linha 276 e _get_visited_activities()
-
-**Claim 4**: "find_nearest_unsaturated retorna Tuple[str, int]"
-- ❌ **Incorreto**: successor_tracker.py:329-363
-- Retorna `Optional[str]`, não `Optional[Tuple[str, int]]`
-
-**Claim 5**: "Grafo LangGraph bypass screenshot"
-- ✅ **Confirmado**: rv_agent.py:174-207
-- Algorithm path já bypassa capture_screenshot
-
-**Claim 6**: "GradualDecayScorer dead code"
-- ✅ **Confirmado**: rvagent_strategy.py:186-197
-- Definido em scorers.py:143-188, não registrado
-
-**Claim 7**: "8 scorers ativos"
-- ✅ **Confirmado**: rvagent_strategy.py:186-197
-- Lista exata: MopScorer, WtgScorer, SaturationScorer, ComponentPriorityScorer, StrengthScorer, FailedActionScorer, SystemElementFilter, VisitationPenaltyScorer
-
-**Claims 8.1-8.6**: "6 bugs no InputValueGenerator"
-- ✅ **Todos confirmados**: Ver Seção 3.5 deste relatório
-
-**Claim 9**: "Coverage fórmula divergente"
-- ✅ **Confirmado**: successor_tracker.py:128 (retorna 1.0), screen_node.py:66 (retorna 0.0)
-
-**Claim 10**: "transitions audit-only"
-- ✅ **Confirmado**: dynamic_state_graph.py
-- Não é consultado para navegação
-
-**Claims 11-18**: "Config, Scorers, Data Models"
-- ❌ **Todos incorretos**: Implementação não iniciada
+**Próximos Passos**:
+1. Responder Open Questions (Tasks 0.1-0.5)
+2. Atualizar artefatos com correções obrigatórias
+3. Implementar na ordem: Group 1 → Group 4 → Group 5 → Group 8 → Group 10
+4. Monitorar riscos R1-R4 durante E2E validation
 
 ---
 
-**Fim do Relatório (Atualizado com Análise Profunda)**
+### 12.3. Lições Aprendidas
 
-**Próxima Ação Imediata**: Iniciar Group 0 (Baseline Experiment) para estabelecer métricas de comparação antes de qualquer implementação.
-
----
-
-## Apêndice A: Arquivos Analisados
-
-| Arquivo | Linhas | Módulo |
-|---------|--------|--------|
-| `proposal.md` | — | openspec/changes/gh26-exploration-strategy/ |
-| `design.md` | 1188 | openspec/changes/gh26-exploration-strategy/ |
-| `tasks.md` | 188 | openspec/changes/gh26-exploration-strategy/ |
-| `spec.md` | 727 | openspec/changes/gh26-exploration-strategy/specs/agent/ |
-| `rvagent_strategy.py` | 941 | modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ |
-| `agent_config.py` | 461 | modules/rv-agent/src/rv_agent/config/ |
-| `scorers.py` | 498 | modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ranking/ |
-| `rv_agent.py` | 439 | modules/rv-agent/src/rv_agent/agent/ |
-| `input_value_generator.py` | 269 | modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ |
-| `successor_tracker.py` | 401 | modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ |
-| `parse_node.py` | ~80 | modules/rv-agent/src/rv_agent/agent/nodes/ |
-| `learn_node.py` | 493 | modules/rv-agent/src/rv_agent/agent/nodes/ |
-| `20260216_rvagent_refatoracao.md` | 967 | docs/ (análise de apoio) |
+**Para Futuras Changes**:
+1. **Especificar formatos de arquivo com precisão**: JSON, protobuf, ou outro formato deve ter schema definido
+2. **Validar claims contra código existente**: Não assumir APIs ou comportamentos sem verificação
+3. **Incluir critérios de performance**: Performance improvements devem ser quantificados e testados
+4. **Planejar migração de dados**: Changes que alteram formatos devem incluir script de migração
+5. **Documentar fallbacks**: Para cada dependência externa (apktool, GATOR APIs), documentar fallback se falhar
 
 ---
 
-## Apêndice B: Glossário
+## Apêndice A: Glossário
 
 | Termo | Definição |
 |-------|-----------|
-| **MOP** | Monitored Operation — método monitorado por runtime verification |
-| **WTG** | Window Transition Graph — grafo de navegação da aplicação (GATOR) |
-| **BFS** | Breadth-First Search — algoritmo de busca em largura |
-| **N-step** | Propagação de reward por N passos para trás |
-| **TDD** | Test-Driven Development — teste primeiro, implementação depois |
-| **SDD** | Spec-Driven Development — especificação guia implementação |
-| **Full SDD** | Track com 6 fases, 4 artifacts (proposal, specs, design, tasks) |
-| **FF SDD** | Fast-Forward SDD — track com 4 fases, auto-generated |
-| **Quick Path** | Track com 3 fases, 2 artifacts (plan, tasks) |
-| **gh18** | Change de error detection (pre-condição para gh26) |
-| **gh9** | Change de calibration campaign (downstream de gh26) |
+| Soot | Framework de análise estática para Java/Android |
+| Call Graph | Grafo de chamadas entre métodos |
+| `cg all-reachable` | Configuração Soot que torna todos os métodos entry points |
+| CHA | Class Hierarchy Analysis |
+| JGraphT | Biblioteca Java para grafos e algoritmos (Dijkstra, BFS, etc.) |
+| MOP | Monitor-Oriented Programming |
+| WTG | Window Transition Graph |
+| GESDA | GUI Element Static Detection for Android |
+| GATOR | GUI Analysis TOol foR Android |
+| REACH | Reachability analysis tool |
+| SignatureNormalizer | Converte notação de inner classes (`Outer.Inner` → `Outer$Inner`) |
 
 ---
 
-## Apêndice C: Referências
+## Apêndice B: Referências
 
-1. **ICST Paper**: "On the Effectiveness of Integrating Android Test-Case Generation with Runtime Verification for Detecting Cryptographic API Misuses"
-2. **APE Source**: `tmp_tools/ape/src/com/android/commands/monkey/ape/agent/SataAgent.java`
-3. **Fastbot Source**: C++ (analisado em `20260216_rvagent_refatoracao.md`)
-4. **PRD.md**: Product Requirements Document do RV-Android
-5. **SDD.md**: Spec-Driven Development guide
-6. **WORKFLOW.md**: RV-Android Development Workflow
-7. **20260216_rvagent_refatoracao.md**: Análise de apoio para gh26
+| Referência | Localização |
+|------------|-------------|
+| WORKFLOW.md | `/rv-android/docs/WORKFLOW.md` |
+| proposal.md | `/openspec/changes/gh27-unified-static-analysis/proposal.md` |
+| design.md | `/openspec/changes/gh27-unified-static-analysis/design.md` |
+| tasks.md | `/openspec/changes/gh27-unified-static-analysis/tasks.md` |
+| plan.md | `/openspec/changes/gh27-unified-static-analysis/plan.md` |
+| spec.md | `/openspec/changes/gh27-unified-static-analysis/specs/analysis/spec.md` |
+| static_analysis.py | `/modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py` |
+| config.py | `/modules/rv-static-analysis/src/rv_static_analysis/config.py` |
+| RvsecWtgClient.java | `/rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/RvsecWtgClient.java` |
 
 ---
 

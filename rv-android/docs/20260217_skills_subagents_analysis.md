@@ -678,7 +678,7 @@ Prerequisite: V0 passes. Verifies mechanical edits are correct before runtime te
 | V1.2 | disable-model-invocation | Check 7 skill frontmatters | All 7 have `disable-model-invocation: true`: rv-risk, rv-retrospective, rv-planning, rv-security, rv-refactor-simplify, rv-refactor-extract, rv-release |
 | V1.3 | rv-code-reviewer exists as skill | `ls .claude/skills/rv-code-reviewer/SKILL.md` | File exists |
 | V1.4 | rv-code-reviewer agent deleted | `ls .claude/agents/rv-code-reviewer.md` | File does NOT exist |
-| V1.5 | Documentation counts | Grep WORKFLOW.md and AGENTS.md for skill counts | "43 skills" present, no "42 skills + 1 agent" |
+| V1.5 | Documentation counts | Grep WORKFLOW.md and AGENTS.md for skill counts | "42 skills" present, no "42 skills + 1 agent" |
 | V1.6 | No stale agent refs | `grep -r "\.claude/agents/" .claude/AGENTS.md docs/WORKFLOW.md CLAUDE.md` | Zero matches |
 
 ### Level 2: Individual Skill Runtime (rv-code-reviewer standalone)
@@ -717,7 +717,7 @@ Prerequisite: V4 passes.
 | ID | Test | Action | Pass Criteria |
 |----|------|--------|---------------|
 | V5.1 | AGENTS.md accuracy | Read AGENTS.md, compare against actual `.claude/skills/` directory | All listed skills exist, no missing skills, no extra unlisted skills |
-| V5.2 | WORKFLOW.md accuracy | Verify skill counts and chain descriptions | Matches actual architecture (43 skills, Skill tool chains) |
+| V5.2 | WORKFLOW.md accuracy | Verify skill counts and chain descriptions | Matches actual architecture (42 skills, Skill tool chains) |
 | V5.3 | CLAUDE.md accuracy | Verify Skills section matches current architecture | No "Agents" section, orchestrators listed as skills |
 
 ### Execution Order
