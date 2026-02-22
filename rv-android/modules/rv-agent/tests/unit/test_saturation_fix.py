@@ -258,10 +258,10 @@ class TestTier4SystemActionFilter:
 
 
 class TestPathBufferFailureCache:
-    """Verify PathBuffer permanent failure cache for MOP paths."""
+    """Verify PathBuffer cooldown-based failure cache for MOP paths."""
 
-    def test_failed_mop_path_cached(self):
-        """After MOP path fails, activity is added to _failed_mop_paths."""
+    def test_failed_mop_path_enters_cooldown(self):
+        """After MOP path fails, activity enters cooldown cache."""
         from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
 
         tm = MagicMock()
@@ -283,13 +283,19 @@ class TestPathBufferFailureCache:
             config=config,
         )
 
-        result = pb.plan_mop_path("com.example.ActivityA", None)
+        result = pb.plan_mop_path(
+            "com.example.ActivityA", None, current_iteration=10
+        )
         assert result is False
-        assert "com.example.ActivityA" in pb._failed_mop_paths
+        assert "com.example.ActivityA" in pb._mop_path_cooldown
+        assert pb._mop_path_cooldown["com.example.ActivityA"] == 10
 
-    def test_cached_activity_skips_planning(self):
-        """Subsequent calls for cached activity skip planning entirely."""
-        from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
+    def test_cooldown_blocks_planning(self):
+        """During cooldown, planning is skipped without calling TransitionManager."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import (
+            PLAN_COOLDOWN_AFTER_FAILURE,
+            PathBuffer,
+        )
 
         tm = MagicMock()
         tm.plan_path_to_mop_activity.return_value = None
@@ -310,14 +316,55 @@ class TestPathBufferFailureCache:
             config=config,
         )
 
-        # First call fails and caches
-        pb.plan_mop_path("com.example.ActivityA", None)
+        # First call fails at iteration 10 and enters cooldown
+        pb.plan_mop_path("com.example.ActivityA", None, current_iteration=10)
 
-        # Second call should skip entirely (not call plan_path_to_mop_activity)
+        # Call within cooldown window should skip planning
         tm.plan_path_to_mop_activity.reset_mock()
-        result = pb.plan_mop_path("com.example.ActivityA", None)
+        result = pb.plan_mop_path(
+            "com.example.ActivityA", None, current_iteration=11
+        )
         assert result is False
         tm.plan_path_to_mop_activity.assert_not_called()
+
+    def test_cooldown_expires_allows_replanning(self):
+        """After cooldown expires, re-planning is allowed."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import (
+            PLAN_COOLDOWN_AFTER_FAILURE,
+            PathBuffer,
+        )
+
+        tm = MagicMock()
+        tm.plan_path_to_mop_activity.return_value = None
+
+        successor_tracker = MagicMock()
+        successor_tracker.graph = MagicMock()
+        successor_tracker.graph.states = {}
+        successor_tracker.back_successors = {}
+
+        config = MagicMock()
+        config.backtrack_saturation_threshold = 0.8
+        ui_cov = MagicMock()
+
+        pb = PathBuffer(
+            transition_manager=tm,
+            successor_tracker=successor_tracker,
+            ui_coverage_tracker=ui_cov,
+            config=config,
+        )
+
+        # Fail at iteration 10
+        pb.plan_mop_path("com.example.ActivityA", None, current_iteration=10)
+
+        # After cooldown expires, plan_path_to_mop_activity should be called
+        expired_iteration = 10 + PLAN_COOLDOWN_AFTER_FAILURE
+        tm.plan_path_to_mop_activity.reset_mock()
+        result = pb.plan_mop_path(
+            "com.example.ActivityA", None, current_iteration=expired_iteration
+        )
+        assert result is False  # Still fails (mock returns None)
+        # But the method WAS called (cooldown expired)
+        tm.plan_path_to_mop_activity.assert_called_once()
 
 
 class TestActionDictCoordinateValidation:

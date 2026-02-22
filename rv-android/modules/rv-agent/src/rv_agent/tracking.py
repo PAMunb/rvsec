@@ -43,6 +43,14 @@ _counters: Dict[str, int] = {
     "path_buffer_completed": 0,
     "reward_propagation_events": 0,
     "coverage_navigation_events": 0,
+    "attribution_count": 0,
+    "mop_resolve_attempts": 0,
+    "mop_resolve_successes": 0,
+    "self_loop_skipped": 0,
+    "system_action_filtered": 0,
+    "mop_bfs_depth_limited": 0,
+    "restart_count": 0,
+    "error_recovery_count": 0,
 }
 
 
@@ -423,3 +431,118 @@ def path_buffer_completed() -> None:
     """Record that a buffered path was fully consumed (for hit rate tracking)."""
     _counters["path_buffer_completed"] += 1
     logger.debug("[RVTRACK:PATH_BUFFER] completed")
+
+
+def attribution(
+    iter: int,
+    action_sig: str,
+    success: bool,
+    reward_type: str,
+    source: str = "previous",
+) -> None:
+    """Log action attribution for success/reward with offset fix verification.
+
+    Validates that success and reward are attributed to the correct action
+    (previous iteration's action, not current).
+    """
+    _counters["attribution_count"] += 1
+    logger.info(
+        _fmt(
+            "ATTRIBUTION",
+            iter=iter,
+            action_sig=action_sig,
+            success=success,
+            reward_type=reward_type,
+            source=source,
+        )
+    )
+
+
+def mop_resolve(
+    iter: int,
+    target_activity: str,
+    resolved: bool,
+    cooldown_remaining: int = 0,
+    step: int = 1,
+) -> None:
+    """Log MOP path resolution attempt."""
+    _counters["mop_resolve_attempts"] += 1
+    if resolved:
+        _counters["mop_resolve_successes"] += 1
+    logger.info(
+        _fmt(
+            "MOP_RESOLVE",
+            iter=iter,
+            target=target_activity,
+            resolved=resolved,
+            cooldown=cooldown_remaining,
+            step=step,
+        )
+    )
+
+
+def input_variation(
+    iter: int, field_id: str, is_mop: bool, used: int, limit: int
+) -> None:
+    """Log input variation check with MOP-specific limit."""
+    logger.info(
+        _fmt(
+            "INPUT_VAR",
+            iter=iter,
+            field=field_id,
+            is_mop=is_mop,
+            used=used,
+            limit=limit,
+        )
+    )
+
+
+def hash_discrimination(
+    iter: int,
+    state_hash: str,
+    elements: int,
+    resource_ids_used: int,
+    long_clickables_used: int,
+) -> None:
+    """Log structural hash computation details for new states."""
+    logger.info(
+        _fmt(
+            "HASH_DETAIL",
+            iter=iter,
+            hash=state_hash[:8],
+            elements=elements,
+            resource_ids=resource_ids_used,
+            long_clickables=long_clickables_used,
+        )
+    )
+
+
+def self_loop_guard(iter: int, state_hash: str, action_sig: str) -> None:
+    """Log self-loop transition detection (recording skipped)."""
+    _counters["self_loop_skipped"] += 1
+    logger.info(
+        _fmt(
+            "SELF_LOOP",
+            iter=iter,
+            state=state_hash[:8],
+            action=action_sig,
+        )
+    )
+
+
+def element_match(
+    iter: int, screen_hash: str, coords: Tuple[int, int], result: str
+) -> None:
+    """Log element matching result in UI coverage.
+
+    Result is one of: "found", "not_found", "cross_screen_rejected".
+    """
+    logger.info(
+        _fmt(
+            "ELEMENT_MATCH",
+            iter=iter,
+            screen=screen_hash[:8] if screen_hash else "none",
+            coords=coords,
+            result=result,
+        )
+    )

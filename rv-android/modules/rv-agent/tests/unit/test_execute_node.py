@@ -140,6 +140,8 @@ class TestExecuteNode:
         mock_tool_executor.execute_action.return_value = execution_result
 
         # Create state with action and screen hashes
+        # previous_action_signature: the signature from the PREVIOUS iteration's action
+        prev_sig = ((100, 200), "click")
         state = AgentState(
             current_activity="MainActivity",
             current_screen_hash="new_hash",
@@ -159,15 +161,16 @@ class TestExecuteNode:
                 "source": "llm",
             },
             previous_screen_hash="prev_hash",
+            previous_action_signature=prev_sig,
         )
 
         result = execute_node(mock_agent, state)
 
-        # Verify strategy record_transition was called
+        # Verify strategy record_transition was called with signature tuple
         mock_agent.strategy.record_transition.assert_called_once_with(
             "prev_hash",
             "new_hash",
-            {"action_type": "CLICK", "x": 100, "y": 200, "source": "llm"},
+            prev_sig,
         )
 
     def test_execute_node_records_ui_coverage_for_llm_action(self):

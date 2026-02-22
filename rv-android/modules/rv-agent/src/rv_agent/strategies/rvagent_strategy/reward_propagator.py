@@ -93,7 +93,7 @@ class RewardPropagator:
             iteration: Current iteration number for RVTRACK logging
         """
         base_reward = REWARD_VALUES.get(reward_type, 0.0)
-        if base_reward == 0.0 and reward_type != "form_fill":
+        if base_reward == 0.0:
             return
 
         history = list(self._action_history)

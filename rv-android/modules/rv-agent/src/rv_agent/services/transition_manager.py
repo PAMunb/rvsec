@@ -10,7 +10,7 @@ suggest unvisited targets prioritized by MOP reachability.
 
 - Multi-strategy matching: exact, name, and partial match for activity-to-window mapping
 - Graceful degradation: functions return empty results when static data unavailable
-- Priority scoring: unvisited targets +100, MOP-reaching +50, direct MOP +25
+- Priority scoring: unvisited targets +100, direct MOP +50, MOP-reaching +25
 
 ### Role in the System:
 
@@ -34,6 +34,9 @@ from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+
+# Max hops for MOP BFS path (matches Strategy A's MAX_BACKTRACK_HOPS)
+MAX_MOP_BFS_DEPTH = 8
 
 
 class TransitionManager:
@@ -256,8 +259,8 @@ class TransitionManager:
 
         Priority factors:
         - Unvisited targets get +100
-        - MOP-reaching targets get +50
-        - Direct MOP targets get +25
+        - Direct MOP targets get +50
+        - MOP-reaching targets get +25
 
         Args:
             target_id: Target window ID.
@@ -282,9 +285,9 @@ class TransitionManager:
                         method = self._get_method(event.signature)
                         if method:
                             if getattr(method, "directly_reaches_mop", False):
-                                priority += 25
-                            elif getattr(method, "reaches_mop", False):
                                 priority += 50
+                            elif getattr(method, "reaches_mop", False):
+                                priority += 25
 
         return priority
 
@@ -428,7 +431,7 @@ class TransitionManager:
         """
         Build descriptive text for an action from its target_view properties.
 
-        Prioritizes: content-desc > text > resource-id > class name
+        Prioritizes: content_description > text > resource_id > class name
 
         Args:
             action: ItemAction to describe.
@@ -440,8 +443,8 @@ class TransitionManager:
         if not target:
             return action.text  # Fallback to original text
 
-        # Try content-desc first (accessibility label)
-        content_desc = target.get("content-desc", "")
+        # Try content_description first (accessibility label)
+        content_desc = target.get("content_description", "")
         if content_desc:
             return content_desc
 
@@ -450,8 +453,8 @@ class TransitionManager:
         if text:
             return text
 
-        # Try resource-id (extract meaningful name)
-        resource_id = target.get("resource-id", "")
+        # Try resource_id (extract meaningful name)
+        resource_id = target.get("resource_id", "")
         if resource_id:
             # Extract name from "com.example:id/button_name" -> "button_name"
             parts = resource_id.split("/")
@@ -550,6 +553,16 @@ class TransitionManager:
         while queue:
             window_id, path = queue.popleft()
 
+            # Depth limit: skip nodes beyond MAX_MOP_BFS_DEPTH hops
+            if len(path) > MAX_MOP_BFS_DEPTH:
+                from rv_agent import tracking as track
+
+                track._counters["mop_bfs_depth_limited"] += 1
+                self.logger.debug(
+                    f"plan_path_to_mop_activity: BFS depth limited at {len(path)} hops"
+                )
+                continue
+
             # Check MOP density for this window's activity
             activity_name = self._find_activity_for_window_id(window_id)
             if activity_name:
@@ -575,60 +588,54 @@ class TransitionManager:
         candidates.sort(key=lambda c: (-c[0], len(c[1])))
         best_mop_count, best_path = candidates[0]
 
-        # Convert WTG transitions to action dicts, resolving coordinates
-        # from possible_actions when available. WTG transitions are graph-level
-        # edges with no screen coordinates — we match widget_id or activity name
-        # against real on-screen actions to get valid coordinates.
-        action_dicts = []
-        for transition in best_path:
-            target_activity = self._find_activity_for_window_id(
-                transition.get("target", "")
+        # Only resolve step 1 (first transition) against possible_actions.
+        # Subsequent steps exist on intermediate screens that we haven't
+        # reached yet — they will be re-planned on arrival at each screen.
+        first_step = best_path[0]
+        target_activity = self._find_activity_for_window_id(
+            first_step.get("target", "")
+        )
+        wtg_widget_id = first_step.get("widget_id", "")
+
+        # Try to resolve step 1 coordinates from possible_actions
+        resolved_coords = None
+        resolved_target_view = {}
+        resolved_action_id = 0
+
+        if possible_actions and wtg_widget_id:
+            matched = self._resolve_wtg_action(
+                wtg_widget_id, target_activity, possible_actions
             )
-            wtg_widget_id = transition.get("widget_id", "")
+            if matched:
+                resolved_coords = matched.coordinates
+                resolved_target_view = matched.target_view or {}
+                resolved_action_id = matched.id
 
-            # Try to resolve coordinates from possible_actions
-            resolved_coords = None
-            resolved_target_view = {}
-            resolved_action_id = 0
-
-            if possible_actions and wtg_widget_id:
-                matched = self._resolve_wtg_action(
-                    wtg_widget_id, target_activity, possible_actions
-                )
-                if matched:
-                    resolved_coords = matched.coordinates
-                    resolved_target_view = matched.target_view or {}
-                    resolved_action_id = matched.id
-
-            # If we can't resolve coordinates for ANY step, the entire path
-            # is unresolvable — return None to avoid wasting iterations.
-            if resolved_coords is None:
-                self.logger.info(
-                    f"plan_path_to_mop_activity: Unresolvable step "
-                    f"(widget_id={wtg_widget_id}, target={target_activity})"
-                )
-                return None
-
-            action_dicts.append(
-                {
-                    "action_type": "CLICK",
-                    "action_id": resolved_action_id,
-                    "widget_id": wtg_widget_id,
-                    "target_activity": target_activity
-                    or f"window_{transition.get('target')}",
-                    "text": f"Navigate to {target_activity or 'unknown'}",
-                    "reaches_mop": True,
-                    "directly_reaches_mop": False,
-                    "coordinates": resolved_coords,
-                    "target_view": resolved_target_view,
-                }
+        if resolved_coords is None:
+            self.logger.info(
+                f"plan_path_to_mop_activity: Step 1 unresolvable "
+                f"(widget_id={wtg_widget_id}, target={target_activity})"
             )
+            return None
+
+        action_dict = {
+            "action_type": "CLICK",
+            "action_id": resolved_action_id,
+            "widget_id": wtg_widget_id,
+            "target_activity": target_activity or f"window_{first_step.get('target')}",
+            "text": f"Navigate to {target_activity or 'unknown'}",
+            "reaches_mop": True,
+            "directly_reaches_mop": False,
+            "coordinates": resolved_coords,
+            "target_view": resolved_target_view,
+        }
 
         self.logger.info(
             f"plan_path_to_mop_activity: Found path to MOP activity "
-            f"({best_mop_count} MOP methods, {len(action_dicts)} steps)"
+            f"({best_mop_count} MOP methods, {len(best_path)} total hops, "
+            f"returning step 1 only)"
         )
-        return action_dicts
+        return [action_dict]
 
     def _count_mop_methods_for_activity(self, activity_name: str) -> int:
         """
@@ -674,7 +681,7 @@ class TransitionManager:
         Match a WTG widget_id to a real on-screen ItemAction with coordinates.
 
         Matching strategy (in priority order):
-        1. widget_id substring match against action.widget_id
+        1. widget_id equality match against action.widget_id
         2. Target activity simple name in action.text or content_description
         3. Target activity simple name substring in action.widget_id
 
@@ -689,11 +696,11 @@ class TransitionManager:
         if not possible_actions:
             return None
 
-        # Strategy 1: widget_id substring match
+        # Strategy 1: widget_id equality match
         for action in possible_actions:
             if not action.coordinates:
                 continue
-            if action.widget_id and wtg_widget_id in action.widget_id:
+            if action.widget_id and wtg_widget_id == action.widget_id:
                 self.logger.debug(
                     f"Resolved WTG widget {wtg_widget_id} via widget_id match: "
                     f"action.widget_id={action.widget_id}"

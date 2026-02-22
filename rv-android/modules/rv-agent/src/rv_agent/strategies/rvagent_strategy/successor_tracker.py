@@ -113,6 +113,10 @@ class SuccessorTracker:
 
         key = (from_hash, action_signature)
 
+        # Invalidate coverage cache for from_hash: executing actions on a state
+        # means its cached coverage is stale regardless of successor mapping changes
+        self.coverage_cache.pop(from_hash, None)
+
         # Only record if new or different successor
         if key not in self.successors or self.successors[key] != to_hash:
             self.successors[key] = to_hash

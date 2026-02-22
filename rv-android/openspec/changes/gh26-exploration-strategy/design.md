@@ -1738,3 +1738,83 @@ Based on impact and dependencies:
 | 8 | M2 + M3 | Stuck detection cap + multi-hop BFS. |
 | 9 | M4-M7 | Remaining medium bugs. |
 | 10 | L1-L4 | Low priority, fix opportunistically. |
+
+---
+
+## Round 2 Deep Bug Analysis
+
+After completing Groups 1-28 (original 10 improvements + 22 post-validation/code-review bug fixes), a second deep analysis session examined areas NOT covered by Round 1: PathBuffer, TransitionManager, InputValueGenerator, DynamicStateGraph hashing, UICoverageTracker, RewardPropagator, PlateauDetector, full iteration data flow, and ToolExecutor. Cross-verification against source code confirmed **21 real bugs** (10 false positives rejected). Full analysis: `docs/20260222_rvagent_bug_analysis_round2.md`.
+
+### Verification Methodology
+
+Six parallel deep-analysis agents verified all 31 claimed bugs against current source code. Each agent read the exact lines referenced in the analysis document and traced data flows. 10 claims were rejected as false positives:
+
+- **N-6** (visit_count double increment): Two increments occur in different code paths, not same iteration
+- **N-12** (None activity): No evidence `screen_desc.activity` is ever None
+- **N-18** (non-atomic state): `state.update(result)` properly merges graph output
+- **N-20** (get_statistics): `max_variations` is the correct instance-level limit
+- **R-H2** (plateau new_state): Already fixed -- code uses `_last_is_new_state` flag (Groups 22-28)
+- **R-M3** (single BACK): Already fixed -- `hop_count > 1` uses `PathBuffer.load_back_actions()` (Groups 22-28)
+- **R-L1** (action list as timestamp): Passes `ItemAction` object, not list (Groups 22-28 fix)
+- **R-L2** (force_restart_app undeclared): IS declared in AgentState TypedDict (Groups 22-28 fix)
+- **R-L3** (None hash guard): Guard `current_hash is not None` already exists (Groups 22-28 fix)
+
+### D9: One-Iteration Offset Fix -- Deferred Action Attribution
+
+**Decision**: Store the previous iteration's action signature in LangGraph state. In iteration N, success/reward attribution uses the PREVIOUS action's signature (A_{N-1}), not the current action (A_N). The success measurement (H_{N-1} != H_N) correctly measures A_{N-1}'s effect -- only the attribution target was wrong.
+
+**Problem (N-1 CRITICAL)**: The screen is parsed once at the START of each iteration (parse_node), BEFORE the action executes. The cross-iteration hash comparison (previous_screen_hash != current_screen_hash) measures the PREVIOUS action's outcome but attributes it to the CURRENT action's signature on the PREVIOUS screen's ScreenNode. This affects three subsystems: success recording (_record_action_success), reward propagation (_propagate_reward), and successor tracking (record_transition in execute_node). Every iteration in every run is affected.
+
+**Fix**: Add `previous_action_signature: Optional[tuple]` to AgentState. At the end of learn_node, store the current action's signature as `previous_action_signature` for the next iteration. In `_record_action_success()`, `_propagate_reward()`, and execute_node transition recording, use `previous_action_signature` instead of building a signature from `current_action`. First iteration guard: when `previous_action_signature` is None (iteration 0), skip attribution entirely.
+
+**Rationale**: This is the simplest fix (P1) -- no re-parsing, no additional device interaction. The data is already available; it just needs to be attributed to the correct action.
+
+### D10: Multi-Hop MOP Path -- Step-by-Step Resolution
+
+**Decision**: `plan_path_to_mop_activity()` resolves ONLY step 1 coordinates against the current screen. Remaining steps are stored as abstract WTG targets. After step 1 executes and the agent arrives at an intermediate screen, the PathBuffer re-plans from the new position. The permanent failure blacklist (`_failed_mop_paths`) is replaced with a cooldown-based cache.
+
+**Problem (N-2 CRITICAL + N-3 HIGH)**: The method resolves ALL path steps against the CURRENT screen's `possible_actions`. For multi-hop paths (A -> B -> C), step 2+'s widgets only exist on future screens -> resolution always fails -> entire path rejected -> activity permanently blacklisted. Combined, Strategy B is fully disabled for any multi-hop target.
+
+**Fix for N-2**: Only resolve step 1 in `plan_path_to_mop_activity()`. Return a single-action buffer (step 1 only) instead of the full path. When the agent arrives at the intermediate screen, Tier 3 re-evaluates and can plan a new path from there.
+
+**Fix for N-3**: Replace `_failed_mop_paths: set` with `_mop_path_cooldown: dict[str, int]` mapping activity -> iteration when failure occurred. Skip re-planning for `PLAN_COOLDOWN_AFTER_FAILURE` iterations (existing constant). After cooldown expires, retry.
+
+**Rationale**: Step-by-step resolution aligns with how the agent actually navigates -- one action at a time with fresh screen state. The cooldown cache preserves the anti-loop benefit of the blacklist without permanently disabling Strategy B.
+
+### D11: Hash Key and Scorer ID Corrections
+
+**Problem (N-7 HIGH)**: Structural hash uses `"resource-id"` and `"long-clickable"` (hyphenated) but UIAutomator2 parser stores `"resource_id"` and `"long_clickable"` (underscored). Hash always gets defaults, reducing state discrimination.
+
+**Problem (N-8 HIGH)**: GradualDecayScorer queries element_id via `action.widget_id` (e.g., "com.app:id/submit_button") but execute_node records interactions via coordinate-based IDs (e.g., "coords:540,960"). Elements with widget_id always score 200.0 (untested bonus).
+
+**Fix for N-7**: Use underscored keys matching parser output.
+
+**Fix for N-8**: Use `make_element_id_from_action(action)` consistently (coordinate-based) instead of `action.widget_id` as primary lookup. This matches how interactions are recorded.
+
+### D12: Multimode Fixes (N-9, N-10 -- multimode only)
+
+**Problem (N-9 HIGH)**: execute_node LLM pre-marking uses UPPERCASE action types (`action.get("action_type", "UNKNOWN")`), but learn_node lowercases (`action_type.lower()`). Creates phantom duplicate signatures in multimode.
+
+**Problem (N-10 HIGH)**: llm_node does NOT set `current_item_action` in its return dict. LangGraph persists previous values -> stale algorithm-sourced ItemAction carries into LLM iterations, causing wrong widget_class and wrong successor tracking.
+
+**Fix for N-9**: Add `.lower()` in execute_node line 136.
+
+**Fix for N-10**: Set `current_item_action: None` in llm_node return dict to clear stale values.
+
+### Architecture Impact
+
+No topology changes to the architecture diagram. All fixes are behavioral corrections:
+
+- **learn_node**: Deferred action attribution (D9), previous_activity tracking (N-16)
+- **execute_node**: Transition attribution (D9), action_type casing (N-9)
+- **llm_node**: Clear stale state (N-10)
+- **state.py**: New field `previous_action_signature`
+- **transition_manager.py**: Step-1-only resolution (D10), key fixes (N-11), priority swap (N-4), substring->equality (N-13)
+- **path_buffer.py**: Cooldown cache (D10), depth limit (N-21)
+- **dynamic_state_graph.py**: Hash key fix (N-7), self-loop guard (N-14)
+- **scorers.py**: Coordinate-based ID (N-8)
+- **input_value_generator.py**: `is_mop` parameter (N-5)
+- **ui_coverage.py**: Screen-scoped search (N-15), statistics fix (N-22)
+- **reward_propagator.py**: Zero-reward guard (N-23)
+- **tool_executor.py**: Restart delay (N-19)
+- **routing_manager.py**: Counter additions (N-24)

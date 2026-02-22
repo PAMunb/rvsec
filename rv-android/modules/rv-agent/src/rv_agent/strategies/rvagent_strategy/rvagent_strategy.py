@@ -465,6 +465,7 @@ class RVAgentStrategy(ExplorationStrategy):
                         screen_desc.activity,
                         self._get_mop_data(),
                         possible_actions=list(screen_desc.get_all_actions()),
+                        current_iteration=self._current_iteration,
                     )
                     or self.path_buffer.plan_backtrack_path(current_hash)
                 )
@@ -632,35 +633,54 @@ class RVAgentStrategy(ExplorationStrategy):
 
         return selected_action
 
-    def record_transition(self, from_hash: str, to_hash: str, action: ItemAction):
+    def record_transition(self, from_hash: str, to_hash: str, action_signature: tuple):
         """
         Record state transition and update tracking components.
+
+        Accepts action_signature as a tuple ((x, y), action_type) directly,
+        matching the one-iteration offset fix where execute_node passes
+        previous_action_signature instead of the current ItemAction.
 
         Args:
             from_hash: Source state hash
             to_hash: Destination state hash
-            action: Action that triggered transition
+            action_signature: Device-space action signature ((x, y), action_type)
         """
-        # Record in graph — action signatures use device-space coordinates (INV-AGT-40)
-        action_signature = action.coords_for_matching
-        self.graph.record_action_to_trace(
-            {"action": str(action.event), "coords": action.coordinates}
+        # Update plateau detector for ALL iterations (including self-loops)
+        # to correctly detect stagnation. The flag was stored by
+        # select_next_action() instead of checking `to_hash not in
+        # self.graph.states`, because by the time record_transition() runs
+        # the state was already added to the graph by get_or_create_state().
+        new_state = self._last_is_new_state
+        self.plateau_detector.record_iteration(
+            discovered_new_state=new_state, new_mop_method=None
         )
+        track.strategy(
+            iter=self._current_iteration,
+            mode="plateau",
+            action_type="record",
+            reason=f"discovered_new={new_state}",
+        )
+
+        # Self-loop guard: skip graph/successor recording for same-state
+        # transitions — they provide zero exploration benefit and pollute
+        # the successor re-enable mechanism.
+        if from_hash == to_hash:
+            track.self_loop_guard(
+                iter=0,
+                state_hash=from_hash,
+                action_sig=str(action_signature),
+            )
+            return
+
+        # Record in graph
+        coords = action_signature[0]
+        action_type = action_signature[1]
+        self.graph.record_action_to_trace({"action": action_type, "coords": coords})
         self.graph.record_transition(from_hash, to_hash)
 
         # Update successor tracker (enables action re-enabling logic)
         self.successor_tracker.record_successor(from_hash, action_signature, to_hash)
-
-        # Update plateau detector — use the flag stored by select_next_action()
-        # instead of checking `to_hash not in self.graph.states`, because by
-        # the time record_transition() runs the state was already added to the
-        # graph by get_or_create_state() in select_next_action().
-        new_state = self._last_is_new_state
-        new_mop = action.callback_signature if action.callback_signature else None
-
-        self.plateau_detector.record_iteration(
-            discovered_new_state=new_state, new_mop_method=new_mop
-        )
 
         self.previous_hash = from_hash
 
@@ -989,6 +1009,9 @@ class RVAgentStrategy(ExplorationStrategy):
         real_actions = [
             a for a in actions if not (a.target_view or {}).get("system_action")
         ]
+        filtered_count = len(actions) - len(real_actions)
+        if filtered_count > 0:
+            track._counters["system_action_filtered"] += filtered_count
         if not real_actions:
             return None
 
@@ -1049,7 +1072,10 @@ class RVAgentStrategy(ExplorationStrategy):
                 if action.coordinates
                 else None
             )
-            if element_id and self.value_generator.has_remaining_values(element_id):
+            is_mop = action.reaches_mop or action.directly_reaches_mop
+            if element_id and self.value_generator.has_remaining_values(
+                element_id, is_mop=is_mop
+            ):
                 return True
         return False
 

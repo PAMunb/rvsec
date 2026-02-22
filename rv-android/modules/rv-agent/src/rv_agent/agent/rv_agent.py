@@ -29,6 +29,7 @@ from typing import Any, Dict, Optional
 from langgraph.graph import END, StateGraph
 from rv_android_core.domain.static import StaticAnalysisData
 
+from rv_agent import tracking as track
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.agent.nodes import (
@@ -345,6 +346,8 @@ class RVAgent:
             "visited_states": [],
             "state_transitions": [],
             "previous_screen_hash": None,
+            "previous_action_signature": None,
+            "previous_activity": None,
             "external_navigation_count": 0,
             "recent_action_window": [],
             "llm_tokens_input": 0,
@@ -463,6 +466,7 @@ class RVAgent:
             "forced_back": counters["forced_back"],
             "memory_stats": memory_stats,
             "ui_coverage": ui_coverage_metrics,
+            "tracking_counters": track.get_aggregate_counters(),
         }
 
         # Save metrics to file if output directory is configured

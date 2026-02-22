@@ -12,6 +12,8 @@ from typing import Dict, List, Optional
 
 from faker import Faker
 
+from rv_agent import tracking as track
+
 logger = logging.getLogger(__name__)
 
 
@@ -220,17 +222,28 @@ class InputValueGenerator:
         """
         return len(self.tested_values.get(element_id, []))
 
-    def has_remaining_values(self, element_id: str) -> bool:
+    def has_remaining_values(self, element_id: str, is_mop: bool = False) -> bool:
         """
         Check if element has untested values remaining.
 
         Args:
             element_id: Element to check
+            is_mop: True if element reaches MOP (uses higher mop_max_variations limit)
 
         Returns:
             True if more values can be tested
         """
-        return self.get_tested_count(element_id) < self.max_variations
+        limit = self.mop_max_variations if is_mop else self.max_variations
+        used = self.get_tested_count(element_id)
+        if is_mop:
+            track.input_variation(
+                iter=0,  # iter not available here
+                field_id=element_id,
+                is_mop=True,
+                used=used,
+                limit=self.mop_max_variations,
+            )
+        return used < limit
 
     def get_statistics(self) -> Dict[str, int]:
         """

@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
+from rv_agent import tracking as track
 from rv_agent.domain.screen_node import ScreenNode, Transition
 
 logger = logging.getLogger(__name__)
@@ -44,18 +45,18 @@ def compute_screen_hash_from_description(screen_desc: ScreenDescription) -> str:
 
     ### Architectural Decisions:
     - Uses ONLY structural attributes, ignoring volatile data
-    - Sorts elements by resource-id for deterministic ordering
+    - Sorts elements by resource_id for deterministic ordering
     - Focuses on UI capabilities (clickable, scrollable) not content
     - Ignores text, content-desc, checked, selected (dynamic data)
 
     ### Canonicalization Rules:
     KEEP attributes:
     - class: UI element type (essential for structure)
-    - resource-id: stable identifier
+    - resource_id: stable identifier (underscored, matching UIAutomator2 parser)
     - package: application context
     - clickable, scrollable, checkable: UI capabilities
     - enabled: availability state
-    - long-clickable, editable: interaction capabilities
+    - long_clickable, editable: interaction capabilities (underscored, matching UIAutomator2 parser)
 
     IGNORE attributes:
     - text: content (dynamic)
@@ -76,24 +77,26 @@ def compute_screen_hash_from_description(screen_desc: ScreenDescription) -> str:
     for item in screen_desc.items:
         view = item.view
 
-        # Extract ONLY structural attributes
+        # Extract ONLY structural attributes.
+        # Keys use underscored form (resource_id, long_clickable) matching
+        # the UIAutomator2 parser output in rv-screen-parser.
         structural_view = {
             "class": view.get("class", ""),
-            "resource-id": view.get("resource-id", ""),
+            "resource_id": view.get("resource_id", ""),
             "package": view.get("package", ""),
             "clickable": view.get("clickable", False),
             "scrollable": view.get("scrollable", False),
             "checkable": view.get("checkable", False),
             "enabled": view.get("enabled", True),
-            "long-clickable": view.get("long-clickable", False),
+            "long_clickable": view.get("long_clickable", False),
             "editable": view.get("editable", False),
         }
 
         structural_items.append(structural_view)
 
-    # Sort by resource-id for deterministic ordering
-    # Elements without resource-id go to end (secondary sort by class)
-    structural_items.sort(key=lambda x: (x["resource-id"] or "zzz", x["class"]))
+    # Sort by resource_id for deterministic ordering
+    # Elements without resource_id go to end (secondary sort by class)
+    structural_items.sort(key=lambda x: (x["resource_id"] or "zzz", x["class"]))
 
     # Create canonical JSON representation
     canonical = json.dumps(
@@ -203,6 +206,19 @@ class DynamicStateGraph:
         )
 
         self.states[screen_hash] = node
+
+        # Track hash discrimination attributes for validation
+        views = [item.view for item in screen_desc.items]
+        resource_ids_used = sum(1 for v in views if v.get("resource_id", ""))
+        long_clickables_used = sum(1 for v in views if v.get("long_clickable", False))
+        track.hash_discrimination(
+            iter=0,  # Iteration not available at graph level
+            state_hash=screen_hash,
+            elements=len(views),
+            resource_ids_used=resource_ids_used,
+            long_clickables_used=long_clickables_used,
+        )
+
         return node
 
     def record_action(

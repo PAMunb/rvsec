@@ -399,9 +399,15 @@ class TestGetOverallStatistics:
         """Stats reflect recorded interactions."""
         tracker = UICoverageTracker()
 
-        tracker.record_interaction("element1", "click", "screen1")
-        tracker.record_interaction("element2", "type", "screen1")
-        tracker.record_interaction("element1", "click", "screen2")
+        tracker.record_interaction(
+            "element1", "click", "screen1", component_type="Button"
+        )
+        tracker.record_interaction(
+            "element2", "type", "screen1", component_type="EditText"
+        )
+        tracker.record_interaction(
+            "element1", "click", "screen2", component_type="Button"
+        )
 
         stats = tracker.get_overall_statistics()
 

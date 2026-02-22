@@ -575,6 +575,7 @@ class TestExecuteNode:
             "previous_screen_hash": "hash1",
             "current_screen_hash": "hash2",
             "current_item_action": item_action,
+            "previous_action_signature": ((100, 200), "click"),
         }
         execute_node(agent, state)
 

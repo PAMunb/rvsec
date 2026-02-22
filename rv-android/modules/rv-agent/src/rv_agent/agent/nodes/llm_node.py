@@ -96,6 +96,8 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         success=llm_action is not None,
     )
 
+    logger.debug("[RVTRACK:LLM] cleared current_item_action=None")
+
     return {
         "llm_action": llm_action,
         "has_tool_calls": has_tool_calls,
@@ -106,4 +108,5 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         + result.get("tokens_output", 0),
         "llm_time_ms": state.get("llm_time_ms", 0) + result.get("time_ms", 0),
         "decision_maker": "llm",
+        "current_item_action": None,  # Clear stale value from algorithm iterations
     }

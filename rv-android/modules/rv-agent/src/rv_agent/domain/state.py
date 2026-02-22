@@ -83,6 +83,12 @@ class AgentState(TypedDict):
         tuple[str, str]
     ]  # List of transitions: (prev_hash, current_hash)
     previous_screen_hash: Optional[str]  # Previous screen hash for transition tracking
+    # Previous action's signature for one-iteration offset correction in
+    # success/reward attribution. learn_node measures the EFFECT of the previous
+    # action (by comparing previous_hash vs current_hash), so success and reward
+    # must be attributed to the previous action, not the current one.
+    previous_action_signature: Optional[tuple]
+    previous_activity: Optional[str]  # Previous activity for state change tracking
 
     # Timing and termination
     start_time: float  # Timestamp of exploration start

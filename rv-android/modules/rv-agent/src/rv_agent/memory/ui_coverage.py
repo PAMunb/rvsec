@@ -216,9 +216,22 @@ class UICoverageTracker:
         best_match = None
         best_distance = max_distance
 
-        # Get elements to search
+        # Get elements to search — only from the specified screen.
+        # Return None for unknown screens instead of falling back to global
+        # search, which would corrupt per-element test counts by matching
+        # elements from unrelated screens.
         if screen_hash and screen_hash in self.screen_elements:
             elements_to_check = self.screen_elements[screen_hash]
+        elif screen_hash:
+            from rv_agent import tracking as track
+
+            track.element_match(
+                iter=0,
+                screen_hash=screen_hash,
+                coords=(x, y),
+                result="cross_screen_rejected",
+            )
+            return None
         else:
             elements_to_check = set(self.element_types.keys())
 
@@ -421,7 +434,7 @@ class UICoverageTracker:
     def get_overall_statistics(self) -> Dict[str, Any]:
         """Get comprehensive coverage statistics."""
         try:
-            total_unique_elements = len(self.tested_elements)
+            total_unique_elements = len(self.element_types)
             total_interactions = sum(self.tested_elements.values())
 
             # Action type distribution

@@ -41,7 +41,7 @@ executing stale actions.
 
 import logging
 from collections import deque
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from rv_android_core.domain.widget import WidgetEventType
 from rv_screen_parser.parser.screen.visitor.model import ItemAction
@@ -119,9 +119,10 @@ class PathBuffer:
         self.config = config
         self._buffer: List[ItemAction] = []
         self._plan_cooldown: int = 0
-        # Activities where MOP path planning permanently failed (unresolvable
-        # WTG coordinates). Prevents re-planning the same broken path.
-        self._failed_mop_paths: set = set()
+        # Activities where MOP path planning failed, mapped to the iteration
+        # number when failure occurred. After PLAN_COOLDOWN_AFTER_FAILURE
+        # iterations, the entry expires and re-planning is allowed.
+        self._mop_path_cooldown: Dict[str, int] = {}
 
         logger.info(
             f"PathBuffer initialized: "
@@ -195,6 +196,7 @@ class PathBuffer:
         current_activity: Optional[str],
         mop_data,
         possible_actions=None,
+        current_iteration: int = 0,
     ) -> bool:
         """
         Plan a path to an activity with monitored operations.
@@ -207,6 +209,8 @@ class PathBuffer:
             mop_data: MOP/static analysis data for scoring activities.
             possible_actions: Current screen's ItemAction list for coordinate
                 resolution of WTG transitions.
+            current_iteration: Current exploration iteration number, used for
+                cooldown tracking after resolution failures.
 
         Returns:
             True if a path was planned and buffer filled, False otherwise.
@@ -217,13 +221,28 @@ class PathBuffer:
         if not current_activity:
             return False
 
-        # Skip activities where MOP path planning permanently failed
-        if current_activity in self._failed_mop_paths:
-            logger.debug(
-                f"PathBuffer: Skipping MOP path for {current_activity} "
-                f"(permanently failed)"
+        # Skip activities still in cooldown after a previous planning failure
+        cooldown_iter = self._mop_path_cooldown.get(current_activity)
+        if cooldown_iter is not None:
+            remaining = PLAN_COOLDOWN_AFTER_FAILURE - (
+                current_iteration - cooldown_iter
             )
-            return False
+            if remaining > 0:
+                track.mop_resolve(
+                    iter=current_iteration,
+                    target_activity=current_activity,
+                    resolved=False,
+                    cooldown_remaining=remaining,
+                    step=0,
+                )
+                logger.debug(
+                    f"PathBuffer: Skipping MOP path for {current_activity} "
+                    f"(cooldown: {remaining} iterations remaining)"
+                )
+                return False
+            else:
+                # Cooldown expired, allow re-planning
+                del self._mop_path_cooldown[current_activity]
 
         # Use plan_path_to_mop_activity if available on TransitionManager
         plan_method = getattr(
@@ -236,11 +255,18 @@ class PathBuffer:
             current_activity, mop_data, possible_actions=possible_actions
         )
         if not action_dicts:
-            # Permanently mark this activity as failed to prevent re-planning
-            self._failed_mop_paths.add(current_activity)
+            # Record cooldown for this activity to prevent immediate re-planning
+            self._mop_path_cooldown[current_activity] = current_iteration
+            track.mop_resolve(
+                iter=current_iteration,
+                target_activity=current_activity,
+                resolved=False,
+                cooldown_remaining=PLAN_COOLDOWN_AFTER_FAILURE,
+                step=1,
+            )
             logger.info(
                 f"PathBuffer: MOP path from {current_activity} unresolvable, "
-                f"added to permanent failure cache"
+                f"cooldown={PLAN_COOLDOWN_AFTER_FAILURE} iterations"
             )
             return False
 
@@ -256,8 +282,18 @@ class PathBuffer:
 
         self._buffer = actions
         track.path_buffer_planned("B")
+        track.mop_resolve(
+            iter=current_iteration,
+            target_activity=current_activity,
+            resolved=True,
+            cooldown_remaining=0,
+            step=1,
+        )
         track.backtrack(
-            iter=0, strategy="B", remaining_steps=len(actions), target_hash=None
+            iter=current_iteration,
+            strategy="B",
+            remaining_steps=len(actions),
+            target_hash=None,
         )
         logger.info(f"PathBuffer: Planned MOP path ({len(actions)} actions)")
         return True

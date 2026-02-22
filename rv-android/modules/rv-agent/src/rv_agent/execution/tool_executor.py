@@ -5,6 +5,7 @@ Executes unified-format actions on Android devices via DeviceInterface.
 """
 
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from rv_agent.agent.device_interface import DeviceInterface
@@ -337,7 +338,9 @@ class ToolExecutor:
             }
 
         stop_ok = self.device.stop_app(package)
+        time.sleep(1)
         start_ok = self.device.start_app(package)
+        self.logger.info("[RVTRACK:EXEC] restart_delay=1s")
         self.logger.debug(f"Restarted app: {package}")
 
         # Success requires start to work; stop may return None on some backends

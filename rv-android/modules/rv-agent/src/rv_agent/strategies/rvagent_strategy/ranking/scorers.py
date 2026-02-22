@@ -26,6 +26,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
+from rv_agent import tracking as track
 from rv_agent.memory.element_id import make_element_id_from_action
 
 if TYPE_CHECKING:
@@ -178,16 +179,27 @@ class GradualDecayScorer(Scorer):
             self.min_visits = self.DEFAULT_MIN_VISITS
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        element_id = action.widget_id or make_element_id_from_action(action)
+        # Always use coordinate-based ID to match how execute_node records
+        # interactions via find_nearest_element() (fixes N-8 ID mismatch)
+        element_id = make_element_id_from_action(action)
         if not element_id:
             return 0.0
 
         visit_count = context.ui_coverage.get_element_test_count(element_id)
 
         if visit_count >= self.min_visits:
-            return 0.0
+            score = 0.0
+        else:
+            score = self.base_score * (self.decay_rate**visit_count)
 
-        return self.base_score * (self.decay_rate**visit_count)
+        track.score_detail(
+            iter=context.iteration if hasattr(context, "iteration") else 0,
+            coords=action.coordinates if action.coordinates else (0, 0),
+            scorer="GradualDecay",
+            score=score,
+        )
+
+        return score
 
 
 class ComponentPriorityScorer(Scorer):

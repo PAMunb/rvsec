@@ -310,6 +310,13 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         recovery_action = stuck_recovery.check(
             current_hash, is_form_action=is_form_action
         )
+        if is_form_action:
+            track.strategy(
+                iter=iteration,
+                mode="stuck",
+                action_type=action_type,
+                reason=f"is_form={is_form_action}",
+            )
 
         if recovery_action == "restart":
             # Try Backtrack BFS first
@@ -338,6 +345,8 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                         from_state=current_hash,
                         to_state=unsaturated_target,
                         reason="bfs_unsaturated",
+                        strategy="bfs_stuck",
+                        remaining_steps=hop_count,
                     )
                 else:
                     logger.warning(
@@ -420,6 +429,22 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Merge error detection results into output state
     result.update(error_result_updates)
 
+    # Store current action's signature for next iteration's attribution
+    # (one-iteration offset: next iteration's learn_node will attribute
+    # success/reward to THIS action, not to whatever action runs next)
+    current_action = state.get("current_action")
+    current_sig = None
+    if current_action:
+        x = current_action.get("x")
+        y = current_action.get("y")
+        action_type = current_action.get("action_type", "CLICK").lower()
+        if x is not None and y is not None:
+            current_sig = ((x, y), action_type)
+    result["previous_action_signature"] = current_sig
+
+    # Store current activity for next iteration's state change tracking
+    result["previous_activity"] = state.get("current_activity")
+
     # NOTE: UI coverage interaction is recorded in execute_node.py
     # using device-space coordinates (not normalized [0,1000))
 
@@ -475,6 +500,11 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
     ScreenNode for the state where the action was executed, updating
     execution counts and success counts used by StrengthScorer.
 
+    Uses previous_action_signature (one-iteration offset correction):
+    learn_node runs AFTER execute_node, so the hash comparison measures
+    the EFFECT of the previous iteration's action. Success and reward
+    must be attributed to previous_action_signature, not the current action.
+
     TODO(#20): This heuristic has limitations -- actions that change
     internal state without changing UI are marked as failures, and actions
     that open transient dialogs may give false positives.
@@ -484,26 +514,28 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
         state: Current agent state with previous/current hashes and action info.
     """
     try:
-        previous_hash = state.get("previous_screen_hash")
-        current_hash = state.get("current_screen_hash")
-        current_action = state.get("current_action")
         iteration = state.get("iteration", 0)
 
-        if not previous_hash or not current_hash or not current_action:
+        # One-iteration offset fix: attribute success to the previous action
+        previous_action_signature = state.get("previous_action_signature")
+        if previous_action_signature is None:
+            # First iteration — no previous action to attribute success to
+            track.attribution(
+                iter=iteration,
+                action_sig="none",
+                success=False,
+                reward_type="skipped",
+                source="skipped",
+            )
             return
 
-        # Get action coordinates (device space per INV-AGT-40)
-        x = current_action.get("x")
-        y = current_action.get("y")
-        action_type = current_action.get("action_type", "CLICK").lower()
+        previous_hash = state.get("previous_screen_hash")
+        current_hash = state.get("current_screen_hash")
 
-        if x is None or y is None:
+        if not previous_hash or not current_hash:
             return
 
-        # Device-space signature matches execute_node pre-marking format
-        action_signature = ((x, y), action_type)
-
-        # Get the node where the action was executed (previous state)
+        # Get the node where the previous action was executed
         graph = getattr(agent.strategy, "graph", None)
         if not graph:
             return
@@ -512,28 +544,39 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
         if not node:
             return
 
-        # Success = state changed
+        # Success = state changed (hash comparison is correct — it measures
+        # the effect of the previous action)
         success = previous_hash != current_hash
 
-        # Record success in node
-        node.record_action_success(action_signature, success)
+        # Record success using previous action's signature
+        node.record_action_success(previous_action_signature, success)
 
-        # Track strength
-        executions = node.get_action_execution_count(action_signature)
-        successes = node.action_success_counts.get(action_signature, 0)
-        strength_val = node.get_action_strength(action_signature)
+        # Track strength using previous action's coords and type
+        coords = previous_action_signature[0]
+        action_type = previous_action_signature[1]
+        executions = node.get_action_execution_count(previous_action_signature)
+        successes = node.action_success_counts.get(previous_action_signature, 0)
+        strength_val = node.get_action_strength(previous_action_signature)
 
         track.strength(
             iter=iteration,
             action=action_type,
-            coords=(x, y),
+            coords=coords,
             strength_val=strength_val,
             executions=executions,
             successes=successes,
         )
 
+        track.attribution(
+            iter=iteration,
+            action_sig=str(previous_action_signature),
+            success=success,
+            reward_type="transition",
+            source="previous",
+        )
+
         logger.debug(
-            f"Action success recorded: {action_signature} "
+            f"Action success recorded: {previous_action_signature} "
             f"success={success} strength={strength_val:.2f}"
         )
 
@@ -543,6 +586,10 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
 
 def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
     """Record action in reward history and propagate reward based on outcome.
+
+    Uses previous_action_signature (one-iteration offset correction):
+    the hash comparison measures the effect of the previous action, so
+    reward must be attributed to previous_action_signature.
 
     Determine reward type using priority order and delegate to RewardPropagator
     for N-step backward propagation with gamma discounting:
@@ -562,25 +609,26 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
         if not reward_propagator:
             return
 
+        iteration = state.get("iteration", 0)
+
+        # One-iteration offset fix: attribute reward to the previous action
+        previous_action_signature = state.get("previous_action_signature")
+        if previous_action_signature is None:
+            # First iteration — no previous action to record reward for
+            return
+
         previous_hash = state.get("previous_screen_hash")
         current_hash = state.get("current_screen_hash")
+
+        if not previous_hash or not current_hash:
+            return
+
+        # Record previous action in reward history
+        reward_propagator.record_action(previous_hash, previous_action_signature)
+
+        # Determine reward type using current state observations
+        # (callback_signature, activity change, etc. reflect current state)
         current_action = state.get("current_action")
-
-        if not previous_hash or not current_hash or not current_action:
-            return
-
-        x = current_action.get("x")
-        y = current_action.get("y")
-        action_type = current_action.get("action_type", "CLICK").lower()
-
-        if x is None or y is None:
-            return
-
-        # Device-space signature per INV-AGT-40
-        action_signature = ((x, y), action_type)
-        reward_propagator.record_action(previous_hash, action_signature)
-
-        # Determine reward type (priority: mop > new_activity > new_state > form_fill > same_state)
         selected_action = state.get("current_item_action")
         has_mop = (
             selected_action
@@ -601,7 +649,10 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
             else:
                 reward_type = "new_state"
         else:
-            # Screen unchanged
+            # Screen unchanged — determine based on current action type
+            action_type = ""
+            if current_action:
+                action_type = current_action.get("action_type", "")
             if action_type.upper() in ("SET_TEXT", "TEXT_CHANGE"):
                 reward_type = "form_fill"
             else:
@@ -609,8 +660,15 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
 
         graph = getattr(agent.strategy, "graph", None)
         if graph:
-            iteration = state.get("iteration", 0)
             reward_propagator.propagate(reward_type, graph, iteration=iteration)
+
+        track.attribution(
+            iter=iteration,
+            action_sig=str(previous_action_signature),
+            success=previous_hash != current_hash,
+            reward_type=reward_type,
+            source="previous",
+        )
 
     except Exception as e:
         logger.warning(f"Failed to propagate reward: {e}")

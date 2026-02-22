@@ -214,7 +214,9 @@ class TestHasUntestedInputsFormat:
         # Create a mock value_generator that has remaining values for coords-format IDs
         value_gen = MagicMock()
         # Only return True for the correct format
-        value_gen.has_remaining_values.side_effect = lambda eid: eid == "coords:300,500"
+        value_gen.has_remaining_values.side_effect = (
+            lambda eid, **kw: eid == "coords:300,500"
+        )
         strategy.value_generator = value_gen
 
         # Create a mock screen with one EditText action at (300, 500)
@@ -229,8 +231,11 @@ class TestHasUntestedInputsFormat:
         result = strategy._has_untested_inputs(screen_desc)
         assert result is True
 
-        # Verify value_generator was called with the correct format
-        value_gen.has_remaining_values.assert_called_with("coords:300,500")
+        # Verify value_generator was called with the correct format and is_mop flag
+        value_gen.has_remaining_values.assert_called_with(
+            "coords:300,500",
+            is_mop=edit_action.reaches_mop or edit_action.directly_reaches_mop,
+        )
 
     def test_has_untested_inputs_false_when_old_format(self):
         """If value_generator only recognizes old format, _has_untested_inputs returns False.
@@ -248,7 +253,7 @@ class TestHasUntestedInputsFormat:
 
         # Only return True for the OLD wrong format
         value_gen = MagicMock()
-        value_gen.has_remaining_values.side_effect = lambda eid: eid == "(300,500)"
+        value_gen.has_remaining_values.side_effect = lambda eid, **kw: eid == "(300,500)"
         strategy.value_generator = value_gen
 
         edit_action = MagicMock()

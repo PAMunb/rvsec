@@ -47,13 +47,13 @@ def screen_desc_with_items():
         item = MagicMock(spec=ScreenItem)
         item.view = {
             "class": "android.widget.Button",
-            "resource-id": f"com.test.app:id/button_{i}",
+            "resource_id": f"com.test.app:id/button_{i}",
             "package": "com.test.app",
             "clickable": True,
             "scrollable": False,
             "checkable": False,
             "enabled": True,
-            "long-clickable": False,
+            "long_clickable": False,
             "editable": False,
             "bounds": [[0, i * 100], [100, (i + 1) * 100]],
         }
@@ -577,26 +577,26 @@ class TestScreenHashComputation:
         item1 = MagicMock()
         item1.view = {
             "class": "Button",
-            "resource-id": "btn1",
+            "resource_id": "btn1",
             "package": "test",
             "clickable": True,
             "scrollable": False,
             "checkable": False,
             "enabled": True,
-            "long-clickable": False,
+            "long_clickable": False,
             "editable": False,
         }
 
         item2 = MagicMock()
         item2.view = {
             "class": "Button",
-            "resource-id": "btn2",  # Different ID
+            "resource_id": "btn2",  # Different ID
             "package": "test",
             "clickable": True,
             "scrollable": False,
             "checkable": False,
             "enabled": True,
-            "long-clickable": False,
+            "long_clickable": False,
             "editable": False,
         }
 
@@ -618,13 +618,13 @@ class TestScreenHashComputation:
         item1 = MagicMock()
         item1.view = {
             "class": "TextView",
-            "resource-id": "text1",
+            "resource_id": "text1",
             "package": "test",
             "clickable": False,
             "scrollable": False,
             "checkable": False,
             "enabled": True,
-            "long-clickable": False,
+            "long_clickable": False,
             "editable": False,
             "text": "Hello World",  # Should be ignored
             "content-desc": "Description 1",  # Should be ignored
@@ -633,13 +633,13 @@ class TestScreenHashComputation:
         item2 = MagicMock()
         item2.view = {
             "class": "TextView",
-            "resource-id": "text1",
+            "resource_id": "text1",
             "package": "test",
             "clickable": False,
             "scrollable": False,
             "checkable": False,
             "enabled": True,
-            "long-clickable": False,
+            "long_clickable": False,
             "editable": False,
             "text": "Different Text",  # Should be ignored
             "content-desc": "Description 2",  # Should be ignored

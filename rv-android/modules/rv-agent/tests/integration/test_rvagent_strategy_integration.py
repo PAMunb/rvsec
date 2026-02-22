@@ -251,7 +251,9 @@ class TestTransitionRecording:
         action = rvagent_strategy.select_next_action(from_hash, simple_screen)
 
         # Record transition
-        rvagent_strategy.record_transition(from_hash, to_hash, action)
+        rvagent_strategy.record_transition(
+            from_hash, to_hash, action.coords_for_matching
+        )
 
         assert len(rvagent_strategy.graph.transitions) == 1
         transition = rvagent_strategy.graph.transitions[0]
@@ -266,7 +268,9 @@ class TestTransitionRecording:
         to_hash = compute_test_hash("DropdownActivity", 3)
 
         action = rvagent_strategy.select_next_action(from_hash, simple_screen)
-        rvagent_strategy.record_transition(from_hash, to_hash, action)
+        rvagent_strategy.record_transition(
+            from_hash, to_hash, action.coords_for_matching
+        )
 
         # Check successor is tracked (device-space signature per INV-AGT-40)
         action_sig = action.coords_for_matching
@@ -280,7 +284,9 @@ class TestTransitionRecording:
         to_hash = compute_test_hash("DropdownActivity", 3)
 
         action = rvagent_strategy.select_next_action(from_hash, simple_screen)
-        rvagent_strategy.record_transition(from_hash, to_hash, action)
+        rvagent_strategy.record_transition(
+            from_hash, to_hash, action.coords_for_matching
+        )
 
         assert rvagent_strategy.plateau_detector.total_iterations == 1
 
@@ -315,7 +321,9 @@ class TestSuccessorTracking:
         assert action is not None
 
         # Record transition to dropdown
-        rvagent_strategy.record_transition(main_hash, dropdown_hash, action)
+        rvagent_strategy.record_transition(
+            main_hash, dropdown_hash, action.coords_for_matching
+        )
 
         # Select only 1 of 3 options in dropdown
         rvagent_strategy.select_next_action(dropdown_hash, dropdown_screen)
@@ -396,7 +404,9 @@ class TestPlateauDetection:
             action = rvagent_strategy.select_next_action(screen_hash, screen)
             if action and i < len(screens) - 1:
                 next_hash = screens[i + 1][0]
-                rvagent_strategy.record_transition(screen_hash, next_hash, action)
+                rvagent_strategy.record_transition(
+                    screen_hash, next_hash, action.coords_for_matching
+                )
 
         assert rvagent_strategy.plateau_detector.is_plateau_reached() is False
 
@@ -457,7 +467,9 @@ class TestReset:
         to_hash = compute_test_hash("DropdownActivity", 3)
 
         action = rvagent_strategy.select_next_action(from_hash, simple_screen)
-        rvagent_strategy.record_transition(from_hash, to_hash, action)
+        rvagent_strategy.record_transition(
+            from_hash, to_hash, action.coords_for_matching
+        )
 
         rvagent_strategy.reset()
 
@@ -610,7 +622,9 @@ class TestExplorationScenarios:
         assert action1 is not None
 
         # Transition to home
-        rvagent_strategy.record_transition(login_hash, home_hash, action1)
+        rvagent_strategy.record_transition(
+            login_hash, home_hash, action1.coords_for_matching
+        )
 
         # Explore home screen - should prioritize crypto button (DM)
         action2 = rvagent_strategy.select_next_action(home_hash, home_screen)

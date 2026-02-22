@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
+from rv_agent import tracking as track
 from rv_agent.domain.state import AgentState
 from rv_agent.memory.element_id import make_element_id_from_tuple
 
@@ -256,6 +257,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Check for app restart override (Level 2 stuck recovery)
     if state.get("force_restart_app", False):
+        track._counters["restart_count"] += 1
         logger.warning("Level 2 stuck recovery: Generating RESTART_APP action")
         action = {
             "action_type": "RESTART_APP",
@@ -301,6 +303,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Spatial association maps the error indicator to the nearest input field.
     # Falls back to sequential search if no spatial match is found.
     if state.get("force_fill_input"):
+        track._counters["error_recovery_count"] += 1
         match = _find_associated_input_action(agent, state)
         if match is None:
             match = _find_next_input_action(state)

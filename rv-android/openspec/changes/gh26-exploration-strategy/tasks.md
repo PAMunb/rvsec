@@ -32,7 +32,18 @@
      Post-code-review: Stuck detection fixes → Group 26
      Post-code-review: Medium bug fixes → Group 27
      Post-code-review: Low bug fixes → Group 28
-     Post-code-review: Post-implementation validation → Group 29 -->
+     Post-code-review: Post-implementation validation → Group 29
+     Round-2 deep analysis: One-iteration offset fix → Group 30
+     Round-2 deep analysis: Multi-hop MOP path + blacklist → Group 31
+     Round-2 deep analysis: MOP priority + input variations → Group 32
+     Round-2 deep analysis: Hash key mismatch → Group 33
+     Round-2 deep analysis: GradualDecayScorer ID fix → Group 34
+     Round-2 deep analysis: LLM/multimode fixes → Group 35
+     Round-2 deep analysis: Medium fixes — data matching → Group 36
+     Round-2 deep analysis: Medium fixes — tracking → Group 37
+     Round-2 deep analysis: Low priority + remaining medium → Group 38
+     Round-2 deep analysis: Validation experiment → Group 39
+     Round-2 deep analysis: RVTRACK tracking enhancement → Group 40 -->
 
 <!-- Subagent dispatch hints:
      - Group 0 (Baseline Experiment) must run BEFORE any code changes.
@@ -740,3 +751,197 @@ Run validation experiment after all Groups 22-28 are implemented to verify the 1
 - [ ] 29.1 Run CryptoApp experiment: `uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 600 --name gh26_post_codereview --specification-set jca`. Verify: (a) Tier 4 action scores are differentiated (not constant +125); (b) strength scoring produces non-zero values for successful actions; (c) plateau mode activates only after genuine stagnation; (d) saturation rates per state reflect actual exploration (not inflated by BACK).
 - [ ] 29.2 Analyze results: compare iterations, unique states, UI coverage, MOP coverage, tier distribution, wasted iterations against baseline. Expected improvements: wasted iterations <10%, UI coverage >50%, differentiated Tier 4 scores.
 - [ ] 29.3 Run 5-APK speed test (docker-compose.speed-test.yml) to compare against APE baseline. Rebuild Docker image with all fixes.
+
+## 30. One-Iteration Offset Fix (N-1 — CRITICAL)
+
+Fixes systemic one-iteration offset in success attribution, successor tracking, and reward propagation. In iteration N, success/reward is measured for A_{N-1} but attributed to A_N. Fix by storing previous action's signature in state and using it for attribution.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/agent/state.py`
+- `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py`
+- `modules/rv-agent/src/rv_agent/agent/nodes/execute_node.py`
+
+- [x] 30.1 In `state.py` AgentState TypedDict, add `previous_action_signature: Optional[tuple]` field with comment explaining the one-iteration offset fix.
+- [x] 30.2 In `learn_node._record_action_success()`, use `state.get("previous_action_signature")` instead of building signature from `current_action`. When `previous_action_signature` is None (first iteration), skip success recording entirely. Keep the node lookup on `previous_screen_hash` (correct) and the success measurement `previous_hash != current_hash` (correct).
+- [x] 30.3 In `learn_node._propagate_reward()`, use `state.get("previous_action_signature")` for `reward_propagator.record_action()` instead of building from `current_action`. When None, skip recording.
+- [x] 30.4 At the end of learn_node's return dict, compute the current action's signature (from `current_action` coords + lowercased action_type) and store as `"previous_action_signature": current_sig`. This becomes available for the next iteration.
+- [x] 30.5 In `execute_node` transition recording (around line 170), use `state.get("previous_action_signature")` with `previous_screen_hash` and `current_screen_hash` for `record_transition()`. Change `record_transition()` in `rvagent_strategy.py` to accept a signature tuple directly instead of ItemAction (it only uses `action.coords_for_matching` anyway). When `previous_action_signature` is None, skip transition recording.
+- [x] 30.6 Add `track.attribution()` function to `tracking.py`. Category: `ATTRIBUTION`. Fields: `iter`, `action_sig` (str), `success` (bool), `reward_type` (str: "transition"/"mop"/"form_fill"), `source` (str: "previous"/"skipped"). Add `attribution_count` aggregate counter. Emit in learn_node after `_record_action_success()` and `_propagate_reward()` using `state.get("previous_action_signature")`.
+- [x] 30.7 Unit tests: (a) test that success is attributed to previous action's signature, not current; (b) test that first iteration (previous_action_signature=None) skips attribution; (c) test that reward propagation uses previous action; (d) test that transition recording uses previous action signature; (e) test that RVTRACK:ATTRIBUTION is emitted with source="previous".
+- [x] 30.8 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 30.9 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 30.10 Run `/rv-verify rv-agent` — final verification.
+
+## 31. Multi-Hop MOP Path + Blacklist Fix (N-2 CRITICAL + N-3 HIGH)
+
+Fixes Strategy B to work with multi-hop paths by resolving only step 1 coordinates. Replaces permanent activity blacklist with cooldown-based cache.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/services/transition_manager.py`
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/path_buffer.py`
+
+- [x] 31.1 In `transition_manager.plan_path_to_mop_activity()`, change the resolution loop to only resolve step 1 (first WTG transition) against `possible_actions`. If step 1 resolves successfully, return a single-action list containing only step 1. If step 1 fails to resolve, return None. Remove the loop that tries to resolve ALL steps. Store the remaining path target (final MOP activity) in the return for logging purposes only.
+- [x] 31.2 In `path_buffer.py`, replace `_failed_mop_paths: set` with `_mop_path_cooldown: dict` mapping activity name to the iteration number when failure occurred. In `plan_mop_path()`, check if `current_iteration - cooldown_iteration < PLAN_COOLDOWN_AFTER_FAILURE` before skipping. After cooldown expires, allow re-planning. Update `invalidate_current_path()` to NOT add to cooldown (only `plan_mop_path` failure adds cooldown).
+- [x] 31.3 Add `track.mop_resolve()` function to `tracking.py`. Category: `MOP_RESOLVE`. Fields: `iter`, `target_activity` (str), `resolved` (bool), `cooldown_remaining` (int), `step` (int). Add `mop_resolve_attempts` and `mop_resolve_successes` aggregate counters. Emit in `path_buffer.plan_mop_path()` after step 1 resolution attempt (resolved=True/False). Also emit when cooldown blocks planning (resolved=False, step=0).
+- [x] 31.4 Unit tests: (a) test that multi-hop path returns only step 1 action with valid coordinates; (b) test that step 1 failure returns None; (c) test that cooldown expires after PLAN_COOLDOWN_AFTER_FAILURE iterations; (d) test that re-planning is allowed after cooldown; (e) test that RVTRACK:MOP_RESOLVE is emitted on resolution attempt.
+- [x] 31.5 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 31.6 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 31.7 Run `/rv-verify rv-agent` — final verification.
+
+## 32. MOP Priority + Input Variations Fix (N-4 + N-5 — HIGH)
+
+Fixes inverted MOP priority scoring and `has_remaining_values` ignoring MOP-specific limits.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/services/transition_manager.py`
+- `modules/rv-agent/src/rv_agent/services/input_value_generator.py`
+
+- [x] 32.1 **(N-4)** In `transition_manager.py` method priority scoring (around line 284-287), swap values: `directly_reaches_mop` → `priority += 50`, `reaches_mop` → `priority += 25`. Direct MOP reachability should score higher than transitive.
+- [x] 32.2 **(N-5)** In `input_value_generator.py`, add `is_mop: bool = False` parameter to `has_remaining_values()`. When `is_mop=True`, use `self.mop_max_variations` instead of `self.max_variations`. Update all callers to pass the `is_mop` flag.
+- [x] 32.3 Add `track.input_variation()` function to `tracking.py`. Category: `INPUT_VAR`. Fields: `iter`, `field_id` (str), `is_mop` (bool), `used` (int), `limit` (int). Emit in `input_value_generator.has_remaining_values()` when `is_mop=True` and limit check applies. This validates MOP-specific input limits are effective.
+- [x] 32.4 Unit tests: (a) test that directly_reaches_mop gets higher priority than reaches_mop; (b) test that has_remaining_values returns True for MOP field after 5 tests (below mop_max_variations=11), False after 11; (c) test that RVTRACK:INPUT_VAR is emitted for MOP fields.
+- [x] 32.5 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 32.6 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 32.7 Run `/rv-verify rv-agent` — final verification.
+
+## 33. Hash Key Mismatch Fix (N-7 — HIGH)
+
+Fixes structural hash to use underscored keys matching UIAutomator2 parser output.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/agent/dynamic_state_graph.py`
+
+- [x] 33.1 In `dynamic_state_graph.py` structural hash function, change `view.get("resource-id", "")` → `view.get("resource_id", "")` and `view.get("long-clickable", False)` → `view.get("long_clickable", False)`. These keys must match what the UIAutomator2 parser stores (underscored form).
+- [x] 33.2 Add `track.hash_discrimination()` function to `tracking.py`. Category: `HASH_DETAIL`. Fields: `iter`, `state_hash` (str, truncated to 8), `elements` (int), `resource_ids_used` (int), `long_clickables_used` (int). Emit in `dynamic_state_graph.get_or_create_state()` when creating a NEW state. This validates that corrected keys now discriminate states properly.
+- [x] 33.3 Unit tests: (a) test that two views differing only in resource_id produce different hashes; (b) test that two views differing only in long_clickable produce different hashes; (c) test that RVTRACK:HASH_DETAIL is emitted for new states.
+- [x] 33.4 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 33.5 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 33.6 Run `/rv-verify rv-agent` — final verification.
+
+## 34. GradualDecayScorer ID Mismatch Fix (N-8 — HIGH)
+
+Fixes GradualDecayScorer to use coordinate-based element IDs matching how interactions are recorded.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ranking/scorers.py`
+
+- [x] 34.1 In `GradualDecayScorer.score()`, change `element_id = action.widget_id or make_element_id_from_action(action)` to always use `make_element_id_from_action(action)` as the primary ID. This ensures the scorer queries the same coordinate-based ID format that `execute_node` uses to record interactions via `find_nearest_element()`.
+- [x] 34.2 Ensure `track.score_detail()` is emitted in `GradualDecayScorer.score()` with the coordinate-based element_id (from 34.1). The existing SCORE_DETAIL category will now show decay values <200 for tested elements (validating the fix). No new tracking function needed — existing `track.score_detail()` suffices.
+- [x] 34.3 Unit tests: (a) test that GradualDecayScorer returns decayed score (not 200.0) for an action with widget_id that has been tested multiple times via coordinate ID; (b) test that an untested action still gets 200.0; (c) test that SCORE_DETAIL log shows decayed value for tested element.
+- [x] 34.4 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 34.5 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 34.6 Run `/rv-verify rv-agent` — final verification.
+
+## 35. LLM/Multimode Fixes (N-9 + N-10 — HIGH, multimode only)
+
+Fixes action type casing mismatch in execute_node and stale current_item_action in llm_node.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/agent/nodes/execute_node.py`
+- `modules/rv-agent/src/rv_agent/agent/nodes/llm_node.py`
+
+- [x] 35.1 **(N-9)** In `execute_node.py` LLM pre-marking section (around line 136), lowercase the action_type: change `action_type = action.get("action_type", "UNKNOWN")` to `action_type = action.get("action_type", "UNKNOWN").lower()`. This matches learn_node's lowercased signatures.
+- [x] 35.2 **(N-10)** In `llm_node.py` return dict (around line 99-109), add `"current_item_action": None` to explicitly clear stale values from previous algorithm iterations. This prevents LangGraph from persisting the previous ItemAction into LLM iterations.
+- [x] 35.3 Ensure `track.execution()` in execute_node shows the lowercased action_type (N-9 fix makes this automatic). In llm_node, add `logger.debug("[RVTRACK:LLM] cleared current_item_action=None")` after setting the field, so log analysis can confirm stale values are cleared.
+- [x] 35.4 Unit tests: (a) test that execute_node pre-marking uses lowercase action_type; (b) test that llm_node return dict includes current_item_action=None; (c) test that RVTRACK:EXEC shows lowercase action type.
+- [x] 35.5 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 35.6 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 35.7 Run `/rv-verify rv-agent` — final verification.
+
+## 36. Medium Fixes — Data Matching (N-11, N-13, N-14, N-15)
+
+Four independent data matching/integrity fixes.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/services/transition_manager.py` (N-11, N-13)
+- `modules/rv-agent/src/rv_agent/agent/nodes/execute_node.py` (N-14)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py` (N-14)
+- `modules/rv-agent/src/rv_agent/services/ui_coverage.py` (N-15)
+
+- [x] 36.1 **(N-11)** In `transition_manager.py` action description method (around line 444,454), fix dict key lookups: `target.get("content-desc", "")` → `target.get("content_description", "")` and `target.get("resource-id", "")` → `target.get("resource_id", "")`. These must match UIAutomator2 parser output.
+- [x] 36.2 **(N-13)** In `transition_manager._resolve_wtg_action()` (around line 696), change substring match to equality: `wtg_widget_id in action.widget_id` → `wtg_widget_id == action.widget_id`. Substring matching causes false positives ("123" matches "2131231234").
+- [x] 36.3 **(N-14)** In `execute_node.py` transition recording (around line 170) and `rvagent_strategy.py` `record_transition()`, add guard: skip recording when `from_hash == to_hash`. Self-loop transitions waste memory and provide no navigation value.
+- [x] 36.4 **(N-15)** In `ui_coverage.py` `find_nearest_element()` (around line 220-223), when `screen_hash` is not found in `screen_elements`, return None instead of falling back to global search across all screens. Cross-screen element matching corrupts per-element test counts.
+- [x] 36.5 Add `track.self_loop_guard()` function to `tracking.py`. Category: `SELF_LOOP`. Fields: `iter`, `state_hash` (str, truncated to 8), `action_sig` (str). Add `self_loop_skipped` aggregate counter. Emit in execute_node/rvagent_strategy when self-loop transition is detected and skipped (N-14). Also add `track.element_match()` function. Category: `ELEMENT_MATCH`. Fields: `iter`, `screen_hash` (str), `coords` (tuple), `result` (str: "found"/"not_found"/"cross_screen_rejected"). Emit in ui_coverage.find_nearest_element() when returning None for unknown screen (N-15).
+- [x] 36.6 Unit tests: (a) test that action descriptions use underscored keys; (b) test that widget_id matching uses equality, not substring; (c) test that self-loop transitions are not recorded; (d) test that find_nearest_element returns None for unknown screen_hash; (e) test that RVTRACK:SELF_LOOP is emitted; (f) test that RVTRACK:ELEMENT_MATCH logs cross_screen_rejected.
+- [x] 36.7 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 36.8 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 36.9 Run `/rv-verify rv-agent` — final verification.
+
+## 37. Medium Fixes — Tracking (N-16, N-17, N-19)
+
+Three independent tracking and lifecycle fixes.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` (N-16)
+- `modules/rv-agent/src/rv_agent/agent/state.py` (N-16)
+- `modules/rv-agent/src/rv_agent/agent/nodes/parse_node.py` (N-17)
+- `modules/rv-agent/src/rv_agent/services/tool_executor.py` (N-19)
+
+- [x] 37.1 **(N-16)** Add `previous_activity: Optional[str]` to AgentState TypedDict. In learn_node return dict, set `"previous_activity": state.get("current_activity")`. This makes the existing `activity_changed` check at line 369-373 functional (it currently reads a field that is never written). **SKIPPED — already implemented in prior group (state.py line 91, learn_node.py line 437).**
+- [x] 37.2 **(N-17)** In `parse_node._update_cached_bounds()`, handle elements without `widget_id` by using a coordinate-based key (e.g., bounds center or element index) as fallback for matching fresh to cached elements. Currently, only elements with `widget_id` get updated bounds — custom views retain stale positions after keyboard toggle.
+- [x] 37.3 **(N-19)** In `tool_executor.py` restart method (around line 339-340), add `time.sleep(1)` between `stop_app()` and `start_app()`, matching the pattern in `ScreenProcessor._restart_app`. This prevents race conditions on slower devices.
+- [x] 37.4 Ensure `track.state()` in learn_node emits `activity_from=previous_activity` (from the new state field) when activity changes. This validates N-16 fix: `previous_activity` is now set and activity transitions are detected. In tool_executor restart, add `logger.info("[RVTRACK:EXEC] restart_delay=1s")` after the sleep.
+- [x] 37.5 Unit tests: (a) test that previous_activity is set in learn_node return and activity_changed detects transitions; (b) test that _update_cached_bounds updates elements without widget_id; (c) test that restart has delay between stop and start (mock time.sleep); (d) test that RVTRACK:STATE includes activity_from when activity changes.
+- [x] 37.6 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 37.7 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 37.8 Run `/rv-verify rv-agent` — final verification.
+
+## 38. Low Priority + Remaining Medium Fixes (N-21, N-22, N-23, N-24, R-M5)
+
+Five minor fixes: BFS depth limit, statistics denominator, zero-reward guard, counter additions, cache staleness.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/services/transition_manager.py` (N-21)
+- `modules/rv-agent/src/rv_agent/services/ui_coverage.py` (N-22)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ranking/reward_propagator.py` (N-23)
+- `modules/rv-agent/src/rv_agent/routing/routing_manager.py` (N-24)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/successor_tracker.py` (R-M5)
+
+- [x] 38.1 **(N-21)** In `transition_manager.py` MOP path BFS (around line 550-568), add a depth limit: reject paths longer than `MAX_MOP_BFS_DEPTH = 8` hops (matching Strategy A's MAX_BACKTRACK_HOPS). Currently Strategy B has no depth limit while Strategies A and C have 8 and 5 respectively.
+- [x] 38.2 **(N-22)** In `ui_coverage.py` `get_overall_statistics()` (around line 424), change `total_unique_elements = len(self.tested_elements)` to `total_unique_elements = len(self.element_types)`. `tested_elements` only counts tested elements; `element_types` has all registered elements.
+- [x] 38.3 **(N-23)** In `reward_propagator.py` `propagate()` (around line 94-97), change the early return guard from `if base_reward == 0.0 and reward_type != "form_fill"` to `if base_reward == 0.0`. The `form_fill` exception runs 5 iterations of `0.0 * gamma^k = 0.0` with no effect — pure waste.
+- [x] 38.4 **(N-24)** In `routing_manager.py`, add counters for `restart_count` and `error_recovery_count`. Increment `restart_count` in algorithm_node's force_restart_app handler. Increment `error_recovery_count` in algorithm_node's force_fill_input handler. Include both in `get_statistics()` output.
+- [x] 38.5 **(R-M5)** In `successor_tracker.py`, add broader cache invalidation: when `record_successor()` is called for a `from_hash` that exists in `coverage_cache`, invalidate it. This ensures that executing actions on a state clears its stale coverage cache, not just when new successor mappings are added.
+- [x] 38.6 Add aggregate counters to `tracking.py`: `mop_bfs_depth_limited` (int), `restart_count` (int), `error_recovery_count` (int). Emit `track.backtrack()` with `reason="bfs_depth_limited"` in transition_manager when MOP BFS path exceeds MAX_MOP_BFS_DEPTH. Include `restart_count` and `error_recovery_count` in `get_aggregate_counters()` output for experiment metrics JSON.
+- [x] 38.7 Unit tests: (a) test that MOP BFS rejects paths > 8 hops; (b) test that get_overall_statistics uses all registered elements as denominator; (c) test that form_fill reward is short-circuited; (d) test that restart/error_recovery counters are tracked; (e) test that coverage_cache is invalidated when from_hash actions are recorded; (f) test that RVTRACK counters include new fields.
+- [x] 38.8 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 38.9 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 38.10 Run `/rv-verify rv-agent` — final verification.
+
+## 39. Round 2 Validation Experiment
+
+Run validation experiment after all Groups 30-40 are implemented to verify the 21 bug fixes + tracking enhancements improved exploration effectiveness. **Validation uses 3 data sources**: (1) RVTRACK logs (`grep "RVTRACK:" agent.log`), (2) experiment metrics JSON (`results/<id>/metrics.json` — aggregate counters), (3) rv-platform coverage data (`results/<id>/coverage/`).
+
+- [ ] 39.1 Run CryptoApp experiment: `uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 600 --name gh26_round2 --specification-set jca`. Collect: agent.log, metrics.json, coverage data.
+- [ ] 39.2 RVTRACK log validation: (a) `grep "RVTRACK:ATTRIBUTION" agent.log` — verify source="previous" for all entries (N-1 fix); (b) `grep "RVTRACK:MOP_RESOLVE" agent.log` — verify resolved=True entries exist and no infinite retry loops (N-2/N-3 fix); (c) `grep "RVTRACK:SCORE_DETAIL" agent.log` — verify GradualDecayScorer values <200 for tested elements (N-8 fix); (d) `grep "RVTRACK:HASH_DETAIL" agent.log` — verify resource_ids_used >0 (N-7 fix); (e) `grep "RVTRACK:SELF_LOOP" agent.log` — verify self-loops are detected and skipped; (f) `grep "RVTRACK:SATURATION" agent.log` — verify rates increase per-state (not stuck at 0%).
+- [ ] 39.3 Metrics JSON validation: check aggregate counters — `attribution_count` >0, `mop_resolve_successes` >0, `self_loop_skipped` >=0, `system_action_filtered` >=0, `path_buffer_hit_rate_pct` >0. Compare against previous baselines (Groups 18-21: 193 iterations, 21 states).
+- [ ] 39.4 Coverage data validation: compare rv-platform coverage (MOP spec violations detected) against baseline. Expected: more violations detected due to better exploration depth.
+- [ ] 39.5 Run 5-APK speed test (docker-compose.speed-test.yml) to compare against APE baseline. Rebuild Docker image with all fixes.
+
+## 40. RVTRACK Retroactive Tracking for Groups 18-28
+
+Adds RVTRACK events retroactively to the already-implemented Groups 18-28 bug fixes, enabling complete post-experiment validation via trace analysis. Each fix's effect should be observable in RVTRACK logs, cross-referenced with the experiment metrics JSON and rv-platform coverage data.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/tracking.py` (new functions + counters)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py` (Groups 22, 24, 25)
+- `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` (Groups 23, 26)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/successor_tracker.py` (Groups 19, 27)
+- `modules/rv-agent/src/rv_agent/domain/screen_node.py` (Groups 25, 17)
+- `modules/rv-agent/src/rv_agent/services/ui_coverage.py` (Group 27)
+- `modules/rv-agent/src/rv_agent/agent/nodes/execute_node.py` (Groups 21, 27)
+- `modules/rv-agent/src/rv_agent/routing/stuck_recovery.py` (Group 26)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/path_buffer.py` (Group 18)
+
+- [x] 40.1 Add new tracking functions to `tracking.py` that will be used by Groups 30-38 tasks AND retroactive tracking: `attribution()`, `mop_resolve()`, `input_variation()`, `hash_discrimination()`, `self_loop_guard()`, `element_match()`. Add aggregate counters: `attribution_count`, `mop_resolve_attempts`, `mop_resolve_successes`, `self_loop_skipped`, `system_action_filtered`, `mop_bfs_depth_limited`, `restart_count`, `error_recovery_count`. All counters included in `get_aggregate_counters()`.
+- [x] 40.2 **(Groups 22-23 retroactive)** In `rvagent_strategy._select_with_score_decay()`, ensure `track.score_detail()` is emitted for each scorer contribution per action (Group 22 fix made scorers functional — SCORE_DETAIL now shows real values). In `learn_node._record_action_success()`, emit `track.strength()` after recording success with correct lowercase casing (Group 23). These events validate that scorers produce differentiated scores and strength accumulates correctly.
+- [x] 40.3 **(Group 24 retroactive)** In `rvagent_strategy.record_transition()`, emit `track.strategy(iter, mode="plateau", action_type="record", reason=f"discovered_new={self._last_is_new_state}")` when updating plateau detector. This validates plateau mode only activates after genuine stagnation (not false positives from the old `to_hash not in states` check).
+- [x] 40.4 **(Groups 25-26 retroactive)** In `screen_node.get_saturation_rate()`, emit `track.saturation()` with the corrected rate (system actions excluded). In `stuck_recovery.check()`, emit `track.strategy(iter, mode="stuck", action_type=action_type, reason=f"is_form={is_form_action}")` to validate form actions skip counter increment. In `learn_node` Level 2 BFS, emit `track.backtrack()` with `strategy="bfs_stuck"` and `remaining_steps=hop_count` when PathBuffer is loaded.
+- [x] 40.5 **(Groups 27-28 retroactive)** In `successor_tracker.update_action_availability()`, emit `track.coverage_navigation()` showing cache invalidation (coverage_cache.pop). In `execute_node._record_ui_interaction()`, log element_id used for UI coverage. In `parse_node`, log when cached bounds are updated from fresh parse.
+- [x] 40.6 **(Groups 18-21 retroactive)** In `path_buffer.plan_mop_path()`, emit `track.mop_resolve()` for coordinate resolution success/failure (Group 18). Log `_failed_mop_paths` cache hits. In `successor_tracker.record_successor()`, emit `track.self_loop_guard()` when self-loop is skipped (Group 19). In `rvagent_strategy._select_with_score_decay()`, add `_counters["system_action_filtered"] += len(actions) - len(real_actions)` before filtering (Group 20).
+- [x] 40.7 Update experiment metrics output: ensure `get_aggregate_counters()` includes all new counters from 40.1. Verify that `rv_agent.py` calls `tracking.get_aggregate_counters()` in its final results dict so the experiment metrics JSON file contains the new fields.
+- [x] 40.8 Unit tests: (a) test that each new tracking function emits correct RVTRACK category; (b) test that aggregate counters increment correctly; (c) test that `get_aggregate_counters()` includes all new fields.
+- [x] 40.9 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 40.10 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 40.11 Run `/rv-verify rv-agent` — final verification.

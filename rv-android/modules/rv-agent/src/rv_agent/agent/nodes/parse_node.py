@@ -23,29 +23,56 @@ def _update_cached_bounds(cached_desc, fresh_desc):
     but the structural hash stays the same. Update bounds in the cached
     copy so coordinate-based actions use current positions.
     """
-    # Build a lookup from widget_id to fresh bounds
-    fresh_bounds = {}
+    # Build lookups from widget_id and bounds-center to fresh bounds
+    fresh_by_id = {}
+    fresh_no_id = []  # (center_x, center_y, bounds) for elements without widget_id
     for item in fresh_desc.items:
         for action in item.actions:
-            if action.widget_id and action.target_view:
-                bounds = action.target_view.get("bounds")
-                if bounds:
-                    fresh_bounds[action.widget_id] = bounds
+            if not action.target_view:
+                continue
+            bounds = action.target_view.get("bounds")
+            if not bounds:
+                continue
+            if action.widget_id:
+                fresh_by_id[action.widget_id] = bounds
+            else:
+                cx = (bounds[0] + bounds[2]) // 2
+                cy = (bounds[1] + bounds[3]) // 2
+                fresh_no_id.append((cx, cy, bounds))
 
-    if not fresh_bounds:
+    if not fresh_by_id and not fresh_no_id:
         return
 
     # Update cached items
+    PROXIMITY_THRESHOLD = 50
     updated = 0
     for item in cached_desc.items:
         for action in item.actions:
-            if action.widget_id and action.widget_id in fresh_bounds:
-                if action.target_view:
-                    old_bounds = action.target_view.get("bounds")
-                    new_bounds = fresh_bounds[action.widget_id]
-                    if old_bounds != new_bounds:
-                        action.target_view["bounds"] = new_bounds
-                        updated += 1
+            if not action.target_view:
+                continue
+            old_bounds = action.target_view.get("bounds")
+            if not old_bounds:
+                continue
+
+            if action.widget_id and action.widget_id in fresh_by_id:
+                # Match by widget_id
+                new_bounds = fresh_by_id[action.widget_id]
+                if old_bounds != new_bounds:
+                    action.target_view["bounds"] = new_bounds
+                    updated += 1
+            elif not action.widget_id and fresh_no_id:
+                # Fallback: match by coordinate proximity (bounds center)
+                cached_cx = (old_bounds[0] + old_bounds[2]) // 2
+                cached_cy = (old_bounds[1] + old_bounds[3]) // 2
+                for fx, fy, fresh_bounds in fresh_no_id:
+                    if (
+                        abs(cached_cx - fx) < PROXIMITY_THRESHOLD
+                        and abs(cached_cy - fy) < PROXIMITY_THRESHOLD
+                    ):
+                        if old_bounds != fresh_bounds:
+                            action.target_view["bounds"] = fresh_bounds
+                            updated += 1
+                        break
 
     if updated > 0:
         logger.debug(f"Updated {updated} cached element bounds from fresh parse")

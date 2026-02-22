@@ -226,9 +226,13 @@ class RoutingManager:
             - "algorithm_percentage" (float): Algorithm proportion of primary actions.
             - "forced_back" (int): BACK actions from stuck detection.
             - "llm_validation_failed" (int): LLM actions that failed validation.
+            - "restart_count" (int): App restarts from Level 2 stuck recovery.
+            - "error_recovery_count" (int): Error recovery actions (force_fill_input).
             - "primary_total" (int): Sum of llm_executed and algorithm_chosen.
             - "total_actions" (int): All actions including forced and failed.
         """
+        from rv_agent import tracking as track
+
         primary_total = self.llm_executed + self.algorithm_chosen
         llm_percentage = (
             (self.llm_executed / primary_total * 100) if primary_total > 0 else 0
@@ -253,6 +257,8 @@ class RoutingManager:
             # Event counters
             "forced_back": self.forced_back_count,
             "llm_validation_failed": self.llm_validation_failed,
+            "restart_count": track._counters["restart_count"],
+            "error_recovery_count": track._counters["error_recovery_count"],
             # Totals
             "primary_total": primary_total,
             "total_actions": total_actions,

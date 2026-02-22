@@ -157,10 +157,10 @@ class TestPlanPathToMopActivity:
             "com.example.ActivityA", None, possible_actions=possible_actions
         )
 
+        # Group 31 fix: only step 1 is resolved (subsequent steps re-planned on arrival)
         assert result is not None
-        assert len(result) == 2
+        assert len(result) == 1
         assert result[0]["widget_id"] == "btn1"
-        assert result[1]["widget_id"] == "btn2"
 
     def test_no_mop_activity_reachable(self):
         """No reachable activity has MOP methods -- returns None."""

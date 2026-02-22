@@ -144,7 +144,7 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     if source == "llm" and screen_hash and agent.dynamic_graph:
         x, y = coords
         if x is not None and y is not None:
-            action_sig = ((x, y), action_type)
+            action_sig = ((x, y), action_type.lower())
             # Resolve widget_class from the matched ItemAction (set by
             # validation_node) which carries the real target_view with class.
             # LLM action dicts have no target_view, so without this the
@@ -167,9 +167,22 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         current_hash = state.get("current_screen_hash", "")
         item_action = state.get("current_item_action")
 
-        if prev_hash and item_action:
-            agent.strategy.record_transition(prev_hash, current_hash, item_action)
+        # One-iteration offset fix: use previous_action_signature for transition
+        # recording. The transition (prev_hash -> current_hash) was caused by the
+        # previous iteration's action, not the current one.
+        # Self-loop guard: skip when from_hash == to_hash (no actual navigation)
+        previous_action_sig = state.get("previous_action_signature")
+        if prev_hash and previous_action_sig and prev_hash != current_hash:
+            agent.strategy.record_transition(
+                prev_hash, current_hash, previous_action_sig
+            )
             logger.debug(f"Recorded transition: {prev_hash[:8]} -> {current_hash[:8]}")
+        elif prev_hash and previous_action_sig and prev_hash == current_hash:
+            track.self_loop_guard(
+                iter=iteration,
+                state_hash=prev_hash,
+                action_sig=str(previous_action_sig),
+            )
 
         # Record interaction for UI coverage tracking (ALL modes)
         # Unified tracking point for both algorithm and LLM actions
