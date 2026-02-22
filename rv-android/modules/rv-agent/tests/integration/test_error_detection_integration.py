@@ -102,7 +102,11 @@ def _make_agent(config=None, **overrides):
     # Stuck recovery
     sr = MagicMock()
     sr.check.return_value = None
+    sr.max_blocks = 100  # High value so capping doesn't interfere
     agent.stuck_recovery = sr
+
+    # Stuck-back flag (Group 26.4: skip error detection after stuck BACK)
+    agent._last_action_was_stuck_back = False
 
     # Apply caller overrides
     for k, v in overrides.items():

@@ -253,6 +253,9 @@ class SuccessorTracker:
             successor_hash = self.successors[key]
             ui_coverage = self.get_successor_coverage(successor_hash)
 
+            # Invalidate stale cache for this successor so next check gets fresh data
+            self.coverage_cache.pop(successor_hash, None)
+
             # Check re-enable limits and UI coverage threshold
             current_count = self.re_enable_counts.get(key, 0)
 

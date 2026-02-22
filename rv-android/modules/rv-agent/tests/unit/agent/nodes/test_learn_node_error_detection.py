@@ -56,6 +56,8 @@ def _make_mock_agent(
     mock_agent.BASE_STUCK_THRESHOLD = 8
     mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
     mock_agent.metrics_collector = None
+    mock_agent._last_action_was_stuck_back = False
+    mock_agent.stuck_recovery = None
 
     return mock_agent
 

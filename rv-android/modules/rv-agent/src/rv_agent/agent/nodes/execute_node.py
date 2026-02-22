@@ -51,7 +51,7 @@ def _record_ui_interaction(
             component_type = comp_class.split(".")[-1] if comp_class else "Unknown"
 
         # Use device coordinates for proximity matching (INV-AGT-40)
-        coords = item_action.coordinates
+        coords = item_action.get_execution_coordinates()
         if coords:
             device_x, device_y = coords
 

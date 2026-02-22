@@ -87,6 +87,11 @@ def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
     # Calculate dynamic threshold
     dynamic_threshold = max(base, int(num_elements * factor))
 
+    # Cap below Level 2 threshold so Level 1 (BACK) always fires before Level 2 (restart)
+    stuck_recovery = getattr(agent, "stuck_recovery", None)
+    if stuck_recovery:
+        dynamic_threshold = min(dynamic_threshold, stuck_recovery.max_blocks - 1)
+
     return dynamic_threshold
 
 
@@ -207,7 +212,14 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     #
     # Branch (c) runs detection while budget remains, giving force_fill_input
     # a chance to fix the validation error (e.g., re-type a form field).
-    screenshot_path = state.get("error_detection_screenshot")
+
+    # Skip error detection if last action was stuck recovery BACK —
+    # error detection would waste 3 iterations on a screen we're leaving.
+    if getattr(agent, "_last_action_was_stuck_back", False):
+        agent._last_action_was_stuck_back = False
+        screenshot_path = None  # Force Branch (a) — reset counter, clear state
+    else:
+        screenshot_path = state.get("error_detection_screenshot")
     error_detected = False
     error_result_updates = {}
 
@@ -277,7 +289,8 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     is_form_action = action_type in ("SET_TEXT", "TEXT_CHANGE") or is_checkable
     if (
-        current_hash == agent.last_screen_hash
+        current_hash is not None
+        and current_hash == agent.last_screen_hash
         and not is_form_action
         and not error_detected
     ):
@@ -285,6 +298,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         if agent.stuck_screen_count >= dynamic_threshold:
             force_back = True
             agent.stuck_screen_count = 0
+            agent._last_action_was_stuck_back = True
     else:
         agent.stuck_screen_count = 0
 
@@ -293,7 +307,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # Level 2: StuckRecovery check (persistent stuck state)
     stuck_recovery = getattr(agent, "stuck_recovery", None)
     if stuck_recovery and current_hash:
-        recovery_action = stuck_recovery.check(current_hash)
+        recovery_action = stuck_recovery.check(
+            current_hash, is_form_action=is_form_action
+        )
 
         if recovery_action == "restart":
             # Try Backtrack BFS first
@@ -304,9 +320,18 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                     unsaturated_target, hop_count = bfs_result
                     logger.info(
                         f"Level 2 stuck: Backtrack BFS found unsaturated state "
-                        f"{unsaturated_target[:8]}... ({hop_count} hops) -> Forcing BACK"
+                        f"{unsaturated_target[:8]}... ({hop_count} hops)"
                     )
-                    force_back = True
+                    # Queue multi-hop BACK in PathBuffer if available
+                    path_buffer = getattr(agent.strategy, "path_buffer", None)
+                    if path_buffer and hop_count > 1:
+                        path_buffer.load_back_actions(hop_count)
+                        logger.info(
+                            f"Level 2 stuck: Queued {hop_count} BACK actions via PathBuffer"
+                        )
+                    else:
+                        force_back = True
+                    agent._last_action_was_stuck_back = True
                     # Track backtrack decision
                     track.backtrack(
                         iter=iteration,
@@ -320,6 +345,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                     )
                     force_restart = True
                     stuck_recovery.record_restart()
+                    agent._last_action_was_stuck_back = True
                     # Track backtrack failure
                     track.backtrack(
                         iter=iteration,
@@ -333,6 +359,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                 )
                 force_restart = True
                 stuck_recovery.record_restart()
+                agent._last_action_was_stuck_back = True
 
     # Phase 5: Continuation check and tracking
     continuation = agent.memory_coordinator.check_continuation(
@@ -468,7 +495,7 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
         # Get action coordinates (device space per INV-AGT-40)
         x = current_action.get("x")
         y = current_action.get("y")
-        action_type = current_action.get("action_type", "CLICK")
+        action_type = current_action.get("action_type", "CLICK").lower()
 
         if x is None or y is None:
             return
@@ -544,7 +571,7 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
 
         x = current_action.get("x")
         y = current_action.get("y")
-        action_type = current_action.get("action_type", "CLICK")
+        action_type = current_action.get("action_type", "CLICK").lower()
 
         if x is None or y is None:
             return

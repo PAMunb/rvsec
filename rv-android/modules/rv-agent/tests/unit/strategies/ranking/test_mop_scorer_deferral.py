@@ -45,10 +45,10 @@ class TestMopScorerDeferral:
         action = MagicMock()
         action.directly_reaches_mop = True
         action.reaches_mop = True
-        action.action_type = "CLICK"
+        action.action_type = "click"
 
         score = scorer.score(action, context_with_untested_inputs)
-        assert score == 0.0, "MOP CLICK should be deferred when untested inputs exist"
+        assert score == 0.0, "MOP click should be deferred when untested inputs exist"
 
     def test_mop_not_deferred_for_set_text(self, config, context_with_untested_inputs):
         """SET_TEXT with reaches_mop=True NOT deferred even with untested inputs."""
@@ -73,9 +73,9 @@ class TestMopScorerDeferral:
         action = MagicMock()
         action.directly_reaches_mop = True
         action.reaches_mop = True
-        action.action_type = "CLICK"
+        action.action_type = "click"
 
         score = scorer.score(action, context_without_untested_inputs)
         assert (
             score == config.mop_direct_score
-        ), f"MOP CLICK should get full score ({config.mop_direct_score}) when no untested inputs"
+        ), f"MOP click should get full score ({config.mop_direct_score}) when no untested inputs"

@@ -16,6 +16,41 @@ from rv_agent.domain.state import AgentState
 logger = logging.getLogger(__name__)
 
 
+def _update_cached_bounds(cached_desc, fresh_desc):
+    """Update cached screen_desc item bounds from a fresh parse.
+
+    When the keyboard appears or disappears, elements shift vertically
+    but the structural hash stays the same. Update bounds in the cached
+    copy so coordinate-based actions use current positions.
+    """
+    # Build a lookup from widget_id to fresh bounds
+    fresh_bounds = {}
+    for item in fresh_desc.items:
+        for action in item.actions:
+            if action.widget_id and action.target_view:
+                bounds = action.target_view.get("bounds")
+                if bounds:
+                    fresh_bounds[action.widget_id] = bounds
+
+    if not fresh_bounds:
+        return
+
+    # Update cached items
+    updated = 0
+    for item in cached_desc.items:
+        for action in item.actions:
+            if action.widget_id and action.widget_id in fresh_bounds:
+                if action.target_view:
+                    old_bounds = action.target_view.get("bounds")
+                    new_bounds = fresh_bounds[action.widget_id]
+                    if old_bounds != new_bounds:
+                        action.target_view["bounds"] = new_bounds
+                        updated += 1
+
+    if updated > 0:
+        logger.debug(f"Updated {updated} cached element bounds from fresh parse")
+
+
 def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     """
     Parse current screen UI and update state.
@@ -46,6 +81,11 @@ def parse_ui_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     cached = getattr(agent, "_cached_screen_desc", None)
     if screen_hash and screen_hash == previous_hash and cached is not None:
+        # Update cached items' bounds from fresh parse: keyboard appearance
+        # can shift elements vertically without changing structural hash.
+        fresh_desc = result.get("screen_description")
+        if fresh_desc and cached:
+            _update_cached_bounds(cached, fresh_desc)
         screen_desc = cached
         result["screen_description"] = screen_desc
     else:

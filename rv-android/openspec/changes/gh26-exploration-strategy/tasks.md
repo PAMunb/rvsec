@@ -20,7 +20,19 @@
      Bug fixes: Coordinate space unification → Group 14
      Bug fixes: Emulator boot retry resilience → Group 15
      Bug fixes: Saturation double recording & Tier 3 loop → Group 16
-     Bug fixes: Widget-aware saturation thresholds → Group 17 -->
+     Bug fixes: Widget-aware saturation thresholds → Group 17
+     Post-validation: WTG path coordinate resolution → Group 18
+     Post-validation: Successor tracker self-loop guard → Group 19
+     Post-validation: Exclude system actions from Tier 4 → Group 20
+     Post-validation: LLM widget_class resolution → Group 21
+     Post-code-review: Ranking context hash fix → Group 22
+     Post-code-review: Action signature casing → Group 23
+     Post-code-review: Plateau detection fix → Group 24
+     Post-code-review: Saturation + MopScorer + metrics → Group 25
+     Post-code-review: Stuck detection fixes → Group 26
+     Post-code-review: Medium bug fixes → Group 27
+     Post-code-review: Low bug fixes → Group 28
+     Post-code-review: Post-implementation validation → Group 29 -->
 
 <!-- Subagent dispatch hints:
      - Group 0 (Baseline Experiment) must run BEFORE any code changes.
@@ -604,3 +616,127 @@ Addresses Bug 4 (LOW) from post-validation analysis. LLM action dicts have no `t
 - [x] 21.2 Unit tests in `modules/rv-agent/tests/unit/test_execution_feedback.py`: (a) test that LLM pre-mark uses widget_class from `current_item_action` when available; (b) test that LLM pre-mark falls back to action dict when `current_item_action` is None.
 - [x] 21.3 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — verify all tests pass.
 - [x] 21.4 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — verify integration tests pass.
+
+## 22. Bug Fix: Ranking Context Hash (C1 — CRITICAL)
+
+Addresses C1 from post-code-review analysis. `_build_ranking_context()` always sets `current_state_hash = ""` because `get_current_state_hash()` does not exist on `DynamicStateGraph`. The `hasattr` guard silently falls back to `""`, rendering 4 of 9 scorers non-functional (SaturationScorer, VisitationPenaltyScorer, CoverageDensityScorer, StrengthScorer all return constant values). Full analysis: `docs/20260222_rvagent_bug_analysis.md`.
+
+**MUST fix before Group 23** — C1 masks C2 (strength always returns neutral 25.0 instead of the broken 0.0).
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py`
+
+- [x] 22.1 Change `_build_ranking_context(self, screen_desc)` signature to `_build_ranking_context(self, screen_desc, current_hash: str)`. Replace the `hasattr(self.graph, "get_current_state_hash")` block (lines 1007-1011) with direct use of the `current_hash` parameter.
+- [x] 22.2 Update all callers of `_build_ranking_context` to pass `current_hash`. There are TWO callers: `_select_priority_action()` (line ~868, Tier 2) and `_select_with_score_decay()` (line ~974, Tier 4). Both have access to `current_hash` from the `node` parameter (node.screen_hash) or from `select_next_action`'s `current_hash`.
+- [x] 22.3 Unit tests: (a) test that `_build_ranking_context` returns a `RankingContext` with the correct `current_state_hash` (not ""); (b) test that `SaturationScorer` returns non-zero when state has low saturation (requires correct hash); (c) test that `VisitationPenaltyScorer` returns negative value for visited states (requires correct hash).
+- [x] 22.4 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 22.5 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 22.6 Run `/rv-verify rv-agent` — final verification.
+
+## 23. Bug Fix: Action Signature Casing (C2 — CRITICAL)
+
+Addresses C2 from post-code-review analysis. Strategy pre-marks actions with lowercase `"click"` (from `coords_for_matching`), but `learn_node._record_action_success()` builds signatures with uppercase `"CLICK"` (from algorithm_node `.upper()`). Strength is always 0.0 because success lookup uses wrong key casing. With C1 fixed (Group 22), StrengthScorer will query real nodes but get strength=0.0 for all actions.
+
+**Depends on Group 22** — fixing C2 alone has no visible effect while C1 masks it.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` (primary fix)
+
+- [x] 23.1 In `learn_node._record_action_success()`, normalize `action_type` to lowercase before building the signature: `action_type = current_action.get("action_type", "CLICK").lower()`. This ensures `action_signature = ((x, y), action_type)` uses lowercase, matching `coords_for_matching`.
+- [x] 23.2 Unit tests: (a) test that after pre-marking with `((540, 340), "click")` and calling `record_action_success(((540, 340), "click"), True)`, `get_action_strength(((540, 340), "click"))` returns >0; (b) test end-to-end: pre-mark, record success, verify StrengthScorer returns weight*strength (not neutral 25.0).
+- [x] 23.3 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 23.4 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 23.5 Run `/rv-verify rv-agent` — final verification.
+
+## 24. Bug Fix: Plateau Detection (H2 — HIGH)
+
+Addresses H2 from post-code-review analysis. `record_transition()` checks `to_hash not in self.graph.states` but the state was already created by `select_next_action()` in the same iteration. `PlateauDetector` always receives `discovered_new_state=False`, triggering plateau mode (50% stochastic) after 10 iterations. `select_next_action` restores probability on genuinely new states, but between discoveries the agent operates at 50% random.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py`
+
+- [x] 24.1 In `select_next_action()`, store the `is_new_state` flag computed at line 350 as `self._last_is_new_state`. In `record_transition()`, use `self._last_is_new_state` instead of `to_hash not in self.graph.states` for the plateau detector.
+- [x] 24.2 Unit tests: (a) test that `PlateauDetector.record_iteration()` receives `discovered_new_state=True` when a genuinely new state is encountered; (b) test that plateau is NOT triggered within the first 10 iterations when states are discovered regularly.
+- [x] 24.3 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 24.4 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 24.5 Run `/rv-verify rv-agent` — final verification.
+
+## 25. Bug Fix: Saturation Inflation, MopScorer Deferral, Metrics (H4 + H1 + M1 + H5)
+
+Groups 4 related fixes that are simple, independent, and low-risk. Fixing H1 and M1 together is required (fixing H1 alone makes M1 escalate to HIGH).
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/domain/screen_node.py` (H4)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ranking/scorers.py` (H1)
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py` (M1)
+- `modules/rv-agent/src/rv_agent/agent/nodes/decision_node.py` (H5)
+
+- [x] 25.1 **(H4)** In `screen_node.py`, add `"key_event"` to `SYSTEM_ACTION_TYPES` frozenset. This prevents BACK actions (which map to `"key_event"` via `WIDGET_EVENT_TO_ACTION_TYPE`) from inflating saturation rate.
+- [x] 25.2 **(H1)** In `scorers.py` MopScorer.score(), change `getattr(action, "action_type", "") == "CLICK"` to `getattr(action, "action_type", "") == "click"` (lowercase). This enables MOP deferral for click actions on form screens with untested inputs.
+- [x] 25.3 **(M1)** In `rvagent_strategy.py` `_has_untested_inputs()`, replace the manual `f"({action.coordinates[0]},{action.coordinates[1]})"` with `make_element_id_from_tuple(action.coordinates)` (import from `rv_agent.memory.element_id`). This matches the format used by `_prepare_input_action()`.
+- [x] 25.4 **(H5)** In `decision_node.py`, remove the `agent.routing_manager.forced_back_count += 1` line (line 46). Only `algorithm_node.py` should increment this counter (it also clears the flag).
+- [x] 25.5 Unit tests: (a) test that `get_saturation_rate()` excludes actions with `"key_event"` type; (b) test that MopScorer defers scoring for `"click"` actions when `has_untested_inputs=True`; (c) test that `_has_untested_inputs` returns False when all inputs have been tested via `_prepare_input_action`; (d) test that `forced_back_count` increments exactly once per forced-back event.
+- [x] 25.6 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 25.7 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 25.8 Run `/rv-verify rv-agent` — final verification.
+
+## 26. Bug Fix: Stuck Detection Improvements (H3 + M2 + M3 + M4)
+
+Groups 4 stuck detection/recovery fixes that interact with each other. All affect `learn_node.py` and `stuck_recovery.py`.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/routing/stuck_recovery.py` (H3)
+- `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` (M2, M3, M4)
+
+- [x] 26.1 **(H3)** Add `is_form_action: bool = False` parameter to `StuckRecovery.check()`. When True, skip incrementing `state_block_counter`. Update the call in `learn_node.py` to pass `is_form_action` (already computed at line 278).
+- [x] 26.2 **(M2)** In `_get_dynamic_stuck_threshold()`, cap the result: `min(dynamic_threshold, max_blocks - 1)` where `max_blocks` is from `StuckRecovery` (default 10). This ensures Level 1 always fires before Level 2. Pass `max_blocks` as parameter or retrieve from `agent.stuck_recovery.max_blocks`.
+- [x] 26.3 **(M3)** In `learn_node.py` Level 2 BFS result handling (line 302-309), instead of `force_back = True`, use PathBuffer to queue `hop_count` BACK actions: `agent.strategy.path_buffer._buffer = [_create_back_action() for _ in range(hop_count)]`. This enables multi-hop navigation to the unsaturated ancestor in N iterations instead of N*max_blocks.
+- [x] 26.4 **(M4)** In `learn_node.py`, after processing stuck recovery BACK (line 286-287), set a flag `agent._last_action_was_stuck_back = True`. In error detection phase (line 210-250), skip error detection if `agent._last_action_was_stuck_back` is True (then clear the flag). This prevents error detection from extending stuck recovery cycles by 3 wasted iterations.
+- [x] 26.5 Unit tests: (a) test that Level 2 does not increment counter for SET_TEXT actions; (b) test that dynamic threshold is capped below max_blocks; (c) test that BFS result queues multiple BACK actions in PathBuffer; (d) test that error detection is skipped after stuck recovery BACK.
+- [x] 26.6 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 26.7 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 26.8 Run `/rv-verify rv-agent` — final verification.
+
+## 27. Bug Fix: Medium Remaining (M5 + M6 + M7)
+
+Groups 3 independent medium fixes that don't interact with each other.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/successor_tracker.py` (M5)
+- `modules/rv-agent/src/rv_agent/agent/nodes/execute_node.py` (M6)
+- `modules/rv-agent/src/rv_agent/agent/nodes/parse_node.py` (M7)
+
+- [x] 27.1 **(M5)** In `SuccessorTracker`, add cache invalidation in `update_action_availability()`: after checking each successor's coverage, clear the stale cache entry so the next lookup gets fresh data. Add `self.coverage_cache.pop(successor_hash, None)` after using the cached value.
+- [x] 27.2 **(M6)** In `execute_node._record_ui_interaction()`, change `coords = item_action.coordinates` (line 54) to `coords = item_action.get_execution_coordinates()`. This ensures elements resolved via bounds center are correctly tracked in UI coverage.
+- [x] 27.3 **(M7)** In `parse_node.py`, when `screen_hash == previous_hash` and using cached `screen_desc`, update the cached screen_desc's item bounds from the fresh parse result. Add: iterate over fresh items and update bounds in the cached copy if coordinates differ.
+- [x] 27.4 Unit tests: (a) test that coverage_cache is invalidated after action execution on a cached state; (b) test that UI coverage records interactions for bounds-resolved elements; (c) test that cached screen_desc gets updated bounds when keyboard appears.
+- [x] 27.5 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 27.6 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 27.7 Run `/rv-verify rv-agent` — final verification.
+
+## 28. Bug Fix: Low Priority (L1 + L2 + L3 + L4)
+
+Groups 4 low-priority fixes. Data integrity and edge cases.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py` (L1)
+- `modules/rv-agent/src/rv_agent/domain/state.py` (L2)
+- `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` (L3)
+- `modules/rv-agent/src/rv_agent/agent/nodes/algorithm_node.py` (L4)
+
+- [x] 28.1 **(L1)** In `record_transition()` (rvagent_strategy.py:631), fix the call to `self.graph.record_transition()`. Use `self.graph.record_action_to_trace({"action": action})` to add the action to the trace, then call `self.graph.record_transition(from_hash, to_hash)` without the action list. This uses the graph's existing trace mechanism correctly.
+- [x] 28.2 **(L2)** In `state.py` AgentState TypedDict, declare `force_restart_app: bool` with a comment referencing learn_node.py:387 as the writer.
+- [x] 28.3 **(L3)** In `learn_node.py` Level 1 stuck detection (line 279), add `current_hash is not None` guard: `if (current_hash is not None and current_hash == agent.last_screen_hash and not is_form_action and not error_detected)`.
+- [x] 28.4 **(L4)** In `algorithm_node.py`, when strategy returns None (line 367-375), instead of returning `decision_path = "end"`, fall back to a BACK action. Reuse the existing BACK action creation pattern from the `force_back_action` handler (lines 284-298).
+- [x] 28.5 Unit tests: (a) test that transition records use correct timestamp format (float, not list); (b) test that Level 1 does not trigger on consecutive None hashes; (c) test that algorithm_node returns BACK action when strategy returns None.
+- [x] 28.6 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
+- [x] 28.7 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 28.8 Run `/rv-verify rv-agent` — final verification.
+
+## 29. Post-Code-Review Validation Experiment
+
+Run validation experiment after all Groups 22-28 are implemented to verify the 18 bug fixes improved exploration effectiveness. Compare against the post-Groups-18-21 baseline (193 iterations, 21 states, 70% MOP coverage on CryptoApp 10min).
+
+- [ ] 29.1 Run CryptoApp experiment: `uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 600 --name gh26_post_codereview --specification-set jca`. Verify: (a) Tier 4 action scores are differentiated (not constant +125); (b) strength scoring produces non-zero values for successful actions; (c) plateau mode activates only after genuine stagnation; (d) saturation rates per state reflect actual exploration (not inflated by BACK).
+- [ ] 29.2 Analyze results: compare iterations, unique states, UI coverage, MOP coverage, tier distribution, wasted iterations against baseline. Expected improvements: wasted iterations <10%, UI coverage >50%, differentiated Tier 4 scores.
+- [ ] 29.3 Run 5-APK speed test (docker-compose.speed-test.yml) to compare against APE baseline. Rebuild Docker image with all fixes.

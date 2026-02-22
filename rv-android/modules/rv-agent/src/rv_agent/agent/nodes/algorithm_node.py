@@ -369,8 +369,21 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         logger.warning(
             f"No action available from strategy "
             f"(consecutive_no_action={agent.consecutive_no_action}/{agent.NO_ACTION_THRESHOLD})"
+            f" -> falling back to BACK"
         )
-        result = {"current_action": None, "decision_path": "end"}
+        action = {
+            "action_type": "BACK",
+            "x": 0,
+            "y": 0,
+            "text": "",
+            "source": "algorithm",
+            "reason": "strategy_no_action_fallback",
+        }
+        result = {
+            "current_action": action,
+            "current_item_action": None,
+            "decision_maker": "algorithm",
+        }
         result.update(_error_recovery_clear)
         return result
 

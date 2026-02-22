@@ -1488,3 +1488,253 @@ No topology changes to the architecture diagram. All fixes are behavioral correc
 - SuccessorTracker: guard in `record_successor()`
 - RVAgentStrategy: filter in `_select_with_score_decay()`
 - execute_node: widget_class resolution from matched ItemAction
+
+## Post-Code-Review Bug Analysis
+
+After completing Groups 1-21 and running a second validation experiment (CryptoApp, rvagent:pure_algorithm, 10 min, 193 iterations, 21 states, 70% MOP coverage), systematic code review of the pure_algorithm path revealed 18 additional bugs that explain the persistent performance gap with APE (activity coverage 58%->61%, method coverage 20%->21%). Full analysis: `docs/20260222_rvagent_bug_analysis.md`.
+
+### Experiment Setup (Post-Groups 18-21)
+
+| Metric | Value |
+|--------|-------|
+| App | CryptoApp (br.unb.cic.cryptoapp) |
+| Mode | pure_algorithm |
+| Duration | 10 min |
+| Iterations | 193 |
+| Unique states | 21 |
+| Activities | 4 (100%) |
+| MOP coverage | 70% |
+
+### Summary
+
+| Severity | Count | Key Impact |
+|----------|-------|------------|
+| CRITICAL | 2 | 4 of 9 scorers non-functional; action strength always wrong |
+| HIGH | 5 | Permanent plateau mode; premature backtracking; form disruption |
+| MEDIUM | 7 | Wasted iterations from various sources |
+| LOW | 4 | Data integrity, edge cases |
+| **Total** | **18** | |
+
+### C1 (CRITICAL): `_build_ranking_context` Always Sets `current_state_hash = ""`
+
+**Location**: `rvagent_strategy.py:1007-1010`
+
+`_build_ranking_context()` calls `self.graph.get_current_state_hash()` which does not exist on `DynamicStateGraph`. The `hasattr` guard silently falls back to `""`. The method receives `screen_desc` but NOT `current_hash` -- even though `current_hash` is available in the caller `select_next_action(current_hash, screen_desc)`.
+
+**Impact on scorers**:
+- SaturationScorer: returns 0.0 (node lookup fails for "")
+- VisitationPenaltyScorer: returns 0.0 (node lookup fails for "")
+- CoverageDensityScorer: returns weight*0.5=100.0 for ALL actions (no successor match for "")
+- StrengthScorer: returns weight*0.5=25.0 for ALL actions (neutral)
+
+All actions receive identical +125 from these 4 scorers. Differentiation comes only from MopScorer, WtgScorer, GradualDecayScorer, ComponentPriorityScorer, SystemElementFilter.
+
+**Fix**: Pass `current_hash` to `_build_ranking_context(screen_desc, current_hash)`. Remove the `hasattr` fallback.
+
+### C2 (CRITICAL): Action Signature Casing Mismatch Breaks Strength Scoring
+
+**Location**: Multiple files (systemic)
+
+Strategy pre-marks actions with `coords_for_matching` -> `((x,y), "click")` (lowercase, from `WIDGET_EVENT_TO_ACTION_TYPE` in model.py:28). But `learn_node._record_action_success()` builds signature with `current_action.get("action_type", "CLICK")` -> `((x,y), "CLICK")` (uppercase, from algorithm_node:379 `.upper()`).
+
+Result: `action_execution_counts[((540,340), "click")]` = N, `action_success_counts[((540,340), "CLICK")]` = M. `get_action_strength(((540,340), "click"))` returns 0/N = 0.0 because success lookup uses wrong key.
+
+Currently masked by C1 (StrengthScorer returns neutral 25.0 because hash is ""), but if C1 is fixed independently, strength is always 0.0. Both must be fixed together.
+
+**Fix**: Normalize casing in `learn_node._record_action_success()` to use lowercase (matching `coords_for_matching`). Use `action_type.lower()` when building the signature.
+
+### H1 (HIGH): MopScorer Deferral Never Activates
+
+**Location**: `scorers.py:86-90`
+
+Compares `action.action_type == "CLICK"` (uppercase), but `ItemAction.action_type` returns `"click"` (lowercase from `WIDGET_EVENT_TO_ACTION_TYPE`). The condition `"click" == "CLICK"` is always False.
+
+On form screens with EditText + Submit button, the MOP deferral that should fill inputs before clicking Submit never activates. The agent clicks MOP-reaching buttons before filling form fields.
+
+**Fix**: Compare against lowercase `"click"`.
+
+### H2 (HIGH): `record_transition` New-State Detection Always False
+
+**Location**: `rvagent_strategy.py:637`
+
+The call chain within one iteration:
+1. `select_next_action(H, screen_desc)` -> `self.graph.get_or_create_state(H, ...)` -- H now exists in `self.graph.states`
+2. `execute_node` -> `record_transition(prev, H, action)` -> `new_state = H not in self.graph.states` -> always False
+
+The `PlateauDetector` always receives `discovered_new_state=False`, triggering plateau mode (50% stochastic) after `plateau_window=10` iterations. Stochastic probability IS restored by `select_next_action` on genuinely new states, but between new state discoveries the agent operates at 50% random for potentially dozens of iterations.
+
+**Fix**: Track `is_new_state` in `select_next_action` (line 350, which correctly checks BEFORE creating) and pass it to `record_transition`, or store it as instance state for the plateau detector.
+
+### H3 (HIGH): Level 2 Stuck Recovery Counts Form Actions
+
+**Location**: `stuck_recovery.py:48-49` vs `learn_node.py:278-282`
+
+Level 1 stuck detection excludes SET_TEXT and checkable elements from counting. Level 2 (`StuckRecovery.check()`) increments unconditionally. On form screens with 10+ input fields, after `max_blocks=10` same-hash iterations, Level 2 triggers BFS backtrack or app restart while the agent is productively filling forms.
+
+**Fix**: Pass action type info to `StuckRecovery.check()` and skip incrementing for form actions (SET_TEXT, TEXT_CHANGE, checkable).
+
+### H4 (HIGH): `SYSTEM_ACTION_TYPES` Missing `"key_event"` -- BACK Inflates Saturation
+
+**Location**: `screen_node.py:214`
+
+`SYSTEM_ACTION_TYPES = {"back", "restart", "unknown"}` does not include `"key_event"`, which is the actual `action_type` for BACK actions (from `WIDGET_EVENT_TO_ACTION_TYPE`: `WidgetEventType.BACK: "key_event"`). BACK actions with signature `((0,0), "key_event")` pass the `sig[1] not in SYSTEM_ACTION_TYPES` check and are counted as saturated real actions. Since BACK is not in the denominator (`total_actions` excludes coords=None), saturation rate is artificially inflated -> premature proactive backtracking.
+
+**Fix**: Add `"key_event"` to `SYSTEM_ACTION_TYPES`.
+
+### H5 (HIGH): `forced_back_count` Double-Incremented
+
+**Location**: `decision_node.py:45-48` and `algorithm_node.py:278-298`
+
+Both nodes increment `agent.routing_manager.forced_back_count` for the same `force_back_action=True` event. `decision_node` does NOT clear the flag (just returns `decision_path: "algorithm"`), so `algorithm_node` sees it again and increments a second time.
+
+**Fix**: Remove the increment from `decision_node.py:46`. Only `algorithm_node` should increment (it also clears the flag).
+
+### M1 (MEDIUM): `_has_untested_inputs` Uses Wrong Element ID Format
+
+**Location**: `rvagent_strategy.py:1032-1035` vs `rvagent_strategy.py:1087`
+
+`_has_untested_inputs` builds IDs as `"(540,340)"`. `_prepare_input_action` (which registers tested values) uses `make_element_id_from_tuple()` -> `"coords:540,340"`. Different formats -> queries never match -> always returns True. Currently masked by H1 (MopScorer deferral never activates). If H1 is fixed alone, MOP deferral becomes permanent.
+
+**Fix**: Use `make_element_id_from_tuple()` in `_has_untested_inputs()`.
+
+### M2 (MEDIUM): Uncapped Dynamic Threshold Makes Level 1 Unreachable
+
+**Location**: `learn_node.py:88`
+
+`dynamic_threshold = max(8, int(num_elements * 1.5))`. For screens with >7 elements, Level 1 threshold exceeds Level 2 `max_blocks=10`. Level 2 always fires first, triggering heavy recovery (BFS/restart) instead of lightweight Level 1 (single BACK). The escalation design is inverted.
+
+**Fix**: Cap dynamic threshold: `min(max(8, int(num_elements * 1.5)), stuck_recovery.max_blocks - 1)`.
+
+### M3 (MEDIUM): BFS Hop Count Not Used for Multi-Hop Navigation
+
+**Location**: `learn_node.py:302-316`
+
+When Level 2 finds an unsaturated ancestor via BFS, `hop_count` is logged but only ONE BACK is issued (`force_back = True`). Reaching a target N hops away requires ~N*max_blocks iterations (each intermediate screen accumulates 10 same-screen iterations before the next BACK).
+
+**Fix**: Use PathBuffer to queue multiple BACK actions instead of a single `force_back`. Or set `force_back_count = hop_count` and dispense one per iteration.
+
+### M4 (MEDIUM): Error Recovery / Stuck Detection Ping-Pong
+
+**Location**: `learn_node.py:210-250` and `learn_node.py:279-289`
+
+When BACK from stuck recovery doesn't change screen AND persistent error indicators exist: stuck fires BACK -> error detection activates -> 3 error recovery iterations (stuck counting suppressed) -> Level 1 resumes from 0. Each stuck-recovery cycle costs 3 extra wasted iterations.
+
+**Fix**: Skip error detection when immediately after a stuck-recovery BACK action.
+
+### M5 (MEDIUM): SuccessorTracker `coverage_cache` Goes Stale
+
+**Location**: `successor_tracker.py:80,124-125,137-155`
+
+Cache is only invalidated when a new successor mapping is recorded, NOT when actions execute on cached states. After exploring a successor fully (coverage 0.3 -> 1.0), the cache retains stale 0.3 value -> unnecessary re-enablements (bounded by `max_re_enables=6`).
+
+**Fix**: Invalidate cache entry whenever an action executes on a cached state (in `record_action` or via a periodic cache flush).
+
+### M6 (MEDIUM): `execute_node` Uses Raw Coordinates for UI Coverage
+
+**Location**: `execute_node.py:54`
+
+Uses `item_action.coordinates` (raw field, may be None for bounds-resolved elements) instead of `get_execution_coordinates()` (falls back to bounds center). Elements resolved via bounds are tracked as untested even after interaction.
+
+**Fix**: Use `item_action.get_execution_coordinates()` instead of `item_action.coordinates`.
+
+### M7 (MEDIUM): Screen Description Cache Can Have Stale Bounds
+
+**Location**: `parse_node.py:48-53`
+
+When `screen_hash == previous_hash`, the fresh screen description (with updated positions from keyboard appear/disappear) is discarded in favor of the cached one. Structural hash excludes bounds/positions, so structurally identical screens with shifted elements produce the same hash. Agent targets stale coordinates, causing missed clicks.
+
+**Fix**: Always update bounds from the fresh parse even when reusing cached screen_desc. Or invalidate cache when bounds differ significantly.
+
+### L1 (LOW): `record_transition` Passes Action List as `timestamp`
+
+**Location**: `rvagent_strategy.py:631`
+
+`self.graph.record_transition(from_hash, to_hash, [{"action": action}])` -- the third positional arg is `timestamp`, so the list becomes the timestamp value. `DynamicStateGraph.record_transition(from_hash, to_hash, timestamp=None)` accepts it silently.
+
+**Fix**: Pass action list via `current_trace` (the graph's existing mechanism), or add an `action_data` parameter.
+
+### L2 (LOW): `force_restart_app` Not Declared in AgentState
+
+**Location**: `learn_node.py:387` writes it; `state.py` does not declare it.
+
+Works at runtime via Python dict permissiveness. Would break under strict TypedDict enforcement.
+
+**Fix**: Declare `force_restart_app: bool` in AgentState TypedDict.
+
+### L3 (LOW): Level 1 No `None` Hash Guard
+
+**Location**: `learn_node.py:253,279-289`
+
+`current_hash` can be None when screen parsing fails. `agent.last_screen_hash` starts as None. `None == None` -> True -> stuck counter increments. Level 2 guards against None (line 295), Level 1 does not.
+
+**Fix**: Add `current_hash is not None` guard to Level 1 condition.
+
+### L4 (LOW): `algorithm_node` Returns `decision_path = "end"` When Strategy Returns None
+
+**Location**: `algorithm_node.py:373`
+
+When strategy returns None, the iteration is wasted (no action, no learning). Mitigated by `consecutive_no_action` deadlock counter.
+
+**Fix**: Fallback to BACK action instead of returning None. The agent should always make progress.
+
+### Bug Interaction Map
+
+```
+C1 (hash="") ──masks──> C2 (casing mismatch)
+     |                        |
+     |                        v
+     |                 Strength always 0.0
+     |                 (masked by C1 returning neutral 25.0)
+     v
+4 scorers return constant values
+     |
+     v
+Tier 4 selection quality severely degraded
+     |
+     +──── H2 (permanent plateau -> 50% random) ──> Further degradation
+     |
+     +──── H4 (BACK inflates saturation) ──> Premature backtracking (Tier 3)
+                                                    |
+                                                    v
+                                        M3 (single BACK, not multi-hop) ──> N*10 wasted
+
+H1 (MopScorer case) ──masked-by──> M1 (element ID format)
+     |                                    |
+     |  (if H1 fixed alone)               v
+     +────────────────────> M1 becomes HIGH: MOP deferral permanent
+
+H3 (Level 2 counts forms) + M2 (Level 1 unreachable) =
+     Form screens always trigger heavy recovery (restart) instead of light (BACK)
+```
+
+### Architecture Impact
+
+No topology changes to the existing architecture diagram. All 18 fixes are behavioral corrections within existing components:
+- RVAgentStrategy: pass hash to ranking context, normalize element IDs
+- ScreenNode: add "key_event" to SYSTEM_ACTION_TYPES
+- Scorers: fix casing comparison
+- learn_node: normalize action signature casing, cap threshold, Level 2 form exclusion, None guard
+- stuck_recovery: accept form action info parameter
+- successor_tracker: cache invalidation
+- execute_node: use get_execution_coordinates()
+- parse_node: bounds update on cache hit
+- algorithm_node: BACK fallback on None
+- decision_node: remove duplicate counter increment
+- state.py: declare force_restart_app
+
+### Prioritized Fix Order
+
+Based on impact and dependencies:
+
+| Priority | Bug(s) | Rationale |
+|----------|--------|-----------|
+| 1 | C1 | Fixes 4 scorers. Must fix before C2 becomes visible. |
+| 2 | C2 | With C1 fixed, strength scoring needs correct casing. |
+| 3 | H2 | Permanent plateau disables score-based selection 50% of the time. |
+| 4 | H4 | BACK-inflated saturation cascades into premature backtracking. |
+| 5 | H3 | Form screens need Level 2 exclusions. |
+| 6 | H1 + M1 | Fix together -- MopScorer case + element ID format. |
+| 7 | H5 | Metrics correction (easy fix). |
+| 8 | M2 + M3 | Stuck detection cap + multi-hop BFS. |
+| 9 | M4-M7 | Remaining medium bugs. |
+| 10 | L1-L4 | Low priority, fix opportunistically. |

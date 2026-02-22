@@ -292,9 +292,19 @@ class RVAgentStrategy(ExplorationStrategy):
         # Iteration counter for tracking
         self._current_iteration = 0
 
+        # Current state hash, set at the start of each select_next_action call.
+        # Used by _build_ranking_context to pass the correct hash to scorers.
+        self._current_hash: str = ""
+
         # Backtrack failure tracking: state_hash -> consecutive failure count.
         # When TIER3 backtrack to a state fails N times, skip that state.
         self._backtrack_failures: Dict[str, int] = {}
+
+        # Tracks whether the current iteration discovered a new state.
+        # Set in select_next_action() BEFORE get_or_create_state() adds it
+        # to the graph. Used by record_transition() to pass the correct
+        # discovered_new_state flag to PlateauDetector.
+        self._last_is_new_state: bool = False
 
         logger.info(
             f"RVAgentStrategy initialized: plateau_window={config.plateau_window}, "
@@ -328,6 +338,10 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             Selected ItemAction, or None if state exhausted or plateau reached
         """
+        # Store current_hash for use by _build_ranking_context and other
+        # internal methods that don't receive it as a parameter.
+        self._current_hash = current_hash
+
         # _current_iteration is set externally by algorithm_node from the
         # agent loop's iteration counter, ensuring all RVTRACK logs use the
         # same iteration number as rv_agent.py's main loop.
@@ -348,6 +362,7 @@ class RVAgentStrategy(ExplorationStrategy):
 
         # 2. Create or update graph node
         is_new_state = current_hash not in self.graph.states
+        self._last_is_new_state = is_new_state
         if is_new_state:
             node = self.graph.get_or_create_state(
                 current_hash, screen_desc.activity, screen_desc
@@ -628,13 +643,19 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         # Record in graph — action signatures use device-space coordinates (INV-AGT-40)
         action_signature = action.coords_for_matching
-        self.graph.record_transition(from_hash, to_hash, [{"action": action}])
+        self.graph.record_action_to_trace(
+            {"action": str(action.event), "coords": action.coordinates}
+        )
+        self.graph.record_transition(from_hash, to_hash)
 
         # Update successor tracker (enables action re-enabling logic)
         self.successor_tracker.record_successor(from_hash, action_signature, to_hash)
 
-        # Update plateau detector
-        new_state = to_hash not in self.graph.states
+        # Update plateau detector — use the flag stored by select_next_action()
+        # instead of checking `to_hash not in self.graph.states`, because by
+        # the time record_transition() runs the state was already added to the
+        # graph by get_or_create_state() in select_next_action().
+        new_state = self._last_is_new_state
         new_mop = action.callback_signature if action.callback_signature else None
 
         self.plateau_detector.record_iteration(
@@ -1004,17 +1025,11 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             RankingContext with all required data for scoring
         """
-        current_hash = (
-            self.graph.get_current_state_hash()
-            if hasattr(self.graph, "get_current_state_hash")
-            else ""
-        )
-
         return RankingContext(
             screen_desc=screen_desc,
             graph=self.graph,
             ui_coverage=self.ui_coverage,
-            current_state_hash=current_hash,
+            current_state_hash=self._current_hash,
             visited_activities=self._get_visited_activities(),
             transition_manager=self.transition_manager,
             has_untested_inputs=self._has_untested_inputs(screen_desc),
@@ -1030,7 +1045,7 @@ class RVAgentStrategy(ExplorationStrategy):
             if "EditText" not in target_class:
                 continue
             element_id = action.widget_id or (
-                f"({action.coordinates[0]},{action.coordinates[1]})"
+                make_element_id_from_tuple(action.coordinates)
                 if action.coordinates
                 else None
             )

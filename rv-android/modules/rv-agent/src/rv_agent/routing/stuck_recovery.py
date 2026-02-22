@@ -35,18 +35,23 @@ class StuckRecovery:
         self.total_recoveries = 0
         self.total_restarts = 0
 
-    def check(self, current_hash: str) -> Optional[str]:
+    def check(self, current_hash: str, is_form_action: bool = False) -> Optional[str]:
         """
         Check if stuck and return recovery action if needed.
 
         Args:
             current_hash: Current state hash
+            is_form_action: Whether the last action was a form action (SET_TEXT,
+                TEXT_CHANGE, or checkable widget). When True, the block counter
+                is NOT incremented because form actions legitimately keep the
+                same screen hash while changing internal state.
 
         Returns:
             "restart" if blocked for too long, None otherwise
         """
         if current_hash == self.last_state_hash:
-            self.state_block_counter += 1
+            if not is_form_action:
+                self.state_block_counter += 1
             logger.debug(
                 f"Same state detected ({self.state_block_counter}/{self.max_blocks}): "
                 f"{current_hash[:8]}..."

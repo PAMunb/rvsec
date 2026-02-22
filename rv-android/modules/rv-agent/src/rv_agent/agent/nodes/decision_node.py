@@ -43,7 +43,6 @@ def decision_router_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
     # Check for forced BACK action (Level 1 stuck - screen unchanged)
     if state.get("force_back_action", False):
-        agent.routing_manager.forced_back_count += 1
         track.route(iter=iteration, mode=mode, path="algorithm(back)")
         return {"decision_path": "algorithm", "decision_maker": "stuck_recovery"}
 

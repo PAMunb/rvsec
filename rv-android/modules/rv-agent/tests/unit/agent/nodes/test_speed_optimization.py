@@ -80,6 +80,9 @@ def _make_learn_agent(
     mock_agent.BASE_STUCK_THRESHOLD = 8
     mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
     mock_agent._cached_screen_desc = MagicMock()  # Start with a cached value
+    mock_agent._last_action_was_stuck_back = False
+    mock_agent.stuck_recovery = None
+    mock_agent.metrics_collector = None
     return mock_agent
 
 
@@ -184,6 +187,7 @@ class TestScreenDescCacheInvalidatedOnRestart:
         # Set up Level 2 stuck recovery to trigger restart
         mock_stuck_recovery = MagicMock()
         mock_stuck_recovery.check.return_value = "restart"
+        mock_stuck_recovery.max_blocks = 100  # High value so capping doesn't interfere
         agent.stuck_recovery = mock_stuck_recovery
 
         # No successor_tracker -> goes straight to restart
@@ -219,8 +223,10 @@ class TestScreenDescCacheInvalidatedOnRestart:
         agent._cached_screen_desc = cached_desc
 
         # No stuck_recovery triggering restart
-        agent.stuck_recovery = MagicMock()
-        agent.stuck_recovery.check.return_value = None
+        mock_stuck_recovery = MagicMock()
+        mock_stuck_recovery.check.return_value = None
+        mock_stuck_recovery.max_blocks = 100  # High value so capping doesn't interfere
+        agent.stuck_recovery = mock_stuck_recovery
 
         state = {
             "current_screen_hash": "stuck_hash",

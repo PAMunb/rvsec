@@ -49,6 +49,8 @@ class TestLearnNodeIntegration:
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
+        mock_agent._last_action_was_stuck_back = False
+        mock_agent.stuck_recovery = None
 
         # Create mock screen description with element
         mock_item = MagicMock()
@@ -104,6 +106,8 @@ class TestLearnNodeIntegration:
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
+        mock_agent._last_action_was_stuck_back = False
+        mock_agent.stuck_recovery = None
 
         state = {
             "current_screen_hash": "new_hash",
@@ -152,6 +156,8 @@ class TestLearnNodeStuckDetection:
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
+        mock_agent._last_action_was_stuck_back = False
+        mock_agent.stuck_recovery = None
 
         state = {"current_screen_hash": "same_hash", "iteration": 1}
 
@@ -190,6 +196,8 @@ class TestLearnNodeStuckDetection:
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
+        mock_agent._last_action_was_stuck_back = False
+        mock_agent.stuck_recovery = None
 
         state = {"current_screen_hash": "new_hash", "iteration": 1}
 
@@ -230,6 +238,8 @@ class TestLearnNodeStuckDetection:
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
         mock_agent.metrics_collector = None
+        mock_agent._last_action_was_stuck_back = False
+        mock_agent.stuck_recovery = None
 
         state = {"current_screen_hash": "stuck_hash", "iteration": 1}
 

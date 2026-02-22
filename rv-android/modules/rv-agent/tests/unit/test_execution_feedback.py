@@ -246,6 +246,7 @@ class TestDynamicStuckThreshold:
         mock_agent = MagicMock()
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
+        mock_agent.stuck_recovery = None  # No Level 2 capping
 
         # Create a mock screen_description with 10 items
         mock_screen_desc = MagicMock()
@@ -265,6 +266,7 @@ class TestDynamicStuckThreshold:
         mock_agent = MagicMock()
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
+        mock_agent.stuck_recovery = None  # No Level 2 capping
 
         state = {}  # No screen_description
 
@@ -280,6 +282,7 @@ class TestDynamicStuckThreshold:
         mock_agent = MagicMock()
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
+        mock_agent.stuck_recovery = None  # No Level 2 capping
 
         mock_screen_desc = MagicMock()
         mock_screen_desc.items = [MagicMock() for _ in range(3)]
@@ -298,6 +301,7 @@ class TestDynamicStuckThreshold:
         mock_agent = MagicMock()
         mock_agent.BASE_STUCK_THRESHOLD = 8
         mock_agent.STUCK_THRESHOLD_FACTOR = 1.5
+        mock_agent.stuck_recovery = None  # No Level 2 capping
 
         state = {"screen_description": None}
 

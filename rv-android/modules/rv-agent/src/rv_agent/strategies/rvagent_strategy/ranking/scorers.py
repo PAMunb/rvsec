@@ -85,7 +85,7 @@ class MopScorer(Scorer):
         # Defer MOP scoring for CLICK when untested text inputs exist on screen
         if (
             getattr(context, "has_untested_inputs", False)
-            and getattr(action, "action_type", "") == "CLICK"
+            and getattr(action, "action_type", "") == "click"
         ):
             return 0.0
 

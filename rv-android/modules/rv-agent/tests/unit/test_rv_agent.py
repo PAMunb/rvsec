@@ -267,24 +267,26 @@ class TestDecisionRouterNode:
 
         assert result["decision_path"] == "algorithm"
         assert result["decision_maker"] == "stuck_recovery"
-        assert agent.routing_manager.forced_back_count == 1
+        # Counter is NOT incremented in decision_node (moved to algorithm_node)
+        assert agent.routing_manager.forced_back_count == 0
 
     def test_force_back_increments_counter(self, agent, mock_dependencies):
-        """Force back increments forced_back_count."""
-        # Set up initial value for the mock
+        """Force back does NOT increment forced_back_count in decision_node.
+
+        Counter increment was moved to algorithm_node (Group 25.4).
+        decision_router_node only routes to algorithm path.
+        """
         agent.routing_manager.forced_back_count = 0
 
         state = {"iteration": 1, "force_back_action": True}
 
-        # Call once
         decision_router_node(agent, state)
-        # The counter should be incremented
-        assert agent.routing_manager.forced_back_count == 1
+        # Counter stays 0 — decision_node only routes, does not count
+        assert agent.routing_manager.forced_back_count == 0
 
-        # Call again
         decision_router_node(agent, state)
-        # The counter should be incremented again
-        assert agent.routing_manager.forced_back_count == 2
+        # Still 0 after second call
+        assert agent.routing_manager.forced_back_count == 0
 
 
 class TestAlgorithmNode:

@@ -130,6 +130,9 @@ class AgentState(TypedDict):
     llm_timeout_occurred: bool  # LLM timeout occurred in last call
     last_screen_hash: Optional[str]  # Previous screen hash for transition detection
     force_back_action: bool  # Force BACK action due to stuck state detection
+    force_restart_app: (
+        bool  # Force app restart due to Level 2 stuck recovery (learn_node.py)
+    )
 
     # LLM action validation (multimode workflow)
     llm_action: Optional[

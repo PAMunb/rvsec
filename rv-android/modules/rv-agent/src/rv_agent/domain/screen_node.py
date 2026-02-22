@@ -211,7 +211,7 @@ class ScreenNode:
     # System action types that should not count toward saturation.
     # These actions (BACK, RESTART, unknown) are not real UI widgets —
     # including them inflates the saturated count above total_actions (D8).
-    SYSTEM_ACTION_TYPES = frozenset({"back", "restart", "unknown"})
+    SYSTEM_ACTION_TYPES = frozenset({"back", "restart", "unknown", "key_event"})
 
     def get_saturation_rate(self) -> float:
         """Compute saturation rate for this state using per-widget thresholds.

@@ -96,7 +96,9 @@ class TestSelfLoopGuard:
 
     def test_self_loop_not_recorded(self):
         """record_successor(A, sig, A) should NOT add entry to successors."""
-        from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+        from rv_agent.strategies.rvagent_strategy.successor_tracker import (
+            SuccessorTracker,
+        )
 
         graph = DynamicStateGraph()
         tracker = SuccessorTracker(graph)
@@ -108,7 +110,9 @@ class TestSelfLoopGuard:
 
     def test_self_loop_does_not_trigger_re_enable(self):
         """update_action_availability should not re-enable actions with only self-loop successors."""
-        from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+        from rv_agent.strategies.rvagent_strategy.successor_tracker import (
+            SuccessorTracker,
+        )
 
         graph = DynamicStateGraph()
         screen_desc = _make_screen_desc(real_actions_count=3)
@@ -127,7 +131,9 @@ class TestSelfLoopGuard:
 
     def test_non_self_loop_still_recorded(self):
         """Normal transitions (A -> B) should still be recorded correctly."""
-        from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+        from rv_agent.strategies.rvagent_strategy.successor_tracker import (
+            SuccessorTracker,
+        )
 
         graph = DynamicStateGraph()
         tracker = SuccessorTracker(graph)
@@ -228,8 +234,7 @@ class TestTier4SystemActionFilter:
         # Verify that the system_action filter works
         actions = [real_action, back_action]
         real_only = [
-            a for a in actions
-            if not (a.target_view or {}).get("system_action")
+            a for a in actions if not (a.target_view or {}).get("system_action")
         ]
         assert len(real_only) == 1
         assert real_only[0].text == "Encrypt"
@@ -240,12 +245,14 @@ class TestTier4SystemActionFilter:
         back_action.target_view = {"system_action": True, "class": "SystemAction_BACK"}
 
         restart_action = MockAction(coordinates=None)
-        restart_action.target_view = {"system_action": True, "class": "SystemAction_RESTART"}
+        restart_action.target_view = {
+            "system_action": True,
+            "class": "SystemAction_RESTART",
+        }
 
         actions = [back_action, restart_action]
         real_only = [
-            a for a in actions
-            if not (a.target_view or {}).get("system_action")
+            a for a in actions if not (a.target_view or {}).get("system_action")
         ]
         assert len(real_only) == 0
 
@@ -318,7 +325,9 @@ class TestActionDictCoordinateValidation:
 
     def test_rejects_non_back_with_no_coords(self):
         """Non-BACK action with coordinates=None returns None."""
-        from rv_agent.strategies.rvagent_strategy.path_buffer import _action_dict_to_item_action
+        from rv_agent.strategies.rvagent_strategy.path_buffer import (
+            _action_dict_to_item_action,
+        )
 
         action_dict = {
             "action_type": "CLICK",
@@ -331,7 +340,9 @@ class TestActionDictCoordinateValidation:
 
     def test_accepts_back_with_no_coords(self):
         """BACK action with no coordinates is allowed (virtual action)."""
-        from rv_agent.strategies.rvagent_strategy.path_buffer import _action_dict_to_item_action
+        from rv_agent.strategies.rvagent_strategy.path_buffer import (
+            _action_dict_to_item_action,
+        )
 
         action_dict = {"action_type": "BACK"}
         result = _action_dict_to_item_action(action_dict)
@@ -339,7 +350,9 @@ class TestActionDictCoordinateValidation:
 
     def test_accepts_click_with_valid_coords(self):
         """CLICK action with valid coordinates is allowed."""
-        from rv_agent.strategies.rvagent_strategy.path_buffer import _action_dict_to_item_action
+        from rv_agent.strategies.rvagent_strategy.path_buffer import (
+            _action_dict_to_item_action,
+        )
 
         action_dict = {
             "action_type": "CLICK",

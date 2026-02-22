@@ -377,6 +377,18 @@ class PathBuffer:
             )
             logger.warning(f"PathBuffer: Invalidated ({count} actions discarded)")
 
+    def load_back_actions(self, count: int) -> None:
+        """Load multiple BACK actions into the buffer for multi-hop navigation.
+
+        Used by Level 2 stuck recovery (BFS) to navigate to an unsaturated
+        ancestor state in N iterations instead of N*max_blocks.
+
+        Args:
+            count: Number of BACK actions to queue.
+        """
+        self._buffer = [_create_back_action() for _ in range(count)]
+        logger.info(f"PathBuffer: Loaded {count} BACK actions for stuck recovery")
+
     @property
     def is_cooling_down(self) -> bool:
         """Whether planning is blocked by a post-failure cooldown.
