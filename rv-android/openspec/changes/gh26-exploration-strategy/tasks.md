@@ -17,7 +17,8 @@
      Bug fixes: External navigation & error recovery → Group 11
      Bug fixes: PathBuffer death spiral & strategy defects → Group 12
      Bug fixes: Execution feedback & tracking accuracy → Group 13
-     Bug fixes: Coordinate space unification → Group 14 -->
+     Bug fixes: Coordinate space unification → Group 14
+     Bug fixes: Emulator boot retry resilience → Group 15 -->
 
 <!-- Subagent dispatch hints:
      - Group 0 (Baseline Experiment) must run BEFORE any code changes.
@@ -59,6 +60,7 @@
        Group 11 can run in parallel with Groups 12-14 (no file overlap).
        Groups 12 → 13 → 14 MUST run sequentially (share rvagent_strategy.py, tool_executor.py, learn_node.py, path_buffer.py).
        Group 14 must be last — it supersedes task 13.5 and unifies coordinate space across all files touched by 12-13.
+       Group 15: Emulator boot retry resilience — 1 file (android.py in rv-android-core). Independent of Groups 11-14, can run in parallel.
      This change touches 16+ files — use subagent orchestration (3-4 parallel dispatches). -->
 
 ## 0. Baseline Experiment (BEFORE implementation)
@@ -441,3 +443,42 @@ The **optimized resolution** (704×1248) is ONLY for image compression — the s
 - [ ] 14.14 Run `/rv-doc-code modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py` — document `_record_action_success()` device-space signature format.
 - [ ] 14.15 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting and imports after modifications to 10+ files.
 - [ ] 14.16 Run `/rv-verify rv-agent` — final verification of Groups 11-14 bug fixes (tests + lint + type checks).
+
+## 15. Bug Fixes: Emulator Boot Retry Resilience
+
+Discovered during speed test (30min timeout, passera APK). The `_wait_for_boot()` method in `Android` (rv-android-core) has a boot timeout of 180s, but each individual ADB command (`getprop init.svc.bootanim`) has a 30s command timeout. If ADB is slow to respond while the emulator is still booting, the command timeout raises `RVCommandTimeoutError` which propagates immediately — the 180s retry loop is never reached. The task fails with 0% coverage after only 30s instead of retrying for the full 180s window.
+
+**Root cause chain (traced from logs):**
+1. `_wait_for_boot()` creates `check_emulator_cmd` with `cmd_timeout=30`
+2. First `check_emulator_cmd.invoke()` (line 149) executes **outside** the while loop
+3. If ADB is slow (emulator still loading), the command times out after 30s
+4. `RVCommandTimeoutError` propagates up — no try/except around this invoke
+5. The while loop (line 150) that checks `boot_timeout=180` is never reached
+6. Same vulnerability exists in Phase 2 (line 161, `sys.boot_completed`) and Phase 3 (lines 165, 171, root/remount)
+7. `EmulatorError` propagates to `TaskExecutor` → task marked as failed → 0% coverage
+
+**Affected file:**
+- `modules/rv-android-core/src/rv_android_core/util/android/android.py` (lines 131-178, `_wait_for_boot()`)
+
+- [ ] 15.1 Wrap Phase 1 boot animation check in try/except for `RVCommandTimeoutError`. Move the first `invoke()` (line 149) inside the while loop so that command timeouts are treated as "still booting" and retried. The loop should continue until `boot_timeout` is exceeded. Log a warning on each command timeout ("ADB command timed out, retrying...") instead of propagating the exception.
+  ```python
+  check_emulator_cmd = Command('adb', ['-s', device_name, 'shell', 'getprop', 'init.svc.bootanim'], cmd_timeout)
+  while True:
+      if time.time() - start > boot_timeout:
+          raise TimeoutError(f'{device_name} did not boot within {boot_timeout}s')
+      try:
+          check_result = check_emulator_cmd.invoke()
+          if check_result.stdout.strip().decode('ascii') == 'stopped':
+              break
+      except RVCommandTimeoutError:
+          logging.warning(f'ADB boot check timed out for {device_name}, retrying...')
+      time.sleep(5)
+      logging.info(f'Waiting for {device_name} to boot')
+  ```
+- [ ] 15.2 Wrap Phase 2 `sys.boot_completed` check (line 161) in try/except for `RVCommandTimeoutError`. Same pattern: retry until `boot_timeout` instead of propagating the first command timeout.
+- [ ] 15.3 Wrap Phase 3 root and remount commands (lines 165, 171) in try/except for `RVCommandTimeoutError`. Same pattern: retry until `boot_timeout`. These commands can also time out when the emulator is slow to respond after boot.
+- [ ] 15.4 Add import for `RVCommandTimeoutError` from `rv_android_core.util.error.exceptions` at the top of `android.py`.
+- [ ] 15.5 Unit tests for boot retry resilience: (a) test that `_wait_for_boot` retries when first `getprop` command times out — mock `Command.invoke()` to raise `RVCommandTimeoutError` on first 2 calls, return `stopped` on third, verify no exception raised; (b) test that `_wait_for_boot` raises `TimeoutError` after `boot_timeout` even with repeated command timeouts; (c) test that Phase 2 and Phase 3 also retry on command timeout. Tests go in `modules/rv-android-core/tests/unit/test_emulator_boot_retry.py`.
+- [ ] 15.6 Run `/rv-test-run rv-android-core` — verify all unit tests pass including 15.5.
+- [ ] 15.7 Run `/rv-doc-code modules/rv-android-core/src/rv_android_core/util/android/android.py` — document the retry-on-timeout behavior in `_wait_for_boot()`.
+- [ ] 15.8 Run `/rv-qa-lint-fix rv-android-core` — auto-fix formatting and imports.
