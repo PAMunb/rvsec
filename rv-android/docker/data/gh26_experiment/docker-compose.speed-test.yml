@@ -1,0 +1,74 @@
+# Speed Test: 5 APKs × 2 tools × 1 rep = 10 tasks.
+# Tests hypothesis: does rvagent close the gap with ape given more time?
+# Timeout: 600s (10min) — post-fix validation run.
+# Uses gh26-pos image, reuses instrumented APKs from validation.
+#
+# Usage:
+#   docker compose -f docker/data/gh26_experiment/docker-compose.speed-test.yml up
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:gh26-pos
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,rvagent:pure_algorithm"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_APKS_DIR: /opt/rvsec/rv-android/apks
+    RV_HUMANOID_URL: humanoid:50405
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: 8g
+  depends_on:
+    humanoid:
+      condition: service_healthy
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: humanoid_speed
+    ports:
+      - 50406:50405
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.create_connection(('127.0.0.1', 50405), timeout=3); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  batch_0:
+    <<: *rvandroid-base
+    container_name: speed_test_0
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: speed_test_0
+      RV_DEVICE_PORT: "5554"
+      RV_DELAY: "0"
+      RV_APKS_FILTER: /opt/rvsec/rv-android/data/speed_test_batch_0.txt
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+      - ./speed_test_batch_0.txt:/opt/rvsec/rv-android/data/speed_test_batch_0.txt:ro
+      - ./results/speed_test/batch_0:/opt/rvsec/rv-android/results
+
+  batch_1:
+    <<: *rvandroid-base
+    container_name: speed_test_1
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: speed_test_1
+      RV_DEVICE_PORT: "5556"
+      RV_DELAY: "10"
+      RV_APKS_FILTER: /opt/rvsec/rv-android/data/speed_test_batch_1.txt
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS:/opt/rvsec/rv-android/apks
+      - ./speed_test_batch_1.txt:/opt/rvsec/rv-android/data/speed_test_batch_1.txt:ro
+      - ./results/speed_test/batch_1:/opt/rvsec/rv-android/results
