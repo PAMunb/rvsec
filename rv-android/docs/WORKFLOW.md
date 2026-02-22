@@ -287,6 +287,11 @@ Main Window (orchestrator):
 
 This pattern works because most implementation tasks are **embarrassingly parallel** — editing constants.py in rv-experiment has no dependency on editing README.md or moving directories to backup. The main window does not need to hold the contents of 45 files simultaneously; it only needs to know which groups succeeded and which need attention.
 
+**Progress tracking**: After each subagent completes, the main window updates tasks.md checkboxes for all tasks in that subagent's group. This ensures:
+- Future sessions can detect which groups are done
+- The main window's checkpoint matches the actual code state
+- `/opsx:apply` can resume from the correct point if the session is interrupted
+
 ### When to Use Subagents
 
 | Situation | Subagent? | Rationale |
@@ -424,7 +429,7 @@ flowchart LR
 | **Exit criteria** | All tasks complete, tests passing, code review passed |
 
 **What to do**:
-1. Run `/opsx:apply` to begin executing tasks
+1. Run `/opsx:apply` — it detects current progress from tasks.md checkboxes and continues from the first pending task. Works for both starting fresh and resuming across sessions.
 2. For each task group, use component skills directly — OpenSpec artifacts already cover the analysis, planning, and design that orchestrators would redo:
    - Write tests first, then implementation (TDD discipline from tasks.md test cases)
    - Use `/rv-test-run` after each group to verify
@@ -435,7 +440,29 @@ flowchart LR
    Skill tool: skill="rv-code-reviewer", args="Review [change-name] implementation"
    ```
 
+**Checkpoint rule**: Update each task's checkbox (`- [ ]` → `- [x]`) immediately after completing it, BEFORE starting the next task. This is the mechanism that enables session resumption — any new session reads tasks.md to determine where to continue.
+
 **Subagent orchestration** (see Section 5): When `tasks.md` has 3+ independent task groups touching 20+ files total, dispatch each group to a subagent. The main window reads the plan, dispatches subagents (parallel when independent, sequential when dependent), collects summaries, and runs final verification. This prevents context compaction mid-implementation.
+
+#### Resuming Across Sessions
+
+Implementation of large changes often spans multiple Claude Code sessions due to context compaction. The workflow supports this through tasks.md checkboxes — the sole source of truth for implementation progress.
+
+**Resume protocol** (for any new session picking up in-progress work):
+1. Read change artifacts: `tasks.md`, `design.md` (or `plan.md` for Quick Path)
+2. Check current state: count `[x]` vs `[ ]` checkboxes
+3. Identify the first pending task (`- [ ]`)
+4. Continue implementation from that task
+
+**What NOT to do when resuming**:
+- Do NOT re-run `/opsx:apply` as if starting fresh — it reads checkbox state automatically
+- Do NOT skip reading the design/plan artifacts — context from previous sessions is lost
+- Do NOT start a task without verifying the previous task's checkbox is marked
+
+**Saving session state**: At the end of each session (or when switching tasks), ensure:
+- All completed tasks have `[x]` checkboxes
+- Any partial work is noted in the tasks.md as a comment or the task stays `[ ]`
+- Code changes are committed (or at least saved) to prevent loss
 
 #### Phase 5: Verify
 
@@ -626,6 +653,8 @@ For trivial changes (typo fix, single-file edit), tasks.md can be as short as:
 | **Verification** | `/rv-verify` or `/rv-test-run` |
 | **Outputs** | Code changes, tests passing, acceptance criteria met |
 | **Exit criteria** | All tasks checked off, all acceptance criteria from `plan.md` met |
+
+**Checkpoint rule**: Update each task's checkbox (`- [ ]` → `- [x]`) immediately after completing it. This enables session resumption — see Phase 4 of Full SDD for the complete resume protocol, which applies equally to Quick Path.
 
 **Subagent orchestration** (see Section 5): When tasks.md has 3+ independent groups or touches 20+ files, dispatch each group to a subagent. The main window reads the plan, dispatches, collects summaries, and runs final verification.
 

@@ -259,6 +259,48 @@ The navigation/graph system consists of five components in a layered architectur
 
 **Rationale**: P3 (No Backward Compatibility) mandates removing dead code entirely. gh26 already modifies `rvagent_strategy.py` extensively — consolidating now avoids building new features on top of dead code. The removals simplify the file by ~30 lines and eliminate 3 sources of confusion for future implementers (what is state_stack for? why are there two visited_activities sources? why does coverage differ between SuccessorTracker and ScreenNode?).
 
+### D7: Coordinate space unification -- device space everywhere (INV-AGT-40)
+
+**Decision**: The system uses a single coordinate space (device pixels, 0-1080 × 0-1920) for ALL internal action tracking, strategy decisions, graph signatures, scorer lookups, coverage tracking, and reward propagation. Formalized as INV-AGT-40 in the delta spec. Two boundary conversions exist at the LLM interface only:
+
+1. **LLM input**: `format_ui_elements()` converts device → normalized [0,1000) for the text prompt
+2. **LLM output**: `ActionNormalizer.from_llm()` converts normalized [0,1000) → device for the response
+
+The optimized resolution (704×1248) is ONLY for screenshot image compression (fewer tokens, faster LLM inference). It is NOT a coordinate space. Qwen3-VL returns coordinates in [0,1000) regardless of input image resolution.
+
+**Problem**: Before this decision, the codebase used 4 coordinate spaces (device, normalized [0,1000), optimized 704×1248, bounds [[x1,y1],[x2,y2]]) that leaked across component boundaries:
+
+| Mismatch | Effect |
+|----------|--------|
+| `execute_node` pre-marks in device space, `learn_node._record_action_success` records in optimized space | Action signatures never match in DynamicStateGraph — pre-marked actions cannot be found by success recordings, making `action_success_counts` unreliable |
+| `ui_coverage.register_screen_elements()` uses device space, `_process_element()` uses normalized space | `find_nearest_element()` with max_distance=100 fails — euclidean distance between the same physical point expressed in device (539, 1050) vs normalized (499, 547) is ~460, far exceeding the threshold |
+| `RVAgentStrategy._convert_signature_to_optimized()` converts action signatures for ScreenNode, but `execute_node` pre-marks in device | `action_execution_counts` keys (optimized) don't match pre-marking keys (device), breaking saturation calculation |
+
+**What is eliminated**:
+
+| Item | Location | Replacement |
+|------|----------|-------------|
+| `_convert_signature_to_optimized()` | `rvagent_strategy.py` | Direct device-space signatures |
+| `device_to_optimized()` | `rvagent_strategy.py` | Deleted (no replacement needed) |
+| Optimized-space conversion in `_record_action_success` | `learn_node.py` | Device-space signature |
+| Optimized-space `action_signature` in RewardPropagator | `reward_propagator.py` | Device-space signature |
+| Mixed coordinate registration in UICoverageTracker | `ui_coverage.py` | Single consistent space |
+
+**What is preserved**:
+
+| Item | Location | Why |
+|------|----------|-----|
+| Screenshot resize to 704×1248 | `image_handler.py` | LLM token efficiency — fewer pixels = fewer tokens = faster inference. User confirmed this optimization should stay. |
+| `optimized_dimensions` config field | `agent_config.py` | Controls screenshot size. Renamed semantics: image resolution, NOT coordinate space. |
+| `ActionNormalizer.from_llm()` | `domain/action.py` | Already correctly converts [0,1000) → device. No change needed. |
+| `format_ui_elements()` | `services/screen_processor.py` | Already correctly converts device → [0,1000) for LLM prompt. No change needed. |
+
+**Alternatives considered**:
+- Normalize everything to [0,1000): would require all tracking, graph, and strategy code to operate in normalized space. Adds conversion overhead on every UIAutomator XML parse (which returns device coordinates). LLM boundary conversion direction would flip (normalized→device at execution instead of device→normalized at prompting). No benefit over device-space since the mismatch is the problem, not the choice of space.
+- Keep optimized space but fix the mismatches: would require converting pre-marking to optimized too, and fixing ui_coverage to use optimized consistently. More changes, more conversion overhead, and "optimized" is a misleading name for a coordinate space derived from image compression.
+
+**Rationale**: Device space is the natural coordinate system — UIAutomator XML reports bounds in device pixels, device actions execute in device pixels, and there is no lossy conversion. Using device space everywhere eliminates all conversion functions (except at the two LLM boundary points) and makes signature matching trivially correct. The optimized dimension concept was an artifact of the assumption that Qwen3-VL coordinates depended on image size — they don't (always [0,1000) regardless of resolution, confirmed by Qwen3-VL documentation and empirical validation).
+
 ## API Design
 
 ### PathBuffer
@@ -469,7 +511,8 @@ def get_action_destination(
 
     Args:
         state_hash: Hash of the state where the action is available.
-        action_signature: Tuple of ((opt_x, opt_y), action_type).
+        action_signature: Tuple of ((device_x, device_y), action_type)
+                in device pixel coordinates (INV-AGT-40).
 
     Returns:
         Destination state hash, or None if transition not recorded.
@@ -619,7 +662,7 @@ class RewardPropagator:
     Maintains its own internal sliding window of (state_hash, action_signature)
     tuples, populated by learn_node via record_action(). This avoids enriching
     the shared recent_action_window (which stores raw action dicts without
-    state_hash or optimized coordinates).
+    state_hash or device-space signatures).
     """
 
     # Reward values
@@ -653,14 +696,13 @@ class RewardPropagator:
 
         Called by learn_node after each iteration, using the same state_hash
         (previous_screen_hash, i.e. the state where the action was executed)
-        and action_signature (optimized coordinates, as computed by
-        _record_action_success()). Maintains a deque of max
-        REWARD_PROPAGATION_N entries.
+        and action_signature (device-space coordinates, per INV-AGT-40).
+        Maintains a deque of max REWARD_PROPAGATION_N entries.
 
         Args:
             state_hash: Hash of the state where the action was executed.
-            action_signature: Tuple of ((opt_x, opt_y), action_type) in
-                optimized [0, 1000) coordinate space.
+            action_signature: Tuple of ((device_x, device_y), action_type)
+                in device pixel coordinates (INV-AGT-40).
         """
 
     def propagate(
@@ -977,7 +1019,7 @@ The rv-agent `pyproject.toml` dependency constraints must be updated to match th
    ├── _record_action_success()
    ├── [NEW] RewardPropagator.record_action(previous_hash, action_signature)
    │     └── Appends (state_hash, action_signature) to internal deque
-   │         (reuses same previous_hash and optimized coords from _record_action_success)
+   │         (reuses same previous_hash and device-space action signature from _record_action_success — INV-AGT-40)
    ├── [NEW] RewardPropagator.propagate(reward_type, graph)
    │     ├── Determine reward_type (mutually exclusive — highest applicable wins):
    │     │     ├── mop_reached → 5.0 (when callback_signature present, regardless of state change)
@@ -1132,13 +1174,13 @@ Unit and integration tests verify correctness, but the 10 improvements interact 
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| **APK set** | 21 APKs, SA-validated | 14 from SA filter (65 pre-selected, 51 failed — mostly REACH/GATOR timeouts) + 7 recovered from aborted old baseline (all with 3 SA files). All consolidated in `out/gh26_sa_filter/` |
+| **APK set** | 19 APKs, SA-validated | 14 from SA filter + 7 from old baseline = 21, minus 2 excluded (micopi_32, fairphone.mycontacts_3 — 0% coverage across all tools, instrumentation incompatibility) = **19**. All consolidated in `out/gh26_sa_filter/` |
 | **Spec set** | JCA (23 specs) | Thesis focus; MOP coverage is the primary quality metric |
 | **Tools** | `ape`, `fastbot`, `rvagent:pure_algorithm` | APE and Fastbot serve as unmodified reference baselines (sanity check); rvagent is the subject under test |
 | **Timeout** | 300s (5 min) | Matches the standard experiment duration used in thesis experiments and gh9 calibration |
-| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 21 APKs (mean of 3 reps each) |
-| **Total tasks** | 189 (21 × 3 × 3) per phase | Two phases: baseline (189) + validation (189) = 378 total tasks |
-| **Parallelism** | 2 Docker containers on laptop (11 + 10 APKs) | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
+| **Repetitions** | 3 per (APK, tool) | Enough to compute mean ± std per APK; Wilcoxon paired observations = 19 APKs (mean of 3 reps each) |
+| **Total tasks** | 171 (19 × 3 × 3) per phase | Two phases: baseline (171) + validation (171) = 342 total tasks |
+| **Parallelism** | 2 Docker containers on laptop (9 + 10 APKs) | Resource constraints: ~4 CPUs + 8GB RAM per container; staggered start (RV_DELAY=0, 10) to avoid KVM boot races |
 | **SA reuse** | Pre-computed .gesda/.wtg/.reach from `out/gh26_sa_filter/` | Mounted read-only into containers; `RV_SKIP_STATIC_ANALYSIS=true` skips redundant SA preprocessing (~75 min saved per container) |
 
 ### Dataset Rebuild: Why exp02 Was Replaced
@@ -1152,16 +1194,16 @@ The replacement combines two sources:
 3. **SA filter**: Run `scripts/filter_apks_static_analysis.py` on the 65 APKs with GESDA, GATOR, REACH (timeout 600s each, 2 workers). Result: **14/65 passed** (51 failed — REACH timeout ~35, GATOR timeout ~8, GATOR NoClassDefFoundError ~6, other ~2)
 4. **Recovery from aborted baseline**: The old baseline experiment (10 exp02 APKs) was aborted after discovering missing SA files, but **7 of 10 APKs had already produced all 3 SA files**. These were recovered from `docker/data/gh26_experiment/results/baseline/batch_{0,1}/*/instrumented_apks/`
 
-All 21 SA files (14 + 7) are consolidated in `out/gh26_sa_filter/<apk_name>/<apk_name>.{gesda,wtg,reach}`. Both baseline and validation experiments reuse these via `RV_SKIP_STATIC_ANALYSIS=true` and volume mounts.
+All 19 SA files are consolidated in `out/gh26_sa_filter/<apk_name>/<apk_name>.{gesda,wtg,reach}`. Both baseline and validation experiments reuse these via `RV_SKIP_STATIC_ANALYSIS=true` and volume mounts. Two APKs excluded after baseline analysis: `com.easytarget.micopi_32` and `community.fairphone.mycontacts_3` (0% coverage across all tools — instrumentation incompatibility).
 
 Data artifacts (gitignored, in `out/`):
 - `out/gh26_dataset/all_jca_apks.txt` — 188 APKs from step 1
 - `out/gh26_dataset/preselection/` — 65 APKs from step 2
-- `out/gh26_sa_filter/` — consolidated SA files for all 21 APKs (14 from filter + 7 from old baseline)
+- `out/gh26_sa_filter/` — consolidated SA files for all 19 APKs (12 from filter + 7 from old baseline)
 
-### APK Set (SA-validated, 21 APKs)
+### APK Set (SA-validated, 19 APKs)
 
-The 21 APKs have all 3 SA files (.gesda, .wtg, .reach) confirmed. The specific APK list is recorded in `tasks.md` Group 0, task 0.1e.
+The 19 APKs have all 3 SA files (.gesda, .wtg, .reach) confirmed and produce non-zero coverage in the baseline experiment. The specific APK list is recorded in `tasks.md` Group 0, task 0.1e. Two APKs were excluded post-baseline (task 0.1f).
 
 ### Docker Image Tagging Strategy
 
@@ -1207,13 +1249,13 @@ Follows the container-level parallelism pattern from gh9 and rvsec-02. Each phas
 
 **Phase 0 — Baseline** (2 containers, ~8 hours):
 
-Each container runs monitors + instrumentation + execution (SA skipped — pre-computed files injected by entrypoint). 2 batches (11 + 10 APKs), running in parallel.
+Each container runs monitors + instrumentation + execution (SA skipped — pre-computed files injected by entrypoint). 2 batches (9 + 10 APKs), running in parallel.
 
 SA file injection mechanism: the `docker-entrypoint.sh` was extended with a `RV_SA_DIR` handler. When `RV_SA_DIR` is set and points to a directory, the entrypoint copies all `.gesda`, `.wtg`, `.reach` files from `$RV_SA_DIR/<apk>.apk/` into `results/$RV_EXPERIMENT_NAME/instrumented_apks/` before running `rv-experiment`. This ensures `StaticAnalysisComponent.copy_static_analysis_files()` finds them in `apks_dir` (which resolves to `results/<name>/instrumented_apks/` when `--name` is used). The updated entrypoint is mounted via volume (not baked into the `gh26-pre` image).
 
 ```
 docker-compose.baseline.yml
-  ├── batch_0: (11 APKs)
+  ├── batch_0: (9 APKs)
   │     image: phtcosta/rvandroid:gh26-pre
   │     RV_TOOLS=ape,fastbot,rvagent:pure_algorithm
   │     RV_TIMEOUTS=300, RV_REPETITIONS=3, RV_JCA_SPEC=true
@@ -1229,13 +1271,13 @@ docker-compose.baseline.yml
         same config, RV_DELAY=10
 ```
 
-Calculation: preprocessing ~50min/container (monitors + instrumentation, SA skipped) + (99 tasks × 5min) = ~8h per container (batch_0). Batch_1: ~50min + (90 × 5min) = ~8h.
+Calculation: preprocessing ~50min/container (monitors + instrumentation, SA skipped) + (81 tasks × 5min) = ~7h per container (batch_0). Batch_1: ~50min + (90 × 5min) = ~8h.
 
 **Phase 1 — Validation** (2 containers, ~8 hours):
 
 ```
 docker-compose.validation.yml
-  ├── batch_0: (11 APKs)
+  ├── batch_0: (9 APKs)
   │     image: phtcosta/rvandroid:gh26-pos (post-gh26 codebase)
   │     RV_SKIP_STATIC_ANALYSIS=true (reuse pre-computed SA files)
   │     volumes: out/gh26_sa_filter/:ro, results/baseline/batch_0/:ro → instrumented APKs
@@ -1250,7 +1292,7 @@ All docker-compose files are stored in `docker/data/gh26_experiment/`. Validatio
 
 ```
 docker-compose.validation-nosa.yml
-  ├── batch_0: (11 APKs)
+  ├── batch_0: (9 APKs)
   │     image: phtcosta/rvandroid:gh26-pos
   │     RV_SKIP_STATIC_ANALYSIS=true for rvagent:pure_algorithm only
   │     (ape/fastbot unchanged)
@@ -1263,9 +1305,9 @@ This optional variant validates that CoverageDensityScorer + Strategy C provide 
 
 | Config | APKs | Tools | Reps | Tasks | Per Container (max) | Est. Time |
 |--------|------|-------|------|-------|---------------------|-----------|
-| Chosen | 21 | 3 | 3 | 189 | 99 tasks (11+10 split) | ~8h |
+| Chosen | 19 | 3 | 3 | 171 | 81 tasks (9+10 split) | ~8h |
 
-21 APKs provide 21 paired observations per tool for Wilcoxon signed-rank tests. SA preprocessing skipped (~50 min for monitors + instrumentation only).
+19 APKs provide 19 paired observations per tool for Wilcoxon signed-rank tests. SA preprocessing skipped (~50 min for monitors + instrumentation only).
 
 ### Comparison Metrics
 
