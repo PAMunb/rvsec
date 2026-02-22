@@ -65,7 +65,7 @@ rv-agent-validation/
 │   │
 │   ├── calibration/          # Parameter calibration (Optuna)
 │   │   ├── __init__.py       # Module exports
-│   │   ├── parameter_space.py # 36 tunable parameters with ranges
+│   │   ├── parameter_space.py # 37 tunable parameters with ranges
 │   │   ├── objective.py      # ObjectiveFunction (coverage + errors + UI)
 │   │   ├── cli.py            # CLI commands (show-params, show-defaults)
 │   │   └── metrics_collector.py # CalibrationMetricsCollector
@@ -180,8 +180,8 @@ uv run python -m rv_agent_validation show-defaults
 1. **Phase B0-D0 (Pre-cal)**: Reduced-scale calibration on 20 APKs to validate infrastructure and produce starting defaults
 2. **Phase B (Baseline)**: `baseline_docker.py` — establish error baselines with standard tools
 3. **Phase C (Macro)**: `calibration_orchestrator.py --phase macro` — tune 11 high-impact parameters
-4. **Phase D (Micro)**: `calibration_orchestrator.py --phase micro` — fine-tune 25 additional parameters
-5. **Phase E (Validation)**: `baseline_docker.py` — validate 36 params on hold-out set
+4. **Phase D (Micro)**: `calibration_orchestrator.py --phase micro` — fine-tune 26 additional parameters
+5. **Phase E (Validation)**: `baseline_docker.py` — validate 37 params on hold-out set
 
 **Objective Function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage.
 
@@ -408,7 +408,7 @@ Enables experiment resume capability:
 | `coverage_density_weight` | 200.0 | 50-400 | Coverage density scoring (gh26) |
 | `error_detection_confidence` | 0.7 | 0.3-0.95 | Error detection threshold (gh18) |
 
-**Micro Parameters (Phase 2 - 25 params):**
+**Micro Parameters (Phase 2 - 26 params):**
 
 | Parameter | Default | Range |
 |-----------|---------|-------|
@@ -437,6 +437,7 @@ Enables experiment resume capability:
 | `spatial_edittext_boost` | 1.2 | 1.0-2.0 |
 | `spatial_spinner_boost` | 1.1 | 1.0-2.0 |
 | `spatial_min_match_threshold` | 0.1 | 0.01-0.5 |
+| `multi_value_saturation_threshold` | 4 | 2-8 |
 
 ## Testing
 

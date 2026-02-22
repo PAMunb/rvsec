@@ -18,12 +18,12 @@ This is an **execution runbook**, not a code design. Each section corresponds to
 A  → Preprocessing (188 APKs, ~2h)
 B0 → Pre-baseline (20 APKs, 2 tools × 1 rep)
 C0 → Pre-macro (20 APKs, 30 trials, 11 MACRO params)
-D0 → Pre-micro (20 APKs, 40 trials, 25 MICRO params, SGLang)
+D0 → Pre-micro (20 APKs, 40 trials, 26 MICRO params, SGLang)
      [update defaults from pre-cal results]
 B  → Full baseline (105 APKs, 3 tools × 3 reps)
 C  → Full macro (75 APKs, 80 trials, 11 MACRO params)
-D  → Full micro (75 APKs, 100 trials, 25 MICRO params, SGLang)
-E  → Validation (30 holdout APKs, 36 params, SGLang)
+D  → Full micro (75 APKs, 100 trials, 26 MICRO params, SGLang)
+E  → Validation (30 holdout APKs, 37 params, SGLang)
 ```
 
 ### Environment
@@ -216,7 +216,7 @@ done
 
 ### Purpose
 
-Run a reduced-scale calibration on 20 APKs (subset of the 75-APK calibration set) before the full campaign. This validates infrastructure end-to-end, determines if trial counts (80/100) are sufficient for 36 parameters, and produces better starting defaults for the full campaign.
+Run a reduced-scale calibration on 20 APKs (subset of the 75-APK calibration set) before the full campaign. This validates infrastructure end-to-end, determines if trial counts (80/100) are sufficient for 37 parameters, and produces better starting defaults for the full campaign.
 
 **APK selection**: 20 APKs drawn from `calibration_set_v2.txt`, stratified by category. Saved as `precal_set.txt`. The 30-APK holdout set is never touched.
 
@@ -251,7 +251,7 @@ uv run python scripts/calibration_orchestrator.py \
 
 **Trials**: 30 total. Each trial processes 20 APKs. **Duration**: ~5.5h (600s) to ~8.3h (900s).
 
-### Phase D0 — Pre-micro (40 trials, 25 MICRO params, SGLang)
+### Phase D0 — Pre-micro (40 trials, 26 MICRO params, SGLang)
 
 ```bash
 uv run python scripts/calibration_orchestrator.py \
@@ -286,16 +286,16 @@ print(f'First 10 avg: {sum(scores[:10])/10:.4f}')
 print(f'Last 10 avg: {sum(scores[-10:])/10:.4f}')
 "
 
-# D0: verify optimal_params.json has 36 params (11 macro + 25 micro)
+# D0: verify optimal_params.json has 37 params (11 macro + 26 micro)
 python3 -c "
 import json
 with open('results/precal_micro/optimal_params.json') as f:
     data = json.load(f)
-print(f'Parameters: {len(data[\"best_params\"])} (expected 36)')
+print(f'Parameters: {len(data[\"best_params\"])} (expected 37)')
 "
 ```
 
-**Gate**: C0 shows convergence trend. D0 produces `optimal_params.json` with 36 parameters. Pre-cal total duration < 25h.
+**Gate**: C0 shows convergence trend. D0 produces `optimal_params.json` with 37 parameters. Pre-cal total duration < 25h.
 
 ---
 
@@ -463,7 +463,7 @@ The script recovers orphaned RUNNING trials from SQLite, scores any that have re
 
 ### Purpose
 
-Fine-tune 25 additional parameters while keeping the 11 macro parameters fixed at their optimal values from Phase C. Uses `multimode` agent mode, which requires the SGLang server (Qwen3-VL-4B). Starting defaults come from Phase D0 pre-calibration.
+Fine-tune 26 additional parameters while keeping the 11 macro parameters fixed at their optimal values from Phase C. Uses `multimode` agent mode, which requires the SGLang server (Qwen3-VL-4B). Starting defaults come from Phase D0 pre-calibration.
 
 ### Prerequisites (in addition to Section 0)
 
@@ -518,7 +518,7 @@ uv run python scripts/verify_phase.py d \
     --macro-dir ./results/calibration_macro_v2
 ```
 
-**Gate**: 100 trials completed, best_score > 0.0, `optimal_params.json` contains all 36 parameters (11 macro fixed + 25 micro tuned).
+**Gate**: 100 trials completed, best_score > 0.0, `optimal_params.json` contains all 37 parameters (11 macro fixed + 26 micro tuned).
 
 ### Resume and Troubleshooting
 
@@ -530,7 +530,7 @@ Same as Phase C — add `--resume` flag. Additional concern: SGLang server may n
 
 ### Purpose
 
-Validate the 36 calibrated parameters on the 30-APK holdout set (never seen during calibration). Run the same 3 tools x 3 repetitions as the baseline for direct statistical comparison.
+Validate the 37 calibrated parameters on the 30-APK holdout set (never seen during calibration). Run the same 3 tools x 3 repetitions as the baseline for direct statistical comparison.
 
 ### Prerequisites (in addition to Section 0)
 
@@ -605,11 +605,53 @@ print(f'Calibrated mean: {val_rv[\"errors\"].mean():.2f}')
 
 ## 6. Parameter Application (Post-Execution)
 
-After Phase E validates the 36 calibrated parameters, apply them to the codebase:
+After Phase E validates the 37 calibrated parameters, apply them to the codebase:
 
-1. **Update `parameter_space.py`**: Change default values in `MACRO_PARAMETERS` (11) and `MICRO_PARAMETERS` (25) to match `optimal_params.json`
+1. **Update `parameter_space.py`**: Change default values in `MACRO_PARAMETERS` (11) and `MICRO_PARAMETERS` (26) to match `optimal_params.json`
 2. **Update agent spec**: Delta spec for `openspec/specs/agent/spec.md` with new default values for `RVAgentConfig` fields
 3. **Update unit tests**: Any tests that assert default parameter values need updating
 4. **Commit**: `closes #9` — the full calibration lifecycle is complete
 
 This step is tracked as Tasks 25-27 and will be executed as an FF SDD change for the agent spec update.
+
+---
+
+## 7. Parameter Importance Classification
+
+Each parameter has an importance rating (1-5) to enable fast calibration strategies. The full campaign tunes all 37 parameters; a fast calibration can focus on importance >= 4 (12 params) or importance >= 3 (24 params).
+
+| Importance | Count | Description | Fast calibration strategy |
+|------------|-------|-------------|--------------------------|
+| 5 (Critical) | 5 | Controls exploration direction, primary scoring | Always calibrate |
+| 4 (High) | 7 | Significantly affects exploration efficiency | Calibrate in fast mode |
+| 3 (Medium) | 12 | Noticeable impact on specific subsystems | Fix at defaults in fast mode |
+| 2 (Low) | 11 | Fine-tuning within a subsystem | Fix at defaults |
+| 1 (Minimal) | 2 | Very narrow range, negligible effect | Fix at defaults |
+
+### Importance 5 — Critical (5 params)
+
+| Parameter | Phase | Rationale |
+|-----------|-------|-----------|
+| `mop_direct_score` | MACRO | Primary signal driving agent toward monitored operations |
+| `max_re_enables` | MACRO | Directly controls DFS depth vs breadth |
+| `stochastic_probability` | MACRO | Exploration/exploitation balance — small changes dramatically alter behavior |
+| `visitation_penalty_factor` | MACRO | Anti-loop mechanism — wrong value = stuck in loops or premature abandonment |
+| `llm_probability` | MICRO | THE key multimode parameter — LLM vs algorithm ratio |
+
+### Importance 4 — High (7 params)
+
+| Parameter | Phase | Rationale |
+|-----------|-------|-----------|
+| `wtg_guided_score` | MACRO | Important for exploration breadth via WTG graph |
+| `unsaturated_bonus` | MACRO | Drives state diversity in exploration |
+| `ui_coverage_threshold` | MACRO | Controls when successors get re-enabled |
+| `strength_weight` | MACRO | Controls exploitation of historically successful actions |
+| `backtrack_saturation_threshold` | MACRO | Controls when exploration pivots via backtracking |
+| `mop_transitive_score` | MICRO | Secondary MOP signal — still significant for coverage |
+| `llm_temperature` | MICRO | Validated as critical for tool calling accuracy |
+
+### Fast Calibration Option (importance >= 4)
+
+12 parameters: 9 MACRO + 3 MICRO. Estimate: ~60% faster than full calibration (12 vs 37 params reduces Optuna's search space dimension by 68%). Remaining 25 parameters stay at their defaults.
+
+Use `get_parameters_by_importance(min_importance=4)` in `parameter_space.py` to get this subset programmatically.

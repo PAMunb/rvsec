@@ -204,7 +204,7 @@ def verify_phase_d(results_dir: Path, macro_dir: Path | None = None, expected_tr
     Checks:
     - trial_history.json exists with expected trial count
     - best_score > 0.0 in optimal_params.json
-    - optimal_params.json contains all 36 parameters (11 macro + 25 micro)
+    - optimal_params.json contains all 37 parameters (11 macro + 26 micro)
     - Score improvement over macro phase (if macro_dir provided)
     """
     result = VerificationResult(phase="D")
@@ -228,7 +228,7 @@ def verify_phase_d(results_dir: Path, macro_dir: Path | None = None, expected_tr
     # Check optimal params
     _check_optimal_params(result, results_dir)
 
-    # Check parameter count (should be 36 = 11 macro + 25 micro)
+    # Check parameter count (should be 37 = 11 macro + 26 micro)
     optimal_path = results_dir / "optimal_params.json"
     if optimal_path.exists():
         with open(optimal_path) as f:
@@ -236,8 +236,8 @@ def verify_phase_d(results_dir: Path, macro_dir: Path | None = None, expected_tr
         param_count = len(data.get("best_params", {}))
         result.checks.append(Check(
             name="parameter_count",
-            passed=param_count == 36,
-            detail=f"{param_count} parameters (expected 36)",
+            passed=param_count == 37,
+            detail=f"{param_count} parameters (expected 37)",
         ))
     else:
         result.checks.append(Check(

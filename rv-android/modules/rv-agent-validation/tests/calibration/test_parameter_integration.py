@@ -120,24 +120,24 @@ def test_macro_phase_suggests_11_params():
     assert len(params) == 11
 
 
-def test_micro_phase_suggests_25_params():
-    """T35: suggest_params with MICRO phase suggests exactly 25 parameters."""
+def test_micro_phase_suggests_26_params():
+    """T35: suggest_params with MICRO phase suggests exactly 26 parameters."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.MICRO)
 
-    assert len(params) == 25
+    assert len(params) == 26
 
 
-def test_full_phase_suggests_36_params():
-    """T36: suggest_params with FULL phase suggests all 36 parameters."""
+def test_full_phase_suggests_37_params():
+    """T36: suggest_params with FULL phase suggests all 37 parameters."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.FULL)
 
-    assert len(params) == 36
+    assert len(params) == 37
 
 
 def test_new_micro_params_exist():
@@ -150,6 +150,7 @@ def test_new_micro_params_exist():
         "reward_score_weight", "error_max_indicator_size",
         "error_max_indicator_count", "spatial_edittext_boost",
         "spatial_spinner_boost", "spatial_min_match_threshold",
+        "multi_value_saturation_threshold",
     ]
     for name in new_micro:
         assert name in param_names, f"Missing MICRO param: {name}"

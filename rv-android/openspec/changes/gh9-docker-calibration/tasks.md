@@ -27,7 +27,7 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 ### Parameter Space Expansion (COMPLETED)
 
 12a. Task 12a: Update `parameter_space.py` — sync 6 defaults (gh26), add 12 new params (3 MACRO + 9 MICRO)
-12b. Task 12b: Update unit tests — 11 MACRO, 25 MICRO, 36 total
+12b. Task 12b: Update unit tests — 11 MACRO, 26 MICRO, 37 total
 12c. Task 12c: Update `design.md` — pre-cal phases, expanded params, TIMEOUT_SECS placeholder
 12d. Task 12d: Update `tasks.md` — add pre-cal tasks, update param counts
 
@@ -48,7 +48,7 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 16c. Task 16c: Phase B0 — Verify results + compute BASELINE_MAX_ERRORS_PRE
 16d. Task 16d: Phase C0 — Execute pre-macro (30 trials, 11 MACRO params)
 16e. Task 16e: Phase C0 — Verify convergence
-16f. Task 16f: Phase D0 — Execute pre-micro (40 trials, 25 MICRO params, SGLang)
+16f. Task 16f: Phase D0 — Execute pre-micro (40 trials, 26 MICRO params, SGLang)
 16g. Task 16g: Phase D0 — Verify convergence
 16h. Task 16h: Update `parameter_space.py` defaults from pre-cal optimal params
 
@@ -58,14 +58,14 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 18. Task 18: Phase B — Verify results + compute BASELINE_MAX_ERRORS
 19. Task 19: Phase C — Execute macro calibration (80 trials, 11 MACRO params)
 20. Task 20: Phase C — Verify results + analyze convergence
-21. Task 21: Phase D — Execute micro calibration (100 trials, 25 MICRO params, SGLang)
+21. Task 21: Phase D — Execute micro calibration (100 trials, 26 MICRO params, SGLang)
 22. Task 22: Phase D — Verify results + compare modes
-23. Task 23: Phase E — Execute validation (36 params, SGLang)
+23. Task 23: Phase E — Execute validation (37 params, SGLang)
 24. Task 24: Phase E — Verify results + statistical comparison
 
 ### Post-Execution (PENDING)
 
-25. Task 25: Apply 36 optimal parameters to code
+25. Task 25: Apply 37 optimal parameters to code
 26. Task 26: Update agent spec (FF SDD delta spec)
 27. Task 27: Archive change and close issue (closes #9)
 
@@ -139,9 +139,9 @@ Code fixes for risks identified during deep analysis, plus the new preprocessing
 
 ## Parameter Space Expansion
 
-### 12a. Update `parameter_space.py` — Expand from 24 to 36 Params
+### 12a. Update `parameter_space.py` — Expand from 24 to 37 Params
 
-Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), add 9 new MICRO params (gh26 + gh18).
+Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), add 10 new MICRO params (gh26 + gh18).
 
 #### Completed
 
@@ -154,17 +154,17 @@ Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), 
 - [x] 12a.7 Add MACRO: `backtrack_saturation_threshold` (float, 0.8, 0.5-1.0, gh26).
 - [x] 12a.8 Add MACRO: `coverage_density_weight` (float, 200.0, 50-400, gh26).
 - [x] 12a.9 Add MACRO: `error_detection_confidence` (float, 0.7, 0.3-0.95, gh18).
-- [x] 12a.10 Add MICRO: `mop_nav_weight`, `mop_max_input_variations`, `reward_gamma`, `reward_score_weight` (gh26).
+- [x] 12a.10 Add MICRO: `mop_nav_weight`, `mop_max_input_variations`, `reward_gamma`, `reward_score_weight`, `multi_value_saturation_threshold` (gh26).
 - [x] 12a.11 Add MICRO: `error_max_indicator_size`, `error_max_indicator_count`, `spatial_edittext_boost`, `spatial_spinner_boost`, `spatial_min_match_threshold` (gh18).
-- [x] 12a.12 Update `CalibrationPhase` docstring: 11 MACRO, 25 MICRO, 36 total.
+- [x] 12a.12 Update `CalibrationPhase` docstring: 11 MACRO, 26 MICRO, 37 total.
 
 ### 12b. Update Unit Tests
 
 - [x] 12b.1 `test_parameter_integration.py`: T28 assert 11 macro, update ranges.
-- [x] 12b.2 `test_parameter_integration.py`: T34 assert 11 macro, T35 assert 25 micro.
-- [x] 12b.3 Add T36 (FULL phase suggests 36) and T37 (new MICRO params exist).
-- [x] 12b.4 `test_verify_phase.py`: Update 24→36 in all TestVerifyPhaseD tests.
-- [x] 12b.5 `scripts/verify_phase.py`: Update parameter_count check 24→36.
+- [x] 12b.2 `test_parameter_integration.py`: T34 assert 11 macro, T35 assert 26 micro.
+- [x] 12b.3 Add T36 (FULL phase suggests 37) and T37 (new MICRO params exist).
+- [x] 12b.4 `test_verify_phase.py`: Update 24→37 in all TestVerifyPhaseD tests.
+- [x] 12b.5 `scripts/verify_phase.py`: Update parameter_count check 24→37.
 - [x] 12b.6 Run all tests: 86/86 passed (5.84s).
 
 ### 12c. Update `design.md`
@@ -173,18 +173,18 @@ Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), 
 - [x] 12c.2 Add phase structure diagram (A → B0 → C0 → D0 → B → C → D → E).
 - [x] 12c.3 Add Section 1b: Pre-Calibration Phases (B0, C0, D0).
 - [x] 12c.4 Update Phase C: 8→11 MACRO params, C0 starting defaults.
-- [x] 12c.5 Update Phase D: 16→25 MICRO, 24→36 total, D0 starting defaults.
-- [x] 12c.6 Update Phase E: 36 params validated.
+- [x] 12c.5 Update Phase D: 16→26 MICRO, 24→37 total, D0 starting defaults.
+- [x] 12c.6 Update Phase E: 37 params validated.
 - [x] 12c.7 Update all `--timeout 300` → `--timeout TIMEOUT_SECS`.
-- [x] 12c.8 Update post-execution section: 36 params.
+- [x] 12c.8 Update post-execution section: 37 params.
 
 ### 12d. Update `tasks.md`
 
 - [x] 12d.1 Add Tasks 12a-12d (parameter space expansion).
 - [x] 12d.2 Add Tasks 16a-16h (pre-calibration).
-- [x] 12d.3 Update Tasks 14.6-14.8 (smoke tests with 36 params).
+- [x] 12d.3 Update Tasks 14.6-14.8 (smoke tests with 37 params).
 - [x] 12d.4 Update Tasks 17-22 (new param counts, timeout references).
-- [x] 12d.5 Update Task 25 (apply 36 optimal parameters).
+- [x] 12d.5 Update Task 25 (apply 37 optimal parameters).
 
 ---
 
@@ -286,7 +286,7 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 ### 16g. Phase D0 — Verify Convergence
 
 - [ ] 16g.1 40 trials completed.
-- [ ] 16g.2 `optimal_params.json` contains 36 parameters (11 macro + 25 micro).
+- [ ] 16g.2 `optimal_params.json` contains 37 parameters (11 macro + 26 micro).
 - [ ] 16g.3 Pre-cal total duration < 25h.
 
 ### 16h. Update Defaults from Pre-Cal Results
@@ -341,7 +341,7 @@ Starting defaults from C0 pre-calibration.
 
 **Gate**: All 4 checks pass before proceeding to Phase D.
 
-### 21. Phase D — Execute Micro Calibration (25 MICRO params)
+### 21. Phase D — Execute Micro Calibration (26 MICRO params)
 
 *Runbook reference: design.md Section 4*
 
@@ -361,7 +361,7 @@ Starting defaults from D0 pre-calibration. 11 macro params fixed from Phase C.
 
 - [ ] 22.1 All 100 trials completed.
 - [ ] 22.2 Best score > 0.0.
-- [ ] 22.3 `optimal_params.json` contains all 36 parameters (11 macro + 25 micro).
+- [ ] 22.3 `optimal_params.json` contains all 37 parameters (11 macro + 26 micro).
 - [ ] 22.4 Compare micro best score vs macro best score (improvement expected).
 
 **Gate**: All 4 checks pass before proceeding to Phase E.
@@ -391,11 +391,11 @@ Starting defaults from D0 pre-calibration. 11 macro params fixed from Phase C.
 
 ## Post-Execution Tasks
 
-### 25. Apply 36 Optimal Parameters to Code
+### 25. Apply 37 Optimal Parameters to Code
 
 *Runbook reference: design.md Section 6*
 
-- [ ] 25.1 Update default values in `parameter_space.py` — 11 MACRO + 25 MICRO from `optimal_params.json`.
+- [ ] 25.1 Update default values in `parameter_space.py` — 11 MACRO + 26 MICRO from `optimal_params.json`.
 - [ ] 25.2 Update any unit tests that assert default parameter values.
 - [ ] 25.3 Run `uv run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
 
