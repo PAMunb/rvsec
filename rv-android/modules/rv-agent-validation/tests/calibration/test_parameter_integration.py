@@ -19,17 +19,21 @@ from rv_agent_validation.calibration.objective import ObjectiveFunction
 
 
 def test_suggest_params_with_ask_trial():
-    """T28: study.ask() trial works with suggest_params() — 8 macro params in range."""
+    """T28: study.ask() trial works with suggest_params() — 11 macro params in range."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.MACRO)
 
-    assert len(params) == 8
+    assert len(params) == 11
     assert "mop_direct_score" in params
-    assert 200.0 <= params["mop_direct_score"] <= 500.0
+    assert 300.0 <= params["mop_direct_score"] <= 700.0
     assert "stochastic_probability" in params
-    assert 0.1 <= params["stochastic_probability"] <= 0.7
+    assert 0.05 <= params["stochastic_probability"] <= 0.4
+    # New gh26/gh18 MACRO params
+    assert "backtrack_saturation_threshold" in params
+    assert "coverage_density_weight" in params
+    assert "error_detection_confidence" in params
 
 
 def test_params_to_tool_spec_format():
@@ -106,21 +110,46 @@ def test_baseline_max_errors_computation(tmp_path):
     assert abs(max_errors - 8.0) < 0.01
 
 
-def test_macro_phase_suggests_8_params():
-    """T34: suggest_params with MACRO phase suggests exactly 8 parameters."""
+def test_macro_phase_suggests_11_params():
+    """T34: suggest_params with MACRO phase suggests exactly 11 parameters."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.MACRO)
 
-    assert len(params) == 8
+    assert len(params) == 11
 
 
-def test_micro_phase_suggests_16_params():
-    """T35: suggest_params with MICRO phase suggests exactly 16 parameters."""
+def test_micro_phase_suggests_25_params():
+    """T35: suggest_params with MICRO phase suggests exactly 25 parameters."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.MICRO)
 
-    assert len(params) == 16
+    assert len(params) == 25
+
+
+def test_full_phase_suggests_36_params():
+    """T36: suggest_params with FULL phase suggests all 36 parameters."""
+    study = optuna.create_study(direction="maximize")
+    trial = study.ask()
+
+    params = suggest_params(trial, CalibrationPhase.FULL)
+
+    assert len(params) == 36
+
+
+def test_new_micro_params_exist():
+    """T37: All new gh26/gh18 MICRO parameters are defined."""
+    from rv_agent_validation.calibration.parameter_space import ALL_PARAMETERS
+
+    param_names = {p.name for p in ALL_PARAMETERS}
+    new_micro = [
+        "mop_nav_weight", "mop_max_input_variations", "reward_gamma",
+        "reward_score_weight", "error_max_indicator_size",
+        "error_max_indicator_count", "spatial_edittext_boost",
+        "spatial_spinner_boost", "spatial_min_match_threshold",
+    ]
+    for name in new_micro:
+        assert name in param_names, f"Missing MICRO param: {name}"

@@ -12,9 +12,9 @@ from enum import Enum
 
 class CalibrationPhase(Enum):
     """Calibration phase determines which parameters to tune."""
-    MACRO = "macro"  # 8 high-impact parameters
-    MICRO = "micro"  # 16 fine-tuning parameters
-    FULL = "full"    # All 24 parameters
+    MACRO = "macro"  # 11 high-impact parameters
+    MICRO = "micro"  # 25 fine-tuning parameters
+    FULL = "full"    # All 36 parameters
 
 
 @dataclass
@@ -29,32 +29,32 @@ class ParameterDef:
     phase: CalibrationPhase
 
 
-# Macro parameters (Phase 1) - 8 high-impact parameters
+# Macro parameters (Phase 1) - 11 high-impact parameters
 MACRO_PARAMETERS: List[ParameterDef] = [
     ParameterDef(
         name="mop_direct_score",
         param_type="float",
-        low=200.0,
-        high=500.0,
-        default=300.0,
+        low=300.0,
+        high=700.0,
+        default=500.0,
         description="Score for actions directly reaching MOP methods",
         phase=CalibrationPhase.MACRO
     ),
     ParameterDef(
         name="wtg_guided_score",
         param_type="float",
-        low=100.0,
-        high=400.0,
-        default=250.0,
+        low=50.0,
+        high=300.0,
+        default=150.0,
         description="Score for WTG-guided navigation to unvisited screens",
         phase=CalibrationPhase.MACRO
     ),
     ParameterDef(
         name="unsaturated_bonus",
         param_type="float",
-        low=40.0,
-        high=120.0,
-        default=80.0,
+        low=50.0,
+        high=150.0,
+        default=100.0,
         description="Bonus score for actions in unsaturated states",
         phase=CalibrationPhase.MACRO
     ),
@@ -79,9 +79,9 @@ MACRO_PARAMETERS: List[ParameterDef] = [
     ParameterDef(
         name="stochastic_probability",
         param_type="float",
-        low=0.1,
-        high=0.7,
-        default=0.3,
+        low=0.05,
+        high=0.4,
+        default=0.15,
         description="Probability of using Gumbel-max stochastic selection",
         phase=CalibrationPhase.MACRO
     ),
@@ -97,22 +97,50 @@ MACRO_PARAMETERS: List[ParameterDef] = [
     ParameterDef(
         name="visitation_penalty_factor",
         param_type="float",
-        low=-20.0,
+        low=-25.0,
         high=-5.0,
-        default=-10.0,
+        default=-15.0,
         description="Penalty factor for over-visited states (negative value)",
+        phase=CalibrationPhase.MACRO
+    ),
+    # New MACRO parameters from gh26 and gh18
+    ParameterDef(
+        name="backtrack_saturation_threshold",
+        param_type="float",
+        low=0.5,
+        high=1.0,
+        default=0.8,
+        description="Threshold for triggering backtrack when state is saturated",
+        phase=CalibrationPhase.MACRO
+    ),
+    ParameterDef(
+        name="coverage_density_weight",
+        param_type="float",
+        low=50.0,
+        high=400.0,
+        default=200.0,
+        description="Weight for coverage density in successor scoring",
+        phase=CalibrationPhase.MACRO
+    ),
+    ParameterDef(
+        name="error_detection_confidence",
+        param_type="float",
+        low=0.3,
+        high=0.95,
+        default=0.7,
+        description="Confidence threshold for visual error detection",
         phase=CalibrationPhase.MACRO
     ),
 ]
 
-# Micro parameters (Phase 2) - 16 fine-tuning parameters
+# Micro parameters (Phase 2) - 25 fine-tuning parameters
 MICRO_PARAMETERS: List[ParameterDef] = [
     ParameterDef(
         name="mop_transitive_score",
         param_type="float",
-        low=75.0,
-        high=250.0,
-        default=150.0,
+        low=150.0,
+        high=450.0,
+        default=300.0,
         description="Score for actions transitively reaching MOP methods",
         phase=CalibrationPhase.MICRO
     ),
@@ -249,6 +277,89 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         high=100,
         default=50,
         description="LLM top-k parameter",
+        phase=CalibrationPhase.MICRO
+    ),
+    # New MICRO parameters from gh26
+    ParameterDef(
+        name="mop_nav_weight",
+        param_type="float",
+        low=0.5,
+        high=5.0,
+        default=2.0,
+        description="Weight for MOP navigation guidance in successor scoring",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="mop_max_input_variations",
+        param_type="int",
+        low=5,
+        high=15,
+        default=11,
+        description="Maximum input variations for MOP-reaching fields",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="reward_gamma",
+        param_type="float",
+        low=0.5,
+        high=0.99,
+        default=0.8,
+        description="Discount factor for reward propagation",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="reward_score_weight",
+        param_type="float",
+        low=0.1,
+        high=3.0,
+        default=1.0,
+        description="Weight for reward score in action selection",
+        phase=CalibrationPhase.MICRO
+    ),
+    # New MICRO parameters from gh18
+    ParameterDef(
+        name="error_max_indicator_size",
+        param_type="int",
+        low=30,
+        high=200,
+        default=80,
+        description="Maximum pixel size for error indicator detection",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="error_max_indicator_count",
+        param_type="int",
+        low=2,
+        high=20,
+        default=5,
+        description="Maximum number of error indicators to consider",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="spatial_edittext_boost",
+        param_type="float",
+        low=1.0,
+        high=2.0,
+        default=1.2,
+        description="Spatial boost factor for EditText fields near error indicators",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="spatial_spinner_boost",
+        param_type="float",
+        low=1.0,
+        high=2.0,
+        default=1.1,
+        description="Spatial boost factor for Spinner fields near error indicators",
+        phase=CalibrationPhase.MICRO
+    ),
+    ParameterDef(
+        name="spatial_min_match_threshold",
+        param_type="float",
+        low=0.01,
+        high=0.5,
+        default=0.1,
+        description="Minimum spatial match score threshold for error association",
         phase=CalibrationPhase.MICRO
     ),
 ]

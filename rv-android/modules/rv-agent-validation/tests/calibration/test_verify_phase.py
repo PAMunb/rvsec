@@ -281,16 +281,16 @@ class TestVerifyPhaseC:
 
 class TestVerifyPhaseD:
     def test_all_checks_pass(self, tmp_path):
-        """Complete micro calibration with 24 params passes."""
+        """Complete micro calibration with 36 params passes."""
         results_dir = tmp_path / "micro"
-        # 24 parameters (8 macro + 16 micro)
-        params = {f"param_{i}": float(i) for i in range(24)}
+        # 36 parameters (11 macro + 25 micro)
+        params = {f"param_{i}": float(i) for i in range(36)}
         _create_calibration_structure(results_dir, n_trials=100, best_score=0.40, best_params=params)
         result = verify_phase_d(results_dir, expected_trials=100)
         assert result.passed
 
     def test_wrong_parameter_count(self, tmp_path):
-        """Fewer than 24 parameters fails."""
+        """Fewer than 36 parameters fails."""
         results_dir = tmp_path / "micro"
         params = {f"param_{i}": float(i) for i in range(16)}
         _create_calibration_structure(results_dir, n_trials=100, best_score=0.40, best_params=params)
@@ -302,7 +302,7 @@ class TestVerifyPhaseD:
         """Micro score higher than macro passes score_improvement."""
         macro_dir = tmp_path / "macro"
         micro_dir = tmp_path / "micro"
-        params = {f"param_{i}": float(i) for i in range(24)}
+        params = {f"param_{i}": float(i) for i in range(36)}
         _create_calibration_structure(macro_dir, n_trials=80, best_score=0.30, best_params=params)
         _create_calibration_structure(micro_dir, n_trials=100, best_score=0.40, best_params=params)
         result = verify_phase_d(micro_dir, macro_dir=macro_dir, expected_trials=100)
@@ -314,7 +314,7 @@ class TestVerifyPhaseD:
         """Micro score lower than macro fails score_improvement."""
         macro_dir = tmp_path / "macro"
         micro_dir = tmp_path / "micro"
-        params = {f"param_{i}": float(i) for i in range(24)}
+        params = {f"param_{i}": float(i) for i in range(36)}
         _create_calibration_structure(macro_dir, n_trials=80, best_score=0.40, best_params=params)
         _create_calibration_structure(micro_dir, n_trials=100, best_score=0.35, best_params=params)
         result = verify_phase_d(micro_dir, macro_dir=macro_dir, expected_trials=100)

@@ -2,7 +2,7 @@
 
 ## Execution Order
 
-Tasks 1-12 cover infrastructure development (COMPLETED — 84 tests passing). Tasks 13-14 handle commit and desktop transfer. Tasks 15-16 cover Docker preprocessing (Phase A). Tasks 17-24 cover the calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
+Tasks 1-12 cover infrastructure development (COMPLETED — 86 tests passing). Tasks 12a-12d cover parameter space expansion (gh18/gh26 sync). Tasks 13-14 handle commit and desktop transfer. Tasks 15-16 cover Docker preprocessing (Phase A). Tasks 16a-16h cover pre-calibration (Phases B0/C0/D0). Tasks 17-24 cover the full calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
 
 When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
@@ -24,6 +24,13 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 
 12. Task 12: Fix infrastructure bugs + create `preprocess_docker.py`
 
+### Parameter Space Expansion (COMPLETED)
+
+12a. Task 12a: Update `parameter_space.py` — sync 6 defaults (gh26), add 12 new params (3 MACRO + 9 MICRO)
+12b. Task 12b: Update unit tests — 11 MACRO, 25 MICRO, 36 total
+12c. Task 12c: Update `design.md` — pre-cal phases, expanded params, TIMEOUT_SECS placeholder
+12d. Task 12d: Update `tasks.md` — add pre-cal tasks, update param counts
+
 ### Commit and Transfer (PENDING)
 
 13. Task 13: Commit all code + rewritten artifacts (refs #9)
@@ -34,20 +41,31 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 15. Task 15: Phase A — Execute Docker preprocessing
 16. Task 16: Phase A — Verify results + assemble dataset
 
+### Pre-Calibration (PENDING)
+
+16a. Task 16a: Select 20 pre-calibration APKs (stratified from calibration set)
+16b. Task 16b: Phase B0 — Execute pre-baseline (20 APKs, 2 tools, 1 rep)
+16c. Task 16c: Phase B0 — Verify results + compute BASELINE_MAX_ERRORS_PRE
+16d. Task 16d: Phase C0 — Execute pre-macro (30 trials, 11 MACRO params)
+16e. Task 16e: Phase C0 — Verify convergence
+16f. Task 16f: Phase D0 — Execute pre-micro (40 trials, 25 MICRO params, SGLang)
+16g. Task 16g: Phase D0 — Verify convergence
+16h. Task 16h: Update `parameter_space.py` defaults from pre-cal optimal params
+
 ### Execution Campaign (PENDING)
 
-17. Task 17: Phase B — Execute baseline (~18.4h)
+17. Task 17: Phase B — Execute baseline
 18. Task 18: Phase B — Verify results + compute BASELINE_MAX_ERRORS
-19. Task 19: Phase C — Execute macro calibration (~122h)
+19. Task 19: Phase C — Execute macro calibration (80 trials, 11 MACRO params)
 20. Task 20: Phase C — Verify results + analyze convergence
-21. Task 21: Phase D — Execute micro calibration (~160h, requires SGLang)
+21. Task 21: Phase D — Execute micro calibration (100 trials, 25 MICRO params, SGLang)
 22. Task 22: Phase D — Verify results + compare modes
-23. Task 23: Phase E — Execute validation (~5.6h, requires SGLang)
+23. Task 23: Phase E — Execute validation (36 params, SGLang)
 24. Task 24: Phase E — Verify results + statistical comparison
 
 ### Post-Execution (PENDING)
 
-25. Task 25: Apply optimal parameters to code
+25. Task 25: Apply 36 optimal parameters to code
 26. Task 26: Update agent spec (FF SDD delta spec)
 27. Task 27: Archive change and close issue (closes #9)
 
@@ -119,6 +137,57 @@ Code fixes for risks identified during deep analysis, plus the new preprocessing
 
 ---
 
+## Parameter Space Expansion
+
+### 12a. Update `parameter_space.py` — Expand from 24 to 36 Params
+
+Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), add 9 new MICRO params (gh26 + gh18).
+
+#### Completed
+
+- [x] 12a.1 Sync `mop_direct_score` default 300→500, range 200-500→300-700.
+- [x] 12a.2 Sync `mop_transitive_score` default 150→300, range 75-250→150-450.
+- [x] 12a.3 Sync `wtg_guided_score` default 250→150, range 100-400→50-300.
+- [x] 12a.4 Sync `unsaturated_bonus` default 80→100, range 40-120→50-150.
+- [x] 12a.5 Sync `visitation_penalty_factor` default -10→-15, range -20/-5→-25/-5.
+- [x] 12a.6 Sync `stochastic_probability` default 0.3→0.15, range 0.1-0.7→0.05-0.4.
+- [x] 12a.7 Add MACRO: `backtrack_saturation_threshold` (float, 0.8, 0.5-1.0, gh26).
+- [x] 12a.8 Add MACRO: `coverage_density_weight` (float, 200.0, 50-400, gh26).
+- [x] 12a.9 Add MACRO: `error_detection_confidence` (float, 0.7, 0.3-0.95, gh18).
+- [x] 12a.10 Add MICRO: `mop_nav_weight`, `mop_max_input_variations`, `reward_gamma`, `reward_score_weight` (gh26).
+- [x] 12a.11 Add MICRO: `error_max_indicator_size`, `error_max_indicator_count`, `spatial_edittext_boost`, `spatial_spinner_boost`, `spatial_min_match_threshold` (gh18).
+- [x] 12a.12 Update `CalibrationPhase` docstring: 11 MACRO, 25 MICRO, 36 total.
+
+### 12b. Update Unit Tests
+
+- [x] 12b.1 `test_parameter_integration.py`: T28 assert 11 macro, update ranges.
+- [x] 12b.2 `test_parameter_integration.py`: T34 assert 11 macro, T35 assert 25 micro.
+- [x] 12b.3 Add T36 (FULL phase suggests 36) and T37 (new MICRO params exist).
+- [x] 12b.4 `test_verify_phase.py`: Update 24→36 in all TestVerifyPhaseD tests.
+- [x] 12b.5 `scripts/verify_phase.py`: Update parameter_count check 24→36.
+- [x] 12b.6 Run all tests: 86/86 passed (5.84s).
+
+### 12c. Update `design.md`
+
+- [x] 12c.1 Add TIMEOUT_SECS placeholder section with speed test reference.
+- [x] 12c.2 Add phase structure diagram (A → B0 → C0 → D0 → B → C → D → E).
+- [x] 12c.3 Add Section 1b: Pre-Calibration Phases (B0, C0, D0).
+- [x] 12c.4 Update Phase C: 8→11 MACRO params, C0 starting defaults.
+- [x] 12c.5 Update Phase D: 16→25 MICRO, 24→36 total, D0 starting defaults.
+- [x] 12c.6 Update Phase E: 36 params validated.
+- [x] 12c.7 Update all `--timeout 300` → `--timeout TIMEOUT_SECS`.
+- [x] 12c.8 Update post-execution section: 36 params.
+
+### 12d. Update `tasks.md`
+
+- [x] 12d.1 Add Tasks 12a-12d (parameter space expansion).
+- [x] 12d.2 Add Tasks 16a-16h (pre-calibration).
+- [x] 12d.3 Update Tasks 14.6-14.8 (smoke tests with 36 params).
+- [x] 12d.4 Update Tasks 17-22 (new param counts, timeout references).
+- [x] 12d.5 Update Task 25 (apply 36 optimal parameters).
+
+---
+
 ## Commit and Transfer
 
 ### 13. Commit All Code + Rewritten Artifacts
@@ -133,7 +202,7 @@ Commit all infrastructure code, bug fixes, preprocessing script, and the rewritt
 
 ### 14. Transfer and Verify on Desktop
 
-Transfer code to the desktop machine and run smoke tests to validate end-to-end before committing to the ~308-hour campaign.
+Transfer code to the desktop machine and run smoke tests to validate end-to-end before the campaign.
 
 - [ ] 14.1 `git pull` on desktop.
 - [ ] 14.2 `uv sync` on desktop.
@@ -143,7 +212,7 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 - [ ] 14.6 **S1: Preprocessing smoke** — `preprocess_docker.py` with 3 APKs, 2 containers.
   - Verify: compose has entrypoint override with `--skip-execution`, `out/` volume mounted, instrumented APKs and SA files collected.
 - [ ] 14.7 **S2: Calibration orchestrator smoke** — `--phase macro --n-trials 2 --n-containers 2 --timeout 60 --seed 42` with 3 APKs.
-  - Verify: `optuna_study.db` exists, `trial_0/trial_0/summary.csv` exists, `optimal_params.json` saved.
+  - Verify: `optuna_study.db` exists, `trial_0/trial_0/summary.csv` exists, `optimal_params.json` saved, 11 macro params suggested.
 - [ ] 14.8 **S3: Baseline docker smoke** — `--tools rvagent:pure_algorithm --n-containers 2 --timeout 60 --repetitions 1` with 3 APKs.
   - Verify: `batch_0/batch_0/summary.csv` exists, `summary.csv` aggregated, `aggregated_summary.csv` symlink.
 - [ ] 14.9 **S4: Generate-only smoke** — `--tools ape,fastbot,rvagent:pure_algorithm --n-containers 6 --generate-only`.
@@ -171,7 +240,61 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 - [ ] 16.4 Verify `calibration_set_v2.txt` (75), `holdout_set_v2.txt` (30), `all_valid_apks.txt` (~105).
 - [ ] 16.5 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
 
-**Gate**: All 5 checks pass before proceeding to Phase B.
+**Gate**: All 5 checks pass before proceeding to pre-calibration.
+
+---
+
+## Pre-Calibration Tasks
+
+### 16a. Select 20 Pre-Calibration APKs
+
+- [ ] 16a.1 Select 20 APKs from `calibration_set_v2.txt` (stratified by category from `dataset_split.csv`).
+- [ ] 16a.2 Save as `modules/rv-agent-validation/data/precal_set.txt`.
+- [ ] 16a.3 Verify: all 20 APKs exist in `calibration_dataset_v2/` with SA files.
+
+### 16b. Phase B0 — Execute Pre-Baseline
+
+*Runbook reference: design.md Section 1b*
+
+- [ ] 16b.1 Run `baseline_docker.py --tools ape,rvagent:pure_algorithm --filter-file precal_set.txt --repetitions 1 --timeout TIMEOUT_SECS`.
+- [ ] 16b.2 Monitor progress (40 tasks, ~1.5-2.5h expected).
+
+### 16c. Phase B0 — Verify Results
+
+- [ ] 16c.1 `summary.csv` has 40 data rows (2 tools x 20 APKs x 1 rep).
+- [ ] 16c.2 Compute and record `BASELINE_MAX_ERRORS_PRE` value.
+
+### 16d. Phase C0 — Execute Pre-Macro
+
+- [ ] 16d.1 Run `calibration_orchestrator.py --phase macro --n-trials 30 --filter-file precal_set.txt --timeout TIMEOUT_SECS`.
+- [ ] 16d.2 Monitor progress (30 trials, ~5.5-8.3h expected).
+
+### 16e. Phase C0 — Verify Convergence
+
+- [ ] 16e.1 30 trials completed.
+- [ ] 16e.2 Convergence visible: last 10 trials avg > first 10 avg.
+- [ ] 16e.3 `optimal_params.json` saved with 11 MACRO params.
+
+### 16f. Phase D0 — Execute Pre-Micro
+
+**Prerequisite**: SGLang server running at `localhost:30000`.
+
+- [ ] 16f.1 Start SGLang server.
+- [ ] 16f.2 Run `calibration_orchestrator.py --phase micro --n-trials 40 --filter-file precal_set.txt --best-macro precal_macro/optimal_params.json --sglang-url ... --timeout TIMEOUT_SECS`.
+- [ ] 16f.3 Monitor progress (40 trials, ~7.4-11.1h expected).
+
+### 16g. Phase D0 — Verify Convergence
+
+- [ ] 16g.1 40 trials completed.
+- [ ] 16g.2 `optimal_params.json` contains 36 parameters (11 macro + 25 micro).
+- [ ] 16g.3 Pre-cal total duration < 25h.
+
+### 16h. Update Defaults from Pre-Cal Results
+
+- [ ] 16h.1 Update `parameter_space.py` defaults from C0 + D0 `optimal_params.json`.
+- [ ] 16h.2 Optionally narrow ranges to +/-30% around best values (clamped to original bounds).
+- [ ] 16h.3 Run tests: 86/86 must pass.
+- [ ] 16h.4 Commit with `refs #9`.
 
 ---
 
@@ -181,7 +304,7 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 *Runbook reference: design.md Section 2*
 
-- [ ] 17.1 Run `./scripts/run_phase_b.sh` (or `baseline_docker.py` manually).
+- [ ] 17.1 Run `./scripts/run_phase_b.sh` (or `baseline_docker.py` manually with `--timeout TIMEOUT_SECS`).
 - [ ] 17.2 Monitor progress: check batch directories for `tasks.json` growth.
 - [ ] 17.3 If interrupted: re-run same command (resume is automatic via `RV_EXPERIMENT_NAME`).
 
@@ -197,11 +320,13 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 **Gate**: All 5 checks pass before proceeding to Phase C.
 
-### 19. Phase C — Execute Macro Calibration
+### 19. Phase C — Execute Macro Calibration (11 MACRO params)
 
 *Runbook reference: design.md Section 3*
 
-- [ ] 19.1 Run `./scripts/run_phase_c.sh` (or `calibration_orchestrator.py` manually).
+Starting defaults from C0 pre-calibration.
+
+- [ ] 19.1 Run `./scripts/run_phase_c.sh` (or `calibration_orchestrator.py` manually with `--timeout TIMEOUT_SECS`).
 - [ ] 19.2 Monitor progress: check `trial_history.json` growth, `orchestrator.log` for errors.
 - [ ] 19.3 If interrupted: re-run with `--resume`.
 
@@ -216,15 +341,17 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 **Gate**: All 4 checks pass before proceeding to Phase D.
 
-### 21. Phase D — Execute Micro Calibration
+### 21. Phase D — Execute Micro Calibration (25 MICRO params)
 
 *Runbook reference: design.md Section 4*
+
+Starting defaults from D0 pre-calibration. 11 macro params fixed from Phase C.
 
 **Prerequisite**: SGLang server running at `localhost:30000`.
 
 - [ ] 21.1 Start SGLang server: `cd rvsec-vision-llm && docker compose up -d`.
 - [ ] 21.2 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
-- [ ] 21.3 Run `./scripts/run_phase_d.sh` (or `calibration_orchestrator.py` manually with `--sglang-url`).
+- [ ] 21.3 Run `./scripts/run_phase_d.sh` (or `calibration_orchestrator.py` manually with `--sglang-url --timeout TIMEOUT_SECS`).
 - [ ] 21.4 Monitor progress: check `trial_history.json` growth, SGLang server health.
 - [ ] 21.5 If interrupted: re-run with `--resume`.
 
@@ -234,7 +361,7 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 - [ ] 22.1 All 100 trials completed.
 - [ ] 22.2 Best score > 0.0.
-- [ ] 22.3 `optimal_params.json` contains all 24 parameters (8 macro + 16 micro).
+- [ ] 22.3 `optimal_params.json` contains all 36 parameters (11 macro + 25 micro).
 - [ ] 22.4 Compare micro best score vs macro best score (improvement expected).
 
 **Gate**: All 4 checks pass before proceeding to Phase E.
@@ -264,11 +391,11 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 
 ## Post-Execution Tasks
 
-### 25. Apply Optimal Parameters to Code
+### 25. Apply 36 Optimal Parameters to Code
 
 *Runbook reference: design.md Section 6*
 
-- [ ] 25.1 Update default values in `parameter_space.py` (`MACRO_PARAMETERS` and `MICRO_PARAMETERS`).
+- [ ] 25.1 Update default values in `parameter_space.py` — 11 MACRO + 25 MICRO from `optimal_params.json`.
 - [ ] 25.2 Update any unit tests that assert default parameter values.
 - [ ] 25.3 Run `uv run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
 

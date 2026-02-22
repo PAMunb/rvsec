@@ -65,7 +65,7 @@ rv-agent-validation/
 │   │
 │   ├── calibration/          # Parameter calibration (Optuna)
 │   │   ├── __init__.py       # Module exports
-│   │   ├── parameter_space.py # 24 tunable parameters with ranges
+│   │   ├── parameter_space.py # 36 tunable parameters with ranges
 │   │   ├── objective.py      # ObjectiveFunction (coverage + errors + UI)
 │   │   ├── cli.py            # CLI commands (show-params, show-defaults)
 │   │   └── metrics_collector.py # CalibrationMetricsCollector
@@ -177,10 +177,11 @@ uv run python -m rv_agent_validation show-defaults
 ```
 
 **Calibration Workflow:**
-1. **Phase B (Baseline)**: `baseline_docker.py` — establish error baselines with standard tools
-2. **Phase C (Macro)**: `calibration_orchestrator.py --phase macro` — tune 8 high-impact parameters
-3. **Phase D (Micro)**: `calibration_orchestrator.py --phase micro` — fine-tune 16 additional parameters
-4. **Phase E (Validation)**: `baseline_docker.py` — validate on hold-out set
+1. **Phase B0-D0 (Pre-cal)**: Reduced-scale calibration on 20 APKs to validate infrastructure and produce starting defaults
+2. **Phase B (Baseline)**: `baseline_docker.py` — establish error baselines with standard tools
+3. **Phase C (Macro)**: `calibration_orchestrator.py --phase macro` — tune 11 high-impact parameters
+4. **Phase D (Micro)**: `calibration_orchestrator.py --phase micro` — fine-tune 25 additional parameters
+5. **Phase E (Validation)**: `baseline_docker.py` — validate 36 params on hold-out set
 
 **Objective Function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage.
 
@@ -391,24 +392,27 @@ Enables experiment resume capability:
 
 ### Calibration Parameters
 
-**Macro Parameters (Phase 1 - 8 params):**
+**Macro Parameters (Phase 1 - 11 params):**
 
 | Parameter | Default | Range | Purpose |
 |-----------|---------|-------|---------|
-| `mop_direct_score` | 300.0 | 200-500 | MOP method prioritization |
-| `wtg_guided_score` | 250.0 | 100-400 | WTG navigation guidance |
-| `unsaturated_bonus` | 80.0 | 40-120 | State diversity bonus |
+| `mop_direct_score` | 500.0 | 300-700 | MOP method prioritization |
+| `wtg_guided_score` | 150.0 | 50-300 | WTG navigation guidance |
+| `unsaturated_bonus` | 100.0 | 50-150 | State diversity bonus |
 | `max_re_enables` | 6 | 3-15 | Successor exploration depth |
 | `ui_coverage_threshold` | 0.9 | 0.7-1.0 | Re-enable trigger threshold |
-| `stochastic_probability` | 0.3 | 0.1-0.7 | Exploration randomness |
+| `stochastic_probability` | 0.15 | 0.05-0.4 | Exploration randomness |
 | `strength_weight` | 50.0 | 25-100 | Historical action success |
-| `visitation_penalty_factor` | -10.0 | -20 to -5 | Over-visited penalty |
+| `visitation_penalty_factor` | -15.0 | -25 to -5 | Over-visited penalty |
+| `backtrack_saturation_threshold` | 0.8 | 0.5-1.0 | Backtrack trigger (gh26) |
+| `coverage_density_weight` | 200.0 | 50-400 | Coverage density scoring (gh26) |
+| `error_detection_confidence` | 0.7 | 0.3-0.95 | Error detection threshold (gh18) |
 
-**Micro Parameters (Phase 2 - 16 params):**
+**Micro Parameters (Phase 2 - 25 params):**
 
 | Parameter | Default | Range |
 |-----------|---------|-------|
-| `mop_transitive_score` | 150.0 | 75-250 |
+| `mop_transitive_score` | 300.0 | 150-450 |
 | `stochastic_temperature` | 1.0 | 0.1-5.0 |
 | `scroll_probability` | 0.15 | 0.05-0.3 |
 | `plateau_window` | 10 | 5-20 |
@@ -424,6 +428,15 @@ Enables experiment resume capability:
 | `llm_max_retries` | 2 | 0-5 |
 | `llm_top_p` | 0.6 | 0.1-0.99 |
 | `llm_top_k` | 50 | 10-100 |
+| `mop_nav_weight` | 2.0 | 0.5-5.0 |
+| `mop_max_input_variations` | 11 | 5-15 |
+| `reward_gamma` | 0.8 | 0.5-0.99 |
+| `reward_score_weight` | 1.0 | 0.1-3.0 |
+| `error_max_indicator_size` | 80 | 30-200 |
+| `error_max_indicator_count` | 5 | 2-20 |
+| `spatial_edittext_boost` | 1.2 | 1.0-2.0 |
+| `spatial_spinner_boost` | 1.1 | 1.0-2.0 |
+| `spatial_min_match_threshold` | 0.1 | 0.01-0.5 |
 
 ## Testing
 

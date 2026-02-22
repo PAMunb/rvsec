@@ -8,6 +8,24 @@ This is an **execution runbook**, not a code design. Each section corresponds to
 
 ## 0. Prerequisites (All Phases)
 
+### Timeout
+
+`TIMEOUT_SECS` is a placeholder — the optimal value will be determined from the speed test (`docker-compose.speed-test.yml`), which compares 5 APKs at 1800s vs baseline at 300s. Analysis of per-APK coverage curves will identify the plateau ("knee point"). Expected range: 600-900s (10-15 min). Replace all `TIMEOUT_SECS` references in this document once determined.
+
+### Phase Structure
+
+```
+A  → Preprocessing (188 APKs, ~2h)
+B0 → Pre-baseline (20 APKs, 2 tools × 1 rep)
+C0 → Pre-macro (20 APKs, 30 trials, 11 MACRO params)
+D0 → Pre-micro (20 APKs, 40 trials, 25 MICRO params, SGLang)
+     [update defaults from pre-cal results]
+B  → Full baseline (105 APKs, 3 tools × 3 reps)
+C  → Full macro (75 APKs, 80 trials, 11 MACRO params)
+D  → Full micro (75 APKs, 100 trials, 25 MICRO params, SGLang)
+E  → Validation (30 holdout APKs, 36 params, SGLang)
+```
+
 ### Environment
 
 | Requirement | Value | Verification |
@@ -194,11 +212,98 @@ done
 
 ---
 
-## 2. Phase B — Baseline (~18.4 hours)
+## 1b. Pre-Calibration Phases (B0 → C0 → D0)
 
 ### Purpose
 
-Establish performance baselines for 3 tools (APE, FastBot, RVAgent:pure_algorithm) on all 105 APKs with 3 repetitions. The key output is `BASELINE_MAX_ERRORS` — the maximum average error count across tools — which normalizes the error component of the objective function in Phases C and D.
+Run a reduced-scale calibration on 20 APKs (subset of the 75-APK calibration set) before the full campaign. This validates infrastructure end-to-end, determines if trial counts (80/100) are sufficient for 36 parameters, and produces better starting defaults for the full campaign.
+
+**APK selection**: 20 APKs drawn from `calibration_set_v2.txt`, stratified by category. Saved as `precal_set.txt`. The 30-APK holdout set is never touched.
+
+**No new scripts** — pre-calibration reuses the same `baseline_docker.py` and `calibration_orchestrator.py` with `--filter-file precal_set.txt` and fewer trials.
+
+### Phase B0 — Pre-baseline
+
+```bash
+uv run python scripts/baseline_docker.py \
+    --tools ape,rvagent:pure_algorithm \
+    --data-dir $DATA_DIR \
+    --filter-file modules/rv-agent-validation/data/precal_set.txt \
+    --output-dir ./results/precal_baseline \
+    --n-containers 6 --timeout TIMEOUT_SECS --repetitions 1
+```
+
+**Tasks**: 2 tools x 20 APKs x 1 rep = 40 tasks. **Duration**: ~1.5h (at 600s timeout) to ~2.5h (at 900s).
+
+Output: `BASELINE_MAX_ERRORS_PRE` (for normalizing pre-cal objective function).
+
+### Phase C0 — Pre-macro (30 trials, 11 MACRO params)
+
+```bash
+uv run python scripts/calibration_orchestrator.py \
+    --phase macro --n-trials 30 --n-containers 6 \
+    --data-dir $DATA_DIR \
+    --filter-file modules/rv-agent-validation/data/precal_set.txt \
+    --output-dir ./results/precal_macro \
+    --timeout TIMEOUT_SECS --agent-mode pure_algorithm --seed 42 \
+    --baseline-dir ./results/precal_baseline
+```
+
+**Trials**: 30 total. Each trial processes 20 APKs. **Duration**: ~5.5h (600s) to ~8.3h (900s).
+
+### Phase D0 — Pre-micro (40 trials, 25 MICRO params, SGLang)
+
+```bash
+uv run python scripts/calibration_orchestrator.py \
+    --phase micro --n-trials 40 --n-containers 6 \
+    --data-dir $DATA_DIR \
+    --filter-file modules/rv-agent-validation/data/precal_set.txt \
+    --output-dir ./results/precal_micro \
+    --timeout TIMEOUT_SECS --agent-mode multimode --seed 42 \
+    --best-macro ./results/precal_macro/optimal_params.json \
+    --baseline-dir ./results/precal_baseline \
+    --sglang-url http://host.docker.internal:30000/v1
+```
+
+**Trials**: 40 total. Each trial processes 20 APKs with multimode. **Duration**: ~7.4h (600s) to ~11.1h (900s).
+
+### How pre-cal feeds into the full campaign
+
+1. C0 optimal values become starting defaults for Phase C. Ranges optionally narrowed to +/-30% around C0 best values (clamped to original bounds).
+2. D0 optimal values become starting defaults for Phase D. Same narrowing applies.
+3. Update `parameter_space.py` defaults from pre-cal results before Phase B.
+
+### Verification
+
+```bash
+# C0: verify convergence (last 10 trials avg > first 10 avg)
+python3 -c "
+import json
+with open('results/precal_macro/trial_history.json') as f:
+    trials = json.load(f)
+scores = [t['score'] for t in trials]
+print(f'First 10 avg: {sum(scores[:10])/10:.4f}')
+print(f'Last 10 avg: {sum(scores[-10:])/10:.4f}')
+"
+
+# D0: verify optimal_params.json has 36 params (11 macro + 25 micro)
+python3 -c "
+import json
+with open('results/precal_micro/optimal_params.json') as f:
+    data = json.load(f)
+print(f'Parameters: {len(data[\"best_params\"])} (expected 36)')
+"
+```
+
+**Gate**: C0 shows convergence trend. D0 produces `optimal_params.json` with 36 parameters. Pre-cal total duration < 25h.
+
+---
+
+## 2. Phase B — Baseline
+
+### Purpose
+
+Establish performance baselines for 3 tools (APE, FastBot, RVAgent:pure_algorithm) on all 105 APKs with 3 repetitions. The key output is `BASELINE_MAX_ERRORS` — the maximum average error count across tools — which normalizes the error component of the objective function in Phases C and D. Uses pre-calibrated defaults from Phase B0/C0/D0 as starting values.
 
 ### Execution
 
@@ -210,12 +315,12 @@ uv run python scripts/baseline_docker.py \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_ALL \
     --output-dir ./results/baseline_v2 \
-    --n-containers 6 --timeout 300 --repetitions 3
+    --n-containers 6 --timeout TIMEOUT_SECS --repetitions 3
 ```
 
 **Tasks**: 3 tools x 105 APKs x 3 reps = 945 tasks, split across 6 containers (~158 tasks each).
 
-**Expected duration**: ~18.4 hours (945 tasks x 7 min / 6 containers).
+**Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~26h. At 900s: ~39h.
 
 ### Expected outputs
 
@@ -266,24 +371,27 @@ Each container uses `RV_EXPERIMENT_NAME=batch_{N}`, enabling rv-experiment's tas
 
 ---
 
-## 3. Phase C — Macro Calibration (~122 hours / 5.1 days)
+## 3. Phase C — Macro Calibration
 
 ### Purpose
 
-Tune 8 high-impact parameters (scorer weights and exploration settings) using Optuna's TPESampler with batch parallelism. Each trial evaluates one parameter set by running RVAgent on all 75 calibration APKs.
+Tune 11 high-impact parameters (scorer weights, exploration settings, and flow-altering thresholds) using Optuna's TPESampler with batch parallelism. Each trial evaluates one parameter set by running RVAgent on all 75 calibration APKs. Starting defaults come from Phase C0 pre-calibration.
 
 ### Parameters tuned
 
 | Parameter | Default | Range | Purpose |
 |-----------|---------|-------|---------|
-| `mop_direct_score` | 300.0 | 200-500 | MOP method prioritization |
-| `wtg_guided_score` | 250.0 | 100-400 | WTG navigation guidance |
-| `unsaturated_bonus` | 80.0 | 40-120 | State diversity bonus |
+| `mop_direct_score` | 500.0 | 300-700 | MOP method prioritization |
+| `wtg_guided_score` | 150.0 | 50-300 | WTG navigation guidance |
+| `unsaturated_bonus` | 100.0 | 50-150 | State diversity bonus |
 | `max_re_enables` | 6 | 3-15 | Successor exploration depth |
 | `ui_coverage_threshold` | 0.9 | 0.7-1.0 | Re-enable trigger threshold |
-| `stochastic_probability` | 0.3 | 0.1-0.7 | Exploration randomness |
+| `stochastic_probability` | 0.15 | 0.05-0.4 | Exploration randomness |
 | `strength_weight` | 50.0 | 25-100 | Historical action success |
-| `visitation_penalty_factor` | -10.0 | -20 to -5 | Over-visited penalty |
+| `visitation_penalty_factor` | -15.0 | -25 to -5 | Over-visited penalty |
+| `backtrack_saturation_threshold` | 0.8 | 0.5-1.0 | Backtrack trigger threshold (gh26) |
+| `coverage_density_weight` | 200.0 | 50-400 | Coverage density scoring (gh26) |
+| `error_detection_confidence` | 0.7 | 0.3-0.95 | Error detection threshold (gh18) |
 
 ### Execution
 
@@ -295,13 +403,13 @@ uv run python scripts/calibration_orchestrator.py \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_CAL \
     --output-dir ./results/calibration_macro_v2 \
-    --timeout 300 --agent-mode pure_algorithm --seed 42 \
+    --timeout TIMEOUT_SECS --agent-mode pure_algorithm --seed 42 \
     --baseline-dir ./results/baseline_v2
 ```
 
-**Trials**: 80 total, in batches of 6. Each trial processes 75 APKs.
+**Trials**: 80 total, in batches of 6. Each trial processes 75 APKs. Starting defaults from C0 pre-calibration.
 
-**Expected duration**: 14 rounds x 8.75h = ~122 hours.
+**Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~167h. At 900s: ~250h.
 
 **Objective function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage.
 
@@ -351,11 +459,11 @@ The script recovers orphaned RUNNING trials from SQLite, scores any that have re
 
 ---
 
-## 4. Phase D — Micro Calibration (~160 hours / 6.7 days)
+## 4. Phase D — Micro Calibration
 
 ### Purpose
 
-Fine-tune 16 additional parameters while keeping the 8 macro parameters fixed at their optimal values from Phase C. Uses `multimode` agent mode, which requires the SGLang server (Qwen3-VL-4B).
+Fine-tune 25 additional parameters while keeping the 11 macro parameters fixed at their optimal values from Phase C. Uses `multimode` agent mode, which requires the SGLang server (Qwen3-VL-4B). Starting defaults come from Phase D0 pre-calibration.
 
 ### Prerequisites (in addition to Section 0)
 
@@ -390,7 +498,7 @@ uv run python scripts/calibration_orchestrator.py \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_CAL \
     --output-dir ./results/calibration_micro_v2 \
-    --timeout 300 --agent-mode multimode --seed 42 \
+    --timeout TIMEOUT_SECS --agent-mode multimode --seed 42 \
     --best-macro ./results/calibration_macro_v2/optimal_params.json \
     --baseline-dir ./results/baseline_v2 \
     --sglang-url http://host.docker.internal:30000/v1
@@ -398,9 +506,9 @@ uv run python scripts/calibration_orchestrator.py \
 
 `--sglang-url` injects `llm_base_url` into the tool spec so containers can reach the SGLang server via `host.docker.internal`. The compose file includes `extra_hosts: ["host.docker.internal:host-gateway"]` to resolve this hostname on Linux.
 
-**Trials**: 100 total, in batches of 6. Each trial processes 75 APKs with multimode (70% LLM / 30% algorithm by default, but `llm_probability` is one of the tuned parameters).
+**Trials**: 100 total, in batches of 6. Each trial processes 75 APKs with multimode (70% LLM / 30% algorithm by default, but `llm_probability` is one of the tuned parameters). Starting defaults from D0 pre-calibration.
 
-**Expected duration**: 17 rounds x 9.4h = ~160 hours.
+**Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~208h. At 900s: ~313h.
 
 ### Verification
 
@@ -410,19 +518,19 @@ uv run python scripts/verify_phase.py d \
     --macro-dir ./results/calibration_macro_v2
 ```
 
-**Gate**: 100 trials completed, best_score > 0.0, `optimal_params.json` contains all 24 parameters (8 macro fixed + 16 micro tuned).
+**Gate**: 100 trials completed, best_score > 0.0, `optimal_params.json` contains all 36 parameters (11 macro fixed + 25 micro tuned).
 
 ### Resume and Troubleshooting
 
-Same as Phase C — add `--resume` flag. Additional concern: SGLang server may need monitoring for memory leaks during 6.7 days of continuous use. If the server degrades, restart it between rounds.
+Same as Phase C — add `--resume` flag. Additional concern: SGLang server may need monitoring for memory leaks during continuous use. If the server degrades, restart it between rounds.
 
 ---
 
-## 5. Phase E — Validation (~5.6 hours)
+## 5. Phase E — Validation
 
 ### Purpose
 
-Validate the calibrated parameters on the 30-APK holdout set (never seen during calibration). Run the same 3 tools x 3 repetitions as the baseline for direct statistical comparison.
+Validate the 36 calibrated parameters on the 30-APK holdout set (never seen during calibration). Run the same 3 tools x 3 repetitions as the baseline for direct statistical comparison.
 
 ### Prerequisites (in addition to Section 0)
 
@@ -441,7 +549,7 @@ uv run python scripts/baseline_docker.py \
     --data-dir $DATA_DIR \
     --filter-file $FILTER_HOLDOUT \
     --output-dir ./results/validation_v2 \
-    --n-containers 6 --timeout 300 --repetitions 3 \
+    --n-containers 6 --timeout TIMEOUT_SECS --repetitions 3 \
     --sglang-url http://host.docker.internal:30000/v1
 ```
 
@@ -449,7 +557,7 @@ uv run python scripts/baseline_docker.py \
 
 **Tasks**: 3 tools x 30 APKs x 3 reps = 270 tasks.
 
-**Expected duration**: ~5.6 hours.
+**Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~7.5h. At 900s: ~11.3h.
 
 ### Verification
 
@@ -497,9 +605,9 @@ print(f'Calibrated mean: {val_rv[\"errors\"].mean():.2f}')
 
 ## 6. Parameter Application (Post-Execution)
 
-After Phase E validates the calibrated parameters, apply them to the codebase:
+After Phase E validates the 36 calibrated parameters, apply them to the codebase:
 
-1. **Update `parameter_space.py`**: Change default values in `MACRO_PARAMETERS` and `MICRO_PARAMETERS` to match `optimal_params.json`
+1. **Update `parameter_space.py`**: Change default values in `MACRO_PARAMETERS` (11) and `MICRO_PARAMETERS` (25) to match `optimal_params.json`
 2. **Update agent spec**: Delta spec for `openspec/specs/agent/spec.md` with new default values for `RVAgentConfig` fields
 3. **Update unit tests**: Any tests that assert default parameter values need updating
 4. **Commit**: `closes #9` — the full calibration lifecycle is complete
