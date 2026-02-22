@@ -2,19 +2,27 @@
 
 import os
 import signal
-import sys
 from subprocess import PIPE, Popen, TimeoutExpired
-from typing import List, Optional, Any
+from typing import List, Optional
 
 import psutil
-from pydantic import Field, ConfigDict, field_validator, ValidationError as PydanticValidationError
+from pydantic import ConfigDict, Field, field_validator
 
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import (
+    CommandValidationError,
+    RVCommandTimeoutError,
+)
+from rv_android_core.util.logging.constants import (
+    CONTEXT_COMPONENT,
+    LOG_COMPLETE,
+    LOG_ERROR,
+    LOG_START,
+)
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.exceptions import CommandValidationError, RVCommandTimeoutError
-from rv_android_core.util.error.error_handler import ErrorHandler
+
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
 
@@ -44,7 +52,7 @@ def kill_process_tree(pid: int):
         pass
 
 
-@validated_model(['command', 'args', 'timeout'])
+@validated_model(["command", "args", "timeout"])
 class Command(BaseValidatedModel):
     """
     A system command execution utility with process management and error handling capabilities.
@@ -98,64 +106,53 @@ class Command(BaseValidatedModel):
         validate_assignment=True,
     )
 
-    command: str = Field(
-        description="The command to execute"
-    )
-    
+    command: str = Field(description="The command to execute")
+
     args: List[str] = Field(
-        default_factory=list,
-        description="List of command arguments"
-    )
-    
-    timeout: Optional[float] = Field(
-        default=None,
-        description="Timeout in seconds for command execution"
+        default_factory=list, description="List of command arguments"
     )
 
-    @field_validator('command')
+    timeout: Optional[float] = Field(
+        default=None, description="Timeout in seconds for command execution"
+    )
+
+    @field_validator("command")
     @classmethod
     def validate_command(cls, v):
         """Validate command using system exceptions."""
         if not v or not isinstance(v, str) or len(v.strip()) == 0:
             raise CommandValidationError(
-                "Command must be a non-empty string",
-                field_name="command"
+                "Command must be a non-empty string", field_name="command"
             )
         return v.strip()
 
-    @field_validator('timeout')
-    @classmethod  
+    @field_validator("timeout")
+    @classmethod
     def validate_timeout(cls, v):
         """Validate timeout using system exceptions."""
         if v is not None:
             if not isinstance(v, (int, float)):
                 raise CommandValidationError(
-                    "Timeout must be a number",
-                    field_name="timeout" 
+                    "Timeout must be a number", field_name="timeout"
                 )
             if v < 0:
                 raise CommandValidationError(
-                    "Timeout must be non-negative",
-                    field_name="timeout"
+                    "Timeout must be non-negative", field_name="timeout"
                 )
         return v
 
-    @field_validator('args')
+    @field_validator("args")
     @classmethod
     def validate_args(cls, v):
         """Validate arguments using system exceptions."""
         if v is None:
             return []
         if not isinstance(v, list):
-            raise CommandValidationError(
-                "Arguments must be a list",
-                field_name="args"
-            )
+            raise CommandValidationError("Arguments must be a list", field_name="args")
         for i, arg in enumerate(v):
             if not isinstance(arg, str):
                 raise CommandValidationError(
-                    f"Argument at position {i} must be a string",
-                    field_name="args"
+                    f"Argument at position {i} must be a string", field_name="args"
                 )
         return v
 
@@ -164,14 +161,13 @@ class Command(BaseValidatedModel):
         # Use object.__setattr__ to bypass Pydantic validation for logger
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "rv_android_core.commands.command",
-            {CONTEXT_COMPONENT: "Command"}
+            "rv_android_core.commands.command", {CONTEXT_COMPONENT: "Command"}
         )
-        object.__setattr__(self, 'logger', logger)
-        
+        object.__setattr__(self, "logger", logger)
+
         # Initialize error handler for integrated error management
         error_handler = ErrorHandler.get_instance()
-        object.__setattr__(self, 'error_handler', error_handler)
+        object.__setattr__(self, "error_handler", error_handler)
 
     def invoke(self, stdout=PIPE, stderr=PIPE, stdin=None) -> CommandResult:
         """
@@ -190,7 +186,7 @@ class Command(BaseValidatedModel):
             TimeoutExpired: If the command exceeds timeout
         """
         cmd_args = [self.command, *self.args]
-        cmd_str = ' '.join(cmd_args)
+        cmd_str = " ".join(cmd_args)
 
         with self.logger.with_context(command=cmd_str, timeout=self.timeout):
             self.logger.debug(LOG_START.format(phase=f"command: {cmd_str}"))
@@ -211,34 +207,34 @@ class Command(BaseValidatedModel):
                             "command": self.command,
                             "command_args": self.args,
                             "exit_code": proc.returncode,
-                            "timeout": self.timeout
-                        }
+                            "timeout": self.timeout,
+                        },
                     )
                 else:
-                    self.logger.debug(LOG_COMPLETE.format(
-                        phase=f"command with exit code {proc.returncode}"
-                    ))
+                    self.logger.debug(
+                        LOG_COMPLETE.format(
+                            phase=f"command with exit code {proc.returncode}"
+                        )
+                    )
 
                 return CommandResult(proc.returncode, stdout_data, stderr_data)
 
             except TimeoutExpired:
                 self.logger.warning(f"Command timed out after {self.timeout} seconds")
                 self.kill_process(proc)
-                
+
                 # Raise timeout exception with detailed context
                 raise RVCommandTimeoutError(
                     f"Command '{cmd_str}' timed out after {self.timeout} seconds",
                     timeout_seconds=self.timeout,
-                    command=cmd_str
+                    command=cmd_str,
                 )
 
             except OSError as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"executing command {cmd_str}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase=f"executing command {cmd_str}", error=str(e))
+                )
                 raise CommandNotFoundError(f"The command {self.command} was not found")
-
 
     def kill_process(self, p):
         """
@@ -272,7 +268,7 @@ class Command(BaseValidatedModel):
             CommandNotFoundError: If the command is not found
         """
         cmd_args = [self.command, *self.args]
-        cmd_str = ' '.join(cmd_args)
+        cmd_str = " ".join(cmd_args)
 
         with self.logger.with_context(command=cmd_str):
             self.logger.debug(LOG_START.format(phase=f"daemon command: {cmd_str}"))
@@ -282,10 +278,12 @@ class Command(BaseValidatedModel):
                 self.logger.debug(f"Started daemon process with PID: {process.pid}")
                 return process
             except OSError as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"starting daemon process for command {cmd_str}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(
+                        phase=f"starting daemon process for command {cmd_str}",
+                        error=str(e),
+                    )
+                )
                 raise CommandNotFoundError(f"The command {self.command} was not found")
 
     def invoke_as_process(self, stdout=PIPE, stderr=PIPE):
@@ -294,7 +292,7 @@ class Command(BaseValidatedModel):
 
         Alternative to invoke_as_deamon that uses subprocess.Popen directly
         without creating daemon/fork processes that can cause duplication.
-        
+
         This method prevents process duplication issues seen with invoke_as_deamon
         in parallel execution environments by using subprocess with process groups
         for proper cleanup.
@@ -310,9 +308,9 @@ class Command(BaseValidatedModel):
             CommandNotFoundError: If the command is not found
         """
         import os
-        
+
         cmd_args = [self.command, *self.args]
-        cmd_str = ' '.join(cmd_args)
+        cmd_str = " ".join(cmd_args)
 
         with self.logger.with_context(command=cmd_str):
             self.logger.debug(LOG_START.format(phase=f"process command: {cmd_str}"))
@@ -320,16 +318,18 @@ class Command(BaseValidatedModel):
             try:
                 # Use subprocess.Popen with process group to avoid fork duplication
                 process = Popen(
-                    cmd_args, 
-                    stderr=stderr, 
+                    cmd_args,
+                    stderr=stderr,
                     stdout=stdout,
-                    preexec_fn=os.setsid  # Create new process group for proper cleanup
+                    preexec_fn=os.setsid,  # Create new process group for proper cleanup
                 )
                 self.logger.debug(f"Started single process with PID: {process.pid}")
                 return process
             except OSError as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"starting single process for command {cmd_str}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(
+                        phase=f"starting single process for command {cmd_str}",
+                        error=str(e),
+                    )
+                )
                 raise CommandNotFoundError(f"The command {self.command} was not found")

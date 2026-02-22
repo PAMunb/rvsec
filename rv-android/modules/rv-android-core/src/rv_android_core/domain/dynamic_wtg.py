@@ -8,7 +8,7 @@ enabling coverage-aware exploration strategies in rv-agent.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 
@@ -39,8 +39,13 @@ class DynamicTransition:
     - Serialized as part of graph persistence via to_dict/from_dict
     """
 
-    def __init__(self, source_activity: str, target_activity: str,
-                 actions: List[Dict[str, Any]], timestamp: datetime = None):
+    def __init__(
+        self,
+        source_activity: str,
+        target_activity: str,
+        actions: List[Dict[str, Any]],
+        timestamp: datetime = None,
+    ):
         """Initialize transition between two activities.
 
         Args:
@@ -84,11 +89,11 @@ class DynamicTransition:
             "target_activity": self.target_activity,
             "actions": self.actions,
             "timestamp": self.timestamp.isoformat(),
-            "count": self.count
+            "count": self.count,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'DynamicTransition':
+    def from_dict(cls, data: Dict) -> "DynamicTransition":
         """Create from dictionary representation.
 
         Args:
@@ -99,9 +104,7 @@ class DynamicTransition:
             timestamp and observation count.
         """
         transition = cls(
-            data["source_activity"],
-            data["target_activity"],
-            data["actions"]
+            data["source_activity"], data["target_activity"], data["actions"]
         )
         transition.timestamp = datetime.fromisoformat(data["timestamp"])
         transition.count = data["count"]
@@ -110,9 +113,11 @@ class DynamicTransition:
     def __eq__(self, other):
         if not isinstance(other, DynamicTransition):
             return False
-        return (self.source_activity == other.source_activity and
-                self.target_activity == other.target_activity and
-                self.actions == other.actions)
+        return (
+            self.source_activity == other.source_activity
+            and self.target_activity == other.target_activity
+            and self.actions == other.actions
+        )
 
     def __hash__(self):
         return hash((self.source_activity, self.target_activity, self.actions))
@@ -163,7 +168,9 @@ class ActivityNode:
     def record_visit(self):
         """Record a visit to this activity and update timestamps."""
         self.visit_count += 1
-        _logger.debug(f"Recording visit to activity: {self.name}, count: {self.visit_count}")
+        _logger.debug(
+            f"Recording visit to activity: {self.name}, count: {self.visit_count}"
+        )
         now = datetime.now()
         if not self.first_visit:
             self.first_visit = now
@@ -176,7 +183,9 @@ class ActivityNode:
             action_id: Identifier of the UI element action that was tested.
         """
         self.ui_elements_tested.add(action_id)
-        _logger.debug(f"Recording tested element: {action_id} ::: ui_elements_tested={self.ui_elements_tested}")
+        _logger.debug(
+            f"Recording tested element: {action_id} ::: ui_elements_tested={self.ui_elements_tested}"
+        )
 
     def get_coverage_percentage(self, total_elements: int) -> float:
         """Calculate the UI element coverage percentage for this activity.
@@ -208,11 +217,11 @@ class ActivityNode:
             "visit_count": self.visit_count,
             "first_visit": self.first_visit.isoformat() if self.first_visit else None,
             "last_visit": self.last_visit.isoformat() if self.last_visit else None,
-            "ui_elements_tested": list(self.ui_elements_tested)
+            "ui_elements_tested": list(self.ui_elements_tested),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'ActivityNode':
+    def from_dict(cls, data: Dict) -> "ActivityNode":
         """Create from dictionary representation.
 
         Args:
@@ -323,10 +332,13 @@ class DynamicTransitionGraph:
         node = self.add_activity(normalized_name)
         node.record_visit()
         self.current_activity = normalized_name
-        self.logger.debug(f"Recorded visit to activity: {normalized_name}, count: {node.visit_count}")
+        self.logger.debug(
+            f"Recorded visit to activity: {normalized_name}, count: {node.visit_count}"
+        )
 
-    def record_transition(self, source_activity: str, target_activity: str,
-                          actions: List[Dict[str, Any]]) -> DynamicTransition:
+    def record_transition(
+        self, source_activity: str, target_activity: str, actions: List[Dict[str, Any]]
+    ) -> DynamicTransition:
         """Record a transition between two activities.
 
         Normalize activity names, create or increment an existing transition,
@@ -352,7 +364,9 @@ class DynamicTransitionGraph:
         if target_activity.endswith(".."):
             target_activity = target_activity[:-1]
 
-        self.logger.info(f"Recording transition: {source_activity} -> {target_activity}")
+        self.logger.info(
+            f"Recording transition: {source_activity} -> {target_activity}"
+        )
 
         # Ensure both activities exist
         self.add_activity(source_activity)
@@ -361,26 +375,35 @@ class DynamicTransitionGraph:
         # Check if this transition already exists
         transition = None
         for t in self.transitions:
-            if (t.source_activity == source_activity and
-                    t.target_activity == target_activity and
-                    t.actions == actions):
+            if (
+                t.source_activity == source_activity
+                and t.target_activity == target_activity
+                and t.actions == actions
+            ):
                 transition = t
                 transition.increment_count()
                 self.logger.info(
-                    f"Incremented transition: {source_activity} -> {target_activity}, count: {transition.count}")
+                    f"Incremented transition: {source_activity} -> {target_activity}, count: {transition.count}"
+                )
                 break
 
         if not transition:
             transition = DynamicTransition(source_activity, target_activity, actions)
             self.transitions.append(transition)
-            self.logger.info(f"Added new transition: {source_activity} -> {target_activity}")
+            self.logger.info(
+                f"Added new transition: {source_activity} -> {target_activity}"
+            )
 
         # Update graph edge
         if self.graph.has_edge(source_activity, target_activity):
             self.graph[source_activity][target_activity]["count"] += 1
-            self.graph[source_activity][target_activity]["transitions"].append(transition)
+            self.graph[source_activity][target_activity]["transitions"].append(
+                transition
+            )
         else:
-            self.graph.add_edge(source_activity, target_activity, count=1, transitions=[transition])
+            self.graph.add_edge(
+                source_activity, target_activity, count=1, transitions=[transition]
+            )
 
         return transition
 
@@ -400,7 +423,9 @@ class DynamicTransitionGraph:
         node.record_tested_element(action_id)
         self.logger.debug(f"Recorded action {action_id} on activity: {normalized_name}")
 
-    def record_current_to_next(self, next_activity: str, action_id: str, action_type: str):
+    def record_current_to_next(
+        self, next_activity: str, action_id: str, action_type: str
+    ):
         """Record transition from current activity to next activity.
 
         Args:
@@ -415,7 +440,9 @@ class DynamicTransitionGraph:
             self.logger.warning(f"Cannot record transition: no current activity set")
             return None
         actions = [{"action_id": action_id, "action_type": action_type}]
-        transition = self.record_transition(self.current_activity, next_activity, actions)
+        transition = self.record_transition(
+            self.current_activity, next_activity, actions
+        )
         self.current_activity = next_activity
         return transition
 
@@ -455,11 +482,13 @@ class DynamicTransitionGraph:
         """
         sorted_activities = sorted(
             [(name, node.visit_count) for name, node in self.activities.items()],
-            key=lambda x: x[1]
+            key=lambda x: x[1],
         )
         return sorted_activities[:limit]
 
-    def get_actions_for_coverage(self, activity_name: str, current_actions: List[str]) -> List[str]:
+    def get_actions_for_coverage(
+        self, activity_name: str, current_actions: List[str]
+    ) -> List[str]:
         """Get actions that would increase coverage for an activity.
 
         Filter the given actions to return only those that have not yet been
@@ -477,8 +506,11 @@ class DynamicTransitionGraph:
         if not node:
             return []
 
-        return [action_id for action_id in current_actions
-                if action_id not in node.ui_elements_tested]
+        return [
+            action_id
+            for action_id in current_actions
+            if action_id not in node.ui_elements_tested
+        ]
 
     def suggest_next_activity(self) -> Optional[str]:
         """Suggest which activity to visit next based on visit counts.
@@ -502,7 +534,9 @@ class DynamicTransitionGraph:
         neighbor_visits = [(n, self.activities[n].visit_count) for n in neighbors]
         neighbor_visits.sort(key=lambda x: x[1])
 
-        self.logger.info(f"Suggested next activity: {neighbor_visits[0][0] if neighbor_visits else None}")
+        self.logger.info(
+            f"Suggested next activity: {neighbor_visits[0][0] if neighbor_visits else None}"
+        )
 
         # Return the least visited neighbor
         return neighbor_visits[0][0] if neighbor_visits else None
@@ -520,13 +554,15 @@ class DynamicTransitionGraph:
               visited activity.
         """
         return {
-            "activities": {name: node.to_dict() for name, node in self.activities.items()},
+            "activities": {
+                name: node.to_dict() for name, node in self.activities.items()
+            },
             "transitions": [t.to_dict() for t in self.transitions],
-            "current_activity": self.current_activity
+            "current_activity": self.current_activity,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'DynamicTransitionGraph':
+    def from_dict(cls, data: Dict) -> "DynamicTransitionGraph":
         """Create graph from dictionary representation.
 
         Reconstruct the full graph including all activities, transitions,
@@ -559,7 +595,9 @@ class DynamicTransitionGraph:
                 graph.graph[source][target]["count"] += transition.count
                 graph.graph[source][target]["transitions"].append(transition)
             else:
-                graph.graph.add_edge(source, target, count=transition.count, transitions=[transition])
+                graph.graph.add_edge(
+                    source, target, count=transition.count, transitions=[transition]
+                )
 
         graph.current_activity = data["current_activity"]
         return graph

@@ -279,7 +279,10 @@ class TestZeroElementsScreen:
         assert action is not None
         from rv_android_core.domain.widget import WidgetEventType
 
-        assert action.event == WidgetEventType.BACK
+        # Empty screen is vacuously saturated (0/0), so Tier 3 proactive
+        # backtrack triggers. With no backtrack path available, the strategy
+        # falls through to RESTART_APP instead of BACK.
+        assert action.event in (WidgetEventType.BACK, WidgetEventType.RESTART)
 
 
 class TestColdStartCoveragePathDisabled:

@@ -2,6 +2,4 @@
 from .error_handler import ErrorHandler
 
 # Export the main API
-__all__ = [
-    'ErrorHandler'
-]
+__all__ = ["ErrorHandler"]

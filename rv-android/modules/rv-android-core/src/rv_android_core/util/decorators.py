@@ -29,7 +29,9 @@ def task_phase(phase_name: str, handle_task_errors: bool = True):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             # Get standardized context for this phase
-            context = self._get_task_context() if hasattr(self, '_get_task_context') else {}
+            context = (
+                self._get_task_context() if hasattr(self, "_get_task_context") else {}
+            )
             context.update({"phase": phase_name})
 
             # Set up logging context
@@ -72,8 +74,7 @@ def log_execution(logger_prefix: str, component_name: str = None):
                 context[CONTEXT_COMPONENT] = component_name
 
             self.logger = logging_manager.get_logger(
-                f"{logger_prefix}.{cls.__name__}",
-                context
+                f"{logger_prefix}.{cls.__name__}", context
             )
 
             # Call original init

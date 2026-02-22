@@ -27,13 +27,12 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
 from rv_agent.memory.element_id import make_element_id_from_action
-from rv_agent.constants import RVAgentConstants
-from rv_agent.services.coordinate_utils import device_to_optimized
 
 if TYPE_CHECKING:
     from rv_screen_parser.parser.screen.visitor.model import ItemAction
-    from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
+
     from rv_agent.config.agent_config import RVAgentConfig
+    from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +53,6 @@ class Scorer(ABC):
         Returns:
             Score value (higher = higher priority)
         """
-        pass
 
 
 class MopScorer(Scorer):
@@ -425,17 +423,13 @@ class CoverageDensityScorer(Scorer):
 
     DEFAULT_WEIGHT = 200.0
 
-    def __init__(
-        self, coordinate_converter=None, config: Optional["RVAgentConfig"] = None
-    ):
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
         """
         Initialize CoverageDensityScorer.
 
         Args:
-            coordinate_converter: Converter for coordinate spaces
             config: Optional config with calibration parameters
         """
-        self.converter = coordinate_converter
         if config:
             self.weight = config.coverage_density_weight
         else:
@@ -445,8 +439,8 @@ class CoverageDensityScorer(Scorer):
         if not context.successor_tracker or not context.ui_coverage:
             return 0.0
 
-        # Convert to optimized coordinate space (SuccessorTracker uses optimized coords)
-        action_signature = self._convert_signature(action.coords_for_matching)
+        # Action signature in device space (INV-AGT-40)
+        action_signature = action.coords_for_matching
 
         destination = context.successor_tracker.get_action_destination(
             context.current_state_hash, action_signature
@@ -459,30 +453,6 @@ class CoverageDensityScorer(Scorer):
         # Known destination - score based on coverage gap
         coverage_gap = context.ui_coverage.get_coverage_gap(destination)
         return self.weight * coverage_gap
-
-    def _convert_signature(self, signature):
-        """Convert action signature to optimized space."""
-        (device_x, device_y), action_type = signature
-
-        if self.converter:
-            optimized_x, optimized_y = self.converter.device_to_optimized(
-                device_x, device_y
-            )
-        else:
-            optimized_x, optimized_y = device_to_optimized(
-                device_x,
-                device_y,
-                (
-                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
-                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
-                ),
-                (
-                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
-                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
-                ),
-            )
-
-        return ((optimized_x, optimized_y), action_type)
 
 
 class StrengthScorer(Scorer):
@@ -499,17 +469,13 @@ class StrengthScorer(Scorer):
     DEFAULT_WEIGHT = 50.0
     DEFAULT_REWARD_SCORE_WEIGHT = 1.0
 
-    def __init__(
-        self, coordinate_converter=None, config: Optional["RVAgentConfig"] = None
-    ):
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
         """
         Initialize StrengthScorer.
 
         Args:
-            coordinate_converter: Converter for coordinate spaces
             config: Optional config with calibration parameters
         """
-        self.converter = coordinate_converter
         if config:
             self.weight = config.strength_weight
             self.reward_score_weight = config.reward_score_weight
@@ -522,32 +488,9 @@ class StrengthScorer(Scorer):
         if not node:
             return self.weight * 0.5  # Neutral for unknown states
 
-        action_signature = self._convert_signature(action.coords_for_matching)
+        # Action signature in device space (INV-AGT-40)
+        action_signature = action.coords_for_matching
         strength = node.get_action_strength(action_signature)
         cumulative_reward = node.action_cumulative_reward.get(action_signature, 0.0)
 
         return self.weight * strength + self.reward_score_weight * cumulative_reward
-
-    def _convert_signature(self, signature):
-        """Convert action signature to optimized space."""
-        (device_x, device_y), action_type = signature
-
-        if self.converter:
-            optimized_x, optimized_y = self.converter.device_to_optimized(
-                device_x, device_y
-            )
-        else:
-            optimized_x, optimized_y = device_to_optimized(
-                device_x,
-                device_y,
-                (
-                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
-                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
-                ),
-                (
-                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
-                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
-                ),
-            )
-
-        return ((optimized_x, optimized_y), action_type)

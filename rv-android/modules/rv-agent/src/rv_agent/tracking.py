@@ -32,7 +32,7 @@ Filtering:
 """
 
 import logging
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

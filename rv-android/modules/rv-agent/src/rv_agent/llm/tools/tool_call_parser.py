@@ -13,8 +13,8 @@ Formats supported:
 """
 
 import json
-import re
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 

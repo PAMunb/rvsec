@@ -27,12 +27,11 @@ suggest unvisited targets prioritized by MOP reachability.
 
 import logging
 from collections import deque
-from typing import Optional, Dict, List, Any, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.wtg import WindowTransitionGraph
-from rv_android_core.domain.window import Window
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 

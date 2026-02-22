@@ -7,8 +7,9 @@ traversal algorithms for systematic state space exploration.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Tuple
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
+from typing import Any, Dict, List, Optional, Tuple
+
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 
 class ExplorationStrategy(ABC):
@@ -55,7 +56,6 @@ class ExplorationStrategy(ABC):
         - Must handle backtracking when current state is exhausted
         - Should track visited states to avoid infinite loops
         """
-        pass
 
     @abstractmethod
     def record_transition(self, from_hash: str, to_hash: str, action: ItemAction):
@@ -72,7 +72,6 @@ class ExplorationStrategy(ABC):
         - Should track action by coordinates for repeatability
         - Must handle new state discovery and backtracking logic
         """
-        pass
 
     @abstractmethod
     def should_backtrack(self, current_hash: str) -> bool:
@@ -90,7 +89,6 @@ class ExplorationStrategy(ABC):
         - Should consider algorithm-specific backtracking conditions
         - Must handle dead-end states appropriately
         """
-        pass
 
     @abstractmethod
     def reset(self):
@@ -102,7 +100,6 @@ class ExplorationStrategy(ABC):
         - Should reset visited states tracking
         - Must clear transition history
         """
-        pass
 
     def _get_action_signature(self, action: ItemAction) -> Tuple[Tuple[int, int], str]:
         """
@@ -404,8 +401,8 @@ class ExplorationStrategy(ABC):
         Returns:
             SWIPE ItemAction if generated, None otherwise
         """
-        import random
         import logging
+        import random
 
         logger = logging.getLogger(__name__)
 

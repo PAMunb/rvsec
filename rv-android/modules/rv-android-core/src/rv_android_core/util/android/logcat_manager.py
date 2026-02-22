@@ -1,18 +1,22 @@
 # rvandroid/util/logcat_manager.py - Pydantic v2 migrated version
 
 import os
-from typing import List, Optional
 from pathlib import Path
+from typing import List, Optional
 
-from pydantic import Field, ConfigDict, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from rv_android_core.commands.command import Command
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import LogcatValidationError
+from rv_android_core.util.logging.constants import (
+    CONTEXT_COMPONENT,
+    LOG_COMPLETE,
+    LOG_ERROR,
+)
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_ERROR, LOG_COMPLETE
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.exceptions import LogcatValidationError
-from rv_android_core.util.error.error_handler import ErrorHandler
 
 
 @validated_model([])
@@ -51,58 +55,55 @@ class LogcatManager(BaseValidatedModel):
         # Validate assignments for runtime safety
         validate_assignment=True,
         # Allow extra attributes for runtime state
-        extra='allow'
+        extra="allow",
     )
 
     # Configuration fields
     default_tags: List[str] = Field(
         default_factory=lambda: ["RVSEC", "RVSEC-COV"],
-        description="Default logcat tags to filter when none provided"
+        description="Default logcat tags to filter when none provided",
     )
 
     clear_buffer_on_start: bool = Field(
         default=True,
-        description="Whether to clear logcat buffer before starting capture"
+        description="Whether to clear logcat buffer before starting capture",
     )
 
     logcat_format: str = Field(
-        default="threadtime",
-        description="Logcat output format specification"
-    )
-    
-    device_serial: str = Field(
-        default="emulator-5554",
-        description="Android device serial for logcat capture"
+        default="threadtime", description="Logcat output format specification"
     )
 
-    @field_validator('default_tags')
+    device_serial: str = Field(
+        default="emulator-5554", description="Android device serial for logcat capture"
+    )
+
+    @field_validator("default_tags")
     @classmethod
     def validate_tags(cls, v):
         """Validate that all tags are non-empty strings using system exceptions."""
         if not v:
             raise LogcatValidationError(
-                "At least one default tag must be specified",
-                field_name="default_tags"
+                "At least one default tag must be specified", field_name="default_tags"
             )
-        
+
         for i, tag in enumerate(v):
             if not isinstance(tag, str) or not tag.strip():
                 raise LogcatValidationError(
                     f"Tag at position {i} must be a non-empty string",
-                    field_name="default_tags"
+                    field_name="default_tags",
                 )
-        
+
         return v
 
-    @field_validator('logcat_format')
+    @field_validator("logcat_format")
     @classmethod
     def validate_logcat_format(cls, v):
         """Validate logcat format specification using system exceptions."""
-        valid_formats = {'brief', 'process', 'tag', 'raw', 'time', 'threadtime', 'long'}
+        valid_formats = {"brief", "process", "tag", "raw", "time", "threadtime", "long"}
         if v not in valid_formats:
             raise LogcatValidationError(
                 f"Logcat format must be one of: {valid_formats}",
-                field_name="logcat_format"
+                field_name="logcat_format",
             )
         return v
 
@@ -111,24 +112,23 @@ class LogcatManager(BaseValidatedModel):
         # Use object.__setattr__ to bypass Pydantic validation for logger
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
-            "util.logcat_manager",
-            {CONTEXT_COMPONENT: "LogcatManager"}
+            "util.logcat_manager", {CONTEXT_COMPONENT: "LogcatManager"}
         )
-        object.__setattr__(self, 'logger', logger)
-        
+        object.__setattr__(self, "logger", logger)
+
         # Initialize error handler for integrated error management
         error_handler = ErrorHandler.get_instance()
-        object.__setattr__(self, 'error_handler', error_handler)
-        
+        object.__setattr__(self, "error_handler", error_handler)
+
         # Initialize runtime state
-        object.__setattr__(self, 'logcat_process', None)
-        object.__setattr__(self, 'logcat_file_handle', None)
+        object.__setattr__(self, "logcat_process", None)
+        object.__setattr__(self, "logcat_file_handle", None)
 
     def start_capture(
-        self, 
-        output_file: str, 
-        tags: Optional[List[str]] = None, 
-        clear_buffer: Optional[bool] = None
+        self,
+        output_file: str,
+        tags: Optional[List[str]] = None,
+        clear_buffer: Optional[bool] = None,
     ) -> bool:
         """
         Start capturing logcat output to a file with validated parameters.
@@ -152,10 +152,10 @@ class LogcatManager(BaseValidatedModel):
         validated_tags = self._validate_tag_list(tags)
 
         with self.logger.with_context(
-                output_file=validated_output_file,
-                tags=validated_tags,
-                clear_buffer=clear_buffer,
-                phase="start_capture"
+            output_file=validated_output_file,
+            tags=validated_tags,
+            clear_buffer=clear_buffer,
+            phase="start_capture",
         ):
             try:
                 # Create output directory if needed
@@ -165,12 +165,22 @@ class LogcatManager(BaseValidatedModel):
 
                 # Clear logcat buffer if requested
                 if clear_buffer:
-                    clear_cmd = Command("adb", ["-s", self.device_serial, "logcat", "-c"])
+                    clear_cmd = Command(
+                        "adb", ["-s", self.device_serial, "logcat", "-c"]
+                    )
                     clear_cmd.invoke()
-                    self.logger.debug(f"Cleared logcat buffer for device {self.device_serial}")
+                    self.logger.debug(
+                        f"Cleared logcat buffer for device {self.device_serial}"
+                    )
 
                 # Build command with device serial and tag filters
-                cmd_args = ["-s", self.device_serial, "logcat", "-v", self.logcat_format]
+                cmd_args = [
+                    "-s",
+                    self.device_serial,
+                    "logcat",
+                    "-v",
+                    self.logcat_format,
+                ]
                 if validated_tags:
                     cmd_args.extend(["-s"])  # Tag filter option
                     # Each tag needs priority level suffix (V=Verbose) for proper filtering
@@ -186,28 +196,28 @@ class LogcatManager(BaseValidatedModel):
                     # The invoke_as_deamon method was causing fork-based process duplication in parallel execution.
                     # Original line (causes duplication): logcat_process = logcat_cmd.invoke_as_deamon(stdout=log_file)
                     logcat_process = logcat_cmd.invoke_as_process(stdout=log_file)
-                    object.__setattr__(self, 'logcat_process', logcat_process)
-                    object.__setattr__(self, 'logcat_file_handle', log_file)
-                    
-                    self.logger.info(LOG_COMPLETE.format(
-                        phase=f"logcat capture to {validated_output_file}"
-                    ))
+                    object.__setattr__(self, "logcat_process", logcat_process)
+                    object.__setattr__(self, "logcat_file_handle", log_file)
+
+                    self.logger.info(
+                        LOG_COMPLETE.format(
+                            phase=f"logcat capture to {validated_output_file}"
+                        )
+                    )
                     return True
 
                 except Exception as e:
                     # Close file handle if command fails
                     log_file.close()
-                    self.logger.error(LOG_ERROR.format(
-                        phase="starting logcat capture",
-                        error=str(e)
-                    ))
+                    self.logger.error(
+                        LOG_ERROR.format(phase="starting logcat capture", error=str(e))
+                    )
                     return False
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="setting up logcat capture",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase="setting up logcat capture", error=str(e))
+                )
                 return False
 
     def stop_capture(self) -> bool:
@@ -221,35 +231,31 @@ class LogcatManager(BaseValidatedModel):
             success = True
 
             # Kill logcat process
-            if hasattr(self, 'logcat_process') and self.logcat_process:
+            if hasattr(self, "logcat_process") and self.logcat_process:
                 try:
                     self.logger.debug("Stopping logcat process")
                     self.logcat_process.kill()
-                    object.__setattr__(self, 'logcat_process', None)
+                    object.__setattr__(self, "logcat_process", None)
                 except Exception as e:
-                    self.logger.warning(LOG_ERROR.format(
-                        phase="stopping logcat process",
-                        error=str(e)
-                    ))
+                    self.logger.warning(
+                        LOG_ERROR.format(phase="stopping logcat process", error=str(e))
+                    )
                     success = False
 
             # Close logcat file handle
-            if hasattr(self, 'logcat_file_handle') and self.logcat_file_handle:
+            if hasattr(self, "logcat_file_handle") and self.logcat_file_handle:
                 try:
                     self.logger.debug("Closing logcat file")
                     self.logcat_file_handle.close()
-                    object.__setattr__(self, 'logcat_file_handle', None)
+                    object.__setattr__(self, "logcat_file_handle", None)
                 except Exception as e:
-                    self.logger.warning(LOG_ERROR.format(
-                        phase="closing logcat file",
-                        error=str(e)
-                    ))
+                    self.logger.warning(
+                        LOG_ERROR.format(phase="closing logcat file", error=str(e))
+                    )
                     success = False
 
             if success:
-                self.logger.info(LOG_COMPLETE.format(
-                    phase="logcat capture shutdown"
-                ))
+                self.logger.info(LOG_COMPLETE.format(phase="logcat capture shutdown"))
 
             return success
 
@@ -261,8 +267,10 @@ class LogcatManager(BaseValidatedModel):
             True if capture is active, False otherwise
         """
         return (
-            hasattr(self, 'logcat_process') and self.logcat_process is not None and
-            hasattr(self, 'logcat_file_handle') and self.logcat_file_handle is not None
+            hasattr(self, "logcat_process")
+            and self.logcat_process is not None
+            and hasattr(self, "logcat_file_handle")
+            and self.logcat_file_handle is not None
         )
 
     def _validate_output_file_path(self, output_file: str) -> str:
@@ -282,33 +290,36 @@ class LogcatManager(BaseValidatedModel):
             if not output_file or not isinstance(output_file, str):
                 raise LogcatValidationError(
                     "Output file path must be a non-empty string",
-                    field_name="output_file"
+                    field_name="output_file",
                 )
 
             # Convert to Path for validation
             path = Path(output_file)
-            
+
             # Basic path validation - ensure it's not a directory if it exists
             if path.exists() and path.is_dir():
                 raise LogcatValidationError(
                     f"Output path {output_file} is a directory, not a file",
-                    field_name="output_file"
+                    field_name="output_file",
                 )
 
             # Return absolute path for consistency
             return str(path.resolve())
-        
+
         except LogcatValidationError:
             # Re-raise our custom exceptions
             raise
         except Exception as e:
             # Handle any other errors with error handler
-            context = {'output_file': output_file, 'validation_method': '_validate_output_file_path'}
+            context = {
+                "output_file": output_file,
+                "validation_method": "_validate_output_file_path",
+            }
             self.error_handler.handle_error(e, context)
             raise LogcatValidationError(
                 f"Failed to validate output file path: {str(e)}",
                 field_name="output_file",
-                cause=e
+                cause=e,
             )
 
     def _validate_tag_list(self, tags: List[str]) -> List[str]:
@@ -333,36 +344,33 @@ class LogcatManager(BaseValidatedModel):
                 if not isinstance(tag, str):
                     raise LogcatValidationError(
                         f"Tag at position {i} must be string, got {type(tag)}",
-                        field_name="tags"
+                        field_name="tags",
                     )
-                
+
                 tag = tag.strip()
                 if not tag:
                     raise LogcatValidationError(
                         f"Tag at position {i} cannot be empty or whitespace-only",
-                        field_name="tags"
+                        field_name="tags",
                     )
-                
+
                 # Basic Android logcat tag validation
                 if len(tag) > 23:  # Android logcat tag limit
                     raise LogcatValidationError(
-                        f"Tag '{tag}' exceeds 23 character limit",
-                        field_name="tags"
+                        f"Tag '{tag}' exceeds 23 character limit", field_name="tags"
                     )
-                
+
                 validated_tags.append(tag)
 
             return validated_tags
-            
+
         except LogcatValidationError:
             # Re-raise our custom exceptions
             raise
         except Exception as e:
             # Handle any other errors with error handler
-            context = {'tags': tags, 'validation_method': '_validate_tag_list'}
+            context = {"tags": tags, "validation_method": "_validate_tag_list"}
             self.error_handler.handle_error(e, context)
             raise LogcatValidationError(
-                f"Failed to validate tag list: {str(e)}",
-                field_name="tags",
-                cause=e
+                f"Failed to validate tag list: {str(e)}", field_name="tags", cause=e
             )

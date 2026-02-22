@@ -11,9 +11,4 @@ from .command_exception import CommandException
 from .command_not_found_error import CommandNotFoundError
 from .command_result import CommandResult
 
-__all__ = [
-    'Command',
-    'CommandException',
-    'CommandNotFoundError',
-    'CommandResult'
-]
+__all__ = ["Command", "CommandException", "CommandNotFoundError", "CommandResult"]

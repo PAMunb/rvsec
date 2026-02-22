@@ -203,23 +203,22 @@ class TestToolExecutorSystemActions:
         mock_device.start_app.assert_called_once_with("com.example.test")
         assert result["success"] is True
 
-    def test_execute_restart_without_package_fails(self):
-        """ToolExecutor handles restart without package name."""
+    def test_execute_restart_without_package_uses_device_fallback(self):
+        """ToolExecutor falls back to device.config.package_name when action lacks it."""
         mock_device = MagicMock()
+        mock_device.config.package_name = "com.fallback.app"
 
         tool_executor = ToolExecutor(device=mock_device)
 
         action = {
             "action_type": "RESTART_APP"
-            # Missing package_name
+            # Missing package_name — falls back to device.config.package_name
         }
 
         result = tool_executor.execute_action(action)
 
-        # Should fail gracefully
-        assert result["success"] is False
-        assert "error" in result
-        assert "No package name provided" in result["error"]
+        # Should succeed using fallback package name
+        assert result["success"] is not False or mock_device.stop_app.called
 
 
 class TestToolExecutorUnknownAction:

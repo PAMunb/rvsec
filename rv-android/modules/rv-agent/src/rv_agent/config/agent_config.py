@@ -1,30 +1,47 @@
 """
-RVAgent Configuration.
+Configure RVAgent exploration with SGLang backend and Qwen3-VL model.
 
-Configuration for RVAgent with SGLang backend and Qwen3-VL model.
-Based on validation from rvsec-vision-llm benchmark (2,847 tests).
+Provide the central Pydantic configuration model for all RVAgent components,
+including LLM inference parameters, exploration strategy weights, scorer
+calibration, error detection thresholds, and device settings. All default
+values originate from the rvsec-vision-llm validation benchmark.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from pydantic import Field
 from rv_android_core.util.validation import BaseValidatedModel
+
 from ..constants import RVAgentConstants
 
 
 class RVAgentConfig(BaseValidatedModel):
-    """
-    Configuration for RVAgent exploration with SGLang backend.
+    """Configure RVAgent exploration with SGLang backend.
+
+    Centralize all tunable parameters for the RVAgent system into a single
+    Pydantic model. Each field includes validation constraints (ge/le) and
+    a description. Default values are calibrated from the rvsec-vision-llm
+    benchmark (Qwen3-VL-4B-Instruct on SGLang).
 
     Supports three exploration modes:
-    - pure_algorithm: Algorithmic exploration without LLM
-    - llm_only: LLM-driven exploration
-    - multimode: Hybrid LLM with algorithmic fallback (70% LLM / 30% algorithm)
+    - pure_algorithm: Algorithmic exploration without LLM.
+    - llm_only: LLM-driven exploration.
+    - multimode: Hybrid LLM with algorithmic fallback (default 70/30 split).
 
-    Based on validation from rvsec-vision-llm benchmark:
-    - Model: Qwen3-VL-4B-Instruct
-    - Server: SGLang (recommended over vLLM for tool calling)
-    - Hit rate: 57.7% with visual grounding
-    - Tool call rate: 90.3%
+    ### Role in the System:
+
+    - Created by AgentFactory or CLI and injected into all agent components.
+    - Consumed by RVAgent, LLMClient, RVAgentStrategy, ActionRanker, scorers,
+      RoutingManager, MemoryCoordinator, and DeviceInterface.
+    - Supports environment variable overrides for mode and log level.
+
+    ### Key Features:
+
+    - Pydantic validation with range constraints on all numeric parameters.
+    - Section-organized fields: execution, LLM, output, tool, logging,
+      coordinates, device, memory, strategy, fallback, static analysis,
+      scorer weights, successor tracker, error detection, and exploration.
+    - Convenience methods for LangChain integration and mode resolution.
     """
 
     # === EXECUTION CONFIGURATION ===
@@ -337,7 +354,7 @@ class RVAgentConfig(BaseValidatedModel):
         description="Minimum score to accept spatial match between error and input [0.01, 0.5]",
     )
 
-    # === GH26 EXPLORATION STRATEGY PARAMETERS ===
+    # === ADVANCED EXPLORATION STRATEGY PARAMETERS ===
     backtrack_saturation_threshold: float = Field(
         default=0.8,
         ge=0.5,
@@ -384,11 +401,17 @@ class RVAgentConfig(BaseValidatedModel):
     )
 
     def get_langchain_config(self) -> Dict[str, Any]:
-        """
-        Get LangChain-compatible configuration for SGLang.
+        """Build LangChain-compatible configuration for SGLang.
 
         Returns:
-            Dictionary with ChatOpenAI initialization parameters
+            Dictionary with ChatOpenAI initialization parameters:
+            - "base_url" (str): SGLang server URL.
+            - "model" (str): Model identifier.
+            - "temperature" (float): Sampling temperature.
+            - "max_tokens" (int): Maximum response tokens.
+            - "top_p" (float): Nucleus sampling parameter.
+            - "api_key" (str): Placeholder ("not-needed" for SGLang).
+            - "extra_body" (dict, optional): Contains "top_k" when > 0.
         """
         config = {
             "base_url": self.llm_base_url,
@@ -398,19 +421,20 @@ class RVAgentConfig(BaseValidatedModel):
             "top_p": self.llm_top_p,
             "api_key": "not-needed",  # SGLang doesn't require API key
         }
-        # top_k via extra_body (SGLang supports, OpenAI doesn't)
+        # top_k is passed via extra_body because the OpenAI API schema does
+        # not include it, but SGLang accepts it as an extended parameter.
         if self.llm_top_k > 0:
             config["extra_body"] = {"top_k": self.llm_top_k}
         return config
 
     def get_agent_mode(self) -> str:
-        """
-        Get agent exploration mode.
+        """Resolve agent exploration mode with environment override.
 
-        Environment variable RVAGENT_MODE overrides config setting.
+        Check RVAGENT_MODE environment variable first; fall back to the
+        configured agent_mode if the variable is unset or invalid.
 
         Returns:
-            Agent mode: 'pure_algorithm', 'llm_only', or 'multimode'
+            Agent mode: 'pure_algorithm', 'llm_only', or 'multimode'.
         """
         import os
 
@@ -421,26 +445,29 @@ class RVAgentConfig(BaseValidatedModel):
         return self.agent_mode
 
     def get_log_level(self) -> int:
-        """
-        Get logging level with environment variable override.
+        """Resolve logging level with environment override.
 
-        Environment variable RVAGENT_LOG_LEVEL overrides config setting.
+        Check RVAGENT_LOG_LEVEL environment variable first; fall back to the
+        configured log_level if the variable is unset. Invalid level strings
+        default to logging.INFO.
 
         Returns:
-            Logging level as integer (e.g., logging.INFO)
+            Logging level as integer (e.g., logging.INFO = 20).
         """
-        import os
         import logging
+        import os
 
         level_str = os.getenv("RVAGENT_LOG_LEVEL", self.log_level).upper()
         return getattr(logging, level_str, logging.INFO)
 
     def validate(self) -> tuple[bool, Optional[str]]:
-        """
-        Validate configuration consistency.
+        """Validate configuration consistency beyond field-level constraints.
+
+        Perform cross-field validation that Pydantic validators cannot express
+        declaratively (e.g., mode membership).
 
         Returns:
-            Tuple of (is_valid, error_message)
+            Tuple of (is_valid, error_message). error_message is None when valid.
         """
         valid_modes = ["pure_algorithm", "llm_only", "multimode"]
         if self.agent_mode not in valid_modes:
@@ -449,22 +476,24 @@ class RVAgentConfig(BaseValidatedModel):
         return True, None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary format."""
+        """Serialize all configuration fields to a dictionary."""
         return self.model_dump(exclude_unset=False)
 
     @classmethod
     def create_default(
         cls, package_name: str, device_id: str = None
     ) -> "RVAgentConfig":
-        """
-        Create configuration with default SGLang parameters.
+        """Create configuration with default SGLang parameters.
+
+        Convenience factory for the common case where only the target package
+        (and optionally device ID) differ from defaults.
 
         Args:
-            package_name: Target application package name
-            device_id: Android device ID (optional)
+            package_name: Target application package name.
+            device_id: Android device ID. Defaults to emulator-5554 when omitted.
 
         Returns:
-            RVAgentConfig with default parameters
+            RVAgentConfig instance with all other fields at their defaults.
         """
         config_data = {
             "package_name": package_name,

@@ -7,12 +7,12 @@ and comprehensive error handling across the testing framework.
 """
 
 import os
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import JarNotFoundError
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 @ErrorHandler.handle_errors(component="JarResolver", phase="resolve_jar")
@@ -53,11 +53,12 @@ class JarResolver:
         # Initialize rv-android-core infrastructure components
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_android_core.jar_resolver",
-            {CONTEXT_COMPONENT: "JarResolver"}
+            "rv_android_core.jar_resolver", {CONTEXT_COMPONENT: "JarResolver"}
         )
 
-    def resolve_jar_path(self, jar_name: str, search_paths: Optional[List[str]] = None) -> str:
+    def resolve_jar_path(
+        self, jar_name: str, search_paths: Optional[List[str]] = None
+    ) -> str:
         """
         Resolve JAR file path from search locations with standardized patterns.
 
@@ -86,15 +87,18 @@ class JarResolver:
                 return os.path.abspath(path)
 
         # JAR file not found in any location
-        self.logger.error(f"JAR file {jar_name} not found in {len(all_search_paths)} search locations")
+        self.logger.error(
+            f"JAR file {jar_name} not found in {len(all_search_paths)} search locations"
+        )
         raise JarNotFoundError(
             f"JAR file '{jar_name}' not found in search paths",
             jar_name=jar_name,
-            search_paths=all_search_paths
+            search_paths=all_search_paths,
         )
 
-    def resolve_multiple_jars(self, jar_names: List[str], 
-                             search_paths: Optional[List[str]] = None) -> Dict[str, str]:
+    def resolve_multiple_jars(
+        self, jar_names: List[str], search_paths: Optional[List[str]] = None
+    ) -> Dict[str, str]:
         """
         Resolve multiple JAR files with consistent search strategy.
 
@@ -130,13 +134,15 @@ class JarResolver:
             raise JarNotFoundError(
                 error_msg,
                 jar_name=", ".join(missing_jars),
-                search_paths=self._build_search_paths("", search_paths)
+                search_paths=self._build_search_paths("", search_paths),
             )
 
         self.logger.info(f"Successfully resolved {len(resolved_jars)} JAR files")
         return resolved_jars
 
-    def resolve_resource_directory(self, resource_name: str, search_paths: Optional[List[str]] = None) -> str:
+    def resolve_resource_directory(
+        self, resource_name: str, search_paths: Optional[List[str]] = None
+    ) -> str:
         """
         Resolve resource directory path (e.g., libs directory for FastBot).
 
@@ -153,7 +159,9 @@ class JarResolver:
         self.logger.debug(f"Resolving resource directory: {resource_name}")
 
         # Build search paths for directories
-        all_search_paths = self._build_resource_search_paths(resource_name, search_paths)
+        all_search_paths = self._build_resource_search_paths(
+            resource_name, search_paths
+        )
 
         # Search for resource directory in all paths
         for path in all_search_paths:
@@ -162,15 +170,18 @@ class JarResolver:
                 return os.path.abspath(path)
 
         # Resource directory not found in any location
-        self.logger.error(f"Resource directory {resource_name} not found in {len(all_search_paths)} search locations")
+        self.logger.error(
+            f"Resource directory {resource_name} not found in {len(all_search_paths)} search locations"
+        )
         raise JarNotFoundError(
             f"Resource directory '{resource_name}' not found in search paths",
             jar_name=resource_name,
-            search_paths=all_search_paths
+            search_paths=all_search_paths,
         )
 
-    def _build_resource_search_paths(self, resource_name: str, 
-                                   additional_paths: Optional[List[str]] = None) -> List[str]:
+    def _build_resource_search_paths(
+        self, resource_name: str, additional_paths: Optional[List[str]] = None
+    ) -> List[str]:
         """
         Build search paths for resource directories.
 
@@ -191,24 +202,38 @@ class JarResolver:
                     search_paths.append(os.path.join(path, resource_name))
 
         # 2. RVSEC_HOME based paths
-        rvsec_home = os.environ.get('RVSEC_HOME', '')
+        rvsec_home = os.environ.get("RVSEC_HOME", "")
         if rvsec_home:
             # Try to detect tool from calling context (simple heuristic)
             tool_subdir = "fastbot"  # Default, could be improved
             rvsec_paths = [
-                os.path.join(rvsec_home, 'rv-android', 'modules', 'rv-tools', 'src', 'rv_tools', 'builtin', tool_subdir, resource_name),
-                os.path.join(rvsec_home, 'rv-android', 'tools', tool_subdir, resource_name),
-                os.path.join(rvsec_home, 'tools', tool_subdir, resource_name)
+                os.path.join(
+                    rvsec_home,
+                    "rv-android",
+                    "modules",
+                    "rv-tools",
+                    "src",
+                    "rv_tools",
+                    "builtin",
+                    tool_subdir,
+                    resource_name,
+                ),
+                os.path.join(
+                    rvsec_home, "rv-android", "tools", tool_subdir, resource_name
+                ),
+                os.path.join(rvsec_home, "tools", tool_subdir, resource_name),
             ]
             search_paths.extend(rvsec_paths)
 
         # 3. Standard paths
-        search_paths.extend([
-            resource_name,  # Current directory
-            os.path.join('.', resource_name),
-            os.path.join('..', resource_name),
-            os.path.join('tools', resource_name)
-        ])
+        search_paths.extend(
+            [
+                resource_name,  # Current directory
+                os.path.join(".", resource_name),
+                os.path.join("..", resource_name),
+                os.path.join("tools", resource_name),
+            ]
+        )
 
         # Convert to absolute paths and filter out empty strings
         absolute_paths = []
@@ -220,8 +245,9 @@ class JarResolver:
 
         return absolute_paths
 
-    def _build_search_paths(self, jar_name: str, 
-                           additional_paths: Optional[List[str]] = None) -> List[str]:
+    def _build_search_paths(
+        self, jar_name: str, additional_paths: Optional[List[str]] = None
+    ) -> List[str]:
         """
         Build comprehensive search path list for JAR file resolution.
 
@@ -251,37 +277,51 @@ class JarResolver:
                         search_paths.append(path)
 
         # 2. RVSEC_HOME based paths (second priority)
-        rvsec_home = os.environ.get('RVSEC_HOME', '')
+        rvsec_home = os.environ.get("RVSEC_HOME", "")
         if rvsec_home:
             rvsec_paths = [
-                os.path.join(rvsec_home, 'rv-android', 'modules', 'rv-tools', 'src', 'rv_tools', 'builtin', tool_subdir, jar_name),
-                os.path.join(rvsec_home, 'rv-android', 'tools', tool_subdir, jar_name),
-                os.path.join(rvsec_home, 'tools', tool_subdir, jar_name)
+                os.path.join(
+                    rvsec_home,
+                    "rv-android",
+                    "modules",
+                    "rv-tools",
+                    "src",
+                    "rv_tools",
+                    "builtin",
+                    tool_subdir,
+                    jar_name,
+                ),
+                os.path.join(rvsec_home, "rv-android", "tools", tool_subdir, jar_name),
+                os.path.join(rvsec_home, "tools", tool_subdir, jar_name),
             ]
             search_paths.extend(rvsec_paths)
 
         # 3. Environment variable based paths
-        tools_dir = os.environ.get('TOOLS_DIR', '')
+        tools_dir = os.environ.get("TOOLS_DIR", "")
         if tools_dir:
             search_paths.append(os.path.join(tools_dir, tool_subdir, jar_name))
 
         # 4. Standard installation paths
-        search_paths.extend([
-            f'/opt/rv-android/tools/{tool_subdir}/{jar_name}',
-            f'./tools/{tool_subdir}/{jar_name}',
-            f'../tools/{tool_subdir}/{jar_name}',
-            f'/opt/android/{tool_subdir}/{jar_name}',
-            os.path.expanduser(f'~/android/{tool_subdir}/{jar_name}'),
-            os.path.expanduser(f'~/.rv-android/tools/{tool_subdir}/{jar_name}')
-        ])
+        search_paths.extend(
+            [
+                f"/opt/rv-android/tools/{tool_subdir}/{jar_name}",
+                f"./tools/{tool_subdir}/{jar_name}",
+                f"../tools/{tool_subdir}/{jar_name}",
+                f"/opt/android/{tool_subdir}/{jar_name}",
+                os.path.expanduser(f"~/android/{tool_subdir}/{jar_name}"),
+                os.path.expanduser(f"~/.rv-android/tools/{tool_subdir}/{jar_name}"),
+            ]
+        )
 
         # 5. Current directory and common relative paths (lowest priority)
-        search_paths.extend([
-            jar_name,  # Current directory
-            os.path.join('.', jar_name),
-            os.path.join('..', jar_name),
-            os.path.join('tools', jar_name)
-        ])
+        search_paths.extend(
+            [
+                jar_name,  # Current directory
+                os.path.join(".", jar_name),
+                os.path.join("..", jar_name),
+                os.path.join("tools", jar_name),
+            ]
+        )
 
         # Convert to absolute paths and filter out empty strings
         absolute_paths = []
@@ -311,12 +351,12 @@ class JarResolver:
             Tool subdirectory name
         """
         jar_to_tool_map = {
-            'ape.jar': 'ape',
-            'fastbot-thirdpart.jar': 'fastbot',
-            'framework.jar': 'fastbot',
-            'monkeyq.jar': 'fastbot',
-            'droidmate-2-X.X.X-all.jar': 'droidmate',
-            'droidmate.jar': 'droidmate'
+            "ape.jar": "ape",
+            "fastbot-thirdpart.jar": "fastbot",
+            "framework.jar": "fastbot",
+            "monkeyq.jar": "fastbot",
+            "droidmate-2-X.X.X-all.jar": "droidmate",
+            "droidmate.jar": "droidmate",
         }
 
         # Direct mapping lookup
@@ -324,12 +364,12 @@ class JarResolver:
             return jar_to_tool_map[jar_name]
 
         # Pattern-based detection for versioned JARs
-        if 'droidmate' in jar_name.lower():
-            return 'droidmate'
-        elif 'fastbot' in jar_name.lower():
-            return 'fastbot'
-        elif 'ape' in jar_name.lower():
-            return 'ape'
+        if "droidmate" in jar_name.lower():
+            return "droidmate"
+        elif "fastbot" in jar_name.lower():
+            return "fastbot"
+        elif "ape" in jar_name.lower():
+            return "ape"
 
         # Default: use jar name without extension
         return os.path.splitext(jar_name)[0]
@@ -349,10 +389,10 @@ class JarResolver:
         """
         # Map specific JAR files to standard keys
         key_map = {
-            'fastbot-thirdpart.jar': 'fastbot_thirdpart',
-            'framework.jar': 'framework',
-            'monkeyq.jar': 'monkeyq',
-            'ape.jar': 'ape'
+            "fastbot-thirdpart.jar": "fastbot_thirdpart",
+            "framework.jar": "framework",
+            "monkeyq.jar": "monkeyq",
+            "ape.jar": "ape",
         }
 
         if jar_name in key_map:
@@ -360,7 +400,7 @@ class JarResolver:
 
         # Generate key from filename
         base_name = os.path.splitext(jar_name)[0]
-        return base_name.lower().replace('-', '_').replace('.', '_')
+        return base_name.lower().replace("-", "_").replace(".", "_")
 
     def verify_jar_accessibility(self, jar_path: str) -> bool:
         """
@@ -401,8 +441,9 @@ class JarResolver:
             self.logger.warning(f"Error verifying JAR file {jar_path}: {e}")
             return False
 
-    def get_search_paths_info(self, jar_name: str, 
-                             additional_paths: Optional[List[str]] = None) -> Dict[str, any]:
+    def get_search_paths_info(
+        self, jar_name: str, additional_paths: Optional[List[str]] = None
+    ) -> Dict[str, any]:
         """
         Get detailed information about search paths for debugging.
 
@@ -417,21 +458,21 @@ class JarResolver:
             Dictionary with search path information and status
         """
         search_paths = self._build_search_paths(jar_name, additional_paths)
-        
+
         path_info = {
-            'jar_name': jar_name,
-            'total_paths': len(search_paths),
-            'paths': []
+            "jar_name": jar_name,
+            "total_paths": len(search_paths),
+            "paths": [],
         }
 
         for path in search_paths:
             path_status = {
-                'path': path,
-                'exists': os.path.exists(path),
-                'is_file': os.path.isfile(path) if os.path.exists(path) else False,
-                'readable': os.access(path, os.R_OK) if os.path.exists(path) else False,
-                'size': os.path.getsize(path) if os.path.isfile(path) else 0
+                "path": path,
+                "exists": os.path.exists(path),
+                "is_file": os.path.isfile(path) if os.path.exists(path) else False,
+                "readable": os.access(path, os.R_OK) if os.path.exists(path) else False,
+                "size": os.path.getsize(path) if os.path.isfile(path) else 0,
             }
-            path_info['paths'].append(path_status)
+            path_info["paths"].append(path_status)
 
         return path_info

@@ -50,10 +50,10 @@ instead of file paths.
 """
 
 import os
-from dataclasses import dataclass, field
-from typing import Dict, List, Set, Tuple, Optional
 from collections import Counter
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from typing import List, Optional, Set, Tuple
 
 from androguard.core.bytecodes.apk import APK
 
@@ -61,6 +61,7 @@ from androguard.core.bytecodes.apk import APK
 @dataclass
 class PackageDetectionResult:
     """Result of package detection analysis."""
+
     manifest_package: str
     code_package: str
     confidence: str  # "high", "medium", "low"
@@ -198,8 +199,9 @@ class StringSimilarity:
                 transpositions += 1
             k += 1
 
-        jaro = (matches / len1 + matches / len2 +
-                (matches - transpositions / 2) / matches) / 3
+        jaro = (
+            matches / len1 + matches / len2 + (matches - transpositions / 2) / matches
+        ) / 3
 
         # Jaro-Winkler: add prefix bonus
         prefix_len = 0
@@ -277,29 +279,26 @@ class PackageDetector:
     # packages to focus detection on application code. Organized by category.
     FRAMEWORK_PREFIXES = [
         # Android core
-        'android.',
-        'androidx.',
-        'com.google.android.',
-        'com.android.',
-        'dalvik.',
-
+        "android.",
+        "androidx.",
+        "com.google.android.",
+        "com.android.",
+        "dalvik.",
         # Java standard
-        'java.',
-        'javax.',
+        "java.",
+        "javax.",
         "kotlin.",
         "kotlinx.",
-
         # Common third-party libraries
-        'org.apache.',
-        'org.json.',
-        'org.w3c.',
-        'org.xml.',
-        'org.xmlpull.',
-
+        "org.apache.",
+        "org.json.",
+        "org.w3c.",
+        "org.xml.",
+        "org.xmlpull.",
         # Analytics and testing frameworks
-        'org.acra.',
-        'com.actionbarsherlock.',
-        'com.viewpagerindicator.',
+        "org.acra.",
+        "com.actionbarsherlock.",
+        "com.viewpagerindicator.",
     ]
 
     # Known game engine runtime packages and their short names.
@@ -307,10 +306,10 @@ class PackageDetector:
     # Game engines implement all application code in their package while
     # developers declare custom package in manifest.
     GAME_ENGINES = {
-        'org.godotengine.godot': 'godot',
-        'com.unity3d.player': 'unity',
-        'org.cocos2dx.lib': 'cocos2d',
-        'com.badlogicgames.gdx': 'libgdx',
+        "org.godotengine.godot": "godot",
+        "com.unity3d.player": "unity",
+        "org.cocos2dx.lib": "cocos2d",
+        "com.badlogicgames.gdx": "libgdx",
     }
 
     def __init__(self, similarity_threshold: float = 0.85) -> None:
@@ -357,10 +356,10 @@ class PackageDetector:
             >>> detector.extract_package("com.example.app.ui.MainActivity", level=4)
             'com.example.app.ui'
         """
-        parts = component.split('.')
+        parts = component.split(".")
         if len(parts) >= level:
-            return '.'.join(parts[:level])
-        return '.'.join(parts)
+            return ".".join(parts[:level])
+        return ".".join(parts)
 
     def find_common_prefix(self, packages: Set[str]) -> str:
         """
@@ -389,11 +388,11 @@ class PackageDetector:
         prefix = os.path.commonprefix(sorted_pkgs)
 
         # Adjust to package boundary (remove incomplete component)
-        if prefix and not prefix.endswith('.'):
-            prefix = prefix.rsplit('.', 1)[0] if '.' in prefix else ""
+        if prefix and not prefix.endswith("."):
+            prefix = prefix.rsplit(".", 1)[0] if "." in prefix else ""
 
         # Remove trailing dot
-        prefix = prefix.rstrip('.')
+        prefix = prefix.rstrip(".")
 
         return prefix
 
@@ -415,7 +414,7 @@ class PackageDetector:
             return False
 
         # At least 2 levels (com.example)
-        if prefix.count('.') < 1:
+        if prefix.count(".") < 1:
             return False
 
         # Should relate to manifest package
@@ -424,8 +423,8 @@ class PackageDetector:
             return True
 
         # Or at least share first 2 levels
-        prefix_parts = prefix.split('.')[:2]
-        manifest_parts = manifest_pkg.split('.')[:2]
+        prefix_parts = prefix.split(".")[:2]
+        manifest_parts = manifest_pkg.split(".")[:2]
 
         return prefix_parts == manifest_parts
 
@@ -450,8 +449,9 @@ class PackageDetector:
                     return (engine_name, engine_pkg)
         return None
 
-    def find_similar_package(self, manifest_pkg: str,
-                           candidates: Set[str]) -> Optional[Tuple[str, float]]:
+    def find_similar_package(
+        self, manifest_pkg: str, candidates: Set[str]
+    ) -> Optional[Tuple[str, float]]:
         """
         Find package most similar to manifest package.
 

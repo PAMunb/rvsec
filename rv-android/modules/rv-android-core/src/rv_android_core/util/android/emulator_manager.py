@@ -2,12 +2,16 @@
 from contextlib import contextmanager
 from typing import Optional
 
-from rv_android_core.util.android.android import Android
 from rv_android_core.commands.command import Command
+from rv_android_core.util.android.android import Android
 from rv_android_core.util.error.exceptions import EmulatorError
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, LOG_START, LOG_COMPLETE, LOG_ERROR
+from rv_android_core.util.logging.constants import (
+    CONTEXT_COMPONENT,
+    LOG_COMPLETE,
+    LOG_ERROR,
+    LOG_START,
+)
 from rv_android_core.util.logging.manager import LoggingManager
-
 
 # Animation scale settings for performance optimization
 # Setting to 0.0 disables animations completely
@@ -42,7 +46,7 @@ class EmulatorManager:
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_android_core.util.android.emulator_manager",
-            {CONTEXT_COMPONENT: "EmulatorManager"}
+            {CONTEXT_COMPONENT: "EmulatorManager"},
         )
 
         self.android: Optional[Android] = None
@@ -54,7 +58,7 @@ class EmulatorManager:
         avd_name: str,
         no_window: bool = False,
         device_port: int = 5554,
-        disable_animations: bool = True
+        disable_animations: bool = True,
     ) -> Android:
         """
         Start an emulator with dynamic port allocation for parallel execution.
@@ -72,8 +76,15 @@ class EmulatorManager:
             EmulatorError: If emulator fails to start
         """
         device_serial = f"emulator-{device_port}"
-        with self.logger.with_context(avd_name=avd_name, no_window=no_window, device_port=device_port, phase="startup"):
-            self.logger.info(LOG_START.format(phase=f"emulator: {avd_name} (port {device_port})"))
+        with self.logger.with_context(
+            avd_name=avd_name,
+            no_window=no_window,
+            device_port=device_port,
+            phase="startup",
+        ):
+            self.logger.info(
+                LOG_START.format(phase=f"emulator: {avd_name} (port {device_port})")
+            )
             self.android = Android()
 
             try:
@@ -85,33 +96,39 @@ class EmulatorManager:
                 if disable_animations:
                     self.disable_animations(device_serial)
 
-                self.logger.info(LOG_COMPLETE.format(
-                    phase=f"emulator {avd_name} startup"
-                ))
+                self.logger.info(
+                    LOG_COMPLETE.format(phase=f"emulator {avd_name} startup")
+                )
 
                 yield self.android
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"starting emulator {avd_name}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(
+                        phase=f"starting emulator {avd_name}", error=str(e)
+                    )
+                )
                 raise EmulatorError(f"Failed to start emulator {avd_name}", cause=e)
 
             finally:
                 # Always try to clean up with correct device serial
                 device_serial = f"emulator-{device_port}"
-                with self.logger.with_context(phase="shutdown", device_serial=device_serial):
+                with self.logger.with_context(
+                    phase="shutdown", device_serial=device_serial
+                ):
                     try:
                         if avd_name in self._active_emulators:
-                            self.logger.info(f"Shutting down emulator {avd_name} ({device_serial})")
+                            self.logger.info(
+                                f"Shutting down emulator {avd_name} ({device_serial})"
+                            )
                             self.android.kill_emulator(avd_name, device_serial)
                             self._active_emulators.remove(avd_name)
                     except Exception as e:
-                        self.logger.warning(LOG_ERROR.format(
-                            phase=f"shutting down emulator {avd_name}",
-                            error=str(e)
-                        ))
+                        self.logger.warning(
+                            LOG_ERROR.format(
+                                phase=f"shutting down emulator {avd_name}", error=str(e)
+                            )
+                        )
 
     def clear_logcat(self, device_serial: str = "emulator-5554") -> bool:
         """
@@ -123,17 +140,18 @@ class EmulatorManager:
         Returns:
             True if logcat cleared successfully
         """
-        with self.logger.with_context(phase="clear_logcat", device_serial=device_serial):
+        with self.logger.with_context(
+            phase="clear_logcat", device_serial=device_serial
+        ):
             try:
                 clear_cmd = Command("adb", ["-s", device_serial, "logcat", "-c"])
                 clear_cmd.invoke()
                 self.logger.debug("Cleared logcat buffer")
                 return True
             except Exception as e:
-                self.logger.warning(LOG_ERROR.format(
-                    phase="clearing logcat",
-                    error=str(e)
-                ))
+                self.logger.warning(
+                    LOG_ERROR.format(phase="clearing logcat", error=str(e))
+                )
                 return False
 
     def disable_animations(self, device_serial: str = "emulator-5554") -> bool:
@@ -150,7 +168,9 @@ class EmulatorManager:
         Returns:
             True if all animations were disabled successfully
         """
-        with self.logger.with_context(phase="disable_animations", device_serial=device_serial):
+        with self.logger.with_context(
+            phase="disable_animations", device_serial=device_serial
+        ):
             try:
                 animation_commands = [
                     (ADB_DISABLE_WINDOW_ANIMATION, "window_animation_scale"),
@@ -162,7 +182,12 @@ class EmulatorManager:
                 for cmd_prefix, setting_name in animation_commands:
                     cmd = Command(
                         "adb",
-                        ["-s", device_serial, "shell", f"{cmd_prefix} {ANIMATION_SCALE_DISABLED}"]
+                        [
+                            "-s",
+                            device_serial,
+                            "shell",
+                            f"{cmd_prefix} {ANIMATION_SCALE_DISABLED}",
+                        ],
                     )
                     result = cmd.invoke()
                     if not result.is_success():
@@ -170,17 +195,20 @@ class EmulatorManager:
                         success = False
 
                 if success:
-                    self.logger.info("System animations disabled for optimal performance")
+                    self.logger.info(
+                        "System animations disabled for optimal performance"
+                    )
                 return success
 
             except Exception as e:
-                self.logger.warning(LOG_ERROR.format(
-                    phase="disabling animations",
-                    error=str(e)
-                ))
+                self.logger.warning(
+                    LOG_ERROR.format(phase="disabling animations", error=str(e))
+                )
                 return False
 
-    def install_app(self, app, with_permissions: bool = True, device_serial: str = "emulator-5554") -> bool:
+    def install_app(
+        self, app, with_permissions: bool = True, device_serial: str = "emulator-5554"
+    ) -> bool:
         """
         Install an app on the specific emulator instance.
 
@@ -193,10 +221,10 @@ class EmulatorManager:
             True if installation succeeded, False otherwise
         """
         with self.logger.with_context(
-                app_name=app.name,
-                package_name=app.package_name,
-                with_permissions=with_permissions,
-                phase="app_installation"
+            app_name=app.name,
+            package_name=app.package_name,
+            with_permissions=with_permissions,
+            phase="app_installation",
         ):
             if not self.android:
                 self.logger.error("No active emulator for app installation")
@@ -208,14 +236,13 @@ class EmulatorManager:
                 else:
                     self.android.install_apk(app, device_serial)
 
-                self.logger.info(LOG_COMPLETE.format(
-                    phase=f"installation of app: {app.name}"
-                ))
+                self.logger.info(
+                    LOG_COMPLETE.format(phase=f"installation of app: {app.name}")
+                )
                 return True
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"installing app {app.name}",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase=f"installing app {app.name}", error=str(e))
+                )
                 return False

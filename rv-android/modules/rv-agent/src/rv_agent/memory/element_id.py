@@ -11,7 +11,7 @@ Standard format: "coords:{x},{y}"
 - Action type is NOT included (use action_signature for action-level tracking)
 """
 
-from typing import Tuple, Optional, Union, Any
+from typing import Any, Optional, Tuple, Union
 
 
 def make_element_id(x: int, y: int) -> str:

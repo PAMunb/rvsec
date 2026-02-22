@@ -9,14 +9,14 @@ new state discoveries.
 import logging
 import math
 from typing import Dict, List, Optional, Set, Tuple
-from dataclasses import dataclass
 
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
+
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.constants import RVAgentConstants
+from rv_agent.strategies.base_strategy import ExplorationStrategy
 
 logger = logging.getLogger(__name__)
 

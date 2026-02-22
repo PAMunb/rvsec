@@ -26,11 +26,11 @@ action tracking to handle non-deterministic action IDs across parsing sessions.
 - Dependencies: ScreenNode and Transition from rv_agent.domain.screen_node
 """
 
-import xml.etree.ElementTree as ET
 import hashlib
 import json
 import logging
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 from rv_agent.domain.screen_node import ScreenNode, Transition

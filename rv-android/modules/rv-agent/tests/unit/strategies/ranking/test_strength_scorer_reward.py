@@ -10,8 +10,6 @@ from unittest.mock import MagicMock
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import StrengthScorer
-from rv_agent.services.coordinate_utils import device_to_optimized
-from rv_agent.constants import RVAgentConstants
 
 
 def _make_context_with_node(node, state_hash="test_hash"):
@@ -23,7 +21,7 @@ def _make_context_with_node(node, state_hash="test_hash"):
 
 
 def _make_action(x=100, y=200, action_type="CLICK"):
-    """Create mock action with coordinates."""
+    """Create mock action with device-space coordinates."""
     action = MagicMock()
     action.coords_for_matching = ((x, y), action_type)
     return action
@@ -40,8 +38,8 @@ class TestStrengthScorerReward:
         node = ScreenNode(screen_hash="test_hash", activity="TestActivity")
         action = _make_action()
 
-        # Compute the optimized signature
-        sig = scorer._convert_signature(action.coords_for_matching)
+        # Action signature in device space (INV-AGT-40)
+        sig = action.coords_for_matching
 
         # Set up node with strength data
         node.action_execution_counts[sig] = 4
@@ -67,7 +65,7 @@ class TestStrengthScorerReward:
 
         node = ScreenNode(screen_hash="test_hash", activity="TestActivity")
         action = _make_action()
-        sig = scorer._convert_signature(action.coords_for_matching)
+        sig = action.coords_for_matching
 
         # Untested action, no cumulative reward
         context = _make_context_with_node(node)
@@ -85,7 +83,7 @@ class TestStrengthScorerReward:
 
         node = ScreenNode(screen_hash="test_hash", activity="TestActivity")
         action = _make_action()
-        sig = scorer._convert_signature(action.coords_for_matching)
+        sig = action.coords_for_matching
 
         node.action_execution_counts[sig] = 2
         node.action_success_counts[sig] = 1

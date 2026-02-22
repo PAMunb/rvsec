@@ -24,36 +24,31 @@ in correct dependency order and wire them into a fully configured RVAgent.
 - Dependencies: All rv-agent component modules
 """
 
-import logging
 import importlib
+import logging
 from typing import Optional
 
-from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.agent.rv_agent import RVAgent
+from rv_android_core.domain.static import StaticAnalysisData
+
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.strategies.dfs_strategy import DFSStrategy
-from rv_agent.strategies.strategy_registry import StrategyRegistry
-from rv_agent.services.vision_service import ImageHandler
-from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.llm.llm_client import LLMClient
-from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.routing.fallback_manager import FallbackManager
+from rv_agent.agent.rv_agent import RVAgent
+from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.domain.action import ActionNormalizer
 from rv_agent.execution.tool_executor import ToolExecutor
-from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.llm.llm_client import LLMClient
 from rv_agent.memory.agent_memory import AgentMemoryManager
 from rv_agent.memory.long_term import LongTermMemory
+from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker
-from rv_agent.services.transition_manager import TransitionManager
+from rv_agent.routing.fallback_manager import FallbackManager
+from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.services.navigation_guidance import NavigationGuidance
-from rv_agent.domain.action import ActionNormalizer
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
-    UIAutomator2Parser,
-)
-from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_android_core.domain.static import StaticAnalysisData
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.services.transition_manager import TransitionManager
+from rv_agent.services.vision_service import ImageHandler
+from rv_agent.strategies.strategy_registry import StrategyRegistry
 
 logger = logging.getLogger(__name__)
 

@@ -27,7 +27,7 @@ action filtering.
 
 import logging
 import random
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.routing.fallback_manager import FallbackManager

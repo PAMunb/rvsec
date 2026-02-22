@@ -9,17 +9,16 @@ This visitor extends DefaultTextVisitor to provide:
 """
 
 import logging
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.window import Window
 from rv_android_core.domain.widget import Widget
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import (
     ItemAction,
-    ScreenDescription,
     Node,
+    ScreenDescription,
 )
 
 

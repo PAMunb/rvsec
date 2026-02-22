@@ -17,7 +17,6 @@ The normalization logic is preserved identically.
 """
 
 import re
-from typing import Optional
 
 
 class SignatureNormalizer:
@@ -55,16 +54,16 @@ class SignatureNormalizer:
         Returns:
             Normalized signature with inner class corrections and balanced parentheses
         """
-        if '(' not in signature:
+        if "(" not in signature:
             return signature
 
         # Find the opening parenthesis
-        paren_start = signature.find('(')
+        paren_start = signature.find("(")
         method_part = signature[:paren_start]
 
         # Extract everything between parentheses
         remaining = signature[paren_start:]
-        if not remaining.endswith(')'):
+        if not remaining.endswith(")"):
             # If no closing parenthesis, return as-is
             return signature
 
@@ -98,12 +97,12 @@ class SignatureNormalizer:
         Returns:
             Normalized class name with inner class corrections
         """
-        if '.' not in class_name:
+        if "." not in class_name:
             return class_name
 
         # Split preserving both . and $ separators
         # Use regex to split but keep separators
-        parts = re.split(r'([.$])', class_name)
+        parts = re.split(r"([.$])", class_name)
         # Example: 'Map.GameFieldPosition$1' -> ['Map', '.', 'GameFieldPosition', '$', '1']
 
         result = []
@@ -114,18 +113,18 @@ class SignatureNormalizer:
                 # First part is always a component
                 result.append(parts[i])
                 i += 1
-            elif parts[i] in ['.', '$']:
+            elif parts[i] in [".", "$"]:
                 # Found a separator
                 sep = parts[i]
                 i += 1
 
                 if i < len(parts):
                     next_part = parts[i]
-                    prev_part = result[-1] if result else ''
+                    prev_part = result[-1] if result else ""
 
                     # Decide if this should be $ (inner class) or . (package)
                     if self._is_likely_inner_class(prev_part, next_part):
-                        result.append('$')  # Force inner class separator
+                        result.append("$")  # Force inner class separator
                     else:
                         result.append(sep)  # Keep original separator
 
@@ -136,7 +135,7 @@ class SignatureNormalizer:
                 result.append(parts[i])
                 i += 1
 
-        return ''.join(result)
+        return "".join(result)
 
     def normalize_parameter_list(self, parameters: str) -> str:
         """
@@ -152,7 +151,7 @@ class SignatureNormalizer:
             return parameters
 
         # Handle both comma and semicolon separators
-        separator = ';' if ';' in parameters else ','
+        separator = ";" if ";" in parameters else ","
 
         param_parts = parameters.split(separator)
         normalized_parts = []
@@ -167,13 +166,15 @@ class SignatureNormalizer:
                 # Restore original spacing pattern
                 if i == 0:
                     # First parameter - keep original leading space
-                    leading_space = param[:len(param) - len(param.lstrip())]
-                    trailing_space = param[len(param.rstrip()):]
-                    normalized_parts.append(leading_space + normalized_param + trailing_space)
+                    leading_space = param[: len(param) - len(param.lstrip())]
+                    trailing_space = param[len(param.rstrip()) :]
+                    normalized_parts.append(
+                        leading_space + normalized_param + trailing_space
+                    )
                 else:
                     # Subsequent parameters - preserve space after comma
-                    if param.startswith(' '):
-                        normalized_parts.append(' ' + normalized_param)
+                    if param.startswith(" "):
+                        normalized_parts.append(" " + normalized_param)
                     else:
                         normalized_parts.append(normalized_param)
             else:
@@ -206,14 +207,14 @@ class SignatureNormalizer:
             Normalized parameter type with inner class corrections only
         """
         # Handle array notation
-        array_suffix = ''
-        while param_type.endswith('[]'):
-            array_suffix += '[]'
+        array_suffix = ""
+        while param_type.endswith("[]"):
+            array_suffix += "[]"
             param_type = param_type[:-2]
 
         # Apply inner class normalization only if no $ already present
-        if '.' in param_type and '$' not in param_type:
-            parts = param_type.split('.')
+        if "." in param_type and "$" not in param_type:
+            parts = param_type.split(".")
             normalized_parts = []
 
             # Process parts to identify inner classes vs packages
@@ -222,23 +223,23 @@ class SignatureNormalizer:
                     # First part is always added as-is
                     normalized_parts.append(part)
                 else:
-                    previous_part = parts[i-1]
+                    previous_part = parts[i - 1]
 
                     # CRITICAL RULE: Convert to inner class ONLY if:
                     # 1. Previous part starts with UPPERCASE (it's a class, not package)
                     # 2. Current part starts with UPPERCASE (it's an inner class)
                     # 3. Previous part is not a known package name
-                    if (self._is_likely_inner_class(previous_part, part)):
+                    if self._is_likely_inner_class(previous_part, part):
                         # Join with $ (inner class syntax)
                         if normalized_parts:
-                            normalized_parts[-1] = normalized_parts[-1] + '$' + part
+                            normalized_parts[-1] = normalized_parts[-1] + "$" + part
                         else:
                             normalized_parts.append(part)
                     else:
                         # Regular package/class - keep dot
                         normalized_parts.append(part)
 
-            param_type = '.'.join(normalized_parts)
+            param_type = ".".join(normalized_parts)
 
         return param_type + array_suffix
 
@@ -271,10 +272,29 @@ class SignatureNormalizer:
         # IMPORTANT: Only check if outer_part is actually lowercase!
         # "Widget" should NOT match "widget" package
         known_packages = {
-            'android', 'java', 'javax', 'com', 'org', 'net', 'io',
-            'os', 'lang', 'util', 'content', 'widget', 'app',
-            'support', 'design', 'fragment', 'activity', 'graphics',
-            'text', 'database', 'preference', 'animation', 'concurrent'
+            "android",
+            "java",
+            "javax",
+            "com",
+            "org",
+            "net",
+            "io",
+            "os",
+            "lang",
+            "util",
+            "content",
+            "widget",
+            "app",
+            "support",
+            "design",
+            "fragment",
+            "activity",
+            "graphics",
+            "text",
+            "database",
+            "preference",
+            "animation",
+            "concurrent",
         }
 
         # BUG FIX: Only check known_packages if outer_part is lowercase
@@ -305,8 +325,8 @@ class SignatureNormalizer:
         Returns:
             Method name only
         """
-        if '(' in signature:
-            return signature.split('(')[0]
+        if "(" in signature:
+            return signature.split("(")[0]
         return signature
 
     def extract_parameters(self, signature: str) -> str:
@@ -323,15 +343,15 @@ class SignatureNormalizer:
         Returns:
             Parameters part without parentheses
         """
-        if '(' not in signature:
+        if "(" not in signature:
             return ""
 
         # Find parameters between parentheses
-        start = signature.find('(')
-        end = signature.rfind(')')
+        start = signature.find("(")
+        end = signature.rfind(")")
 
         if start != -1 and end != -1 and end > start:
-            return signature[start + 1:end]
+            return signature[start + 1 : end]
 
         return ""
 

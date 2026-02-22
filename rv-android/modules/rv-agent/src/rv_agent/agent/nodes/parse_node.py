@@ -5,13 +5,13 @@ Captures and parses the current screen UI state.
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
-from rv_agent.domain.state import AgentState
 from rv_agent import tracking as track
+from rv_agent.domain.state import AgentState
 
 logger = logging.getLogger(__name__)
 

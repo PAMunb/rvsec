@@ -5,9 +5,9 @@ Converts actions from different sources (LLM, algorithm) to a single format.
 Handles coordinate conversion from Qwen3-VL [0, 1000) normalized space to device pixels.
 """
 
-from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, Any
 import logging
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 from rv_agent.llm.tools.tool_call_parser import denormalize_qwen_coords
 

@@ -17,8 +17,8 @@ exports only PRE-FORMATTED STRINGS for inclusion in fresh LLM messages.
 """
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple
 from collections import deque
+from typing import Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 

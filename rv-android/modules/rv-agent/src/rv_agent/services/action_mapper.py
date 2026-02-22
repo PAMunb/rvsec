@@ -6,12 +6,9 @@ ScreenDescription model, handling coordinate conversion and action selection.
 """
 
 import logging
-from typing import Tuple, Optional
-from rv_screen_parser.parser.screen.visitor.model import (
-    ScreenDescription,
-    ScreenItem,
-    ItemAction,
-)
+from typing import Optional, Tuple
+
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 logger = logging.getLogger(__name__)
 

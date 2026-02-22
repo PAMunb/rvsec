@@ -6,11 +6,11 @@ through UIAutomator2, enabling screenshot capture, UI state retrieval, and actio
 """
 
 import time
-from typing import Dict, Any, Optional
 from pathlib import Path
+from typing import Dict, Optional
 
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_uiautomator import UIAutomator2Adapter
 
 from ..constants import RVAgentConstants

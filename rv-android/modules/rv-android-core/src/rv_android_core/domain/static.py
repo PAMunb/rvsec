@@ -5,8 +5,7 @@ This module provides structured data models for representing the complete
 static analysis results from multiple analysis tools.
 """
 
-from typing import Optional
-from pydantic import Field, ConfigDict
+from pydantic import ConfigDict, Field
 
 # Direct imports - static.py should be imported after other domain modules
 from rv_android_core.domain.classes import Classes
@@ -16,11 +15,11 @@ from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
 
-@validated_model(['classes', 'windows', 'wtg'])
+@validated_model(["classes", "windows", "wtg"])
 class StaticAnalysisData(BaseValidatedModel):
     """
     Comprehensive data model for static analysis results from Android applications.
-    
+
     This model aggregates analysis results from multiple static analysis tools
     (GESDA, GATOR, REACH) into a unified representation that supports both
     validation and serialization for downstream processing components.
@@ -36,7 +35,7 @@ class StaticAnalysisData(BaseValidatedModel):
     - Consumed by coverage analyzers for static-dynamic correlation
     - Used by experiment systems for comprehensive application understanding
     - Integrated with result storage and reporting pipelines
-    
+
     ### Configuration:
     Inherits arbitrary_types_allowed=True from BaseValidatedModel for complex types.
     Enables validation of nested BaseValidatedModel instances.

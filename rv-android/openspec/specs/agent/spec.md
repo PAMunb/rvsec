@@ -280,7 +280,7 @@ Unified Action Format (dict):
 
 - **INV-AGT-06**: Actions MUST be pre-marked as executed in `DynamicStateGraph` BEFORE device execution for LLM actions. This ensures crash-causing actions are not retried. Algorithm actions are pre-marked in `RVAgentStrategy.select_next_action()`.
 
-- **INV-AGT-07**: The agent MUST continue executing until the configured `timeout` expires. Plateau detection is informational only and MUST NOT terminate exploration. The timeout is the only reliable termination condition.
+- **INV-AGT-07**: The agent MUST continue executing until the configured `timeout` expires. The timeout is the ONLY permitted termination condition for the main execution loop in `rv_agent.py`. No other mechanism — including but not limited to plateau detection, global saturation detection, early termination flags, coverage thresholds, or iteration counters — MUST cause the loop to break. Internal strategy signals (plateau detection, saturation) are informational only: they MAY influence action selection (e.g., boost randomness, force RESTART) but MUST NEVER terminate the loop. Any code that adds a `break` or exit path to the main loop for reasons other than timeout or `KeyboardInterrupt` violates this invariant.
 
 - **INV-AGT-08**: Each LLM call MUST receive fresh messages constructed from summaries. No conversation history MUST accumulate between iterations. Token usage per iteration MUST remain approximately constant (~2500 tokens).
 

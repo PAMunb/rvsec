@@ -31,7 +31,7 @@ elements reach monitored API calls and what those operations do.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 

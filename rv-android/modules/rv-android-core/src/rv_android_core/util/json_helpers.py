@@ -26,27 +26,27 @@ def safe_parse_json(text: str) -> Tuple[Optional[Any], Optional[str]]:
         return json.loads(text), None
     except json.JSONDecodeError as e:
         return None, str(e)
-        
-        
+
+
 def safe_json_parse(text: str, default: Any = None) -> Any:
     """
     Safely parse JSON and return a default value on error.
-    
+
     Args:
         text: JSON string to parse
         default: Default value to return if parsing fails
-        
+
     Returns:
         Parsed JSON object or default value if parsing fails
     """
     if not text or not isinstance(text, str):
         return default
-        
+
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
         logger.warning(f"JSON parse error: {e}")
-        
+
         # Try to repair and parse again
         try:
             repaired = repair_json(text)
@@ -54,7 +54,7 @@ def safe_json_parse(text: str, default: Any = None) -> Any:
                 return json.loads(repaired)
         except Exception:
             pass
-            
+
         return default
 
 
@@ -70,14 +70,14 @@ def extract_json_array(text: str) -> Tuple[Optional[str], Optional[str]]:
     """
     try:
         # Look for array brackets
-        open_bracket = text.find('[')
-        close_bracket = text.rfind(']')
+        open_bracket = text.find("[")
+        close_bracket = text.rfind("]")
 
         if open_bracket == -1 or close_bracket == -1 or close_bracket <= open_bracket:
             return None, "No valid JSON array brackets found"
 
         # Extract text between brackets
-        json_text = text[open_bracket:close_bracket + 1]
+        json_text = text[open_bracket : close_bracket + 1]
 
         # Try to parse it
         try:
@@ -105,28 +105,30 @@ def repair_json(text: str) -> Optional[str]:
         Repaired JSON string or None if unfixable
     """
     # Ensure we're working with correct brackets
-    if not (text.strip().startswith('[') and text.strip().endswith(']')):
+    if not (text.strip().startswith("[") and text.strip().endswith("]")):
         text = f"[{text}]"
 
     # Replace single quotes with double quotes
     text = re.sub(r"'([^']*)'", r'"\1"', text)
 
     # Fix unquoted property names
-    text = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*):', r'"\1":', text)
+    text = re.sub(r"([a-zA-Z_][a-zA-Z0-9_]*):", r'"\1":', text)
 
     # Fix trailing commas
-    text = re.sub(r',\s*([}\]])', r'\1', text)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
 
     # Fix missing commas between objects
-    text = re.sub(r'}\s*{', r'},{', text)
+    text = re.sub(r"}\s*{", r"},{", text)
 
     # Fix missing commas after values before property names
-    text = re.sub(r'(true|false|null|\d+|\"\w+\")\s*(\"[a-zA-Z_][a-zA-Z0-9_]*\")', r'\1,\2', text)
+    text = re.sub(
+        r"(true|false|null|\d+|\"\w+\")\s*(\"[a-zA-Z_][a-zA-Z0-9_]*\")", r"\1,\2", text
+    )
 
     # Fix boolean and null literals
-    text = re.sub(r':\s*True', r':true', text)
-    text = re.sub(r':\s*False', r':false', text)
-    text = re.sub(r':\s*None', r':null', text)
+    text = re.sub(r":\s*True", r":true", text)
+    text = re.sub(r":\s*False", r":false", text)
+    text = re.sub(r":\s*None", r":null", text)
 
     # Validate the repaired JSON
     try:
@@ -136,7 +138,9 @@ def repair_json(text: str) -> Optional[str]:
         return None
 
 
-def validate_action_format(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[str]]:
+def validate_action_format(
+    actions: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Validate and normalize action format.
 
@@ -198,9 +202,13 @@ def detect_action_format(json_obj: Any) -> str:
         return "action_id"
 
     # Check for coordinate format
-    if ("action_type" in first_action and
-            "target" in first_action and
-            ("coordinates" in first_action or isinstance(first_action.get("target"), str))):
+    if (
+        "action_type" in first_action
+        and "target" in first_action
+        and (
+            "coordinates" in first_action or isinstance(first_action.get("target"), str)
+        )
+    ):
         return "coordinate"
 
     return "unknown"
@@ -230,7 +238,11 @@ def extract_structured_content(text: str) -> List[Dict[str, Any]]:
 
     # Create actions from matches
     for i, action_id in enumerate(action_id_matches):
-        explanation = explanation_matches[i] if i < len(explanation_matches) else f"Action {action_id}"
+        explanation = (
+            explanation_matches[i]
+            if i < len(explanation_matches)
+            else f"Action {action_id}"
+        )
 
         # Try to parse params if available
         params = {}
@@ -243,10 +255,8 @@ def extract_structured_content(text: str) -> List[Dict[str, Any]]:
             except:
                 pass
 
-        actions.append({
-            "action_id": action_id,
-            "params": params,
-            "explanation": explanation
-        })
+        actions.append(
+            {"action_id": action_id, "params": params, "explanation": explanation}
+        )
 
     return actions

@@ -11,9 +11,8 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from PIL import Image
-
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class ScreenshotOptimizer:

@@ -6,17 +6,18 @@ for monitored operation coverage. Uses coordinate-based action tracking to handl
 UI parsing across sessions.
 """
 
-from typing import Dict, List, Any, Optional, Set, Tuple
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import List, Optional, Set, Tuple
 
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
+
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.constants import RVAgentConstants
 from rv_agent.services.coordinate_utils import device_to_optimized
+from rv_agent.strategies.base_strategy import ExplorationStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +301,6 @@ class DFSStrategy(ExplorationStrategy):
         """
         # DFS algorithm uses implicit stack via graph transitions
         # No additional bookkeeping required for traversal
-        pass
 
     def should_backtrack(self, current_hash: str) -> bool:
         """

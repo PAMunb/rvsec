@@ -4,13 +4,13 @@ import json
 import os
 import shutil
 from datetime import datetime
-from typing import Union, List
-from zipfile import ZipFile, ZIP_DEFLATED
+from typing import List, Union
+from zipfile import ZIP_DEFLATED, ZipFile
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
 from rv_android_core.constants import EXTENSION_APK
+from rv_android_core.domain.app import App
 from rv_android_core.util.error.exceptions import RVAndroidError
 from rv_android_core.util.logging.manager import LoggingManager
 
@@ -49,11 +49,7 @@ def execute_command(cmd: Command, tag: str, skip_stderr: bool = False, stdout=No
         logger.error(f"Command execution failed: {error_msg}")
 
         # Raise CommandException with detailed information
-        raise CommandException(
-            tool=tag,
-            code=cmd_result.code,
-            message=error_msg
-        )
+        raise CommandException(tool=tag, code=cmd_result.code, message=error_msg)
 
     logger.debug("Command executed successfully")
     return cmd_result
@@ -96,7 +92,7 @@ def create_folder_if_not_exists(path: str):
             logger.debug(f"Creating folder: {path}")
             os.makedirs(path)
         except OSError as e:
-            error_msg = f'Error while creating folder {path}. Error: {e}'
+            error_msg = f"Error while creating folder {path}. Error: {e}"
             logger.error(error_msg)
             raise e
 
@@ -128,7 +124,9 @@ def move_files_by_extension(extension: str, in_folder: str, destination_folder: 
     """
     try:
         check_folder_exists([in_folder, destination_folder])
-        logger.debug(f"Moving files with extension {extension} from {in_folder} to {destination_folder}")
+        logger.debug(
+            f"Moving files with extension {extension} from {in_folder} to {destination_folder}"
+        )
 
         moved_count = 0
         for file in os.listdir(in_folder):
@@ -140,12 +138,14 @@ def move_files_by_extension(extension: str, in_folder: str, destination_folder: 
         logger.debug(f"Moved {moved_count} files")
 
     except OSError as e:
-        error_msg = f'Error while moving files from {in_folder} to {destination_folder}. Error: {e}'
+        error_msg = f"Error while moving files from {in_folder} to {destination_folder}. Error: {e}"
         logger.error(error_msg)
         raise Exception(error_msg)
 
 
-def copy_files_by_extension(extension: str, in_folder: str, destination_folder: str, log_info=False):
+def copy_files_by_extension(
+    extension: str, in_folder: str, destination_folder: str, log_info=False
+):
     """
     Copy files with specific extension from one folder to another.
 
@@ -160,7 +160,9 @@ def copy_files_by_extension(extension: str, in_folder: str, destination_folder: 
     """
     try:
         check_folder_exists([in_folder, destination_folder])
-        logger.debug(f"Copying files with extension {extension} from {in_folder} to {destination_folder}")
+        logger.debug(
+            f"Copying files with extension {extension} from {in_folder} to {destination_folder}"
+        )
 
         copied_count = 0
         for file in os.listdir(in_folder):
@@ -177,7 +179,7 @@ def copy_files_by_extension(extension: str, in_folder: str, destination_folder: 
             logger.debug(f"No files with extension {extension} found to copy")
 
     except OSError as e:
-        error_msg = f'Error while copying files from {in_folder} to {destination_folder}. Error: {e}'
+        error_msg = f"Error while copying files from {in_folder} to {destination_folder}. Error: {e}"
         logger.error(error_msg)
         raise Exception(error_msg)
 
@@ -207,7 +209,7 @@ def copy_files(in_folder: str, destination_folder: str):
         logger.debug(f"Copied {copied_count} files")
 
     except OSError as e:
-        error_msg = f'Error while copying files from {in_folder} to {destination_folder}. Error: {e}'
+        error_msg = f"Error while copying files from {in_folder} to {destination_folder}. Error: {e}"
         logger.error(error_msg)
         raise Exception(error_msg)
 
@@ -237,7 +239,7 @@ def delete_files_by_extension(extension: str, in_folder: str):
         logger.debug(f"Deleted {deleted_count} files with extension {extension}")
 
     except OSError as e:
-        error_msg = f'Error while deleting files from {in_folder}. Error: {e}'
+        error_msg = f"Error while deleting files from {in_folder}. Error: {e}"
         logger.error(error_msg)
         raise Exception(error_msg)
 
@@ -323,7 +325,7 @@ def unzip(zip_file: str, out_dir: str):
     """
     try:
         logger.debug(f"Extracting {zip_file} to {out_dir}")
-        with ZipFile(zip_file, 'r') as zObject:
+        with ZipFile(zip_file, "r") as zObject:
             zObject.extractall(path=out_dir)
         logger.debug(f"Extraction completed successfully")
     except Exception as e:
@@ -341,7 +343,7 @@ def zip_dir_content(zip_file: str, in_dir: str):
     """
     try:
         logger.debug(f"Compressing contents of {in_dir} to {zip_file}")
-        with ZipFile(zip_file, 'w', ZIP_DEFLATED) as zipf:
+        with ZipFile(zip_file, "w", ZIP_DEFLATED) as zipf:
             file_count = 0
             for root, dirs, files in os.walk(in_dir):
                 for file in files:
@@ -419,8 +421,12 @@ def milliseconds_to_datetime(timestamp: float) -> datetime:
     return datetime.fromtimestamp(timestamp / 1000)
 
 
-def get_env_or_default(env_var: str, default_value: Union[str, int, bool, List], value_type: type = str,
-                       separator: str = " ") -> Union[str, int, bool, List]:
+def get_env_or_default(
+    env_var: str,
+    default_value: Union[str, int, bool, List],
+    value_type: type = str,
+    separator: str = " ",
+) -> Union[str, int, bool, List]:
     """
     Get a value from environment variables or use a default.
 
@@ -479,7 +485,7 @@ def read_json(file_path: str):
     """
     try:
         logger.debug(f"Reading JSON file: {file_path}")
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             return json.load(file)
     except FileNotFoundError:
         logger.error(f"File not found: {file_path}")

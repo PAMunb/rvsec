@@ -5,10 +5,11 @@ Provides shared context to all Scorers during action ranking.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Set, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Set
 
 if TYPE_CHECKING:
     from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
+
     from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
     from rv_agent.memory.ui_coverage import UICoverageTracker
     from rv_agent.services.transition_manager import TransitionManager

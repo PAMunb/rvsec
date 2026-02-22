@@ -6,17 +6,14 @@ format with coordinates already in device space (from ActionNormalizer).
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
-from rv_agent.domain.state import AgentState
-from rv_agent.memory.element_id import (
-    make_element_id_from_action,
-    make_element_id_from_tuple,
-)
 from rv_agent import tracking as track
+from rv_agent.domain.state import AgentState
+from rv_agent.memory.element_id import make_element_id_from_action
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +30,12 @@ def _record_ui_interaction(
     Record UI interaction for coverage tracking.
 
     Unified recording point for both algorithm and LLM actions.
-    Both paths use proximity matching with normalized [0, 1000) coordinates
-    to match screen_analyzer's registration.
+    All coordinates use device pixel space (INV-AGT-40), matching
+    register_screen_elements() and find_nearest_element().
 
     Args:
         agent: RVAgent instance with ui_coverage tracker
-        action: Action dictionary with coordinates
+        action: Action dictionary with device-space coordinates
         action_type: Type of action (CLICK, SET_TEXT, etc.)
         screen_hash: Current screen hash
         item_action: ItemAction instance (available for algorithm actions)
@@ -47,29 +44,20 @@ def _record_ui_interaction(
     element_id = None
     component_type = None
 
-    # Get device dimensions for normalization
-    device_width = (
-        agent.screen_processor.device_dimensions[0] if agent.screen_processor else 1080
-    )
-    device_height = (
-        agent.screen_processor.device_dimensions[1] if agent.screen_processor else 1920
-    )
-
-    # For algorithm actions, normalize coords and use proximity matching
+    # For algorithm actions, use device-space coordinates directly
     if source == "algorithm" and item_action:
         if item_action.target_view:
             comp_class = item_action.target_view.get("class", "")
             component_type = comp_class.split(".")[-1] if comp_class else "Unknown"
 
-        # Get device coordinates and normalize to [0, 1000)
+        # Use device coordinates for proximity matching (INV-AGT-40)
         coords = item_action.coordinates
         if coords:
             device_x, device_y = coords
-            norm_x = int((device_x / device_width) * 1000)
-            norm_y = int((device_y / device_height) * 1000)
 
-            # Use proximity matching with normalized coords
-            match = agent.ui_coverage.find_nearest_element(norm_x, norm_y, screen_hash)
+            match = agent.ui_coverage.find_nearest_element(
+                device_x, device_y, screen_hash
+            )
             if match:
                 element_id, matched_type, distance = match
                 if not component_type:
@@ -78,28 +66,22 @@ def _record_ui_interaction(
                     f"Recording algorithm interaction: {element_id} ({component_type}, dist={distance:.1f}px)"
                 )
             else:
-                # No match - create element_id from normalized coords
+                # No match - create element_id from device coords
                 from rv_agent.memory.element_id import make_element_id
 
-                element_id = make_element_id(norm_x, norm_y)
+                element_id = make_element_id(device_x, device_y)
                 logger.debug(
                     f"Recording algorithm interaction (no match): {element_id}"
                 )
 
-    # For LLM actions, use proximity matching with NORMALIZED coords
+    # For LLM actions, use device-space coordinates
     elif source == "llm":
-        # Use original [0,1000) coords to match screen_analyzer registration
-        # screen_analyzer.format_ui_elements() registers elements in normalized space
-        original_coords = action.get("original_coords")
-        if original_coords:
-            x, y = original_coords  # [0, 1000) normalized space
-        else:
-            # Fallback to device coords (shouldn't happen normally)
-            x = action.get("x")
-            y = action.get("y")
+        # Action dict has device-space x, y (converted by ActionNormalizer.from_llm)
+        x = action.get("x")
+        y = action.get("y")
 
         if x is not None and y is not None:
-            # Try to find nearest registered element
+            # Try to find nearest registered element in device space
             match = agent.ui_coverage.find_nearest_element(x, y, screen_hash)
             if match:
                 element_id, component_type, distance = match
@@ -107,7 +89,7 @@ def _record_ui_interaction(
                     f"Recording LLM interaction: {element_id} ({component_type}, dist={distance:.1f}px)"
                 )
             else:
-                # No match found - use action coordinates directly
+                # No match found - use device coordinates directly
                 element_id = make_element_id_from_action(action)
                 component_type = "Unknown"
                 logger.debug(f"Recording LLM interaction (no match): {element_id}")

@@ -26,14 +26,13 @@ hybrid parsing (native + XML/JSON fallback).
 - Dependencies: LangChain ChatOpenAI, SGLang server, prompt module
 """
 
-import base64
-import time
 import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional
+import time
+from typing import Any, Dict, List, Optional
 
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.exceptions import LLMError
@@ -43,7 +42,6 @@ from rv_agent.llm.tools.tool_call_parser import (
     parse_tool_calls_with_strategy,
     parser_stats,
 )
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 logger = logging.getLogger(__name__)
 

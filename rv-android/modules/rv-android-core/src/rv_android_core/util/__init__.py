@@ -8,6 +8,4 @@ and validation components.
 
 from .jar_resolver import JarResolver
 
-__all__ = [
-    'JarResolver'
-]
+__all__ = ["JarResolver"]

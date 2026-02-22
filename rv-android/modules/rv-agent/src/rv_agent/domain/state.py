@@ -14,7 +14,8 @@ graph invocation (observe -> assistant -> tools -> learn), then cleared between
 iterations by the external loop.
 """
 
-from typing import TypedDict, Optional, Any, Dict, List
+from typing import Any, Dict, List, Optional, TypedDict
+
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 

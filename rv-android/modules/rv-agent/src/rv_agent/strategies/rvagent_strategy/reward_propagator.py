@@ -12,7 +12,7 @@ the N most recent actions using gamma-discounted backward propagation.
 
 import logging
 from collections import deque
-from typing import Tuple, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from rv_agent import tracking as track
 
@@ -74,11 +74,13 @@ class RewardPropagator:
 
         Args:
             state_hash: Hash of the state where the action was executed
-            action_signature: ((opt_x, opt_y), action_type) in optimized coordinate space
+            action_signature: ((device_x, device_y), action_type) in device pixel space (INV-AGT-40)
         """
         self._action_history.append((state_hash, action_signature))
 
-    def propagate(self, reward_type: str, graph: "DynamicStateGraph") -> None:
+    def propagate(
+        self, reward_type: str, graph: "DynamicStateGraph", iteration: int = 0
+    ) -> None:
         """
         Propagate reward backward through action history.
 
@@ -88,6 +90,7 @@ class RewardPropagator:
         Args:
             reward_type: One of "mop_reached", "new_activity", "new_state", "form_fill", "same_state"
             graph: DynamicStateGraph to update action_cumulative_reward on ScreenNodes
+            iteration: Current iteration number for RVTRACK logging
         """
         base_reward = REWARD_VALUES.get(reward_type, 0.0)
         if base_reward == 0.0 and reward_type != "form_fill":
@@ -112,7 +115,7 @@ class RewardPropagator:
             node.action_cumulative_reward[action_sig] = new_value
 
         track.reward_propagation(
-            iter=0,
+            iter=iteration,
             reward_type=reward_type,
             reward_value=base_reward,
             steps_propagated=len(history),

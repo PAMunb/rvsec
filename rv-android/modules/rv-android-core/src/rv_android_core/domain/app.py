@@ -8,22 +8,26 @@ extracted through static analysis using Androguard.
 import logging
 import os
 from typing import List, Optional
-from pydantic import Field, field_validator, computed_field
 
 from androguard.core.bytecodes.apk import APK
+from pydantic import Field, computed_field, field_validator
+
+from rv_android_core.util.android.package_detector import (
+    PackageDetectionResult,
+    PackageDetector,
+)
+from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.error.exceptions import ConfigurationError
-from rv_android_core.util.android.package_detector import PackageDetector, PackageDetectionResult
 
 logger = logging.getLogger(__name__)
 
 
-@validated_model(['app_path'])
+@validated_model(["app_path"])
 class App(BaseValidatedModel):
     """
     Validated data model representing an Android application with comprehensive metadata.
-    
+
     This model extracts and validates Android application metadata including package
     information, permissions, SDK versions, and other properties relevant for
     monitoring operations and experiment execution.
@@ -52,7 +56,7 @@ class App(BaseValidatedModel):
     )
     validate_on_init: bool = Field(
         default=True,
-        description="Whether to validate APK file accessibility and structure on initialization"
+        description="Whether to validate APK file accessibility and structure on initialization",
     )
 
     # Computed fields based on APK analysis
@@ -62,7 +66,7 @@ class App(BaseValidatedModel):
     def model_post_init(self, __context) -> None:
         """
         Execute APK analysis and validation after model initialization.
-        
+
         This method loads the APK file using Androguard and validates its structure
         and accessibility for downstream processing components.
         """
@@ -72,16 +76,16 @@ class App(BaseValidatedModel):
     def _load_and_validate_apk(self) -> None:
         """
         Load APK file and validate its structure using Androguard.
-        
+
         Raises:
             ConfigurationError: If APK file is not accessible or has invalid structure
         """
         if not os.path.isfile(self.app_path):
             raise ConfigurationError(f"APK file not found: {self.app_path}")
-        
-        if not self.app_path.lower().endswith('.apk'):
+
+        if not self.app_path.lower().endswith(".apk"):
             raise ConfigurationError(f"File is not an APK: {self.app_path}")
-        
+
         try:
             self._apk_instance = APK(self.app_path)
             # Validate that essential metadata can be extracted
@@ -129,7 +133,10 @@ class App(BaseValidatedModel):
         self._code_package_result = detector.detect_package(self._apk_instance)
 
         # Log only when there is a mismatch (the interesting case)
-        if self._code_package_result.code_package != self._code_package_result.manifest_package:
+        if (
+            self._code_package_result.code_package
+            != self._code_package_result.manifest_package
+        ):
             logger.info(
                 "Package mismatch detected: manifest='%s', code='%s' "
                 "(method=%s, confidence=%s)",
@@ -163,7 +170,7 @@ class App(BaseValidatedModel):
             self._load_and_validate_apk()
         return self._apk_instance.get_min_sdk_version()
 
-    @field_validator('app_path')
+    @field_validator("app_path")
     @classmethod
     def validate_app_path(cls, v: str) -> str:
         """Validate that app_path is not empty."""

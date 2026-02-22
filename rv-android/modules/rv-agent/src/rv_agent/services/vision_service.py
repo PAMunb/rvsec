@@ -6,16 +6,14 @@ during Android application exploration with multimodal language models.
 """
 
 import base64
-import logging
+from collections import deque
 from io import BytesIO
 from pathlib import Path
 from typing import Optional, Tuple
-from collections import deque
 
 from PIL import Image
-
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class ImageHandler:

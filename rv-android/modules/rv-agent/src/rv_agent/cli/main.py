@@ -14,14 +14,14 @@ NOTE: This CLI does NOT install APKs. Use `adb install` manually or
 run via rv-experiment which handles APK installation automatically.
 """
 
-import click
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
-from rv_agent.config.agent_config import RVAgentConfig
+import click
+
 from rv_agent.agent.agent_factory import AgentFactory
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.constants import RVAgentConstants
 
 
@@ -40,7 +40,6 @@ def setup_logging(debug: bool = False) -> logging.Logger:
 @click.group()
 def cli():
     """RVAgent - Autonomous Android Testing with LangGraph."""
-    pass
 
 
 @cli.command()

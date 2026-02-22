@@ -12,10 +12,9 @@ import os
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Any, Optional, Type, TypeVar, Generic
 
 # TYPE_CHECKING import to avoid missing dependencies during tests
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from pydantic import Field
 

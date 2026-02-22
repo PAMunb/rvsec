@@ -12,9 +12,9 @@ pixels. This ensures consistency with ActionNormalizer which expects [0, 1000)
 and converts to device pixels. Validation confirmed LLM copies text coords.
 """
 
-import xml.etree.ElementTree as ET
 import re
-from typing import List, Dict, Tuple, Any, Optional
+import xml.etree.ElementTree as ET
+from typing import Dict, List, Tuple
 
 # Default device dimensions for coordinate normalization
 DEFAULT_DEVICE_WIDTH = 1080

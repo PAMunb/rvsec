@@ -6,7 +6,8 @@ windows, screens, and their associated UI components for comprehensive UI analys
 """
 
 from enum import Enum
-from typing import Optional, Dict, Set, List, Any
+from typing import Any, Dict, List, Optional, Set
+
 from pydantic import Field
 
 from rv_android_core.domain.widget import Widget
@@ -17,6 +18,7 @@ from rv_android_core.util.validation.decorators import validated_model
 
 class WindowType(Enum):
     """Enumeration of different window types in the application."""
+
     ACTIVITY = 1
     OPTIONSMENU = 2
     CONTEXTMENU = 3
@@ -24,7 +26,7 @@ class WindowType(Enum):
     FRAGMENT = 5
 
     @staticmethod
-    def from_string(window_type: str) -> Optional['WindowType']:
+    def from_string(window_type: str) -> Optional["WindowType"]:
         """
         Convert a string representation to WindowType enum value.
 
@@ -39,73 +41,75 @@ class WindowType(Enum):
             "OPTIONS_MENU": WindowType.OPTIONSMENU,
             "CONTEXT_MENU": WindowType.CONTEXTMENU,
             "DIALOG": WindowType.DIALOG,
-            "FRAGMENT": WindowType.FRAGMENT
+            "FRAGMENT": WindowType.FRAGMENT,
         }
         return type_mapping.get(window_type)
 
 
-@validated_model(['name'])
+@validated_model(["name"])
 class Window(BaseValidatedModel):
     """
     Validated data model for Android application window representation.
-    
+
     This model provides comprehensive representation of Android application windows
     or screens with their associated UI widgets and metadata for static analysis
     and dynamic exploration.
-    
+
     ### Architectural Role:
     - Represents individual screens or activities in Android applications
     - Aggregates UI widgets and their interaction capabilities
     - Provides window-level metadata for navigation and exploration
     - Enables correlation between static analysis and dynamic exploration data
-    
+
     ### Integration Points:
     - Created during static analysis of application UI structure
     - Used by window transition graph for navigation modeling
     - Consumed by exploration tools for systematic UI interaction
     - Integrated with coverage analysis for screen-level metrics
-    
+
     ### Critical Navigation Data:
     The activity and class_name fields provide essential mapping between
     UI screens and their corresponding Android Activity implementations.
     """
-    
-    name: str = Field(
-        description="Window identifier or screen name"
-    )
+
+    name: str = Field(description="Window identifier or screen name")
     id: str = Field(
-        default="",
-        description="Unique window identifier within the application"
+        default="", description="Unique window identifier within the application"
     )
     type: WindowType = Field(
         default=WindowType.ACTIVITY,
-        description="Window type classification (Activity, Dialog, Menu, etc.)"
+        description="Window type classification (Activity, Dialog, Menu, etc.)",
     )
     layout_file: str = Field(
-        default="",
-        description="Associated layout XML file path from static analysis"
+        default="", description="Associated layout XML file path from static analysis"
     )
     widgets: Dict[str, Widget] = Field(
         default_factory=dict,
-        description="Dictionary mapping widget IDs to Widget instances in this window"
+        description="Dictionary mapping widget IDs to Widget instances in this window",
     )
     fields: Set[str] = Field(
         default_factory=set,
-        description="Set of data fields or attributes associated with this window"
+        description="Set of data fields or attributes associated with this window",
     )
     activity: str = Field(
         default="",
-        description="Android Activity class name associated with this window"
+        description="Android Activity class name associated with this window",
     )
     class_name: str = Field(
         default="",
-        description="Fully qualified class name of the Activity implementation"
+        description="Fully qualified class name of the Activity implementation",
     )
-    
+
     def model_post_init(self, __context) -> None:
         """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        object.__setattr__(self, 'logger', logging_manager.get_logger("rv_android_core.domain.window", {"window": self.name}))
+        object.__setattr__(
+            self,
+            "logger",
+            logging_manager.get_logger(
+                "rv_android_core.domain.window", {"window": self.name}
+            ),
+        )
         self.logger.debug(f"Window created: {self.name}")
 
     def add_widget(self, widget: Widget) -> bool:
@@ -120,12 +124,14 @@ class Window(BaseValidatedModel):
         """
         widget_id = str(widget.widget_id)
         if widget_id in self.widgets:
-            if hasattr(self, 'logger'):
-                self.logger.debug(f"Widget {widget_id} already exists in window {self.name}")
+            if hasattr(self, "logger"):
+                self.logger.debug(
+                    f"Widget {widget_id} already exists in window {self.name}"
+                )
             return False
 
         self.widgets[widget_id] = widget
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Added widget {widget_id} to window {self.name}")
         return True
 
@@ -139,16 +145,16 @@ class Window(BaseValidatedModel):
         Returns:
             Widget if found, None otherwise
         """
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Getting widget {widget_id} from window {self.name}")
         widget = self.widgets.get(widget_id)
 
         if widget:
-            if hasattr(self, 'logger'):
+            if hasattr(self, "logger"):
                 self.logger.debug(f"Widget {widget_id} found")
             return widget
 
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Widget {widget_id} not found")
         return None
 
@@ -162,28 +168,32 @@ class Window(BaseValidatedModel):
         Returns:
             Widget if found, None otherwise
         """
-        if hasattr(self, 'logger'):
-            self.logger.debug(f"Looking for widget '{widget_name}' in window {self.name}")
+        if hasattr(self, "logger"):
+            self.logger.debug(
+                f"Looking for widget '{widget_name}' in window {self.name}"
+            )
 
         for widget in self.widgets.values():
             if widget.name == widget_name:
-                if hasattr(self, 'logger'):
+                if hasattr(self, "logger"):
                     self.logger.debug(f"Widget '{widget_name}' found")
                 return widget
 
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Widget '{widget_name}' not found")
         return None
-        
+
     def get_widgets(self) -> List[Widget]:
         """
         Get all widgets associated with this window.
-        
+
         Returns:
             List of all widgets in this window
         """
-        if hasattr(self, 'logger'):
-            self.logger.debug(f"Getting all widgets for window {self.name}, found {len(self.widgets)}")
+        if hasattr(self, "logger"):
+            self.logger.debug(
+                f"Getting all widgets for window {self.name}, found {len(self.widgets)}"
+            )
         return list(self.widgets.values())
 
     def to_json(self) -> Dict[str, Any]:
@@ -196,12 +206,12 @@ class Window(BaseValidatedModel):
         return {
             "id": self.id,
             "name": self.name,
-            "activity": self.activity, 
+            "activity": self.activity,
             "class_name": self.class_name,
             "type": self.type.name,
             "layout_file": self.layout_file,
             "widgets": [widget.to_json() for widget in self.widgets.values()],
-            "fields": list(self.fields)
+            "fields": list(self.fields),
         }
 
     def __str__(self):
@@ -226,40 +236,41 @@ class Window(BaseValidatedModel):
 class Windows(BaseValidatedModel):
     """
     Validated data model for managing all application windows and UI widgets.
-    
+
     This model provides centralized management of Android application windows
     and their associated widgets for comprehensive UI analysis and exploration.
-    
+
     ### Architectural Role:
     - Provides centralized repository for all application windows
     - Aggregates widgets across all windows for global UI analysis
     - Enables efficient window and widget lookup operations
     - Supports comprehensive UI structure analysis and reporting
-    
+
     ### Integration Points:
     - Populated during static analysis of application UI structure
     - Used by window transition graph for complete UI modeling
     - Consumed by exploration tools for systematic UI navigation
     - Integrated with coverage systems for application-wide UI metrics
-    
+
     ### Performance Considerations:
     Maintains both window-specific and global widget collections for
     efficient access patterns during analysis and exploration operations.
     """
-    
+
     windows: Set[Window] = Field(
-        default_factory=set,
-        description="Set of all windows in the application"
+        default_factory=set, description="Set of all windows in the application"
     )
     widgets: Dict[str, Widget] = Field(
         default_factory=dict,
-        description="Global dictionary mapping widget IDs to Widget instances across all windows"
+        description="Global dictionary mapping widget IDs to Widget instances across all windows",
     )
-    
+
     def model_post_init(self, __context) -> None:
         """Initialize logging after model validation."""
         logging_manager = LoggingManager.get_instance()
-        object.__setattr__(self, 'logger', logging_manager.get_logger("rv_android_core.domain.window"))
+        object.__setattr__(
+            self, "logger", logging_manager.get_logger("rv_android_core.domain.window")
+        )
         self.logger.debug("Windows container initialized")
 
     def add_window(self, window: Window) -> bool:
@@ -273,12 +284,12 @@ class Windows(BaseValidatedModel):
             True if window was added, False if already exists
         """
         if window in self.windows:
-            if hasattr(self, 'logger'):
+            if hasattr(self, "logger"):
                 self.logger.debug(f"Window {window.name} already exists")
             return False
 
         self.windows.add(window)
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Added window: {window.name}")
         self.__update_widgets_of_window(window)
         return True
@@ -303,9 +314,13 @@ class Windows(BaseValidatedModel):
             # If it's an Activity, the window name is usually the fully qualified class name
             window.activity = window_name
             window.class_name = window_name
-        
+
         # Set activity name if it appears to be an Android component
-        if "Activity" in window_name or window_name.startswith("com.") or window_name.startswith("android."):
+        if (
+            "Activity" in window_name
+            or window_name.startswith("com.")
+            or window_name.startswith("android.")
+        ):
             window.activity = window_name
             window.class_name = window_name
 
@@ -313,8 +328,10 @@ class Windows(BaseValidatedModel):
             window.id = window_id
 
         self.add_window(window)
-        if hasattr(self, 'logger'):
-            self.logger.debug(f"Created new window: {window_name} (ID: {window_id or 'not set'})")
+        if hasattr(self, "logger"):
+            self.logger.debug(
+                f"Created new window: {window_name} (ID: {window_id or 'not set'})"
+            )
         return window
 
     def __update_widgets_of_window(self, window: Window):
@@ -325,8 +342,10 @@ class Windows(BaseValidatedModel):
             window: Window containing widgets to update
         """
         for widget_id, widget in window.widgets.items():
-            if hasattr(self, 'logger'):
-                self.logger.debug(f"Adding widget {widget.widget_id} from window {window.name}")
+            if hasattr(self, "logger"):
+                self.logger.debug(
+                    f"Adding widget {widget.widget_id} from window {window.name}"
+                )
             self.widgets[widget.widget_id] = widget
 
     def get_window_by_id(self, window_id: str) -> Optional[Window]:
@@ -362,16 +381,20 @@ class Windows(BaseValidatedModel):
 
         # Strategy 2: Relative name match (e.g., ".TutorialActivity" or ".tutorial.TutorialActivity")
         # Android uses relative activity names starting with '.'
-        if window_name.startswith('.'):
-            result = next((w for w in self.windows if w.name.endswith(window_name)), None)
+        if window_name.startswith("."):
+            result = next(
+                (w for w in self.windows if w.name.endswith(window_name)), None
+            )
             if result:
                 return result
 
         # Strategy 3: Match by activity class name (last part)
         # e.g., "TutorialActivity" matches "com.example.app.tutorial.TutorialActivity"
-        class_name = window_name.split('.')[-1] if '.' in window_name else window_name
+        class_name = window_name.split(".")[-1] if "." in window_name else window_name
         if class_name:
-            result = next((w for w in self.windows if w.name.endswith(class_name)), None)
+            result = next(
+                (w for w in self.windows if w.name.endswith(class_name)), None
+            )
             if result:
                 return result
 
@@ -390,12 +413,16 @@ class Windows(BaseValidatedModel):
         """
         if window.add_widget(widget):
             self.widgets[widget.widget_id] = widget
-            if hasattr(self, 'logger'):
-                self.logger.debug(f"Added widget {widget.widget_id} to window {window.name}")
+            if hasattr(self, "logger"):
+                self.logger.debug(
+                    f"Added widget {widget.widget_id} to window {window.name}"
+                )
             return True
 
-        if hasattr(self, 'logger'):
-            self.logger.debug(f"Widget {widget.widget_id} already exists in window {window.name}")
+        if hasattr(self, "logger"):
+            self.logger.debug(
+                f"Widget {widget.widget_id} already exists in window {window.name}"
+            )
         return False
 
     def get_widget(self, widget_id: str) -> Optional[Widget]:
@@ -411,22 +438,22 @@ class Windows(BaseValidatedModel):
         widget = self.widgets.get(widget_id)
 
         if widget:
-            if hasattr(self, 'logger'):
+            if hasattr(self, "logger"):
                 self.logger.debug(f"Found widget {widget_id}")
         else:
-            if hasattr(self, 'logger'):
+            if hasattr(self, "logger"):
                 self.logger.debug(f"Widget {widget_id} not found")
 
         return widget
-        
+
     def get_windows(self) -> Set[Window]:
         """
         Get all windows.
-        
+
         Returns:
             Set of all windows
         """
-        if hasattr(self, 'logger'):
+        if hasattr(self, "logger"):
             self.logger.debug(f"Getting all windows, found {len(self.windows)}")
         return self.windows
 
@@ -437,6 +464,4 @@ class Windows(BaseValidatedModel):
         Returns:
             Dictionary representation for JSON serialization
         """
-        return {
-            "windows": [window.to_json() for window in self.windows]
-        }
+        return {"windows": [window.to_json() for window in self.windows]}

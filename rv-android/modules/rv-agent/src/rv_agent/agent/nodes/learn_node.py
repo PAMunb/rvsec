@@ -1,57 +1,55 @@
 """
-Learn node for RVAgent workflow.
+Update memory systems, detect stuck states, and manage recovery strategies.
 
-Updates memory systems, detects stuck states, and manages recovery strategies.
+This module implements the learn node of the RVAgent LangGraph workflow. After each
+action execution, learn_node processes the outcome: updates memory systems, records
+state transitions, detects validation errors and stuck states, and sets flags that
+guide the next iteration's action generation. The node bridges observation (what
+happened) and planning (what to do next) by translating evidence into control signals.
 
-Key Design Decisions:
+### Architectural Decisions:
 
-1. VALIDATION ERROR DETECTION (before stuck detection)
-   When the screen is unchanged and a screenshot is available, checks for visual
-   validation errors (red icons, error borders) before assuming the agent is stuck.
-   Uses 3-way branching:
-     (a) No screenshot (screen changed) -> reset error_recovery_count, clear state
-     (b) Screenshot exists, max recovery reached -> skip detection, let stuck logic handle it
-     (c) Screenshot exists, count < max -> run detection, set force_fill_input if error found
+- Validation error detection runs BEFORE stuck detection so that form validation
+  failures (red icons, error borders) are handled by force_fill_input instead of
+  being misclassified as stuck states. A 3-way branch handles the cases: (a) screen
+  changed -- reset, (b) recovery budget exhausted -- defer to stuck logic, (c)
+  budget remaining -- run detection.
+- Two-level stuck detection: Level 1 uses a dynamic threshold based on screen
+  complexity (more elements = more patience before forcing BACK). Level 2 uses
+  StuckRecovery with Backtrack BFS (APE paper) to find unsaturated ancestors, falling
+  back to app restart when no ancestor exists.
+- Detection vs. action generation separation: learn_node sets flags (force_back_action,
+  force_restart_app, force_fill_input) that algorithm_node reads to generate the
+  appropriate action. This keeps detection logic in one place and action generation
+  in another.
+- BACK transition recording builds a navigation graph used by Backtrack BFS.
+  Each time BACK causes a screen change, the transition is stored in
+  SuccessorTracker.back_successors.
 
-2. STUCK STATE DETECTION (Two-Level)
-   Level 1 - Screen unchanged: After dynamic threshold of unchanged screens, force BACK.
-             Threshold = max(BASE_STUCK_THRESHOLD, num_elements * STUCK_THRESHOLD_FACTOR)
-             Form actions (SET_TEXT, checkable elements) are excluded from counting.
-   Level 2 - StuckRecovery: After max_blocks iterations in same state, try:
-     a) Backtrack BFS: Find nearest unsaturated ancestor state
-     b) App Restart: Force stop and relaunch if BFS fails
+### Role in the System:
 
-3. BACKTRACK BFS (from APE paper)
-   When Level 2 stuck is detected, uses SuccessorTracker.find_nearest_unsaturated()
-   to find an ancestor state with unexplored actions. If found, navigates there
-   via BACK. If no unsaturated ancestor exists, triggers app restart.
+- Final node in the LangGraph workflow iteration, executed after execute_node.
+- Consumes action execution results and produces state updates for the next iteration.
+- Coordinates with MemoryCoordinator for memory updates and summary generation.
+- Sets control flags read by decision_node and algorithm_node.
 
-4. BACK TRANSITION RECORDING
-   Records where BACK leads from each state. This builds a navigation graph
-   that Backtrack BFS uses to find paths to unsaturated ancestors.
+### Integration Points:
 
-5. INTERACTION WITH ALGORITHM_NODE
-   - force_back_action=True: Generates BACK action
-   - force_restart_app=True: Generates RESTART_APP action
-   - force_fill_input=True: Triggers input filling for error recovery
-   This maintains separation between detection (learn_node) and action generation.
-
-6. UI COVERAGE TRACKING
-   Records which elements were interacted with for coverage metrics.
-   Uses proximity matching because LLM clicks may not be exactly at element centers.
+- Input: AgentState from execute_node (screen hashes, action info, screenshots).
+- Output: Dict of state updates merged into AgentState for the next iteration.
+- Dependencies: MemoryCoordinator, SuccessorTracker, StuckRecovery, RewardPropagator,
+  VisualErrorDetector, PathBuffer, InputValueGenerator.
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
-from rv_agent.domain.state import AgentState
 from rv_agent import tracking as track
-from rv_agent.constants import RVAgentConstants
-from rv_agent.services.coordinate_utils import device_to_optimized
-from rv_agent.services.error_detection import VisualErrorDetector, ValidationErrorResult
+from rv_agent.domain.state import AgentState
+from rv_agent.services.error_detection import ValidationErrorResult, VisualErrorDetector
 
 logger = logging.getLogger(__name__)
 
@@ -62,25 +60,29 @@ MAX_ERROR_RECOVERY = 3
 
 
 def _get_dynamic_stuck_threshold(agent: "RVAgent", state: AgentState) -> int:
-    """
-    Calculate stuck threshold based on screen complexity.
+    """Calculate stuck threshold based on screen complexity.
 
-    More elements on screen = more iterations allowed before forcing BACK.
-    This prevents premature backtracking on complex screens.
+    More elements on screen means more iterations allowed before forcing BACK.
+    This prevents premature backtracking on complex screens with many
+    interactive elements. Counts elements from screen_description.items.
 
     Args:
-        agent: RVAgent instance with BASE_STUCK_THRESHOLD and STUCK_THRESHOLD_FACTOR
-        state: Current agent state with available_actions
+        agent: RVAgent instance with BASE_STUCK_THRESHOLD and STUCK_THRESHOLD_FACTOR.
+        state: Current agent state with screen_description.
 
     Returns:
-        Dynamic threshold: max(base, num_elements * factor)
+        Dynamic threshold: max(base, num_elements * factor).
     """
     base = getattr(agent, "BASE_STUCK_THRESHOLD", 8)
     factor = getattr(agent, "STUCK_THRESHOLD_FACTOR", 1.5)
 
-    # Get number of available actions (interactive elements)
-    available_actions = state.get("available_actions", [])
-    num_elements = len(available_actions)
+    # Count interactive elements from the parsed screen description
+    screen_desc = state.get("screen_description")
+    num_elements = 0
+    if screen_desc is not None:
+        items = getattr(screen_desc, "items", None)
+        if items is not None:
+            num_elements = len(items)
 
     # Calculate dynamic threshold
     dynamic_threshold = max(base, int(num_elements * factor))
@@ -121,22 +123,41 @@ def _detect_validation_error(
 
 
 def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
-    """
-    Update memory systems and prepare for next iteration.
+    """Update memory systems, detect issues, and prepare for next iteration.
 
-    Handles memory updates, summary generation, state tracking,
-    stuck state detection, and continuation checks.
+    Process the outcome of the last executed action through six phases: memory
+    update, transition recording, validation error detection, stuck state
+    detection, continuation check, and result assembly. Sets control flags
+    (force_back_action, force_restart_app, force_fill_input) that drive the
+    next iteration's action generation in algorithm_node.
 
     Args:
-        agent: RVAgent instance with memory_coordinator and stuck detection
-        state: Current agent state
+        agent: RVAgent instance with memory_coordinator, stuck_recovery,
+            strategy (with successor_tracker, reward_propagator, path_buffer,
+            value_generator), and error_recovery_count state.
+        state: Current agent state containing screen hashes, action info,
+            error_detection_screenshot, and timing data.
 
     Returns:
-        State updates with memories, summaries, and continuation flags
+        Dictionary with keys:
+        - "recent_action_window" (list): Sliding window of recent actions.
+        - "action_history_summary" (str): Human-readable action history.
+        - "exploration_summary" (str): Exploration progress summary.
+        - "memory_insights" (str): Insights from memory analysis.
+        - "navigation_path" (str): Current navigation path description.
+        - "visited_states" (list): Updated list of visited state hashes.
+        - "state_transitions" (list): Updated state transition log.
+        - "previous_screen_hash" (str): Current hash stored for next iteration.
+        - "should_continue" (bool): Whether the agent should keep running.
+        - "loop_detected" (bool): Always False (legacy key, kept for state schema).
+        - "force_back_action" (bool): Set when Level 1 or BFS stuck detected.
+        - "force_restart_app" (bool): Set when Level 2 stuck with no ancestor.
+        - "force_fill_input" (bool): Set when validation error detected.
+        - "error_indicators" (list or None): Visual error indicator data.
     """
     iteration = state.get("iteration", 0)
 
-    # Update memories
+    # Phase 1: Memory updates and summary generation
     memory_result = agent.memory_coordinator.update_memories(
         current_screen_hash=state.get("current_screen_hash", "unknown"),
         current_activity=state.get("current_activity", "unknown"),
@@ -147,7 +168,6 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         recent_action_window=state.get("recent_action_window", []),
     )
 
-    # Generate summaries
     summaries = agent.memory_coordinator.generate_summaries(
         action=state.get("current_action"),
         current_activity=state.get("current_activity", "unknown"),
@@ -155,7 +175,6 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         state_transitions=state.get("state_transitions", []),
     )
 
-    # Track state discovery
     tracking = agent.memory_coordinator.track_state_discovery(
         current_hash=state.get("current_screen_hash"),
         previous_hash=state.get("previous_screen_hash"),
@@ -163,24 +182,13 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         state_transitions=state.get("state_transitions", []),
     )
 
-    # Record BACK transitions for Backtrack BFS
+    # Phase 2: Transition recording and reward propagation
     _record_back_transition(agent, state)
-
-    # Record action success for strength-based scoring
     _record_action_success(agent, state)
-
-    # Propagate reward based on action outcome
     _propagate_reward(agent, state)
-
-    # --- PathBuffer invalidation ---
-    # If the path buffer is active (executing a multi-hop navigation plan)
-    # and the screen didn't change after the last action, the planned path
-    # is stale -- the BACK action didn't navigate as expected. Invalidate
-    # the buffer to stop executing stale actions and let the strategy
-    # fall back to normal action selection.
     _invalidate_stale_path_buffer(agent, state)
 
-    # --- Validation error detection (before stuck detection) ---
+    # Phase 3: Validation error detection (before stuck detection)
     #
     # WHY 3-way branching:
     # The error_detection_screenshot field is set by parse_node ONLY when the
@@ -241,7 +249,7 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             # reasons. Reset counter so future errors on new screens start fresh.
             agent.error_recovery_count = 0
 
-    # Two-level stuck state detection
+    # Phase 4: Two-level stuck state detection
     current_hash = state.get("current_screen_hash")
     force_back = False
     force_restart = False
@@ -326,12 +334,11 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                 force_restart = True
                 stuck_recovery.record_restart()
 
-    # Check continuation
+    # Phase 5: Continuation check and tracking
     continuation = agent.memory_coordinator.check_continuation(
         start_time=state.get("start_time"), timeout=state.get("timeout")
     )
 
-    # Track state changes
     previous_activity = state.get("previous_activity")
     current_activity = state.get("current_activity")
     activity_changed = (
@@ -346,7 +353,6 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         hash=current_hash,
     )
 
-    # Track learning/stuck detection
     stuck_reason = None
     if force_restart:
         stuck_reason = "level2_restart"
@@ -361,9 +367,9 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         error_detected=error_detected,
     )
 
-    # Track LLM-generated text values to prevent repetition via value_generator
     _track_llm_text_value(agent, state)
 
+    # Phase 6: Assemble result state
     result = {
         "recent_action_window": memory_result["recent_action_window"],
         "action_history_summary": summaries["action_history_summary"],
@@ -394,16 +400,16 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
 
 
 def _record_back_transition(agent: "RVAgent", state: AgentState) -> None:
-    """
-    Record BACK transitions for Backtrack BFS navigation.
+    """Record BACK transitions for Backtrack BFS navigation.
 
-    When a BACK action is executed and the screen changes, records the
+    When a BACK action is executed and the screen changes, record the
     transition in SuccessorTracker.back_successors. This builds a graph
-    of where BACK leads from each state.
+    of where BACK leads from each state, used by Backtrack BFS to find
+    paths to unsaturated ancestors.
 
     Args:
-        agent: RVAgent instance with strategy.successor_tracker
-        state: Current agent state with action and hash information
+        agent: RVAgent instance with strategy.successor_tracker.
+        state: Current agent state with action and hash information.
     """
     try:
         current_action = state.get("current_action")
@@ -435,20 +441,20 @@ def _record_back_transition(agent: "RVAgent", state: AgentState) -> None:
 
 
 def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
-    """
-    Record action success/failure for strength-based scoring.
+    """Record action success for strength-based scoring.
 
-    Success Definition: An action is considered successful if it caused
-    a state transition (screen hash changed after execution).
+    An action is considered successful if it caused a state transition
+    (screen hash changed after execution). Record the result in the
+    ScreenNode for the state where the action was executed, updating
+    execution counts and success counts used by StrengthScorer.
 
-    TODO(#20): This heuristic has limitations — actions that change
+    TODO(#20): This heuristic has limitations -- actions that change
     internal state without changing UI are marked as failures, and actions
-    that open transient dialogs may give false positives. Future improvements
-    could use additional signals (activity change, new elements).
+    that open transient dialogs may give false positives.
 
     Args:
-        agent: RVAgent instance with strategy and graph
-        state: Current agent state with previous/current hashes and action info
+        agent: RVAgent instance with strategy.graph containing ScreenNodes.
+        state: Current agent state with previous/current hashes and action info.
     """
     try:
         previous_hash = state.get("previous_screen_hash")
@@ -459,7 +465,7 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
         if not previous_hash or not current_hash or not current_action:
             return
 
-        # Get action coordinates
+        # Get action coordinates (device space per INV-AGT-40)
         x = current_action.get("x")
         y = current_action.get("y")
         action_type = current_action.get("action_type", "CLICK")
@@ -467,25 +473,8 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
         if x is None or y is None:
             return
 
-        # Convert to optimized space (same as scorers)
-        converter = getattr(agent.strategy, "converter", None)
-        if converter:
-            opt_x, opt_y = converter.device_to_optimized(x, y)
-        else:
-            opt_x, opt_y = device_to_optimized(
-                x,
-                y,
-                (
-                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
-                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
-                ),
-                (
-                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
-                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
-                ),
-            )
-
-        action_signature = ((opt_x, opt_y), action_type)
+        # Device-space signature matches execute_node pre-marking format
+        action_signature = ((x, y), action_type)
 
         # Get the node where the action was executed (previous state)
         graph = getattr(agent.strategy, "graph", None)
@@ -526,15 +515,20 @@ def _record_action_success(agent: "RVAgent", state: AgentState) -> None:
 
 
 def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
-    """
-    Record action in reward history and propagate reward based on outcome.
+    """Record action in reward history and propagate reward based on outcome.
 
-    Determines reward type using priority order:
-    1. mop_reached: action has callback_signature (MOP method triggered)
-    2. new_activity: screen changed AND activity not seen before
-    3. new_state: screen changed AND activity already seen
-    4. form_fill: screen unchanged AND action was SET_TEXT/TEXT_CHANGE
-    5. same_state: screen unchanged AND action was not text input
+    Determine reward type using priority order and delegate to RewardPropagator
+    for N-step backward propagation with gamma discounting:
+
+    1. mop_reached: action has callback_signature (monitored operation triggered).
+    2. new_activity: screen changed AND activity not seen before.
+    3. new_state: screen changed AND activity already seen.
+    4. form_fill: screen unchanged AND action was SET_TEXT/TEXT_CHANGE.
+    5. same_state: screen unchanged AND action was not text input.
+
+    Args:
+        agent: RVAgent instance with strategy.reward_propagator and strategy.graph.
+        state: Current agent state with hashes, action info, and item_action.
     """
     try:
         reward_propagator = getattr(agent.strategy, "reward_propagator", None)
@@ -555,25 +549,8 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
         if x is None or y is None:
             return
 
-        # Convert to optimized space (same as _record_action_success)
-        converter = getattr(agent.strategy, "converter", None)
-        if converter:
-            opt_x, opt_y = converter.device_to_optimized(x, y)
-        else:
-            opt_x, opt_y = device_to_optimized(
-                x,
-                y,
-                (
-                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
-                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
-                ),
-                (
-                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
-                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
-                ),
-            )
-
-        action_signature = ((opt_x, opt_y), action_type)
+        # Device-space signature per INV-AGT-40
+        action_signature = ((x, y), action_type)
         reward_propagator.record_action(previous_hash, action_signature)
 
         # Determine reward type (priority: mop > new_activity > new_state > form_fill > same_state)
@@ -605,20 +582,20 @@ def _propagate_reward(agent: "RVAgent", state: AgentState) -> None:
 
         graph = getattr(agent.strategy, "graph", None)
         if graph:
-            reward_propagator.propagate(reward_type, graph)
+            iteration = state.get("iteration", 0)
+            reward_propagator.propagate(reward_type, graph, iteration=iteration)
 
     except Exception as e:
         logger.warning(f"Failed to propagate reward: {e}")
 
 
 def _invalidate_stale_path_buffer(agent: "RVAgent", state: AgentState) -> None:
-    """
-    Invalidate PathBuffer if the screen didn't change after a buffered action.
+    """Invalidate PathBuffer if the screen did not change after a buffered action.
 
     When the PathBuffer is active (executing a multi-hop plan), each action
-    should produce a screen change. If the current_hash equals the previous_hash,
-    the navigation didn't work (e.g., BACK had no effect on a root screen).
-    Continuing the buffered plan would waste iterations, so we clear it.
+    should produce a screen change. If the current hash equals the previous hash,
+    the navigation did not work (e.g., BACK had no effect on a root screen).
+    Continuing the buffered plan would waste iterations, so clear it.
 
     Args:
         agent: RVAgent instance with strategy that may have path_buffer.
@@ -647,15 +624,15 @@ def _invalidate_stale_path_buffer(agent: "RVAgent", state: AgentState) -> None:
 
 
 def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
-    """
-    Record LLM-generated text values in InputValueGenerator to prevent repetition.
+    """Record LLM-generated text values in InputValueGenerator to prevent repetition.
 
-    When the LLM generates a SET_TEXT action, the text value is recorded in
-    value_generator.tested_values so the algorithm path doesn't re-test it.
+    When the LLM generates a SET_TEXT action, record the text value in
+    value_generator.tested_values so the algorithm path does not re-test it.
+    Uses widget_id as element key when available, falls back to coordinates.
 
     Args:
-        agent: RVAgent instance with strategy.value_generator
-        state: Current agent state with action and decision_maker info
+        agent: RVAgent instance with strategy.value_generator.
+        state: Current agent state with action and decision_maker info.
     """
     try:
         decision_maker = state.get("decision_maker")

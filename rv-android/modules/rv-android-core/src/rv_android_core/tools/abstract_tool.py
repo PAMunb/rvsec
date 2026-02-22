@@ -1,24 +1,26 @@
 """
 Abstract base class for all testing tools in the RV-Android framework.
 
-This module defines the core contract and template method pattern for 
+This module defines the core contract and template method pattern for
 monitored operations testing tools.
 """
 
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
-    from rv_tools.registry.registry import ToolRegistry
+    pass
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
-    RVCommandTimeoutError, RVToolTimeoutError, RVToolExecutionError
+    RVCommandTimeoutError,
+    RVToolExecutionError,
+    RVToolTimeoutError,
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT, CONTEXT_TOOL_NAME
 from rv_android_core.util.logging.manager import LoggingManager
@@ -81,10 +83,7 @@ class AbstractTool(ABC):
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             f"rv_tools.builtin.{name}",
-            {
-                CONTEXT_COMPONENT: f"{name.title()}Tool",
-                CONTEXT_TOOL_NAME: name
-            }
+            {CONTEXT_COMPONENT: f"{name.title()}Tool", CONTEXT_TOOL_NAME: name},
         )
 
         # Initialize error handler
@@ -97,101 +96,97 @@ class AbstractTool(ABC):
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
         """
         Get available variants for this tool.
-        
+
         Every tool must provide at least a 'default' variant configuration.
         Variants define tool-specific parameter sets that can be referenced
         by name in experiment configurations.
-        
+
         ### Architectural Overview:
         This method enables the variant system by providing predefined configurations
         that can be referenced by name in experiment specifications. Each variant
         represents a complete configuration for the tool with specific parameters.
-        
+
         ### Implementation Requirements:
         - Must include at least a 'default' variant
         - Variant names should be descriptive and meaningful
         - Parameters should be complete for tool execution
         - Avoid complex nested structures for simplicity
-        
+
         Returns:
             Dictionary mapping variant names to configuration parameters
-            
+
         Example:
             {
                 "default": {"policy": "dfs_naive", "timeout": 300},
                 "greedy": {"policy": "dfs_greedy", "count": 5000, "timeout": 600}
             }
         """
-        pass
-    
+
     @abstractmethod
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure tool with resolved variant parameters.
-        
+
         This method receives configuration resolved from variant registration
         and experiment parameters. Implementation must prepare the tool for
         execution with the provided configuration.
-        
+
         ### Configuration Resolution Flow:
         1. ToolFactory resolves variant configuration from registry
         2. Applies parameter overrides from experiment configuration
         3. Calls this method with final configuration dictionary
         4. Tool prepares internal state for execution
-        
+
         ### Implementation Guidelines:
         - Store configuration in instance variables for execution
         - Validate required parameters and provide clear error messages
         - Prepare any tool-specific setup required for execution
         - Do not perform heavy operations - defer to execution phase
-        
+
         Args:
             config: Configuration dictionary with tool-specific parameters
-            
+
         Raises:
             ConfigurationError: If configuration is invalid or incomplete
         """
-        pass
 
     @classmethod
     @abstractmethod
     def get_tool_spec(cls):
         """
         Get tool specification for registration.
-        
+
         This method must be implemented by all tools to provide
         specification information for registry registration.
-        
+
         Returns:
             ToolSpec instance with tool metadata
         """
-        pass
-    
+
     @abstractmethod
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
         Execute tool-specific testing logic.
-        
+
         This is the main extension point that every tool implementation must provide.
         It should contain the core testing logic specific to each tool.
-        
+
         Args:
             task: Task configuration and context (can be Task or task_model.Task)
             app: Application under test
-            
+
         Raises:
             NotImplementedError: If not implemented by subclass
         """
-        pass
 
     def execute(self, task: Task, app: App) -> None:
         """
         Execute the tool using template method pattern with unified error handling.
-        
+
         This method implements the standard execution workflow that delegates
         to the abstract method for tool-specific logic, then performs cleanup.
         Provides centralized timeout and error handling for all tools.
-        
+
         ### Execution Workflow:
         1. Log tool execution start
         2. Delegate to tool-specific logic implementation
@@ -199,13 +194,13 @@ class AbstractTool(ABC):
         4. Perform process cleanup and resource management
         5. Handle any errors that occur during execution
         6. Log success only if no exceptions occurred
-        
+
         Args:
             task: Task configuration and context
             app: Application under test
         """
         execution_successful = False
-        
+
         try:
             self.logger.info(f"Executing monitored operations tool: {self.name}")
             self.logger.debug(f"Tool description: {self.description}")
@@ -222,15 +217,17 @@ class AbstractTool(ABC):
 
         except RVCommandTimeoutError as e:
             # Convert command timeout to tool timeout - this is expected behavior
-            timeout_msg = f"{self.name} execution timed out after {e.timeout_seconds} seconds"
+            timeout_msg = (
+                f"{self.name} execution timed out after {e.timeout_seconds} seconds"
+            )
             self.logger.info(f"Tool timeout detected: {timeout_msg}")
-            
+
             # Raise tool timeout exception (handled gracefully by error handler)
             raise RVToolTimeoutError(
                 timeout_msg,
                 tool_name=self.name,
                 timeout_seconds=e.timeout_seconds,
-                cause=e
+                cause=e,
             )
 
         except Exception as e:
@@ -238,7 +235,9 @@ class AbstractTool(ABC):
             # execute_tool_specific_logic already logged the first entry
             raise
 
-    def _execute_and_check_command(self, command: Command, stdout=None, stderr=None, stdin=None) -> CommandResult:
+    def _execute_and_check_command(
+        self, command: Command, stdout=None, stderr=None, stdin=None
+    ) -> CommandResult:
         """
         Execute command with unified error handling.
 
@@ -278,32 +277,32 @@ class AbstractTool(ABC):
                 # Log error details for debugging
                 self.logger.error(f"Command execution failed: {error_msg}")
 
-                raise RVToolExecutionError(
-                    error_msg,
-                    tool_name=self.name,
-                    cause=None
-                )
+                raise RVToolExecutionError(error_msg, tool_name=self.name, cause=None)
 
             return result
 
         except RVCommandTimeoutError as e:
-            timeout_msg = f"{self.name} execution timed out after {e.timeout_seconds} seconds"
-            self.logger.info(f"Tool timeout detected during command execution: {timeout_msg}")
+            timeout_msg = (
+                f"{self.name} execution timed out after {e.timeout_seconds} seconds"
+            )
+            self.logger.info(
+                f"Tool timeout detected during command execution: {timeout_msg}"
+            )
 
             raise RVToolTimeoutError(
                 timeout_msg,
                 tool_name=self.name,
                 timeout_seconds=e.timeout_seconds,
-                cause=e
+                cause=e,
             )
 
     def kill_related_processes(self, process_pattern: str) -> None:
         """
         Terminate processes related to this tool for cleanup.
-        
+
         This method identifies and kills processes that match the given pattern
         to ensure clean tool termination and prevent resource leaks.
-        
+
         Args:
             process_pattern: Pattern to match processes for termination
         """
@@ -312,16 +311,14 @@ class AbstractTool(ABC):
             return
 
         try:
-            self.logger.debug(f"Cleaning up processes matching pattern: {process_pattern}")
+            self.logger.debug(
+                f"Cleaning up processes matching pattern: {process_pattern}"
+            )
 
             # Get list of processes matching the pattern
-            get_processes_cmd = Command('adb', [
-                'shell',
-                'ps',
-                '|',
-                'grep',
-                process_pattern
-            ])
+            get_processes_cmd = Command(
+                "adb", ["shell", "ps", "|", "grep", process_pattern]
+            )
 
             get_processes_result = get_processes_cmd.invoke()
 
@@ -331,23 +328,23 @@ class AbstractTool(ABC):
 
             # Kill each matching process
             killed_count = 0
-            for line in get_processes_result.stdout.decode('ascii').split(os.linesep):
+            for line in get_processes_result.stdout.decode("ascii").split(os.linesep):
                 line = line.strip()
                 if line:
                     tokens = line.split()
                     if len(tokens) >= 2:
                         process_id = tokens[1]
                         try:
-                            kill_process_cmd = Command('adb', [
-                                'shell',
-                                'kill',
-                                process_id
-                            ])
+                            kill_process_cmd = Command(
+                                "adb", ["shell", "kill", process_id]
+                            )
                             kill_process_cmd.invoke()
                             killed_count += 1
                             self.logger.debug(f"Killed process {process_id}")
                         except Exception as e:
-                            self.logger.warning(f"Failed to kill process {process_id}: {str(e)}")
+                            self.logger.warning(
+                                f"Failed to kill process {process_id}: {str(e)}"
+                            )
 
             if killed_count > 0:
                 self.logger.info(f"Cleaned up {killed_count} related processes")
@@ -359,14 +356,14 @@ class AbstractTool(ABC):
     def get_tool_info(self) -> dict:
         """
         Get tool information and metadata.
-        
+
         Returns:
             Dictionary containing tool name, description, and process pattern
         """
         return {
             "name": self.name,
             "description": self.description,
-            "process_pattern": self.process_pattern
+            "process_pattern": self.process_pattern,
         }
 
     def __str__(self) -> str:
@@ -375,5 +372,7 @@ class AbstractTool(ABC):
 
     def __repr__(self) -> str:
         """Detailed string representation of the tool."""
-        return (f"{self.__class__.__name__}(name='{self.name}', "
-                f"description='{self.description}', process_pattern='{self.process_pattern}')")
+        return (
+            f"{self.__class__.__name__}(name='{self.name}', "
+            f"description='{self.description}', process_pattern='{self.process_pattern}')"
+        )

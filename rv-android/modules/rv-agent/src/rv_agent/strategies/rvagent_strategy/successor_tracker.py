@@ -11,7 +11,7 @@ Also tracks BACK transitions for Backtrack BFS algorithm.
 
 import logging
 from collections import deque
-from typing import Dict, Tuple, Set, Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
@@ -98,7 +98,7 @@ class SuccessorTracker:
 
         Args:
             from_hash: Source state hash
-            action_signature: Action signature (coords, action_type)
+            action_signature: ((device_x, device_y), action_type) in device pixel space (INV-AGT-40)
             to_hash: Destination state hash
         """
         key = (from_hash, action_signature)
@@ -396,7 +396,7 @@ class SuccessorTracker:
 
         Args:
             state_hash: Source state hash
-            action_signature: Action signature (coords, action_type)
+            action_signature: ((device_x, device_y), action_type) in device pixel space (INV-AGT-40)
 
         Returns:
             Destination state hash, or None if transition is unknown

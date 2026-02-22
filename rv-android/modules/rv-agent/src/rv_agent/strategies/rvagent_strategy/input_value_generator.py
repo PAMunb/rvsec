@@ -8,7 +8,8 @@ specialized test values.
 
 import logging
 from collections import defaultdict
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+
 from faker import Faker
 
 logger = logging.getLogger(__name__)

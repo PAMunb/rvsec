@@ -9,7 +9,7 @@ indicator using spatial association and generates a fill action.
 """
 
 import logging
-from typing import TYPE_CHECKING, Dict, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
@@ -358,6 +358,10 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     screen_hash = state.get("current_screen_hash")
     screen_desc = state.get("screen_description")
 
+    # Thread iteration number from rv_agent.py's main loop into the strategy
+    # so all RVTRACK logs use the correct iteration counter
+    agent.strategy._current_iteration = state.get("iteration", 0)
+
     item_action = agent.strategy.select_next_action(screen_hash, screen_desc)
 
     if not item_action:
@@ -373,7 +377,7 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # System actions don't require coordinates - they are triggered by action_type alone
     # KEY_EVENT is how BACK actions come through via WidgetEventType mapping
     action_type = item_action.action_type.upper()
-    system_actions = {"BACK", "RESTART_APP", "KEY_EVENT"}
+    system_actions = {"BACK", "RESTART_APP", "RESTART", "KEY_EVENT"}
 
     if action_type in system_actions:
         logger.info(f"Algorithm selected system action: {action_type}")
@@ -385,6 +389,18 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             "source": "algorithm",
             "id": item_action.id,
         }
+        # RESTART actions must always carry the package name for tool_executor.
+        # "RESTART" comes from _create_restart_action via WidgetEventType.RESTART;
+        # "RESTART_APP" comes from other code paths. Both need package_name.
+        if action_type in ("RESTART_APP", "RESTART"):
+            action["action_type"] = "RESTART_APP"  # Normalize for tool_executor
+            # Try target_view first (set by _create_restart_action), then agent config
+            pkg = None
+            if item_action.target_view:
+                pkg = item_action.target_view.get("package_name")
+            if not pkg:
+                pkg = agent.config.package_name
+            action["package_name"] = pkg
         agent.consecutive_no_action = 0
         result = {
             "current_action": action,
@@ -401,6 +417,10 @@ def algorithm_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
             f"Failed to get coordinates from ItemAction: "
             f"type={action_type}, id={item_action.id}, text={item_action.text[:50] if item_action.text else 'None'}"
         )
+        # Invalidate PathBuffer if active — prevents death spiral where the same
+        # unresolvable WTG-level action is re-emitted every iteration
+        if hasattr(agent, "strategy") and hasattr(agent.strategy, "path_buffer"):
+            agent.strategy.path_buffer.invalidate_current_path()
         result = {"current_action": None, "decision_path": "end"}
         result.update(_error_recovery_clear)
         return result

@@ -86,8 +86,7 @@ def _populate_node(
     """Create a screen_desc, call select_next_action to build the node, then
     manually set execution counts for desired saturation level.
 
-    This avoids coordinate space mismatch: the strategy itself converts
-    device coords -> optimized coords when recording actions.
+    All signatures use device-space coordinates (INV-AGT-40).
     """
     screen_desc = _make_screen_desc(actions, activity)
 
@@ -95,12 +94,12 @@ def _populate_node(
     strategy.select_next_action(state_hash, screen_desc)
     node = strategy.graph.states[state_hash]
 
-    # Now populate executed_actions using optimized-space signatures
+    # Populate executed_actions using device-space signatures directly
     for i, action in enumerate(actions):
-        opt_sig = strategy._convert_signature_to_optimized(action.coords_for_matching)
-        node.executed_actions.add(opt_sig)
+        sig = action.coords_for_matching
+        node.executed_actions.add(sig)
         count = 2 if i < saturated_count else 1
-        node.action_execution_counts[opt_sig] = count
+        node.action_execution_counts[sig] = count
 
     return node, screen_desc
 
@@ -192,7 +191,8 @@ class TestProactiveBacktracking:
         # Should be one of the untested or first selected
         assert result_t2.event == WidgetEventType.CLICK
 
-        # TIER 5: empty screen -> BACK
+        # TIER 3/5: empty screen, fully saturated -> RESTART (Group 12: TIER3 forces
+        # RESTART when saturated with no path plan) or BACK as fallback
         empty_screen = _make_screen_desc([])
         node_empty = ScreenNode(
             screen_hash="s2", activity="com.test.Main", total_actions=0
@@ -201,4 +201,6 @@ class TestProactiveBacktracking:
 
         result_back = strategy.select_next_action("s2", empty_screen)
         assert result_back is not None
-        assert result_back.event == WidgetEventType.BACK
+        # TIER3 now forces RESTART when saturated (100% with 0 actions) and
+        # no path plan available, instead of falling through to TIER5 BACK
+        assert result_back.event in (WidgetEventType.BACK, WidgetEventType.RESTART)

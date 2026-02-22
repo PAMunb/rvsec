@@ -6,20 +6,23 @@ property violations during runtime verification execution.
 """
 
 from datetime import datetime
-from typing import List, Dict, Any, Optional
-from pydantic import Field, field_validator, computed_field
+from typing import Any, Dict, List
+
+from pydantic import Field, computed_field
 
 from rv_android_core.util import utils
+from rv_android_core.util.logging.constants import TAG_RVSEC, TAG_RVSEC_COV  # noqa: F401
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
-from rv_android_core.util.logging.constants import TAG_RVSEC, TAG_RVSEC_COV
 
 
-@validated_model(['spec', 'error_type', 'class_full_name', 'method', 'source', 'message'])
+@validated_model(
+    ["spec", "error_type", "class_full_name", "method", "source", "message"]
+)
 class RvErrorLog(BaseValidatedModel):
     """
     Validated data model for runtime verification property violations.
-    
+
     This model provides structured representation of formal property violations
     detected during runtime verification execution. It enforces data consistency
     and enables reliable error reporting and analysis workflows.
@@ -33,7 +36,7 @@ class RvErrorLog(BaseValidatedModel):
 
     ### Appropriate Usage Examples:
     - Security property violations detected by monitors
-    - Temporal logic constraint violations  
+    - Temporal logic constraint violations
     - Protocol state machine error state transitions
     - Monitor specification breach detection
 
@@ -53,15 +56,11 @@ class RvErrorLog(BaseValidatedModel):
     spec: str = Field(
         description="Monitor specification identifier that detected the violation"
     )
-    error_type: str = Field(
-        description="Classification of the property violation type"
-    )
+    error_type: str = Field(description="Classification of the property violation type")
     class_full_name: str = Field(
         description="Fully qualified class name where the violation occurred"
     )
-    method: str = Field(
-        description="Method name where the violation was detected"
-    )
+    method: str = Field(description="Method name where the violation was detected")
     source: str = Field(
         description="Source file or monitor location that detected the violation"
     )
@@ -69,16 +68,15 @@ class RvErrorLog(BaseValidatedModel):
         description="Detailed violation description and context information"
     )
     original_msg: str = Field(
-        default="",
-        description="Original raw message from the monitoring system"
+        default="", description="Original raw message from the monitoring system"
     )
     time_occurred: datetime = Field(
         default_factory=datetime.now,
-        description="Timestamp when the violation was detected"
+        description="Timestamp when the violation was detected",
     )
     time_since_task_start: int = Field(
         default=0,
-        description="Seconds elapsed since task execution started when violation occurred"
+        description="Seconds elapsed since task execution started when violation occurred",
     )
 
     @computed_field
@@ -95,18 +93,18 @@ class RvErrorLog(BaseValidatedModel):
             Dictionary with error details
         """
         return {
-            'spec': self.spec,
-            'error_type': self.error_type,
-            'class_full_name': self.class_full_name,
-            'method': self.method,
-            'message': self.message,
+            "spec": self.spec,
+            "error_type": self.error_type,
+            "class_full_name": self.class_full_name,
+            "method": self.method,
+            "message": self.message,
             "time_occurred": utils.datetime_to_milliseconds(self.time_occurred),
             "time_since_task_start": self.time_since_task_start,
-            "unique_msg": self.unique_msg
+            "unique_msg": self.unique_msg,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'RvErrorLog':
+    def from_dict(cls, data: Dict[str, Any]) -> "RvErrorLog":
         """
         Create a RvErrorLog from a dictionary representation.
 
@@ -118,28 +116,30 @@ class RvErrorLog(BaseValidatedModel):
         """
         # Handle timestamp conversion if provided
         time_occurred = None
-        if 'time_occurred' in data:
-            time_ms = data['time_occurred']
+        if "time_occurred" in data:
+            time_ms = data["time_occurred"]
             if isinstance(time_ms, (int, float)):
                 time_occurred = datetime.fromtimestamp(time_ms / 1000.0)
 
         return cls(
-            spec=data.get('spec', ''),
-            error_type=data.get('error_type', ''),
-            class_full_name=data.get('class_full_name', ''),
-            method=data.get('method', ''),
-            source=data.get('source', ''),
-            message=data.get('message', ''),
-            original_msg=data.get('original_msg', ''),
+            spec=data.get("spec", ""),
+            error_type=data.get("error_type", ""),
+            class_full_name=data.get("class_full_name", ""),
+            method=data.get("method", ""),
+            source=data.get("source", ""),
+            message=data.get("message", ""),
+            original_msg=data.get("original_msg", ""),
             time_occurred=time_occurred or datetime.now(),
-            time_since_task_start=data.get('time_since_task_start', 0)
+            time_since_task_start=data.get("time_since_task_start", 0),
         )
 
     def __str__(self):
-        return (f"RvErrorLog(spec={self.spec}, type={self.error_type}, "
-                f"classFullName={self.class_full_name}, method={self.method}, "
-                f"message={self.message}, time_occurred={self.time_occurred}, "
-                f"time_since_task_start={self.time_since_task_start})")
+        return (
+            f"RvErrorLog(spec={self.spec}, type={self.error_type}, "
+            f"classFullName={self.class_full_name}, method={self.method}, "
+            f"message={self.message}, time_occurred={self.time_occurred}, "
+            f"time_since_task_start={self.time_since_task_start})"
+        )
 
     def __repr__(self):
         return f"{self.unique_msg}:{self.time_occurred}"
@@ -153,11 +153,11 @@ class RvErrorLog(BaseValidatedModel):
         return self.unique_msg == other.unique_msg
 
 
-@validated_model(['clazz', 'method', 'params', 'signature'])
+@validated_model(["clazz", "method", "params", "signature"])
 class RvCoverageLog(BaseValidatedModel):
     """
     Validated data model for method execution coverage tracking.
-    
+
     This model provides structured representation of method execution events
     detected during runtime verification, enabling comprehensive coverage
     analysis and temporal correlation with application behavior.
@@ -178,9 +178,7 @@ class RvCoverageLog(BaseValidatedModel):
     clazz: str = Field(
         description="Fully qualified class name where method execution occurred"
     )
-    method: str = Field(
-        description="Method name that was executed"
-    )
+    method: str = Field(description="Method name that was executed")
     params: str = Field(
         description="Method parameter types (semicolon-separated format)"
     )
@@ -189,15 +187,15 @@ class RvCoverageLog(BaseValidatedModel):
     )
     original_msg: str = Field(
         default="",
-        description="Original raw message from the monitoring instrumentation"
+        description="Original raw message from the monitoring instrumentation",
     )
     time_occurred: datetime = Field(
         default_factory=datetime.now,
-        description="Timestamp when the method execution was detected"
+        description="Timestamp when the method execution was detected",
     )
     time_since_task_start: int = Field(
         default=0,
-        description="Seconds elapsed since task execution started when method was called"
+        description="Seconds elapsed since task execution started when method was called",
     )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -208,17 +206,17 @@ class RvCoverageLog(BaseValidatedModel):
             Dictionary with coverage details
         """
         return {
-            'class': self.clazz,
-            'method': self.method,
-            'params': self.params,
-            'signature': self.signature,
-            'time_occurred': utils.datetime_to_milliseconds(self.time_occurred),
-            'time_since_task_start': self.time_since_task_start,
-            'original_msg': self.original_msg
+            "class": self.clazz,
+            "method": self.method,
+            "params": self.params,
+            "signature": self.signature,
+            "time_occurred": utils.datetime_to_milliseconds(self.time_occurred),
+            "time_since_task_start": self.time_since_task_start,
+            "original_msg": self.original_msg,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'RvCoverageLog':
+    def from_dict(cls, data: Dict[str, Any]) -> "RvCoverageLog":
         """
         Create a RvCoverageLog from a dictionary representation.
 
@@ -230,19 +228,19 @@ class RvCoverageLog(BaseValidatedModel):
         """
         # Handle timestamp conversion if provided
         time_occurred = None
-        if 'time_occurred' in data:
-            time_ms = data['time_occurred']
+        if "time_occurred" in data:
+            time_ms = data["time_occurred"]
             if isinstance(time_ms, (int, float)):
                 time_occurred = datetime.fromtimestamp(time_ms / 1000.0)
 
         return cls(
-            clazz=data.get('class', ''),
-            method=data.get('method', ''),
-            params=data.get('params', ''),
-            signature=data.get('signature', ''),
-            original_msg=data.get('original_msg', ''),
+            clazz=data.get("class", ""),
+            method=data.get("method", ""),
+            params=data.get("params", ""),
+            signature=data.get("signature", ""),
+            original_msg=data.get("original_msg", ""),
             time_occurred=time_occurred or datetime.now(),
-            time_since_task_start=data.get('time_since_task_start', 0)
+            time_since_task_start=data.get("time_since_task_start", 0),
         )
 
     def get_parameters_list(self) -> List[str]:
@@ -255,9 +253,11 @@ class RvCoverageLog(BaseValidatedModel):
         return self.params.split(";") if self.params else []
 
     def __str__(self):
-        return (f"RvCoverageLog(clazz={self.clazz}, method={self.method}, "
-                f"params={self.params}, time_occurred={self.time_occurred}, "
-                f"time_since_task_start={self.time_since_task_start})")
+        return (
+            f"RvCoverageLog(clazz={self.clazz}, method={self.method}, "
+            f"params={self.params}, time_occurred={self.time_occurred}, "
+            f"time_since_task_start={self.time_since_task_start})"
+        )
 
     def __repr__(self):
         return f"{self.signature}:{self.time_occurred}"

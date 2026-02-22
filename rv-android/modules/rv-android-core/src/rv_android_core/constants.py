@@ -94,34 +94,37 @@ DEFAULT_VARIANT_NAME = "default"
 VARIANT_SEPARATOR = ":"
 TASK_ID_SEPARATOR = "__"
 
+
 # UI Coverage tracking constants
 class UI_COVERAGE_CONSTANTS:
     """Constants for UI coverage tracking and guidance system."""
-    
+
     # Coverage analysis thresholds
     MIN_ACTIONS_FOR_BALANCE_ANALYSIS = 3
     UNTESTED_PRIORITY_THRESHOLD = 5
     CLICK_OVERUSE_THRESHOLD = 60  # Percentage
     TEXT_UNDERUSE_THRESHOLD = 20  # Percentage
-    
+
     # Coverage annotation settings
     MAX_COVERAGE_ANNOTATION_LENGTH = 15
     COVERAGE_STATS_CACHE_TTL_SECONDS = 30
-    
+
     # Element tracking settings
     MAX_ELEMENT_ID_LENGTH = 100
     SCREEN_HASH_LENGTH = 8
-    
+
     # Action type constants
     ACTION_TYPE_CLICK = "click"
     ACTION_TYPE_SET_TEXT = "set_text"
     ACTION_TYPE_COORDINATE = "coordinate"
     ACTION_TYPE_SCROLL = "scroll"
     ACTION_TYPE_LONG_CLICK = "long_click"
-    
+
     # Coverage guidance messages
     GUIDANCE_ALL_TESTED = "All elements tested"
-    GUIDANCE_SYSTEMATIC_EXPLORATION = "Focus on [UNTESTED] elements for systematic exploration"
+    GUIDANCE_SYSTEMATIC_EXPLORATION = (
+        "Focus on [UNTESTED] elements for systematic exploration"
+    )
     GUIDANCE_COMPLETE_REMAINING = "Complete remaining"
     GUIDANCE_GOOD_BALANCE = "Good distribution of action types"
     GUIDANCE_VARY_ACTIONS = "Vary between click, text input, and coordinate actions"

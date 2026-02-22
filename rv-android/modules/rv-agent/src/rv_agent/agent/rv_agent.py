@@ -22,46 +22,45 @@ applications using a modular component-based design with dependency injection.
 - **ImageHandler**: Screenshot capture and optimization
 """
 
-import time
 import logging
-from typing import Optional, Dict, Any, TYPE_CHECKING
+import time
+from typing import Any, Dict, Optional
 
-from langgraph.graph import StateGraph, END
-
-from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.domain.state import AgentState
-from rv_agent.agent.device_interface import DeviceInterface
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.strategies.strategy_registry import StrategyRegistry
-from rv_agent.services.vision_service import ImageHandler
-from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.llm.llm_client import LLMClient
-from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.routing.fallback_manager import FallbackManager
-from rv_agent.routing.stuck_recovery import StuckRecovery
-from rv_agent.execution.tool_executor import ToolExecutor
-from rv_agent.memory.memory_coordinator import MemoryCoordinator
-from rv_agent.memory.agent_memory import AgentMemoryManager
-from rv_agent.memory.long_term import LongTermMemory
-from rv_agent.memory.short_term import ShortTermMemory
-from rv_agent.memory.ui_coverage import UICoverageTracker
-from rv_agent.services.navigation_guidance import NavigationGuidance
-from rv_agent.domain.action import ActionNormalizer
+from langgraph.graph import END, StateGraph
 from rv_android_core.domain.static import StaticAnalysisData
 
+from rv_agent.agent.device_interface import DeviceInterface
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.agent.nodes import (
-    parse_ui_node,
-    decision_router_node,
     algorithm_node,
     capture_screenshot_node,
-    llm_generate_node,
-    validate_action_node,
+    decision_router_node,
     execute_node,
     learn_node,
+    llm_generate_node,
+    parse_ui_node,
+    validate_action_node,
 )
+from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.domain.action import ActionNormalizer
+from rv_agent.domain.state import AgentState
+from rv_agent.execution.tool_executor import ToolExecutor
+from rv_agent.llm.llm_client import LLMClient
+from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.routing.routing_manager import RoutingManager
+from rv_agent.routing.stuck_recovery import StuckRecovery
+from rv_agent.services.navigation_guidance import NavigationGuidance
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.services.vision_service import ImageHandler
+from rv_agent.strategies.base_strategy import ExplorationStrategy
 
 logger = logging.getLogger(__name__)
+
+# Maximum total errors (never resets) before the agent gives up.
+# When reached, the agent has clearly lost the ability to interact with
+# the app and should not waste the remaining timeout in error loops.
+MAX_TOTAL_ERRORS = 30
 
 
 class RVAgent:
@@ -321,6 +320,7 @@ class RVAgent:
         if self.config.metrics_output_dir:
             try:
                 from pathlib import Path
+
                 from rv_agent.metrics import MetricsExporter
 
                 trace_filename = MetricsExporter.build_filename(
@@ -374,6 +374,7 @@ class RVAgent:
         # External execution loop
         consecutive_errors = 0
         max_consecutive_errors = 10
+        total_errors = 0
 
         while True:
             try:
@@ -403,13 +404,25 @@ class RVAgent:
                 break
             except Exception as e:
                 consecutive_errors += 1
+                total_errors += 1
                 logger.error(
-                    f"Iteration {iteration} error ({consecutive_errors}/{max_consecutive_errors}): {e}"
+                    f"Iteration {iteration} error "
+                    f"({consecutive_errors}/{max_consecutive_errors} consecutive, "
+                    f"{total_errors}/{MAX_TOTAL_ERRORS} total): {e}"
                 )
+
+                # Total error limit: agent has lost the ability to interact
+                if total_errors >= MAX_TOTAL_ERRORS:
+                    logger.critical(
+                        f"Total error limit reached ({MAX_TOTAL_ERRORS}), "
+                        "agent cannot recover — stopping execution"
+                    )
+                    break
 
                 if consecutive_errors >= max_consecutive_errors:
                     logger.error(
-                        f"❌ Too many consecutive errors ({max_consecutive_errors}), but continuing until timeout"
+                        f"Too many consecutive errors ({max_consecutive_errors}), "
+                        "resetting counter but continuing until timeout or total limit"
                     )
                     consecutive_errors = 0  # Reset to allow more attempts
 

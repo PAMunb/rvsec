@@ -268,10 +268,8 @@ class TestTransitionRecording:
         action = rvagent_strategy.select_next_action(from_hash, simple_screen)
         rvagent_strategy.record_transition(from_hash, to_hash, action)
 
-        # Check successor is tracked
-        action_sig = rvagent_strategy._convert_signature_to_optimized(
-            action.coords_for_matching
-        )
+        # Check successor is tracked (device-space signature per INV-AGT-40)
+        action_sig = action.coords_for_matching
         assert (from_hash, action_sig) in rvagent_strategy.successor_tracker.successors
 
     def test_record_transition_updates_plateau_detector(
@@ -524,21 +522,19 @@ class TestStatistics:
         assert stats_after["states_visited"] == 1
 
 
-class TestCoordinateConversion:
-    """Test coordinate space conversion."""
+class TestCoordinateSpace:
+    """Test device-space coordinate usage (INV-AGT-40)."""
 
-    def test_fallback_conversion(self, rvagent_strategy):
-        """Fallback conversion when no converter provided."""
+    def test_device_space_signatures_used_directly(self, rvagent_strategy):
+        """Action signatures use device-space coordinates without conversion."""
         signature = ((540, 960), "click")
 
-        converted = rvagent_strategy._convert_signature_to_optimized(signature)
+        # Device-space signatures are used directly (no conversion to optimized)
+        assert signature[0] == (540, 960)
+        assert signature[1] == "click"
 
-        # Verify conversion: device (1080, 1920) → optimized (704, 1248)
-        expected_x = int(540 * 704 / 1080)  # 352
-        expected_y = int(960 * 1248 / 1920)  # 624
-
-        assert converted[0] == (expected_x, expected_y)
-        assert converted[1] == "click"
+        # No _convert_signature_to_optimized method exists
+        assert not hasattr(rvagent_strategy, "_convert_signature_to_optimized")
 
 
 class TestSystemActionFiltering:

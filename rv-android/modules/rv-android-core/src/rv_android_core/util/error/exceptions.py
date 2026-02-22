@@ -1,5 +1,6 @@
 """Exception hierarchy for the RV-Android framework."""
-from typing import Optional, List
+
+from typing import List, Optional
 
 
 class RVAndroidError(Exception):
@@ -11,43 +12,40 @@ class RVAndroidError(Exception):
         super().__init__(message)
 
     def __str__(self):
-        cause_str = f" caused by {type(self.cause).__name__}: {self.cause}" if self.cause else ""
+        cause_str = (
+            f" caused by {type(self.cause).__name__}: {self.cause}"
+            if self.cause
+            else ""
+        )
         return f"{type(self).__name__}: {self.message}{cause_str}"
 
 
 class ConfigurationError(RVAndroidError):
     """Error raised when there's a problem with the configuration."""
-    pass
 
 
 class NetworkError(RVAndroidError):
     """Error raised when there's a network-related problem."""
-    pass
 
 
 class EmulatorError(RVAndroidError):
     """Error raised when there's a problem with the Android emulator."""
-    pass
 
 
 class ADBError(NetworkError):
     """Error raised when there's a problem with ADB commands."""
-    pass
 
 
 class InstrumentationError(RVAndroidError):
     """Error raised when there's a problem with APK instrumentation."""
-    pass
 
 
 class AnalysisError(RVAndroidError):
     """Error raised when there's a problem with static or dynamic analysis."""
-    pass
 
 
 class ExecutionError(RVAndroidError):
     """Error raised when there's a problem during test execution."""
-    pass
 
 
 class TaskExecutionError(ExecutionError):
@@ -64,7 +62,12 @@ class TaskExecutionError(ExecutionError):
 class RVValidationError(ConfigurationError):
     """Base exception for data validation errors in Pydantic models."""
 
-    def __init__(self, message: str, field_name: Optional[str] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        field_name: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.field_name = field_name
 
@@ -75,18 +78,21 @@ class RVValidationError(ConfigurationError):
 
 class CommandValidationError(RVValidationError):
     """Exception for command parameter validation errors."""
-    pass
 
 
 class LogcatValidationError(RVValidationError):
     """Exception for logcat configuration validation errors."""
-    pass
 
 
 class EventProcessingError(RVAndroidError):
     """Exception for event processing failures in the event system."""
 
-    def __init__(self, message: str, event_type: Optional[str] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        event_type: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.event_type = event_type
 
@@ -98,14 +104,21 @@ class EventProcessingError(RVAndroidError):
 class RVCommandTimeoutError(RVAndroidError):
     """Exception for command execution timeouts at the infrastructure level."""
 
-    def __init__(self, message: str, timeout_seconds: Optional[int] = None,
-                 command: Optional[str] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        timeout_seconds: Optional[int] = None,
+        command: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.timeout_seconds = timeout_seconds
         self.command = command
 
     def __str__(self):
-        timeout_info = f" (Timeout: {self.timeout_seconds}s)" if self.timeout_seconds else ""
+        timeout_info = (
+            f" (Timeout: {self.timeout_seconds}s)" if self.timeout_seconds else ""
+        )
         command_info = f" (Command: {self.command})" if self.command else ""
         return f"{super().__str__()}{timeout_info}{command_info}"
 
@@ -113,22 +126,34 @@ class RVCommandTimeoutError(RVAndroidError):
 class JarNotFoundError(RVAndroidError):
     """Exception for JAR file resolution failures in tool execution."""
 
-    def __init__(self, message: str, jar_name: Optional[str] = None,
-                 search_paths: Optional[List[str]] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        jar_name: Optional[str] = None,
+        search_paths: Optional[List[str]] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.jar_name = jar_name
         self.search_paths = search_paths or []
 
     def __str__(self):
         jar_info = f" (JAR: {self.jar_name})" if self.jar_name else ""
-        paths_info = f" (Searched: {len(self.search_paths)} paths)" if self.search_paths else ""
+        paths_info = (
+            f" (Searched: {len(self.search_paths)} paths)" if self.search_paths else ""
+        )
         return f"{super().__str__()}{jar_info}{paths_info}"
 
 
 class RVToolError(RVAndroidError):
     """Base exception for tool-related errors in the testing framework."""
 
-    def __init__(self, message: str, tool_name: Optional[str] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        tool_name: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.tool_name = tool_name
 
@@ -139,35 +164,45 @@ class RVToolError(RVAndroidError):
 
 class RVToolExecutionError(RVToolError):
     """Exception for tool execution failures during testing operations."""
-    pass
 
 
 class RVToolTimeoutError(RVToolError):
     """Exception for tool timeout scenarios during testing operations."""
 
-    def __init__(self, message: str, tool_name: Optional[str] = None, timeout_seconds: Optional[int] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        tool_name: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, tool_name, cause)
         self.timeout_seconds = timeout_seconds
 
     def __str__(self):
-        timeout_info = f" (Timeout: {self.timeout_seconds}s)" if self.timeout_seconds else ""
+        timeout_info = (
+            f" (Timeout: {self.timeout_seconds}s)" if self.timeout_seconds else ""
+        )
         return f"{super().__str__()}{timeout_info}"
 
 
 class ToolNotFoundError(RVToolError):
     """Exception raised when a requested tool is not found in the registry."""
-    pass
 
 
 class ToolRegistrationError(RVToolError):
     """Exception raised when tool registration fails due to invalid data or conflicts."""
-    pass
 
 
 class RVExperimentError(RVAndroidError):
     """Base exception for experiment-related errors in the research framework."""
 
-    def __init__(self, message: str, experiment_id: Optional[str] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        experiment_id: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.experiment_id = experiment_id
 
@@ -178,13 +213,17 @@ class RVExperimentError(RVAndroidError):
 
 class RVExperimentExecutionError(RVExperimentError):
     """Exception for experiment execution failures during runtime."""
-    pass
 
 
 class RVParsingError(RVAndroidError):
     """Base exception for parsing-related errors in analysis components."""
 
-    def __init__(self, message: str, parser_type: Optional[str] = None, cause: Optional[Exception] = None):
+    def __init__(
+        self,
+        message: str,
+        parser_type: Optional[str] = None,
+        cause: Optional[Exception] = None,
+    ):
         super().__init__(message, cause)
         self.parser_type = parser_type
 

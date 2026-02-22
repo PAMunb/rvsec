@@ -7,13 +7,11 @@ Process isolation SUCCESS: LoggingManager e ErrorHandler com instâncias própri
 
 import time
 from collections import defaultdict
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
-
-from ..constants import RVAgentConstants
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 @dataclass

@@ -2,7 +2,8 @@
 import logging
 import threading
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 
 class ContextAdapter(logging.LoggerAdapter):
     """
@@ -33,19 +34,19 @@ class ContextAdapter(logging.LoggerAdapter):
         Returns:
             Tuple of (modified message, modified kwargs)
         """
-        if 'extra' not in kwargs:
-            kwargs['extra'] = {}
+        if "extra" not in kwargs:
+            kwargs["extra"] = {}
 
         # Add thread ID and timestamp to extra fields
         thread_id = threading.current_thread().ident
         if thread_id:
-            kwargs['extra']['thread_id'] = thread_id
+            kwargs["extra"]["thread_id"] = thread_id
 
-        kwargs['extra']['timestamp'] = datetime.now().isoformat()
+        kwargs["extra"]["timestamp"] = datetime.now().isoformat()
 
         # Include context data
         for key, value in self.context.items():
-            kwargs['extra'][key] = value
+            kwargs["extra"][key] = value
 
         return msg, kwargs
 
@@ -98,4 +99,3 @@ class ContextAdapter(logging.LoggerAdapter):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.pop_context()
-

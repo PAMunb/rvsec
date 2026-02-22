@@ -2,13 +2,24 @@
 import functools
 import threading
 from contextlib import contextmanager
-from typing import Dict, List, Callable, Any, Type, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from rv_android_core.util.error.exceptions import (
-    RVAndroidError, RVToolError, RVToolExecutionError, RVToolTimeoutError, ToolNotFoundError,
-    ToolRegistrationError, RVExperimentError, RVParsingError,
-    RVValidationError, CommandValidationError, LogcatValidationError,
-    EventProcessingError, ConfigurationError, RVCommandTimeoutError, JarNotFoundError
+    CommandValidationError,
+    ConfigurationError,
+    EventProcessingError,
+    JarNotFoundError,
+    LogcatValidationError,
+    RVAndroidError,
+    RVCommandTimeoutError,
+    RVExperimentError,
+    RVParsingError,
+    RVToolError,
+    RVToolExecutionError,
+    RVToolTimeoutError,
+    RVValidationError,
+    ToolNotFoundError,
+    ToolRegistrationError,
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -46,14 +57,14 @@ class ErrorHandler:
         """Initialize the error handler."""
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            'rv_android_core.util.error.error_handler',
-            {
-                CONTEXT_COMPONENT: 'ErrorHandler'
-            }
+            "rv_android_core.util.error.error_handler",
+            {CONTEXT_COMPONENT: "ErrorHandler"},
         )
 
         # Handler callbacks registered via register_handler()
-        self._error_callbacks: List[Callable[[Exception, Optional[Dict[str, Any]]], None]] = []
+        self._error_callbacks: List[
+            Callable[[Exception, Optional[Dict[str, Any]]], None]
+        ] = []
 
         self._register_builtin_handlers()
 
@@ -61,17 +72,25 @@ class ErrorHandler:
         """Register built-in error handlers."""
         # Errors considered fully handled (return True, won't propagate from context manager)
         handled_types = [
-            CommandValidationError, LogcatValidationError, EventProcessingError,
-            RVValidationError, ToolNotFoundError, ToolRegistrationError,
-            RVToolTimeoutError, RVToolExecutionError
+            CommandValidationError,
+            LogcatValidationError,
+            EventProcessingError,
+            RVValidationError,
+            ToolNotFoundError,
+            ToolRegistrationError,
+            RVToolTimeoutError,
+            RVToolExecutionError,
         ]
         for error_type in handled_types:
             self.register_handler(error_type, self._handle_and_absorb)
 
         # Errors logged but not handled (return False, propagate from context manager)
         propagated_types = [
-            RVToolError, RVExperimentError, RVParsingError,
-            RVCommandTimeoutError, JarNotFoundError
+            RVToolError,
+            RVExperimentError,
+            RVParsingError,
+            RVCommandTimeoutError,
+            JarNotFoundError,
         ]
         for error_type in propagated_types:
             self.register_handler(error_type, self._handle_and_propagate)
@@ -81,10 +100,15 @@ class ErrorHandler:
         self.register_handler(RVAndroidError, self._handle_generic_error)
         self.register_handler(Exception, self._handle_generic_exception)
 
-        self._logger.debug(f"Registered built-in error handlers, total callbacks: {len(self._error_callbacks)}")
+        self._logger.debug(
+            f"Registered built-in error handlers, total callbacks: {len(self._error_callbacks)}"
+        )
 
-    def register_handler(self, error_type: Type[Exception],
-                         handler: Callable[[Exception, Optional[Dict[str, Any]]], bool]):
+    def register_handler(
+        self,
+        error_type: Type[Exception],
+        handler: Callable[[Exception, Optional[Dict[str, Any]]], bool],
+    ):
         """
         Register a handler for a specific error type.
 
@@ -96,15 +120,16 @@ class ErrorHandler:
             error_type: The type of exception to handle
             handler: Function to call when this error occurs, should return True if handled
         """
+
         def handler_wrapper(e, c):
             if type(e) == error_type:
                 return handler(e, c)
             return None
 
         # Prevent duplicate registrations
-        handler_name = getattr(handler, '__name__', f'handler_{id(handler)}')
+        handler_name = getattr(handler, "__name__", f"handler_{id(handler)}")
         handler_signature = f"{error_type.__name__}:{handler_name}"
-        if not hasattr(self, '_registered_handlers'):
+        if not hasattr(self, "_registered_handlers"):
             self._registered_handlers = set()
 
         if handler_signature not in self._registered_handlers:
@@ -112,9 +137,15 @@ class ErrorHandler:
             self._registered_handlers.add(handler_signature)
             self._logger.debug(f"Registered handler for {error_type.__name__}")
         else:
-            self._logger.debug(f"Handler for {error_type.__name__} already registered, skipping")
+            self._logger.debug(
+                f"Handler for {error_type.__name__} already registered, skipping"
+            )
 
-    def handle_error(self, error: Exception, context: Optional[Union[Dict[str, Any], 'ErrorContext']] = None) -> bool:
+    def handle_error(
+        self,
+        error: Exception,
+        context: Optional[Union[Dict[str, Any], "ErrorContext"]] = None,
+    ) -> bool:
         """
         Handle an error using registered handlers.
 
@@ -125,7 +156,7 @@ class ErrorHandler:
         Returns:
             True if the error was handled, False otherwise
         """
-        if hasattr(context, 'build') and callable(getattr(context, 'build')):
+        if hasattr(context, "build") and callable(getattr(context, "build")):
             final_context = context.build(frame_offset=3)
         elif isinstance(context, dict):
             final_context = context
@@ -150,7 +181,9 @@ class ErrorHandler:
                 self._logger.error(f"Error in callback: {e}")
 
         if not handled:
-            self._logger.debug(f"No handler successfully processed {type(error).__name__}")
+            self._logger.debug(
+                f"No handler successfully processed {type(error).__name__}"
+            )
 
         return handled
 
@@ -162,7 +195,9 @@ class ErrorHandler:
             return
 
         if isinstance(error, RVAndroidError) and error.cause:
-            self._logger.error(f"Error: {error.message} caused by: {error.cause}", exc_info=error.cause)
+            self._logger.error(
+                f"Error: {error.message} caused by: {error.cause}", exc_info=error.cause
+            )
         else:
             self._logger.error(f"Error: {error}", exc_info=error)
 
@@ -183,7 +218,9 @@ class ErrorHandler:
 
     # --- Special handlers with meaningful logic ---
 
-    def _handle_file_not_found_error(self, error: FileNotFoundError, context: Optional[Dict[str, Any]] = None) -> bool:
+    def _handle_file_not_found_error(
+        self, error: FileNotFoundError, context: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
         Handle FileNotFoundError with context-aware response.
 
@@ -199,27 +236,33 @@ class ErrorHandler:
             True if handled gracefully, False if should propagate
         """
         if context:
-            operation = context.get('operation', '')
-            component = context.get('component', 'unknown')
+            operation = context.get("operation", "")
+            component = context.get("component", "unknown")
 
             expected_operations = [
-                'check_if_instrumented',
-                'check_if_exists',
-                'verify_file',
-                'get_file_hash',
+                "check_if_instrumented",
+                "check_if_exists",
+                "verify_file",
+                "get_file_hash",
             ]
 
             if any(op in operation.lower() for op in expected_operations):
-                self._logger.debug(f"File not found during {operation} in {component} (expected): {error.filename}")
+                self._logger.debug(
+                    f"File not found during {operation} in {component} (expected): {error.filename}"
+                )
                 return True
 
-            self._logger.warning(f"File not found during {operation} in {component}: {error.filename}")
+            self._logger.warning(
+                f"File not found during {operation} in {component}: {error.filename}"
+            )
         else:
             self._logger.warning(f"File not found: {error.filename or str(error)}")
 
         return False
 
-    def _handle_generic_exception(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> bool:
+    def _handle_generic_exception(
+        self, error: Exception, context: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
         Catch-all fallback for exceptions not matched by specific handlers.
 
@@ -243,11 +286,12 @@ class ErrorHandler:
             ConfigurationError,
             RVValidationError,
             CommandValidationError,
-            LogcatValidationError
+            LogcatValidationError,
         ]
 
         try:
             from pydantic_core import ValidationError as PydanticValidationError
+
             critical_error_types.append(PydanticValidationError)
         except ImportError:
             pass
@@ -259,27 +303,33 @@ class ErrorHandler:
             return False
 
         if context:
-            component = context.get('component', 'unknown')
-            operation = context.get('operation', 'unknown')
-            phase = context.get('phase', 'unknown')
+            component = context.get("component", "unknown")
+            operation = context.get("operation", "unknown")
+            phase = context.get("phase", "unknown")
 
-            decorator_phases = ['tool_copy', 'tool_creation', 'tool_instantiation']
+            decorator_phases = ["tool_copy", "tool_creation", "tool_instantiation"]
             if phase in decorator_phases:
-                self._logger.debug(f"Not handling {error_type} in decorator phase '{phase}' - allowing propagation")
+                self._logger.debug(
+                    f"Not handling {error_type} in decorator phase '{phase}' - allowing propagation"
+                )
                 return False
 
             non_critical_operations = [
-                'static_analysis',
-                'file_copy',
-                'artifact_validation',
-                'optional_processing'
+                "static_analysis",
+                "file_copy",
+                "artifact_validation",
+                "optional_processing",
             ]
 
             if any(op in operation.lower() for op in non_critical_operations):
-                self._logger.warning(f"Non-critical {error_type} in {component} during {operation}: {error}")
+                self._logger.warning(
+                    f"Non-critical {error_type} in {component} during {operation}: {error}"
+                )
                 return True
 
-            self._logger.error(f"Unhandled {error_type} in {component} during {operation}: {error}")
+            self._logger.error(
+                f"Unhandled {error_type} in {component} during {operation}: {error}"
+            )
         else:
             self._logger.error(f"Unhandled {error_type}: {error}")
 
@@ -307,10 +357,10 @@ class ErrorHandler:
 
     @staticmethod
     def handle_errors(
-            component: Optional[str] = None,
-            phase: Optional[str] = None,
-            reraise: bool = False,
-            **context_kwargs
+        component: Optional[str] = None,
+        phase: Optional[str] = None,
+        reraise: bool = False,
+        **context_kwargs,
     ):
         """
         Decorator for automatic error handling.
@@ -340,9 +390,9 @@ class ErrorHandler:
 
                 context = context_kwargs.copy()
                 if component:
-                    context['component'] = component
+                    context["component"] = component
                 if phase:
-                    context['phase'] = phase
+                    context["phase"] = phase
 
                 try:
                     return func(*args, **kwargs)
@@ -350,7 +400,9 @@ class ErrorHandler:
                     handled = handler._handle_error_internal(e, context)
 
                     if handled:
-                        handler._logger.debug(f"Error handled by decorator in {func.__name__}")
+                        handler._logger.debug(
+                            f"Error handled by decorator in {func.__name__}"
+                        )
                         if reraise:
                             raise
                         else:
@@ -358,7 +410,9 @@ class ErrorHandler:
                     elif reraise:
                         raise
                     else:
-                        handler._logger.warning(f"Unhandled error in {func.__name__}: {e}")
+                        handler._logger.warning(
+                            f"Unhandled error in {func.__name__}: {e}"
+                        )
                         return None
 
             return wrapper

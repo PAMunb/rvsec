@@ -94,20 +94,21 @@ class TestAndroid:
         mock_logging.info.assert_called_with("Emulator emulator-5556 has been killed")
 
     def test_wait_for_boot(self, mock_command_class, mock_logging, mock_time_sleep, mock_to_readable_time):
-        # Mock the invoke results for bootanim, boot_completed, root, remount
+        # Mock the invoke results for bootanim, boot_completed, root, remount.
+        # Each phase loop checks time.time() at the top before invoking.
         mock_command_class.return_value.invoke.side_effect = [
-            MagicMock(stdout=b'booting'),  # bootanim not stopped
-            MagicMock(stdout=b'stopped'),  # bootanim stopped
-            MagicMock(stdout=b''),         # sys.boot_completed
-            MagicMock(stderr=b'error'),    # root not ready
-            MagicMock(stderr=b''),         # root ready
-            MagicMock(stderr=b'error'),    # remount not ready
-            MagicMock(stderr=b''),         # remount ready
+            MagicMock(stdout=b'booting'),  # Phase 1 iter 1: bootanim not stopped
+            MagicMock(stdout=b'stopped'),  # Phase 1 iter 2: bootanim stopped
+            MagicMock(stdout=b''),         # Phase 2 iter 1: sys.boot_completed
+            MagicMock(stderr=b'error'),    # Phase 3 root iter 1: not ready
+            MagicMock(stderr=b''),         # Phase 3 root iter 2: ready
+            MagicMock(stderr=b'error'),    # Phase 3 remount iter 1: not ready
+            MagicMock(stderr=b''),         # Phase 3 remount iter 2: ready
         ]
 
-        # time.time() is called 5 times: start, bootanim timeout check, root timeout check,
-        # remount timeout check, elapsed calculation
-        with patch('time.time', side_effect=[0, 10, 20, 30, 40]):
+        # time.time() calls: start, Phase1 check x2, Phase2 check, root check x2,
+        # remount check x2, elapsed
+        with patch('time.time', side_effect=[0, 5, 10, 15, 20, 25, 30, 35, 40]):
             Android._wait_for_boot("emulator-5554")
             mock_logging.info.assert_has_calls([
                 call('Waiting for emulator-5554 to boot (timeout=180s)'),

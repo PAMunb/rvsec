@@ -1,60 +1,90 @@
 """
-PathBuffer - Buffered navigation for multi-step path execution.
+Buffer multi-step navigation paths for one-action-per-iteration execution.
 
-Stores a sequence of actions (typically BACK actions) to execute one per iteration,
-enabling multi-hop navigation to reach specific states. Three planning modes:
+Store a sequence of actions (typically BACK actions) to execute one per iteration,
+enabling multi-hop navigation to reach specific states. Three planning strategies
+fill the buffer with different goals:
 
-1. Backtrack path: Navigate to nearest unsaturated ancestor via BACK actions
-2. MOP path: Navigate to activity with monitored operations via WTG BFS
-3. Coverage path: Navigate to least-covered activity (stub, future implementation)
+1. Strategy A (Backtrack): Navigate to nearest unsaturated ancestor via BACK actions
+2. Strategy B (MOP): Navigate to activity with monitored operations via WTG BFS
+3. Strategy C (Coverage): Navigate to ancestor with highest exploration potential
 
-The buffer is consumed one action per iteration by the strategy's select_next_action.
-If the screen changes unexpectedly during buffered navigation, learn_node invalidates
-the buffer to prevent executing stale actions.
+The buffer is consumed one action per iteration by the strategy's select_next_action
+(Tier 1 in the 5-tier selection). If navigation doesn't work as expected (screen
+unchanged after a buffered action), learn_node invalidates the buffer to prevent
+executing stale actions.
+
+### Architectural Decisions:
+
+- One-action-per-iteration dispensing: the buffer stores the full path but only
+  emits one action per call to get_next_action, allowing learn_node to detect
+  unexpected state changes between hops and invalidate stale paths
+- Eager invalidation: any evidence that navigation diverged from the plan
+  (unchanged screen hash, failed coordinate resolution) clears the entire buffer
+  rather than attempting partial recovery
+
+### Role in the System:
+
+- Tier 1 in the 5-tier action selection of RVAgentStrategy: when the buffer has
+  pending actions, the strategy unconditionally dispenses from the buffer
+- Tier 3 (proactive backtrack) fills the buffer using plan_coverage_path (C),
+  plan_mop_path (B), or plan_backtrack_path (A) in priority order
+- learn_node and algorithm_node call invalidate methods when navigation fails
+
+### Integration Points:
+
+- Input: SuccessorTracker (backtrack BFS), TransitionManager (WTG path planning),
+  UICoverageTracker (coverage scoring)
+- Output: ItemAction objects dispensed to RVAgentStrategy.select_next_action
+- Tracking: emits RVTRACK:BACKTRACK and RVTRACK:COVERAGE events via tracking module
 """
 
 import logging
 from collections import deque
-from typing import Optional, List, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from rv_screen_parser.parser.screen.visitor.model import ItemAction
 from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction
+
 from rv_agent import tracking as track
 
 if TYPE_CHECKING:
-    from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+    from rv_agent.config.agent_config import RVAgentConfig
     from rv_agent.memory.ui_coverage import UICoverageTracker
     from rv_agent.services.transition_manager import TransitionManager
-    from rv_agent.config.agent_config import RVAgentConfig
+    from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
 
 logger = logging.getLogger(__name__)
 
-# Module-level constants
+# === PATH BUFFER CONSTANTS ===
 PATH_BUFFER_ENABLED = True
 MAX_BACKTRACK_HOPS = 8
 MAX_COVERAGE_HOPS = 5
 
-# BACK action identifier (same as RVAgentStrategy.BACK_ACTION_ID)
+# Mirrors RVAgentStrategy.BACK_ACTION_ID to produce identical BACK actions
 BACK_ACTION_ID = 999
 
 
 class PathBuffer:
     """
-    Buffered navigation for multi-step path execution.
+    Buffer and dispense multi-step navigation actions one per iteration.
 
-    Stores a sequence of ItemAction objects and dispenses them one at a time.
-    The strategy calls get_next_action() each iteration to retrieve the next
-    buffered action. When the buffer is exhausted, returns None and the strategy
-    falls back to normal selection.
+    Store a sequence of ItemAction objects and dispense them one at a time
+    via get_next_action(). When the buffer is exhausted, return None so
+    the strategy falls back to normal action selection (Tier 2+).
 
-    Planning methods fill the buffer:
-    - plan_backtrack_path: BACK actions to reach unsaturated ancestor
-    - plan_mop_path: Actions to reach activity with MOP methods
-    - plan_coverage_path: Actions to reach ancestor with highest exploration potential
+    ### Key Features:
 
-    Invalidation:
-    - learn_node calls invalidate() when screen hash is unchanged after a
-      buffered action, indicating the navigation didn't work as expected.
+    - Three planning strategies (A/B/C) fill the buffer with different goals
+    - One-action-per-iteration dispensing allows mid-path invalidation
+    - Eager invalidation clears entire buffer on navigation failure
+
+    ### Integration Points:
+
+    - Input: plan_*() methods called by RVAgentStrategy (Tier 3)
+    - Output: get_next_action() called by RVAgentStrategy (Tier 1)
+    - Invalidation: invalidate() from learn_node, invalidate_current_path()
+      from algorithm_node
     """
 
     def __init__(
@@ -73,6 +103,11 @@ class PathBuffer:
             successor_tracker: SuccessorTracker for backtrack BFS.
             ui_coverage_tracker: UICoverageTracker for coverage-based planning.
             config: RVAgentConfig with calibration parameters.
+
+        State:
+            self._buffer: Ordered list of ItemAction to dispense. Filled by
+                plan_*() methods, consumed by get_next_action(), cleared by
+                invalidate(). Empty when no buffered navigation is active.
         """
         self.transition_manager = transition_manager
         self.successor_tracker = successor_tracker
@@ -271,6 +306,29 @@ class PathBuffer:
             f"({best_hops} BACK actions, potential={best_potential:.1f})"
         )
         return True
+
+    def invalidate_current_path(self) -> None:
+        """
+        Invalidate the current buffered path due to action resolution failure.
+
+        Called by algorithm_node when a buffered action cannot be resolved to
+        coordinates (e.g., WTG-level "Navigate to..." actions with no real UI
+        widget). Clears the entire buffer so the same unresolvable action is
+        not re-emitted.
+        """
+        if self._buffer:
+            count = len(self._buffer)
+            self._buffer.clear()
+            track.backtrack(
+                iter=0,
+                strategy="invalidate_failed",
+                remaining_steps=count,
+                target_hash=None,
+            )
+            logger.warning(
+                f"PathBuffer: Invalidated current path due to resolution failure "
+                f"({count} actions discarded)"
+            )
 
     def invalidate(self) -> None:
         """

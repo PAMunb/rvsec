@@ -1,53 +1,74 @@
 """
 Coverage-optimized depth-first exploration with successor tracking.
 
-Implements state space exploration with:
-1. Successor state tracking to re-enable actions when destination states are incomplete
-2. MOP-aware action prioritization via ActionRanker
-3. Plateau detection for automatic termination
-4. Input field value variation generation
+Implement state space exploration with successor state tracking to re-enable
+actions when destination states are incomplete, MOP-aware action prioritization
+via ActionRanker with 9 weighted scorers, and plateau detection that boosts
+stochastic selection probability to break out of deterministic cycles.
+
+The strategy never declares a state "exhausted" -- when all actions have been
+tested, it selects the least-executed action and continues until timeout. This
+continuous exploration maximizes coverage of dynamic content and state-dependent
+behaviors in Android applications.
+
+### Role in the System:
+
+- Primary algorithmic exploration strategy used by algorithm_node in the
+  LangGraph workflow when the decision router selects the algorithm path
+- Registered in strategy_registry under the name "rvagent" and created by
+  AgentFactory during agent initialization
+- Works alongside LLM-based exploration in multimode (default 30% algorithm)
+
+### Integration Points:
+
+- Input: ScreenDescription from rv-screen-parser, StaticAnalysisData from
+  rv-static-analysis, TransitionManager for WTG-guided navigation
+- Output: ItemAction selected for execution by execute_node
+- Dependencies: DynamicStateGraph (state tracking), UICoverageTracker (element
+  coverage), ActionRanker (composite scoring), SuccessorTracker (re-enabling),
+  PlateauDetector (stagnation), PathBuffer (multi-step navigation),
+  RewardPropagator (reward estimation), InputValueGenerator (test values)
 """
 
 import logging
+import math
 import random
-from typing import Optional, List, Set, Tuple, Dict, TYPE_CHECKING
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
-from rv_android_core.domain.widget import WidgetEventType
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.memory.ui_coverage import UICoverageTracker
-from rv_agent.memory.element_id import make_element_id_from_tuple
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
-from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
-from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
+from rv_agent import tracking as track
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.memory.element_id import make_element_id_from_tuple
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.strategies.base_strategy import ExplorationStrategy
+from rv_agent.strategies.rvagent_strategy.coverage_metrics import CoverageMetrics
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,
 )
-from rv_agent.strategies.rvagent_strategy.coverage_metrics import CoverageMetrics
-from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
+from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
 from rv_agent.strategies.rvagent_strategy.ranking import (
     ActionRanker,
-    RankingContext,
-    MopScorer,
-    WtgScorer,
-    SaturationScorer,
     ComponentPriorityScorer,
-    StrengthScorer,
-    GradualDecayScorer,
     CoverageDensityScorer,
+    GradualDecayScorer,
+    MopScorer,
+    RankingContext,
+    SaturationScorer,
+    StrengthScorer,
     SystemElementFilter,
     VisitationPenaltyScorer,
+    WtgScorer,
 )
-from rv_agent import tracking as track
-from rv_agent.constants import RVAgentConstants
-from rv_agent.services.coordinate_utils import device_to_optimized
+from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
+from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
 
 if TYPE_CHECKING:
-    from rv_agent.services.transition_manager import TransitionManager
     from rv_agent.config.agent_config import RVAgentConfig
+    from rv_agent.services.transition_manager import TransitionManager
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +90,19 @@ _INPUT_TYPE_PATTERNS = [
 
 
 def _infer_input_type(target_view: Optional[Dict]) -> str:
-    """Infer input type from target_view data."""
+    """Infer input field type from target_view attributes.
+
+    Check view attributes in priority order: password flag, hint text,
+    content description, resource ID. Match against _INPUT_TYPE_PATTERNS
+    keywords to determine the semantic input type for value generation.
+
+    Args:
+        target_view: Widget view dictionary with UI attributes, or None.
+
+    Returns:
+        Input type string (e.g., "email", "password", "phone", "text").
+        Defaults to "text" when no pattern matches or target_view is None.
+    """
     if not target_view:
         return "text"
     if target_view.get("password") or target_view.get("is_password"):
@@ -124,8 +157,8 @@ class RVAgentStrategy(ExplorationStrategy):
        Problem: Random exploration wastes time on UI elements that don't trigger
        monitored operations (the focus of runtime verification).
        Solution: Prioritize actions that reach MOPs (from static analysis) over
-       regular UI exploration. This focuses testing effort on security-relevant
-       or specification-critical code paths.
+       regular UI exploration. This focuses testing effort on specification-critical
+       code paths where monitored operations are triggered.
 
     Action prioritization: [DM] MOP > [M] MOP > WTG > untested UI > least tested
 
@@ -136,6 +169,9 @@ class RVAgentStrategy(ExplorationStrategy):
 
     # BACK action identifier
     BACK_ACTION_ID = 999
+
+    # Max times TIER3 backtrack to the same state can fail before skipping it
+    MAX_BACKTRACK_FAILURES = 3
 
     # Scroll action probability
     # Scroll probability reduced from 0.3 to 0.15 and moved to AFTER untested actions
@@ -227,13 +263,9 @@ class RVAgentStrategy(ExplorationStrategy):
                 WtgScorer(config=config),
                 SaturationScorer(config=config),
                 ComponentPriorityScorer(config=config),
-                StrengthScorer(
-                    coordinate_converter=coordinate_converter, config=config
-                ),
+                StrengthScorer(config=config),
                 GradualDecayScorer(config=config),
-                CoverageDensityScorer(
-                    coordinate_converter=coordinate_converter, config=config
-                ),
+                CoverageDensityScorer(config=config),
                 # Penalty scorers
                 SystemElementFilter(),
                 VisitationPenaltyScorer(config=config),
@@ -259,6 +291,10 @@ class RVAgentStrategy(ExplorationStrategy):
 
         # Iteration counter for tracking
         self._current_iteration = 0
+
+        # Backtrack failure tracking: state_hash -> consecutive failure count.
+        # When TIER3 backtrack to a state fails N times, skip that state.
+        self._backtrack_failures: Dict[str, int] = {}
 
         logger.info(
             f"RVAgentStrategy initialized: plateau_window={config.plateau_window}, "
@@ -292,26 +328,32 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             Selected ItemAction, or None if state exhausted or plateau reached
         """
-        self._current_iteration += 1
+        # _current_iteration is set externally by algorithm_node from the
+        # agent loop's iteration counter, ensuring all RVTRACK logs use the
+        # same iteration number as rv_agent.py's main loop.
 
-        # 1. Plateau detection is informational only
-        # WHY: We don't stop on plateau because:
-        # - Dynamic content may appear later (e.g., after login, after delay)
-        # - Time-dependent behaviors may trigger new states
-        # - The timeout is the only reliable termination condition
+        # 1. Plateau detection: when no progress for window_size iterations,
+        # escalate by increasing stochastic probability to break out of cycles.
+        # Does NOT terminate — timeout is still the only stop condition.
         if self.plateau_detector.is_plateau_reached():
-            logger.info(
-                "Plateau detected - continuing exploration (timeout is only stop condition)"
-            )
             plateau_metrics = self.plateau_detector.get_metrics()
-            logger.debug(f"Plateau metrics: {plateau_metrics}")
+            logger.info(
+                f"Plateau detected (window={plateau_metrics['window_size']}) — "
+                f"increasing stochastic probability to break exploration cycle"
+            )
+            # Temporarily boost stochastic probability to 0.5 to inject randomness
+            # and break out of deterministic cycles (restored on new state discovery)
+            if self.stochastic_probability < 0.5:
+                self.stochastic_probability = 0.5
 
         # 2. Create or update graph node
-        if current_hash not in self.graph.states:
+        is_new_state = current_hash not in self.graph.states
+        if is_new_state:
             node = self.graph.get_or_create_state(
                 current_hash, screen_desc.activity, screen_desc
             )
-
+            # Restore stochastic probability after plateau-induced boost
+            self.stochastic_probability = self.config.stochastic_probability
             logger.info(f"RVAgent: New state, {node.total_actions} actions")
         else:
             node = self.graph.states[current_hash]
@@ -362,7 +404,7 @@ class RVAgentStrategy(ExplorationStrategy):
             if buffered:
                 selected_action = buffered
                 track.strategy(
-                    iter=0,
+                    iter=self._current_iteration,
                     mode="tier1_buffer",
                     action_type=str(buffered.event),
                     reason=f"remaining={self.path_buffer.remaining_steps}",
@@ -381,7 +423,7 @@ class RVAgentStrategy(ExplorationStrategy):
             )
             if selected_action:
                 track.strategy(
-                    iter=0,
+                    iter=self._current_iteration,
                     mode="tier2_untested",
                     action_type=str(selected_action.event),
                     reason="priority_untested",
@@ -390,7 +432,7 @@ class RVAgentStrategy(ExplorationStrategy):
             else:
                 selected_action = untested_actions[0]
                 track.strategy(
-                    iter=0,
+                    iter=self._current_iteration,
                     mode="tier2_untested",
                     action_type=str(selected_action.event),
                     reason="fallback_first",
@@ -413,7 +455,7 @@ class RVAgentStrategy(ExplorationStrategy):
                     if buffered:
                         selected_action = buffered
                         track.strategy(
-                            iter=0,
+                            iter=self._current_iteration,
                             mode="tier3_backtrack",
                             action_type=str(buffered.event),
                             reason="proactive_backtrack",
@@ -421,11 +463,21 @@ class RVAgentStrategy(ExplorationStrategy):
                         logger.info("RVAgent TIER3: Using path buffer action")
 
             if not selected_action:
-                # All path plans failed or no buffer — fall through to Tier 4
+                # All path plans failed — force RESTART to break out of oscillation
+                # between fully-explored states (task 12.5). TIER3 is only entered
+                # when should_backtrack() returns True (saturation >= threshold),
+                # so we know the state is saturated here.
                 logger.info(
                     f"RVAgent TIER3: Saturation {saturation_rate:.1%} >= threshold, "
-                    f"no path plan available — falling through to scored selection"
+                    f"no path plan — forcing RESTART to escape saturated state"
                 )
+                track.strategy(
+                    iter=self._current_iteration,
+                    mode="tier3_restart",
+                    action_type="RESTART_APP",
+                    reason="saturated_no_path",
+                )
+                return self._create_restart_action()
 
         if not selected_action and all_filtered_actions:
             # TIER 4 - SCORED CONTINUOUS: All visible actions tested
@@ -440,10 +492,12 @@ class RVAgentStrategy(ExplorationStrategy):
                 logger.info("RVAgent SCROLL: scrolling to reveal more content")
                 return scroll_action
 
-            # Select action using ActionRanker on ALL filtered actions
-            # Tier 4: all actions tested, so MopScorer applies at full weight (INV-AGT-39)
-            selected_action = self._select_priority_action(
-                all_filtered_actions, screen_desc, force_no_untested_inputs=True
+            # Select action using scored selection with execution-count decay.
+            # Tier 4: all actions tested, so MopScorer applies at full weight (INV-AGT-39).
+            # Score decay: effective_score = base_score / (1 + log2(execution_count))
+            # prevents the same high-score action from being selected hundreds of times.
+            selected_action = self._select_with_score_decay(
+                all_filtered_actions, screen_desc, node
             )
 
             if selected_action is None:
@@ -452,12 +506,12 @@ class RVAgentStrategy(ExplorationStrategy):
                 )
                 return self._create_back_action()
 
-            action_signature = self._convert_signature_to_optimized(
+            # Action signatures use device-space coordinates (INV-AGT-40)
+            exec_count = node.get_action_execution_count(
                 selected_action.coords_for_matching
             )
-            exec_count = node.get_action_execution_count(action_signature)
             track.strategy(
-                iter=0,
+                iter=self._current_iteration,
                 mode="tier4_scored",
                 action_type=str(selected_action.event),
                 reason=f"count={exec_count}",
@@ -477,11 +531,10 @@ class RVAgentStrategy(ExplorationStrategy):
             selected_action = self._prepare_input_action(selected_action, current_hash)
             if not selected_action:
                 # Value exhausted - mark action as executed to prevent re-selection
-                action_signature = self._convert_signature_to_optimized(
-                    original_action.coords_for_matching
-                )
+                # Action signatures use device-space coordinates (INV-AGT-40)
                 self.graph.record_action(
-                    screen_hash=current_hash, action_signature=action_signature
+                    screen_hash=current_hash,
+                    action_signature=original_action.coords_for_matching,
                 )
                 # Also mark in UI coverage tracker now that all variations are tested
                 element_id = original_action.widget_id or make_element_id_from_tuple(
@@ -520,11 +573,10 @@ class RVAgentStrategy(ExplorationStrategy):
         # EXCEPTION: TEXT_CHANGE actions are marked only when all input variations are exhausted
         # (step 6), because we want to test multiple values (e.g., "test", "123", "@#$").
         if selected_action.event != WidgetEventType.TEXT_CHANGE:
-            action_signature = self._convert_signature_to_optimized(
-                selected_action.coords_for_matching
-            )
+            # Pre-mark uses device-space coordinates (INV-AGT-40)
             self.graph.record_action(
-                screen_hash=current_hash, action_signature=action_signature
+                screen_hash=current_hash,
+                action_signature=selected_action.coords_for_matching,
             )
 
         # NOTE: UI coverage tracking is now unified in execute_node.py (post-execution)
@@ -553,10 +605,8 @@ class RVAgentStrategy(ExplorationStrategy):
             to_hash: Destination state hash
             action: Action that triggered transition
         """
-        # Record in graph
-        action_signature = self._convert_signature_to_optimized(
-            action.coords_for_matching
-        )
+        # Record in graph — action signatures use device-space coordinates (INV-AGT-40)
+        action_signature = action.coords_for_matching
         self.graph.record_transition(from_hash, to_hash, [{"action": action}])
 
         # Update successor tracker (enables action re-enabling logic)
@@ -634,6 +684,31 @@ class RVAgentStrategy(ExplorationStrategy):
             text_input=None,
         )
 
+    def _create_restart_action(self) -> ItemAction:
+        """
+        Create RESTART_APP action to reset to app entry point.
+
+        Used by TIER3 when all path plans fail and state is saturated,
+        to escape oscillation between fully-explored states.
+
+        Returns:
+            ItemAction configured as RESTART_APP action with package name
+        """
+        return ItemAction(
+            id=self.BACK_ACTION_ID,
+            text=f"RESTART_APP:{self.target_package}",
+            event=WidgetEventType.RESTART,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+            target_view={
+                "system_action": True,
+                "class": "SystemAction_RESTART",
+                "package_name": self.target_package,
+            },
+            coordinates=None,
+            text_input=None,
+        )
+
     def _get_untested_actions(
         self, node, screen_desc: ScreenDescription
     ) -> List[ItemAction]:
@@ -651,10 +726,8 @@ class RVAgentStrategy(ExplorationStrategy):
         untested = []
 
         for action in all_actions:
-            action_signature = self._convert_signature_to_optimized(
-                action.coords_for_matching
-            )
-            if action_signature not in node.executed_actions:
+            # Action signatures use device-space coordinates (INV-AGT-40)
+            if action.coords_for_matching not in node.executed_actions:
                 untested.append(action)
 
         return untested
@@ -720,10 +793,8 @@ class RVAgentStrategy(ExplorationStrategy):
             return None
 
         def sort_key(action: ItemAction):
-            action_signature = self._convert_signature_to_optimized(
-                action.coords_for_matching
-            )
-            exec_count = node.get_action_execution_count(action_signature)
+            # Action signatures use device-space coordinates (INV-AGT-40)
+            exec_count = node.get_action_execution_count(action.coords_for_matching)
             # MOP priority: DM=3, M=2, regular=1
             mop_priority = (
                 3 if action.directly_reaches_mop else (2 if action.reaches_mop else 1)
@@ -843,6 +914,54 @@ class RVAgentStrategy(ExplorationStrategy):
 
         return selected
 
+    def _select_with_score_decay(
+        self,
+        actions: List[ItemAction],
+        screen_desc: ScreenDescription,
+        node,
+    ) -> Optional[ItemAction]:
+        """
+        Select action with execution-count score decay for TIER4.
+
+        Applies effective_score = base_score / (1 + log2(execution_count))
+        to prevent the same high-score action from monopolizing selection.
+        Without decay, a CLICK with score 825 can be selected 200+ times
+        consecutively because it always has the highest base score.
+
+        Args:
+            actions: All filtered actions (tested + untested)
+            screen_desc: Screen description for context
+            node: ScreenNode with execution counts
+
+        Returns:
+            Action with highest decayed score, or None if all score zero
+        """
+        if not actions:
+            return None
+
+        context = self._build_ranking_context(screen_desc)
+        context.has_untested_inputs = False  # Tier 4 semantics
+
+        best_action = None
+        best_decayed_score = float("-inf")
+
+        for action in actions:
+            base_score = self.action_ranker.score_action(action, context)
+            # Action signatures use device-space coordinates (INV-AGT-40)
+            exec_count = node.get_action_execution_count(action.coords_for_matching)
+
+            # Score decay formula: divides base score by log2 of execution count
+            if exec_count > 0:
+                decayed_score = base_score / (1 + math.log2(exec_count))
+            else:
+                decayed_score = base_score
+
+            if decayed_score > best_decayed_score:
+                best_decayed_score = decayed_score
+                best_action = action
+
+        return best_action
+
     def _build_ranking_context(self, screen_desc: ScreenDescription) -> RankingContext:
         """
         Build ranking context for Scorers.
@@ -886,6 +1005,22 @@ class RVAgentStrategy(ExplorationStrategy):
             if element_id and self.value_generator.has_remaining_values(element_id):
                 return True
         return False
+
+    def record_backtrack_failure(self, target_hash: str) -> None:
+        """Record a failed backtrack attempt to a target state.
+
+        When the same target accumulates MAX_BACKTRACK_FAILURES failures,
+        TIER3 will skip it in future path planning.
+
+        Args:
+            target_hash: State hash of the backtrack target that failed.
+        """
+        count = self._backtrack_failures.get(target_hash, 0) + 1
+        self._backtrack_failures[target_hash] = count
+        logger.info(
+            f"Backtrack failure to {target_hash[:8]}: "
+            f"{count}/{self.MAX_BACKTRACK_FAILURES}"
+        )
 
     def _get_mop_data(self):
         """Get MOP data from static analysis for path planning."""
@@ -942,52 +1077,6 @@ class RVAgentStrategy(ExplorationStrategy):
         )
         return action_with_input
 
-    def _convert_signature_to_optimized(
-        self, signature: Tuple[Tuple[int, int], str]
-    ) -> Tuple[Tuple[int, int], str]:
-        """
-        Convert action signature from device space to optimized space.
-
-        WHY COORDINATE CONVERSION:
-        The same UI element may have different pixel coordinates across:
-        - Different device resolutions (1080p vs 1440p)
-        - Same device with different DPI settings
-        - Emulator vs physical device
-
-        By converting to a normalized "optimized space" (704x1248), we can:
-        - Match actions across sessions even if device resolution changes
-        - Use screenshots resized to optimized dimensions for LLM processing
-        - Maintain consistent action signatures in the state graph
-
-        Args:
-            signature: ((device_x, device_y), action_type)
-
-        Returns:
-            ((optimized_x, optimized_y), action_type)
-        """
-        (device_x, device_y), action_type = signature
-
-        if self.converter:
-            optimized_x, optimized_y = self.converter.device_to_optimized(
-                device_x, device_y
-            )
-        else:
-            # Fallback: use default device dimensions
-            optimized_x, optimized_y = device_to_optimized(
-                device_x,
-                device_y,
-                (
-                    RVAgentConstants.DEFAULT_DEVICE_WIDTH,
-                    RVAgentConstants.DEFAULT_DEVICE_HEIGHT,
-                ),
-                (
-                    RVAgentConstants.SCREENSHOT_TARGET_WIDTH,
-                    RVAgentConstants.SCREENSHOT_TARGET_HEIGHT,
-                ),
-            )
-
-        return ((optimized_x, optimized_y), action_type)
-
     def _is_system_action(self, action: ItemAction) -> bool:
         """
         Check if action is a system action (navigation bar, status bar).
@@ -1030,9 +1119,9 @@ class RVAgentStrategy(ExplorationStrategy):
         """
         Reset exploration state.
 
-        Clears DFS stack, visited states, successor mappings, plateau history,
-        input value tracking, scroll positions, and MOP coverage. Graph and UI
-        coverage are managed separately.
+        Clear successor mappings, plateau history, input value tracking,
+        scroll positions, backtrack failure counts, and MOP coverage.
+        Graph and UI coverage are managed separately.
         """
         self.previous_hash = None
         self.scrolled_positions.clear()
@@ -1053,6 +1142,10 @@ class RVAgentStrategy(ExplorationStrategy):
 
         self.coverage_metrics.mop_methods_reached.clear()
 
+        # Reset gh26 state
+        self._backtrack_failures.clear()
+        self.stochastic_probability = self.config.stochastic_probability
+
         logger.info("RVAgentStrategy state reset")
 
     def get_statistics(self):
@@ -1061,14 +1154,13 @@ class RVAgentStrategy(ExplorationStrategy):
         Returns:
             Dictionary with keys:
             - "strategy" (str): Strategy name ("rvagent").
-            - "depth" (int): Current DFS depth.
             - "states_visited" (int): Number of unique states visited.
-            - "stack_size" (int): Current DFS stack size.
             - "coverage" (dict): MOP coverage metrics from CoverageMetrics.
             - "plateau" (dict): Plateau detection metrics from PlateauDetector.
             - "successor_tracking" (dict): Successor tracker statistics.
             - "input_generation" (dict): Input value generator statistics.
-            - "wtg_guidance" (dict): TransitionManager stats (if available).
+            - "wtg_guidance" (dict): TransitionManager stats (present only
+                when transition_manager is available).
         """
         stats = {
             "strategy": "rvagent",

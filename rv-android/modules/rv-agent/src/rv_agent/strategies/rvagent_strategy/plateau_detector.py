@@ -9,7 +9,7 @@ This allows automatic termination without manually setting iteration limits.
 
 import logging
 from collections import deque
-from typing import Dict, Any, Deque
+from typing import Any, Deque, Dict
 
 logger = logging.getLogger(__name__)
 

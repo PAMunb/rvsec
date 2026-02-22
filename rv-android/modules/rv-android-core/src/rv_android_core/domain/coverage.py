@@ -4,22 +4,24 @@ Unified model for method coverage tracking and analysis.
 This module provides validated data structures for tracking method coverage
 and coverage metrics during runtime verification execution.
 """
+
 import logging
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Any
-from pydantic import Field, computed_field
+from typing import Any, Dict, List, Optional, Set
+
+from pydantic import Field
 
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
 
-@validated_model(['class_name', 'method_name', 'signature', 'parameters'])
+@validated_model(["class_name", "method_name", "signature", "parameters"])
 class MethodCoverageData(BaseValidatedModel):
     """
     Validated data model for method coverage information and execution tracking.
-    
+
     This model provides comprehensive tracking of method execution status including
     static analysis reachability information and dynamic execution data with
     precise timing correlation for experiment analysis.
@@ -45,56 +47,54 @@ class MethodCoverageData(BaseValidatedModel):
     class_name: str = Field(
         description="Fully qualified class name containing this method"
     )
-    method_name: str = Field(
-        description="Method name within the containing class"
-    )
-    signature: str = Field(
-        description="Complete method signature including parameters"
-    )
+    method_name: str = Field(description="Method name within the containing class")
+    signature: str = Field(description="Complete method signature including parameters")
     parameters: List[str] = Field(
         description="List of parameter types for method signature"
     )
     reachable: bool = Field(
         default=False,
-        description="Whether method is reachable according to static analysis"
+        description="Whether method is reachable according to static analysis",
     )
     reaches_mop: bool = Field(
         default=False,
-        description="Whether method can reach monitor-oriented programming operations"
+        description="Whether method can reach monitor-oriented programming operations",
     )
     directly_reaches_mop: bool = Field(
         default=False,
-        description="Whether method directly invokes monitored operations"
+        description="Whether method directly invokes monitored operations",
     )
     called: bool = Field(
         default=False,
-        description="Whether method has been executed during runtime verification"
+        description="Whether method has been executed during runtime verification",
     )
     call_count: int = Field(
-        default=0,
-        description="Number of times method has been called during execution"
+        default=0, description="Number of times method has been called during execution"
     )
     first_called_at: Optional[datetime] = Field(
         default=None,
-        description="Timestamp when method was first called during execution"
+        description="Timestamp when method was first called during execution",
     )
     last_called_at: Optional[datetime] = Field(
-        default=None,
-        description="Timestamp when method was most recently called"
+        default=None, description="Timestamp when method was most recently called"
     )
     from_static_analysis: bool = Field(
         default=False,
-        description="Whether method data originates from static analysis results"
+        description="Whether method data originates from static analysis results",
     )
     time_since_task_start: int = Field(
         default=0,
-        description="Seconds elapsed since task start when method was first called (preserved from RvCoverageLog)"
+        description="Seconds elapsed since task start when method was first called (preserved from RvCoverageLog)",
     )
 
-    def register_call(self, timestamp: Optional[datetime] = None, time_since_task_start: Optional[int] = None) -> None:
+    def register_call(
+        self,
+        timestamp: Optional[datetime] = None,
+        time_since_task_start: Optional[int] = None,
+    ) -> None:
         """
         Register a call to this method.
-        
+
         ### Critical Architecture Decision:
         This method preserves timing data from RvCoverageLog objects to maintain
         accurate timing information throughout the data flow. The time_since_task_start
@@ -133,7 +133,7 @@ class MethodCoverageData(BaseValidatedModel):
             "directly_reaches_mop": self.directly_reaches_mop,
             "called": self.called,
             "call_count": self.call_count,
-            "from_static_analysis": self.from_static_analysis
+            "from_static_analysis": self.from_static_analysis,
         }
 
         # Convert datetime objects to ISO format strings if present
@@ -150,7 +150,7 @@ class MethodCoverageData(BaseValidatedModel):
         return result
 
     @classmethod
-    def from_coverage_log(cls, log: RvCoverageLog) -> 'MethodCoverageData':
+    def from_coverage_log(cls, log: RvCoverageLog) -> "MethodCoverageData":
         """
         Create a method coverage data instance from a coverage log entry.
 
@@ -170,23 +170,23 @@ class MethodCoverageData(BaseValidatedModel):
             # Default values for other fields
             reachable=False,
             reaches_mop=False,
-            directly_reaches_mop=False
+            directly_reaches_mop=False,
         )
 
         # Register the call with the timestamp from the log
         instance.register_call(log.time_occurred)
-        
+
         # Store the time since task start from the original log
         instance.time_since_task_start = log.time_since_task_start
 
         return instance
 
 
-@validated_model(['name'])
+@validated_model(["name"])
 class ClassCoverageData(BaseValidatedModel):
     """
     Validated data model for class-level coverage information and metrics.
-    
+
     This model aggregates method coverage data at the class level and provides
     comprehensive metrics for understanding application component coverage
     during runtime verification execution.
@@ -204,20 +204,16 @@ class ClassCoverageData(BaseValidatedModel):
     - Integrated with reporting systems for detailed class analysis
     """
 
-    name: str = Field(
-        description="Fully qualified class name"
-    )
+    name: str = Field(description="Fully qualified class name")
     is_activity: bool = Field(
-        default=False,
-        description="Whether this class is an Android Activity component"
+        default=False, description="Whether this class is an Android Activity component"
     )
     is_main_activity: bool = Field(
-        default=False,
-        description="Whether this class is the main (launcher) Activity"
+        default=False, description="Whether this class is the main (launcher) Activity"
     )
     methods: Dict[str, MethodCoverageData] = Field(
         default_factory=dict,
-        description="Dictionary of method signatures to coverage data for all methods in class"
+        description="Dictionary of method signatures to coverage data for all methods in class",
     )
 
     @property
@@ -243,8 +239,9 @@ class ClassCoverageData(BaseValidatedModel):
     @property
     def called_reachable_method_count(self) -> int:
         """Get the number of reachable methods that have been called."""
-        return sum(1 for method in self.methods.values()
-                   if method.reachable and method.called)
+        return sum(
+            1 for method in self.methods.values() if method.reachable and method.called
+        )
 
     @property
     def mop_reaching_method_count(self) -> int:
@@ -254,8 +251,11 @@ class ClassCoverageData(BaseValidatedModel):
     @property
     def called_mop_reaching_method_count(self) -> int:
         """Get the number of MOP-reaching methods that have been called."""
-        return sum(1 for method in self.methods.values()
-                   if method.reaches_mop and method.called)
+        return sum(
+            1
+            for method in self.methods.values()
+            if method.reaches_mop and method.called
+        )
 
     def add_method(self, method: MethodCoverageData) -> None:
         """
@@ -266,10 +266,15 @@ class ClassCoverageData(BaseValidatedModel):
         """
         self.methods[method.signature] = method
 
-    def register_method_call(self, signature: str, timestamp: Optional[datetime] = None, time_since_task_start: Optional[int] = None) -> bool:
+    def register_method_call(
+        self,
+        signature: str,
+        timestamp: Optional[datetime] = None,
+        time_since_task_start: Optional[int] = None,
+    ) -> bool:
         """
         Register a call to a method in this class.
-        
+
         ### Critical Architecture Decision:
         This method propagates timing data from RvCoverageLog through the coverage
         data structure to ensure accurate timing information in reports.
@@ -304,14 +309,14 @@ class ClassCoverageData(BaseValidatedModel):
             "called_reachable_method_count": self.called_reachable_method_count,
             "mop_reaching_method_count": self.mop_reaching_method_count,
             "called_mop_reaching_method_count": self.called_mop_reaching_method_count,
-            "methods": [method.to_dict() for method in self.methods.values()]
+            "methods": [method.to_dict() for method in self.methods.values()],
         }
 
 
 class CoverageMetrics(BaseValidatedModel):
     """
     Validated data model for comprehensive coverage metrics and analysis.
-    
+
     This model provides standardized structure for storing and reporting coverage
     metrics calculated from static analysis and dynamic execution data during
     runtime verification experiments.
@@ -331,64 +336,59 @@ class CoverageMetrics(BaseValidatedModel):
 
     # Basic counts from static analysis
     total_classes: int = Field(
-        default=0,
-        description="Total number of classes identified in static analysis"
+        default=0, description="Total number of classes identified in static analysis"
     )
     total_activities: int = Field(
-        default=0,
-        description="Total number of Android Activity classes in application"
+        default=0, description="Total number of Android Activity classes in application"
     )
     total_methods: int = Field(
-        default=0,
-        description="Total number of methods identified in static analysis"
+        default=0, description="Total number of methods identified in static analysis"
     )
     total_reachable_methods: int = Field(
         default=0,
-        description="Total number of methods marked as reachable by static analysis"
+        description="Total number of methods marked as reachable by static analysis",
     )
     total_mop_methods: int = Field(
         default=0,
-        description="Total number of methods that can reach monitored operations"
+        description="Total number of methods that can reach monitored operations",
     )
     total_direct_mop_methods: int = Field(
         default=0,
-        description="Total number of methods that directly invoke monitored operations"
+        description="Total number of methods that directly invoke monitored operations",
     )
 
     # Called counts from dynamic execution
     called_classes: int = Field(
         default=0,
-        description="Number of classes with at least one method called during execution"
+        description="Number of classes with at least one method called during execution",
     )
     called_activities: int = Field(
         default=0,
-        description="Number of Activity classes with methods called during execution"
+        description="Number of Activity classes with methods called during execution",
     )
     called_methods: int = Field(
-        default=0,
-        description="Number of methods actually called during execution"
+        default=0, description="Number of methods actually called during execution"
     )
     called_reachable_methods: int = Field(
         default=0,
-        description="Number of reachable methods that were called during execution"
+        description="Number of reachable methods that were called during execution",
     )
     called_mop_methods: int = Field(
         default=0,
-        description="Number of MOP-reaching methods that were called during execution"
+        description="Number of MOP-reaching methods that were called during execution",
     )
     called_direct_mop_methods: int = Field(
         default=0,
-        description="Number of directly MOP-invoking methods that were called during execution"
+        description="Number of directly MOP-invoking methods that were called during execution",
     )
 
     # Error counts from runtime verification
     total_errors: int = Field(
         default=0,
-        description="Total number of property violations detected during execution"
+        description="Total number of property violations detected during execution",
     )
     unique_errors: int = Field(
-        default=0,
-        description="Number of unique property violation types detected"
+        default=0, description="Number of unique property violation types detected"
     )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -401,27 +401,31 @@ class CoverageMetrics(BaseValidatedModel):
             "total_reachable_methods": self.total_reachable_methods,
             "total_mop_methods": self.total_mop_methods,
             "total_direct_mop_methods": self.total_direct_mop_methods,
-
             "called_classes": self.called_classes,
             "called_activities": self.called_activities,
             "called_methods": self.called_methods,
             "called_reachable_methods": self.called_reachable_methods,
             "called_mop_methods": self.called_mop_methods,
             "called_direct_mop_methods": self.called_direct_mop_methods,
-
             "total_errors": self.total_errors,
             "unique_errors": self.unique_errors,
-
             # Percentages
             "class_coverage": self._percentage(self.called_classes, self.total_classes),
-            "activity_coverage": self._percentage(self.called_activities, self.total_activities),
-            "method_coverage": self._percentage(self.called_methods, self.total_methods),
+            "activity_coverage": self._percentage(
+                self.called_activities, self.total_activities
+            ),
+            "method_coverage": self._percentage(
+                self.called_methods, self.total_methods
+            ),
             "reachable_method_coverage": self._percentage(
-                self.called_reachable_methods, self.total_reachable_methods),
+                self.called_reachable_methods, self.total_reachable_methods
+            ),
             "mop_method_coverage": self._percentage(
-                self.called_mop_methods, self.total_mop_methods),
+                self.called_mop_methods, self.total_mop_methods
+            ),
             "direct_mop_method_coverage": self._percentage(
-                self.called_direct_mop_methods, self.total_direct_mop_methods)
+                self.called_direct_mop_methods, self.total_direct_mop_methods
+            ),
         }
 
     @staticmethod
@@ -433,16 +437,16 @@ class CoverageMetrics(BaseValidatedModel):
 class LogcatRepository:
     """
     Repository for logcat-based coverage data with centralized metrics calculation.
-    
+
     Provides unified coverage metrics calculation to eliminate duplication
     between CoverageAnalyzer and CoverageTracker components.
-    
+
     ### Architectural Role:
     - Centralizes coverage metrics calculation logic
     - Maintains class and method coverage state
     - Provides consistent metrics format across components
     - Supports caching for performance optimization
-    
+
     ### Integration Points:
     - Used by CoverageAnalyzer for analysis operations
     - Used by CoverageTracker for real-time tracking
@@ -494,7 +498,7 @@ class LogcatRepository:
         """
         Register a method call from a coverage log entry.
         Only registers calls to methods that exist in static analysis data.
-        
+
         ### Critical Architecture Decision:
         This method is the primary entry point for preserving timing data from
         RvCoverageLog objects into the coverage data structure. It ensures that
@@ -517,12 +521,14 @@ class LogcatRepository:
         # CRITICAL: Pass both timestamp AND time_since_task_start from RvCoverageLog
         if signature in class_data.methods:
             class_data.register_method_call(
-                signature, 
-                coverage_log.time_occurred, 
-                coverage_log.time_since_task_start
+                signature,
+                coverage_log.time_occurred,
+                coverage_log.time_since_task_start,
             )
         else:
-            self.logger.debug(f"Ignoring method call not found in static analysis: {signature}")
+            self.logger.debug(
+                f"Ignoring method call not found in static analysis: {signature}"
+            )
 
     def register_rv_error(self, error_log: RvErrorLog) -> None:
         """
@@ -559,7 +565,9 @@ class LogcatRepository:
 
         # Check if static analysis data is available
         if not self.classes:
-            self.logger.warning("No static analysis data available, returning 0% for all metrics")
+            self.logger.warning(
+                "No static analysis data available, returning 0% for all metrics"
+            )
             return metrics
 
         # Calculate static analysis totals (only once)
@@ -571,11 +579,17 @@ class LogcatRepository:
             metrics.total_classes = self._static_totals.get("total_classes", 0)
             metrics.total_activities = self._static_totals.get("total_activities", 0)
             metrics.total_methods = self._static_totals.get("total_methods", 0)
-            metrics.total_reachable_methods = self._static_totals.get("total_reachable_methods", 0)
+            metrics.total_reachable_methods = self._static_totals.get(
+                "total_reachable_methods", 0
+            )
             metrics.total_mop_methods = self._static_totals.get("total_mop_methods", 0)
-            metrics.total_direct_mop_methods = self._static_totals.get("total_direct_mop_methods", 0)
+            metrics.total_direct_mop_methods = self._static_totals.get(
+                "total_direct_mop_methods", 0
+            )
         else:
-            self.logger.warning("Static totals not available, metrics may be inaccurate")
+            self.logger.warning(
+                "Static totals not available, metrics may be inaccurate"
+            )
 
         # Count errors
         metrics.total_errors = len(self.errors)
@@ -602,52 +616,64 @@ class LogcatRepository:
 
         return metrics
 
-    def calculate_coverage_metrics(self, cache_key: Optional[str] = None) -> Dict[str, Any]:
+    def calculate_coverage_metrics(
+        self, cache_key: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Calculate comprehensive coverage metrics.
-        
+
         Provides centralized implementation for coverage metrics calculation,
         eliminating duplication across CoverageAnalyzer and CoverageTracker.
         Calculates class and method coverage percentages with caching support.
-        
+
         Args:
             cache_key: Optional cache key for performance optimization
-            
+
         Returns:
             Dictionary containing all coverage metrics with standardized format
         """
         # Use existing calculate_metrics() for core logic
         metrics_obj = self.calculate_metrics()
         metrics_dict = metrics_obj.to_dict()
-        
+
         # Calculate coverage percentages
-        total_classes = metrics_dict.get('total_classes', 0)
-        covered_classes = metrics_dict.get('called_classes', 0)
-        total_methods = metrics_dict.get('total_methods', 0)
-        covered_methods = metrics_dict.get('called_methods', 0)
-        
-        class_coverage = (covered_classes / total_classes * 100) if total_classes > 0 else 0
-        method_coverage = (covered_methods / total_methods * 100) if total_methods > 0 else 0
-        
+        total_classes = metrics_dict.get("total_classes", 0)
+        covered_classes = metrics_dict.get("called_classes", 0)
+        total_methods = metrics_dict.get("total_methods", 0)
+        covered_methods = metrics_dict.get("called_methods", 0)
+
+        class_coverage = (
+            (covered_classes / total_classes * 100) if total_classes > 0 else 0
+        )
+        method_coverage = (
+            (covered_methods / total_methods * 100) if total_methods > 0 else 0
+        )
+
         return {
-            'total_classes': total_classes,
-            'covered_classes': covered_classes,
-            'class_coverage_percentage': class_coverage,
-            'total_methods': total_methods,
-            'covered_methods': covered_methods,
-            'method_coverage_percentage': method_coverage,
-            'total_activities': metrics_dict.get('total_activities', 0),
-            'called_activities': metrics_dict.get('called_activities', 0),
-            'activity_coverage_percentage': metrics_dict.get('activity_coverage', 0.0),
-            'total_mop_methods': metrics_dict.get('total_mop_methods', 0),
-            'called_mop_methods': metrics_dict.get('called_mop_methods', 0),
-            'mop_method_coverage_percentage': metrics_dict.get('mop_method_coverage', 0.0),
-            'total_direct_mop_methods': metrics_dict.get('total_direct_mop_methods', 0),
-            'called_direct_mop_methods': metrics_dict.get('called_direct_mop_methods', 0),
-            'direct_mop_method_coverage_percentage': metrics_dict.get('direct_mop_method_coverage', 0.0),
-            'total_errors': metrics_dict.get('total_errors', 0),
-            'unique_errors': metrics_dict.get('unique_errors', 0),
-            'timestamp': time.time()
+            "total_classes": total_classes,
+            "covered_classes": covered_classes,
+            "class_coverage_percentage": class_coverage,
+            "total_methods": total_methods,
+            "covered_methods": covered_methods,
+            "method_coverage_percentage": method_coverage,
+            "total_activities": metrics_dict.get("total_activities", 0),
+            "called_activities": metrics_dict.get("called_activities", 0),
+            "activity_coverage_percentage": metrics_dict.get("activity_coverage", 0.0),
+            "total_mop_methods": metrics_dict.get("total_mop_methods", 0),
+            "called_mop_methods": metrics_dict.get("called_mop_methods", 0),
+            "mop_method_coverage_percentage": metrics_dict.get(
+                "mop_method_coverage", 0.0
+            ),
+            "total_direct_mop_methods": metrics_dict.get("total_direct_mop_methods", 0),
+            "called_direct_mop_methods": metrics_dict.get(
+                "called_direct_mop_methods", 0
+            ),
+            "direct_mop_method_coverage_percentage": metrics_dict.get(
+                "direct_mop_method_coverage", 0.0
+            ),
+            "total_errors": metrics_dict.get("total_errors", 0),
+            "unique_errors": metrics_dict.get("unique_errors", 0),
+            "timestamp": time.time(),
         }
 
     def _calculate_static_totals(self) -> None:
@@ -658,7 +684,7 @@ class LogcatRepository:
             "total_methods": 0,
             "total_reachable_methods": 0,
             "total_mop_methods": 0,
-            "total_direct_mop_methods": 0
+            "total_direct_mop_methods": 0,
         }
 
         # Count all classes and methods from static analysis
@@ -697,10 +723,13 @@ class LogcatRepository:
             "class_count": len(self.classes),
             "activity_count": sum(1 for c in self.classes.values() if c.is_activity),
             "method_count": sum(len(c.methods) for c in self.classes.values()),
-            "called_method_count": sum(sum(1 for m in c.methods.values() if m.called) for c in self.classes.values()),
+            "called_method_count": sum(
+                sum(1 for m in c.methods.values() if m.called)
+                for c in self.classes.values()
+            ),
             "error_count": len(self.errors),
             "unique_error_count": len(self.unique_errors),
-            "static_totals": self._static_totals
+            "static_totals": self._static_totals,
         }
 
         # Check for common issues
@@ -728,71 +757,81 @@ class LogcatRepository:
 
         return {
             "metrics": metrics.to_dict(),
-            "classes": {name: class_data.to_dict() for name, class_data in self.classes.items()},
+            "classes": {
+                name: class_data.to_dict() for name, class_data in self.classes.items()
+            },
             "errors": {
                 "count": len(self.errors),
                 "unique_count": len(self.unique_errors),
-                "items": [error.to_dict() for error in self.errors]
-            }
+                "items": [error.to_dict() for error in self.errors],
+            },
         }
 
     def get_method_calls(self) -> List[Dict[str, Any]]:
         """
         Get all method calls as a list of dictionaries for export/reporting.
-        
+
         ### Critical Architecture Decision:
         This method provides the final data structure used by ResultManager to generate
         CSV reports. It returns ONE entry per method (based on first call time) to avoid
         duplicates in coverage.csv. The time_since_task_start from RvCoverageLog objects
         is correctly propagated to maintain accurate timing data throughout the complete
         data flow: RvCoverageLog -> MethodCoverageData -> CSV.
-        
+
         Returns:
             List of unique method call dictionaries sorted by first call time
         """
         method_calls = []
-        
+
         for class_name, class_data in self.classes.items():
             for signature, method_data in class_data.methods.items():
                 if method_data.called:
                     # CRITICAL: Use time_since_task_start preserved from RvCoverageLog
                     # Each method appears only ONCE based on its first call time
                     call_data = {
-                        'time': method_data.time_since_task_start,  # Time of FIRST call from RvCoverageLog
-                        'class_name': class_name,
-                        'method_name': method_data.method_name,
-                        'signature': signature,
-                        'is_mop_method': method_data.reaches_mop,
-                        'activity': class_name if class_data.is_activity else None,
-                        'call_count': method_data.call_count,
-                        'first_called_at': method_data.first_called_at.isoformat() if method_data.first_called_at else None,
-                        'last_called_at': method_data.last_called_at.isoformat() if method_data.last_called_at else None
+                        "time": method_data.time_since_task_start,  # Time of FIRST call from RvCoverageLog
+                        "class_name": class_name,
+                        "method_name": method_data.method_name,
+                        "signature": signature,
+                        "is_mop_method": method_data.reaches_mop,
+                        "activity": class_name if class_data.is_activity else None,
+                        "call_count": method_data.call_count,
+                        "first_called_at": (
+                            method_data.first_called_at.isoformat()
+                            if method_data.first_called_at
+                            else None
+                        ),
+                        "last_called_at": (
+                            method_data.last_called_at.isoformat()
+                            if method_data.last_called_at
+                            else None
+                        ),
                     }
                     method_calls.append(call_data)
-        
+
         # Sort method calls by time_since_task_start to maintain chronological order
         # This ensures progressive coverage calculation works correctly in CSV
-        return sorted(method_calls, key=lambda x: x['time'])
+        return sorted(method_calls, key=lambda x: x["time"])
 
     def get_errors(self) -> List[Dict[str, Any]]:
         """
         Get all monitored operations errors as a list of dictionaries for export/reporting.
-        
+
         ### Critical Architecture Decision:
         This method returns errors sorted by time_since_task_start to maintain chronological
         order in the errors.csv output, enabling proper temporal analysis of security violations.
-        
+
         Returns:
             List of error dictionaries sorted by occurrence time
         """
         error_dicts = [error.to_dict() for error in self.errors]
         # Sort by time_since_task_start to maintain chronological order in errors.csv
-        return sorted(error_dicts, key=lambda x: x.get('time_since_task_start', 0))
+        return sorted(error_dicts, key=lambda x: x.get("time_since_task_start", 0))
 
     def get_static_methods(self) -> List[str]:
         """
         Get all method signatures from static analysis.
-        
+
         Returns:
             List of method signatures
         """
@@ -804,16 +843,18 @@ class LogcatRepository:
     def get_static_activities(self) -> List[str]:
         """
         Get all activity class names from static analysis.
-        
+
         Returns:
             List of activity class names
         """
-        return [name for name, class_data in self.classes.items() if class_data.is_activity]
+        return [
+            name for name, class_data in self.classes.items() if class_data.is_activity
+        ]
 
     def get_mop_methods(self) -> List[str]:
         """
         Get all MOP-reachable method signatures from static analysis.
-        
+
         Returns:
             List of MOP-reachable method signatures
         """

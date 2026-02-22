@@ -30,11 +30,9 @@ Key Design Decisions:
 """
 
 import time
-from typing import Dict, Set, Optional, List, Any
 from dataclasses import dataclass
-from collections import defaultdict
+from typing import Any, Dict, List, Optional, Set
 
-from ..constants import RVAgentConstants
 from .element_id import make_element_id
 
 
@@ -195,19 +193,20 @@ class UICoverageTracker:
         x: int,
         y: int,
         screen_hash: Optional[str] = None,
-        max_distance: float = 100.0,
+        max_distance: float = 200.0,
     ) -> Optional[tuple]:
         """
-        Find the nearest registered element to given coordinates.
+        Find the nearest registered element to given coordinates in device space.
 
-        Used for matching LLM click coordinates to registered elements,
-        since LLM clicks may not be exactly at element centers.
+        Used for matching click coordinates to registered elements,
+        since clicks may not be exactly at element centers.
+        All coordinates are in device pixel space (INV-AGT-40).
 
         Args:
-            x: X coordinate of click
-            y: Y coordinate of click
+            x: X coordinate of click (device pixels)
+            y: Y coordinate of click (device pixels)
             screen_hash: Screen context (if provided, only searches that screen)
-            max_distance: Maximum distance to consider a match (default 100px)
+            max_distance: Maximum distance to consider a match (default 200px for 1080x1920)
 
         Returns:
             Tuple of (element_id, component_type, distance) or None if no match
@@ -488,8 +487,10 @@ class UICoverageTracker:
         """
         Register all elements from a ScreenDescription with their component types.
 
-        This enables tracking coverage by component type (Button, EditText, Spinner, etc.)
-        and is called during screen parsing to capture all discoverable elements.
+        Uses device-space coordinates (bounds center in device pixels) for element IDs
+        per INV-AGT-40. This enables tracking coverage by component type (Button,
+        EditText, Spinner, etc.) and is called during screen parsing to capture all
+        discoverable elements.
 
         Args:
             screen_hash: Hash of the screen state
