@@ -73,7 +73,10 @@ def _make_screen_desc(activity=".MainActivity", items=None):
             action.event.value = 1
             action.action_type = "click"
             action.text = f"Button {i}"
-            action.target_view = {"class": "android.widget.Button", "bounds": [[50 + i * 100, 450], [150 + i * 100, 550]]}
+            action.target_view = {
+                "class": "android.widget.Button",
+                "bounds": [[50 + i * 100, 450], [150 + i * 100, 550]],
+            }
             action.widget_id = f"btn_{i}"
             action.reaches_mop = False
             action.directly_reaches_mop = False
@@ -93,8 +96,8 @@ def _make_screen_desc(activity=".MainActivity", items=None):
 class TestTier3RestartFallback:
     """Tests for TIER3 no-path-plan → RESTART when saturated (task 12.5)."""
 
-    def test_tier3_returns_restart_when_saturated_and_no_path(self):
-        """When TIER3 all plans fail and state is saturated, return RESTART action."""
+    def test_tier3_falls_to_tier4_when_saturated_with_actions(self):
+        """When TIER3 all plans fail but actions exist, fall through to Tier 4 scored."""
         config = _make_config()
         graph = DynamicStateGraph()
         ui_coverage = UICoverageTracker()
@@ -104,9 +107,6 @@ class TestTier3RestartFallback:
             ui_coverage=ui_coverage,
             config=config,
         )
-
-        # Device-space signatures are used directly (INV-AGT-40, Group 14).
-        # No coordinate conversion needed.
 
         screen_desc = _make_screen_desc()
         hash_val = "saturated_state"
@@ -121,14 +121,47 @@ class TestTier3RestartFallback:
         # Ensure no path plans succeed
         strategy.path_buffer = MagicMock()
         strategy.path_buffer.is_active = False
+        strategy.path_buffer.is_cooling_down = False
         strategy.path_buffer.plan_coverage_path.return_value = False
         strategy.path_buffer.plan_mop_path.return_value = False
         strategy.path_buffer.plan_backtrack_path.return_value = False
 
-        # Ensure should_backtrack returns True (saturated)
         result = strategy.select_next_action(hash_val, screen_desc)
 
-        # The result should be a RESTART_APP action
+        # Falls through to Tier 4 scored selection (D8: no RESTART when actions exist)
+        assert result is not None
+
+    def test_tier3_returns_restart_when_saturated_and_no_actions(self):
+        """When TIER3 all plans fail and NO actions available, return RESTART."""
+        config = _make_config()
+        graph = DynamicStateGraph()
+        ui_coverage = UICoverageTracker()
+
+        strategy = RVAgentStrategy(
+            graph=graph,
+            ui_coverage=ui_coverage,
+            config=config,
+        )
+
+        # Empty screen — no actions
+        empty_desc = MagicMock()
+        empty_desc.activity = ".MainActivity"
+        empty_desc.items = []
+        empty_desc.get_all_actions.return_value = []
+        hash_val = "empty_saturated"
+
+        # Create an empty node (saturated because 0 actions = 100%)
+        node = graph.get_or_create_state(hash_val, ".MainActivity", empty_desc)
+
+        strategy.path_buffer = MagicMock()
+        strategy.path_buffer.is_active = False
+        strategy.path_buffer.is_cooling_down = False
+        strategy.path_buffer.plan_coverage_path.return_value = False
+        strategy.path_buffer.plan_mop_path.return_value = False
+        strategy.path_buffer.plan_backtrack_path.return_value = False
+
+        result = strategy.select_next_action(hash_val, empty_desc)
+
         assert result is not None
         assert result.text.startswith("RESTART_APP:")
 
@@ -313,7 +346,11 @@ class TestRestartPackageName:
         mock_action.event.name = "RESTART"
         mock_action.id = 999
         mock_action.text = "RESTART_APP:com.example.app"
-        mock_action.target_view = {"system_action": True, "class": "SystemAction_RESTART", "package_name": "com.example.app"}
+        mock_action.target_view = {
+            "system_action": True,
+            "class": "SystemAction_RESTART",
+            "package_name": "com.example.app",
+        }
         mock_action.coordinates = None
         mock_action.get_execution_coordinates.return_value = None
 

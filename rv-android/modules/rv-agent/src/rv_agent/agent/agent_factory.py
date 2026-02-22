@@ -117,7 +117,9 @@ class AgentFactory:
             logger.info("Using injected device interface")
 
         # Create dynamic state graph
-        dynamic_graph = DynamicStateGraph()
+        dynamic_graph = DynamicStateGraph(
+            multi_value_saturation_threshold=config.multi_value_saturation_threshold,
+        )
         logger.info("Created DynamicStateGraph")
 
         # Create transition manager (integrates WTG with dynamic graph)

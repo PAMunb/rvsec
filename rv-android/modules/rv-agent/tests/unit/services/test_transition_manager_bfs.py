@@ -72,6 +72,17 @@ def _make_transition_manager(windows, methods, transitions):
     return tm
 
 
+def _make_possible_action(widget_id, text="", coordinates=(100, 200)):
+    """Create a mock ItemAction for coordinate resolution tests."""
+    action = MagicMock()
+    action.widget_id = widget_id
+    action.text = text
+    action.coordinates = coordinates
+    action.target_view = {"class": "android.widget.Button"}
+    action.id = 1
+    return action
+
+
 class TestPlanPathToMopActivity:
     """Test BFS to find path to activity with MOP methods."""
 
@@ -96,13 +107,17 @@ class TestPlanPathToMopActivity:
         ]
 
         tm = _make_transition_manager([win_a, win_b], methods, transitions)
+        possible_actions = [_make_possible_action("btn1", coordinates=(200, 300))]
 
-        result = tm.plan_path_to_mop_activity("com.example.ActivityA", None)
+        result = tm.plan_path_to_mop_activity(
+            "com.example.ActivityA", None, possible_actions=possible_actions
+        )
 
         assert result is not None
         assert len(result) == 1
         assert result[0]["widget_id"] == "btn1"
         assert result[0]["reaches_mop"] is True
+        assert result[0]["coordinates"] == (200, 300)
 
     def test_two_hop_path_to_mop(self):
         """MOP activity is 2 hops away via intermediate window."""
@@ -132,8 +147,15 @@ class TestPlanPathToMopActivity:
         ]
 
         tm = _make_transition_manager([win_a, win_b, win_c], methods, transitions)
+        # Both btn1 and btn2 must be resolvable on the current screen
+        possible_actions = [
+            _make_possible_action("btn1", coordinates=(100, 200)),
+            _make_possible_action("btn2", coordinates=(300, 400)),
+        ]
 
-        result = tm.plan_path_to_mop_activity("com.example.ActivityA", None)
+        result = tm.plan_path_to_mop_activity(
+            "com.example.ActivityA", None, possible_actions=possible_actions
+        )
 
         assert result is not None
         assert len(result) == 2
@@ -200,8 +222,14 @@ class TestPlanPathToMopActivity:
         ]
 
         tm = _make_transition_manager([win_a, win_b, win_c], methods, transitions)
+        possible_actions = [
+            _make_possible_action("btn_b", coordinates=(100, 200)),
+            _make_possible_action("btn_c", coordinates=(300, 400)),
+        ]
 
-        result = tm.plan_path_to_mop_activity("com.example.ActivityA", None)
+        result = tm.plan_path_to_mop_activity(
+            "com.example.ActivityA", None, possible_actions=possible_actions
+        )
 
         assert result is not None
         assert len(result) == 1
@@ -242,6 +270,97 @@ class TestPlanPathToMopActivity:
         result = tm.plan_path_to_mop_activity("com.example.ActivityA", None)
 
         assert result is None
+
+    def test_unresolvable_without_possible_actions(self):
+        """Returns None when MOP path exists but no possible_actions for resolution."""
+        win_a = _make_window("w1", "ActivityA", activity="com.example.ActivityA")
+        win_b = _make_window("w2", "ActivityB", activity="com.example.ActivityB")
+
+        methods = {
+            "com.example.ActivityB.doEncrypt": _make_method(
+                "com.example.ActivityB", "doEncrypt", reaches_mop=True
+            ),
+        }
+
+        transitions = [
+            {
+                "source": "w1",
+                "target": "w2",
+                "widget_id": "btn1",
+                "event_type": "click",
+            },
+        ]
+
+        tm = _make_transition_manager([win_a, win_b], methods, transitions)
+
+        # No possible_actions → can't resolve coordinates → returns None
+        result = tm.plan_path_to_mop_activity("com.example.ActivityA", None)
+        assert result is None
+
+    def test_unresolvable_widget_id_mismatch(self):
+        """Returns None when widget_id doesn't match any possible action."""
+        win_a = _make_window("w1", "ActivityA", activity="com.example.ActivityA")
+        win_b = _make_window("w2", "ActivityB", activity="com.example.ActivityB")
+
+        methods = {
+            "com.example.ActivityB.doEncrypt": _make_method(
+                "com.example.ActivityB", "doEncrypt", reaches_mop=True
+            ),
+        }
+
+        transitions = [
+            {
+                "source": "w1",
+                "target": "w2",
+                "widget_id": "btn_settings",
+                "event_type": "click",
+            },
+        ]
+
+        tm = _make_transition_manager([win_a, win_b], methods, transitions)
+        # possible_actions has different widget_id and text doesn't match
+        possible_actions = [
+            _make_possible_action("other_btn", text="Home", coordinates=(100, 200))
+        ]
+
+        result = tm.plan_path_to_mop_activity(
+            "com.example.ActivityA", None, possible_actions=possible_actions
+        )
+        assert result is None
+
+    def test_resolves_via_activity_name_in_text(self):
+        """Resolves WTG action via target activity simple name in action text."""
+        win_a = _make_window("w1", "ActivityA", activity="com.example.ActivityA")
+        win_b = _make_window("w2", "ActivityB", activity="com.example.EncryptActivity")
+
+        methods = {
+            "com.example.EncryptActivity.doEncrypt": _make_method(
+                "com.example.EncryptActivity", "doEncrypt", reaches_mop=True
+            ),
+        }
+
+        transitions = [
+            {
+                "source": "w1",
+                "target": "w2",
+                "widget_id": "unknown_widget",
+                "event_type": "click",
+            },
+        ]
+
+        tm = _make_transition_manager([win_a, win_b], methods, transitions)
+        # Text contains "encryptactivity" (case-insensitive match)
+        possible_actions = [
+            _make_possible_action(
+                "btn_encrypt", text="Open EncryptActivity", coordinates=(500, 600)
+            )
+        ]
+
+        result = tm.plan_path_to_mop_activity(
+            "com.example.ActivityA", None, possible_actions=possible_actions
+        )
+        assert result is not None
+        assert result[0]["coordinates"] == (500, 600)
 
 
 class TestCountMopMethodsForActivity:

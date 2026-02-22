@@ -301,6 +301,58 @@ The optimized resolution (704×1248) is ONLY for screenshot image compression (f
 
 **Rationale**: Device space is the natural coordinate system — UIAutomator XML reports bounds in device pixels, device actions execute in device pixels, and there is no lossy conversion. Using device space everywhere eliminates all conversion functions (except at the two LLM boundary points) and makes signature matching trivially correct. The optimized dimension concept was an artifact of the assumption that Qwen3-VL coordinates depended on image size — they don't (always [0,1000) regardless of resolution, confirmed by Qwen3-VL documentation and empirical validation).
 
+### D8: Saturation calculation -- fix double recording, system action inflation, and Tier 3 loop
+
+**Decision**: Four targeted fixes to the saturation mechanism and Tier 3 fallthrough behavior.
+
+**Problem (discovered during validation experiment with CryptoApp, 10min timeout):**
+
+The agent enters an infinite RESTART loop after ~32 iterations. Root cause analysis reveals four compounding bugs:
+
+1. **Double recording inflates execution counts.** Every action is recorded twice in `ScreenNode.action_execution_counts`: once by `rvagent_strategy.py:577` (pre-mark before execution) and once by `memory_coordinator._update_dynamic_graph():370` (post-execution via `learn_node` → `update_memories`). Since `is_action_saturated()` uses `threshold=2`, a single execution produces `count=2`, immediately marking the action as saturated. A screen with 3 widgets (Spinner + EditText + Button) reaches 100% saturation after executing each widget once.
+
+2. **System actions inflate the saturation numerator.** `get_saturation_rate()` iterates over ALL `executed_actions` (including BACK/RESTART with signature `((0,0), type)`), but `total_actions` (denominator) correctly excludes system actions (fix from Group 1.7, commit `445d0a6e`). With 3 real actions + BACK executed 2x: `saturated_count=4`, `total_actions=3`, `min(1.0, 4/3) = 1.0`. The comment on lines 143-145 acknowledges this capping but does not fix the inflation.
+
+3. **Tier 3 PathBuffer returns inexecutable WTG actions.** When saturation triggers proactive backtrack, `plan_mop_path()` returns a WTG transition (abstract edge) with no real coordinates. `algorithm_node` fails with "Failed to get coordinates from ItemAction", routing falls back to BACK → launcher → RESTART → same saturated screen → infinite loop. Tier 4 (scored/stochastic) is never reached because Tier 3 "succeeds" (plans a path that cannot execute).
+
+4. **Saturation ignores interaction combinations.** A screen like CryptoApp's "Message Digest" has Spinner (5 algorithm options) + EditText (text to hash) + Button (GENERATE HASH). Proper testing requires combinations: MD5 + "test1" + GENERATE, SHA-256 + "secret" + GENERATE, etc. (at least 15 sequences). But saturation counts each widget as a binary tested/untested unit: 3/3 = 100%. The `max_input_variations` config exists but only affects `InputValueGenerator.has_remaining_values()` — it does not participate in saturation.
+
+**Evidence from validation experiment (CryptoApp, 607s, 59 iterations):**
+- State `8de3b145` (MainActivity): `Total actions: 6, Executed: 9, Saturation: 100%`
+- 26 of 52 interactions (50%) were BACK — wasted on the restart loop
+- UI coverage: 33.3% (25/75 elements tested) while saturation said 100% per-screen
+- Only 1 of 38 TextViews tested (2.6%)
+
+**Fixes:**
+
+| Bug | Fix | Location |
+|-----|-----|----------|
+| Double recording | Remove `record_action` from `memory_coordinator._update_dynamic_graph()`. The pre-mark in `rvagent_strategy.py:577` (algorithm) and `execute_node.py:148` (LLM) already guarantee recording. The memory coordinator should only trace the action (`record_action_to_trace`), not re-record it in the graph. | `memory_coordinator.py` |
+| System action inflation | Filter system-action signatures (`((0,0), *)` where action_type is "back", "restart", or "unknown") from the `get_saturation_rate()` numerator. Only count signatures that correspond to real UI widgets. | `screen_node.py` |
+| Tier 3 loop | When `algorithm_node` fails to execute a PathBuffer action (no coordinates or widget not found), call `path_buffer.invalidate()` so that the next call to `select_next_action()` falls through to Tier 4 instead of retrying the same failed path. | `algorithm_node.py` |
+| Saturation ignores combinations | Widget-aware saturation thresholds. Each action signature is classified by its Android widget type (extracted from `target_view["class"]` in the action dict). Multi-value widgets (EditText, Spinner, SeekBar, etc.) require more executions before saturation than single-action widgets (Button, ImageButton). A configurable `multi_value_saturation_threshold` parameter (default=4, calibrated via gh9) controls the threshold for multi-value widgets, while `DEFAULT_SATURATION_THRESHOLD=2` applies to all others. ScreenNode stores the widget class per action signature and `get_saturation_rate()` uses per-widget thresholds. | `screen_node.py`, `dynamic_state_graph.py`, `agent_config.py` |
+
+**Alternatives considered:**
+- Replace saturation entirely with UI coverage gap: would require significant redesign of the backtracking mechanism. Riskier than fixing the immediate bugs. Better addressed after validating that the four fixes resolve the restart loop.
+- Increase saturation threshold from 0.8 to 0.95: masks the double-recording bug rather than fixing it. With correct single-recording and system-action filtering, the threshold of 0.8 should work as designed.
+- Add PathBuffer retry limit instead of immediate invalidation: adds complexity (how many retries? what counts as a failure?) for no clear benefit. A failed action with no coordinates will fail every time — immediate invalidation is the correct response.
+
+**Widget classification for multi-value saturation:**
+
+Multi-value widgets can receive different inputs/selections on each interaction, so they need more executions before being considered "saturated." The classification uses the simple class name (after the last `.`) from the Android widget class hierarchy:
+
+| Category | Widget classes | Threshold | Rationale |
+|----------|---------------|-----------|-----------|
+| Text input | `EditText`, `TextInputEditText`, `AppCompatEditText`, `AutoCompleteTextView`, `AppCompatAutoCompleteTextView`, `MultiAutoCompleteTextView` | `multi_value_saturation_threshold` (default 4) | Each interaction can use different text input |
+| Selection | `Spinner`, `AppCompatSpinner` | `multi_value_saturation_threshold` (default 4) | Multiple items to select from dropdown |
+| Continuous range | `SeekBar`, `AppCompatSeekBar`, `RatingBar`, `AppCompatRatingBar` | `multi_value_saturation_threshold` (default 4) | Range of positions to try |
+| Numeric | `NumberPicker` | `multi_value_saturation_threshold` (default 4) | Multiple numeric values |
+| Default | `Button`, `CheckBox`, `Switch`, `ToggleButton`, `ImageButton`, all others | `DEFAULT_SATURATION_THRESHOLD` (2) | Same action every time or only 2 states |
+
+The `multi_value_saturation_threshold` is a calibration parameter in `RVAgentConfig` (default=4, range [2, 8]) for tuning in gh9.
+
+**Rationale**: These fixes correct three implementation bugs (double recording, numerator inflation, Tier 3 loop) and one design gap (uniform saturation threshold ignoring widget diversity). The widget-aware threshold prevents premature saturation on screens with text inputs, spinners, and sliders, ensuring the agent explores diverse input combinations before backtracking. The threshold is configurable for calibration (gh9).
+
 ## API Design
 
 ### PathBuffer
@@ -1375,3 +1427,64 @@ This experiment uses **default parameter values** (the 6 new config fields at th
 4. **Reward propagation for error recovery actions**: gh18's error recovery actions (SET_TEXT/CLICK with `decision_maker="error_recovery"`) should participate in reward propagation -- if an error recovery SET_TEXT leads to a successful MOP trigger, that reward should propagate back through the error recovery sequence. The implementation must include error recovery actions in the action history, not filter them out.
 
 5. **CoverageDensityScorer cold start transition threshold**: The scorer returns exploration bonuses (weight * 0.5) for unknown destinations during early exploration. When exactly should it transition from exploration-bonus-dominated to learned-data-dominated scoring? The current design uses "fewer than 3 screens" as the cold start threshold for Strategy C's `plan_coverage_path()`. For the scorer itself, the transition is implicit — as more destinations become known, the exploration bonus fraction decreases naturally. gh9 calibration may reveal a need for an explicit cold start threshold parameter.
+
+## Post-Validation Bug Analysis
+
+After completing Groups 1-17 and running a 10-minute validation experiment (CryptoApp, rvagent:pure_algorithm, 1 rep, 72 iterations), trace analysis revealed 4 production bugs that severely limit exploration effectiveness.
+
+### Experiment Setup and Results
+
+| Metric | Value |
+|--------|-------|
+| App | CryptoApp (br.unb.cic.cryptoapp) |
+| Mode | pure_algorithm |
+| Duration | 10 min (608s wall-clock) |
+| Iterations | 72 |
+| Unique states | 13 |
+| Activities | 4 (100%) |
+| Wasted iterations (loops) | 27 (37.5%) |
+| UI coverage | 37% (30/81 elements) |
+| States with 0% saturation | 12 of 13 |
+| WTG path plans attempted | 19, ALL failed (0% success) |
+| Tier distribution | Tier 2: 49, Tier 3: 19 (all wasted), Tier 4: 3, Stuck: 1 |
+
+### Bug 1 (CRITICAL): WTG path action coordinates unresolvable
+
+**Impact**: 19 iterations wasted (26.4%), ~303 seconds (~50% wall-clock time). Infinite loop: plan MOP path -> action has coords=(0,0) -> can't extract coordinates -> fallback BACK -> launcher -> restart -> same state -> plan same broken path.
+
+**Root cause**: `TransitionManager.plan_path_to_mop_activity()` creates action dicts with `"coordinates": None` and `"target_view": {}`. WTG transitions are graph-level edges (window A -> B via widget_id) -- they carry no screen coordinates. `PathBuffer._action_dict_to_item_action()` converts these to `ItemAction(id=0, coordinates=None)`. When `algorithm_node` calls `get_execution_coordinates()` -> None -> error -> BACK fallback. The existing `invalidate_current_path()` call (Group 16.3 fix) only invalidates the CURRENT path, but after `PLAN_COOLDOWN_AFTER_FAILURE=3` iterations, Tier 3 re-plans the SAME broken path.
+
+**Fix**: `plan_path_to_mop_activity()` must resolve the WTG widget_id to a real on-screen ItemAction with valid coordinates by matching against current screen `possible_actions`. If no match found, mark the WTG edge as unresolvable and skip it. Add a permanent failure cache to prevent re-planning the same broken path. Validate that action dicts have coordinates in `_action_dict_to_item_action()` before creating ItemAction.
+
+### Bug 2 (HIGH): Successor tracker self-loop re-enablement
+
+**Impact**: 8 iterations wasted (11%) on RadioButton re-enable loop on CryptographyActivity.
+
+**Root cause**: `successor_tracker.record_successor(S, action, S)` creates a self-loop when action doesn't change state. `update_action_availability(S)` then checks: successor S has low UI coverage? -> re-enable the action. But the action leads back to S (same screen) -- re-executing it will never reach the low-coverage elements. This repeats up to `max_re_enables=6` times.
+
+**Fix**: In `record_successor()`, skip recording when `from_hash == to_hash`. Self-loop transitions provide zero exploration benefit and pollute the re-enable mechanism. 2-line fix.
+
+### Bug 3 (MEDIUM): BACK/RESTART outscore real widgets in Tier 4
+
+**Impact**: Agent abandons screens prematurely. State 31d70f80 (MessageDigestActivity, 14 elements) got 1 visit and was immediately abandoned.
+
+**Root cause**: Accumulation from multiple scorers gives BACK combined score ~355-380 vs real widgets ~105. CoverageDensityScorer gives BACK unknown-destination bonus (weight*0.5 = 100), GradualDecayScorer gives fresh decay score up to 200 (BACK element_id resets across iterations), StrengthScorer gives high success rate ~50. Real explored widgets score near 0 on all these.
+
+**Fix**: Exclude system actions (BACK, RESTART) from Tier 4 scored selection. Tier 4's purpose is continuous exploration of real UI widgets. BACK is already the Tier 5 fallback. Filter actions where `target_view.get("system_action")` is True before scoring.
+
+### Bug 4 (LOW): widget_class not populated for LLM actions
+
+**Impact**: In multimode/llm_only modes, `_effective_threshold()` always returns DEFAULT=2, making Group 17 widget-aware saturation ineffective. NOT triggered in pure_algorithm mode.
+
+**Root cause**: LLM action dicts from `ActionNormalizer.from_llm()` have no `target_view` key. `execute_node.py:148` tries `action.get("target_view", {}).get("class", "")` -> always `""`.
+
+**Fix**: In execute_node LLM pre-mark, resolve widget_class from `state.get("current_item_action")` -- the matched ItemAction from validation_node carries the correct `target_view` with class info.
+
+### Architecture Impact
+
+No topology changes to the architecture diagram. All fixes are behavioral corrections within existing components:
+- TransitionManager: coordinate resolution within `plan_path_to_mop_activity()`
+- PathBuffer: validation in `_action_dict_to_item_action()`, failure cache
+- SuccessorTracker: guard in `record_successor()`
+- RVAgentStrategy: filter in `_select_with_score_decay()`
+- execute_node: widget_class resolution from matched ItemAction

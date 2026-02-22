@@ -145,13 +145,22 @@ class DynamicStateGraph:
     - Supports structural state identification
     """
 
-    def __init__(self):
+    def __init__(self, multi_value_saturation_threshold: int = 4):
+        """
+        Initialize DynamicStateGraph.
+
+        Args:
+            multi_value_saturation_threshold: Saturation threshold for multi-value
+                widgets (EditText, Spinner, SeekBar). Passed from RVAgentConfig to
+                each ScreenNode created by get_or_create_state().
+        """
         self.states: Dict[str, ScreenNode] = {}
         # Chronological list of all transitions. Audit-only — used for post-run
         # reporting and analysis. Not queried for navigation decisions; see
         # SuccessorTracker.successors for O(1) navigation lookups.
         self.transitions: List[Transition] = []
         self.current_trace: List[Dict[str, Any]] = []
+        self._multi_value_threshold = multi_value_saturation_threshold
 
     def get_or_create_state(
         self, screen_hash: str, activity: str, screen_desc: ScreenDescription
@@ -190,13 +199,17 @@ class DynamicStateGraph:
             activity=activity,
             visit_count=1,
             total_actions=total_actions,
+            multi_value_threshold=self._multi_value_threshold,
         )
 
         self.states[screen_hash] = node
         return node
 
     def record_action(
-        self, screen_hash: str, action_signature: Tuple[Tuple[int, int], str]
+        self,
+        screen_hash: str,
+        action_signature: Tuple[Tuple[int, int], str],
+        widget_class: str = "",
     ):
         """
         Record action execution on a screen by signature (coordinates + type).
@@ -204,22 +217,24 @@ class DynamicStateGraph:
         Args:
             screen_hash: Hash of current screen
             action_signature: ((x, y), action_type) tuple identifying the action
+            widget_class: Android widget class (e.g., "android.widget.EditText").
+                Used for per-widget saturation thresholds (D8).
         """
         if screen_hash in self.states:
             node = self.states[screen_hash]
             logger.info(
-                f"🔒 GRAPH: Recording action signature={action_signature} on state {screen_hash[:8]}"
+                f"GRAPH: Recording action signature={action_signature} on state {screen_hash[:8]}"
             )
             logger.info(
                 f"   BEFORE: executed_actions = {sorted(node.executed_actions)}"
             )
-            self.states[screen_hash].record_action(action_signature)
+            node.record_action(action_signature, widget_class=widget_class)
             logger.info(
                 f"   AFTER:  executed_actions = {sorted(node.executed_actions)}"
             )
         else:
             logger.warning(
-                f"⚠️  GRAPH: Cannot record action signature={action_signature} - state {screen_hash[:8]} not found!"
+                f"GRAPH: Cannot record action signature={action_signature} - state {screen_hash[:8]} not found!"
             )
             logger.warning(
                 f"   Available states: {[h[:8] for h in self.states.keys()]}"

@@ -25,7 +25,11 @@ def _make_path_buffer(
     if successor_tracker is None:
         successor_tracker = MagicMock()
         successor_tracker.graph = MagicMock()
-        successor_tracker.graph.states = {"s1": MagicMock(), "s2": MagicMock(), "s3": MagicMock()}
+        successor_tracker.graph.states = {
+            "s1": MagicMock(),
+            "s2": MagicMock(),
+            "s3": MagicMock(),
+        }
         successor_tracker.back_successors = {}
     if ui_coverage_tracker is None:
         ui_coverage_tracker = MagicMock()
@@ -96,7 +100,11 @@ class TestInvalidateCurrentPath:
         successor_tracker = MagicMock()
         successor_tracker.find_nearest_unsaturated.return_value = ("target_hash", 2)
         successor_tracker.graph = MagicMock()
-        successor_tracker.graph.states = {"s1": MagicMock(), "s2": MagicMock(), "s3": MagicMock()}
+        successor_tracker.graph.states = {
+            "s1": MagicMock(),
+            "s2": MagicMock(),
+            "s3": MagicMock(),
+        }
 
         pb = _make_path_buffer(successor_tracker=successor_tracker)
 

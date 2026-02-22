@@ -47,35 +47,6 @@ class MemoryCoordinator:
     - Provides summaries to LLMClient for context construction
     """
 
-    # Action type mapping from execution to internal format
-    # Supports both uppercase (from execution) and lowercase (from tool results)
-    ACTION_TYPE_MAPPING = {
-        # Uppercase format (from execution/ToolExecutor)
-        "CLICK": "click",
-        "LONG_CLICK": "long_click",
-        "SET_TEXT": "set_text",
-        "SWIPE": "swipe",
-        "SCROLL": "scroll",
-        "SCROLL_UP": "scroll_up",
-        "SCROLL_DOWN": "scroll_down",
-        "SCROLL_LEFT": "scroll_left",
-        "SCROLL_RIGHT": "scroll_right",
-        "BACK": "key_event",
-        "SYSTEM_BACK": "key_event",
-        "HOME": "key_event",
-        "PRESS_ENTER": "key_event",
-        "UNKNOWN": "unknown",
-        # Lowercase format (from LLM tool results)
-        "click": "click",
-        "long_click": "long_click",
-        "set_text": "set_text",
-        "swipe": "swipe",
-        "scroll": "scroll",
-        "back": "key_event",
-        "home": "key_event",
-        "press_enter": "key_event",
-    }
-
     def __init__(
         self,
         dynamic_graph: DynamicStateGraph,
@@ -328,47 +299,15 @@ class MemoryCoordinator:
             f"Updated graph state: {screen_hash[:8]} (visits: {node.visit_count})"
         )
 
-        # Add action to trace
+        # Add action to trace (chronological log for transition history).
+        # NOTE: Do NOT call dynamic_graph.record_action() here — the action is
+        # already pre-marked by rvagent_strategy.py:577 (algorithm path) or
+        # execute_node.py:148 (LLM path). Recording it again would double the
+        # execution count, causing premature saturation (D8 in design.md).
         if action:
             self.dynamic_graph.record_action_to_trace(action)
             self.logger.debug(
                 f"Added to trace (total: {len(self.dynamic_graph.current_trace)})"
-            )
-
-            # Record action execution with signature
-            # Extract coordinates - try llm_coords first (from LLM tools), then x/y
-            if "llm_coords" in action and isinstance(action["llm_coords"], tuple):
-                action_coords = action["llm_coords"]
-            else:
-                action_coords = (action.get("x", 0), action.get("y", 0))
-
-            action_type_raw = action.get("action_type", "UNKNOWN")
-            action_type = self.ACTION_TYPE_MAPPING.get(action_type_raw, "unknown")
-
-            action_signature = (action_coords, action_type)
-            action_id = action.get("id", "unknown")
-
-            # Enhanced logging for better visibility
-            if action_type in (
-                "swipe",
-                "scroll",
-                "scroll_up",
-                "scroll_down",
-                "scroll_left",
-                "scroll_right",
-            ):
-                direction = action.get("direction", "unknown")
-                self.logger.info(
-                    f"↔️ SCROLL/SWIPE: {action_type} direction={direction} "
-                    f"signature={action_signature} ID={action_id}"
-                )
-            else:
-                self.logger.debug(
-                    f"Recording action: ID={action_id} signature={action_signature}"
-                )
-
-            self.dynamic_graph.record_action(
-                screen_hash=screen_hash, action_signature=action_signature
             )
 
     def _update_short_term(

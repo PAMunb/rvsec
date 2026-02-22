@@ -76,8 +76,7 @@ class TestRestartAppDismissesDialogs:
         ]
         # Filter to only the relevant calls (ignoring sleep, logger, etc.)
         actual_calls = [
-            c for c in device.method_calls
-            if c[0] in ("back", "stop_app", "start_app")
+            c for c in device.method_calls if c[0] in ("back", "stop_app", "start_app")
         ]
         assert actual_calls == expected_calls
 

@@ -145,7 +145,19 @@ def execute_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         x, y = coords
         if x is not None and y is not None:
             action_sig = ((x, y), action_type)
-            agent.dynamic_graph.record_action(screen_hash, action_sig)
+            # Resolve widget_class from the matched ItemAction (set by
+            # validation_node) which carries the real target_view with class.
+            # LLM action dicts have no target_view, so without this the
+            # widget_class is always "" and widget-aware saturation (Group 17)
+            # falls back to DEFAULT_SATURATION_THRESHOLD for all widgets.
+            matched_item = state.get("current_item_action")
+            if matched_item and getattr(matched_item, "target_view", None):
+                llm_widget_class = matched_item.target_view.get("class", "")
+            else:
+                llm_widget_class = action.get("target_view", {}).get("class", "")
+            agent.dynamic_graph.record_action(
+                screen_hash, action_sig, widget_class=llm_widget_class
+            )
 
     result = agent.tool_executor.execute_action(action)
 

@@ -373,7 +373,7 @@ class RVAgentStrategy(ExplorationStrategy):
         all_filtered_actions = self._get_all_filtered_actions(screen_desc)
 
         # Track saturation metrics
-        saturation_rate = node.get_saturation_rate(threshold=2)
+        saturation_rate = node.get_saturation_rate()
         track.saturation(
             iter=self._current_iteration,
             state_hash=current_hash,
@@ -442,11 +442,14 @@ class RVAgentStrategy(ExplorationStrategy):
         elif self.should_backtrack(current_hash):
             # TIER 3 - PROACTIVE BACKTRACKING: saturation >= threshold
             # Try planning paths: coverage > MOP > backtrack (C > B > A)
-            if not self.path_buffer.is_active:
+            # Skip planning if cooling down after a resolution failure (D8)
+            if not self.path_buffer.is_active and not self.path_buffer.is_cooling_down:
                 planned = (
                     self.path_buffer.plan_coverage_path(current_hash)
                     or self.path_buffer.plan_mop_path(
-                        screen_desc.activity, self._get_mop_data()
+                        screen_desc.activity,
+                        self._get_mop_data(),
+                        possible_actions=list(screen_desc.get_all_actions()),
                     )
                     or self.path_buffer.plan_backtrack_path(current_hash)
                 )
@@ -463,21 +466,27 @@ class RVAgentStrategy(ExplorationStrategy):
                         logger.info("RVAgent TIER3: Using path buffer action")
 
             if not selected_action:
-                # All path plans failed — force RESTART to break out of oscillation
-                # between fully-explored states (task 12.5). TIER3 is only entered
-                # when should_backtrack() returns True (saturation >= threshold),
-                # so we know the state is saturated here.
-                logger.info(
-                    f"RVAgent TIER3: Saturation {saturation_rate:.1%} >= threshold, "
-                    f"no path plan — forcing RESTART to escape saturated state"
-                )
-                track.strategy(
-                    iter=self._current_iteration,
-                    mode="tier3_restart",
-                    action_type="RESTART_APP",
-                    reason="saturated_no_path",
-                )
-                return self._create_restart_action()
+                if all_filtered_actions:
+                    # Path plans failed or cooling down — fall through to Tier 4
+                    # instead of forcing RESTART (D8). Tier 4 uses score decay to
+                    # select the least-explored action on the current screen.
+                    logger.info(
+                        f"RVAgent TIER3: Saturation {saturation_rate:.1%} >= threshold, "
+                        f"no path plan — falling through to Tier 4"
+                    )
+                else:
+                    # No actions available at all — RESTART is the only option
+                    logger.info(
+                        f"RVAgent TIER3: Saturation {saturation_rate:.1%} >= threshold, "
+                        f"no path plan and no actions — forcing RESTART"
+                    )
+                    track.strategy(
+                        iter=self._current_iteration,
+                        mode="tier3_restart",
+                        action_type="RESTART_APP",
+                        reason="saturated_no_path_no_actions",
+                    )
+                    return self._create_restart_action()
 
         if not selected_action and all_filtered_actions:
             # TIER 4 - SCORED CONTINUOUS: All visible actions tested
@@ -532,9 +541,15 @@ class RVAgentStrategy(ExplorationStrategy):
             if not selected_action:
                 # Value exhausted - mark action as executed to prevent re-selection
                 # Action signatures use device-space coordinates (INV-AGT-40)
+                widget_cls = (
+                    original_action.target_view.get("class", "")
+                    if original_action.target_view
+                    else ""
+                )
                 self.graph.record_action(
                     screen_hash=current_hash,
                     action_signature=original_action.coords_for_matching,
+                    widget_class=widget_cls,
                 )
                 # Also mark in UI coverage tracker now that all variations are tested
                 element_id = original_action.widget_id or make_element_id_from_tuple(
@@ -574,9 +589,15 @@ class RVAgentStrategy(ExplorationStrategy):
         # (step 6), because we want to test multiple values (e.g., "test", "123", "@#$").
         if selected_action.event != WidgetEventType.TEXT_CHANGE:
             # Pre-mark uses device-space coordinates (INV-AGT-40)
+            premark_widget_cls = (
+                selected_action.target_view.get("class", "")
+                if selected_action.target_view
+                else ""
+            )
             self.graph.record_action(
                 screen_hash=current_hash,
                 action_signature=selected_action.coords_for_matching,
+                widget_class=premark_widget_cls,
             )
 
         # NOTE: UI coverage tracking is now unified in execute_node.py (post-execution)
@@ -655,7 +676,7 @@ class RVAgentStrategy(ExplorationStrategy):
             return False
 
         # Check saturation against threshold
-        saturation = node.get_saturation_rate(threshold=2)
+        saturation = node.get_saturation_rate()
         should = saturation >= self.config.backtrack_saturation_threshold
 
         if should:
@@ -939,13 +960,24 @@ class RVAgentStrategy(ExplorationStrategy):
         if not actions:
             return None
 
+        # Filter out system actions (BACK, RESTART) from Tier 4.
+        # Tier 4 explores real UI widgets; BACK is the Tier 5 fallback.
+        # System actions accumulate inflated scores from CoverageDensityScorer
+        # (unknown destination bonus), GradualDecayScorer (fresh decay), and
+        # StrengthScorer (high success rate), outscoring real widgets.
+        real_actions = [
+            a for a in actions if not (a.target_view or {}).get("system_action")
+        ]
+        if not real_actions:
+            return None
+
         context = self._build_ranking_context(screen_desc)
         context.has_untested_inputs = False  # Tier 4 semantics
 
         best_action = None
         best_decayed_score = float("-inf")
 
-        for action in actions:
+        for action in real_actions:
             base_score = self.action_ranker.score_action(action, context)
             # Action signatures use device-space coordinates (INV-AGT-40)
             exec_count = node.get_action_execution_count(action.coords_for_matching)

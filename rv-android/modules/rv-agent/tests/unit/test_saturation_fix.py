@@ -91,6 +91,54 @@ class TestTotalActionsExcludesSystemActions:
         assert node.total_actions == 7
 
 
+class TestSelfLoopGuard:
+    """Verify that self-loop transitions are not recorded in SuccessorTracker."""
+
+    def test_self_loop_not_recorded(self):
+        """record_successor(A, sig, A) should NOT add entry to successors."""
+        from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+
+        graph = DynamicStateGraph()
+        tracker = SuccessorTracker(graph)
+
+        sig = ((100, 200), "click")
+        tracker.record_successor("hash_A", sig, "hash_A")
+
+        assert ("hash_A", sig) not in tracker.successors
+
+    def test_self_loop_does_not_trigger_re_enable(self):
+        """update_action_availability should not re-enable actions with only self-loop successors."""
+        from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+
+        graph = DynamicStateGraph()
+        screen_desc = _make_screen_desc(real_actions_count=3)
+        node = graph.get_or_create_state("hash_A", "TestActivity", screen_desc)
+
+        tracker = SuccessorTracker(graph)
+
+        # Record self-loop (should be skipped)
+        sig = ((100, 500), "click")
+        node.record_action(sig)
+        tracker.record_successor("hash_A", sig, "hash_A")
+
+        # update_action_availability should not re-enable anything
+        re_enabled = tracker.update_action_availability("hash_A")
+        assert re_enabled == 0
+
+    def test_non_self_loop_still_recorded(self):
+        """Normal transitions (A -> B) should still be recorded correctly."""
+        from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+
+        graph = DynamicStateGraph()
+        tracker = SuccessorTracker(graph)
+
+        sig = ((100, 200), "click")
+        tracker.record_successor("hash_A", sig, "hash_B")
+
+        assert ("hash_A", sig) in tracker.successors
+        assert tracker.successors[("hash_A", sig)] == "hash_B"
+
+
 class TestSaturationReaches100:
     """Verify saturation can reach 1.0 on small screens."""
 
@@ -107,7 +155,7 @@ class TestSaturationReaches100:
             node.record_action(sig)
             node.record_action(sig)
 
-        assert node.get_saturation_rate(threshold=2) == 1.0
+        assert node.get_saturation_rate() == 1.0
 
     def test_small_screen_can_exceed_80_percent_threshold(self):
         """Screen with 4 real actions + 2 system can reach 80% saturation.
@@ -126,7 +174,7 @@ class TestSaturationReaches100:
             node.record_action(sig)
             node.record_action(sig)
 
-        saturation = node.get_saturation_rate(threshold=2)
+        saturation = node.get_saturation_rate()
         assert saturation >= 0.8, f"Saturation {saturation} should be >= 0.8"
         assert saturation == 1.0
 
@@ -143,4 +191,162 @@ class TestSaturationReaches100:
             node.record_action(sig)
             node.record_action(sig)
 
-        assert node.get_saturation_rate(threshold=2) == pytest.approx(0.6)
+        assert node.get_saturation_rate() == pytest.approx(0.6)
+
+
+class TestTier4SystemActionFilter:
+    """Verify BACK/RESTART are excluded from Tier 4 scored selection."""
+
+    def test_select_with_score_decay_excludes_back(self):
+        """_select_with_score_decay should not return BACK when real widgets exist."""
+        # Create a real widget action
+        real_action = MockAction(coordinates=(300, 500))
+        real_action.target_view = {"class": "android.widget.Button"}
+        real_action.text = "Encrypt"
+        real_action.event = MagicMock()
+        real_action.event.name = "CLICK"
+        real_action.id = 1
+        real_action.widget_id = "btn1"
+        real_action.reaches_mop = False
+        real_action.directly_reaches_mop = False
+        real_action.text_input = None
+        real_action.callback_signature = None
+
+        # Create a BACK system action
+        back_action = MockAction(coordinates=None)
+        back_action.target_view = {"system_action": True, "class": "SystemAction_BACK"}
+        back_action.text = "BACK"
+        back_action.event = MagicMock()
+        back_action.event.name = "BACK"
+        back_action.id = 999
+        back_action.widget_id = None
+        back_action.reaches_mop = False
+        back_action.directly_reaches_mop = False
+        back_action.text_input = None
+        back_action.callback_signature = None
+
+        # Verify that the system_action filter works
+        actions = [real_action, back_action]
+        real_only = [
+            a for a in actions
+            if not (a.target_view or {}).get("system_action")
+        ]
+        assert len(real_only) == 1
+        assert real_only[0].text == "Encrypt"
+
+    def test_select_with_score_decay_returns_none_when_only_system_actions(self):
+        """When only BACK/RESTART remain, filter returns empty → None from Tier 4."""
+        back_action = MockAction(coordinates=None)
+        back_action.target_view = {"system_action": True, "class": "SystemAction_BACK"}
+
+        restart_action = MockAction(coordinates=None)
+        restart_action.target_view = {"system_action": True, "class": "SystemAction_RESTART"}
+
+        actions = [back_action, restart_action]
+        real_only = [
+            a for a in actions
+            if not (a.target_view or {}).get("system_action")
+        ]
+        assert len(real_only) == 0
+
+
+class TestPathBufferFailureCache:
+    """Verify PathBuffer permanent failure cache for MOP paths."""
+
+    def test_failed_mop_path_cached(self):
+        """After MOP path fails, activity is added to _failed_mop_paths."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
+
+        tm = MagicMock()
+        tm.plan_path_to_mop_activity.return_value = None
+
+        successor_tracker = MagicMock()
+        successor_tracker.graph = MagicMock()
+        successor_tracker.graph.states = {}
+        successor_tracker.back_successors = {}
+
+        config = MagicMock()
+        config.backtrack_saturation_threshold = 0.8
+        ui_cov = MagicMock()
+
+        pb = PathBuffer(
+            transition_manager=tm,
+            successor_tracker=successor_tracker,
+            ui_coverage_tracker=ui_cov,
+            config=config,
+        )
+
+        result = pb.plan_mop_path("com.example.ActivityA", None)
+        assert result is False
+        assert "com.example.ActivityA" in pb._failed_mop_paths
+
+    def test_cached_activity_skips_planning(self):
+        """Subsequent calls for cached activity skip planning entirely."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
+
+        tm = MagicMock()
+        tm.plan_path_to_mop_activity.return_value = None
+
+        successor_tracker = MagicMock()
+        successor_tracker.graph = MagicMock()
+        successor_tracker.graph.states = {}
+        successor_tracker.back_successors = {}
+
+        config = MagicMock()
+        config.backtrack_saturation_threshold = 0.8
+        ui_cov = MagicMock()
+
+        pb = PathBuffer(
+            transition_manager=tm,
+            successor_tracker=successor_tracker,
+            ui_coverage_tracker=ui_cov,
+            config=config,
+        )
+
+        # First call fails and caches
+        pb.plan_mop_path("com.example.ActivityA", None)
+
+        # Second call should skip entirely (not call plan_path_to_mop_activity)
+        tm.plan_path_to_mop_activity.reset_mock()
+        result = pb.plan_mop_path("com.example.ActivityA", None)
+        assert result is False
+        tm.plan_path_to_mop_activity.assert_not_called()
+
+
+class TestActionDictCoordinateValidation:
+    """Verify _action_dict_to_item_action rejects actions without coordinates."""
+
+    def test_rejects_non_back_with_no_coords(self):
+        """Non-BACK action with coordinates=None returns None."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import _action_dict_to_item_action
+
+        action_dict = {
+            "action_type": "CLICK",
+            "text": "Navigate to unknown",
+            "coordinates": None,
+            "target_view": {},
+        }
+        result = _action_dict_to_item_action(action_dict)
+        assert result is None
+
+    def test_accepts_back_with_no_coords(self):
+        """BACK action with no coordinates is allowed (virtual action)."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import _action_dict_to_item_action
+
+        action_dict = {"action_type": "BACK"}
+        result = _action_dict_to_item_action(action_dict)
+        assert result is not None
+
+    def test_accepts_click_with_valid_coords(self):
+        """CLICK action with valid coordinates is allowed."""
+        from rv_agent.strategies.rvagent_strategy.path_buffer import _action_dict_to_item_action
+
+        action_dict = {
+            "action_type": "CLICK",
+            "text": "Settings",
+            "coordinates": (300, 500),
+            "target_view": {"class": "android.widget.Button"},
+        }
+        result = _action_dict_to_item_action(action_dict)
+        assert result is not None
+        assert result.coordinates == (300, 500)

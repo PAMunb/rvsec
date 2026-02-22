@@ -361,6 +361,16 @@ class RVAgentConfig(BaseValidatedModel):
         le=1.0,
         description="Saturation threshold triggering backtrack (0.8 = backtrack when 80% of actions saturated)",
     )
+    multi_value_saturation_threshold: int = Field(
+        default=4,
+        ge=2,
+        le=8,
+        description=(
+            "Execution count threshold for multi-value widgets"
+            " (EditText, Spinner, SeekBar) before saturation."
+            " Default widgets use threshold=2."
+        ),
+    )
     mop_nav_weight: float = Field(
         default=2.0,
         ge=0.5,

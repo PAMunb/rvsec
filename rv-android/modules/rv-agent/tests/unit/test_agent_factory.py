@@ -33,6 +33,7 @@ def base_config():
     config.prompt_version = "v12"
     config.stochastic_probability = 0.3
     config.stochastic_temperature = 1.0
+    config.multi_value_saturation_threshold = 4
     return config
 
 

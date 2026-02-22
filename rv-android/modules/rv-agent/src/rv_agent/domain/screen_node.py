@@ -13,6 +13,34 @@ from typing import Any, Dict, List, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
+# Saturation threshold for single-action widgets (Button, ImageButton, etc.)
+DEFAULT_SATURATION_THRESHOLD = 2
+
+# Multi-value widgets: each interaction can produce different input/state,
+# so they need more executions before being considered "saturated" (D8 Bug #4).
+# Uses simple class name (after last ".") from android.widget.* hierarchy.
+MULTI_VALUE_WIDGETS = frozenset(
+    {
+        # Text input — each interaction can use different text
+        "EditText",
+        "TextInputEditText",
+        "AppCompatEditText",
+        "AutoCompleteTextView",
+        "AppCompatAutoCompleteTextView",
+        "MultiAutoCompleteTextView",
+        # Dropdown selection — multiple items to choose from
+        "Spinner",
+        "AppCompatSpinner",
+        # Continuous range — different positions to try
+        "SeekBar",
+        "AppCompatSeekBar",
+        "RatingBar",
+        "AppCompatRatingBar",
+        # Numeric selection
+        "NumberPicker",
+    }
+)
+
 
 @dataclass
 class ScreenNode:
@@ -34,8 +62,11 @@ class ScreenNode:
       enabling least-executed prioritization when all actions have been tried. The
       algorithm continues until timeout, never stops when "exhausted".
     - Saturation tracking: tracks action success counts for strength calculation and
-      computes saturation rate (actions executed 2+ times / total), enabling proactive
+      computes saturation rate using per-widget thresholds, enabling proactive
       backtrack decisions based on state saturation.
+    - Widget-aware saturation: multi-value widgets (EditText, Spinner, SeekBar) use
+      a higher configurable threshold than single-action widgets (Button), ensuring
+      the agent explores diverse input combinations before declaring saturation (D8).
 
     ### Role in the System:
 
@@ -57,6 +88,11 @@ class ScreenNode:
             is "successful" when it causes a state transition.
         action_cumulative_reward: Per-action cumulative reward from N-step
             reward propagation via RewardPropagator.
+        action_widget_classes: Maps action signatures to their Android widget
+            class name (e.g., "android.widget.EditText"). Used by
+            _effective_threshold() to apply per-widget saturation thresholds.
+        multi_value_threshold: Configurable saturation threshold for multi-value
+            widgets. Set from RVAgentConfig.multi_value_saturation_threshold.
     """
 
     screen_hash: str
@@ -73,6 +109,10 @@ class ScreenNode:
     action_cumulative_reward: Dict[Tuple[Tuple[int, int], str], float] = field(
         default_factory=dict
     )
+    action_widget_classes: Dict[Tuple[Tuple[int, int], str], str] = field(
+        default_factory=dict
+    )
+    multi_value_threshold: int = 4
 
     def get_coverage(self) -> float:
         """Compute action coverage ratio for this screen.
@@ -84,16 +124,24 @@ class ScreenNode:
             return 0.0
         return len(self.executed_actions) / self.total_actions
 
-    def record_action(self, action_signature: Tuple[Tuple[int, int], str]):
+    def record_action(
+        self,
+        action_signature: Tuple[Tuple[int, int], str],
+        widget_class: str = "",
+    ):
         """Record action execution and increment its execution count.
 
         Args:
             action_signature: ((x, y), action_type) tuple identifying the action.
+            widget_class: Android widget class name (e.g., "android.widget.EditText").
+                Stored on first recording for per-widget saturation thresholds (D8).
         """
         self.executed_actions.add(action_signature)
         self.action_execution_counts[action_signature] = (
             self.action_execution_counts.get(action_signature, 0) + 1
         )
+        if widget_class and action_signature not in self.action_widget_classes:
+            self.action_widget_classes[action_signature] = widget_class
 
     def get_action_execution_count(
         self, action_signature: Tuple[Tuple[int, int], str]
@@ -119,8 +167,29 @@ class ScreenNode:
         """
         return action_signature in self.executed_actions
 
+    def _effective_threshold(
+        self, action_signature: Tuple[Tuple[int, int], str]
+    ) -> int:
+        """Get saturation threshold for an action based on its widget type.
+
+        Multi-value widgets (EditText, Spinner, SeekBar, etc.) use
+        multi_value_threshold because each interaction can produce different
+        input/state. Single-action widgets use DEFAULT_SATURATION_THRESHOLD (D8).
+
+        Args:
+            action_signature: ((x, y), action_type) tuple to look up.
+
+        Returns:
+            Saturation threshold for this action's widget type.
+        """
+        widget_class = self.action_widget_classes.get(action_signature, "")
+        simple_name = widget_class.rsplit(".", 1)[-1] if widget_class else ""
+        if simple_name in MULTI_VALUE_WIDGETS:
+            return self.multi_value_threshold
+        return DEFAULT_SATURATION_THRESHOLD
+
     def is_action_saturated(
-        self, action_signature: Tuple[Tuple[int, int], str], threshold: int = 2
+        self, action_signature: Tuple[Tuple[int, int], str], threshold: int = 0
     ) -> bool:
         """Check if action has been executed at least threshold times.
 
@@ -129,26 +198,32 @@ class ScreenNode:
 
         Args:
             action_signature: ((x, y), action_type) tuple to check.
-            threshold: Minimum execution count to be considered saturated.
+            threshold: Minimum execution count. If 0 (default), uses
+                per-widget threshold from _effective_threshold().
 
         Returns:
             True if action executed >= threshold times.
         """
+        if threshold == 0:
+            threshold = self._effective_threshold(action_signature)
         return self.get_action_execution_count(action_signature) >= threshold
 
-    def get_saturation_rate(self, threshold: int = 2) -> float:
-        """Compute saturation rate for this state.
+    # System action types that should not count toward saturation.
+    # These actions (BACK, RESTART, unknown) are not real UI widgets —
+    # including them inflates the saturated count above total_actions (D8).
+    SYSTEM_ACTION_TYPES = frozenset({"back", "restart", "unknown"})
 
-        Saturation rate = actions executed >= threshold times / total actions.
-        Capped at 1.0 because executed_actions can contain actions not in the
-        original filtered_actions list (e.g., system actions from BACK/RESTART),
-        which would cause the ratio to exceed 1.0.
+    def get_saturation_rate(self) -> float:
+        """Compute saturation rate for this state using per-widget thresholds.
 
-        Args:
-            threshold: Minimum execution count to be considered saturated.
+        Saturation rate = real saturated actions / total actions.
+        System actions (BACK, RESTART, unknown) are excluded from the numerator
+        because they are not real UI widgets and would inflate the ratio (D8).
+        Multi-value widgets (EditText, Spinner, SeekBar) use a higher threshold
+        than single-action widgets (Button) to ensure diverse input exploration.
 
         Returns:
-            Saturation ratio (0.0 to 1.0), capped at 1.0.
+            Saturation ratio (0.0 to 1.0).
         """
         if self.total_actions == 0:
             return 1.0  # No actions = fully saturated
@@ -156,7 +231,7 @@ class ScreenNode:
         saturated_count = sum(
             1
             for sig in self.executed_actions
-            if self.is_action_saturated(sig, threshold)
+            if sig[1] not in self.SYSTEM_ACTION_TYPES and self.is_action_saturated(sig)
         )
         return min(1.0, saturated_count / self.total_actions)
 

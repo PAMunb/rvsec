@@ -101,6 +101,16 @@ class SuccessorTracker:
             action_signature: ((device_x, device_y), action_type) in device pixel space (INV-AGT-40)
             to_hash: Destination state hash
         """
+        # Skip self-loops: when an action doesn't change state (from == to),
+        # recording it would cause update_action_availability() to re-enable
+        # the action because the successor (itself) has low coverage — but
+        # re-executing the action will never reach new elements.
+        if from_hash == to_hash:
+            logger.debug(
+                f"Skipping self-loop: {from_hash[:8]}...{action_signature} → same state"
+            )
+            return
+
         key = (from_hash, action_signature)
 
         # Only record if new or different successor
@@ -383,7 +393,7 @@ class SuccessorTracker:
             return True  # No actions = saturated
 
         # Use ScreenNode's saturation rate method
-        return node.get_saturation_rate(threshold=2) >= 1.0
+        return node.get_saturation_rate() >= 1.0
 
     def get_action_destination(
         self, state_hash: str, action_signature: Tuple
@@ -418,4 +428,4 @@ class SuccessorTracker:
         if not node:
             return False
 
-        return node.get_saturation_rate(threshold=2) < 1.0
+        return node.get_saturation_rate() < 1.0

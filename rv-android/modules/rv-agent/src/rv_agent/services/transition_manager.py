@@ -495,7 +495,10 @@ class TransitionManager:
         return None
 
     def plan_path_to_mop_activity(
-        self, current_activity: str, mop_data: Any
+        self,
+        current_activity: str,
+        mop_data: Any,
+        possible_actions: Optional[List] = None,
     ) -> Optional[List[Dict[str, Any]]]:
         """
         BFS on WTG transitions to find path to activity with MOP methods.
@@ -572,23 +575,52 @@ class TransitionManager:
         candidates.sort(key=lambda c: (-c[0], len(c[1])))
         best_mop_count, best_path = candidates[0]
 
-        # Convert WTG transitions to action dicts
+        # Convert WTG transitions to action dicts, resolving coordinates
+        # from possible_actions when available. WTG transitions are graph-level
+        # edges with no screen coordinates — we match widget_id or activity name
+        # against real on-screen actions to get valid coordinates.
         action_dicts = []
         for transition in best_path:
             target_activity = self._find_activity_for_window_id(
                 transition.get("target", "")
             )
+            wtg_widget_id = transition.get("widget_id", "")
+
+            # Try to resolve coordinates from possible_actions
+            resolved_coords = None
+            resolved_target_view = {}
+            resolved_action_id = 0
+
+            if possible_actions and wtg_widget_id:
+                matched = self._resolve_wtg_action(
+                    wtg_widget_id, target_activity, possible_actions
+                )
+                if matched:
+                    resolved_coords = matched.coordinates
+                    resolved_target_view = matched.target_view or {}
+                    resolved_action_id = matched.id
+
+            # If we can't resolve coordinates for ANY step, the entire path
+            # is unresolvable — return None to avoid wasting iterations.
+            if resolved_coords is None:
+                self.logger.info(
+                    f"plan_path_to_mop_activity: Unresolvable step "
+                    f"(widget_id={wtg_widget_id}, target={target_activity})"
+                )
+                return None
+
             action_dicts.append(
                 {
                     "action_type": "CLICK",
-                    "widget_id": transition.get("widget_id"),
+                    "action_id": resolved_action_id,
+                    "widget_id": wtg_widget_id,
                     "target_activity": target_activity
                     or f"window_{transition.get('target')}",
                     "text": f"Navigate to {target_activity or 'unknown'}",
                     "reaches_mop": True,
                     "directly_reaches_mop": False,
-                    "coordinates": None,
-                    "target_view": {},
+                    "coordinates": resolved_coords,
+                    "target_view": resolved_target_view,
                 }
             )
 
@@ -631,6 +663,78 @@ class TransitionManager:
                 count += 1
 
         return count
+
+    def _resolve_wtg_action(
+        self,
+        wtg_widget_id: str,
+        target_activity: Optional[str],
+        possible_actions: List,
+    ) -> Optional[Any]:
+        """
+        Match a WTG widget_id to a real on-screen ItemAction with coordinates.
+
+        Matching strategy (in priority order):
+        1. widget_id substring match against action.widget_id
+        2. Target activity simple name in action.text or content_description
+        3. Target activity simple name substring in action.widget_id
+
+        Args:
+            wtg_widget_id: Widget ID from WTG transition edge.
+            target_activity: Target activity name (e.g., "com.example.SettingsActivity").
+            possible_actions: List of ItemAction from current screen's parsed UI.
+
+        Returns:
+            Matched ItemAction with valid coordinates, or None.
+        """
+        if not possible_actions:
+            return None
+
+        # Strategy 1: widget_id substring match
+        for action in possible_actions:
+            if not action.coordinates:
+                continue
+            if action.widget_id and wtg_widget_id in action.widget_id:
+                self.logger.debug(
+                    f"Resolved WTG widget {wtg_widget_id} via widget_id match: "
+                    f"action.widget_id={action.widget_id}"
+                )
+                return action
+
+        # Strategy 2: target activity simple name in action text/content_description
+        if target_activity:
+            simple_name = target_activity.split(".")[-1].lower()
+            for action in possible_actions:
+                if not action.coordinates:
+                    continue
+                action_text = (action.text or "").lower()
+                content_desc = (
+                    (action.target_view or {}).get("content_description", "") or ""
+                ).lower()
+                if simple_name in action_text or simple_name in content_desc:
+                    self.logger.debug(
+                        f"Resolved WTG widget {wtg_widget_id} via activity name "
+                        f"'{simple_name}' in text/desc"
+                    )
+                    return action
+
+        # Strategy 3: target activity simple name in widget_id
+        if target_activity:
+            simple_name = target_activity.split(".")[-1].lower()
+            for action in possible_actions:
+                if not action.coordinates:
+                    continue
+                if action.widget_id and simple_name in action.widget_id.lower():
+                    self.logger.debug(
+                        f"Resolved WTG widget {wtg_widget_id} via activity name "
+                        f"'{simple_name}' in widget_id"
+                    )
+                    return action
+
+        self.logger.debug(
+            f"Could not resolve WTG widget {wtg_widget_id} "
+            f"(target={target_activity}) from {len(possible_actions)} actions"
+        )
+        return None
 
     def get_exploration_summary(self) -> Dict[str, Any]:
         """Get summary of exploration progress.

@@ -363,7 +363,7 @@ class SaturationScorer(Scorer):
         if not node:
             return 0.0
 
-        saturation = node.get_saturation_rate(threshold=2)
+        saturation = node.get_saturation_rate()
         if saturation >= 1.0:
             return 0.0
 

@@ -153,7 +153,9 @@ class TestRVTRACKIterationNumbers:
 
             # We just verify the tracking function signature accepts iter
             # and the strategy code passes self._current_iteration
-            track.strategy(iter=42, mode="tier1_buffer", action_type="BACK", reason="test")
+            track.strategy(
+                iter=42, mode="tier1_buffer", action_type="BACK", reason="test"
+            )
 
         assert len(logged_calls) == 1
         assert logged_calls[0]["iter"] == 42
@@ -200,7 +202,7 @@ class TestSaturationCapping:
             node.executed_actions.add(sig)
             node.action_execution_counts[sig] = 3  # Above threshold=2
 
-        rate = node.get_saturation_rate(threshold=2)
+        rate = node.get_saturation_rate()
         assert rate <= 1.0
         assert rate == 1.0
 
@@ -221,7 +223,7 @@ class TestSaturationCapping:
             node.executed_actions.add(sig)
             node.action_execution_counts[sig] = 1
 
-        rate = node.get_saturation_rate(threshold=2)
+        rate = node.get_saturation_rate()
         assert rate == 0.5
 
     def test_saturation_zero_total_returns_1_0(self):
@@ -229,7 +231,7 @@ class TestSaturationCapping:
         node = ScreenNode(screen_hash="test", activity="test")
         node.total_actions = 0
 
-        rate = node.get_saturation_rate(threshold=2)
+        rate = node.get_saturation_rate()
         assert rate == 1.0
 
 
@@ -302,3 +304,71 @@ class TestDynamicStuckThreshold:
         threshold = _get_dynamic_stuck_threshold(mock_agent, state)
 
         assert threshold == 8
+
+
+class TestLLMWidgetClassResolution:
+    """(e) LLM pre-mark resolves widget_class from matched ItemAction."""
+
+    def test_llm_premark_uses_item_action_widget_class(self):
+        """When current_item_action has target_view, its class is used for pre-mark."""
+        from rv_agent.agent.nodes.execute_node import execute_node
+
+        agent = MagicMock()
+        agent.tool_executor.execute_action.return_value = {"success": True}
+        agent.dynamic_graph = MagicMock()
+        agent.ui_coverage = None
+
+        # Create a matched ItemAction with target_view (from validation_node)
+        matched_item = MagicMock()
+        matched_item.target_view = {"class": "android.widget.EditText"}
+        matched_item.coordinates = (300, 500)
+
+        state = {
+            "current_action": {
+                "action_type": "SET_TEXT",
+                "x": 300,
+                "y": 500,
+                "source": "llm",
+                "text": "password123",
+            },
+            "current_screen_hash": "hash_xyz",
+            "current_item_action": matched_item,
+            "iteration": 5,
+            "previous_screen_hash": None,
+        }
+
+        execute_node(agent, state)
+
+        # Verify record_action was called with the correct widget_class
+        agent.dynamic_graph.record_action.assert_called_once()
+        call_kwargs = agent.dynamic_graph.record_action.call_args
+        assert call_kwargs[1]["widget_class"] == "android.widget.EditText"
+
+    def test_llm_premark_falls_back_to_action_dict(self):
+        """When current_item_action is None, falls back to action dict."""
+        from rv_agent.agent.nodes.execute_node import execute_node
+
+        agent = MagicMock()
+        agent.tool_executor.execute_action.return_value = {"success": True}
+        agent.dynamic_graph = MagicMock()
+        agent.ui_coverage = None
+
+        state = {
+            "current_action": {
+                "action_type": "CLICK",
+                "x": 200,
+                "y": 400,
+                "source": "llm",
+                "target_view": {"class": "android.widget.Button"},
+            },
+            "current_screen_hash": "hash_abc",
+            "current_item_action": None,
+            "iteration": 3,
+            "previous_screen_hash": None,
+        }
+
+        execute_node(agent, state)
+
+        agent.dynamic_graph.record_action.assert_called_once()
+        call_kwargs = agent.dynamic_graph.record_action.call_args
+        assert call_kwargs[1]["widget_class"] == "android.widget.Button"

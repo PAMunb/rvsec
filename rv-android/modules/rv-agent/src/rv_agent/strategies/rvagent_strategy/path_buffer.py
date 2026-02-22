@@ -61,6 +61,10 @@ PATH_BUFFER_ENABLED = True
 MAX_BACKTRACK_HOPS = 8
 MAX_COVERAGE_HOPS = 5
 
+# After a resolution failure (WTG action with no coords), skip planning for
+# this many iterations to prevent Tier 3 from re-planning the same failed path.
+PLAN_COOLDOWN_AFTER_FAILURE = 3
+
 # Mirrors RVAgentStrategy.BACK_ACTION_ID to produce identical BACK actions
 BACK_ACTION_ID = 999
 
@@ -114,6 +118,10 @@ class PathBuffer:
         self.ui_coverage_tracker = ui_coverage_tracker
         self.config = config
         self._buffer: List[ItemAction] = []
+        self._plan_cooldown: int = 0
+        # Activities where MOP path planning permanently failed (unresolvable
+        # WTG coordinates). Prevents re-planning the same broken path.
+        self._failed_mop_paths: set = set()
 
         logger.info(
             f"PathBuffer initialized: "
@@ -182,7 +190,12 @@ class PathBuffer:
         )
         return True
 
-    def plan_mop_path(self, current_activity: Optional[str], mop_data) -> bool:
+    def plan_mop_path(
+        self,
+        current_activity: Optional[str],
+        mop_data,
+        possible_actions=None,
+    ) -> bool:
         """
         Plan a path to an activity with monitored operations.
 
@@ -192,6 +205,8 @@ class PathBuffer:
         Args:
             current_activity: Current runtime activity name.
             mop_data: MOP/static analysis data for scoring activities.
+            possible_actions: Current screen's ItemAction list for coordinate
+                resolution of WTG transitions.
 
         Returns:
             True if a path was planned and buffer filled, False otherwise.
@@ -202,6 +217,14 @@ class PathBuffer:
         if not current_activity:
             return False
 
+        # Skip activities where MOP path planning permanently failed
+        if current_activity in self._failed_mop_paths:
+            logger.debug(
+                f"PathBuffer: Skipping MOP path for {current_activity} "
+                f"(permanently failed)"
+            )
+            return False
+
         # Use plan_path_to_mop_activity if available on TransitionManager
         plan_method = getattr(
             self.transition_manager, "plan_path_to_mop_activity", None
@@ -209,8 +232,16 @@ class PathBuffer:
         if plan_method is None:
             return False
 
-        action_dicts = plan_method(current_activity, mop_data)
+        action_dicts = plan_method(
+            current_activity, mop_data, possible_actions=possible_actions
+        )
         if not action_dicts:
+            # Permanently mark this activity as failed to prevent re-planning
+            self._failed_mop_paths.add(current_activity)
+            logger.info(
+                f"PathBuffer: MOP path from {current_activity} unresolvable, "
+                f"added to permanent failure cache"
+            )
             return False
 
         # Convert action dicts to ItemAction objects
@@ -313,12 +344,13 @@ class PathBuffer:
 
         Called by algorithm_node when a buffered action cannot be resolved to
         coordinates (e.g., WTG-level "Navigate to..." actions with no real UI
-        widget). Clears the entire buffer so the same unresolvable action is
-        not re-emitted.
+        widget). Clears the entire buffer and activates a cooldown that prevents
+        Tier 3 from re-planning the same failed path immediately (D8).
         """
         if self._buffer:
             count = len(self._buffer)
             self._buffer.clear()
+            self._plan_cooldown = PLAN_COOLDOWN_AFTER_FAILURE
             track.backtrack(
                 iter=0,
                 strategy="invalidate_failed",
@@ -327,7 +359,7 @@ class PathBuffer:
             )
             logger.warning(
                 f"PathBuffer: Invalidated current path due to resolution failure "
-                f"({count} actions discarded)"
+                f"({count} actions discarded, cooldown={self._plan_cooldown})"
             )
 
     def invalidate(self) -> None:
@@ -344,6 +376,20 @@ class PathBuffer:
                 iter=0, strategy="invalidate", remaining_steps=count, target_hash=None
             )
             logger.warning(f"PathBuffer: Invalidated ({count} actions discarded)")
+
+    @property
+    def is_cooling_down(self) -> bool:
+        """Whether planning is blocked by a post-failure cooldown.
+
+        After invalidate_current_path() (resolution failure), planning is
+        blocked for PLAN_COOLDOWN_AFTER_FAILURE iterations so that Tier 3
+        does not re-plan the same failed WTG path. The cooldown decrements
+        each time this property is checked, so it auto-expires.
+        """
+        if self._plan_cooldown > 0:
+            self._plan_cooldown -= 1
+            return True
+        return False
 
     @property
     def is_active(self) -> bool:
@@ -398,6 +444,16 @@ def _action_dict_to_item_action(action_dict: dict) -> Optional[ItemAction]:
         if action_type == "BACK":
             return _create_back_action()
 
+        # Reject non-BACK actions with no coordinates — they will fail
+        # coordinate resolution downstream and waste iterations.
+        coords = action_dict.get("coordinates")
+        if coords is None:
+            logger.warning(
+                f"PathBuffer: Rejecting action with no coordinates: "
+                f"{action_dict.get('text', 'unknown')}"
+            )
+            return None
+
         # For non-BACK actions, create from dict
         return ItemAction(
             id=action_dict.get("action_id", 0),
@@ -406,7 +462,7 @@ def _action_dict_to_item_action(action_dict: dict) -> Optional[ItemAction]:
             reaches_mop=action_dict.get("reaches_mop", False),
             directly_reaches_mop=action_dict.get("directly_reaches_mop", False),
             target_view=action_dict.get("target_view", {}),
-            coordinates=action_dict.get("coordinates"),
+            coordinates=coords,
             text_input=None,
         )
     except Exception as e:

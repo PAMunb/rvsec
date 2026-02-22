@@ -118,6 +118,7 @@ class TestProactiveBacktracking:
         # Mock path_buffer that tracks planning call order
         mock_buffer = MagicMock()
         mock_buffer.is_active = False
+        mock_buffer.is_cooling_down = False
         call_order = []
         mock_buffer.plan_coverage_path = MagicMock(
             side_effect=lambda *a: (call_order.append("C"), False)[1]
@@ -148,6 +149,7 @@ class TestProactiveBacktracking:
         # PathBuffer with all plans failing
         mock_buffer = MagicMock()
         mock_buffer.is_active = False
+        mock_buffer.is_cooling_down = False
         mock_buffer.plan_coverage_path = MagicMock(return_value=False)
         mock_buffer.plan_mop_path = MagicMock(return_value=False)
         mock_buffer.plan_backtrack_path = MagicMock(return_value=False)

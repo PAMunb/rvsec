@@ -411,3 +411,59 @@ class TestScorerCount9Active:
             if isinstance(s, CoverageDensityScorer)
         ]
         assert len(density_scorers) == 1
+
+
+class TestTierFallthroughOnSaturatedScreen:
+    """Verify tier fallthrough when saturated and PathBuffer fails (task 16.5)."""
+
+    def test_saturated_screen_no_path_falls_to_tier4(self):
+        """
+        Saturated screen + PathBuffer plans all fail -> Tier 4 scored selection.
+
+        Before the D8 fix, this scenario would trigger RESTART. With the fix,
+        the strategy falls through to Tier 4 and selects the least-explored
+        action via ActionRanker, keeping the agent productive.
+        """
+        config = RVAgentConfig(
+            package_name="test.app",
+            stochastic_probability=0.0,
+            backtrack_saturation_threshold=0.8,
+        )
+        graph = DynamicStateGraph()
+        ui_coverage = UICoverageTracker()
+
+        strategy = RVAgentStrategy(graph=graph, ui_coverage=ui_coverage, config=config)
+
+        # Create screen with 5 actions
+        actions = [
+            create_mock_action(coords=(100 + i * 100, 500), widget_id=f"btn_{i}")
+            for i in range(5)
+        ]
+        screen = create_mock_screen(activity="com.test.Main", actions=actions)
+
+        # Register the state
+        strategy.select_next_action("state_sat", screen)
+        node = graph.states["state_sat"]
+
+        # Saturate all 5 actions (each executed 3x, threshold=2)
+        for action in actions:
+            sig = action.coords_for_matching
+            node.record_action(sig)
+            node.record_action(sig)
+            node.record_action(sig)
+
+        # Mock PathBuffer to fail all plans
+        strategy.path_buffer = MagicMock()
+        strategy.path_buffer.is_active = False
+        strategy.path_buffer.is_cooling_down = False
+        strategy.path_buffer.plan_coverage_path.return_value = False
+        strategy.path_buffer.plan_mop_path.return_value = False
+        strategy.path_buffer.plan_backtrack_path.return_value = False
+
+        result = strategy.select_next_action("state_sat", screen)
+
+        # Must return a real action (Tier 4), NOT RESTART
+        assert result is not None
+        from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
+
+        assert result.event != WidgetEventType.RESTART

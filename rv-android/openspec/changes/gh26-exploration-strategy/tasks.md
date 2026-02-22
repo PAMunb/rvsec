@@ -18,7 +18,9 @@
      Bug fixes: PathBuffer death spiral & strategy defects → Group 12
      Bug fixes: Execution feedback & tracking accuracy → Group 13
      Bug fixes: Coordinate space unification → Group 14
-     Bug fixes: Emulator boot retry resilience → Group 15 -->
+     Bug fixes: Emulator boot retry resilience → Group 15
+     Bug fixes: Saturation double recording & Tier 3 loop → Group 16
+     Bug fixes: Widget-aware saturation thresholds → Group 17 -->
 
 <!-- Subagent dispatch hints:
      - Group 0 (Baseline Experiment) must run BEFORE any code changes.
@@ -61,6 +63,8 @@
        Groups 12 → 13 → 14 MUST run sequentially (share rvagent_strategy.py, tool_executor.py, learn_node.py, path_buffer.py).
        Group 14 must be last — it supersedes task 13.5 and unifies coordinate space across all files touched by 12-13.
        Group 15: Emulator boot retry resilience — 1 file (android.py in rv-android-core). Independent of Groups 11-14, can run in parallel.
+       Group 16: Saturation double recording & Tier 3 loop — 4 files (memory_coordinator.py, screen_node.py, algorithm_node.py, rvagent_strategy.py). Depends on Groups 14-15 (committed). Small scope, main window can execute directly.
+       Group 17: Widget-aware saturation thresholds — 3 files (screen_node.py, dynamic_state_graph.py, agent_config.py). Depends on Group 16. Adds configurable multi_value_saturation_threshold and widget classification.
      This change touches 16+ files — use subagent orchestration (3-4 parallel dispatches). -->
 
 ## 0. Baseline Experiment (BEFORE implementation)
@@ -482,3 +486,121 @@ Discovered during speed test (30min timeout, passera APK). The `_wait_for_boot()
 - [x] 15.6 Run `/rv-test-run rv-android-core` — verify all unit tests pass including 15.5.
 - [x] 15.7 Run `/rv-doc-code modules/rv-android-core/src/rv_android_core/util/android/android.py` — document the retry-on-timeout behavior in `_wait_for_boot()`.
 - [x] 15.8 Run `/rv-qa-lint-fix rv-android-core` — auto-fix formatting and imports.
+
+## 16. Bug Fixes: Saturation Double Recording & Tier 3 Loop
+
+Discovered during validation experiment (CryptoApp, 10min, pure_algorithm). The agent enters an infinite RESTART loop after ~32 iterations because (1) every action is double-recorded in `ScreenNode.action_execution_counts`, making each action appear saturated after one execution, (2) system actions (BACK/RESTART) inflate the saturation numerator, and (3) Tier 3 PathBuffer returns WTG actions without coordinates that fail silently without invalidating the buffer. See design.md D8 for full analysis.
+
+**Evidence**: 59 iterations, 26/52 interactions = BACK (50%), UI coverage 33.3% while per-screen saturation = 100%, state `8de3b145` reached 100% saturation with `Executed: 9` vs `Total actions: 6`.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/memory/memory_coordinator.py`
+- `modules/rv-agent/src/rv_agent/domain/screen_node.py`
+- `modules/rv-agent/src/rv_agent/agent/nodes/algorithm_node.py`
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py`
+
+- [x] 16.1 Fix double recording: Remove `self.dynamic_graph.record_action()` call from `memory_coordinator._update_dynamic_graph()` (line ~370). Keep the `record_action_to_trace()` call (line ~333) — it records the action in the current trace for transition history, which is separate from execution counting. The pre-mark in `rvagent_strategy.py:577` (algorithm path) and `execute_node.py:148` (LLM path) already guarantee the action is recorded exactly once. **Test**: After fix, a single action execution must produce `action_execution_counts[sig] == 1`, not 2.
+- [x] 16.2 Fix system action inflation in saturation: Update `get_saturation_rate()` in `screen_node.py` to skip system-action signatures when counting saturated actions. System actions have signature `((0, 0), action_type)` where `action_type` is "back", "restart", or "unknown". Filter these from the numerator loop:
+  ```python
+  SYSTEM_ACTION_TYPES = {"back", "restart", "unknown"}
+  saturated_count = sum(
+      1
+      for sig in self.executed_actions
+      if sig[1] not in SYSTEM_ACTION_TYPES
+      and self.is_action_saturated(sig, threshold)
+  )
+  ```
+  Also update the docstring to document this filtering behavior.
+- [x] 16.3 Fix Tier 3 PathBuffer loop: In `algorithm_node.py`, when the selected action comes from PathBuffer (check `strategy.path_buffer.is_active`) and `algorithm_node` fails to resolve it to a real UI widget (no coordinates, widget not found), call `strategy.path_buffer.invalidate()` before falling back to BACK. This ensures the next call to `select_next_action()` skips Tier 1 (buffer empty) and proceeds to Tier 3/4 instead of retrying the same failed WTG action. The invalidation must happen in `algorithm_node` because that is where the WTG-to-widget resolution failure is detected.
+- [x] 16.4 Unit tests for saturation fixes: (a) test that `get_saturation_rate()` excludes system actions from numerator — create a ScreenNode with 3 real actions and 2 system actions, verify saturation = real_saturated / total_actions (not inflated); (b) test that after removing double recording, a single `record_action` call produces count=1; (c) test that PathBuffer invalidation on failed action makes `is_active` return False. Tests go in `modules/rv-agent/tests/unit/test_saturation_fixes.py`.
+- [x] 16.5 Integration test: Verify the full tier fallthrough sequence — when a screen is saturated and PathBuffer action fails, the strategy falls through to Tier 4 (scored selection) instead of looping on RESTART. Add to `modules/rv-agent/tests/integration/test_exploration_edge_cases.py`.
+- [x] 16.6 Run `/rv-test-run rv-agent` — verify all tests pass including new 16.4-16.5 tests.
+- [x] 16.7 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting and imports.
+- [x] 16.8 Run `/rv-verify rv-agent` — final verification (tests + lint).
+
+## 17. Bug Fixes: Widget-Aware Saturation Thresholds
+
+Addresses D8 Bug #4 (saturation ignores interaction combinations). A screen with Spinner + EditText + Button reaches 100% saturation after executing each widget only twice (threshold=2), but multi-value widgets can receive different inputs/selections on each interaction. The fix classifies widget types and applies a higher configurable threshold for multi-value widgets (EditText, Spinner, SeekBar, etc.), ensuring the agent explores diverse input combinations before declaring a screen saturated.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/domain/screen_node.py`
+- `modules/rv-agent/src/rv_agent/agent/dynamic_state_graph.py`
+- `modules/rv-agent/src/rv_agent/config/agent_config.py`
+
+- [x] 17.1 Add `multi_value_saturation_threshold` config parameter to `RVAgentConfig` in `agent_config.py`. Type `int`, default `4`, range `[2, 8]`, description "Execution count threshold for multi-value widgets (EditText, Spinner, SeekBar) before considering them saturated. Higher values keep the agent exploring input combinations longer." Place it near `backtrack_saturation_threshold`.
+- [x] 17.2 Add widget-aware saturation to `ScreenNode` in `screen_node.py`:
+  (a) Add `MULTI_VALUE_WIDGETS` frozenset with simple class names: `EditText`, `TextInputEditText`, `AppCompatEditText`, `AutoCompleteTextView`, `AppCompatAutoCompleteTextView`, `MultiAutoCompleteTextView`, `Spinner`, `AppCompatSpinner`, `SeekBar`, `AppCompatSeekBar`, `RatingBar`, `AppCompatRatingBar`, `NumberPicker`.
+  (b) Add `DEFAULT_SATURATION_THRESHOLD = 2` module-level constant.
+  (c) Add `action_widget_classes: Dict[Tuple[Tuple[int, int], str], str]` dataclass field (default_factory=dict) to store widget class per action signature.
+  (d) Add `multi_value_threshold: int = 4` dataclass field to hold the configurable threshold from config.
+  (e) Add `_effective_threshold(action_signature)` method: look up widget class in `action_widget_classes`, extract simple name (after last `.`), return `multi_value_threshold` if in `MULTI_VALUE_WIDGETS`, else `DEFAULT_SATURATION_THRESHOLD`.
+  (f) Modify `record_action()` to accept optional `widget_class: str = ""` parameter. If provided and action_signature not already in `action_widget_classes`, store it.
+  (g) Modify `get_saturation_rate()` to remove the `threshold` parameter — use `_effective_threshold(sig)` per action instead of a uniform threshold. Update callers if they pass `threshold` explicitly.
+  (h) Modify `is_action_saturated()` to default to `_effective_threshold(sig)` when no explicit threshold is passed.
+- [x] 17.3 Update `DynamicStateGraph.record_action()` in `dynamic_state_graph.py` to extract widget class from `action_dict.get("target_view", {}).get("class", "")` and pass it to `node.record_action(signature, widget_class=widget_class)`.
+- [x] 17.4 Wire `multi_value_saturation_threshold` from config to ScreenNode: in `DynamicStateGraph.get_or_create_state()`, pass the config threshold to new ScreenNode instances via `multi_value_threshold` field. This requires DynamicStateGraph to receive the config value (add constructor parameter or set it directly).
+- [x] 17.5 Update callers of `get_saturation_rate()` and `is_action_saturated()` that pass explicit `threshold` parameter — grep for these and adjust to use the new per-widget logic.
+- [x] 17.6 Unit tests for widget-aware saturation in `modules/rv-agent/tests/unit/test_widget_saturation.py`: (a) test that `_effective_threshold` returns 4 for EditText and 2 for Button; (b) test that `record_action` with `widget_class="android.widget.EditText"` stores the class; (c) test that `get_saturation_rate()` uses higher threshold for multi-value widgets — create a ScreenNode with 1 EditText (executed 2x) and 1 Button (executed 2x), verify Button is saturated but EditText is not (rate = 1/2 = 0.5, not 1.0); (d) test that unknown widget class falls back to DEFAULT_SATURATION_THRESHOLD.
+- [x] 17.7 Run `/rv-test-run rv-agent` — verify all tests pass including 17.6.
+- [x] 17.8 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
+- [x] 17.9 Run `/rv-verify rv-agent` — final verification.
+
+## 18. Bug Fix: WTG Path Coordinate Resolution
+
+Addresses Bug 1 (CRITICAL) from post-validation analysis. `plan_path_to_mop_activity()` creates action dicts with `coordinates: None` because WTG transitions are graph-level edges with no screen coordinates. This causes 19/72 iterations (26.4%) wasted in an infinite loop: plan MOP path -> unresolvable coords -> BACK fallback -> launcher -> restart -> re-plan same broken path.
+
+**Fix direction**: Resolve WTG widget_id to a real on-screen ItemAction by matching against current screen's `possible_actions`. Add permanent failure cache to prevent re-planning known-broken paths. Validate coordinates in `_action_dict_to_item_action()`.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/services/transition_manager.py`
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/path_buffer.py`
+
+- [x] 18.1 In `TransitionManager.plan_path_to_mop_activity()`, add `possible_actions: Optional[List[ItemAction]] = None` parameter. After building the best_path, iterate through each transition's `widget_id` and attempt to resolve it to a real ItemAction from `possible_actions` by matching: (a) widget_id substring in `item_action.widget_id`, (b) target_activity substring in `item_action.text` or `item_action.target_view.get("content_description", "")`, (c) activity simple name substring matching. If resolved, populate the action dict's `coordinates` and `target_view` from the matched ItemAction. If ANY step in the path cannot be resolved, return None (unresolvable path).
+- [x] 18.2 Add `_failed_mop_paths: Set[str]` to `PathBuffer.__init__()`. In `plan_mop_path()`, before calling `plan_path_to_mop_activity()`, check if `current_activity` is in `_failed_mop_paths` — if so, skip planning. After `plan_path_to_mop_activity()` returns None, add `current_activity` to `_failed_mop_paths`. This permanently prevents re-planning known-unresolvable paths.
+- [x] 18.3 In `PathBuffer.plan_mop_path()`, pass `possible_actions` from the current screen to `plan_path_to_mop_activity()`. Add `possible_actions: Optional[List[ItemAction]] = None` parameter to `plan_mop_path()`. Wire it from `RVAgentStrategy.select_next_action()` where `screen_desc.items` provides the current screen's actions.
+- [x] 18.4 In `_action_dict_to_item_action()`, reject actions with `coordinates=None` for non-BACK action types. Return None and log a warning. This prevents creating ItemAction objects that will fail coordinate resolution downstream.
+- [x] 18.5 Unit tests in `modules/rv-agent/tests/unit/test_pathbuffer_recovery.py`: (a) test that `plan_mop_path()` with resolvable widget_id produces ItemAction with valid coordinates; (b) test that failed path adds activity to `_failed_mop_paths` and subsequent calls skip planning; (c) test that `_action_dict_to_item_action()` returns None for non-BACK actions with `coordinates=None`.
+- [x] 18.6 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — verify all tests pass.
+- [x] 18.7 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — verify integration tests pass.
+
+## 19. Bug Fix: Successor Tracker Self-Loop Guard
+
+Addresses Bug 2 (HIGH) from post-validation analysis. `record_successor(S, action, S)` records a self-loop when an action doesn't change state. `update_action_availability()` then re-enables the action because successor S has low coverage — but the action leads back to S itself, wasting 8/72 iterations (11%) in re-enable cycles.
+
+**Fix direction**: Skip recording when `from_hash == to_hash`. Self-loops provide zero exploration benefit.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/successor_tracker.py`
+
+- [x] 19.1 In `SuccessorTracker.record_successor()`, add guard at the top: if `from_hash == to_hash`, log at debug level and return early. This prevents self-loop entries in `self.successors` that trigger spurious re-enablement.
+- [x] 19.2 Unit tests in `modules/rv-agent/tests/unit/test_saturation_fix.py`: (a) test that `record_successor("hash_A", sig, "hash_A")` does NOT add entry to `self.successors`; (b) test that `update_action_availability()` does NOT re-enable actions that only have self-loop successors; (c) test that non-self-loop transitions still work correctly.
+- [x] 19.3 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — verify all tests pass.
+- [x] 19.4 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — verify integration tests pass.
+
+## 20. Bug Fix: Exclude System Actions from Tier 4
+
+Addresses Bug 3 (MEDIUM) from post-validation analysis. BACK/RESTART accumulate ~355-380 combined score from CoverageDensityScorer (unknown destination bonus), GradualDecayScorer (fresh decay), and StrengthScorer (high success rate), outscoring real widgets (~105). This causes premature screen abandonment.
+
+**Fix direction**: Filter system actions from Tier 4's `_select_with_score_decay()`. Tier 4 explores real UI widgets; BACK is already the Tier 5 fallback.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py`
+
+- [x] 20.1 In `_select_with_score_decay()`, before the scoring loop, filter out actions where `action.target_view` has `system_action=True`. Use: `real_actions = [a for a in actions if not (a.target_view or {}).get("system_action")]`. If `real_actions` is empty, fall through (return None) to let Tier 5 handle BACK.
+- [x] 20.2 Unit tests in `modules/rv-agent/tests/unit/test_saturation_fix.py`: (a) test that `_select_with_score_decay()` never returns BACK or RESTART when real widgets are available; (b) test that `_select_with_score_decay()` returns None when only system actions remain (allowing Tier 5 fallback).
+- [x] 20.3 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — verify all tests pass.
+- [x] 20.4 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — verify integration tests pass.
+
+## 21. Bug Fix: LLM widget_class Resolution
+
+Addresses Bug 4 (LOW) from post-validation analysis. LLM action dicts have no `target_view` key, so `execute_node.py:148` always gets `widget_class=""`. This makes Group 17's widget-aware saturation ineffective in multimode/llm_only modes (EditText always gets DEFAULT threshold=2 instead of 4).
+
+**Fix direction**: In execute_node LLM pre-mark, resolve widget_class from `state.get("current_item_action")` — the matched ItemAction from validation_node has the correct `target_view`.
+
+**Affected files:**
+- `modules/rv-agent/src/rv_agent/agent/nodes/execute_node.py`
+
+- [x] 21.1 In execute_node, at line 148, replace `action.get("target_view", {}).get("class", "")` with resolution from the matched ItemAction: `item_action = state.get("current_item_action"); llm_widget_class = item_action.target_view.get("class", "") if item_action and item_action.target_view else action.get("target_view", {}).get("class", "")`.
+- [x] 21.2 Unit tests in `modules/rv-agent/tests/unit/test_execution_feedback.py`: (a) test that LLM pre-mark uses widget_class from `current_item_action` when available; (b) test that LLM pre-mark falls back to action dict when `current_item_action` is None.
+- [x] 21.3 Run `uv run pytest modules/rv-agent/tests/unit/ -v` — verify all tests pass.
+- [x] 21.4 Run `uv run pytest modules/rv-agent/tests/integration/ -v` — verify integration tests pass.

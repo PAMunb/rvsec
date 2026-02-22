@@ -163,7 +163,9 @@ class TestUpdateMemories:
         )
 
         coordinator.dynamic_graph.record_action_to_trace.assert_called()
-        coordinator.dynamic_graph.record_action.assert_called()
+        # record_action is NOT called here — actions are pre-marked by
+        # rvagent_strategy.py or execute_node.py to avoid double recording (D8)
+        coordinator.dynamic_graph.record_action.assert_not_called()
 
     def test_update_memories_action_window(self, coordinator, screen_desc):
         """update_memories maintains action window."""
@@ -218,40 +220,28 @@ class TestUpdateMemories:
             recent_action_window=[],
         )
 
-        # Should use llm_coords for action signature
-        coordinator.dynamic_graph.record_action.assert_called_once()
-        call_args = coordinator.dynamic_graph.record_action.call_args
-        assert call_args[1]["action_signature"][0] == (352, 624)
+        # record_action is NOT called here — pre-marked by strategy/execute_node (D8)
+        coordinator.dynamic_graph.record_action.assert_not_called()
+        # But trace recording still happens
+        coordinator.dynamic_graph.record_action_to_trace.assert_called()
 
-    def test_update_memories_action_type_mapping(self, coordinator, screen_desc):
-        """update_memories maps action types correctly."""
-        test_cases = [
-            ("CLICK", "click"),
-            ("LONG_CLICK", "long_click"),
-            ("SET_TEXT", "set_text"),
-            ("SCROLL", "scroll"),
-            ("BACK", "key_event"),
-            ("click", "click"),  # Lowercase preserved
-        ]
+    def test_update_memories_does_not_call_record_action(
+        self, coordinator, screen_desc
+    ):
+        """update_memories does NOT call record_action — pre-marked by strategy (D8)."""
+        action = {"action_type": "CLICK", "x": 100, "y": 200}
+        coordinator.update_memories(
+            current_screen_hash="hash123",
+            current_activity="Main",
+            screen_description=screen_desc,
+            action=action,
+            llm_reasoning="Test",
+            iteration=1,
+            recent_action_window=[],
+        )
 
-        for raw_type, expected_type in test_cases:
-            coordinator.dynamic_graph.record_action.reset_mock()
-
-            action = {"action_type": raw_type, "x": 100, "y": 200}
-            coordinator.update_memories(
-                current_screen_hash="hash123",
-                current_activity="Main",
-                screen_description=screen_desc,
-                action=action,
-                llm_reasoning="Test",
-                iteration=1,
-                recent_action_window=[],
-            )
-
-            call_args = coordinator.dynamic_graph.record_action.call_args
-            assert (
-                call_args[1]["action_signature"][1] == expected_type
-            ), f"Expected {expected_type} for {raw_type}"
+        coordinator.dynamic_graph.record_action.assert_not_called()
+        coordinator.dynamic_graph.record_action_to_trace.assert_called()
 
     def test_update_memories_ui_coverage_per_element(self, coordinator, screen_desc):
         """update_memories no longer records UI coverage per element (moved to execute_node/parse_node)."""
