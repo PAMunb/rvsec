@@ -597,7 +597,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Task Group 0: Verification Spike (Pre-Implementation)
 
-Answer the 5 Open Questions (Q1-Q5) before coding to prevent wasted effort. Verifies: PropertyManager hint API, CG population inside GATOR client, `-clientParam` propagation, apktool `@array` handling, rvsec-mop-extractor Soot API surface.
+Answer the 6 Open Questions (Q1-Q6) before coding to prevent wasted effort. Verifies: PropertyManager hint API, CG population inside GATOR client, `-clientParam` propagation, apktool `@array` handling, rvsec-mop-extractor Soot API surface, rt.jar required for JCA instance methods.
 
 ### Task Group 1: Java — RvsecAnalysisClient Core + Reachability (Coverage Denominator)
 
@@ -810,6 +810,8 @@ All spikes, unit tests, integration tests, and baseline comparisons use `cryptoa
 |------|--------|
 | `rv-android-core/.../constants.py` | **MODIFY** — add EXTENSION_STATIC_ANALYSIS, remove old extension constants |
 | `rv-static-analysis/.../parser/static/static_analysis_parser.py` | **REWRITE** — analysis JSON parser |
+| `rv-static-analysis/tests/.../test_static_analysis_parser.py` | **NEW** — comprehensive parser unit tests |
+| `rv-static-analysis/tests/resources/cryptoapp.apk.json` | **NEW** — test fixture from real analysis output |
 | `rv-static-analysis/.../analysis/static/static_analysis.py` | **MODIFY** — single tool pipeline |
 | `rv-static-analysis/.../config.py` | **MODIFY** — analysis tool config |
 | `rv-static-analysis/.../__main__.py` | **MODIFY** — CLI args, tool choices, result display (473 lines) |

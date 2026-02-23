@@ -405,7 +405,7 @@ sequenceDiagram
     participant DS as Downstream<br/>(rv-agent, rv-coverage)
 
     SA->>SA: _run_analysis()
-    SA->>CMD: execute(python gator a -p apk<br/>--client-jar analysis-client.jar --out output.json<br/>-client RvsecAnalysisClient<br/>-clientParam mopDir=... --timeout 600)
+    SA->>CMD: execute(python gator a -p apk<br/>--client-jar analysis-client.jar --out output.json<br/>-client RvsecAnalysisClient<br/>-clientParam mopDir=... --timeout 600 --jre rt.jar)
 
     CMD->>GL: subprocess with timeout
 
