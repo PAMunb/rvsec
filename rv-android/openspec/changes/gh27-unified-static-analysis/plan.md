@@ -617,11 +617,14 @@ Reachability comes first because it defines the method universe — the denomina
 5. Match XML data to GATOR widget nodes by `idName`
 6. Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk`
 
-### Task Group 4: Java — Build and Deploy
+### Task Group 4: Java — Build, Deploy, and Tests
 
-1. Build analysis client JAR: `mvn package` with assembly plugin
-2. Copy `rvsec-analysis-client.jar` to `rv-android/lib/analysis-client/`
-3. Verify JAR runs correctly via GATOR launcher command
+1. Build analysis client fat JAR: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn clean install -DskipTests` (assembly creates JAR, resources-plugin copies to `rv-android/lib/analysis-client/`)
+2. Verify JAR runs correctly via GATOR launcher command (`teste.sh`)
+3. Normalization validation (D7): code review + cryptoapp.apk output verification
+4. JUnit 4 unit tests (no Soot): MOP signature loading, BFS on synthetic JGraphT graph, JSON output structure, XML inputType parsing
+5. JUnit 4 integration tests (Soot + GATOR): full run on `cryptoapp.apk` with assertions, baseline comparison with tolerances
+6. Run: `mvn test -DskipTests=false` (unit), `mvn verify -DskipTests=false -DskipITs=false` (integration)
 
 ### Task Group 5: Python — Constants and StaticAnalysisParser
 

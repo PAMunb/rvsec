@@ -81,6 +81,57 @@ Verify that the Java client writes all class names in JVM `$` notation via `Soot
 - [ ] 4.7d Cross-check with Coverage.aj format: compare a sample of signatures from the JSON with what Coverage.aj would log at runtime (`method.getDeclaringClass().getName()` format). They must match exactly — no normalization needed at matching time
 - [ ] 4.7e Run analysis client on an APK known to have inner classes with complex nesting (e.g., an APK with anonymous inner classes, nested inner classes, or Parcelable CREATOR patterns). Verify all use `$` notation in JSON output
 
+### 4.8 Java unit tests
+
+JUnit 4.12 is available via `rvsec-gator-parent` dependencyManagement. Tests go in `rvsec-gator/client/src/test/java/`. Note: `rvsec-gator-parent/pom.xml` has `skipTests=true` by default — override with `mvn test -DskipTests=false` or remove the property for the client module.
+
+**Test infrastructure:**
+
+- [ ] 4.8a Add JUnit 4 `<dependency>` (scope test) to `rvsec-gator/client/pom.xml`. Create `src/test/java/br/unb/cic/gator/client/` directory and `src/test/resources/` for fixtures
+- [ ] 4.8b Create test fixtures: copy `MessageDigestSpec.mop` and one additional MOP spec (e.g., `CipherSpec.mop`) to `src/test/resources/test-specs/`. Create `src/test/resources/test-layouts/activity_main.xml` with sample `android:inputType` and `android:entries` attributes
+
+**Unit tests (no Soot/GATOR dependency — synthetic data only):**
+
+- [ ] 4.8c `MopSignatureLoaderTest.java` — test `loadMopSignatures(mopDir)`:
+  - Parse `MessageDigestSpec.mop` → expect pairs: (`java.security.MessageDigest`, `getInstance`), (`java.security.MessageDigest`, `digest`), (`java.security.MessageDigest`, `update`)
+  - Parse `CipherSpec.mop` → expect pairs with `javax.crypto.Cipher`
+  - Empty directory → expect empty set
+  - Directory with non-.mop files → expect empty set (no crash)
+- [ ] 4.8d `ReachabilityBfsTest.java` — test multi-source BFS on synthetic JGraphT `DefaultDirectedGraph`:
+  - Build a graph: A→B→C→D, E→C (two entry points A, E; MOP method D). Verify: A,B,C,D,E all reachable; only C,D reachesMop (reverse BFS from D); only C directlyReachesMop (outgoing edge to D)
+  - Disconnected graph: A→B, C→D (entry A, MOP D). Verify: A,B reachable but NOT reachesMop; C,D unreachable from entries
+  - Self-loop: A→A. Verify no infinite loop, A is reachable
+  - Empty graph → all flags false, no crash
+- [ ] 4.8e `JsonOutputTest.java` — test JSON serialization structure:
+  - Serialize a minimal `RvsecAnalysisClient` output (mock data). Parse result with `javax.json` or `com.google.gson`. Verify: top-level keys are `reachability`, `windows`, `transitions` in that order. Verify `reachability` array entries have fields: `className`, `methodSignature`, `reachable`, `reachesMop`, `directlyReachesMop`
+  - Verify inner class names use `$` notation in output (e.g., `Outer$Inner`, not `Outer.Inner`)
+  - Verify empty sections produce empty JSON arrays `[]`, not null
+- [ ] 4.8f `XmlInputTypeTest.java` — test layout XML parsing:
+  - Parse `test-layouts/activity_main.xml` → extract `inputType` and `entries` per widget ID
+  - Pipe-separated flags (e.g., `textPassword|textVisiblePassword`) → take first value (`textPassword`)
+  - `@array/items` reference → resolve from `arrays.xml` (or return raw reference if Q4 determines apktool doesn't resolve)
+  - Missing `inputType` attribute → default empty string
+  - Malformed XML → graceful failure (empty result, no crash)
+
+**Integration tests (require Soot + GATOR — run via `mvn verify` with failsafe-plugin):**
+
+- [ ] 4.8g Add `maven-failsafe-plugin` to `pom.xml` for integration tests (`*IT.java` naming convention). Configure to skip by default, run with `-DskipITs=false`
+- [ ] 4.8h `RvsecAnalysisClientIT.java` — full integration test on `cryptoapp.apk`:
+  - Run `RvsecAnalysisClient` via GATOR on `cryptoapp.apk` (requires `RVSEC_HOME`, `ANDROID_HOME`). Parse output JSON
+  - Assert: `reachability` section non-empty (method count > 0)
+  - Assert: `windows` section non-empty (at least 1 activity window)
+  - Assert: `transitions` section present (can be empty for simple apps)
+  - Assert: at least one method has `directlyReachesMop = true` (cryptoapp uses JCA)
+  - Assert: all `className` values use `$` for inner classes (grep for `.` between uppercase segments = 0 hits)
+  - Assert: JSON is valid (no truncation, all brackets closed)
+- [ ] 4.8i `BaselineComparisonIT.java` — compare against 3-tool baseline:
+  - Load saved baseline counts from `src/test/resources/baseline/cryptoapp_baseline.json` (window count, transition count, method count, directlyReachesMop count)
+  - Run unified analysis on `cryptoapp.apk`, extract same counts
+  - Assert exact match: windows, transitions, methods, directlyReachesMop
+  - Assert ±10% tolerance: reachable, reachesMop (due to removing all-reachable)
+- [ ] 4.8j Run unit tests: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn test -DskipTests=false` — all unit tests must pass
+- [ ] 4.8k Run integration tests: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn verify -DskipTests=false -DskipITs=false` — all integration tests must pass (requires `cryptoapp.apk` in a known location)
+
 ## 5. Python — Constants and StaticAnalysisParser
 
 Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`

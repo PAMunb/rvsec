@@ -531,17 +531,25 @@ Critical modules to verify: `rv-android-core` (constants origin — **known hit*
 
 | Layer | What | How | Count |
 |-------|------|-----|-------|
-| Unit | `StaticAnalysisParser` parsing logic | JSON fixtures, mock file paths | ~12 tests |
-| Unit | `RVStaticAnalysisConfig` validation | Direct instantiation with valid/invalid configs | ~4 tests |
-| Unit | `StaticAnalyzer._run_analysis()` command construction | Mock `Command`, verify args | ~3 tests |
-| Integration | Full parse pipeline (JSON → StaticAnalysisData) | Real `cryptoapp.apk.json` fixture | ~3 tests |
-| Integration | `StaticAnalysisParser` full pipeline | End-to-end with fixture | ~2 tests |
-| Baseline comparison | Analysis output vs 3-tool output | Compare counts (windows, transitions, methods, reachable, reachesMop, directlyReachesMop) against saved 3-tool output for `cryptoapp.apk`. Exact match for windows/transitions/methods/directlyReachesMop; ±10% tolerance for reachable/reachesMop due to no `all-reachable` | ~3 assertions |
-| Baseline comparison | Timeout with partial output | Truncated JSON fixture with missing reachability section — verify valid sections parsed, empty objects for missing sections | ~2 tests |
+| **Java Unit** | MOP signature loading (`loadMopSignatures`) | `.mop` fixture files, assert (class, method) pairs | ~4 tests |
+| **Java Unit** | Multi-source BFS (`reachable`, `reachesMop`, `directlyReachesMop`) | Synthetic JGraphT graph, known topology | ~4 tests |
+| **Java Unit** | JSON output structure | Serialize mock data, validate keys/types/order | ~3 tests |
+| **Java Unit** | XML inputType/entries parsing | Layout XML fixture, pipe flags, @array refs | ~4 tests |
+| **Java Integration** | `RvsecAnalysisClient.run()` on `cryptoapp.apk` | Full GATOR run, assert non-empty sections + MOP flags + `$` notation | ~6 assertions |
+| **Java Integration** | Baseline comparison (Java side) | Compare counts vs saved 3-tool baseline. Exact: windows, transitions, methods, directlyReachesMop. ±10%: reachable, reachesMop | ~6 assertions |
+| Python Unit | `StaticAnalysisParser` parsing logic | JSON fixtures, mock file paths | ~12 tests |
+| Python Unit | `RVStaticAnalysisConfig` validation | Direct instantiation with valid/invalid configs | ~4 tests |
+| Python Unit | `StaticAnalyzer._run_analysis()` command construction | Mock `Command`, verify args | ~3 tests |
+| Python Integration | Full parse pipeline (JSON → StaticAnalysisData) | Real `cryptoapp.apk.json` fixture | ~3 tests |
+| Python Integration | `StaticAnalysisParser` full pipeline | End-to-end with fixture | ~2 tests |
+| Baseline comparison | Analysis output vs 3-tool output (Python side) | Compare counts against saved baseline. Same tolerances as Java integration | ~3 assertions |
+| Baseline comparison | Timeout with partial output | Truncated JSON fixture — valid sections parsed, missing sections return empty | ~2 tests |
 | Batch | 5 diverse APKs from gh26 | Full pipeline execution, measure timing | Manual verification |
 | **E2E** | **Full rv-experiment run** | **Run complete experiment on `cryptoapp.apk` via Docker, validate entire pipeline** | **Final validation** |
 
-**Test fixture**: `tests/resources/cryptoapp.apk.json` — generated from a real analysis tool run on `cryptoapp.apk`. This fixture drives all unit and integration tests for the parser.
+**Java test fixtures**: `rvsec-gator/client/src/test/resources/` — MOP spec files (`test-specs/`), layout XMLs (`test-layouts/`), baseline counts (`baseline/cryptoapp_baseline.json`).
+
+**Python test fixture**: `tests/resources/cryptoapp.apk.json` — generated from a real analysis tool run on `cryptoapp.apk`. This fixture drives all unit and integration tests for the parser.
 
 ### E2E Validation (Final Gate)
 
