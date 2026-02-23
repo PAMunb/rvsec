@@ -506,6 +506,8 @@ flowchart LR
 
 Before starting Task Group 1, a lightweight verification spike MUST answer the 6 Open Questions listed below. Each question has a concrete verification command and a fallback strategy already defined in the respective task. The spike prevents wasted implementation effort if assumptions are wrong.
 
+**Reference APK**: All spike verifications use `cryptoapp.apk` — a custom app built by our team for validation. Source code at `examples/cryptoapp/`, pre-built APK at `apks_examples/cryptoapp.apk`, package `br.unb.cic.cryptoapp`. We control the source, so we know exactly what the analysis should produce: 4 Activities, JCA calls (Cipher, MessageDigest, Mac, KeyPairGenerator) with both static and instance methods, unreachable methods (`unreachableEncrypt()`, `unreachableHash()`), XML+programmatic listeners, Spinner with entries. See `plan.md` Section 10 for the full reference.
+
 | Q# | Verification | Expected | Fallback |
 |----|-------------|----------|----------|
 | Q1 | `grep -r "getHintOfView" $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/` | Method exists in PropertyManager | Extract hint from decoded XML (Task 2.2) |
@@ -645,7 +647,7 @@ The legacy analysis (`rvsec-regerar-resultados/docs/NOVO/`) identified concrete 
 
 | APK | Known Violations | What to Validate |
 |-----|-----------------|-----------------|
-| `cryptoapp.apk` | JCA violations (MessageDigest, Cipher). Primary test APK | All 3 matching points: M1 (RVSEC-COV vs JSON), M2 (directlyReachesMop flag), M3 (RVSEC errors vs JSON classes) |
+| `cryptoapp.apk` | JCA violations (MessageDigest, Cipher, Mac, KeyPairGenerator). **Primary test APK** — custom app built by our team, source at `examples/cryptoapp/`, pre-built at `apks_examples/cryptoapp.apk`. 4 Activities, `unreachableEncrypt()`/`unreachableHash()` for reachability validation, diverse widgets (Spinner with entries, XML+programmatic onClick, OptionsMenu) | All 3 matching points: M1 (RVSEC-COV vs JSON), M2 (directlyReachesMop flag), M3 (RVSEC errors vs JSON classes). Also validates: window/widget extraction, WTG transitions, reachability flags (unreachable methods must be NOT reachable), rt.jar impact (Spike Q6) |
 
 **Batch validation (Task Group 10, batch test):** When running the "5 diverse APKs" batch test, select from this list to maximize coverage of edge cases:
 1. `cryptoapp.apk` — baseline, known MOP violations

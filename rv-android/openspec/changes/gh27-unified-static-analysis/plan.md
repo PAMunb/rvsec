@@ -703,7 +703,44 @@ Full rv-experiment run exercising the entire pipeline: pre-processing → execut
 
 ---
 
-## 10. Verification Strategy
+## 10. Reference APK: cryptoapp
+
+All spikes, unit tests, integration tests, and baseline comparisons use `cryptoapp.apk` — a custom app built by our team specifically for this type of validation. Having full control over the source code means we know exactly what the analysis output should contain.
+
+**Source code**: `examples/cryptoapp/` (Android project, Gradle 7.6.4)
+**Pre-built APK**: `apks_examples/cryptoapp.apk`
+**Package**: `br.unb.cic.cryptoapp`
+
+### Structure
+
+| Class | Type | JCA Calls | Widgets/Events |
+|-------|------|-----------|----------------|
+| `MainActivity` | ACTIVITY (main) | — | 3 Buttons (XML onClick: `showScreenMessageDigest`, `showScreenCipher`, `showGenerated`), OptionsMenu with `OnMenuItemClickListener` + `onOptionsItemSelected` |
+| `CipherActivity` | ACTIVITY | `Cipher.getInstance()`, `cipher.init()`, `cipher.doFinal()`, `KeyGenerator.getInstance()` | EditText, Button (programmatic `setOnClickListener`), TextView |
+| `MessageDigestActivity` | ACTIVITY | `MessageDigest.getInstance()`, `md.update()`, `md.digest()` | Spinner (with `entries` array), EditText, Button, TextView |
+| `CryptographyActivity` | ACTIVITY | `Cipher`, `MessageDigest`, `Mac`, `KeyPairGenerator` (multiple algorithms) | — |
+
+### Expected Analysis Output
+
+| Section | Expected |
+|---------|----------|
+| **Windows** | 4 activities: MainActivity (main), CipherActivity, MessageDigestActivity, CryptographyActivity |
+| **Transitions** | MainActivity → CipherActivity (button + menu), MainActivity → MessageDigestActivity (button + menu), MainActivity → CryptographyActivity (button) |
+| **Reachability** | `unreachableEncrypt()` and `unreachableHash()` should be NOT reachable from lifecycle callbacks. JCA static methods (`getInstance()`) should always appear. JCA instance methods (`update()`, `digest()`, `init()`, `doFinal()`) depend on rt.jar (Spike Q6) |
+| **Widgets** | Spinner with `entries` from `arrays.xml`, EditText with `inputType`, programmatic + XML onClick listeners |
+
+### Why cryptoapp
+
+- **Controlled source**: we wrote it, we know every class/method/widget
+- **JCA coverage**: exercises Cipher, MessageDigest, Mac, KeyPairGenerator with multiple algorithms
+- **Unreachable methods**: `CipherUtil.unreachableEncrypt()` and `MessageDigestUtil.unreachableHash()` are never called — validates reachability analysis
+- **Widget diversity**: XML onClick, programmatic `setOnClickListener`, `OnMenuItemClickListener`, Spinner entries — validates window/widget extraction
+- **WTG transitions**: clear Activity→Activity navigation via buttons and menus — validates transition extraction
+- **Fast analysis**: small app (~10 classes), analysis should complete in seconds — ideal for iterative spike testing
+
+---
+
+## 11. Verification Strategy
 
 ### Unit Verification
 
@@ -736,7 +773,7 @@ Full rv-experiment run exercising the entire pipeline: pre-processing → execut
 
 ---
 
-## 11. Risk Assessment
+## 12. Risk Assessment
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
@@ -749,7 +786,7 @@ Full rv-experiment run exercising the entire pipeline: pre-processing → execut
 
 ---
 
-## 12. Critical Files Reference
+## 13. Critical Files Reference
 
 ### Java (RVSEC_HOME) — New/Modified
 
@@ -825,7 +862,7 @@ Full rv-experiment run exercising the entire pipeline: pre-processing → execut
 
 ---
 
-## 13. Build Commands
+## 14. Build Commands
 
 ```bash
 source /etc/profile

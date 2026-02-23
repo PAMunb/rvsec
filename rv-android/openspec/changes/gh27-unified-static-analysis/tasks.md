@@ -12,6 +12,8 @@
 
 Answer the 6 Open Questions before coding to prevent wasted effort. Record answers as comments in the respective tasks below.
 
+**Reference APK**: `cryptoapp.apk` — custom app built by the team for validation. Source code at `examples/cryptoapp/`, pre-built APK at `apks_examples/cryptoapp.apk`, package `br.unb.cic.cryptoapp`. Has 4 Activities, JCA calls (Cipher, MessageDigest, Mac, KeyPairGenerator) with both static and instance methods, XML+programmatic onClick listeners, OptionsMenu, Spinner with entries, and `unreachableEncrypt()`/`unreachableHash()` methods for reachability validation. Use this APK for ALL spike verifications — we control the source code and know the expected analysis output.
+
 - [ ] 0.1 Q1: Verify `PropertyManager.v().getHintOfView(node)` exists — `grep -r "getHintOfView" $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/`. Record finding in Task 2.2
 - [ ] 0.2 Q2: Verify `Scene.v().getCallGraph()` returns populated CG — create minimal GATOR test client that logs CG size. Record finding in Task 1.6
 - [ ] 0.3 Q3: Verify `Configs.clientParams` propagates `-clientParam` — `grep -A 10 "clientParam" lib/gator/gator`. Record finding in Task 1.2
