@@ -792,10 +792,10 @@ Reachability comes first because it defines the method universe — the denomina
 ```bash
 source /etc/profile
 
-# Build analysis client fat JAR
+# Build analysis client fat JAR and copy to rv-android/lib/analysis-client/
+# maven-resources-plugin copies the JAR during the install phase
 cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client
-mvn package -DskipTests
-cp target/rvsec-analysis-client.jar $RVSEC_HOME/rv-android/lib/analysis-client/
+mvn clean install -DskipTests
 
 # Run static analysis on test APK
 cd $RVSEC_HOME/rv-android

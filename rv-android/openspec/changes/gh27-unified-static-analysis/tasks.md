@@ -1,6 +1,6 @@
 # Tasks: gh27-unified-static-analysis
 
-**Dependency order**: Group 0 (spike) → Groups 1-4 (Java) → Group 5 (Python parser) → Groups 6-7 (Python config/platform + dead code cleanup + rv-agent-validation migration) → Group 8 (tests + rv-agent test migration) → Group 9 (docs/specs) → Group 10 (E2E final gate)
+**Dependency order**: Group 0 (spike) → Groups 1-4 (Java) → Group 5 (Python parser) → Groups 6-7 (Python config/CLI/platform + dead code cleanup + rv-agent-validation migration) → Groups 8-9 (tests + docs, independent of each other) → Group 10 (E2E final gate)
 
 **Java group order**: Group 1 (reachability — coverage denominator) → Group 2 (windows + WTG) → Group 3 (inputType/entries) → Group 4 (build/deploy). Reachability first because it defines the method universe; the JSON output writes sections in this priority order with flush between each, so timeout preserves the most critical data.
 
@@ -94,9 +94,9 @@ Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-s
 - [ ] 5.7 Implement per-section try/except for graceful degradation (INV-ANA-06)
 - [ ] 5.8 Run `/rv-doc-code modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`
 
-## 6. Python — Config and StaticAnalyzer
+## 6. Python — Config, StaticAnalyzer, CLI, and rv-experiment Config
 
-Files: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`
+Files: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`, `modules/rv-static-analysis/src/rv_static_analysis/__main__.py`, `modules/rv-experiment/src/rv_experiment/config.py`
 
 - [ ] 6.1 Update `RVStaticAnalysisConfig`: remove `gesda_jar`, `gator_dir`, `reach_jar`. Add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
 - [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir>`
