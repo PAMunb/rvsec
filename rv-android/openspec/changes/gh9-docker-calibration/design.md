@@ -31,12 +31,14 @@ E  → Validation (30 holdout APKs, 37 params, SGLang)
 | Requirement | Value | Verification |
 |-------------|-------|-------------|
 | Machine | Desktop: 64 CPUs, 128GB RAM | `nproc && free -h` |
-| Docker | Image `phtcosta/rvandroid:0.8.0` | `docker images \| grep rvandroid` |
+| Docker | Image `phtcosta/rvandroid:0.8.0` (rebuilt from `modules` branch) | `docker images \| grep "rvandroid.*0.8.0"` |
 | KVM | `/dev/kvm` accessible | `ls -la /dev/kvm` |
 | rv-android | uv sync, all modules | `uv run python -c "from rv_agent_validation.calibration import ObjectiveFunction; print('OK')"` |
 | SGLang (Phases D, E) | Server at `localhost:30000` | `curl -s http://localhost:30000/v1/models` |
 
-RVSEC_HOME and Java 8 are **not required on the host**. The Docker image `phtcosta/rvandroid:0.8.0` contains all prerequisites (RVSEC_HOME, Java 8, rv-android, Android SDK). All preprocessing and execution happens inside containers.
+RVSEC_HOME and Java 8 are **not required on the host**. The Docker image contains all prerequisites (RVSEC_HOME, Java 8, rv-android, Android SDK). All preprocessing and execution happens inside containers.
+
+**IMPORTANT**: The Docker image `phtcosta/rvandroid:0.8.0` MUST be rebuilt from the current `modules` branch before calibration. The existing `0.8.0` image predates gh26 (exploration strategy) and gh18 (error detection). Rebuilding overwrites the tag with current code. See Task 13a for the rebuild procedure.
 
 ### APK Source (Phase A only)
 
@@ -75,7 +77,7 @@ For Phases D and E (multimode), containers also need `extra_hosts: ["host.docker
 
 Run all preprocessing (monitor generation, APK instrumentation, static analysis) inside Docker containers using `--skip-execution`. This merges the previous Phase 0 (APK filtering by SA tool success) into Phase A — filtering happens AFTER container preprocessing, based on which APKs produced all 3 SA files.
 
-The Docker image `phtcosta/rvandroid:0.8.0` contains RVSEC_HOME, Java 8, and all tools for preprocessing. Instead of installing these on the host, we run rv-experiment inside containers with `--skip-execution` to perform only the preprocessing phases (monitors + instrumentation + SA), without launching emulators or executing testing tools.
+The Docker image (rebuilt from `modules` branch as `phtcosta/rvandroid:0.8.0`) contains RVSEC_HOME, Java 8, and all tools for preprocessing. Instead of installing these on the host, we run rv-experiment inside containers with `--skip-execution` to perform only the preprocessing phases (monitors + instrumentation + SA), without launching emulators or executing testing tools.
 
 ### How it works
 
@@ -94,7 +96,7 @@ The Docker image `phtcosta/rvandroid:0.8.0` contains RVSEC_HOME, Java 8, and all
 
 ### Docker compose structure
 
-The compose overrides the entrypoint because the frozen Docker image's `docker-entrypoint.sh` does not support `RV_SKIP_EXECUTION`:
+The compose overrides the entrypoint because the Docker image's `docker-entrypoint.sh` does not support `RV_SKIP_EXECUTION`:
 
 ```yaml
 services:

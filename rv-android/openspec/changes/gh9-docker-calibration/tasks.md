@@ -2,7 +2,7 @@
 
 ## Execution Order
 
-Tasks 1-12 cover infrastructure development (COMPLETED — 86 tests passing). Tasks 12a-12d cover parameter space expansion (gh18/gh26 sync). Tasks 13-14 handle commit and desktop transfer. Tasks 15-16 cover Docker preprocessing (Phase A). Tasks 16a-16h cover pre-calibration (Phases B0/C0/D0). Tasks 17-24 cover the full calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
+Tasks 1-12 cover infrastructure development (COMPLETED — 86 tests passing). Tasks 12a-12d cover parameter space expansion (gh18/gh26 sync). Task 13 handles commit. Task 13a rebuilds the Docker image with gh26/gh18 code (CRITICAL — old `0.8.0` image has pre-gh26 code). Task 14 covers desktop transfer and smoke tests. Tasks 15-16 cover Docker preprocessing (Phase A). Tasks 16a-16h cover pre-calibration (Phases B0/C0/D0). Tasks 17-24 cover the full calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
 
 When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
@@ -31,9 +31,10 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 12c. Task 12c: Update `design.md` — pre-cal phases, expanded params, TIMEOUT_SECS placeholder
 12d. Task 12d: Update `tasks.md` — add pre-cal tasks, update param counts
 
-### Commit and Transfer (PENDING)
+### Commit, Docker Rebuild, and Transfer (PENDING)
 
 13. Task 13: Commit all code + rewritten artifacts (refs #9)
+13a. Task 13a: Rebuild Docker image `0.8.0` (overwrite with current `modules` branch code)
 14. Task 14: Transfer and verify on desktop (smoke tests)
 
 ### Docker Preprocessing (PENDING)
@@ -200,13 +201,34 @@ Commit all infrastructure code, bug fixes, preprocessing script, and the rewritt
 - [ ] 13.4 Stage all files: scripts, tests, dead code removals, docs, OpenSpec artifacts, uv.lock.
 - [ ] 13.5 Commit with `refs #9`.
 
+### 13a. Rebuild Docker Image
+
+The existing `phtcosta/rvandroid:0.8.0` image predates gh26 (exploration strategy, 341 tasks) and gh18 (error detection). Containers run baked-in code, not mounted source — so the image MUST be rebuilt (overwriting the `0.8.0` tag) to include all current changes. Calibrating on old code would produce meaningless parameters. The gh26 experiment images (`gh26-pre`, `gh26-pos`) are no longer needed — gh26 is archived.
+
+- [ ] 13a.1 On desktop, after `git pull` + `uv sync`, rebuild the production image (overwrites `0.8.0`):
+  ```
+  cd docker/rvandroid && ./build.sh
+  ```
+- [ ] 13a.2 Verify the rebuilt image has gh26 code:
+  ```
+  docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
+    "python -c \"from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer; print('gh26 OK')\""
+  ```
+- [ ] 13a.3 Verify the rebuilt image has gh18 code:
+  ```
+  docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
+    "python -c \"from rv_agent.config.agent_config import RVAgentConfig; c = RVAgentConfig(package_name='test'); print('error_detection_confidence:', c.error_detection_confidence)\""
+  ```
+- [ ] 13a.4 Quick E2E smoke: run rv-experiment with `--tools monkey --timeout 30` on 1 APK to verify the image works end-to-end.
+- [ ] 13a.5 Remove obsolete gh26 experiment images: `docker rmi phtcosta/rvandroid:gh26-pre phtcosta/rvandroid:gh26-pos`
+
 ### 14. Transfer and Verify on Desktop
 
 Transfer code to the desktop machine and run smoke tests to validate end-to-end before the campaign.
 
 - [ ] 14.1 `git pull` on desktop.
 - [ ] 14.2 `uv sync` on desktop.
-- [ ] 14.3 Verify environment: Docker image, KVM, disk space. (RVSEC_HOME and Java 8 NOT needed on host.)
+- [ ] 14.3 Verify environment: Docker image `phtcosta/rvandroid:0.8.0` (rebuilt in 13a), KVM, disk space. (RVSEC_HOME and Java 8 NOT needed on host.)
 - [ ] 14.4 Copy `apks_complete.csv` to `modules/rv-agent-validation/data/`.
 - [ ] 14.5 Verify APK source directory: flat structure, 188+ APKs.
 - [ ] 14.6 **S1: Preprocessing smoke** — `preprocess_docker.py` with 3 APKs, 2 containers.

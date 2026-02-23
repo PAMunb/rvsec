@@ -6,13 +6,13 @@
 
 ## Why
 
-The calibration framework in rv-agent-validation tunes 24 parameters of the RVAgent exploration strategy across six phases (A through E), totaling ~308 hours of experiment execution. The original implementation used Python-level parallelism (Optuna `n_jobs=6` with thread-safe `EmulatorPool`), which broke on emulator crashes — killing all six workers and losing hours of work.
+The calibration framework in rv-agent-validation tunes 37 parameters (11 MACRO + 26 MICRO) of the RVAgent exploration strategy across six phases (A through E), totaling ~308 hours of experiment execution. The original implementation used Python-level parallelism (Optuna `n_jobs=6` with thread-safe `EmulatorPool`), which broke on emulator crashes — killing all six workers and losing hours of work.
 
 The infrastructure replacement is complete: two host-side scripts (`calibration_orchestrator.py`, `baseline_docker.py`) adopt the Docker container-level parallelism pattern proven in the rvsec-02 project, with 39 unit tests passing. Dead code removed per P3.
 
 However, a deep analysis revealed that all intermediate data from previous runs (instrumented APKs, static analysis files, dataset splits) was never committed (gitignored) and is lost. The pipeline must be re-executed from scratch on the desktop, starting from preprocessing (Phase A) through validation (Phase E).
 
-The key architectural decision: **all phases use Docker containers**. The preprocessing phase (instrumentation + static analysis) runs inside containers using `--skip-execution` to avoid tool execution overhead. This eliminates all host-side dependencies on RVSEC_HOME, Java 8, and Maven — the Docker image `phtcosta/rvandroid:0.8.0` contains everything needed.
+The key architectural decision: **all phases use Docker containers**. The preprocessing phase (instrumentation + static analysis) runs inside containers using `--skip-execution` to avoid tool execution overhead. This eliminates all host-side dependencies on RVSEC_HOME, Java 8, and Maven — the Docker image `phtcosta/rvandroid:0.8.0` contains everything needed. The image must be rebuilt (same `0.8.0` tag) before calibration to include all gh26 exploration improvements and gh18 error detection.
 
 ### Why SDD for an execution campaign
 
@@ -48,9 +48,9 @@ This is an unconventional use of SDD — we are using the artifact structure (pr
 
 - **Phase A (Preprocessing)**: Docker containers run instrumentation + SA on 188 APKs with `--skip-execution` (no emulator, no tool). Host-side post-processing filters for completeness (3 SA files) and assembles `calibration_dataset_v2/`. Estimated ~2h.
 - **Phase B (Baseline)**: 945 tasks, ~18.4h — establish BASELINE_MAX_ERRORS
-- **Phase C (Macro calibration)**: 80 trials x 75 APKs, ~122h — tune 8 high-impact parameters
-- **Phase D (Micro calibration)**: 100 trials x 75 APKs, ~160h — tune 16 fine-grained parameters (requires SGLang)
-- **Phase E (Validation)**: 270 tasks, ~5.6h — validate on 30-APK holdout set (requires SGLang)
+- **Phase C (Macro calibration)**: 80 trials x 75 APKs, ~167h — tune 11 high-impact parameters
+- **Phase D (Micro calibration)**: 100 trials x 75 APKs, ~208h — tune 26 fine-grained parameters (requires SGLang)
+- **Phase E (Validation)**: 270 tasks, ~7.5h — validate 37 params on 30-APK holdout set (requires SGLang)
 
 ### Post-Execution (Tasks 25-27)
 
@@ -72,7 +72,7 @@ When execution reveals bugs, correction tasks are inserted as sub-tasks (e.g., T
 
 | Dependency | Where | Notes |
 |------------|-------|-------|
-| Docker image `phtcosta/rvandroid:0.8.0` | Desktop | Frozen — contains RVSEC_HOME, Java 8, rv-android |
+| Docker image `phtcosta/rvandroid:0.8.0` | Desktop | Rebuild from `modules` branch to include gh26/gh18 changes (overwrites existing tag) |
 | Desktop machine (64 CPUs, 128GB RAM, KVM) | All phases | All execution happens here |
 | SGLang server (Qwen3-VL-4B) | Phases D, E | Via `rvsec-vision-llm/docker-compose.yml` on desktop |
 | `apks_complete.csv` | Phase A | APK metadata from experiment 1 |
