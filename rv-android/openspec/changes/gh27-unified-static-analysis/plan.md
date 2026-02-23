@@ -581,18 +581,32 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ## 9. Implementation Tasks
 
-### Task Group 1: Java — RvsecAnalysisClient Core (WTG + Windows)
+### Task Group 1: Java — RvsecAnalysisClient Core + Reachability (Coverage Denominator)
 
 **Files**: `RvsecAnalysisClient.java` (new), `pom.xml` (update)
 
-1. Create `RvsecAnalysisClient.java` in GATOR client module
-2. Port WTG extraction from `RvsecWtgClient.run()` into `extractTransitions()`
-3. Implement `extractWindows()` using GATOR's internal APIs (getActivities, getActivityRoots, PropertyManager)
-4. Implement JSON serialization for windows + transitions sections
-5. Update `pom.xml` with maven-assembly-plugin for fat JAR
-6. Test: analysis client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk`
+Reachability comes first because it defines the method universe — the denominator for all coverage calculations. The JSON output writes this section first with flush, so timeout preserves the most critical data (D5).
 
-### Task Group 2: Java — inputType and entries Extraction
+1. Create `RvsecAnalysisClient.java` in GATOR client module
+2. Add JGraphT, rvsec-mop-extractor, rvsec-apk dependencies with Soot exclusions
+3. Implement MOP loading: `loadMopSignatures()` → `resolveMopInScene()` (all overloads)
+4. Implement `getEntryPoints()`: public/protected methods of activity classes
+5. Implement `buildJGraph()`: convert Soot CallGraph to JGraphT DirectedGraph
+6. Implement reachability computation: `reachable`, `reachesMop`, `directlyReachesMop` via multi-source BFS (D2)
+7. Implement `complementWithLifecycleCallbacks()` and `complementWithListenerCallbacks()`
+8. Write `reachability` JSON section and flush
+9. Test: verify reachability data against current REACH output for `cryptoapp.apk`
+
+### Task Group 2: Java — Windows and WTG Extraction
+
+**Files**: `RvsecAnalysisClient.java`
+
+1. Implement `extractWindows()` using GATOR's internal APIs (getActivities, getActivityRoots, PropertyManager)
+2. Port WTG extraction from `RvsecWtgClient.run()` into `extractTransitions()`
+3. Write `windows` section (flush), then `transitions` section (flush + close)
+4. Test: analysis client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk`
+
+### Task Group 3: Java — inputType and entries Extraction
 
 **Files**: `RvsecAnalysisClient.java`
 
@@ -602,18 +616,6 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 4. Extract `android:entries` attribute, resolve `@array/...` from `res/values/arrays.xml`
 5. Match XML data to GATOR widget nodes by `idName`
 6. Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk`
-
-### Task Group 3: Java — Reachability Analysis
-
-**Files**: `RvsecAnalysisClient.java`, `pom.xml`
-
-1. Add JGraphT, rvsec-mop-extractor, rvsec-apk dependencies with Soot exclusions
-2. Implement `loadMopMethods()`: load MOP spec signatures using JavamopFacade
-3. Implement `getEntryPoints()`: public/protected methods of activity classes
-4. Implement `buildJGraph()`: convert Soot CallGraph to JGraphT DirectedGraph
-5. Implement reachability computation: `reachable`, `reachesMop`, `directlyReachesMop`
-6. Implement `complementWithLifecycleCallbacks()` and `complementWithListenerCallbacks()`
-7. Test: verify reachability data matches current REACH output for `cryptoapp.apk` (minor differences expected — document and justify)
 
 ### Task Group 4: Java — Build and Deploy
 
@@ -634,9 +636,9 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 7. Ensure code_package filtering applied (INV-ANA-03)
 8. Unit tests: parsing well-formed JSON, empty JSON, missing sections, missing file
 
-### Task Group 6: Python — Config and StaticAnalyzer
+### Task Group 6: Python — Config, StaticAnalyzer, CLI, and rv-experiment Config
 
-**Files**: `config.py`, `static_analysis.py`
+**Files**: `config.py`, `static_analysis.py`, `__main__.py` (rv-static-analysis), `rv-experiment/config.py`
 
 1. Update `RVStaticAnalysisConfig`: remove old tool paths, add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
 2. Update `get_tool_command()` for analysis tool
@@ -644,7 +646,9 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 4. Update `StaticAnalysisResult`: `analysis_file`, `timed_out`
 5. Handle `RVCommandTimeoutError` in `_execute_command()`
 6. Update `get_static_data()` to use StaticAnalysisParser
-7. Unit tests: config validation, command generation, timeout handling
+7. Update `rv-static-analysis/__main__.py`: replace CLI args (`--gesda-jar`, `--gator-dir`, `--reach-jar` → `--analysis-client-jar`), tool choices, config mapping, result display, help text
+8. Update `rv-experiment/config.py` `get_static_analysis_config()`: provide `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
+9. Unit tests: config validation, command generation, timeout handling
 
 ### Task Group 7: Python — Parser Cleanup and Platform
 
@@ -653,7 +657,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 1. Verify `StaticAnalysisParser.parse_file()` is compatible with all callers
 2. Update `read_static_analysis_files()` for `.json` extension
 3. Update rv-platform `StaticAnalysisComponent.copy_static_analysis_files()` extensions
-4. Delete old parsers (backup to `backup/` first per P3)
+4. Delete old parsers and `base_parser.py` (backup to `backup/` first per P3)
 5. Delete old parser tests
 6. Grep all modules for dangling imports, clean up
 
@@ -743,7 +747,9 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 | `rv-static-analysis/.../parser/static/static_analysis_parser.py` | **REWRITE** — analysis JSON parser |
 | `rv-static-analysis/.../analysis/static/static_analysis.py` | **MODIFY** — single tool pipeline |
 | `rv-static-analysis/.../config.py` | **MODIFY** — analysis tool config |
-| `rv-static-analysis/.../parser/static/base_parser.py` | **DELETE** — no longer needed |
+| `rv-static-analysis/.../__main__.py` | **MODIFY** — CLI args, tool choices, result display (473 lines) |
+| `rv-static-analysis/.../parser/static/base_parser.py` | **DELETE** — dead code after removing 3 child parsers |
+| `rv-experiment/.../config.py` | **MODIFY** — `get_static_analysis_config()` must provide new fields |
 | `rv-platform/.../components/static_analysis.py` | **MODIFY** — update file extensions |
 | `rv-agent-validation/.../experiment/runner.py` | **MODIFY** — replace 3-file parse with `parse_file()` |
 | `rv-agent-validation/.../experiment/config.py` | **MODIFY** — replace 3-file glob with `.json` |

@@ -104,7 +104,9 @@ Files: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/r
 - [ ] 6.4 Update `StaticAnalysisResult`: remove 3 file paths, add `analysis_file` and `timed_out`
 - [ ] 6.5 Handle `RVCommandTimeoutError` in `_execute_command()` — set `result.timed_out = True`
 - [ ] 6.6 Update `get_static_data()` to use `StaticAnalysisParser`. **Pre-existing bug**: current code calls `parser.parse(self.gesda_file, self.gator_file, self.reach_file, ...)` but `StaticAnalysisParser.parse()` signature is `parse(reach_file, gator_file, gesda_file, ...)` — positional args swap gesda↔reach, causing both parsers to receive the wrong file format and silently return empty data
-- [ ] 6.7 Run `/rv-doc-code modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`
+- [ ] 6.7 Update `rv-static-analysis/__main__.py` (473 lines, CLI entry point): replace `--gesda-jar`, `--gator-dir`, `--reach-jar` args with `--analysis-client-jar`. Replace tool choices `['gesda', 'gator', 'reach']` with single analysis invocation. Update config mapping dict (`'gesda_jar'` etc. → `'analysis_client_jar'`). Update result display (`result.gesda_file/gator_file/reach_file` → `result.analysis_file`). Update module description, help text, and usage examples. Add `--jvm-memory` and `--analysis-timeout` as optional CLI args
+- [ ] 6.8 Update `rv-experiment/src/rv_experiment/config.py` `get_static_analysis_config()` (~L598): resolve and provide `analysis_client_jar` path (from `lib/analysis-client/rvsec-analysis-client.jar` relative to `RVSEC_HOME` or project root), `jvm_memory` (default `"8g"`), and `analysis_timeout` (default `600`) fields to `RVStaticAnalysisConfig`. Without this, experiment mode (via `rv-experiment`) cannot find the analysis client JAR and pre-processing will fail
+- [ ] 6.9 Run `/rv-doc-code modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`
 
 ## 7. Python — Parser Cleanup and Platform
 
@@ -118,7 +120,7 @@ Files: `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_a
 - [ ] 7.6 Grep all modules for dangling references: `grep -r "gesda_parser\|gator_parser\|reach_parser\|GesdaParser\|GatorParser\|ReachParser\|EXTENSION_GESDA\|EXTENSION_GATOR\|EXTENSION_REACH\|gesda_file\|gator_file\|reach_file" modules/`. Critical modules: rv-static-analysis, rv-platform, rv-experiment, rv-coverage, rv-agent, rv-agent-validation
 - [ ] 7.6a Update `rv-experiment/src/rv_experiment/constants.py`: remove re-exports of `EXTENSION_GESDA` and `EXTENSION_REACH` from rv-android-core; remove local `EXTENSION_GATOR = ".gator"` (inconsistent with rv-android-core's `".wtg"`) and `EXTENSION_WTG = ".wtg"`; add `EXTENSION_STATIC_ANALYSIS` re-export. Also check `get_static_analysis_source_path()` (line 102) which constructs static analysis file paths using these extensions
 - [ ] 7.6b Delete deprecated `parse_all()` from `static_analysis_parser.py` (line 152-167) — wraps the old 3-parser flow. Grep for callers first: known caller in `rv-agent-validation/experiment/runner.py`
-- [ ] 7.6c Delete deprecated `create_parser_factory()` from `base_parser.py` (line 107-126) — no callers in codebase
+- [ ] 7.6c Backup and delete `base_parser.py` entirely (P3). After removing GesdaParser, GatorParser, and ReachParser that inherit from `BaseStaticAnalysisParser`, the file becomes dead code — the new `StaticAnalysisParser` is standalone (uses `LoggingManager` directly, does not inherit from `BaseStaticAnalysisParser`). Includes deprecated `create_parser_factory()` (line 107-126) which also has no callers
 - [ ] 7.7 Run `/rv-qa-lint-fix rv-static-analysis` — auto-fix formatting and imports after bulk changes
 
 ### 7.8 Dead code cleanup (P3)
