@@ -14,18 +14,13 @@ RV-Agent currently uses boolean MOP flags (`reaches_mop`, `directly_reaches_mop`
 
 This document analyzes how these would benefit rv-agent. This is a research/brainstorming exercise to evaluate the value proposition — not an implementation plan.
 
-### Important Architectural Constraint: No Runtime MOP Feedback
+### Architectural Note: Runtime MOP Feedback Channel
 
-RV-Agent does **NOT** have access to real-time MOP method coverage during execution. The coverage data flow is:
+Today, RV-Agent does **NOT** have access to real-time MOP method coverage during execution. The `CoverageTracker` (rv-platform) monitors logcat in a background thread and populates a `LogcatRepository` with confirmed method executions, but this data is not fed back to the agent loop. The agent only tracks UI-level interactions (visit counts per widget) and infers MOP coverage from static metadata.
 
-- **CoverageTracker** (rv-platform, background thread): Monitors logcat RVSEC-COV lines in real-time, but does **NOT** feed back to the agent loop
-- **LogcatRepository** (rv-coverage): Parses logcat post-execution to compute actual method/MOP coverage for reports
-- **RV-Agent's CoverageMetrics**: Tracks `mop_methods_reached` based on **static callback signatures** — what the agent BELIEVES it triggered based on UI interactions + static analysis metadata, not runtime confirmation
+However, as analyzed in **Section 6.3** of this document, injecting the `LogcatRepository` reference into the agent is **architecturally feasible** with minimal changes — it follows the same dependency injection pattern already used for `StaticAnalysisData`. When both static analysis data AND the coverage repository are present (always the case when running via rv-platform), the agent would have access to **confirmed** runtime MOP coverage, enabling true coverage-directed targeting.
 
-This means:
-- The agent knows "I clicked a button whose handler statically reaches Cipher.getInstance" (UI-level tracking + static metadata)
-- The agent does NOT know "Cipher.getInstance was actually executed at runtime" (requires logcat parsing unavailable during execution)
-- Benefits in this document that reference "coverage-directed targeting" operate on **inferred coverage** (static metadata + UI interaction history), not on confirmed runtime coverage. This is explicitly noted where applicable.
+Benefits B1-B8 in this document are written assuming this runtime feedback channel is available, since the analysis in Section 6.3 shows it is a straightforward extension. The standalone CLI mode (`rv-agent run`) would gracefully degrade to inferred coverage when the repository is not injected.
 
 ---
 
@@ -146,7 +141,7 @@ In the gh26 validation (19 APKs, 3 reps), redundant exploration was observed as 
 
 **Definition**: Sources = any interactive widget (Button, EditText, Spinner, CheckBox, etc.). Sinks = any MOP method (spec-set agnostic — works for JCA, generic/FSM, or any future spec set). The analysis traces which widget interactions can reach which specific MOP methods through the call graph.
 
-### B1: MOP-Specific Targeting (Differentiated Scoring)
+### B1: Coverage-Directed MOP Targeting
 
 **Scenario** (using cryptoapp as example):
 
@@ -156,25 +151,32 @@ MainActivity has 3 buttons leading to activities:
   - "Digest" button -> MessageDigestActivity -> {MessageDigest.getInstance, MessageDigest.digest}
   - "Mac" button -> MacActivity -> {Mac.getInstance, Mac.init, Mac.doFinal}
 
-TODAY: Agent returns to MainActivity. All 3 buttons score +300 (directMOP).
-       Agent has clicked "Cipher" 5 times. "Mac" 0 times.
-       Visit count deprioritizes Cipher, but scoring is still binary.
-       Agent has no basis to understand that Mac reaches DIFFERENT MOP targets.
+Runtime coverage after 30 seconds (from LogcatRepository):
+  Cipher.getInstance CONFIRMED, Cipher.init CONFIRMED, Cipher.doFinal CONFIRMED
 
-WITH SOURCE-SINK: Agent knows which SPECIFIC MOP methods each button reaches.
-       MopScorer differentiates: "Cipher" button -> 3 MOP methods, "Mac" button -> 3 DIFFERENT MOP methods.
-       Combined with visit counts: "Cipher" methods have been triggered (inferred from clicks).
-       "Mac" methods have NEVER been triggered -> prioritize Mac button.
+TODAY: Agent returns to MainActivity. All 3 buttons score +300 (directMOP).
+       Agent might click "Cipher" again. Wastes time.
+
+WITH SOURCE-SINK + RUNTIME FEEDBACK:
+  Agent cross-references source-sink mapping with LogcatRepository:
+  - "Cipher" button -> {Cipher.getInstance, Cipher.init, Cipher.doFinal} -> ALL CONFIRMED covered
+  - "Mac" button -> {Mac.getInstance, Mac.init, Mac.doFinal} -> NONE confirmed covered
+  Score: Cipher button = 0 (all targets covered), Mac button = 3 * SCORE_PER_TARGET
+  -> Agent clicks Mac button. Directed, not random.
 ```
 
-**How it transforms the agent**: Instead of treating all directMOP actions equally (+300), the agent can differentiate based on WHICH MOP methods each widget reaches. Combined with the existing UI-level tracking (visit counts per element), this creates a more informed heuristic: "I've clicked the Cipher button multiple times (its MOP targets are likely covered), but the Mac button's MOP targets are distinct and untested."
+**How it transforms the agent**: The agent maintains a real-time "coverage gap" by cross-referencing two data sources:
+1. **Source-sink mapping** (static): widget X reaches MOP methods {A, B, C}
+2. **LogcatRepository** (runtime): methods {A} confirmed called, {B, C} not yet
 
-**Important caveat**: The agent does not have runtime confirmation that MOP methods were actually executed. The "coverage" here is INFERRED: "I clicked widget X which statically reaches MOP methods {A, B, C}, so A/B/C are probably covered." This is an approximation — the actual call might have failed at runtime (exception, wrong input, etc.) — but it's still far more informative than the current binary flag.
+This creates a true directed search — the agent always knows the most valuable next action for increasing MOP coverage, based on **confirmed** runtime data rather than heuristic inference.
+
+**Graceful degradation**: Without the runtime feedback channel (standalone mode), the agent falls back to inferring coverage from UI interaction history + static metadata. Less precise but still better than binary MOP flags.
 
 **Integration points**:
-- **MopScorer**: Instead of binary +300/+150, score based on: (1) how many distinct MOP methods this widget reaches, (2) how many of those MOP methods are ALSO reachable from already-tested widgets (inferred coverage). A widget reaching 3 MOP methods that no other tested widget reaches scores higher than one reaching methods already "covered" by previous interactions.
-- **NavigationGuidance**: "Navigate to MacActivity for {Mac.getInstance, Mac.init, Mac.doFinal} (untested MOP targets)"
-- **TransitionManager.plan_path_to_mop_activity()**: Plan path to activity with MOP methods not yet targeted by previous interactions, not just "high MOP density".
+- **MopScorer**: Instead of binary +300/+150, score = f(count of UNCOVERED MOP methods reachable from this widget). Queries LogcatRepository for confirmed coverage. A widget whose MOP targets are ALL confirmed covered scores 0 — freeing exploration to focus elsewhere.
+- **NavigationGuidance**: "Navigate to MacActivity to cover {Mac.getInstance, Mac.init, Mac.doFinal} (0/3 confirmed covered)"
+- **TransitionManager.plan_path_to_mop_activity()**: Plan path to activity with the highest number of uncovered (confirmed) MOP targets, not just "high MOP density".
 
 ### B2: Data Dependency Awareness (Action Ordering)
 
@@ -210,21 +212,24 @@ Source-sink analysis across the app reveals:
   - Activity A, Button_encrypt -> {Cipher.getInstance, Cipher.init, Cipher.doFinal}
   - Activity B, Button_quick_encrypt -> {Cipher.getInstance, Cipher.init, Cipher.doFinal}
 
-Both reach the EXACT SAME set of MOP methods (possibly even the same code path,
-or two different paths to the same library method).
+Both reach the EXACT SAME set of MOP methods.
 
-After exploring Activity A (agent clicked Button_encrypt multiple times):
-  Agent recognizes: Activity B's MOP target set is IDENTICAL to Activity A's.
-  Deprioritizes Activity B in exploration queue — testing it would be redundant.
+After exploring Activity A, LogcatRepository confirms:
+  Cipher.getInstance CALLED, Cipher.init CALLED, Cipher.doFinal CALLED
+
+Agent cross-references: Activity B's MOP target set is FULLY COVERED (confirmed).
+  Deprioritizes Activity B — exploring it would be redundant.
 ```
 
-**How it transforms the agent**: Without source-sink, two buttons in different activities both score +300 (directMOP) and the agent has no way to know they reach the same MOP targets. With source-sink, the agent can compute "MOP target equivalence" between widgets — if two widgets across different screens reach the exact same MOP method set, testing one makes the other redundant.
+**How it transforms the agent**: Two complementary deduplication mechanisms:
 
-This detection is purely static (comparing MOP target sets from source-sink data) — it does NOT require runtime coverage confirmation. The agent simply knows: "Button_encrypt in Activity A and Button_quick_encrypt in Activity B both reach {Cipher.getInstance, Cipher.init, Cipher.doFinal}. Once I've tested one, the other is a duplicate."
+1. **Static equivalence** (no runtime data needed): Two widgets reaching the exact same MOP target set are statically redundant. Once one is tested, the other is deprioritized regardless of runtime confirmation. This is purely a source-sink comparison.
+
+2. **Runtime-confirmed deduplication** (with feedback channel): Even if two widgets have OVERLAPPING (not identical) MOP target sets, the agent can compute the incremental value of testing the second one. If Widget A reaches {Cipher.getInstance, Cipher.init} and Widget B reaches {Cipher.getInstance, Mac.init}, and runtime confirms Cipher.getInstance is covered, then Widget B's incremental value is only {Mac.init} — the Cipher.getInstance target is confirmed redundant.
 
 **Integration points**:
-- **SuccessorTracker**: When evaluating candidate next-states, compute "MOP novelty score" = count of MOP methods reachable from that state that are NOT also reachable from already-tested widgets. States with zero novelty are deprioritized.
-- **WtgScorer**: In addition to "is this screen unvisited?", add "does this screen have untested MOP targets?" — a visited screen with MOP targets not yet tested from any other widget is more valuable than an unvisited screen whose MOP targets are already covered by other tested paths.
+- **SuccessorTracker**: Compute "MOP novelty score" = count of MOP methods reachable from this widget that are NOT yet confirmed covered in LogcatRepository. States with zero novelty are deprioritized.
+- **WtgScorer**: In addition to "is this screen unvisited?", add "does this screen have uncovered MOP targets?" — a visited screen with uncovered MOP methods is more valuable than an unvisited screen with no MOP methods or only covered ones.
 
 ### B4: Widget-MOP Mapping for Enriched LLM Prompts
 
@@ -411,26 +416,26 @@ WITH SOURCE-SINK + WIDGET->METHOD+PARAMS:
     1. Fill "Algorithm" with "AES" (knows it's an algorithm name parameter)
     2. Fill "Key" with "secretkey123" (knows it's an encryption key)
     3. Click "Encrypt"
-    4. Cipher chain likely executes successfully. 3 MOP methods inferred as triggered.
-  Next: checks which MOP target sets remain untested.
-        MessageDigest targets never triggered from any widget -> navigate to DigestActivity.
+    4. Cipher chain executes. LogcatRepository confirms: 3 MOP methods covered.
+  Next: queries LogcatRepository for coverage gaps.
+        MessageDigest.getInstance NOT in confirmed coverage -> navigate to DigestActivity.
 
   -> Effective MOP coverage gain: fast, directed, efficient
-  (Note: "covered" = inferred from UI interactions + static metadata, not runtime-confirmed)
+  (Coverage confirmation via LogcatRepository — not inference, actual runtime data)
 ```
 
 ### Impact Matrix: All Agent Components
 
 | Component | Current Behavior | With Source-Sink + Params |
 |---|---|---|
-| **MopScorer** | Binary: +300 (DM) or +150 (M) | Differentiated: f(distinct MOP methods reachable, untested target novelty) |
+| **MopScorer** | Binary: +300 (DM) or +150 (M) | Dynamic: f(uncovered MOP methods reachable, confirmed via LogcatRepository) |
 | **WtgScorer** | +250 for unvisited screen | +bonus for screens with uncovered MOP targets |
 | **ScreenProcessor** | "[DM] CLICK button" | "[DM:Cipher.init,doFinal] CLICK (needs: key, data)" |
 | **NavigationGuidance** | "Navigate to high-MOP screen" | "Navigate to MacActivity for {Mac.init} (uncovered)" |
 | **TransitionManager** | Path to MOP-density activity | Path to specific uncovered MOP target |
 | **Input generation** | Random / LLM-guessed values | MOP-context-aware: algorithm names, key sizes |
 | **Form deferral** | Defer button until ALL inputs filled | Defer until REQUIRED inputs filled (source-sink) |
-| **Exploration strategy** | DFS with MOP priority heuristic | MOP-target-aware DFS with novelty scoring |
+| **Exploration strategy** | DFS with MOP priority heuristic | Coverage-gap-directed DFS with confirmed MOP novelty |
 | **LLM prompts** | Boolean [M]/[DM] markers | Semantic descriptions with call chains + params |
 | **Redundancy** | Re-explores same MOP paths | Detects MOP-equivalent paths, skips duplicates |
 | **Test generation** | Trial and error | Systematic test recipes from parameter space |
@@ -448,12 +453,12 @@ Main coverage bottlenecks observed:
 3. Agent re-explores paths to the same MOP targets without knowing they're equivalent (-> B3)
 4. Premature button clicks trigger errors due to missing input dependencies (-> B2)
 
-Conservative estimate with source-sink + params:
-- MOP coverage: 20-30% (1.5-2x improvement)
-- Method coverage: 18-22% (modest improvement — most methods aren't MOP-related)
-- Test efficiency: 2-3x fewer wasted cycles (meaningful inputs, action ordering, deduplication)
+Conservative estimate with source-sink + params + runtime feedback:
+- MOP coverage: 25-40% (2-3x improvement)
+- Method coverage: 20-25% (modest improvement — most methods aren't MOP-related)
+- Test efficiency: 2-4x fewer wasted cycles (meaningful inputs, action ordering, deduplication, confirmed coverage targeting)
 
-**Important caveat**: These estimates assume the inferred coverage model (static metadata + UI interaction tracking) is a reasonable approximation of actual runtime coverage. The agent cannot confirm actual MOP method execution — it infers coverage from "I clicked widgets that statically reach these MOP methods." If a future change adds a runtime feedback channel (e.g., CoverageTracker -> agent callback), the estimates above would improve further because the agent would know the actual coverage state.
+The runtime feedback channel (Section 6.3) is critical for the higher end of these estimates. Without it, the agent infers coverage from UI interactions + static metadata, which is less precise but still a significant improvement over binary MOP flags.
 
 ---
 
@@ -564,21 +569,131 @@ class ParamInfo:
 - `action.call_chains: List[SourceSinkPath]` — full path details
 - `action.required_inputs: List[str]` — widget IDs that must be filled first
 
-**3. MopScorer enhancement**: Replace binary scoring with MOP-target-aware:
+**3. MopScorer enhancement**: Replace binary scoring with coverage-gap-aware:
 
 ```python
-def score(action, inferred_coverage):
-    # inferred_coverage = MOP methods already targeted by previously-tested widgets
-    # (from UI interaction history + static source-sink data, NOT runtime confirmation)
-    novel_mop = action.mop_targets - inferred_coverage.targeted_mop_methods
-    return len(novel_mop) * MOP_SCORE_PER_NOVEL_TARGET
+def score(action, coverage_repository):
+    if coverage_repository:
+        # Runtime feedback available: use confirmed coverage from LogcatRepository
+        covered = {sig for cls in coverage_repository.classes.values()
+                   for sig, m in cls.methods.items() if m.called and m.reaches_mop}
+        uncovered_mop = action.mop_targets - covered
+    else:
+        # Standalone mode: fall back to UI interaction-based inference
+        uncovered_mop = action.mop_targets - self.inferred_targeted_methods
+    return len(uncovered_mop) * MOP_SCORE_PER_UNCOVERED_TARGET
 ```
 
 **4. Input strategy**: MOP-context-aware value generation for algorithm names, key sizes, etc.
 
 **5. Prompt enrichment**: Semantic action descriptions with call chain summaries for LLM.
 
-### 6.3 Risk Assessment
+### 6.3 Runtime Feedback Channel: LogcatRepository Injection
+
+Today the agent has no access to confirmed runtime coverage. However, injecting this data is architecturally straightforward because the infrastructure already exists — it just isn't connected.
+
+#### Current Data Flow (No Feedback)
+
+```
+TaskExecutor._execute_coordinated_components()
+  → CoverageComponent creates CoverageTracker (with LogcatRepository)
+  → CoverageComponent.start_tracking()        # Background thread starts
+  → ToolExecutionComponent.execute()           # Runs RVAgentTool
+    → RVAgentTool gets static_data from task
+    → AgentFactory.create_agent(config, static_data)  ← NO coverage data
+    → agent.run()                              # Agent runs WITHOUT runtime feedback
+  → CoverageComponent.stop_tracking()          # Background thread stops
+```
+
+During the agent's execution, the `CoverageTracker` background thread is continuously populating the `LogcatRepository` with confirmed method executions parsed from logcat RVSEC-COV lines. This data is available in real-time — it's just not passed to the agent.
+
+#### Proposed Data Flow (With Feedback)
+
+```
+TaskExecutor._execute_coordinated_components()
+  → CoverageComponent creates CoverageTracker (with LogcatRepository)
+  → CoverageComponent.start_tracking()
+  → task.coverage_repository = coverage_tracker.repository  ← NEW: store reference
+  → ToolExecutionComponent.execute()
+    → RVAgentTool gets static_data AND coverage_repository from task
+    → AgentFactory.create_agent(config, static_data, coverage_repository=repository)
+    → agent.run()   # Agent can now query LogcatRepository during execution
+  → CoverageComponent.stop_tracking()
+```
+
+#### Why This Works
+
+**1. No circular dependency**: `LogcatRepository` is defined in `rv-android-core` (`rv_android_core.domain.coverage`), which is already a dependency of both `rv-agent` and `rv-coverage`. Passing a `LogcatRepository` reference to the agent introduces NO new module dependency.
+
+**2. Same injection pattern**: `StaticAnalysisData` is already stored on the task object by `StaticAnalysisComponent` and read by `RVAgentTool`. The exact same pattern applies:
+
+```python
+# In CoverageComponent.start_tracking() — NEW
+self.task.coverage_repository = self.coverage_tracker.repository
+
+# In RVAgentTool.execute_tool_specific_logic() — NEW
+coverage_repository = getattr(task, 'coverage_repository', None)
+
+# In AgentFactory.create_agent() — EXTENDED
+agent = AgentFactory.create_agent(
+    config=agent_config,
+    static_data=static_data,
+    coverage_repository=coverage_repository  # NEW optional param
+)
+```
+
+**3. AgentFactory already supports optional dependencies**: The factory method signature already uses `static_data: Optional[StaticAnalysisData] = None`. Adding `coverage_repository: Optional[LogcatRepository] = None` follows the same pattern. Components that receive it use it; components that don't get `None` degrade gracefully.
+
+**4. Standalone mode degrades gracefully**: When running via `rv-agent run` (standalone CLI), no `CoverageComponent` exists, so `coverage_repository=None`. The agent falls back to inferring MOP coverage from UI interaction history + static metadata (the behavior described in the original version of this document). When running via rv-platform, both are always present.
+
+#### What the Agent Would Query
+
+The `LogcatRepository` provides exactly the data the agent needs:
+
+```python
+# Query: "Which MOP methods have been CONFIRMED executed at runtime?"
+confirmed_mop_coverage = set()
+for class_data in coverage_repository.classes.values():
+    for signature, method in class_data.methods.items():
+        if method.called and method.reaches_mop:
+            confirmed_mop_coverage.add(signature)
+
+# Query: "What's the current MOP coverage percentage?"
+metrics = coverage_repository.calculate_metrics()
+# metrics.called_mop_methods, metrics.total_mop_methods, etc.
+
+# Query: "Has this specific MOP method been executed?"
+class_data = coverage_repository.get_class("javax.crypto.Cipher")
+if class_data:
+    method = class_data.methods.get("<javax.crypto.Cipher: ...getInstance...>")
+    if method and method.called:
+        # Confirmed: this MOP method was actually executed at runtime
+```
+
+#### Thread Safety
+
+The `CoverageTracker` writes to `LogcatRepository` from a background thread while the agent reads from the main thread. Thread safety considerations:
+
+- **Python's GIL** protects basic attribute reads (`method.called`, `method.call_count`). The worst case is a slightly stale read (missing the last 0.5-1s of updates), which is perfectly acceptable for heuristic scoring.
+- **No structural mutations during reads**: The `LogcatRepository.classes` dict is populated during initialization from static analysis data. The background thread only UPDATES existing `MethodCoverageData` objects (sets `called=True`, increments `call_count`). It does NOT add/remove entries. This means the agent iterating over `classes.values()` will never encounter a concurrent structural modification.
+- **Acceptable staleness**: The agent doesn't need microsecond-accurate data. Knowing "as of ~1 second ago, these MOP methods were confirmed called" is sufficient for action prioritization. The background thread updates every 0.5-1.0 seconds.
+
+If more robust safety is desired, a simple `get_confirmed_mop_signatures() -> Set[str]` method with a `threading.Lock` could be added to `LogcatRepository`. But given the GIL protection and the read-only nature of the agent's queries, this is likely unnecessary.
+
+#### The Dual Condition
+
+The full value of source-sink analysis requires **both** data sources:
+
+| static_data | coverage_repository | Agent capability |
+|---|---|---|
+| None | None | Standalone: UI-only exploration, no MOP awareness |
+| Present | None | Current gh27: boolean MOP flags, inferred coverage |
+| None | Present | Limited value: knows what methods were called but can't map them to widgets |
+| **Present** | **Present** | **Full integration**: source-sink mapping + confirmed runtime coverage = coverage-directed targeting |
+
+The "both present" condition is always satisfied when running via rv-platform (the production execution path). The standalone CLI mode is primarily for development/debugging and naturally has reduced capabilities.
+
+### 6.4 Risk Assessment
 
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
@@ -602,13 +717,13 @@ No prior work combines static data-flow analysis from widget interactions to mon
 - CryptoGuard/CogniCrypt: Static-only crypto misuse detection — we combine static analysis with dynamic testing
 - Neither uses source-sink to GUIDE a testing agent
 
-**C2: MOP-target-aware exploration via static analysis + UI interaction history**
+**C2: Coverage-directed exploration via static-runtime feedback loop**
 
-Using static widget-MOP mappings cross-referenced with UI interaction history to infer which MOP targets have been exercised and redirect exploration toward untested targets. This is a novel feedback mechanism:
-- Android testing tools (Monkey, DroidBot, APE) are either coverage-unaware (Monkey) or structurally-aware only (DroidBot/APE use code coverage but not spec-specific MOP awareness)
-- No existing tool uses MOP-spec-specific target sets to guide widget interaction decisions
-- The feedback loop is: static analysis (which widget reaches which MOP methods) + UI interaction tracking (which widgets have been tested) -> infer which MOP targets remain untested -> prioritize widgets targeting novel MOP methods
-- **Future enhancement**: If a runtime feedback channel is added (CoverageTracker -> agent), this loop would use confirmed MOP coverage instead of inferred coverage, making targeting even more precise
+Using runtime coverage data (from LogcatRepository, fed back to the agent via dependency injection) cross-referenced with static widget-MOP mappings (from source-sink analysis) to dynamically redirect exploration in real-time. This is a novel feedback mechanism:
+- Android testing tools (Monkey, DroidBot, APE) are either coverage-unaware (Monkey) or structurally-aware only (DroidBot/APE use code coverage but not spec-specific MOP coverage)
+- No existing tool uses MOP-spec-specific coverage to guide widget interaction decisions
+- The feedback loop is: static analysis (which widget reaches which MOP methods) + confirmed runtime coverage (which MOP methods actually executed, from LogcatRepository) -> compute coverage gaps -> prioritize widgets targeting uncovered MOP methods
+- Graceful degradation: without the runtime channel (standalone mode), falls back to UI interaction-based inference
 
 **C3: Semantic action understanding for LLM agents**
 
@@ -648,23 +763,29 @@ Source-sink + widget-method+params would constitute the Cycle 4 artifact, demons
 
 If this analysis is convincing, the path forward would be:
 
-### Step 1: Spike on cryptoapp (Low effort, high learning)
+### Step 1: Runtime feedback channel (Small change, high leverage)
+Inject `LogcatRepository` reference into rv-agent via the existing dependency injection pattern (Section 6.3). This is a small change (~20 lines across 3 files: `CoverageComponent`, `RVAgentTool`, `AgentFactory`) but enables all runtime-confirmed coverage features. Should be done BEFORE source-sink integration, since it's a prerequisite for the full coverage-directed targeting value.
+
+Key files:
+- `modules/rv-platform/src/rv_platform/components/coverage.py` — store repository on task
+- `modules/rv-agent/src/rv_agent/tools/rvagent/tool.py` — read repository from task, pass to factory
+- `modules/rv-agent/src/rv_agent/agent/agent_factory.py` — accept and distribute `coverage_repository`
+
+### Step 2: Spike on cryptoapp (Low effort, high learning)
 Extend `RvsecAnalysisClient` (from gh27) to output source-sink paths for cryptoapp. Validate:
 - Expected: 4-5 distinct source-sink paths (buttons -> JCA methods)
 - Expected parameters: "AES", "SHA-256", "HmacSHA256", "RSA" as string constants
 - Measure: how many params are statically extractable vs. dynamic
 
-### Step 2: Design rv-agent integration (gh28/gh29)
-Full OpenSpec change: how source-sink + params data flows from analysis JSON through StaticAnalysisData into MopScorer, NavigationGuidance, LLM prompts, and input generation.
+### Step 3: Design rv-agent integration (gh28/gh29)
+Full OpenSpec change: how source-sink + params data flows from analysis JSON through StaticAnalysisData into MopScorer, NavigationGuidance, LLM prompts, and input generation. Includes integration with LogcatRepository for confirmed coverage targeting.
 
-### Step 3: Prototype integration
-Implement the rv-agent changes (scoring, prompts, input generation) using the enriched static analysis data.
-
-### Step 4: Evaluate runtime feedback channel (optional, high impact)
-Currently rv-agent infers MOP coverage from UI interactions + static metadata. Adding a callback from `CoverageTracker` (rv-platform) to the agent would provide REAL coverage data during execution, transforming inferred targeting into confirmed targeting. This would be a separate change but would multiply the value of source-sink analysis.
+### Step 4: Prototype integration
+Implement the rv-agent changes (scoring, prompts, input generation) using the enriched static analysis data + runtime feedback.
 
 ### Step 5: Controlled experiment
 Run same 19-APK experiment as gh26 validation, comparing:
-- Baseline: gh27 agent (boolean MOP flags)
-- Treatment: gh28/29 agent (source-sink + params)
+- Baseline: gh27 agent (boolean MOP flags, no runtime feedback)
+- Treatment A: gh27 agent + runtime feedback only (isolate feedback channel value)
+- Treatment B: source-sink + params + runtime feedback (full integration)
 - Metrics: MOP coverage %, method coverage %, time-to-coverage, violation detection rate
