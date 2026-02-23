@@ -671,7 +671,7 @@ Reachability comes first because it defines the method universe — the denomina
 8. Update `rv-experiment/config.py` `get_static_analysis_config()`: resolve `analysis_client_jar` path (6.8)
 9. Run `/rv-doc-code` on StaticAnalyzer (6.9)
 
-### Task Group 7: Python — Parser Cleanup, Platform, Dead Code, and rv-agent-validation — Tasks 7.1–7.9i
+### Task Group 7: Python — Parser Cleanup, Platform, Dead Code, and rv-agent-validation — Tasks 7.1–7.9j
 
 **Files**: `static_analysis_parser.py`, `static_analysis.py` (rv-platform), `base_parser.py`, `lib/gesda/`, `lib/reach/`, rv-agent-validation production code
 
@@ -681,7 +681,7 @@ Reachability comes first because it defines the method universe — the denomina
 4. Backup+delete old parsers and `base_parser.py` — P3 (7.4–7.5)
 5. Grep all modules for dangling references (7.6). Update rv-experiment constants (7.6a), delete deprecated `parse_all()` (7.6b), delete `base_parser.py` (7.6c). Lint fix (7.7)
 6. **Dead code cleanup (7.8a–7.8g)**: backup+delete `lib/gesda/` (7.8a), `lib/reach/` (7.8b), `rvsec-gator-client.jar` (7.8c), `lib/gator/scripts/` (7.8d), comment out rvsec-gesda/rvsec-reachability in parent POM (7.8e), delete `RvsecWtgClient.java` (7.8f), grep for removed lib paths (7.8g)
-7. **rv-agent-validation migration (7.9a–7.9i)**: update `runner.py` — 3-path → `parse_file()` (7.9a), `config.py` — 3-glob → `.json` (7.9b), `instrumentation.py` — 14+ refs (7.9c), docstrings (7.9d), `test_navigation_guidance.py` (7.9e), `test_preprocess.py` (7.9f), CLAUDE.md (7.9g), final grep (7.9h), test run (7.9i)
+7. **rv-agent-validation migration (7.9a–7.9j)**: update `runner.py` — 3-path → `parse_file()` (7.9a), `config.py` — 3-glob → `.json` (7.9b), `instrumentation.py` — 14+ refs (7.9c), docstrings (7.9d), `test_navigation_guidance.py` (7.9e), `test_preprocess.py` (7.9f), CLAUDE.md (7.9g), lint fix (7.9h), final grep (7.9i), test run (7.9j)
 
 ### Task Group 8: Tests — Tasks 8.1–8.10g
 
@@ -692,18 +692,21 @@ Reachability comes first because it defines the method universe — the denomina
 5. Update `test_config.py` for new configuration fields (8.5)
 6. Update `conftest.py` fixtures (8.6)
 7. Baseline equivalence test: compare analysis output counts against saved 3-tool baseline for `cryptoapp.apk` (8.7)
-8. **rv-agent test migration (8.8a–8.8g)**: create unified JSON fixture (8.8a), update `test_transition_manager` (8.8b), `test_navigation_guidance` (8.8c), `test_rvagent_visitor` (8.8d), `test_static_analysis.py` online (8.8e), delete old fixtures — P3 (8.8f), run `/rv-test-run rv-agent` (8.8g)
+8. **rv-agent test migration (8.8a–8.8h)**: create unified JSON fixture (8.8a), update `test_transition_manager` (8.8b), `test_navigation_guidance` (8.8c), `test_rvagent_visitor` (8.8d), `test_static_analysis.py` online (8.8e), delete old fixtures — P3 (8.8f), lint fix (8.8g), run `/rv-test-run rv-agent` (8.8h)
 9. **Final test runs (8.9a–8.9c)**: `/rv-test-run rv-static-analysis` (8.9a), `/rv-test-run rv-platform` (8.9b), `/rv-test-run rv-agent` (8.9c)
 10. **Normalization validation — Python side (8.10a–8.10g)**: normalizer no-op on correct JSON (8.10a), warning on change (8.10b), legacy dot notation (8.10c), inner class patterns (8.10d), code_package filtering (8.10e), manifest-vs-code_package (8.10f), rv-platform code_package verification (8.10g)
 
-### Task Group 9: Documentation, Specs, and Quality Gate — Tasks 9.1–9.6
+### Task Group 9: Documentation, Verification, and Quality Gate — Tasks 9.1–9.9
 
 1. Update `modules/rv-static-analysis/CLAUDE.md` — reflect analysis tool architecture (9.1)
 2. Update `modules/rv-android-core/CLAUDE.md` — add `EXTENSION_STATIC_ANALYSIS` to constants section (9.2)
 3. Run `/rv-verify rv-static-analysis` — tests + lint + type checks (9.3)
 4. Run `/rv-verify rv-platform` — tests + lint + type checks (9.4)
-5. Run `/rv-code-reviewer` — review full gh27 implementation against specs and design (9.5)
-6. (During `/opsx:sync`) Add end-to-end pipeline sequence diagram to `openspec/specs/analysis/spec.md` (9.6)
+5. Run `/rv-verify rv-agent` — tests + lint + type checks (9.5)
+6. Run `/rv-verify rv-experiment` — tests + lint + type checks (9.6)
+7. Run `/rv-verify rv-agent-validation` — tests + lint + type checks (9.7)
+8. Run `/rv-code-reviewer` — review full gh27 implementation against specs and design (9.8)
+9. (During `/opsx:sync`) Add end-to-end pipeline sequence diagram to `openspec/specs/analysis/spec.md` (9.9)
 
 ### Task Group 10: E2E Validation (Final Gate) — Tasks 10.1–10.10g
 

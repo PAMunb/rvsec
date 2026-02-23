@@ -223,10 +223,11 @@ The rv-agent-validation module has extensive references to the 3-file pattern in
 - [ ] 7.9f Update `modules/rv-agent-validation/tests/calibration/test_preprocess.py` (~L34-40, L106-162): update `_create_container_output()` helper to create `.json` instead of `.gesda`/`.wtg`/`.reach`. Update test assertions that verify existence of 3 files to verify 1 JSON file
 - [ ] 7.9g Update `modules/rv-agent-validation/CLAUDE.md` — remove references to `.gesda`/`.wtg`/`.reach` file structure, document `.json` unified format
 
-**Verification:**
+**Cleanup and verification:**
 
-- [ ] 7.9h Grep final: `grep -r "\.gesda\|\.wtg\|\.reach\|gesda_file\|gator_file\|reach_file\|GesdaParser\|ReachParser\|GatorParser" modules/rv-agent-validation/` — must return zero hits
-- [ ] 7.9i Run rv-agent-validation tests: `uv run pytest modules/rv-agent-validation/tests/ -v` — all tests must pass
+- [ ] 7.9h Run `/rv-qa-lint-fix rv-agent-validation` — auto-fix formatting and imports after bulk changes
+- [ ] 7.9i Grep final: `grep -r "\.gesda\|\.wtg\|\.reach\|gesda_file\|gator_file\|reach_file\|GesdaParser\|ReachParser\|GatorParser" modules/rv-agent-validation/` — must return zero hits
+- [ ] 7.9j Run rv-agent-validation tests: `uv run pytest modules/rv-agent-validation/tests/ -v` — all tests must pass
 
 ---
 
@@ -250,7 +251,8 @@ The rv-agent-validation module has extensive references to the 3-file pattern in
 - [ ] 8.8d Update `modules/rv-agent/tests/unit/test_rvagent_visitor.py`: same change as 8.8b
 - [ ] 8.8e Update `modules/rv-agent/tests/online/test_static_analysis.py`: change file existence checks from `.reach`, `.wtg`, `.gesda` to `.json`. Update `StaticAnalysisLoader` usage if it references old extensions
 - [ ] 8.8f Backup and delete old fixtures: `cryptoapp.apk.reach`, `cryptoapp.apk.wtg`, `cryptoapp.apk.gesda` from `tests/fixtures/static_analysis/cryptoapp/` (P3)
-- [ ] 8.8g Run `/rv-test-run rv-agent` — all unit tests must pass
+- [ ] 8.8g Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting and imports after test migration
+- [ ] 8.8h Run `/rv-test-run rv-agent` — all unit tests must pass
 
 ### 8.9 Final test runs
 
@@ -280,14 +282,17 @@ Verify that `SignatureNormalizer` is a no-op on well-formed JSON (Java client al
 - [ ] 8.10f Create unit test `test_manifest_vs_code_package`: parse a JSON fixture simulating a Godot game engine APK — manifest package `ir.hsn6.trans`, but all classes in `org.godotengine.godot.*`. Pass `code_package="org.godotengine.godot"` (as `PackageDetector` would detect). Verify classes ARE included (matching code_package), not filtered out (as would happen with manifest package)
 - [ ] 8.10g Verify `StaticAnalysisComponent` in rv-platform passes `app.code_package` (NOT `app.package_name`) to the parser. Grep: `grep -n "code_package\|package_name" modules/rv-platform/src/rv_platform/components/static_analysis.py` — confirm `code_package` is used for parser calls, `package_name` only for device operations
 
-## 9. Documentation and Specs
+## 9. Documentation, Verification, and Quality Gate
 
 - [ ] 9.1 Update `modules/rv-static-analysis/CLAUDE.md` — reflect analysis tool architecture
 - [ ] 9.2 Update `modules/rv-android-core/CLAUDE.md` — add `EXTENSION_STATIC_ANALYSIS` to constants section
 - [ ] 9.3 Run `/rv-verify rv-static-analysis` — tests + lint + type checks
 - [ ] 9.4 Run `/rv-verify rv-platform` — tests + lint + type checks
-- [ ] 9.5 Run `/rv-code-reviewer` — review full gh27 implementation against specs and design
-- [ ] 9.6 (During `/opsx:sync`) Add end-to-end pipeline sequence diagram to `openspec/specs/analysis/spec.md` — covers the full flow from static analysis through execution to post-processing: StaticAnalyzer → analysis JSON → StaticAnalysisData → rv-agent execution → Coverage.aj → .logcat → CoverageTracker → ResultProcessor. This diagram documents unchanged components and belongs in the main spec, not the delta
+- [ ] 9.5 Run `/rv-verify rv-agent` — tests + lint + type checks (fixtures and test imports changed in 8.8)
+- [ ] 9.6 Run `/rv-verify rv-experiment` — tests + lint + type checks (config.py and constants.py changed in 6.8 and 7.6a)
+- [ ] 9.7 Run `/rv-verify rv-agent-validation` — tests + lint + type checks (extensive changes in 7.9)
+- [ ] 9.8 Run `/rv-code-reviewer` — review full gh27 implementation against specs and design
+- [ ] 9.9 (During `/opsx:sync`) Add end-to-end pipeline sequence diagram to `openspec/specs/analysis/spec.md` — covers the full flow from static analysis through execution to post-processing: StaticAnalyzer → analysis JSON → StaticAnalysisData → rv-agent execution → Coverage.aj → .logcat → CoverageTracker → ResultProcessor. This diagram documents unchanged components and belongs in the main spec, not the delta
 
 ## 10. E2E Validation (Final Gate)
 
