@@ -62,7 +62,7 @@ Files: `RvsecAnalysisClient.java`
 - [ ] 3.5 Match XML widget data to GATOR widget nodes by comparing `android:id` resource name with `NNode.idNode.getIdName()`
 - [ ] 3.6 Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk`
 
-## 4. Java — Build and Deploy
+## 4. Java — Build, Deploy, and Tests
 
 - [ ] 4.1 Add `maven-assembly-plugin` to `pom.xml` for fat JAR build (`jar-with-dependencies`, same pattern as `rvsec-reachability`). Mark `rvsec-gator-sootandroid` as `<scope>provided</scope>` (already on GATOR's classpath). Bundle JGraphT + mop-extractor (exclude BOTH `ca.mcgill.sable:soot` AND `org.soot-oss:soot`) + apk-reader (exclude FlowDroid)
 - [ ] 4.2 Build: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn clean install -DskipTests` (assembly creates fat JAR on `package`, resources-plugin copies to `rv-android/lib/analysis-client/` on `install`)
@@ -136,7 +136,7 @@ JUnit 4.12 is available via `rvsec-gator-parent` dependencyManagement. Tests go 
 
 Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`
 
-- [ ] 5.1 Add `EXTENSION_STATIC_ANALYSIS = ".json"` to `rv-android-core/constants.py`
+- [ ] 5.1 Add `EXTENSION_STATIC_ANALYSIS = ".json"` to `rv-android-core/constants.py`. Remove old extension constants: `EXTENSION_GESDA`, `EXTENSION_GATOR` (= `".wtg"`), and `EXTENSION_REACH` from the same file
 - [ ] 5.2 Rewrite `StaticAnalysisParser` in `static_analysis_parser.py`: standalone class that parses the static analysis JSON into `StaticAnalysisData`. Uses `LoggingManager` directly for logging
 - [ ] 5.3 Implement `parse_file(file_path, package) -> StaticAnalysisData` — reads JSON, delegates to section parsers. Include truncated JSON recovery: on `JSONDecodeError`, find last complete `]` bracket, close with `}`, retry parse
 - [ ] 5.4 Implement `_parse_classes(data, package) -> Classes` — iterates `reachability` section, applies SignatureNormalizer (INV-ANA-02), filters by code_package (INV-ANA-03)

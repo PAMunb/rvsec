@@ -518,7 +518,7 @@ Update `copy_static_analysis_files()`: change extensions list from `[EXTENSION_M
 
 **Path**: `modules/rv-android-core/src/rv_android_core/constants.py`
 
-Add: `EXTENSION_STATIC_ANALYSIS = ".json"`
+Add: `EXTENSION_STATIC_ANALYSIS = ".json"`. Remove: `EXTENSION_GESDA`, `EXTENSION_GATOR`, `EXTENSION_REACH` (old constants — all consumers migrated by this change).
 
 ### 7.7 Files to Delete (P3)
 
@@ -580,6 +580,10 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 ---
 
 ## 9. Implementation Tasks
+
+### Task Group 0: Verification Spike (Pre-Implementation)
+
+Answer the 5 Open Questions (Q1-Q5) before coding to prevent wasted effort. Verifies: PropertyManager hint API, CG population inside GATOR client, `-clientParam` propagation, apktool `@array` handling, rvsec-mop-extractor Soot API surface.
 
 ### Task Group 1: Java — RvsecAnalysisClient Core + Reachability (Coverage Denominator)
 
@@ -664,7 +668,7 @@ Reachability comes first because it defines the method universe — the denomina
 5. Delete old parser tests
 6. Grep all modules for dangling imports, clean up
 
-### Task Group 8: Test Resources and Integration
+### Task Group 8: Tests
 
 1. Create `tests/resources/cryptoapp.apk.json` test resource from real analysis output
 2. Create `test_static_analysis_parser.py` with comprehensive tests
@@ -673,11 +677,15 @@ Reachability comes first because it defines the method universe — the denomina
 5. Update `test_config.py` for new configuration fields
 6. Update `conftest.py` fixtures
 
-### Task Group 9: Spec Updates and Documentation
+### Task Group 9: Documentation and Specs
 
 1. Update `openspec/specs/analysis/spec.md` per Phase 3 above
 2. Update `modules/rv-static-analysis/CLAUDE.md`
 3. Update `modules/rv-android-core/CLAUDE.md` if constants changed
+
+### Task Group 10: E2E Validation (Final Gate)
+
+Full rv-experiment run exercising the entire pipeline: pre-processing → execution → post-processing. Includes data compatibility verification (Coverage.aj signature format match, MOP flag consistency, MOP error correlation) and APK-specific validation (inner class normalization, package mismatch, batch run on 5 diverse APKs).
 
 ---
 
@@ -735,7 +743,10 @@ Reachability comes first because it defines the method universe — the denomina
 |------|--------|
 | `rvsec-gator/client/.../RvsecAnalysisClient.java` | **NEW** — analysis client |
 | `rvsec-gator/client/pom.xml` | **MODIFY** — add JGraphT, mop-extractor, apk-reader deps + assembly plugin |
-| `rvsec-gator/client/.../RvsecWtgClient.java` | Reference only (port WTG logic) |
+| `rvsec-gator/client/src/test/java/.../` | **NEW** — 6 JUnit test files (4 unit + 2 integration) |
+| `rvsec-gator/client/src/test/resources/` | **NEW** — test fixtures (.mop files, layout XML, baseline JSON) |
+| `rvsec-gator/client/.../RvsecWtgClient.java` | **REFERENCE then DELETE** (Task 7.8f) — port WTG logic, then backup + delete |
+| `rvsec-android/pom.xml` (parent) | **MODIFY** — comment out rvsec-gesda, rvsec-reachability modules (Task 7.8e) |
 | `rvsec-reachability/.../JGraphReachabilityStrategy.java` | Reference only (port reachability logic) |
 | `rvsec-reachability/.../ReachabilityAnalysis.java` | Reference only (port complement logic) |
 | `rvsec-reachability/.../MopFacade.java` | Reference only (port MOP loading) |
@@ -746,17 +757,21 @@ Reachability comes first because it defines the method universe — the denomina
 
 | File | Action |
 |------|--------|
-| `rv-android-core/.../constants.py` | **MODIFY** — add EXTENSION_STATIC_ANALYSIS |
+| `rv-android-core/.../constants.py` | **MODIFY** — add EXTENSION_STATIC_ANALYSIS, remove old extension constants |
 | `rv-static-analysis/.../parser/static/static_analysis_parser.py` | **REWRITE** — analysis JSON parser |
 | `rv-static-analysis/.../analysis/static/static_analysis.py` | **MODIFY** — single tool pipeline |
 | `rv-static-analysis/.../config.py` | **MODIFY** — analysis tool config |
 | `rv-static-analysis/.../__main__.py` | **MODIFY** — CLI args, tool choices, result display (473 lines) |
 | `rv-static-analysis/.../parser/static/base_parser.py` | **DELETE** — dead code after removing 3 child parsers |
+| `rv-static-analysis/CLAUDE.md` | **MODIFY** — reflect analysis tool architecture (Task 9.1) |
 | `rv-experiment/.../config.py` | **MODIFY** — `get_static_analysis_config()` must provide new fields |
+| `rv-experiment/.../constants.py` | **MODIFY** — remove old extension re-exports, add EXTENSION_STATIC_ANALYSIS (Task 7.6a) |
 | `rv-platform/.../components/static_analysis.py` | **MODIFY** — update file extensions |
+| `rv-android-core/CLAUDE.md` | **MODIFY** — add EXTENSION_STATIC_ANALYSIS to constants section (Task 9.2) |
 | `rv-agent-validation/.../experiment/runner.py` | **MODIFY** — replace 3-file parse with `parse_file()` |
 | `rv-agent-validation/.../experiment/config.py` | **MODIFY** — replace 3-file glob with `.json` |
 | `rv-agent-validation/.../preprocessing/instrumentation.py` | **MODIFY** — replace 14+ refs to 3-file pattern |
+| `rv-agent-validation/CLAUDE.md` | **MODIFY** — remove 3-file references (Task 7.9g) |
 
 ### Python (rv-android) — Tests to Update
 
@@ -766,6 +781,8 @@ Reachability comes first because it defines the method universe — the denomina
 | `rv-agent/tests/unit/test_navigation_guidance.py` | **MODIFY** — use `parse_file()` + JSON fixture |
 | `rv-agent/tests/unit/test_rvagent_visitor.py` | **MODIFY** — use `parse_file()` + JSON fixture |
 | `rv-agent/tests/online/test_static_analysis.py` | **MODIFY** — check `.json` instead of `.reach/.wtg/.gesda` |
+| `rv-agent/tests/fixtures/static_analysis/cryptoapp/cryptoapp.apk.json` | **NEW** — unified JSON fixture |
+| `rv-agent/tests/fixtures/static_analysis/cryptoapp/cryptoapp.apk.{reach,wtg,gesda}` | **DELETE** — old fixtures (P3) |
 | `rv-agent-validation/tests/test_navigation_guidance.py` | **MODIFY** — use `parse_file()` |
 | `rv-agent-validation/tests/calibration/test_preprocess.py` | **MODIFY** — create/verify `.json` instead of 3 files |
 
@@ -785,8 +802,12 @@ Reachability comes first because it defines the method universe — the denomina
 | File | Action |
 |------|--------|
 | `rv-android/lib/analysis-client/rvsec-analysis-client.jar` | **NEW** — fat JAR from maven-assembly |
-| `rv-android/lib/gesda/rvsec-gesda.jar` | Keep until verified, then remove |
-| `rv-android/lib/reach/rvsec-reach.jar` | Keep until verified, then remove |
+| `rv-android/lib/gator/teste.sh` | **MODIFY** — update client name, jar path, add `-clientParam` (Task 4.4) |
+| `rv-android/lib/gator/rvsec-gator-client.jar` | **DELETE** — superseded by analysis-client (Task 7.8c) |
+| `rv-android/lib/gator/.gitignore` | **MODIFY** — remove old JAR entry (Task 7.8c) |
+| `rv-android/lib/gator/scripts/` | **DELETE** — standalone dev scripts, never referenced (Task 7.8d) |
+| `rv-android/lib/gesda/` | **DELETE** — entire directory, superseded by analysis client (Task 7.8a) |
+| `rv-android/lib/reach/` | **DELETE** — entire directory, superseded by analysis client (Task 7.8b) |
 
 ---
 

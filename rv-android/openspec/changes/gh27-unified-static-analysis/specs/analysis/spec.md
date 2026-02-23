@@ -2,7 +2,7 @@
 
 **Change**: gh27-unified-static-analysis
 **Domain**: analysis (rv-static-analysis, rv-coverage, rv-screen-parser)
-**Affected modules**: rv-static-analysis (major), rv-android-core (minor), rv-platform (minor)
+**Affected modules**: rv-static-analysis (major), rv-android-core (minor), rv-platform (minor), rv-experiment (minor), rv-agent-validation (minor), rv-agent (minor — tests only)
 
 ## Purpose
 
