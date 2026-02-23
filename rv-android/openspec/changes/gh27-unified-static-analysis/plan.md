@@ -296,7 +296,7 @@ These two fields are GESDA-exclusive (GATOR doesn't expose them). The analysis c
 2. For each activity, find its layout file via `setContentView(R.layout.X)` pattern in Soot method bodies.
 3. Parse the decoded layout XML (`Configs.resourceLocation/layout/{name}.xml`) using standard Java DOM parser.
 4. Extract `android:inputType` attribute (apktool decodes to string names like `"textPassword"`, no integer mapping needed).
-5. Extract `android:entries` attribute, resolve `@array/...` reference by parsing `res/values/arrays.xml`.
+5. Extract `android:entries` attribute, resolve `@array/...` reference by parsing `res/values/arrays.xml`. Array items may contain `@string/name` references (very common in real APKs) — resolve these using GATOR's `DefaultXMLParser.convertAndroidTextToString()` or direct lookup in `rStringAndStringValues` map, which is already populated from `strings.xml` during GATOR initialization.
 6. Match XML widgets to GATOR widgets by comparing `idName` from XML with `idNode.getIdName()` from GATOR nodes.
 
 ### Reachability Analysis (replaces REACH)
@@ -628,7 +628,7 @@ Reachability comes first because it defines the method universe — the denomina
 1. Implement layout file resolution: find `setContentView(R.layout.X)` in Soot method bodies, resolve to layout filename (3.1)
 2. Implement decoded XML parsing: read `Configs.resourceLocation/layout/{name}.xml` with DOM parser (3.2)
 3. Extract `android:inputType` attribute (3.3)
-4. Extract `android:entries` attribute, resolve `@array/...` from `res/values/arrays.xml` (3.4)
+4. Extract `android:entries` attribute, resolve `@array/...` from `res/values/arrays.xml`; resolve `@string/name` items via GATOR's `DefaultXMLParser.convertAndroidTextToString()` (3.4)
 5. Match XML data to GATOR widget nodes by `idName` (3.5)
 6. Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk` (3.6)
 

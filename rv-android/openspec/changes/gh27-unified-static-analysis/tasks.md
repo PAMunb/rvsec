@@ -24,7 +24,15 @@ Answer the 6 Open Questions before coding to prevent wasted effort. Record answe
   > **CONFIRMED.** Python launcher uses `parse_known_args()` + `cmd.extend(unknown)` to pass unrecognized args to Java. `-clientParam` is not in the Python argparse — it passes through as an "unknown" arg directly to `Main.java`, which parses it at L101-102 into `Configs.clientParams` Set. Retrieved via `Configs.getClientParamCode("prefix=")` prefix match.
 
 - [x] 0.4 Q4: Verify apktool `@array/name` handling — `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/`. Record finding in Task 3.4
-  > **CONFIRMED.** Apktool leaves `@array/name` references as-is in layout XMLs (e.g., `android:entries="@array/messageDigestAlgorithms"` in `activity_message_digest.xml`). Decoded arrays in `res/values/arrays.xml` with fully resolved string-array items. `inputType` is also preserved verbatim (e.g., `android:inputType="textMultiLine"`). Strategy: parse layout XMLs for `android:entries` → resolve from `res/values/arrays.xml`; read `android:inputType` directly from layout attribute.
+  > **CONFIRMED — with caveat about `@string/` indirection in arrays.**
+  >
+  > Apktool leaves `@array/name` references as-is in layout XMLs (e.g., `android:entries="@array/messageDigestAlgorithms"` in `activity_message_digest.xml`). `inputType` is preserved verbatim (e.g., `android:inputType="textMultiLine"`). Decoded arrays live in `res/values/arrays.xml`.
+  >
+  > **Caveat**: Array items can be either plain text (`<item>MD5</item>`) or `@string/` references (`<item>@string/no_scale</item>`). Verified on 50+ APKs — `@string/` references in arrays are very common (e.g., `ar.rulosoft.mimanganu`, `audio.funkwhale.ffa`, `com.amaze.filemanager`). Apktool does NOT resolve `@string/` references — they remain as-is, requiring secondary resolution from `res/values/strings.xml`.
+  >
+  > **Resolution strategy**: GATOR already has infrastructure for this — `DefaultXMLParser.rStringAndStringValues` (HashMap<String, String>) maps string names → values, populated by `readStrings()` from `res/values/strings.xml`. The `convertAndroidTextToString()` method (L1452-1481) resolves `@string/name` references. The analysis client can use this existing GATOR infrastructure instead of parsing strings.xml manually.
+  >
+  > **Implementation approach**: Parse layout XMLs for `android:entries` → read `<string-array>` from `res/values/arrays.xml` → for each `<item>`, if it starts with `@string/`, resolve via `DefaultXMLParser.convertAndroidTextToString()` or direct lookup in `rStringAndStringValues`. Read `android:inputType` directly from layout attribute.
 
 - [x] 0.5 Q5: Verify `rvsec-mop-extractor` Soot API surface — `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; | sort -u`. Record finding in Task 1.4
   > **CONFIRMED: ZERO Soot imports.** `rvsec-mop-extractor` uses `javamop.parser.SpecExtractor` (pure JavaMOP parser). `JavamopFacade.listUsedMethods(mopDir)` returns `Set<MopMethod>` with (className, name, parameters, signature). No Soot dependency at all — safe to include as Maven dependency without classpath conflict risk. No Soot exclusion needed.
@@ -80,7 +88,7 @@ Files: `RvsecAnalysisClient.java`
 - [ ] 3.1 Implement layout file resolution: find `setContentView(R.layout.X)` in Soot method bodies of each activity, resolve to layout filename
 - [ ] 3.2 Implement decoded XML parsing: read `Configs.resourceLocation + "/layout/" + name + ".xml"` with Java DOM parser
 - [ ] 3.3 Extract `android:inputType` attribute (string from apktool-decoded XML). Handle pipe-separated flags (e.g., `textPassword|textVisiblePassword`) — take first value
-- [ ] 3.4 Verify apktool `@array/name` handling (Open Question 4). Implement `android:entries` extraction — resolve `@array/` references from `res/values/arrays.xml` if needed
+- [ ] 3.4 Implement `android:entries` extraction (Q4 verified — see spike 0.4): parse `@array/name` reference from layout XML → read `<string-array>` from `res/values/arrays.xml` via DOM → for each `<item>`, resolve `@string/name` references using GATOR's `DefaultXMLParser.convertAndroidTextToString()` or direct lookup in `rStringAndStringValues` map. Access the XMLParser instance via `GUIAnalysisOutput` or `Configs`. Plain text items pass through unchanged
 - [ ] 3.5 Match XML widget data to GATOR widget nodes by comparing `android:id` resource name with `NNode.idNode.getIdName()`
 - [ ] 3.6 Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk`
 
@@ -131,7 +139,7 @@ JUnit 4.12 is available via `rvsec-gator-parent` dependencyManagement. Tests go 
 - [ ] 4.8f `XmlInputTypeTest.java` — test layout XML parsing:
   - Parse `test-layouts/activity_main.xml` → extract `inputType` and `entries` per widget ID
   - Pipe-separated flags (e.g., `textPassword|textVisiblePassword`) → take first value (`textPassword`)
-  - `@array/items` reference → resolve from `arrays.xml` (or return raw reference if Q4 determines apktool doesn't resolve)
+  - `@array/items` reference → resolve from `arrays.xml`, including `@string/name` items resolved via `convertAndroidTextToString()` mock
   - Missing `inputType` attribute → default empty string
   - Malformed XML → graceful failure (empty result, no crash)
 

@@ -186,7 +186,7 @@ JGraphT provides `DefaultDirectedGraph` (efficient adjacency structure), `EdgeRe
 
 **Choice**: Parse `Configs.resourceLocation/layout/{name}.xml` with a standard Java DOM parser.
 
-**Rationale**: GATOR's `PropertyManager` does not expose `inputType` or `entries`. However, GATOR decodes APK resources via apktool, and the decoded XML files are available at `Configs.resourceLocation`. The `android:inputType` attribute is decoded to string names by apktool (e.g., `"textPassword"`), so no integer-to-name mapping is needed. For `android:entries`, the `@array/name` reference must be resolved from `res/values/arrays.xml`.
+**Rationale**: GATOR's `PropertyManager` does not expose `inputType` or `entries`. However, GATOR decodes APK resources via apktool, and the decoded XML files are available at `Configs.resourceLocation`. The `android:inputType` attribute is decoded to string names by apktool (e.g., `"textPassword"`), so no integer-to-name mapping is needed. For `android:entries`, the `@array/name` reference must be resolved from `res/values/arrays.xml`. Array items may contain `@string/name` references (very common in real APKs — verified on 50+ apps) — these are resolved using GATOR's existing `DefaultXMLParser.convertAndroidTextToString()` method, which reads from the `rStringAndStringValues` map already populated from `strings.xml` during initialization.
 
 **Alternative considered**: Skip these fields entirely. Rejected because the user explicitly requested retaining them for LLM prompt enrichment.
 
@@ -513,7 +513,7 @@ Before starting Task Group 1, a lightweight verification spike MUST answer the 6
 | Q1 | `grep -r "getHintOfView" $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/` | Method exists in PropertyManager | Extract hint from decoded XML (Task 2.2) |
 | Q2 | Create minimal GATOR client that logs `Scene.v().getCallGraph().size()` | CG size > 0 | Trigger with `PackManager.v().getPack("cg").apply()` (Task 1.6) |
 | Q3 | `grep -A 10 "clientParam" lib/gator/gator` | Launcher propagates to `Configs.clientParams` | Pass via `-DmopDir=<path>` system property (Task 1.2) |
-| Q4 | `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/` | `@array/name` reference (not inline) | Parse `res/values/arrays.xml` (Task 3.4) |
+| Q4 | `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/` | `@array/name` reference (not inline); array items may have `@string/name` refs (50+ APKs verified) | Resolve `@array/` from `arrays.xml`, resolve `@string/` items via GATOR's `DefaultXMLParser.convertAndroidTextToString()` (Task 3.4) |
 | Q5 | `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; \| sort -u` | Only Scene, SootClass, SootMethod (compatible with 3.3.0) | Regex-based `.mop` parser (Task 1.4) |
 | Q6 | ~~Add `--jre` to GATOR launcher~~ Run test client on `cryptoapp.apk` with `-withCHA`, compare CG edges for JCA instance methods | `update()`, `digest()`, `init()`, `doFinal()` present WITH rt.jar; absent WITHOUT | Test with Sable `android-platforms` enhanced JARs (Task 0.6) |
 
@@ -673,7 +673,7 @@ These checks MUST be performed during E2E validation (Task Group 10) to confirm 
 
 3. **Does `Configs.clientParams` correctly propagate `-clientParam mopDir=/path`?** — The GATOR launcher should pass this through to the client. Needs verification in Spike (Q3 → Task 1.2). Fallback: pass via `-DmopDir=/path` system property.
 
-4. **Does apktool resolve `@array/name` references inline in decoded XML?** — If not, the client must read `res/values/arrays.xml` separately to resolve spinner entries. Needs verification in Spike (Q4 → Task 3.4).
+4. **Does apktool resolve `@array/name` references inline in decoded XML?** — **RESOLVED (Spike Q4)**: No, apktool leaves `@array/name` as-is. Additionally, array items often contain `@string/name` references (verified on 50+ APKs). Resolution: parse `arrays.xml` manually, resolve `@string/` items using GATOR's `DefaultXMLParser.convertAndroidTextToString()` which is already populated from `strings.xml`. (Task 3.4).
 
 5. **What is the exact `rvsec-mop-extractor` Soot API surface?** — Need to confirm which Soot classes it imports and whether they exist in Soot 3.3.0. If incompatible, fallback to a simple regex-based `.mop` file parser that extracts method signatures without Soot. Needs verification in Spike (Q5 → Task 1.4).
 
