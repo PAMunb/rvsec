@@ -595,111 +595,125 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ## 9. Implementation Tasks
 
-### Task Group 0: Verification Spike (Pre-Implementation)
+### Task Group 0: Verification Spike (Pre-Implementation) — Tasks 0.1–0.6
 
-Answer the 6 Open Questions (Q1-Q6) before coding to prevent wasted effort. Verifies: PropertyManager hint API, CG population inside GATOR client, `-clientParam` propagation, apktool `@array` handling, rvsec-mop-extractor Soot API surface, rt.jar required for JCA instance methods.
+Answer the 6 Open Questions (Q1-Q6) before coding to prevent wasted effort. Verifies: PropertyManager hint API (0.1), CG population inside GATOR client (0.2), `-clientParam` propagation (0.3), apktool `@array` handling (0.4), rvsec-mop-extractor Soot API surface (0.5), rt.jar required for JCA instance methods (0.6).
 
-### Task Group 1: Java — RvsecAnalysisClient Core + Reachability (Coverage Denominator)
+### Task Group 1: Java — RvsecAnalysisClient Core + Reachability (Coverage Denominator) — Tasks 1.1–1.14
 
 **Files**: `RvsecAnalysisClient.java` (new), `pom.xml` (update)
 
 Reachability comes first because it defines the method universe — the denominator for all coverage calculations. The JSON output writes this section first with flush, so timeout preserves the most critical data (D5).
 
-1. Create `RvsecAnalysisClient.java` in GATOR client module
-2. Add JGraphT, rvsec-mop-extractor, rvsec-apk dependencies with Soot exclusions
-3. Implement MOP loading: `loadMopSignatures()` → `resolveMopInScene()` (all overloads)
-4. Implement `getEntryPoints()`: public/protected methods of activity classes
-5. Implement `buildJGraph()`: convert Soot CallGraph to JGraphT DirectedGraph
-6. Implement reachability computation: `reachable`, `reachesMop`, `directlyReachesMop` via multi-source BFS (D2)
-7. Implement `complementWithLifecycleCallbacks()` and `complementWithListenerCallbacks()`
-8. Write `reachability` JSON section and flush
-9. Test: verify reachability data against current REACH output for `cryptoapp.apk`
+1. Create `RvsecAnalysisClient.java` in GATOR client module (1.1)
+2. Add JGraphT, rvsec-mop-extractor, rvsec-apk dependencies with Soot exclusions (1.3–1.5)
+3. Implement MOP loading: `loadMopSignatures()` → `resolveMopInScene()` (1.7–1.8)
+4. Implement `getEntryPoints()`: public/protected methods of activity classes (1.9)
+5. Implement `buildJGraph()`: convert Soot CallGraph to JGraphT DirectedGraph (1.10)
+6. Implement reachability computation: `reachable`, `reachesMop`, `directlyReachesMop` via multi-source BFS — D2 (1.11)
+7. Implement `complementWithLifecycleCallbacks()` and `complementWithListenerCallbacks()` (1.12)
+8. Write `reachability` JSON section and flush (1.13)
+9. Test: verify reachability data against current REACH output for `cryptoapp.apk` (1.14)
 
-### Task Group 2: Java — Windows and WTG Extraction
-
-**Files**: `RvsecAnalysisClient.java`
-
-1. Implement `extractWindows()` using GATOR's internal APIs (getActivities, getActivityRoots, PropertyManager)
-2. Port WTG extraction from `RvsecWtgClient.run()` into `extractTransitions()`
-3. Write `windows` section (flush), then `transitions` section (flush + close)
-4. Test: analysis client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk`
-
-### Task Group 3: Java — inputType and entries Extraction
+### Task Group 2: Java — Windows and WTG Extraction — Tasks 2.1–2.5
 
 **Files**: `RvsecAnalysisClient.java`
 
-1. Implement layout file resolution: find `setContentView(R.layout.X)` in Soot method bodies, resolve to layout filename
-2. Implement decoded XML parsing: read `Configs.resourceLocation/layout/{name}.xml` with DOM parser
-3. Extract `android:inputType` attribute (string from apktool-decoded XML)
-4. Extract `android:entries` attribute, resolve `@array/...` from `res/values/arrays.xml`
-5. Match XML data to GATOR widget nodes by `idName`
-6. Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk`
+1. Implement `extractWindows()` using GATOR's internal APIs — getActivities, getActivityRoots, PropertyManager (2.1–2.2)
+2. Port WTG extraction from `RvsecWtgClient.run()` into `extractTransitions()` (2.3)
+3. Write `windows` section (flush), then `transitions` section (flush + close) (2.4)
+4. Test: analysis client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk` (2.5)
 
-### Task Group 4: Java — Build, Deploy, and Tests
+### Task Group 3: Java — inputType and entries Extraction — Tasks 3.1–3.6
 
-1. Build analysis client fat JAR: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn clean install -DskipTests` (assembly creates JAR, resources-plugin copies to `rv-android/lib/analysis-client/`)
-2. Verify JAR runs correctly via GATOR launcher command (`teste.sh`)
-3. Normalization validation (D7): code review + cryptoapp.apk output verification
-4. JUnit 4 unit tests (no Soot): MOP signature loading, BFS on synthetic JGraphT graph, JSON output structure, XML inputType parsing
-5. JUnit 4 integration tests (Soot + GATOR): full run on `cryptoapp.apk` with assertions, baseline comparison with tolerances
-6. Run: `mvn test -DskipTests=false` (unit), `mvn verify -DskipTests=false -DskipITs=false` (integration)
+**Files**: `RvsecAnalysisClient.java`
 
-### Task Group 5: Python — Constants and StaticAnalysisParser
+1. Implement layout file resolution: find `setContentView(R.layout.X)` in Soot method bodies, resolve to layout filename (3.1)
+2. Implement decoded XML parsing: read `Configs.resourceLocation/layout/{name}.xml` with DOM parser (3.2)
+3. Extract `android:inputType` attribute (3.3)
+4. Extract `android:entries` attribute, resolve `@array/...` from `res/values/arrays.xml` (3.4)
+5. Match XML data to GATOR widget nodes by `idName` (3.5)
+6. Test: verify `inputType` and `entries` match current GESDA output for `cryptoapp.apk` (3.6)
+
+### Task Group 4: Java — Build, Deploy, and Tests — Tasks 4.1–4.8k
+
+1. Build analysis client fat JAR with `maven-assembly-plugin` (4.1–4.3)
+2. Update and validate `teste.sh` on `cryptoapp.apk` (4.4–4.6)
+3. Normalization validation — Java side, D7 (4.7a–4.7e): code review + `cryptoapp.apk` output verification + inner class `$` check
+4. JUnit 4 unit tests — no Soot (4.8a–4.8f): MOP signature loading, BFS on synthetic graph, JSON structure, XML inputType parsing
+5. JUnit 4 integration tests — Soot + GATOR (4.8g–4.8i): full run on `cryptoapp.apk`, baseline comparison with tolerances
+6. Run: `mvn test` (4.8j), `mvn verify -DskipITs=false` (4.8k)
+
+### Task Group 5: Python — Constants and StaticAnalysisParser — Tasks 5.1–5.8
 
 **Files**: `constants.py`, `static_analysis_parser.py` (rewrite)
 
-1. Add `EXTENSION_STATIC_ANALYSIS = ".json"` to constants
-2. Rewrite `StaticAnalysisParser` — standalone class that parses the JSON into StaticAnalysisData
-3. Implement `_parse_classes()` from `reachability` section
-4. Implement `_parse_windows()` from `windows` section
-5. Implement `_parse_transitions()` from `transitions` section
-6. Ensure SignatureNormalizer applied to all class names and signatures (INV-ANA-02)
-7. Ensure code_package filtering applied (INV-ANA-03)
-8. Unit tests: parsing well-formed JSON, empty JSON, missing sections, missing file
+1. Add `EXTENSION_STATIC_ANALYSIS = ".json"` to constants, remove old extensions (5.1)
+2. Rewrite `StaticAnalysisParser` — standalone class parsing JSON into StaticAnalysisData (5.2)
+3. Implement `parse_file()` with truncated JSON recovery (5.3)
+4. Implement `_parse_classes()` from `reachability` section — SignatureNormalizer (INV-ANA-02), code_package filtering (INV-ANA-03) (5.4)
+5. Implement `_parse_windows()` from `windows` section (5.5)
+6. Implement `_parse_transitions()` from `transitions` section (5.6)
+7. Per-section try/except for graceful degradation — INV-ANA-06 (5.7)
+8. Run `/rv-doc-code` on parser (5.8)
 
-### Task Group 6: Python — Config, StaticAnalyzer, CLI, and rv-experiment Config
+### Task Group 6: Python — Config, StaticAnalyzer, CLI, and rv-experiment Config — Tasks 6.1–6.9
 
 **Files**: `config.py`, `static_analysis.py`, `__main__.py` (rv-static-analysis), `rv-experiment/config.py`
 
-1. Update `RVStaticAnalysisConfig`: remove old tool paths, add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
-2. Update `get_tool_command()` for analysis tool
-3. Update `StaticAnalyzer`: replace 3-tool pipeline with single `_run_analysis()`
-4. Update `StaticAnalysisResult`: `analysis_file`, `timed_out`
-5. Handle `RVCommandTimeoutError` in `_execute_command()`
-6. Update `get_static_data()` to use StaticAnalysisParser
-7. Update `rv-static-analysis/__main__.py`: replace CLI args (`--gesda-jar`, `--gator-dir`, `--reach-jar` → `--analysis-client-jar`), tool choices, config mapping, result display, help text
-8. Update `rv-experiment/config.py` `get_static_analysis_config()`: provide `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
-9. Unit tests: config validation, command generation, timeout handling
+1. Update `RVStaticAnalysisConfig`: remove old tool paths, add `analysis_client_jar`, `jvm_memory`, `analysis_timeout` (6.1)
+2. Update `get_tool_command()` for analysis tool with `-clientParam`, `--jre` (6.2)
+3. Update `StaticAnalyzer`: replace 3-tool pipeline with single `_run_analysis()` (6.3)
+4. Update `StaticAnalysisResult`: `analysis_file`, `timed_out` (6.4)
+5. Handle `RVCommandTimeoutError` in `_execute_command()` (6.5)
+6. Update `get_static_data()` to use StaticAnalysisParser — fixes pre-existing positional arg swap bug (6.6)
+7. Update `rv-static-analysis/__main__.py`: CLI args, tool choices, config mapping, result display (6.7)
+8. Update `rv-experiment/config.py` `get_static_analysis_config()`: resolve `analysis_client_jar` path (6.8)
+9. Run `/rv-doc-code` on StaticAnalyzer (6.9)
 
-### Task Group 7: Python — Parser Cleanup and Platform
+### Task Group 7: Python — Parser Cleanup, Platform, Dead Code, and rv-agent-validation — Tasks 7.1–7.9i
 
-**Files**: `static_analysis_parser.py`, `static_analysis.py` (rv-platform)
+**Files**: `static_analysis_parser.py`, `static_analysis.py` (rv-platform), `base_parser.py`, `lib/gesda/`, `lib/reach/`, rv-agent-validation production code
 
-1. Verify `StaticAnalysisParser.parse_file()` is compatible with all callers
-2. Update `read_static_analysis_files()` for `.json` extension
-3. Update rv-platform `StaticAnalysisComponent.copy_static_analysis_files()` extensions
-4. Delete old parsers and `base_parser.py` (backup to `backup/` first per P3)
-5. Delete old parser tests
-6. Grep all modules for dangling imports, clean up
+1. Verify `parse_file()` compatible with all callers (7.1)
+2. Update `read_static_analysis_files()` for `.json` extension (7.2)
+3. Update rv-platform `StaticAnalysisComponent.copy_static_analysis_files()` extensions (7.3)
+4. Backup+delete old parsers and `base_parser.py` — P3 (7.4–7.5)
+5. Grep all modules for dangling references (7.6). Update rv-experiment constants (7.6a), delete deprecated `parse_all()` (7.6b), delete `base_parser.py` (7.6c). Lint fix (7.7)
+6. **Dead code cleanup (7.8a–7.8g)**: backup+delete `lib/gesda/` (7.8a), `lib/reach/` (7.8b), `rvsec-gator-client.jar` (7.8c), `lib/gator/scripts/` (7.8d), comment out rvsec-gesda/rvsec-reachability in parent POM (7.8e), delete `RvsecWtgClient.java` (7.8f), grep for removed lib paths (7.8g)
+7. **rv-agent-validation migration (7.9a–7.9i)**: update `runner.py` — 3-path → `parse_file()` (7.9a), `config.py` — 3-glob → `.json` (7.9b), `instrumentation.py` — 14+ refs (7.9c), docstrings (7.9d), `test_navigation_guidance.py` (7.9e), `test_preprocess.py` (7.9f), CLAUDE.md (7.9g), final grep (7.9h), test run (7.9i)
 
-### Task Group 8: Tests
+### Task Group 8: Tests — Tasks 8.1–8.10g
 
-1. Create `tests/resources/cryptoapp.apk.json` test resource from real analysis output
-2. Create `test_static_analysis_parser.py` with comprehensive tests
-3. Update `test_static_analysis_parser.py` for single-parser flow
-4. Update `test_static_analysis.py` for single-tool pipeline
-5. Update `test_config.py` for new configuration fields
-6. Update `conftest.py` fixtures
+1. Create `tests/resources/cryptoapp.apk.json` test fixture from real analysis output (8.1)
+2. Create `test_static_analysis_parser.py` with comprehensive tests — well-formed, empty, missing sections, truncated JSON, inner class normalization, code_package filtering (8.2)
+3. Update `test_static_analysis_parser.py` for single-parser flow (8.3)
+4. Update `test_static_analysis.py` for single-tool pipeline (8.4)
+5. Update `test_config.py` for new configuration fields (8.5)
+6. Update `conftest.py` fixtures (8.6)
+7. Baseline equivalence test: compare analysis output counts against saved 3-tool baseline for `cryptoapp.apk` (8.7)
+8. **rv-agent test migration (8.8a–8.8g)**: create unified JSON fixture (8.8a), update `test_transition_manager` (8.8b), `test_navigation_guidance` (8.8c), `test_rvagent_visitor` (8.8d), `test_static_analysis.py` online (8.8e), delete old fixtures — P3 (8.8f), run `/rv-test-run rv-agent` (8.8g)
+9. **Final test runs (8.9a–8.9c)**: `/rv-test-run rv-static-analysis` (8.9a), `/rv-test-run rv-platform` (8.9b), `/rv-test-run rv-agent` (8.9c)
+10. **Normalization validation — Python side (8.10a–8.10g)**: normalizer no-op on correct JSON (8.10a), warning on change (8.10b), legacy dot notation (8.10c), inner class patterns (8.10d), code_package filtering (8.10e), manifest-vs-code_package (8.10f), rv-platform code_package verification (8.10g)
 
-### Task Group 9: Documentation and Specs
+### Task Group 9: Documentation, Specs, and Quality Gate — Tasks 9.1–9.6
 
-1. Update `openspec/specs/analysis/spec.md` per Phase 3 above
-2. Update `modules/rv-static-analysis/CLAUDE.md`
-3. Update `modules/rv-android-core/CLAUDE.md` if constants changed
+1. Update `modules/rv-static-analysis/CLAUDE.md` — reflect analysis tool architecture (9.1)
+2. Update `modules/rv-android-core/CLAUDE.md` — add `EXTENSION_STATIC_ANALYSIS` to constants section (9.2)
+3. Run `/rv-verify rv-static-analysis` — tests + lint + type checks (9.3)
+4. Run `/rv-verify rv-platform` — tests + lint + type checks (9.4)
+5. Run `/rv-code-reviewer` — review full gh27 implementation against specs and design (9.5)
+6. (During `/opsx:sync`) Add end-to-end pipeline sequence diagram to `openspec/specs/analysis/spec.md` (9.6)
 
-### Task Group 10: E2E Validation (Final Gate)
+### Task Group 10: E2E Validation (Final Gate) — Tasks 10.1–10.10g
 
-Full rv-experiment run exercising the entire pipeline: pre-processing → execution → post-processing. Includes data compatibility verification (Coverage.aj signature format match, MOP flag consistency, MOP error correlation) and APK-specific validation (inner class normalization, package mismatch, batch run on 5 diverse APKs).
+Full rv-experiment run exercising the entire pipeline: pre-processing → execution → post-processing.
+
+1. Run full experiment on `cryptoapp.apk` with `--tools rvagent:pure_algorithm --specification-set jca` (10.1)
+2. Verify: analysis JSON exists (10.2), coverage denominator > 0 (10.3), coverage > 0% (10.4–10.5), MOP detection (10.6), timing improvement (10.8)
+3. Compare against baseline — ±20% tolerance (10.7)
+4. **Data compatibility verification (10.9a–10.9e)**: Coverage.aj signature format match — character-for-character (10.9a), inner class `$` notation match (10.9b), `directlyReachesMop` cross-reference with MOP specs (10.9c–10.9d), RVSEC error correlation with reachable classes (10.9e)
+5. **APK-specific validation (10.10a–10.10g)**: `privacyfriendlyludo` — inner class `$` (10.10a), `hwloc.lstopo` — known limitation `ZoomView.ZoomView` (10.10b), `ir.hsn6.trans` — Godot package mismatch (10.10c), `org.fox.tttrss` — typo mismatch (10.10d), `starslinger.demo` — multi-package (10.10e), `micopi` — manifest≠code package (10.10f). Batch run on 5 diverse APKs (10.10g)
 
 ---
 

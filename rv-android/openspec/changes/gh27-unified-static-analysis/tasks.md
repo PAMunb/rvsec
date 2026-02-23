@@ -170,7 +170,7 @@ Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-s
 Files: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`, `modules/rv-static-analysis/src/rv_static_analysis/__main__.py`, `modules/rv-experiment/src/rv_experiment/config.py`
 
 - [ ] 6.1 Update `RVStaticAnalysisConfig`: remove `gesda_jar`, `gator_dir`, `reach_jar`. Add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
-- [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir> --jre <rt_jar_path>`. Reuse existing `rt_jar` config field (config.py L65-68)
+- [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir> --jre <rt_jar_path> --timeout <timeout>`. Also pass `-Xmx<jvm_memory>` as JVM flag. Reuse existing `rt_jar` config field (config.py L65-68). Full canonical command: `python gator a -p <apk_path> --client-jar <jar> --out <output> -client RvsecAnalysisClient -clientParam mopDir=<dir> --jre <rt_jar> --timeout <timeout>` with `-Xmx` in JVM args
 - [ ] 6.3 Update `StaticAnalyzer`: remove `_run_gesda()`, `_run_gator()`, `_run_reachability()`. Add `_run_analysis()`
 - [ ] 6.4 Update `StaticAnalysisResult`: remove 3 file paths, add `analysis_file` and `timed_out`
 - [ ] 6.5 Handle `RVCommandTimeoutError` in `_execute_command()` — set `result.timed_out = True`
