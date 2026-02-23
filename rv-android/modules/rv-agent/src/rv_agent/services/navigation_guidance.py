@@ -35,6 +35,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
+from rv_agent import tracking as track
+
 if TYPE_CHECKING:
     from rv_agent.services.transition_manager import TransitionManager
 
@@ -209,7 +211,8 @@ class NavigationGuidance:
             return context
 
         except Exception as e:
-            logger.warning(f"NavigationGuidance: Error getting context: {e}")
+            logger.error(f"NavigationGuidance: Error getting context: {e}")
+            track._counters["navigation_guidance_error"] += 1
             return ExplorationContext(has_guidance=False)
 
     def format_for_llm(self, context: ExplorationContext) -> str:

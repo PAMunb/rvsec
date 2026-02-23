@@ -24,6 +24,7 @@ applications using a modular component-based design with dependency injection.
 
 import logging
 import time
+import traceback
 from typing import Any, Dict, Optional
 
 from langgraph.graph import END, StateGraph
@@ -411,7 +412,8 @@ class RVAgent:
                 logger.error(
                     f"Iteration {iteration} error "
                     f"({consecutive_errors}/{max_consecutive_errors} consecutive, "
-                    f"{total_errors}/{MAX_TOTAL_ERRORS} total): {e}"
+                    f"{total_errors}/{MAX_TOTAL_ERRORS} total): {e}\n"
+                    f"{traceback.format_exc()}"
                 )
 
                 # Total error limit: agent has lost the ability to interact

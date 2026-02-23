@@ -26,7 +26,6 @@ from rv_agent.strategies.rvagent_strategy.reward_propagator import (
 )
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
 
-
 # ---------------------------------------------------------------------------
 # (a) MOP BFS depth limit
 # ---------------------------------------------------------------------------
@@ -67,10 +66,14 @@ class TestMopBfsDepthLimit:
         mop_activity_name = f"com.example.Activity_{chain_length}"
         static_data.classes.methods = {
             f"{mop_activity_name}.doSomething()V": MagicMock(
-                class_name=mop_activity_name, reaches_mop=True, directly_reaches_mop=False
+                class_name=mop_activity_name,
+                reaches_mop=True,
+                directly_reaches_mop=False,
             ),
             f"{mop_activity_name}.doMore()V": MagicMock(
-                class_name=mop_activity_name, reaches_mop=True, directly_reaches_mop=False
+                class_name=mop_activity_name,
+                reaches_mop=True,
+                directly_reaches_mop=False,
             ),
         }
 

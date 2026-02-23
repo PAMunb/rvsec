@@ -24,7 +24,12 @@ class TestExecuteNodeLLMPreMarkingLowercase:
         agent = MagicMock()
         agent.tool_executor.execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 540, "y": 960, "source": "llm"},
+            "action_executed": {
+                "action_type": "CLICK",
+                "x": 540,
+                "y": 960,
+                "source": "llm",
+            },
         }
         agent.dynamic_graph.record_action.side_effect = (
             lambda screen_hash, sig, widget_class="": record_action_calls.append(sig)
@@ -58,9 +63,9 @@ class TestExecuteNodeLLMPreMarkingLowercase:
         sig = calls[0]
         # sig is ((x, y), action_type_str)
         coords, action_type_str = sig
-        assert action_type_str == "click", (
-            f"Pre-mark signature must use lowercase action_type; got '{action_type_str}'"
-        )
+        assert (
+            action_type_str == "click"
+        ), f"Pre-mark signature must use lowercase action_type; got '{action_type_str}'"
         assert coords == (540, 960)
 
     def test_llm_action_set_text_signature_uses_lowercase(self):
@@ -69,7 +74,12 @@ class TestExecuteNodeLLMPreMarkingLowercase:
         agent = self._make_agent(calls)
         agent.tool_executor.execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "SET_TEXT", "x": 200, "y": 400, "source": "llm"},
+            "action_executed": {
+                "action_type": "SET_TEXT",
+                "x": 200,
+                "y": 400,
+                "source": "llm",
+            },
         }
 
         state = AgentState(
@@ -91,9 +101,9 @@ class TestExecuteNodeLLMPreMarkingLowercase:
 
         assert len(calls) == 1
         _, action_type_str = calls[0]
-        assert action_type_str == "set_text", (
-            f"Pre-mark must lowercase SET_TEXT; got '{action_type_str}'"
-        )
+        assert (
+            action_type_str == "set_text"
+        ), f"Pre-mark must lowercase SET_TEXT; got '{action_type_str}'"
 
     def test_algorithm_action_does_not_call_record_action(self):
         """Algorithm actions must NOT trigger LLM pre-marking (record_action)."""
@@ -101,7 +111,12 @@ class TestExecuteNodeLLMPreMarkingLowercase:
         agent = self._make_agent(calls)
         agent.tool_executor.execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 100, "y": 200, "source": "algorithm"},
+            "action_executed": {
+                "action_type": "CLICK",
+                "x": 100,
+                "y": 200,
+                "source": "algorithm",
+            },
         }
 
         state = AgentState(
@@ -121,9 +136,7 @@ class TestExecuteNodeLLMPreMarkingLowercase:
 
         execute_node(agent, state)
 
-        assert len(calls) == 0, (
-            "record_action must not be called for algorithm actions"
-        )
+        assert len(calls) == 0, "record_action must not be called for algorithm actions"
 
     def test_llm_action_without_screen_hash_skips_premark(self):
         """LLM pre-marking must be skipped when screen_hash is empty."""
@@ -147,9 +160,7 @@ class TestExecuteNodeLLMPreMarkingLowercase:
 
         execute_node(agent, state)
 
-        assert len(calls) == 0, (
-            "Pre-marking must be skipped when screen_hash is empty"
-        )
+        assert len(calls) == 0, "Pre-marking must be skipped when screen_hash is empty"
 
 
 class TestRvtrackExecLog:
@@ -160,7 +171,12 @@ class TestRvtrackExecLog:
         agent = MagicMock()
         agent.tool_executor.execute_action.return_value = {
             "success": True,
-            "action_executed": {"action_type": "CLICK", "x": 540, "y": 960, "source": "llm"},
+            "action_executed": {
+                "action_type": "CLICK",
+                "x": 540,
+                "y": 960,
+                "source": "llm",
+            },
         }
         agent.dynamic_graph = MagicMock()
         agent.ui_coverage = None
@@ -185,9 +201,9 @@ class TestRvtrackExecLog:
             execute_node(agent, state)
 
         exec_logs = [r for r in caplog.records if "[RVTRACK:EXEC]" in r.message]
-        assert len(exec_logs) == 1, (
-            f"Expected exactly one RVTRACK:EXEC log; got {len(exec_logs)}"
-        )
+        assert (
+            len(exec_logs) == 1
+        ), f"Expected exactly one RVTRACK:EXEC log; got {len(exec_logs)}"
         msg = exec_logs[0].message
         # action_type as stored in the action dict (uppercase) is what tracking logs
         assert "CLICK" in msg
@@ -239,9 +255,9 @@ class TestLlmNodeCurrentItemActionCleared:
 
         result = llm_generate_node(agent, state)
 
-        assert "current_item_action" in result, (
-            "Return dict must contain 'current_item_action' key"
-        )
+        assert (
+            "current_item_action" in result
+        ), "Return dict must contain 'current_item_action' key"
         assert result["current_item_action"] is None
 
     def test_stale_item_action_is_cleared_in_return(self):
@@ -255,14 +271,16 @@ class TestLlmNodeCurrentItemActionCleared:
         }
         agent = self._make_agent_with_llm(llm_response)
 
-        stale_item = MagicMock()  # Simulates an ItemAction set by a prior algorithm step
+        stale_item = (
+            MagicMock()
+        )  # Simulates an ItemAction set by a prior algorithm step
         state = self._minimal_state(current_item_action=stale_item)
 
         result = llm_generate_node(agent, state)
 
-        assert result["current_item_action"] is None, (
-            "Stale current_item_action from algorithm iterations must be cleared to None"
-        )
+        assert (
+            result["current_item_action"] is None
+        ), "Stale current_item_action from algorithm iterations must be cleared to None"
 
     def test_decision_maker_is_llm_in_return(self):
         """llm_node sets decision_maker='llm' in the return dict."""
@@ -303,8 +321,8 @@ class TestLlmNodeCurrentItemActionCleared:
 
         result = llm_generate_node(agent, state)
 
-        assert result["current_item_action"] is None, (
-            "current_item_action must be None even when LLM succeeds"
-        )
+        assert (
+            result["current_item_action"] is None
+        ), "current_item_action must be None even when LLM succeeds"
         # llm_action should be set from the tool call
         assert result.get("llm_action") is not None

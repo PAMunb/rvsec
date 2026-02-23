@@ -51,6 +51,7 @@ _counters: Dict[str, int] = {
     "mop_bfs_depth_limited": 0,
     "restart_count": 0,
     "error_recovery_count": 0,
+    "navigation_guidance_error": 0,
 }
 
 

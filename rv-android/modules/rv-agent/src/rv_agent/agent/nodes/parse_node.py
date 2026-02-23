@@ -31,13 +31,19 @@ def _update_cached_bounds(cached_desc, fresh_desc):
             if not action.target_view:
                 continue
             bounds = action.target_view.get("bounds")
-            if not bounds:
+            if not bounds or not isinstance(bounds, list) or len(bounds) < 2:
+                continue
+            # Bounds format: [[x1, y1], [x2, y2]] (nested list from UIAutomator)
+            try:
+                x1, y1 = bounds[0]
+                x2, y2 = bounds[1]
+            except (TypeError, ValueError):
                 continue
             if action.widget_id:
                 fresh_by_id[action.widget_id] = bounds
             else:
-                cx = (bounds[0] + bounds[2]) // 2
-                cy = (bounds[1] + bounds[3]) // 2
+                cx = (x1 + x2) // 2
+                cy = (y1 + y2) // 2
                 fresh_no_id.append((cx, cy, bounds))
 
     if not fresh_by_id and not fresh_no_id:
@@ -62,8 +68,14 @@ def _update_cached_bounds(cached_desc, fresh_desc):
                     updated += 1
             elif not action.widget_id and fresh_no_id:
                 # Fallback: match by coordinate proximity (bounds center)
-                cached_cx = (old_bounds[0] + old_bounds[2]) // 2
-                cached_cy = (old_bounds[1] + old_bounds[3]) // 2
+                # Bounds format: [[x1, y1], [x2, y2]]
+                try:
+                    ox1, oy1 = old_bounds[0]
+                    ox2, oy2 = old_bounds[1]
+                except (TypeError, ValueError):
+                    continue
+                cached_cx = (ox1 + ox2) // 2
+                cached_cy = (oy1 + oy2) // 2
                 for fx, fy, fresh_bounds in fresh_no_id:
                     if (
                         abs(cached_cx - fx) < PROXIMITY_THRESHOLD

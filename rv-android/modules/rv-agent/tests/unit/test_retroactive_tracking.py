@@ -29,6 +29,7 @@ def reset_tracking_counters():
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_config(**overrides):
     """Create a minimal mock RVAgentConfig with defaults for RVAgentStrategy."""
     cfg = MagicMock()
@@ -99,6 +100,7 @@ def _make_strategy(config=None):
 # 40.3 — Plateau tracking in record_transition
 # ---------------------------------------------------------------------------
 
+
 class TestPlateauTracking:
     """Test that record_transition emits RVTRACK:STRATEGY with mode=plateau."""
 
@@ -160,7 +162,8 @@ class TestPlateauTracking:
             )
 
         plateau_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:STRATEGY" in r.message and "mode=plateau" in r.message
         ]
         assert len(plateau_msgs) == 1
@@ -182,7 +185,8 @@ class TestPlateauTracking:
             )
 
         plateau_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:STRATEGY" in r.message and "mode=plateau" in r.message
         ]
         assert len(plateau_msgs) == 1
@@ -192,6 +196,7 @@ class TestPlateauTracking:
 # ---------------------------------------------------------------------------
 # 40.4 — Level 2 BFS backtrack tracking in learn_node
 # ---------------------------------------------------------------------------
+
 
 class TestBfsBacktrackTracking:
     """Test that learn_node emits RVTRACK:BACKTRACK with strategy=bfs_stuck
@@ -286,13 +291,14 @@ class TestBfsBacktrackTracking:
             learn_node(agent, state)
 
         backtrack_msgs = [
-            r.message for r in caplog.records
-            if "RVTRACK:BACKTRACK" in r.message
+            r.message for r in caplog.records if "RVTRACK:BACKTRACK" in r.message
         ]
         assert len(backtrack_msgs) >= 1, "Expected RVTRACK:BACKTRACK log"
 
         bfs_msg = [m for m in backtrack_msgs if "strategy=bfs_stuck" in m]
-        assert len(bfs_msg) == 1, f"Expected strategy=bfs_stuck in backtrack msgs: {backtrack_msgs}"
+        assert (
+            len(bfs_msg) == 1
+        ), f"Expected strategy=bfs_stuck in backtrack msgs: {backtrack_msgs}"
         assert "remaining=3" in bfs_msg[0]
         assert "reason=bfs_unsaturated" in bfs_msg[0]
 
@@ -325,7 +331,8 @@ class TestBfsBacktrackTracking:
             learn_node(agent, state)
 
         bfs_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:BACKTRACK" in r.message and "strategy=bfs_stuck" in r.message
         ]
         assert len(bfs_msgs) == 1
@@ -338,6 +345,7 @@ class TestBfsBacktrackTracking:
 # ---------------------------------------------------------------------------
 # 40.4 — Stuck recovery form action tracking in learn_node
 # ---------------------------------------------------------------------------
+
 
 class TestFormActionStuckTracking:
     """Test that learn_node emits RVTRACK:STRATEGY with mode=stuck
@@ -404,7 +412,12 @@ class TestFormActionStuckTracking:
             "iteration": 12,
             "current_screen_hash": "form_hash_12",
             "previous_screen_hash": "prev_hash_xyz",
-            "current_action": {"action_type": "SET_TEXT", "x": 300, "y": 500, "text": "hello"},
+            "current_action": {
+                "action_type": "SET_TEXT",
+                "x": 300,
+                "y": 500,
+                "text": "hello",
+            },
             "current_item_action": None,
             "current_activity": ".FormActivity",
             "previous_activity": ".FormActivity",
@@ -423,7 +436,8 @@ class TestFormActionStuckTracking:
             learn_node(agent, state)
 
         strategy_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:STRATEGY" in r.message and "mode=stuck" in r.message
         ]
         assert len(strategy_msgs) >= 1, (
@@ -443,7 +457,12 @@ class TestFormActionStuckTracking:
             "iteration": 20,
             "current_screen_hash": "form_hash_12",
             "previous_screen_hash": "prev_hash_xyz",
-            "current_action": {"action_type": "TEXT_CHANGE", "x": 300, "y": 500, "text": "world"},
+            "current_action": {
+                "action_type": "TEXT_CHANGE",
+                "x": 300,
+                "y": 500,
+                "text": "world",
+            },
             "current_item_action": None,
             "current_activity": ".FormActivity",
             "previous_activity": ".FormActivity",
@@ -462,7 +481,8 @@ class TestFormActionStuckTracking:
             learn_node(agent, state)
 
         strategy_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:STRATEGY" in r.message and "mode=stuck" in r.message
         ]
         assert len(strategy_msgs) >= 1
@@ -501,7 +521,8 @@ class TestFormActionStuckTracking:
             learn_node(agent, state)
 
         strategy_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:STRATEGY" in r.message and "mode=stuck" in r.message
         ]
         assert len(strategy_msgs) >= 1
@@ -538,17 +559,19 @@ class TestFormActionStuckTracking:
             learn_node(agent, state)
 
         strategy_msgs = [
-            r.message for r in caplog.records
+            r.message
+            for r in caplog.records
             if "RVTRACK:STRATEGY" in r.message and "mode=stuck" in r.message
         ]
-        assert len(strategy_msgs) == 0, (
-            f"Non-form CLICK should not emit mode=stuck, but got: {strategy_msgs}"
-        )
+        assert (
+            len(strategy_msgs) == 0
+        ), f"Non-form CLICK should not emit mode=stuck, but got: {strategy_msgs}"
 
 
 # ---------------------------------------------------------------------------
 # 40.6 — system_action_filtered counter in _select_with_score_decay
 # ---------------------------------------------------------------------------
+
 
 class TestSystemActionFilteredCounter:
     """Test that filtering system actions (BACK/RESTART) in Tier 4
@@ -567,7 +590,9 @@ class TestSystemActionFilteredCounter:
 
         # Create a screen node in the graph
         screen_hash = "test_hash_abc"
-        node = ScreenNode(screen_hash=screen_hash, activity=".MainActivity", total_actions=2)
+        node = ScreenNode(
+            screen_hash=screen_hash, activity=".MainActivity", total_actions=2
+        )
         strategy.graph.states[screen_hash] = node
         strategy._current_hash = screen_hash
 
@@ -578,7 +603,10 @@ class TestSystemActionFilteredCounter:
             event=WidgetEventType.CLICK,
             reaches_mop=False,
             directly_reaches_mop=False,
-            target_view={"class": "android.widget.Button", "package": "com.example.app"},
+            target_view={
+                "class": "android.widget.Button",
+                "package": "com.example.app",
+            },
             coordinates=(540, 500),
             text_input=None,
         )
@@ -619,7 +647,9 @@ class TestSystemActionFilteredCounter:
         strategy = _make_strategy()
 
         screen_hash = "test_hash_def"
-        node = ScreenNode(screen_hash=screen_hash, activity=".MainActivity", total_actions=2)
+        node = ScreenNode(
+            screen_hash=screen_hash, activity=".MainActivity", total_actions=2
+        )
         strategy.graph.states[screen_hash] = node
         strategy._current_hash = screen_hash
 
@@ -629,7 +659,10 @@ class TestSystemActionFilteredCounter:
             event=WidgetEventType.CLICK,
             reaches_mop=False,
             directly_reaches_mop=False,
-            target_view={"class": "android.widget.Button", "package": "com.example.app"},
+            target_view={
+                "class": "android.widget.Button",
+                "package": "com.example.app",
+            },
             coordinates=(540, 600),
             text_input=None,
         )
@@ -673,7 +706,9 @@ class TestSystemActionFilteredCounter:
         strategy = _make_strategy()
 
         screen_hash = "test_hash_ghi"
-        node = ScreenNode(screen_hash=screen_hash, activity=".MainActivity", total_actions=3)
+        node = ScreenNode(
+            screen_hash=screen_hash, activity=".MainActivity", total_actions=3
+        )
         strategy.graph.states[screen_hash] = node
         strategy._current_hash = screen_hash
 
@@ -683,7 +718,10 @@ class TestSystemActionFilteredCounter:
             event=WidgetEventType.CLICK,
             reaches_mop=False,
             directly_reaches_mop=False,
-            target_view={"class": "android.widget.Button", "package": "com.example.app"},
+            target_view={
+                "class": "android.widget.Button",
+                "package": "com.example.app",
+            },
             coordinates=(540, 700),
             text_input=None,
         )
@@ -735,7 +773,9 @@ class TestSystemActionFilteredCounter:
         strategy = _make_strategy()
 
         screen_hash = "test_hash_jkl"
-        node = ScreenNode(screen_hash=screen_hash, activity=".MainActivity", total_actions=2)
+        node = ScreenNode(
+            screen_hash=screen_hash, activity=".MainActivity", total_actions=2
+        )
         strategy.graph.states[screen_hash] = node
         strategy._current_hash = screen_hash
 
@@ -745,7 +785,10 @@ class TestSystemActionFilteredCounter:
             event=WidgetEventType.CLICK,
             reaches_mop=False,
             directly_reaches_mop=False,
-            target_view={"class": "android.widget.Button", "package": "com.example.app"},
+            target_view={
+                "class": "android.widget.Button",
+                "package": "com.example.app",
+            },
             coordinates=(540, 500),
             text_input=None,
         )
@@ -755,7 +798,10 @@ class TestSystemActionFilteredCounter:
             event=WidgetEventType.CLICK,
             reaches_mop=False,
             directly_reaches_mop=False,
-            target_view={"class": "android.widget.Button", "package": "com.example.app"},
+            target_view={
+                "class": "android.widget.Button",
+                "package": "com.example.app",
+            },
             coordinates=(540, 700),
             text_input=None,
         )
@@ -776,6 +822,7 @@ class TestSystemActionFilteredCounter:
 # ---------------------------------------------------------------------------
 # 40.7 — Aggregate counters in rv_agent.run() results
 # ---------------------------------------------------------------------------
+
 
 class TestAggregateCountersInResults:
     """Test that rv_agent.run() includes tracking_counters in its results dict."""
@@ -832,9 +879,9 @@ class TestAggregateCountersInResults:
 
         results = agent.run()
 
-        assert "tracking_counters" in results, (
-            f"Expected 'tracking_counters' key in results, got keys: {list(results.keys())}"
-        )
+        assert (
+            "tracking_counters" in results
+        ), f"Expected 'tracking_counters' key in results, got keys: {list(results.keys())}"
         counters = results["tracking_counters"]
         assert isinstance(counters, dict)
         # Verify it contains known counter keys

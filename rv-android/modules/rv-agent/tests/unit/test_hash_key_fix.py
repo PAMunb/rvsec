@@ -146,7 +146,9 @@ class TestLongClickableDiscrimination:
         item = _make_item(resource_id="btn", long_clickable=True)
         desc = _make_desc([item])
 
-        assert compute_screen_hash_from_description(desc) == compute_screen_hash_from_description(desc)
+        assert compute_screen_hash_from_description(
+            desc
+        ) == compute_screen_hash_from_description(desc)
 
 
 # ---------------------------------------------------------------------------
@@ -173,9 +175,9 @@ class TestHashDetailTracking:
                 screen_desc=desc,
             )
 
-        assert any("RVTRACK:HASH_DETAIL" in record.message for record in caplog.records), (
-            "Expected [RVTRACK:HASH_DETAIL] in log output when a new state is created"
-        )
+        assert any(
+            "RVTRACK:HASH_DETAIL" in record.message for record in caplog.records
+        ), "Expected [RVTRACK:HASH_DETAIL] in log output when a new state is created"
 
     def test_hash_detail_not_emitted_on_revisit(self, caplog):
         """RVTRACK:HASH_DETAIL is NOT emitted when an existing state is revisited."""
@@ -220,9 +222,9 @@ class TestHashDetailTracking:
         ]
         assert detail_lines, "Expected at least one RVTRACK:HASH_DETAIL line"
         # tracking.py emits state_hash[:8] as the hash= field
-        assert state_hash[:8] in detail_lines[0], (
-            f"Expected hash prefix '{state_hash[:8]}' in HASH_DETAIL line: {detail_lines[0]}"
-        )
+        assert (
+            state_hash[:8] in detail_lines[0]
+        ), f"Expected hash prefix '{state_hash[:8]}' in HASH_DETAIL line: {detail_lines[0]}"
 
     def test_hash_detail_emitted_per_unique_state(self, caplog):
         """Each distinct state hash produces its own HASH_DETAIL line."""
@@ -237,6 +239,6 @@ class TestHashDetailTracking:
         detail_lines = [
             r.message for r in caplog.records if "RVTRACK:HASH_DETAIL" in r.message
         ]
-        assert len(detail_lines) == 2, (
-            f"Expected 2 RVTRACK:HASH_DETAIL lines (one per new state), got {len(detail_lines)}"
-        )
+        assert (
+            len(detail_lines) == 2
+        ), f"Expected 2 RVTRACK:HASH_DETAIL lines (one per new state), got {len(detail_lines)}"

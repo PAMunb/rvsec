@@ -1818,3 +1818,127 @@ No topology changes to the architecture diagram. All fixes are behavioral correc
 - **reward_propagator.py**: Zero-reward guard (N-23)
 - **tool_executor.py**: Restart delay (N-19)
 - **routing_manager.py**: Counter additions (N-24)
+
+## Round 3 Post-Implementation Regression Analysis
+
+After completing all Groups (1-40, 311 tasks) and running a validation experiment (CryptoApp, rvagent:pure_algorithm, 60s timeout, 1 rep), a showstopper regression was discovered.
+
+### Experiment Setup and Results
+
+| Metric | Value |
+|--------|-------|
+| App | CryptoApp (br.unb.cic.cryptoapp) |
+| Mode | pure_algorithm |
+| Duration | 60s configured, 71s actual (stopped by error limit) |
+| Iterations completed | 2 (of expected ~72 for 10min) |
+| Unique states | 2 |
+| Activities | 2 (50%) — only MainActivity + MessageDigestActivity |
+| UI coverage | 20% (2/10 elements) |
+| Error count | 30 (MAX_TOTAL_ERRORS limit reached) |
+| Error pattern | `IndexError: list index out of range` repeating from iteration 2 |
+
+### D13: `_update_cached_bounds` bounds format mismatch (R3-1)
+
+**Problem (R3-1 SHOWSTOPPER)**: `_update_cached_bounds()` in `parse_node.py` (added in Group 30 for the offset fix) crashes with `IndexError: list index out of range` on every revisit of a cached screen.
+
+**Root cause**: The function accesses bounds as a flat list (`bounds[0]`, `bounds[2]`, `bounds[3]`) assuming format `[x1, y1, x2, y2]`, but UIAutomator bounds are stored as a nested list `[[x1, y1], [x2, y2]]`. When `bounds = [[100, 200], [300, 400]]`, `bounds[2]` raises `IndexError` because the outer list has only 2 elements.
+
+The bug triggers on every iteration where `screen_hash == previous_hash` (same screen revisited), which is the common case after the first exploration pass. This makes the agent unable to explore beyond 2 iterations on any screen that gets revisited.
+
+**Evidence from traceback**:
+    File "parse_node.py", line 39, in _update_cached_bounds
+        cx = (bounds[0] + bounds[2]) // 2
+                          ~~~~~~^^^
+    IndexError: list index out of range
+
+**Affected lines**:
+- Line 39-40: `cx = (bounds[0] + bounds[2]) // 2` / `cy = (bounds[1] + bounds[3]) // 2` — fresh bounds center calculation
+- Line 65-66: `cached_cx = (old_bounds[0] + old_bounds[2]) // 2` / `cached_cy = (old_bounds[1] + old_bounds[3]) // 2` — cached bounds center calculation
+
+**Fix**: Unpack bounds as nested list `x1, y1 = bounds[0]; x2, y2 = bounds[1]`. Add defensive checks for bounds format (isinstance, len >= 2, try/except for TypeError/ValueError). Apply to both fresh and cached bounds unpacking.
+
+**Verification scenarios**:
+
+| ID | Scenario | Input | Expected |
+|----|----------|-------|----------|
+| R3-1-S1 | Nested bounds with widget_id match | cached: `[[100,200],[300,400]]`, fresh: `[[100,220],[300,420]]`, same widget_id | Cached bounds updated to `[[100,220],[300,420]]` |
+| R3-1-S2 | Nested bounds with proximity match | cached: `[[100,200],[300,400]]`, fresh: `[[110,210],[310,410]]`, no widget_id, centers within 50px | Cached bounds updated |
+| R3-1-S3 | Proximity too far | cached: `[[100,200],[300,400]]`, fresh: `[[500,600],[700,800]]`, no widget_id | Cached bounds NOT updated |
+| R3-1-S4 | Bounds is None | `target_view = {"bounds": None}` | Skipped, no crash |
+| R3-1-S5 | Bounds is empty list | `target_view = {"bounds": []}` | Skipped, no crash |
+| R3-1-S6 | Bounds has wrong inner format | `target_view = {"bounds": [100, 200]}` (flat ints, not nested) | Skipped via TypeError catch, no crash |
+| R3-1-S7 | target_view is None | `action.target_view = None` | Skipped, no crash |
+| R3-1-S8 | Mixed items | 2 fresh items: one with widget_id, one without. Both should update independently | Both updated correctly |
+| R3-1-S9 | Bounds identical between cached and fresh | Same bounds for same widget_id | No mutation (identity preserved) |
+| R3-1-S10 | Multiple actions per item | Item with 3 actions, each with different widget_ids | All 3 updated independently |
+| R3-1-S11 | Proximity threshold boundary | Centers exactly 50px apart (strict `<` comparison) | NOT matched |
+| R3-1-S12 | Proximity threshold just within | Centers 49px apart | Matched and updated |
+| R3-1-S13 | Integration: parse_ui_node reuses cached desc on same hash | Iteration 1: new screen -> cached. Iteration 2: same hash -> `_update_cached_bounds` called -> no crash | parse_ui_node returns valid screen_description |
+
+### D14: Element ID Format Mismatch in LLM Text Value Tracking (R3-1)
+
+**Problem (R3-1 MEDIUM)**: `_track_llm_text_value()` in `learn_node.py:747` uses non-canonical element ID format `"(540,340)"` instead of canonical `"coords:540,340"` from `element_id.py`. This causes a key mismatch between LLM and algorithm text value tracking.
+
+**Root cause**: When recording LLM-generated text values, the code builds element IDs manually:
+    element_id = f"({x},{y})"  # Wrong: "(540,340)"
+But the canonical format from `element_id.py:make_element_id()` is:
+    return f"coords:{x},{y}"   # Correct: "coords:540,340"
+
+**Data flow impact**:
+1. LLM generates SET_TEXT action -> `_track_llm_text_value` records value under key `"(540,340)"`
+2. Algorithm later selects the same element -> `has_remaining_values` looks up under key `"coords:540,340"`
+3. Keys don't match -> algorithm re-tests values already tested by LLM
+
+**Impact**: Only affects **multimode** (when both LLM and algorithm generate text for the same input field). Zero impact on pure_algorithm mode since the LLM path is never taken. In multimode, it causes redundant text input variations.
+
+**Fix**: Replace `f"({x},{y})"` with `make_element_id(x, y)` from `element_id.py`. One-line fix.
+
+**Verification scenarios**:
+
+| ID | Scenario | Input | Expected |
+|----|----------|-------|----------|
+| R3-1-M1 | LLM text value uses canonical ID | LLM SET_TEXT at coords (540, 340) | Recorded under key `"coords:540,340"` |
+| R3-1-M2 | Algorithm lookup matches LLM record | Algorithm queries `has_remaining_values("coords:540,340")` after LLM tested value | Returns True (same key, recognizes LLM-tested values) |
+| R3-1-M3 | Old format no longer used | Verify `f"({x},{y})"` format not present in learn_node.py | No occurrences of parenthesis-based element ID |
+
+### D15: NavigationGuidance Broad Exception Handling (R3-2)
+
+**Problem (R3-2 LOW)**: `get_context()` in `navigation_guidance.py:164-213` wraps all TransitionManager calls in a broad `try-except Exception` that silently returns an empty context on any error.
+
+**Root cause**: Overly defensive exception handling. If TransitionManager has a programming error (KeyError, AttributeError), the entire WTG guidance subsystem silently degrades. MOP paths and navigation suggestions stop working, but exploration continues without guidance. Error is logged at WARNING level but easy to miss.
+
+**Impact**: Resilience-vs-debuggability tradeoff. Prevents crashes but masks bugs during development. Since the WTG subsystem is still evolving, bugs in TransitionManager could go undetected.
+
+**Fix**: Log at ERROR level and increment a tracking counter (`track._counters["navigation_guidance_error"]`). Keep the broad catch for production resilience but make errors more visible.
+
+**Verification scenarios**:
+
+| ID | Scenario | Input | Expected |
+|----|----------|-------|----------|
+| R3-2-S1 | Error logged at ERROR level | TransitionManager raises KeyError | Logged at ERROR, counter incremented, empty context returned |
+| R3-2-S2 | Counter tracks occurrences | Multiple errors in sequence | Counter incremented each time |
+| R3-2-S3 | Normal operation unaffected | TransitionManager works normally | Context returned, no counter increment |
+
+### D16: Statistics Reporting for MOP Elements (N-20)
+
+**Problem (N-20 LOW)**: `get_statistics()` in `input_value_generator.py:256-259` counts MOP elements as exhausted using `max_variations` (default 5), but the actual value generation logic uses `mop_max_variations` (default 11). This causes inaccurate `active_elements` count for MOP-reaching elements.
+
+**Impact**: Statistics/reporting only — does NOT affect actual exploration behavior since `has_remaining_values()` uses the correct conditional with `is_mop` parameter.
+
+**Fix**: Track which elements are MOP-associated (add `mop_elements: Set[str]` field) and use `mop_max_variations` threshold for those elements in the statistics count.
+
+**Verification scenarios**:
+
+| ID | Scenario | Input | Expected |
+|----|----------|-------|----------|
+| N-20-S1 | MOP element uses correct threshold | MOP element with 6 tested values | NOT counted as exhausted (threshold=11) |
+| N-20-S2 | Non-MOP element uses default threshold | Non-MOP element with 6 tested values | Counted as exhausted (threshold=5) |
+| N-20-S3 | register_mop_element tracks correctly | Call `register_mop_element("coords:540,340")` | Element is in `mop_elements` set |
+
+### Architecture Impact (Round 3)
+
+No topology changes. All fixes are behavioral corrections within existing components:
+- **parse_node.py**: D13 — bounds format fix in `_update_cached_bounds()`
+- **learn_node.py**: D14 — element ID format fix in `_track_llm_text_value()`
+- **navigation_guidance.py**: D15 — error logging upgrade in `get_context()`
+- **input_value_generator.py**: D16 — MOP threshold in `get_statistics()`

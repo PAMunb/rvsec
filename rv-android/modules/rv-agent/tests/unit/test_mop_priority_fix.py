@@ -17,7 +17,6 @@ from rv_agent.strategies.rvagent_strategy.input_value_generator import (
 )
 from rv_agent.services.transition_manager import TransitionManager
 
-
 # ---------------------------------------------------------------------------
 # (a) Priority scoring: directly_reaches_mop > reaches_mop
 # ---------------------------------------------------------------------------
@@ -26,7 +25,9 @@ from rv_agent.services.transition_manager import TransitionManager
 class TestMopPriorityScoring:
     """Verify directly_reaches_mop (+50) outranks reaches_mop (+25)."""
 
-    def _make_manager_with_widget(self, directly: bool, indirect: bool) -> TransitionManager:
+    def _make_manager_with_widget(
+        self, directly: bool, indirect: bool
+    ) -> TransitionManager:
         """Build a TransitionManager wired so the target widget has the given MOP flags."""
         # Minimal method mock with the two MOP flags
         method = MagicMock()
@@ -218,7 +219,9 @@ class TestInputVarTracking:
         with caplog.at_level(logging.INFO, logger="rv_agent.tracking"):
             gen.has_remaining_values(eid, is_mop=True)
 
-        matching = [r.message for r in caplog.records if "RVTRACK:INPUT_VAR" in r.message]
+        matching = [
+            r.message for r in caplog.records if "RVTRACK:INPUT_VAR" in r.message
+        ]
         assert matching, "Expected at least one RVTRACK:INPUT_VAR log line"
         assert eid in matching[0]
 
@@ -231,7 +234,9 @@ class TestInputVarTracking:
         with caplog.at_level(logging.INFO, logger="rv_agent.tracking"):
             gen.has_remaining_values(eid, is_mop=True)
 
-        matching = [r.message for r in caplog.records if "RVTRACK:INPUT_VAR" in r.message]
+        matching = [
+            r.message for r in caplog.records if "RVTRACK:INPUT_VAR" in r.message
+        ]
         assert matching
         log_line = matching[0]
         # used=3 and limit=11 should appear in the log
@@ -263,7 +268,9 @@ class TestInputVarTracking:
                 limit=11,
             )
 
-        matching = [r.message for r in caplog.records if "RVTRACK:INPUT_VAR" in r.message]
+        matching = [
+            r.message for r in caplog.records if "RVTRACK:INPUT_VAR" in r.message
+        ]
         assert matching
         log_line = matching[0]
         assert "is_mop=True" in log_line

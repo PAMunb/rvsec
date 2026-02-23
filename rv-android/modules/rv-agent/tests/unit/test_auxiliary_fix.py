@@ -23,7 +23,6 @@ from rv_agent.agent.nodes.parse_node import _update_cached_bounds
 from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent import tracking as track
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -219,110 +218,139 @@ class TestUpdateCachedBounds:
 
     def test_updates_element_with_widget_id(self):
         """Element with widget_id gets its bounds updated from fresh parse."""
-        cached = _make_screen_desc_with_actions([
-            ("btn_ok", [0, 0, 200, 100]),
-        ])
-        fresh = _make_screen_desc_with_actions([
-            ("btn_ok", [0, 50, 200, 150]),
-        ])
+        cached = _make_screen_desc_with_actions(
+            [
+                ("btn_ok", [[0, 0], [200, 100]]),
+            ]
+        )
+        fresh = _make_screen_desc_with_actions(
+            [
+                ("btn_ok", [[0, 50], [200, 150]]),
+            ]
+        )
 
         _update_cached_bounds(cached, fresh)
 
         updated_bounds = cached.items[0].actions[0].target_view["bounds"]
-        assert updated_bounds == [0, 50, 200, 150]
+        assert updated_bounds == [[0, 50], [200, 150]]
 
     def test_updates_element_without_widget_id_by_proximity(self):
         """Element without widget_id gets updated via coordinate proximity fallback."""
-        # Cached element at center (100, 50) -- bounds [0, 0, 200, 100]
-        cached = _make_screen_desc_with_actions([
-            (None, [0, 0, 200, 100]),
-        ])
+        # Cached element center: ((0+200)//2, (0+100)//2) = (100, 50)
+        cached = _make_screen_desc_with_actions(
+            [
+                (None, [[0, 0], [200, 100]]),
+            ]
+        )
         # Fresh element shifted down by 30px -- center (100, 80), still within threshold=50
-        fresh = _make_screen_desc_with_actions([
-            (None, [0, 30, 200, 130]),
-        ])
+        fresh = _make_screen_desc_with_actions(
+            [
+                (None, [[0, 30], [200, 130]]),
+            ]
+        )
 
         _update_cached_bounds(cached, fresh)
 
         updated_bounds = cached.items[0].actions[0].target_view["bounds"]
-        assert updated_bounds == [0, 30, 200, 130]
+        assert updated_bounds == [[0, 30], [200, 130]]
 
     def test_no_update_when_proximity_exceeds_threshold(self):
         """Element without widget_id is NOT updated when distance exceeds threshold."""
-        # Cached element at center (100, 50)
-        cached = _make_screen_desc_with_actions([
-            (None, [0, 0, 200, 100]),
-        ])
-        # Fresh element at center (100, 200) -- too far (distance = 150 > 50)
-        fresh = _make_screen_desc_with_actions([
-            (None, [0, 150, 200, 250]),
-        ])
+        # Cached element center: (100, 50)
+        cached = _make_screen_desc_with_actions(
+            [
+                (None, [[0, 0], [200, 100]]),
+            ]
+        )
+        # Fresh element center: ((0+200)//2, (150+250)//2) = (100, 200) -- too far
+        fresh = _make_screen_desc_with_actions(
+            [
+                (None, [[0, 150], [200, 250]]),
+            ]
+        )
 
         _update_cached_bounds(cached, fresh)
 
         # Should remain unchanged
         updated_bounds = cached.items[0].actions[0].target_view["bounds"]
-        assert updated_bounds == [0, 0, 200, 100]
+        assert updated_bounds == [[0, 0], [200, 100]]
 
     def test_widget_id_match_takes_priority(self):
         """Element with widget_id matches by ID, not by proximity."""
-        cached = _make_screen_desc_with_actions([
-            ("input_email", [10, 100, 500, 160]),
-        ])
+        cached = _make_screen_desc_with_actions(
+            [
+                ("input_email", [[10, 100], [500, 160]]),
+            ]
+        )
         # Fresh has same widget_id but very different bounds
-        fresh = _make_screen_desc_with_actions([
-            ("input_email", [10, 400, 500, 460]),
-        ])
+        fresh = _make_screen_desc_with_actions(
+            [
+                ("input_email", [[10, 400], [500, 460]]),
+            ]
+        )
 
         _update_cached_bounds(cached, fresh)
 
         updated_bounds = cached.items[0].actions[0].target_view["bounds"]
-        assert updated_bounds == [10, 400, 500, 460]
+        assert updated_bounds == [[10, 400], [500, 460]]
 
     def test_no_update_when_bounds_unchanged(self):
         """No update occurs when cached and fresh bounds are identical."""
-        cached = _make_screen_desc_with_actions([
-            ("btn_save", [100, 200, 300, 260]),
-        ])
-        fresh = _make_screen_desc_with_actions([
-            ("btn_save", [100, 200, 300, 260]),
-        ])
+        cached = _make_screen_desc_with_actions(
+            [
+                ("btn_save", [[100, 200], [300, 260]]),
+            ]
+        )
+        fresh = _make_screen_desc_with_actions(
+            [
+                ("btn_save", [[100, 200], [300, 260]]),
+            ]
+        )
 
         _update_cached_bounds(cached, fresh)
 
         # Bounds remain the same (no unnecessary mutation)
         updated_bounds = cached.items[0].actions[0].target_view["bounds"]
-        assert updated_bounds == [100, 200, 300, 260]
+        assert updated_bounds == [[100, 200], [300, 260]]
 
     def test_mixed_elements_with_and_without_widget_id(self):
         """Both widget_id and no-widget_id elements get updated in same screen."""
-        cached = _make_screen_desc_with_actions([
-            ("btn_ok", [0, 0, 200, 100]),       # Has widget_id
-            (None, [300, 0, 500, 100]),          # No widget_id, center (400, 50)
-        ])
-        fresh = _make_screen_desc_with_actions([
-            ("btn_ok", [0, 50, 200, 150]),       # Shifted down
-            (None, [300, 30, 500, 130]),          # Shifted down, center (400, 80)
-        ])
+        cached = _make_screen_desc_with_actions(
+            [
+                ("btn_ok", [[0, 0], [200, 100]]),  # Has widget_id
+                (None, [[300, 0], [500, 100]]),  # No widget_id, center (400, 50)
+            ]
+        )
+        fresh = _make_screen_desc_with_actions(
+            [
+                ("btn_ok", [[0, 50], [200, 150]]),  # Shifted down
+                (None, [[300, 30], [500, 130]]),  # Shifted down, center (400, 80)
+            ]
+        )
 
         _update_cached_bounds(cached, fresh)
 
         # widget_id element updated
-        assert cached.items[0].actions[0].target_view["bounds"] == [0, 50, 200, 150]
+        assert cached.items[0].actions[0].target_view["bounds"] == [[0, 50], [200, 150]]
         # no-widget_id element also updated via proximity
-        assert cached.items[1].actions[0].target_view["bounds"] == [300, 30, 500, 130]
+        assert cached.items[1].actions[0].target_view["bounds"] == [
+            [300, 30],
+            [500, 130],
+        ]
 
     def test_no_update_when_fresh_has_no_items(self):
         """When fresh parse returns no items, cached bounds remain unchanged."""
-        cached = _make_screen_desc_with_actions([
-            ("btn_ok", [0, 0, 200, 100]),
-        ])
+        cached = _make_screen_desc_with_actions(
+            [
+                ("btn_ok", [[0, 0], [200, 100]]),
+            ]
+        )
         fresh = _make_screen_desc_with_actions([])
 
         _update_cached_bounds(cached, fresh)
 
         # Unchanged
-        assert cached.items[0].actions[0].target_view["bounds"] == [0, 0, 200, 100]
+        assert cached.items[0].actions[0].target_view["bounds"] == [[0, 0], [200, 100]]
 
 
 # ---------------------------------------------------------------------------
@@ -342,10 +370,12 @@ class TestRestartDelay:
         executor = ToolExecutor(device=mock_device)
 
         with patch("rv_agent.execution.tool_executor.time.sleep") as mock_sleep:
-            executor.execute_action({
-                "action_type": "RESTART_APP",
-                "package_name": "com.example.app",
-            })
+            executor.execute_action(
+                {
+                    "action_type": "RESTART_APP",
+                    "package_name": "com.example.app",
+                }
+            )
 
             mock_sleep.assert_called_once_with(1)
 
@@ -365,10 +395,12 @@ class TestRestartDelay:
             "rv_agent.execution.tool_executor.time.sleep",
             side_effect=lambda s: call_order.append(f"sleep({s})"),
         ):
-            executor.execute_action({
-                "action_type": "RESTART_APP",
-                "package_name": "com.example.app",
-            })
+            executor.execute_action(
+                {
+                    "action_type": "RESTART_APP",
+                    "package_name": "com.example.app",
+                }
+            )
 
         assert call_order == ["stop", "sleep(1)", "start"]
 
@@ -381,10 +413,12 @@ class TestRestartDelay:
         executor = ToolExecutor(device=mock_device)
 
         with patch("rv_agent.execution.tool_executor.time.sleep") as mock_sleep:
-            executor.execute_action({
-                "action_type": "RESTART_APP",
-                "package_name": "com.example.app",
-            })
+            executor.execute_action(
+                {
+                    "action_type": "RESTART_APP",
+                    "package_name": "com.example.app",
+                }
+            )
 
             mock_sleep.assert_called_once_with(1)
 
@@ -473,9 +507,7 @@ class TestRVTRACKStateTracking:
         with caplog.at_level(logging.INFO):
             learn_node(agent, state)
 
-        state_logs = [
-            r for r in caplog.records if "RVTRACK:STATE" in r.message
-        ]
+        state_logs = [r for r in caplog.records if "RVTRACK:STATE" in r.message]
         assert len(state_logs) == 1
         log_msg = state_logs[0].message
         assert "changed=True" in log_msg
@@ -494,9 +526,7 @@ class TestRVTRACKStateTracking:
         with caplog.at_level(logging.INFO):
             learn_node(agent, state)
 
-        state_logs = [
-            r for r in caplog.records if "RVTRACK:STATE" in r.message
-        ]
+        state_logs = [r for r in caplog.records if "RVTRACK:STATE" in r.message]
         assert len(state_logs) == 1
         log_msg = state_logs[0].message
         assert "changed=False" in log_msg

@@ -24,10 +24,10 @@ import pytest
 from rv_agent.agent.nodes.learn_node import _propagate_reward, _record_action_success
 from rv_agent.agent.nodes.execute_node import execute_node
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_agent_with_graph(state_hash: str):
     """Build a minimal agent mock with a strategy graph containing one state."""
@@ -78,6 +78,7 @@ def _base_state():
 # ---------------------------------------------------------------------------
 # (a) Success is attributed to previous_action_signature, not current action
 # ---------------------------------------------------------------------------
+
 
 class TestSuccessAttributedToPreviousAction:
     """(a) _record_action_success uses previous_action_signature, not current_action."""
@@ -138,6 +139,7 @@ class TestSuccessAttributedToPreviousAction:
 # (b) First iteration (previous_action_signature=None) skips attribution
 # ---------------------------------------------------------------------------
 
+
 class TestFirstIterationSkipsAttribution:
     """(b) When previous_action_signature is None, _record_action_success returns early."""
 
@@ -194,6 +196,7 @@ class TestFirstIterationSkipsAttribution:
 # (c) Reward propagation uses previous_action_signature
 # ---------------------------------------------------------------------------
 
+
 class TestRewardPropagationUsesPreviousAction:
     """(c) _propagate_reward records and propagates using previous_action_signature."""
 
@@ -245,9 +248,7 @@ class TestRewardPropagationUsesPreviousAction:
         agent.strategy.reward_propagator = mock_propagator
         agent.strategy.graph = MagicMock()
         # Activity already in visited set
-        agent.strategy._get_visited_activities = MagicMock(
-            return_value={"ActivityB"}
-        )
+        agent.strategy._get_visited_activities = MagicMock(return_value={"ActivityB"})
 
         state = _base_state()
         state["previous_action_signature"] = prev_sig
@@ -287,6 +288,7 @@ class TestRewardPropagationUsesPreviousAction:
 # ---------------------------------------------------------------------------
 # (d) execute_node transition recording uses previous_action_signature
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteNodeTransitionUsesPreviousSignature:
     """(d) execute_node records transition using state['previous_action_signature']."""
@@ -362,7 +364,7 @@ class TestExecuteNodeTransitionUsesPreviousSignature:
                 "y": 60,
                 "source": "algorithm",
             },
-            "current_screen_hash": "hash_A",   # Same hash
+            "current_screen_hash": "hash_A",  # Same hash
             "previous_screen_hash": "hash_A",  # Same hash
             "previous_action_signature": prev_sig,
             "current_item_action": None,
@@ -410,6 +412,7 @@ class TestExecuteNodeTransitionUsesPreviousSignature:
 # ---------------------------------------------------------------------------
 # (e) RVTRACK:ATTRIBUTION is emitted with source="previous"
 # ---------------------------------------------------------------------------
+
 
 class TestAttributionTrackingEmittedWithSourcePrevious:
     """(e) RVTRACK:ATTRIBUTION log is emitted with source='previous' for normal iterations."""
@@ -503,7 +506,9 @@ class TestAttributionTrackingEmittedWithSourcePrevious:
         state["current_screen_hash"] = "hash_B"
 
         calls_changed = []
-        with patch.object(track, "attribution", side_effect=lambda **kw: calls_changed.append(kw)):
+        with patch.object(
+            track, "attribution", side_effect=lambda **kw: calls_changed.append(kw)
+        ):
             _record_action_success(agent, state)
         assert calls_changed[0]["success"] is True
 
@@ -515,7 +520,9 @@ class TestAttributionTrackingEmittedWithSourcePrevious:
         state2["current_screen_hash"] = "hash_A"
 
         calls_same = []
-        with patch.object(track, "attribution", side_effect=lambda **kw: calls_same.append(kw)):
+        with patch.object(
+            track, "attribution", side_effect=lambda **kw: calls_same.append(kw)
+        ):
             _record_action_success(agent2, state2)
         assert calls_same[0]["success"] is False
 

@@ -33,10 +33,10 @@ from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrateg
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.services.transition_manager import TransitionManager
 
-
 # ---------------------------------------------------------------------------
 # Shared helpers (mirrors test_plateau_detection_fix.py conventions)
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides):
     """Create a minimal mock config for RVAgentStrategy."""
@@ -113,6 +113,7 @@ def _make_screen_desc(activity=".MainActivity"):
 # (a) Action description uses underscored dict keys
 # ---------------------------------------------------------------------------
 
+
 class TestActionDescriptionKeys:
     """_get_action_description reads content_description and resource_id (underscored)."""
 
@@ -180,6 +181,7 @@ class TestActionDescriptionKeys:
 # ---------------------------------------------------------------------------
 # (b) Widget_id matching uses equality, not substring
 # ---------------------------------------------------------------------------
+
 
 class TestWidgetIdEqualityMatching:
     """_find_action_by_widget_id and _resolve_wtg_action use ==, not 'in'."""
@@ -275,6 +277,7 @@ class TestWidgetIdEqualityMatching:
 # (c) Self-loop guard: graph/successor recording skipped for same-hash transitions
 # ---------------------------------------------------------------------------
 
+
 class TestSelfLoopGuard:
     """record_transition() skips graph recording when from_hash == to_hash."""
 
@@ -342,6 +345,7 @@ class TestSelfLoopGuard:
 # (d) find_nearest_element returns None for unknown screen_hash
 # ---------------------------------------------------------------------------
 
+
 class TestFindNearestElementUnknownScreen:
     """UICoverageTracker.find_nearest_element() returns None for unknown screen."""
 
@@ -357,7 +361,9 @@ class TestFindNearestElementUnknownScreen:
         """find_nearest_element with an unknown screen_hash returns None."""
         tracker = self._tracker_with_element("known_screen", 540, 960)
 
-        result = tracker.find_nearest_element(x=540, y=960, screen_hash="unknown_screen")
+        result = tracker.find_nearest_element(
+            x=540, y=960, screen_hash="unknown_screen"
+        )
 
         assert result is None
 
@@ -393,6 +399,7 @@ class TestFindNearestElementUnknownScreen:
 # ---------------------------------------------------------------------------
 # (e) RVTRACK:SELF_LOOP is emitted when a self-loop is detected
 # ---------------------------------------------------------------------------
+
 
 class TestSelfLoopTrackingLog:
     """record_transition() emits [RVTRACK:SELF_LOOP] for same-hash transitions."""
@@ -446,6 +453,7 @@ class TestSelfLoopTrackingLog:
 # (f) RVTRACK:ELEMENT_MATCH logs cross_screen_rejected for unknown screen
 # ---------------------------------------------------------------------------
 
+
 class TestElementMatchTrackingLog:
     """find_nearest_element() emits RVTRACK:ELEMENT_MATCH cross_screen_rejected."""
 
@@ -463,7 +471,8 @@ class TestElementMatchTrackingLog:
 
         assert result is None
         assert any(
-            "RVTRACK:ELEMENT_MATCH" in r.message and "cross_screen_rejected" in r.message
+            "RVTRACK:ELEMENT_MATCH" in r.message
+            and "cross_screen_rejected" in r.message
             for r in caplog.records
         )
 
@@ -477,6 +486,4 @@ class TestElementMatchTrackingLog:
         with caplog.at_level(logging.INFO, logger="rv_agent.tracking"):
             tracker.find_nearest_element(x=540, y=960, screen_hash="known_screen")
 
-        assert not any(
-            "cross_screen_rejected" in r.message for r in caplog.records
-        )
+        assert not any("cross_screen_rejected" in r.message for r in caplog.records)

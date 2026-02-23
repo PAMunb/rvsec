@@ -945,3 +945,104 @@ Adds RVTRACK events retroactively to the already-implemented Groups 18-28 bug fi
 - [x] 40.9 Run `/rv-test-run rv-agent` — verify all unit and integration tests pass.
 - [x] 40.10 Run `/rv-qa-lint-fix rv-agent` — auto-fix formatting.
 - [x] 40.11 Run `/rv-verify rv-agent` — final verification.
+
+### Group 41 — Fix `_update_cached_bounds` IndexError (regression from Group 30)
+
+**Design ref**: D13 (R3-1 SHOWSTOPPER) in design.md "Round 3 Post-Implementation Regression Analysis"
+
+**Root cause**: `_update_cached_bounds()` in `parse_node.py:39` accesses `bounds[2]` and `bounds[3]` assuming bounds is a flat list `[x1, y1, x2, y2]`, but the actual format from UIAutomator is a nested list `[[x1, y1], [x2, y2]]`. This crashes with `IndexError: list index out of range` on every revisit of a cached screen (same hash), making the agent unable to explore beyond 2 iterations.
+
+**Impact**: Showstopper — agent crashes at iteration 2 on MessageDigestActivity with 30 consecutive errors, stopping at 71s of 600s timeout. Zero exploration after initial discovery.
+
+**Files**: `modules/rv-agent/src/rv_agent/agent/nodes/parse_node.py`
+
+- [x] 41.1 Fix `_update_cached_bounds()` in `parse_node.py` to handle nested bounds format `[[x1,y1],[x2,y2]]`. Lines 39-40 (fresh bounds center) and 65-66 (cached bounds center) must unpack correctly. Add defensive check for bounds length/format (isinstance, len >= 2, try/except TypeError/ValueError).
+
+- [x] 41.2 Unit tests for `_update_cached_bounds()` covering all D13 scenarios. Each test must reference its scenario ID in the docstring. Test file: `tests/unit/test_update_cached_bounds.py`.
+  - R3-1-S1: nested bounds with widget_id match — bounds updated
+  - R3-1-S2: nested bounds with proximity match (no widget_id, centers < 50px) — bounds updated
+  - R3-1-S3: proximity too far (centers > 50px) — bounds NOT updated
+  - R3-1-S4: bounds is None — skipped, no crash
+  - R3-1-S5: bounds is empty list — skipped, no crash
+  - R3-1-S6: bounds has wrong inner format (flat ints not nested) — skipped via TypeError catch
+  - R3-1-S7: target_view is None — skipped, no crash
+  - R3-1-S8: mixed items (one with widget_id, one without) — both update independently
+  - R3-1-S9: bounds identical between cached and fresh — no mutation
+  - R3-1-S10: multiple actions per item — all updated independently
+  - R3-1-S11: proximity threshold boundary (exactly 50px) — NOT matched (strict `<`)
+  - R3-1-S12: proximity threshold just within (49px) — matched and updated
+  - R3-1-S13: integration — `parse_ui_node` reuses cached desc on same hash, `_update_cached_bounds` called → no crash, valid screen_description returned
+
+- [x] 41.3 Fix `test_auxiliary_fix.py` `TestUpdateCachedBounds` tests to use nested bounds format `[[x1,y1],[x2,y2]]` instead of flat `[x1,y1,x2,y2]`. These tests were written before the D13 fix and use the wrong format.
+
+- [x] 41.4 Run `/rv-test-run rv-agent` — 1482 unit tests pass.
+- [x] 41.5 Run `/rv-qa-lint-fix rv-agent` — formatting clean.
+- [x] 41.6 Run `/rv-verify rv-agent` — 1482 unit + 227 integration = 1709 tests pass.
+
+### Group 42 — Element ID Format Mismatch in LLM Text Value Tracking (multimode)
+
+**Design ref**: D14 (R3-1 MEDIUM) in design.md "Round 3 Post-Implementation Regression Analysis"
+**Analysis ref**: `docs/20260222_rvagent_bug_analysis_round3.md` Part C, R3-1
+
+**Root cause**: `_track_llm_text_value()` in `learn_node.py:747` uses `f"({x},{y})"` format for element IDs instead of canonical `"coords:x,y"` from `element_id.py`. This causes key mismatch between LLM and algorithm text value tracking — algorithm re-tests values already tested by LLM.
+
+**Impact**: Only affects **multimode** (LLM + algorithm both generating SET_TEXT for same input field). Zero impact on pure_algorithm. Causes redundant text input variations in multimode.
+
+**Files**: `modules/rv-agent/src/rv_agent/agent/nodes/learn_node.py`
+
+- [x] 42.1 Fix `_track_llm_text_value()` in `learn_node.py:747`: replace `f"({x},{y})"` with `make_element_id(x, y)` from `element_id.py`. Import `make_element_id` if not already imported.
+
+- [x] 42.2 Unit tests covering D14 scenarios. Test file: `tests/unit/test_llm_element_id_fix.py`.
+  - R3-1-M1: LLM text value recorded under canonical `"coords:x,y"` key
+  - R3-1-M2: algorithm `has_remaining_values` lookup matches LLM-recorded value (same key)
+  - R3-1-M3: old format `"(x,y)"` not present in learn_node.py
+
+- [x] 42.3 Run `/rv-test-run rv-agent` — 1510 unit + 227 integration tests pass.
+- [x] 42.4 Run `/rv-qa-lint-fix rv-agent` — formatting clean (black reformatted 15 files).
+- [x] 42.5 Run `/rv-verify rv-agent` — all 1737 tests pass.
+
+### Group 43 — NavigationGuidance Broad Exception Handling
+
+**Design ref**: D15 (R3-2 LOW) in design.md "Round 3 Post-Implementation Regression Analysis"
+**Analysis ref**: `docs/20260222_rvagent_bug_analysis_round3.md` Part C, R3-2
+
+**Root cause**: `get_context()` in `navigation_guidance.py:164-213` wraps all TransitionManager calls in broad `try-except Exception` at WARNING level. Programming errors (KeyError, AttributeError) silently degrade WTG guidance without visible indication.
+
+**Impact**: Resilience-vs-debuggability tradeoff. Masks bugs during development. MOP paths and navigation suggestions stop working silently.
+
+**Files**: `modules/rv-agent/src/rv_agent/services/navigation_guidance.py`
+
+- [x] 43.1 Upgrade exception handling in `get_context()`: log at ERROR level instead of WARNING. Add `track._counters["navigation_guidance_error"] += 1` for tracking. Keep the broad catch for production resilience.
+
+- [x] 43.2 Unit tests covering D15 scenarios. Test file: `tests/unit/test_navigation_guidance_error.py`.
+  - R3-2-S1: TransitionManager raises KeyError -> logged at ERROR, counter incremented, empty context returned
+  - R3-2-S2: multiple errors in sequence -> counter incremented each time
+  - R3-2-S3: normal operation -> context returned, no counter increment
+
+- [x] 43.3 Run `/rv-test-run rv-agent` — 1510 unit + 227 integration tests pass.
+- [x] 43.4 Run `/rv-qa-lint-fix rv-agent` — formatting clean.
+- [x] 43.5 Run `/rv-verify rv-agent` — all 1737 tests pass.
+
+### Group 44 — Statistics Reporting for MOP Elements
+
+**Design ref**: D16 (N-20 LOW) in design.md "Round 3 Post-Implementation Regression Analysis"
+**Analysis ref**: `docs/20260222_rvagent_bug_analysis_round3.md` Part B, N-20
+
+**Root cause**: `get_statistics()` in `input_value_generator.py:256-259` counts MOP elements as exhausted using `max_variations` (default 5), but actual value generation uses `mop_max_variations` (default 11). This causes inaccurate `active_elements` count for MOP-reaching elements.
+
+**Impact**: Statistics/reporting only — does NOT affect exploration behavior. `has_remaining_values()` uses the correct conditional.
+
+**Files**: `modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/input_value_generator.py`
+
+- [x] 44.1 Add `mop_elements: Set[str]` field to track which elements are MOP-associated. Populate it in `get_next_value()` when `is_mop=True`.
+
+- [x] 44.2 Fix `get_statistics()` to use `mop_max_variations` threshold for elements in `mop_elements` set and `max_variations` for non-MOP elements.
+
+- [x] 44.3 Unit tests covering D16 scenarios. Test file: `tests/unit/test_mop_statistics_fix.py`.
+  - N-20-S1: MOP element with 6 tested values NOT counted as exhausted (threshold=11)
+  - N-20-S2: non-MOP element with 6 tested values counted as exhausted (threshold=5)
+  - N-20-S3: `mop_elements` set populated via `get_next_value(is_mop=True)`
+
+- [x] 44.4 Run `/rv-test-run rv-agent` — 1510 unit + 227 integration tests pass.
+- [x] 44.5 Run `/rv-qa-lint-fix rv-agent` — formatting clean.
+- [x] 44.6 Run `/rv-verify rv-agent` — all 1737 tests pass.

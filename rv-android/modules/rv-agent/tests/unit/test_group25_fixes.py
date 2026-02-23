@@ -253,7 +253,9 @@ class TestHasUntestedInputsFormat:
 
         # Only return True for the OLD wrong format
         value_gen = MagicMock()
-        value_gen.has_remaining_values.side_effect = lambda eid, **kw: eid == "(300,500)"
+        value_gen.has_remaining_values.side_effect = (
+            lambda eid, **kw: eid == "(300,500)"
+        )
         strategy.value_generator = value_gen
 
         edit_action = MagicMock()

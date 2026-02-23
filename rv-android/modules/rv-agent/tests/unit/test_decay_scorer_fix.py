@@ -28,7 +28,6 @@ from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import GradualDecayScorer
 
-
 # ---------------------------------------------------------------------------
 # Minimal mock action — only the fields GradualDecayScorer reads
 # ---------------------------------------------------------------------------
@@ -95,7 +94,7 @@ class TestGradualDecayScorerIdFix:
         score = scorer.score(action, context)
 
         expected = GradualDecayScorer.DEFAULT_BASE_SCORE * (
-            GradualDecayScorer.DEFAULT_DECAY_RATE ** 3
+            GradualDecayScorer.DEFAULT_DECAY_RATE**3
         )
         assert score == pytest.approx(expected)
         assert score < GradualDecayScorer.DEFAULT_BASE_SCORE
@@ -145,12 +144,12 @@ class TestGradualDecayScorerIdFix:
 
         # The logged score must match the decayed value, not 200
         expected = GradualDecayScorer.DEFAULT_BASE_SCORE * (
-            GradualDecayScorer.DEFAULT_DECAY_RATE ** 2
+            GradualDecayScorer.DEFAULT_DECAY_RATE**2
         )
         expected_str = f"{expected:.0f}"
-        assert expected_str in detail_line, (
-            f"Expected decayed score '{expected_str}' in log line: {detail_line}"
-        )
-        assert "200" not in detail_line.split("score=")[1].split(" ")[0], (
-            "Log must not show base score 200 for a tested element"
-        )
+        assert (
+            expected_str in detail_line
+        ), f"Expected decayed score '{expected_str}' in log line: {detail_line}"
+        assert (
+            "200" not in detail_line.split("score=")[1].split(" ")[0]
+        ), "Log must not show base score 200 for a tested element"

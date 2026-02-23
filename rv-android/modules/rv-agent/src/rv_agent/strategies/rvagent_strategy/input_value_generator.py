@@ -77,6 +77,9 @@ class InputValueGenerator:
         # Maps element_id → list of values already tested
         self.tested_values: Dict[str, List[str]] = defaultdict(list)
 
+        # Tracks which elements were called with is_mop=True
+        self.mop_elements: set = set()
+
         logger.info(
             f"InputValueGenerator initialized with max_variations={max_variations}, locales={locales}"
         )
@@ -96,6 +99,9 @@ class InputValueGenerator:
             Next test value, or None if all variations exhausted
         """
         tested = self.tested_values[element_id]
+
+        if is_mop:
+            self.mop_elements.add(element_id)
 
         # MOP fields get more variations to test edge cases
         limit = self.mop_max_variations if is_mop else self.max_variations
@@ -255,8 +261,13 @@ class InputValueGenerator:
         total_elements = len(self.tested_values)
         exhausted_elements = sum(
             1
-            for tested in self.tested_values.values()
-            if len(tested) >= self.max_variations
+            for eid, tested in self.tested_values.items()
+            if len(tested)
+            >= (
+                self.mop_max_variations
+                if eid in self.mop_elements
+                else self.max_variations
+            )
         )
 
         total_values_tested = sum(len(tested) for tested in self.tested_values.values())
@@ -271,6 +282,7 @@ class InputValueGenerator:
     def reset(self):
         """Reset generator state (clear all tested values)."""
         self.tested_values.clear()
+        self.mop_elements.clear()
         logger.info("InputValueGenerator reset")
 
     def __repr__(self) -> str:

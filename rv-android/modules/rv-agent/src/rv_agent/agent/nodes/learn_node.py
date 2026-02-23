@@ -49,6 +49,7 @@ if TYPE_CHECKING:
 
 from rv_agent import tracking as track
 from rv_agent.domain.state import AgentState
+from rv_agent.memory.element_id import make_element_id
 from rv_agent.services.error_detection import ValidationErrorResult, VisualErrorDetector
 
 logger = logging.getLogger(__name__)
@@ -744,7 +745,7 @@ def _track_llm_text_value(agent: "RVAgent", state: AgentState) -> None:
             x = current_action.get("x")
             y = current_action.get("y")
             if x is not None and y is not None:
-                element_id = f"({x},{y})"
+                element_id = make_element_id(x, y)
             else:
                 return
 

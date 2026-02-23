@@ -283,9 +283,7 @@ class TestPathBufferFailureCache:
             config=config,
         )
 
-        result = pb.plan_mop_path(
-            "com.example.ActivityA", None, current_iteration=10
-        )
+        result = pb.plan_mop_path("com.example.ActivityA", None, current_iteration=10)
         assert result is False
         assert "com.example.ActivityA" in pb._mop_path_cooldown
         assert pb._mop_path_cooldown["com.example.ActivityA"] == 10
@@ -321,9 +319,7 @@ class TestPathBufferFailureCache:
 
         # Call within cooldown window should skip planning
         tm.plan_path_to_mop_activity.reset_mock()
-        result = pb.plan_mop_path(
-            "com.example.ActivityA", None, current_iteration=11
-        )
+        result = pb.plan_mop_path("com.example.ActivityA", None, current_iteration=11)
         assert result is False
         tm.plan_path_to_mop_activity.assert_not_called()
 
