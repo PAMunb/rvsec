@@ -76,7 +76,7 @@ The call graph is built using Soot's default entry point strategy — Android li
 #### Scenario: Successful static analysis with valid APK
 
 - **WHEN** `StaticAnalyzer._run_analysis()` is called with a valid APK path and the analysis client JAR exists at `lib/analysis-client/rvsec-analysis-client.jar`
-- **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> --jre <rt_jar_path>`
+- **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> -withCHA`
 - **AND** the resulting `.json` file MUST be parseable by `StaticAnalysisParser` into a `StaticAnalysisData` containing non-empty `Classes`, `Windows`, and `WindowTransitionGraph`
 
 #### Scenario: Static analysis JSON parsing — windows section

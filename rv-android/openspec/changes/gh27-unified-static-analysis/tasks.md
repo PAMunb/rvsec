@@ -14,29 +14,31 @@ Answer the 6 Open Questions before coding to prevent wasted effort. Record answe
 
 **Reference APK**: `cryptoapp.apk` — custom app built by the team for validation. Source code at `examples/cryptoapp/`, pre-built APK at `apks_examples/cryptoapp.apk`, package `br.unb.cic.cryptoapp`. Has 4 Activities, JCA calls (Cipher, MessageDigest, Mac, KeyPairGenerator) with both static and instance methods, XML+programmatic onClick listeners, OptionsMenu, Spinner with entries, and `unreachableEncrypt()`/`unreachableHash()` methods for reachability validation. Use this APK for ALL spike verifications — we control the source code and know the expected analysis output.
 
-- [ ] 0.1 Q1: Verify `PropertyManager.v().getHintOfView(node)` exists — `grep -r "getHintOfView" $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/`. Record finding in Task 2.2
-- [ ] 0.2 Q2: Verify `Scene.v().getCallGraph()` returns populated CG — create minimal GATOR test client that logs CG size. Record finding in Task 1.6
-- [ ] 0.3 Q3: Verify `Configs.clientParams` propagates `-clientParam` — `grep -A 10 "clientParam" lib/gator/gator`. Record finding in Task 1.2
-- [ ] 0.4 Q4: Verify apktool `@array/name` handling — `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/`. Record finding in Task 3.4
-- [ ] 0.5 Q5: Verify `rvsec-mop-extractor` Soot API surface — `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; | sort -u`. Record finding in Task 1.4
-- [ ] 0.6 Q6: Verify JCA class resolution with rt.jar inside GATOR — **CRITICAL for reachability correctness**. Without rt.jar, JCA classes (javax.crypto.Cipher, java.security.MessageDigest) are phantom references with no active body. Soot resolves static calls (e.g., `MessageDigest.getInstance()`) but NOT instance method calls (`md.update()`, `md.digest()`) because virtual dispatch requires the class hierarchy from the active body. This breaks `reachesMop` and `directlyReachesMop` flags for instance methods.
+- [x] 0.1 Q1: Verify `PropertyManager.v().getHintOfView(node)` exists — `grep -r "getHintOfView" $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/`. Record finding in Task 2.2
+  > **CONFIRMED.** `PropertyManager.getHintOfView(NObjectNode view)` at `PropertyManager.java:63`, returns `Set<String>`. Used in `StaticGUIHierarchy.java:155,181`.
 
-  **Background**: REACH and GESDA both pass rt.jar via `set_soot_classpath(androidDir + ":" + rtJarPath)` + `set_prepend_classpath(true)` (see `rvsec-reachability/SootConfig.java` L69-80, `rvsec-gesda/SootConfig.java` L52-63). GATOR's `Main.java` accepts `-jre` (L59-60), includes it in `computeClasspath()` (L180: `Configs.android + ":" + Configs.jre`), but the Python launcher **never passes** `-jre`, so `Configs.jre` defaults to `""`.
+- [x] 0.2 Q2: Verify `Scene.v().getCallGraph()` returns populated CG — create minimal GATOR test client that logs CG size. Record finding in Task 1.6
+  > **CONFIRMED with `-withCHA`.** Default GATOR mode (pack `cg`, phase `cg.gui`) replaces Soot CG construction — `Scene.v().getCallGraph()` throws `RuntimeException: No call graph present`. With `-withCHA` flag, GATOR switches to pack `wjtp` with `cg.cha enabled:true` + `all-reachable:true`, building a full CHA call graph before GUI analysis. Result: **211,108 CG edges** for cryptoapp (27 app classes, 118 methods). CHA build: 1,576ms. **DESIGN IMPACT**: The analysis client command MUST include `-withCHA`. Test client source: `/tmp/spike-q2q6/TestCGClient.java`.
 
-  **Steps**:
-  1. Modify GATOR launcher (`lib/gator/gator`): add `--jre` argparse parameter, pass as `-jre <path>` to Main.java command
-  2. Create minimal test client that dumps `Scene.v().getCallGraph()` edges for `cryptoapp.apk`:
-     - Run WITHOUT rt.jar: `python gator a -p cryptoapp.apk --client-jar test.jar -client TestCGClient --out /tmp/cg_no_rt.txt`
-     - Run WITH rt.jar: `python gator a -p cryptoapp.apk --client-jar test.jar -client TestCGClient --out /tmp/cg_with_rt.txt --jre ~/.sdkman/candidates/java/8.0.302-open/jre/lib/rt.jar`
-  3. Compare: count edges involving `javax.crypto.Cipher`, `java.security.MessageDigest`. Specifically verify:
-     - `MessageDigest.getInstance()` — should appear in BOTH (static call, resolved without body)
-     - `MessageDigest.update()`, `MessageDigest.digest()` — should appear only WITH rt.jar (instance calls, need active body for virtual dispatch)
-     - `Cipher.init()`, `Cipher.doFinal()` — same pattern, only WITH rt.jar
-  4. If confirmed: rt.jar is REQUIRED. Keep `--jre` launcher change. Update `RVStaticAnalysisConfig` to pass `rt_jar` to GATOR command (reuse existing `rt_jar` field from config.py L65-68). Update plan.md Section 6 (Parameter Passing) and Section 7.3 (config)
-  5. If NOT confirmed (JCA instance methods appear even without rt.jar): document why and skip the launcher change
-  6. Record findings and update all affected artifacts before proceeding to Group 1
+- [x] 0.3 Q3: Verify `Configs.clientParams` propagates `-clientParam` — `grep -A 10 "clientParam" lib/gator/gator`. Record finding in Task 1.2
+  > **CONFIRMED.** Python launcher uses `parse_known_args()` + `cmd.extend(unknown)` to pass unrecognized args to Java. `-clientParam` is not in the Python argparse — it passes through as an "unknown" arg directly to `Main.java`, which parses it at L101-102 into `Configs.clientParams` Set. Retrieved via `Configs.getClientParamCode("prefix=")` prefix match.
 
-  **Fallback (if GATOR's Soot 3.3.0 has issues with rt.jar)**: Use `android-platforms` from Sable/FlowDroid team (cloned at `/home/pedro/desenvolvimento/aplicativos/android/platforms-sable`). These are enhanced `android.jar` files that may include stubs for JCA classes. Test with `-android <sable-platform-jar>` instead of `-jre`
+- [x] 0.4 Q4: Verify apktool `@array/name` handling — `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/`. Record finding in Task 3.4
+  > **CONFIRMED.** Apktool leaves `@array/name` references as-is in layout XMLs (e.g., `android:entries="@array/messageDigestAlgorithms"` in `activity_message_digest.xml`). Decoded arrays in `res/values/arrays.xml` with fully resolved string-array items. `inputType` is also preserved verbatim (e.g., `android:inputType="textMultiLine"`). Strategy: parse layout XMLs for `android:entries` → resolve from `res/values/arrays.xml`; read `android:inputType` directly from layout attribute.
+
+- [x] 0.5 Q5: Verify `rvsec-mop-extractor` Soot API surface — `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; | sort -u`. Record finding in Task 1.4
+  > **CONFIRMED: ZERO Soot imports.** `rvsec-mop-extractor` uses `javamop.parser.SpecExtractor` (pure JavaMOP parser). `JavamopFacade.listUsedMethods(mopDir)` returns `Set<MopMethod>` with (className, name, parameters, signature). No Soot dependency at all — safe to include as Maven dependency without classpath conflict risk. No Soot exclusion needed.
+
+- [x] 0.6 Q6: Verify JCA class resolution inside GATOR — **CRITICAL for reachability correctness**.
+  > **RESULT: rt.jar is NOT needed. `-withCHA` is the key.**
+  >
+  > The original hypothesis was wrong: JCA classes are NOT phantom when using `android.jar` (API 33). `Cipher` has 38 methods, `MessageDigest` has 18, `Mac` has 18 — all `phantom=false` with full method bodies loaded from `android.jar`. Both static AND instance JCA calls are resolved by CHA:
+  > - **Static** (27 edges): `Cipher.getInstance()` x14, `MessageDigest.getInstance()` x4, `KeyGenerator.getInstance()` x5, `Mac.getInstance()` x2, `KeyPairGenerator.getInstance()` x2
+  > - **Instance** (70 edges): `Cipher.doFinal()` x12, `Cipher.init(int,Key)` x10, `Cipher.init(int,Key,AlgorithmParameterSpec)` x4, `KeyGenerator.generateKey()` x5, `KeyGenerator.init(int)` x3, `Mac.doFinal()` x2, `Mac.init(Key)` x2, `SecureRandom.nextBytes()` x2, etc.
+  >
+  > **Why**: Android's `android.jar` includes full `javax.crypto.*` and `java.security.*` class bodies (they are part of the Android runtime), so rt.jar is redundant. The actual problem was that default GATOR mode doesn't build a Soot CG at all (uses its own constraint-graph analysis). The `-withCHA` flag enables CHA construction with `all-reachable:true` before GUI analysis.
+  >
+  > **DESIGN IMPACT**: (1) Remove `--jre` from GATOR command in all artifacts. (2) Add `-withCHA` to GATOR command. (3) Remove `rt_jar` config field from `RVStaticAnalysisConfig`. (4) The `all-reachable:true` in the `-withCHA` path is NOT the same problem as REACH's old `cg all-reachable` — REACH used SPARK (expensive points-to analysis), while `-withCHA` uses CHA (cheap hierarchy-based resolution: 1.6s for cryptoapp).
 
 ---
 
@@ -169,8 +171,10 @@ Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-s
 
 Files: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`, `modules/rv-static-analysis/src/rv_static_analysis/__main__.py`, `modules/rv-experiment/src/rv_experiment/config.py`
 
-- [ ] 6.1 Update `RVStaticAnalysisConfig`: remove `gesda_jar`, `gator_dir`, `reach_jar`. Add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
-- [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir> --jre <rt_jar_path> --timeout <timeout>`. Also pass `-Xmx<jvm_memory>` as JVM flag. Reuse existing `rt_jar` config field (config.py L65-68). Full canonical command: `python gator a -p <apk_path> --client-jar <jar> --out <output> -client RvsecAnalysisClient -clientParam mopDir=<dir> --jre <rt_jar> --timeout <timeout>` with `-Xmx` in JVM args
+- [ ] 6.1 Update `RVStaticAnalysisConfig`: remove `gesda_jar`, `gator_dir`, `reach_jar`, **and `rt_jar`** (Spike Q6: not needed). Add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`. Remove `rt_jar` validation in `_validate_paths()`, remove `rt_jar` from `__repr__()` fields. Remove `ENV_RT_JAR` import
+- [ ] 6.1a Remove `ENV_RT_JAR` constant from `rv-android-core/constants.py` (L89). Remove `--rt-jar` CLI arg from `rv-static-analysis/__main__.py` (L79). Remove `'rt_jar'` from CLI→config mapping dict (L204)
+- [ ] 6.1b Remove `RV_RT_JAR` environment variable from Docker base image: `docker/base/Dockerfile` (L10: `ENV RV_RT_JAR=...`). If the Java SE 8 runtime was installed solely for `rt.jar`, it can be removed from the Docker image too
+- [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir> -withCHA --timeout <timeout>`. Also pass `-Xmx<jvm_memory>` as JVM flag. Full canonical command: `python gator a -p <apk_path> --client-jar <jar> --out <output> -client RvsecAnalysisClient -clientParam mopDir=<dir> -withCHA --timeout <timeout>` with `-Xmx` in JVM args
 - [ ] 6.3 Update `StaticAnalyzer`: remove `_run_gesda()`, `_run_gator()`, `_run_reachability()`. Add `_run_analysis()`
 - [ ] 6.4 Update `StaticAnalysisResult`: remove 3 file paths, add `analysis_file` and `timed_out`
 - [ ] 6.5 Handle `RVCommandTimeoutError` in `_execute_command()` — set `result.timed_out = True`
