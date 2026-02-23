@@ -228,6 +228,10 @@ JGraphT provides `DefaultDirectedGraph` (efficient adjacency structure), `EdgeRe
                 <groupId>org.soot-oss</groupId>
                 <artifactId>soot</artifactId>
             </exclusion>
+            <exclusion>
+                <groupId>ca.mcgill.sable</groupId>
+                <artifactId>soot</artifactId>
+            </exclusion>
         </exclusions>
     </dependency>
     <dependency>
@@ -310,13 +314,37 @@ By writing `reachability` first, a timeout that interrupts the tool after the fi
 
 The Java client uses `JsonWriter` with explicit `flush()` after each section's closing bracket. On timeout, the outer JSON object may be unclosed (e.g., `{"reachability": [...], "windows": [`), making the file not strictly valid JSON. The `StaticAnalysisParser` must handle this: attempt `json.loads()` first; on `JSONDecodeError`, find the position of the last complete `]` bracket, truncate the content there, close the JSON object with `}`, and retry parsing. This recovers all fully-written sections from a truncated file with ~10 lines of code and no external dependencies.
 
-**Signature format compatibility**: Coverage.aj uses `method.getDeclaringClass().getName()` which produces the same format as `SootMethod.getSignature()`: `<class: returnType name(params)>`. This ensures the runtime-logged signatures match the static analysis signatures exactly, with `SignatureNormalizer` handling inner class dot-to-dollar conversion.
+**Signature format compatibility**: Coverage.aj uses `method.getDeclaringClass().getName()` which produces the same format as `SootMethod.getSignature()`: `<class: returnType name(params)>`. Both use JVM `$` notation for inner classes. The Java client uses these same APIs (D7), so the JSON output matches runtime signatures exactly. `SignatureNormalizer` in Python is applied as defense-in-depth (should be no-op).
 
 ### D6: Single `.json` extension for analysis output
 
 **Choice**: Use `.json` extension for the analysis output file.
 
 **Rationale**: The analysis JSON contains all three data sections. Using a descriptive extension avoids confusion with the previous `.gesda`/`.wtg`/`.reach` extensions. The `EXTENSION_STATIC_ANALYSIS = ".json"` constant is added to `rv-android-core/constants.py`.
+
+### D7: Normalize at the source — Java writes `$` notation, Python is safety net
+
+**Choice**: The Java `RvsecAnalysisClient` writes all class names using `SootClass.getName()` (JVM notation with `$` for inner classes). The Python `SignatureNormalizer` remains applied as defense-in-depth but should be a no-op on correctly-generated JSON.
+
+**Context (from `rvsec-regerar-resultados/docs/NOVO/06_normalizacao_inner_classes.md`)**: During result regeneration from legacy experiments, inner class notation mismatches between Soot (`$`) and AspectJ (`.`) caused 10M+ warnings for 2 APKs and 50% performance degradation. The root cause: GESDA and GATOR used different Soot APIs that sometimes returned `.` notation for inner classes (Java source format) instead of `$` (JVM bytecode format). The `SignatureNormalizer` was implemented to convert `.` → `$` with a heuristic (`_is_likely_inner_class()` — both parts start with uppercase and outer part is not a known package name).
+
+**Known edge case — Package.Class where Package == Class**: The `ZoomView.ZoomView` case (package named same as class) causes the heuristic to fail because the normalizer cannot distinguish between `Outer.Inner` (inner class → convert to `$`) and `Package.Class` (package separator → keep `.`). AspectJ incorrectly logs these as `ZoomView$ZoomView`. This cannot be solved by the normalizer alone.
+
+**Why normalize in Java, not Python**:
+1. `SootClass.getName()` already returns `$` notation — it's the canonical JVM representation
+2. Since we're writing a NEW Java client, we control which Soot API is called for every class name. Using `SootClass.getName()` and `SootMethod.getSignature()` consistently prevents the GESDA/GATOR inconsistency at the source
+3. The JSON becomes a reliable artifact — all class names use `$`, matching Coverage.aj runtime output exactly
+4. Python `SignatureNormalizer` remains as safety net (INV-ANA-02) but should log a warning if it actually changes anything — that would indicate a bug in the Java client
+
+**Package filtering stays in Python (NOT in Java)**:
+- `PackageDetector` (rv-android-core, 653 lines) runs in Python using Androguard to analyze AndroidManifest components
+- ~27.5% of APKs have `manifest_package ≠ code_package` (game engines, forks, wrappers — see `rvsec-regerar-resultados/docs/NOVO/07_pacotes.md`)
+- The Java client does not have access to `code_package` — Soot loads classes based on its own heuristics which may use the manifest package
+- `StaticAnalysisParser` filters by `App.code_package` (INV-ANA-03) — this is the correct layer because Python has access to `PackageDetector`
+
+**Alternative considered**: Pass `code_package` as `-clientParam` to Java for filtering. Rejected because Soot's class loading already happened before the GATOR client runs — if Soot loaded classes using the manifest package (wrong for 27.5% of APKs), filtering in Java wouldn't recover the missing classes. The Python parser filtering is more robust because it acts on whatever Soot did load.
+
+**Validation strategy**: See Task Group 4.7 (Java-side) and 8.10 (Python-side) for concrete normalization validation.
 
 ## API Design
 
@@ -458,7 +486,7 @@ flowchart LR
 | `StaticAnalysisException` | Non-zero exit code from analysis tool | Log error, set `result.success = False` | Experiment continues without static data; rv-agent falls back to algorithmic exploration |
 | `RVCommandTimeoutError` | `Command.timeout` exceeded | Kill process tree, set `result.timed_out = True` | Same as above |
 | `ConfigurationError` | Missing `analysis_client_jar` or `mop_dir` | Raised during config validation | Fail fast — cannot proceed without tool |
-| `JSONDecodeError` | Malformed analysis JSON | Catch in `StaticAnalysisParser`, log error | Return empty `StaticAnalysisData` |
+| `JSONDecodeError` | Malformed/truncated analysis JSON | Catch in `StaticAnalysisParser`: attempt truncation recovery (find last complete `]`, close JSON), re-parse. If recovery fails, log error | Return recovered `StaticAnalysisData` (partial sections) or empty `StaticAnalysisData` on total failure |
 | Per-section parse error | Malformed data in one JSON section | Catch per-section, log error (INV-ANA-06) | Return empty domain object for that section; other sections parsed normally |
 | File not found | `.json` output does not exist | Log warning in `StaticAnalysisParser` | Return empty `StaticAnalysisData` |
 
@@ -497,7 +525,7 @@ grep -r "EXTENSION_GESDA\|EXTENSION_GATOR\|EXTENSION_REACH" modules/
 grep -r "gesda_file\|gator_file\|reach_file" modules/
 ```
 
-Critical modules to verify: `rv-static-analysis` (parser + tests), `rv-platform` (StaticAnalysisComponent), `rv-experiment` (orchestration — **known hit**: `constants.py` re-exports `EXTENSION_GESDA`/`EXTENSION_REACH` and defines inconsistent `EXTENSION_GATOR = ".gator"`; also `get_static_analysis_source_path()` uses extension args), `rv-coverage` (static data consumer), `rv-agent` (WTG consumer), `rv-agent-validation` (uses deprecated `parse_all()`).
+Critical modules to verify: `rv-android-core` (constants origin — **known hit**: defines `EXTENSION_GESDA`, `EXTENSION_GATOR = ".wtg"`, `EXTENSION_REACH`; task 5.1 adds `EXTENSION_STATIC_ANALYSIS` and old constants must be removed), `rv-static-analysis` (parser + tests), `rv-platform` (StaticAnalysisComponent), `rv-experiment` (orchestration — **known hit**: `constants.py` re-exports `EXTENSION_GESDA`/`EXTENSION_REACH` and defines inconsistent `EXTENSION_GATOR = ".gator"`; also `get_static_analysis_source_path()` uses extension args), `rv-coverage` (static data consumer), `rv-agent` (WTG consumer — **known hit**: 3 unit tests + 1 online test use `StaticAnalysisParser.parse()` with 3-file API and `.reach/.wtg/.gesda` fixtures), `rv-agent-validation` (**known hit**: extensive 3-file pattern in production code — `runner.py` builds 3 paths + calls `parse()`, `config.py` globs for `.reach/.wtg/.gesda`, `instrumentation.py` has 14+ references; tests also affected).
 
 ## Testing Strategy
 
@@ -538,6 +566,90 @@ uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_exampl
 | Timing improvement | Analysis run < sum of 3 individual tools | Compare `static_analysis_duration` in results |
 
 **Comparison baseline**: `docker/data/results/cli_experiment_20260219_095634_21537073/cryptoapp.apk/` — the most recent experiment run using the 3-tool pipeline. The `.logcat` file there shows 8 methods logged for a 60s run with `rvagent:pure_algorithm`.
+
+## Data Compatibility Matrix
+
+The gh27 JSON is the coverage denominator. The coverage numerator comes from runtime logging (Coverage.aj → logcat). For coverage % to be correct, the signatures in the JSON must **exactly match** the signatures logged at runtime. This section documents the 4 data producers in the pipeline, their output formats, and the 3 matching points where format compatibility is critical.
+
+### Data Producers
+
+| # | Producer | Output | Signature Format | Inner Class Notation | Example |
+|---|----------|--------|-----------------|---------------------|---------|
+| P1 | `RvsecAnalysisClient` (gh27 Java) | `.json` (reachability section) | Soot signature via `SootMethod.getSignature()` | `$` (Soot native: `SootClass.getName()`) | `<com.example.Outer$Inner: void method(int)>` |
+| P2 | `Coverage.aj` (runtime aspect) | `RVSEC-COV` logcat tag | Soot-like via reflection: `method.getDeclaringClass().getName()` + `getReturnType()` + `getName()` | `$` (JVM native: `Class.getName()`) | `<com.example.Outer$Inner: void method(int)>` |
+| P3 | MOP monitors / `ErrorCollector` | `RVSEC` logcat tag | `StackTraceElement.toString()` via `ViolationRecorder.getLineOfCode()` | `.` (StackTrace format) | `com.example.Outer$Inner.method(File.java:42)` |
+| P4 | `rvsec-mop-extractor` (`MopFacade`) | CSV (class, method columns) | Class+method name only — no params, no return type | `$` (Soot: `SootClass.getName()`) | `com.example.Outer$Inner, getInstance` |
+
+**Key differences**: P1 and P2 produce full Soot signatures with params and return type — they should match exactly. P3 produces `StackTraceElement` format (no params, no return type, includes file:line). P4 produces class+method only — deliberately collapses overloaded methods.
+
+### Matching Points
+
+| Match | Numerator (runtime) | Denominator (static) | Granularity | Format Compatibility |
+|-------|---------------------|---------------------|-------------|---------------------|
+| **M1: Coverage %** | P2 (RVSEC-COV) | P1 (JSON `reachable_methods`) | Full Soot signature | **Exact match required**. Both use `$` for inner classes. P2 uses `Class.getName()` (JVM) which matches P1's `SootClass.getName()` (Soot). Param types may differ in edge cases (JVM reflection vs Soot analysis — see note below). |
+| **M2: MOP Coverage %** | P2 (RVSEC-COV) filtered by `directlyReachesMop` | P1 + P4 (JSON `directlyReachesMop` flag) | Full Soot signature for coverage, class+method for MOP flag | **Exact match for coverage**. The `directlyReachesMop` flag in JSON is set by P4's class+method matching — overloaded methods are ALL marked if ANY overload is monitored. This is by design in `MopFacade.java`. |
+| **M3: MOP Errors** | P3 (RVSEC logcat) | P1 (JSON classes) | Class+method only (approximate) | **Approximate match only**. P3 format (`class.method(file:line)`) has no params or return type. Correlation with JSON uses `ErrorDescription` regex `([\w+\.\$]+)[.](\<?\w+\>?)\((.+)\)` to extract class and method. Cannot distinguish overloaded methods. |
+
+**Note on M1 edge cases**: `Coverage.aj` uses Java reflection (`method.getDeclaringClass().getName()`) while `RvsecAnalysisClient` uses Soot's `SootClass.getName()`. Both return `$` for inner classes. For primitive types, Soot uses full names (`int`, `boolean`) while reflection uses the same. For array types, Soot uses `type[]` while reflection uses `[Ltype;` — however, this rarely occurs in practice because the `<class: returnType method(params)>` format is constructed identically by both. The E2E validation (Task Group 10) confirms format compatibility end-to-end.
+
+### MOP Extractor — Overloading Behavior
+
+The `rvsec-mop-extractor` (P4) matches methods by class+method name only (`MopFacade.java` lines 72-75):
+
+```java
+mopMethod.getClassName().equals(invokeMethod.getDeclaringClass().getName())
+    && mopMethod.getName().equals(invokeMethod.getName())
+```
+
+This means overloaded methods are collapsed:
+- `Cipher.init(int, Key)` and `Cipher.init(int, Key, AlgorithmParameterSpec)` are BOTH marked `directlyReachesMop = true` if ANY `Cipher.init` variant appears in a MOP spec
+- `MessageDigest.getInstance(String)` and `MessageDigest.getInstance(String, Provider)` are BOTH marked as MOP
+
+This is the correct behavior for RV purposes: the MOP monitor instruments ALL overloads of a monitored method. The `directlyReachesMop` flag in the gh27 JSON must reproduce this same class+method-only matching to remain consistent with the MOP monitor's actual instrumentation scope.
+
+### Validation APK Candidates
+
+The legacy analysis (`rvsec-regerar-resultados/docs/NOVO/`) identified concrete APKs where normalization, package detection, or format matching had problems. These APKs are strong validation candidates because they stress the exact boundaries the gh27 pipeline must handle. All are available in `/home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS/`.
+
+**Inner class normalization (tests D7 — Java `$` normalization + Python safety net):**
+
+| APK | Problem | What to Validate |
+|-----|---------|-----------------|
+| `org.secuso.privacyfriendlyludo_5.apk` | Parcelable with mixed notation: Soot writes `Map.GameFieldPosition`, AspectJ writes `Map$GameFieldPosition`. 4 methods affected (0.0015%) | Java client must write `$` via `SootClass.getName()`. JSON should have `Map$GameFieldPosition`. Python normalizer should be a no-op (zero changes logged) |
+| `com.hwloc.lstopo_271.apk` | **KNOWN LIMITATION**: `ZoomView.ZoomView` — package named same as class. Soot writes `.`, AspectJ writes `$`. Normalizer cannot distinguish `Outer.Inner` from `Package.Class` | Document as known limitation. If this APK appears in experiments, expect ~184 methods with mismatched signatures. Not fixable without Soot metadata |
+| `tranquvis.simplesmsremote_140.apk` | Same `ZoomView.ZoomView` pattern | Same as lstopo — known limitation |
+
+**Package mismatch (tests code_package filtering via PackageDetector):**
+
+| APK | Manifest Package | Real Code Package | What to Validate |
+|-----|-----------------|-------------------|-----------------|
+| `ir.hsn6.trans_4.apk` | `ir.hsn6.trans` | `org.godotengine.godot` | PackageDetector must return `org.godotengine.godot`. JSON filtered by code_package must contain Godot classes, not `ir.hsn6.*` classes |
+| `org.fox.tttrss_535.apk` | `org.fox.tttrss` | `org.fox.ttrss` | Subtle typo (3 t's vs 2 t's). PackageDetector must return the correct 2-t variant. Filtering by wrong package → 0 methods |
+| `edu.cmu.cylab.starslinger.demo_17301504.apk` | `edu.cmu.cylab.starslinger.demo` | `edu.cmu.cylab.starslinger.demo` + `edu.cmu.cylab.starslinger.exchange` | Multi-package APK. code_package prefix `edu.cmu.cylab.starslinger.demo` should include `demo.*` classes but also `exchange.*` classes (same prefix root). Tests prefix-based filtering behavior |
+| `com.easytarget.micopi_32.apk` | `com.easytarget.micopi` | `org.eztarget.micopi.ui` | Complete rebranding. PackageDetector must detect `org.eztarget.*` as code_package, not `com.easytarget.*` |
+| `net.yolosec.routerkeygen2_80.apk` | `net.yolosec.routerkeygen2` | `org.exobel.routerkeygen` | Complete rebranding. Same validation as micopi |
+
+**MOP violations (tests M1/M2/M3 matching end-to-end):**
+
+| APK | Known Violations | What to Validate |
+|-----|-----------------|-----------------|
+| `cryptoapp.apk` | JCA violations (MessageDigest, Cipher). Primary test APK | All 3 matching points: M1 (RVSEC-COV vs JSON), M2 (directlyReachesMop flag), M3 (RVSEC errors vs JSON classes) |
+
+**Batch validation (Task Group 10, batch test):** When running the "5 diverse APKs" batch test, select from this list to maximize coverage of edge cases:
+1. `cryptoapp.apk` — baseline, known MOP violations
+2. `org.secuso.privacyfriendlyludo_5.apk` — inner class normalization
+3. `ir.hsn6.trans_4.apk` — package mismatch (Godot)
+4. `org.fox.tttrss_535.apk` — subtle package typo
+5. `edu.cmu.cylab.starslinger.demo_17301504.apk` — multi-package
+
+### Verification During Implementation
+
+These checks MUST be performed during E2E validation (Task Group 10) to confirm data compatibility:
+
+1. **M1 format check**: Extract a `RVSEC-COV` line from the `.logcat` and verify it matches a `reachable_methods` entry in the JSON character-for-character (including `$` notation, param types, return type)
+2. **M2 MOP flag check**: For a method that appears in both `RVSEC-COV` and a MOP spec (e.g., `MessageDigest.getInstance`), verify `directlyReachesMop = true` in the JSON
+3. **M3 error correlation check**: For a `RVSEC` error line in the logcat, extract class+method from `ErrorSummary` and verify the class exists in the JSON's `reachable_methods`
+4. **Overload check**: If the JSON contains two overloads of a MOP method (e.g., `Cipher.init(int, Key)` and `Cipher.init(int, Key, AlgorithmParameterSpec)`), verify BOTH have `directlyReachesMop = true`
 
 ## Open Questions
 

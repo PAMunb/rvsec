@@ -139,7 +139,9 @@ Based on comprehensive field-by-field usage analysis tracing every field from st
 | `Widget.input_type` | **KEEP** | User explicitly requested; may be useful for LLM prompts |
 | `Widget.entries` | **KEEP** | User explicitly requested; Spinner entries for LLM prompts |
 
-### Dropped Fields (P3: no backward compatibility)
+### Dropped Fields (JSON output schema — Python model fields unchanged)
+
+These fields are NOT included in the new analysis JSON output. The corresponding fields in the Python domain model (`Widget`, `Window`, `Clazz`, etc. in `rv_android_core/domain/`) remain with their default values — this is a non-goal per design.md ("Not changing the `StaticAnalysisData` domain model").
 
 | Field | Reason |
 |-------|--------|
@@ -305,28 +307,42 @@ Implemented directly inside the analysis client using Soot's Scene (already load
 ```java
 private ReachabilityData runReachability(String mopDir) {
     // 1. Load MOP method signatures from .mop spec files
-    Set<SootMethod> mopMethods = loadMopMethods(mopDir);
+    //    MopFacade returns (className, methodName) pairs — NO parameter types.
+    //    This is by design: MOP monitors instrument ALL overloads of a method.
+    Set<MopMethod> mopSignatures = loadMopSignatures(mopDir);
 
-    // 2. Get entry points from activity classes (public/protected methods)
+    // 2. Resolve MOP signatures to SootMethods in the call graph.
+    //    Match by class+method name ONLY (same as MopFacade):
+    //      sootMethod.getDeclaringClass().getName().equals(mopClassName)
+    //        && sootMethod.getName().equals(mopMethodName)
+    //    ALL overloads of a MOP method become seeds — e.g., both
+    //    Cipher.init(int, Key) and Cipher.init(int, Key, AlgorithmParameterSpec)
+    //    are included if any Cipher.init variant appears in a MOP spec.
+    Set<SootMethod> mopMethods = resolveMopInScene(mopSignatures);
+
+    // 3. Get entry points from activity classes (public/protected methods)
     Set<SootMethod> entryPoints = getEntryPoints();
 
-    // 3. Build JGraphT graph from Soot call graph
+    // 4. Build JGraphT directed graph from Soot call graph
     CallGraph cg = Scene.v().getCallGraph();
-    Graph<SootMethod, DefaultEdge> graph = buildJGraph(cg);
-    DijkstraShortestPath<SootMethod, DefaultEdge> dijkstra =
-        new DijkstraShortestPath<>(graph);
+    DefaultDirectedGraph<SootMethod, DefaultEdge> graph = buildJGraph(cg);
 
-    // 4. For each app class and method, compute:
-    //    - reachable: has path from any entry point
-    //    - reachesMop: has path to any MOP method
-    //    - directlyReachesMop: has direct edge to MOP method
-    // 5. Complement with lifecycle and listener callback reachability
+    // 5. Multi-source BFS — O(V+E) total, boolean flags only
+    //    a) reachable: BFS forward from ALL entry points simultaneously
+    Set<SootMethod> reachableSet = multiSourceBfs(graph, entryPoints);
+    //    b) reachesMop: BFS on REVERSE graph from ALL MOP methods (all overloads)
+    EdgeReversedGraph<SootMethod, DefaultEdge> reversed = new EdgeReversedGraph<>(graph);
+    Set<SootMethod> reachesMopSet = multiSourceBfs(reversed, mopMethods);
+    //    c) directlyReachesMop: scan outgoing edges, check if target is MOP
+    Set<SootMethod> directMopSet = findDirectMopCallers(graph, mopMethods);
+
+    // 6. Complement with lifecycle and listener callback reachability
 }
 ```
 
 Key differences from current REACH:
 - **No `all-reachable`**: Uses GATOR's default CG (see Section 3)
-- **JGraphT instead of SootReachabilityStrategy**: Cached Dijkstra instead of thousands of independent BFS traversals (fixes R3, R4)
+- **JGraphT instead of SootReachabilityStrategy**: Multi-source BFS O(V+E) instead of thousands of independent BFS traversals (fixes R3, R4)
 - **GATOR-based entry points**: Uses `getAllEventsAndTheirHandlers()` + `getLifecycleHandlers()` for automatic discovery of Android lifecycle and event handlers
 - **No GESDA dependency**: REACH currently reads GESDA output for activity/lifecycle info. The analysis client has this directly from GATOR
 
@@ -350,19 +366,20 @@ The client reads `mopDir` from `Configs.clientParams`. Output path from `Configs
 Add to `rvsec-gator-client/pom.xml`:
 
 ```xml
-<!-- JGraphT for efficient reachability (Dijkstra with caching) -->
+<!-- JGraphT for efficient reachability (multi-source BFS) -->
 <dependency>
     <groupId>org.jgrapht</groupId>
     <artifactId>jgrapht-core</artifactId>
     <version>1.5.1</version>
 </dependency>
 
-<!-- MOP spec parser (exclude Soot to avoid version conflict with GATOR's Soot 3.3.0) -->
+<!-- MOP spec parser (exclude BOTH Soot groupIds to avoid version conflict with GATOR's Soot 3.3.0) -->
 <dependency>
     <groupId>br.unb.cic</groupId>
     <artifactId>rvsec-mop-extractor</artifactId>
     <exclusions>
         <exclusion><groupId>ca.mcgill.sable</groupId><artifactId>soot</artifactId></exclusion>
+        <exclusion><groupId>org.soot-oss</groupId><artifactId>soot</artifactId></exclusion>
     </exclusions>
 </dependency>
 
@@ -376,7 +393,7 @@ Add to `rvsec-gator-client/pom.xml`:
 </dependency>
 ```
 
-Build as fat JAR using `maven-shade-plugin` to bundle JGraphT + mop-extractor + apk-reader into a single `rvsec-analysis-client.jar`. This avoids classpath complexity at invocation time.
+Build as fat JAR using `maven-assembly-plugin` (same pattern as `rvsec-reachability`) to bundle JGraphT + mop-extractor + apk-reader into a single `rvsec-analysis-client.jar`. This avoids classpath complexity at invocation time.
 
 ### Soot Version Consideration
 
@@ -408,11 +425,31 @@ class StaticAnalysisParser:
 ```
 
 Internal methods:
-- `_parse_classes(data, package) -> Classes`: Iterates `data["reachability"]`, normalizes class names via SignatureNormalizer, filters by code_package (INV-ANA-03), creates Clazz and Method objects.
+- `_parse_classes(data, package) -> Classes`: Iterates `data["reachability"]`, applies SignatureNormalizer as safety net (INV-ANA-02 — should be no-op since Java client already writes `$` notation via `SootClass.getName()`), filters by code_package (INV-ANA-03 — uses `App.code_package` from `PackageDetector`, NOT manifest package), creates Clazz and Method objects.
 - `_parse_windows(data, package, classes) -> Windows`: Iterates `data["windows"]`, processes widgets and listeners into Widget and WidgetEvent objects. Reuses listener-to-event mapping from current GesdaParser.
 - `_parse_transitions(data, windows) -> WindowTransitionGraph`: Iterates `data["transitions"]`, resolves source/target windows by ID, creates WTG graph.
 
 Error handling (INV-ANA-06): Each section parsed in try/except. On failure, returns empty domain objects for that section.
+
+### Normalization Strategy (D7 — normalize at the source)
+
+**Problem history**: During legacy result regeneration (`rvsec-regerar-resultados/docs/NOVO/06_normalizacao_inner_classes.md`), inner class notation mismatches between Soot (`.`) and AspectJ (`$`) caused catastrophic issues: 10M+ warnings for 2 APKs, 50% performance degradation, unusable logs. The root cause was that GESDA and GATOR used Soot APIs that sometimes returned Java source notation (`.`) instead of JVM notation (`$`). A `SignatureNormalizer` was implemented to convert `.` → `$` at parse time with a heuristic.
+
+**Design in gh27**: The new `RvsecAnalysisClient` eliminates the root cause by consistently using `SootClass.getName()` and `SootMethod.getSignature()` for all names in the JSON output. These APIs return JVM `$` notation. The Python `SignatureNormalizer` remains applied (INV-ANA-02) as defense-in-depth:
+
+| Layer | Responsibility | Expected behavior |
+|-------|---------------|-------------------|
+| Java (`RvsecAnalysisClient`) | Write class names using `SootClass.getName()` — canonical `$` notation | Primary normalization — prevents the problem at the source |
+| Python (`SignatureNormalizer`) | Apply `.` → `$` heuristic on all parsed names (INV-ANA-02) | Safety net — should be no-op. If it changes anything, log a WARNING (indicates Java client bug) |
+| Python (`StaticAnalysisParser`) | Filter classes by `App.code_package` from `PackageDetector` (INV-ANA-03) | Correct package filtering — handles 27.5% APKs with manifest ≠ code package |
+
+**Known limitation — Package.Class where Package == Class** (e.g., `com.hwloc.lstopo.ZoomView.ZoomView`): This is an AspectJ bug, not a Soot bug. Soot correctly writes `ZoomView.ZoomView` (package separator). AspectJ incorrectly logs `ZoomView$ZoomView` (treats as inner class). The `SignatureNormalizer` heuristic cannot distinguish this case. Impact: 2 APKs in dataset excluded (see `rvsec-regerar-resultados/docs/NOVO/06_normalizacao_inner_classes.md`, Section 9.1 — Opção A). This does NOT affect gh27 because the issue is in Coverage.aj runtime logs, not in static analysis JSON output.
+
+### Package Detection Strategy (code_package vs manifest package)
+
+The `package` parameter in `parse_file()` must be `App.code_package` (detected by `PackageDetector` in rv-android-core), NOT `App.package_name` (from AndroidManifest.xml). The distinction matters for ~27.5% of APKs where manifest ≠ implementation package (game engines, forks, wrappers — see `rvsec-regerar-resultados/docs/NOVO/07_pacotes.md`).
+
+Package filtering happens in Python, not Java. Soot's `Scene.v().getApplicationClasses()` uses its own heuristics for class loading that may not match `code_package`. The Python parser is the correct layer because it has access to `PackageDetector` results.
 
 ### 7.2 `StaticAnalyzer` Changes
 
@@ -552,7 +589,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 2. Port WTG extraction from `RvsecWtgClient.run()` into `extractTransitions()`
 3. Implement `extractWindows()` using GATOR's internal APIs (getActivities, getActivityRoots, PropertyManager)
 4. Implement JSON serialization for windows + transitions sections
-5. Update `pom.xml` with maven-shade-plugin for fat JAR
+5. Update `pom.xml` with maven-assembly-plugin for fat JAR
 6. Test: analysis client produces window + transition data matching current GESDA + GATOR output for `cryptoapp.apk`
 
 ### Task Group 2: Java — inputType and entries Extraction
@@ -580,7 +617,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 ### Task Group 4: Java — Build and Deploy
 
-1. Build analysis client JAR: `mvn package` with shade plugin
+1. Build analysis client JAR: `mvn package` with assembly plugin
 2. Copy `rvsec-analysis-client.jar` to `rv-android/lib/analysis-client/`
 3. Verify JAR runs correctly via GATOR launcher command
 
@@ -690,7 +727,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 | File | Action |
 |------|--------|
 | `rvsec-gator/client/.../RvsecAnalysisClient.java` | **NEW** — analysis client |
-| `rvsec-gator/client/pom.xml` | **MODIFY** — add JGraphT, mop-extractor, apk-reader deps + shade plugin |
+| `rvsec-gator/client/pom.xml` | **MODIFY** — add JGraphT, mop-extractor, apk-reader deps + assembly plugin |
 | `rvsec-gator/client/.../RvsecWtgClient.java` | Reference only (port WTG logic) |
 | `rvsec-reachability/.../JGraphReachabilityStrategy.java` | Reference only (port reachability logic) |
 | `rvsec-reachability/.../ReachabilityAnalysis.java` | Reference only (port complement logic) |
@@ -708,6 +745,20 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 | `rv-static-analysis/.../config.py` | **MODIFY** — analysis tool config |
 | `rv-static-analysis/.../parser/static/base_parser.py` | **DELETE** — no longer needed |
 | `rv-platform/.../components/static_analysis.py` | **MODIFY** — update file extensions |
+| `rv-agent-validation/.../experiment/runner.py` | **MODIFY** — replace 3-file parse with `parse_file()` |
+| `rv-agent-validation/.../experiment/config.py` | **MODIFY** — replace 3-file glob with `.json` |
+| `rv-agent-validation/.../preprocessing/instrumentation.py` | **MODIFY** — replace 14+ refs to 3-file pattern |
+
+### Python (rv-android) — Tests to Update
+
+| File | Action |
+|------|--------|
+| `rv-agent/tests/unit/test_transition_manager.py` | **MODIFY** — use `parse_file()` + JSON fixture |
+| `rv-agent/tests/unit/test_navigation_guidance.py` | **MODIFY** — use `parse_file()` + JSON fixture |
+| `rv-agent/tests/unit/test_rvagent_visitor.py` | **MODIFY** — use `parse_file()` + JSON fixture |
+| `rv-agent/tests/online/test_static_analysis.py` | **MODIFY** — check `.json` instead of `.reach/.wtg/.gesda` |
+| `rv-agent-validation/tests/test_navigation_guidance.py` | **MODIFY** — use `parse_file()` |
+| `rv-agent-validation/tests/calibration/test_preprocess.py` | **MODIFY** — create/verify `.json` instead of 3 files |
 
 ### Python (rv-android) — Delete (backup to `backup/` first)
 
@@ -724,7 +775,7 @@ This change follows the Full SDD track per `docs/WORKFLOW.md`:
 
 | File | Action |
 |------|--------|
-| `rv-android/lib/analysis-client/rvsec-analysis-client.jar` | **NEW** — fat JAR from maven-shade |
+| `rv-android/lib/analysis-client/rvsec-analysis-client.jar` | **NEW** — fat JAR from maven-assembly |
 | `rv-android/lib/gesda/rvsec-gesda.jar` | Keep until verified, then remove |
 | `rv-android/lib/reach/rvsec-reach.jar` | Keep until verified, then remove |
 
