@@ -499,11 +499,12 @@ flowchart LR
 | Soot 3.3.0 vs rvsec-mop-extractor compatibility | Build failure or runtime error | Exclude Soot from transitive deps; test build early (Task Group 1, task 1.4) |
 | `Configs.clientParams` may not propagate `-clientParam` | mopDir not available in client | Verify in Task Group 1; fallback: pass via system property |
 | Combined inputType flags in XML (e.g., `"textPassword\|textVisiblePassword"`) | Incorrect parsing | Handle pipe-separated flags, take first value |
+| JCA classes as phantom refs without rt.jar | `reachesMop`/`directlyReachesMop` broken for instance methods (update, digest, init, doFinal) — only static methods (getInstance) appear | Add `--jre` to GATOR launcher (Spike Q6); reuse existing `rt_jar` config field |
 | Reachability differences (no `all-reachable`) | Some methods marked differently than before | Expected and acceptable — document differences against baseline |
 
 ## Verification Spike (Pre-Implementation)
 
-Before starting Task Group 1, a lightweight verification spike MUST answer the 5 Open Questions listed below. Each question has a concrete verification command and a fallback strategy already defined in the respective task. The spike prevents wasted implementation effort if assumptions are wrong.
+Before starting Task Group 1, a lightweight verification spike MUST answer the 6 Open Questions listed below. Each question has a concrete verification command and a fallback strategy already defined in the respective task. The spike prevents wasted implementation effort if assumptions are wrong.
 
 | Q# | Verification | Expected | Fallback |
 |----|-------------|----------|----------|
@@ -512,6 +513,9 @@ Before starting Task Group 1, a lightweight verification spike MUST answer the 5
 | Q3 | `grep -A 10 "clientParam" lib/gator/gator` | Launcher propagates to `Configs.clientParams` | Pass via `-DmopDir=<path>` system property (Task 1.2) |
 | Q4 | `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/` | `@array/name` reference (not inline) | Parse `res/values/arrays.xml` (Task 3.4) |
 | Q5 | `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; \| sort -u` | Only Scene, SootClass, SootMethod (compatible with 3.3.0) | Regex-based `.mop` parser (Task 1.4) |
+| Q6 | Add `--jre` to GATOR launcher, run test client on `cryptoapp.apk` with/without rt.jar, compare CG edges for JCA instance methods | `update()`, `digest()`, `init()`, `doFinal()` present WITH rt.jar; absent WITHOUT | Test with Sable `android-platforms` enhanced JARs (Task 0.6) |
+
+**Q6 detail**: Without `rt.jar`, JCA classes are phantom references with no active body. Static calls (`MessageDigest.getInstance()`) are resolved from the call site in app code, but instance calls (`md.update()`, `md.digest()`) require the class hierarchy from the active body for virtual dispatch. REACH and GESDA solve this by passing `rt.jar` via `set_soot_classpath()` + `set_prepend_classpath(true)`. GATOR's `Main.java` accepts `-jre` and includes it in `computeClasspath()`, but the launcher never passes it. The spike must confirm the fix and update all artifacts.
 
 The spike results are recorded as comments in the respective tasks. No separate document needed — answers go directly into the task checklist.
 
@@ -670,3 +674,5 @@ These checks MUST be performed during E2E validation (Task Group 10) to confirm 
 4. **Does apktool resolve `@array/name` references inline in decoded XML?** — If not, the client must read `res/values/arrays.xml` separately to resolve spinner entries. Needs verification in Spike (Q4 → Task 3.4).
 
 5. **What is the exact `rvsec-mop-extractor` Soot API surface?** — Need to confirm which Soot classes it imports and whether they exist in Soot 3.3.0. If incompatible, fallback to a simple regex-based `.mop` file parser that extracts method signatures without Soot. Needs verification in Spike (Q5 → Task 1.4).
+
+6. **Does GATOR's call graph include JCA instance method calls when rt.jar is provided?** — Without `rt.jar`, JCA classes are phantom references with no active body. Soot resolves static calls like `MessageDigest.getInstance()` from the app-side call site, but instance calls (`md.update()`, `md.digest()`, `cipher.init()`, `cipher.doFinal()`) require the class hierarchy from the active body for virtual dispatch resolution. REACH and GESDA solve this by passing `rt.jar` via `set_soot_classpath()` + `set_prepend_classpath(true)`. GATOR's `Main.java` accepts `-jre` (L59-60) and includes it in `computeClasspath()`, but the Python launcher never passes this parameter. The spike must: (a) add `--jre` to the launcher, (b) compare CG edges with/without `rt.jar`, (c) verify JCA instance methods appear. Fallback: test with Sable/FlowDroid enhanced `android.jar` (cloned at `/home/pedro/desenvolvimento/aplicativos/android/platforms-sable`). Needs verification in Spike (Q6 → Task 0.6).

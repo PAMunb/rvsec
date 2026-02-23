@@ -10,13 +10,31 @@
 
 ## 0. Verification Spike (Pre-Implementation)
 
-Answer the 5 Open Questions before coding to prevent wasted effort. Record answers as comments in the respective tasks below.
+Answer the 6 Open Questions before coding to prevent wasted effort. Record answers as comments in the respective tasks below.
 
 - [ ] 0.1 Q1: Verify `PropertyManager.v().getHintOfView(node)` exists — `grep -r "getHintOfView" $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/`. Record finding in Task 2.2
 - [ ] 0.2 Q2: Verify `Scene.v().getCallGraph()` returns populated CG — create minimal GATOR test client that logs CG size. Record finding in Task 1.6
 - [ ] 0.3 Q3: Verify `Configs.clientParams` propagates `-clientParam` — `grep -A 10 "clientParam" lib/gator/gator`. Record finding in Task 1.2
 - [ ] 0.4 Q4: Verify apktool `@array/name` handling — `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/`. Record finding in Task 3.4
 - [ ] 0.5 Q5: Verify `rvsec-mop-extractor` Soot API surface — `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; | sort -u`. Record finding in Task 1.4
+- [ ] 0.6 Q6: Verify JCA class resolution with rt.jar inside GATOR — **CRITICAL for reachability correctness**. Without rt.jar, JCA classes (javax.crypto.Cipher, java.security.MessageDigest) are phantom references with no active body. Soot resolves static calls (e.g., `MessageDigest.getInstance()`) but NOT instance method calls (`md.update()`, `md.digest()`) because virtual dispatch requires the class hierarchy from the active body. This breaks `reachesMop` and `directlyReachesMop` flags for instance methods.
+
+  **Background**: REACH and GESDA both pass rt.jar via `set_soot_classpath(androidDir + ":" + rtJarPath)` + `set_prepend_classpath(true)` (see `rvsec-reachability/SootConfig.java` L69-80, `rvsec-gesda/SootConfig.java` L52-63). GATOR's `Main.java` accepts `-jre` (L59-60), includes it in `computeClasspath()` (L180: `Configs.android + ":" + Configs.jre`), but the Python launcher **never passes** `-jre`, so `Configs.jre` defaults to `""`.
+
+  **Steps**:
+  1. Modify GATOR launcher (`lib/gator/gator`): add `--jre` argparse parameter, pass as `-jre <path>` to Main.java command
+  2. Create minimal test client that dumps `Scene.v().getCallGraph()` edges for `cryptoapp.apk`:
+     - Run WITHOUT rt.jar: `python gator a -p cryptoapp.apk --client-jar test.jar -client TestCGClient --out /tmp/cg_no_rt.txt`
+     - Run WITH rt.jar: `python gator a -p cryptoapp.apk --client-jar test.jar -client TestCGClient --out /tmp/cg_with_rt.txt --jre ~/.sdkman/candidates/java/8.0.302-open/jre/lib/rt.jar`
+  3. Compare: count edges involving `javax.crypto.Cipher`, `java.security.MessageDigest`. Specifically verify:
+     - `MessageDigest.getInstance()` — should appear in BOTH (static call, resolved without body)
+     - `MessageDigest.update()`, `MessageDigest.digest()` — should appear only WITH rt.jar (instance calls, need active body for virtual dispatch)
+     - `Cipher.init()`, `Cipher.doFinal()` — same pattern, only WITH rt.jar
+  4. If confirmed: rt.jar is REQUIRED. Keep `--jre` launcher change. Update `RVStaticAnalysisConfig` to pass `rt_jar` to GATOR command (reuse existing `rt_jar` field from config.py L65-68). Update plan.md Section 6 (Parameter Passing) and Section 7.3 (config)
+  5. If NOT confirmed (JCA instance methods appear even without rt.jar): document why and skip the launcher change
+  6. Record findings and update all affected artifacts before proceeding to Group 1
+
+  **Fallback (if GATOR's Soot 3.3.0 has issues with rt.jar)**: Use `android-platforms` from Sable/FlowDroid team (cloned at `/home/pedro/desenvolvimento/aplicativos/android/platforms-sable`). These are enhanced `android.jar` files that may include stubs for JCA classes. Test with `-android <sable-platform-jar>` instead of `-jre`
 
 ---
 
@@ -150,7 +168,7 @@ Files: `modules/rv-android-core/src/rv_android_core/constants.py`, `modules/rv-s
 Files: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`, `modules/rv-static-analysis/src/rv_static_analysis/__main__.py`, `modules/rv-experiment/src/rv_experiment/config.py`
 
 - [ ] 6.1 Update `RVStaticAnalysisConfig`: remove `gesda_jar`, `gator_dir`, `reach_jar`. Add `analysis_client_jar`, `jvm_memory`, `analysis_timeout`
-- [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir>`
+- [ ] 6.2 Update `get_tool_command('analysis', ...)` to produce GATOR command with `-client RvsecAnalysisClient -clientParam mopDir=<dir> --jre <rt_jar_path>`. Reuse existing `rt_jar` config field (config.py L65-68)
 - [ ] 6.3 Update `StaticAnalyzer`: remove `_run_gesda()`, `_run_gator()`, `_run_reachability()`. Add `_run_analysis()`
 - [ ] 6.4 Update `StaticAnalysisResult`: remove 3 file paths, add `analysis_file` and `timed_out`
 - [ ] 6.5 Handle `RVCommandTimeoutError` in `_execute_command()` — set `result.timed_out = True`

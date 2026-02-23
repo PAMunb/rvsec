@@ -348,7 +348,7 @@ Key differences from current REACH:
 
 ### Parameter Passing
 
-Uses GATOR's existing `-clientParam` mechanism (`Configs.clientParams`):
+Uses GATOR's existing `-clientParam` mechanism (`Configs.clientParams`) and the `-jre` parameter for rt.jar:
 
 ```bash
 python gator a -p app.apk \
@@ -356,10 +356,21 @@ python gator a -p app.apk \
   --out result.json \
   -client RvsecAnalysisClient \
   -clientParam mopDir=/path/to/jca/specs \
+  --jre /path/to/jre/lib/rt.jar \
   --timeout 600
 ```
 
 The client reads `mopDir` from `Configs.clientParams`. Output path from `Configs.pathoutfilename`.
+
+### rt.jar Requirement (Spike Q6)
+
+**Problem**: Without `rt.jar` in Soot's classpath, JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) are loaded as **phantom references** with no active body. Soot can resolve static calls like `MessageDigest.getInstance()` (the call site in app code is sufficient), but **cannot resolve instance method calls** like `md.update()` and `md.digest()` because virtual dispatch requires the class hierarchy from the active body. This breaks `reachesMop` and `directlyReachesMop` for all JCA instance methods — a critical correctness issue.
+
+**Current tools**: REACH and GESDA both pass `rt.jar` explicitly via `set_soot_classpath()` + `set_prepend_classpath(true)`. GATOR's `Main.java` accepts `-jre` (L59-60) and includes it in `computeClasspath()` (L180), but the Python launcher **never passes** this parameter.
+
+**Solution**: Add `--jre` parameter to the GATOR launcher (Spike Q6, Task 0.6). The launcher will forward it as `-jre <path>` to `Main.java`. GATOR's existing classpath computation (`Configs.android + ":" + Configs.jre + depJars`) will then include `rt.jar`, enabling Soot to load JCA classes with active bodies.
+
+**Fallback**: If GATOR's Soot 3.3.0 has issues with `rt.jar`, test with `android-platforms` from the Sable/FlowDroid team (enhanced `android.jar` with stubs, cloned at `/home/pedro/desenvolvimento/aplicativos/android/platforms-sable`).
 
 ### Maven Dependencies
 
@@ -500,9 +511,12 @@ return [
     '--out', output_file,
     '-client', 'RvsecAnalysisClient',
     '-clientParam', f'mopDir={mop_dir}',
+    '--jre', self.rt_jar,
     '--timeout', str(int(self.analysis_timeout))
 ]
 ```
+
+Note: `rt_jar` field already exists in config (L65-68, resolved from `RV_RT_JAR` env or sdkman default). The `--jre` parameter is added to the GATOR launcher in Spike Q6 (Task 0.6) — it forwards to GATOR's `Main.java -jre` which populates `Configs.jre` used in `computeClasspath()`.
 
 ### 7.4 `StaticAnalysisParser` Caller Updates
 
@@ -822,6 +836,7 @@ cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client
 mvn clean install -DskipTests
 
 # Run static analysis on test APK
+# --jre is REQUIRED for JCA instance method resolution (Spike Q6)
 cd $RVSEC_HOME/rv-android
 python lib/gator/gator a \
   -p apks_examples/cryptoapp.apk \
@@ -829,5 +844,6 @@ python lib/gator/gator a \
   --out /tmp/cryptoapp.json \
   -client RvsecAnalysisClient \
   -clientParam mopDir=$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \
+  --jre $JAVA_HOME/jre/lib/rt.jar \
   --timeout 600
 ```
