@@ -7,6 +7,7 @@ runtime permission granting for automated testing workflows.
 """
 
 import logging as logging_api
+import subprocess
 import time
 from contextlib import contextmanager
 
@@ -112,7 +113,11 @@ class Android:
             args.append("-no-window")  # disable graphical window display
 
         start_emulator_cmd = Command("emulator", args)
-        emulator_proc = start_emulator_cmd.invoke_as_deamon()
+        # DEVNULL: emulator output is never consumed, and newer emulator versions
+        # fail to register with ADB when stdout is a pipe (isatty behavior change)
+        emulator_proc = start_emulator_cmd.invoke_as_deamon(
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
 
         cls._wait_for_boot(device_name)
 
