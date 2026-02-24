@@ -14,42 +14,117 @@
 	<name>RVSec :: Android :: GATOR :: Client</name>
 
 	<properties>
-		<final.jar.name>rvsec-gator-client</final.jar.name>
+		<final.jar.name>rvsec-analysis-client</final.jar.name>
+		<skipITs>true</skipITs>
 	</properties>
 
 	<dependencies>
-		<!-- TODO remover ... eh apenas para executar manualmente -->
-<!--		<dependency>-->
-<!--			<groupId>br.unb.cic</groupId>-->
-<!--			<artifactId>rvsec-apk</artifactId>-->
-<!--			<exclusions>-->
-<!--				<exclusion>-->
-<!--					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>-->
-<!--					<artifactId>soot-infoflow</artifactId>-->
-<!--				</exclusion>-->
-<!--				<exclusion>-->
-<!--					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>-->
-<!--					<artifactId>soot-infoflow-android</artifactId>-->
-<!--				</exclusion>-->
-<!--			</exclusions>-->
-<!--		</dependency>-->
-
+		<!-- On GATOR's classpath at runtime (provided = compile-only, not packaged in fat JAR) -->
 		<dependency>
 			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-gator-sootandroid</artifactId>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
+		</dependency>
+
+		<!-- JGraphT for multi-source BFS reachability -->
+		<dependency>
+			<groupId>org.jgrapht</groupId>
+			<artifactId>jgrapht-core</artifactId>
+		</dependency>
+
+		<!-- MOP spec parser (exclude BOTH Soot groupIds to avoid conflict with GATOR's Soot 3.3.0) -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-mop-extractor</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>ca.mcgill.sable</groupId>
+					<artifactId>soot</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.soot-oss</groupId>
+					<artifactId>soot</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<!-- APK metadata reader (exclude FlowDroid/Soot) -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-apk</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+					<artifactId>soot-infoflow</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+					<artifactId>soot-infoflow-android</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
 	<build>
 		<finalName>${final.jar.name}</finalName>
 		<plugins>
+			<!-- Fat JAR (same pattern as rvsec-reachability) -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-resources-plugin</artifactId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+					<finalName>${final.jar.name}</finalName>
+					<appendAssemblyId>false</appendAssemblyId>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- Inherits maven-resources-plugin from rvsec-gator-parent:
+				 copies ${final.jar.name}.jar to ${main.basedir}/rv-android/lib/gator/ on install.
+				 No override needed - parent config + overridden final.jar.name is sufficient. -->
+
+			<!-- Integration tests (*IT.java) — skipped by default, run with -DskipITs=false -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>3.5.4</version>
+				<configuration>
+					<skipITs>${skipITs}</skipITs>
+					<forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
+					<!-- Disable module path to avoid split-package conflict
+					     between jakarta.activation and java.xml (Java 21) -->
+					<useModulePath>false</useModulePath>
+					<environmentVariables>
+						<RVSEC_HOME>${main.basedir}</RVSEC_HOME>
+					</environmentVariables>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
