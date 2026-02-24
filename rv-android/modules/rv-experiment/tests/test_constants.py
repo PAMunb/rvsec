@@ -52,7 +52,7 @@ class TestConstants:
         """
         output_dir = "out"
         apk_name = "test_app"
-        extension = ".gesda"
+        extension = ".json"
         expected_path = os.path.join(output_dir, constants.STATIC_ANALYSIS_DIR, f"{apk_name}{extension}")
         assert constants.get_static_analysis_source_path(output_dir, apk_name, extension) == expected_path
 

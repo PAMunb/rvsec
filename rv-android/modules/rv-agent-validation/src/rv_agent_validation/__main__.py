@@ -11,31 +11,42 @@ Commands:
     show-defaults Show default parameter values
 """
 
-import click
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import click
 
 
 @click.group()
 @click.version_option(version="0.1.0")
 def cli():
     """RV-Agent Validation - Experiment and validation framework."""
-    pass
 
 
 # Import and register calibration commands
 from rv_agent_validation.calibration.cli import calibration
-cli.add_command(calibration.get_command(None, 'show-params'), 'show-params')
-cli.add_command(calibration.get_command(None, 'show-defaults'), 'show-defaults')
+
+cli.add_command(calibration.get_command(None, "show-params"), "show-params")
+cli.add_command(calibration.get_command(None, "show-defaults"), "show-defaults")
 
 
 @cli.command()
-@click.option("--config", "-c", type=click.Path(exists=True), required=True, help="Experiment config JSON file")
-@click.option("--output", "-o", type=click.Path(), default="results", help="Output directory")
+@click.option(
+    "--config",
+    "-c",
+    type=click.Path(exists=True),
+    required=True,
+    help="Experiment config JSON file",
+)
+@click.option(
+    "--output", "-o", type=click.Path(), default="results", help="Output directory"
+)
 @click.option("--resume", is_flag=True, help="Resume from checkpoint")
-@click.option("--dry-run", is_flag=True, help="Show what would be executed without running")
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be executed without running"
+)
 def run(config, output, resume, dry_run):
     """Run validation experiment from configuration file.
 
@@ -50,8 +61,8 @@ def run(config, output, resume, dry_run):
         "device_serial": "emulator-5554"
     }
     """
-    from rv_agent_validation.experiment.runner import ExperimentRunner
     from rv_agent_validation.experiment.config import ExperimentConfig
+    from rv_agent_validation.experiment.runner import ExperimentRunner
 
     config_path = Path(config)
     with open(config_path) as f:
@@ -84,10 +95,16 @@ def run(config, output, resume, dry_run):
         apk_paths=apk_paths,
         strategies=config_data.get("strategies", ["rvagent"]),
         seeds=seeds,
-        timeout_seconds=config_data.get("timeout_seconds", config_data.get("timeout", 300)),
-        agent_mode=config_data.get("agent_mode", config_data.get("mode", "pure_algorithm")),
+        timeout_seconds=config_data.get(
+            "timeout_seconds", config_data.get("timeout", 300)
+        ),
+        agent_mode=config_data.get(
+            "agent_mode", config_data.get("mode", "pure_algorithm")
+        ),
         results_dir=Path(output),
-        device_serial=config_data.get("device_serial", config_data.get("device", "emulator-5554")),
+        device_serial=config_data.get(
+            "device_serial", config_data.get("device", "emulator-5554")
+        ),
         static_analysis_variants=config_data.get("static_analysis_variants", [True]),
         prompt_versions=config_data.get("prompt_versions", ["v13"]),
         llm_param_configs=config_data.get("llm_param_configs", ["default"]),
@@ -109,9 +126,11 @@ def run(config, output, resume, dry_run):
         runs = exp_config.generate_runs()
         for run in runs:
             apk_name = Path(run.apk_path).name
-            prompt = getattr(run, 'prompt_version', 'v13')
-            param = getattr(run, 'param_config_name', 'default')
-            click.echo(f"  - {apk_name} | {run.strategy} | {prompt} | {param} | seed={run.seed}")
+            prompt = getattr(run, "prompt_version", "v13")
+            param = getattr(run, "param_config_name", "default")
+            click.echo(
+                f"  - {apk_name} | {run.strategy} | {prompt} | {param} | seed={run.seed}"
+            )
         click.echo(f"\nTotal runs: {len(runs)}")
         return
 
@@ -120,18 +139,33 @@ def run(config, output, resume, dry_run):
 
 
 @cli.command()
-@click.option("--data-dir", "-d", type=click.Path(exists=True), default=None, help="Validation data directory")
-@click.option("--specs-dir", "-s", type=click.Path(exists=True), default=None, help="MOP specifications directory")
+@click.option(
+    "--data-dir",
+    "-d",
+    type=click.Path(exists=True),
+    default=None,
+    help="Validation data directory",
+)
+@click.option(
+    "--specs-dir",
+    "-s",
+    type=click.Path(exists=True),
+    default=None,
+    help="MOP specifications directory",
+)
 @click.option("--force", "-f", is_flag=True, help="Force re-instrumentation")
 @click.option("--skip-static", is_flag=True, help="Skip static analysis phase")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 def preprocess(data_dir, specs_dir, force, skip_static, verbose):
     """Preprocess APKs: generate monitors, instrument, and run static analysis."""
     import logging
+
     from rv_agent_validation.preprocessing import InstrumentationWrapper
 
     log_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
     if data_dir is None:
         module_dir = Path(__file__).parent.parent.parent.parent
@@ -140,12 +174,16 @@ def preprocess(data_dir, specs_dir, force, skip_static, verbose):
     click.echo(f"Preprocessing APKs from: {data_dir}")
 
     try:
-        wrapper = InstrumentationWrapper(validation_data_dir=str(data_dir), specs_dir=specs_dir)
+        wrapper = InstrumentationWrapper(
+            validation_data_dir=str(data_dir), specs_dir=specs_dir
+        )
         result = wrapper.run(force=force, skip_static_analysis=skip_static)
 
         if result.total_apks > 0 and len(result.instrumented_apks) > 0:
             click.echo(click.style("Preprocessing completed!", fg="green"))
-            click.echo(f"  Instrumented: {len(result.instrumented_apks)}/{result.total_apks}")
+            click.echo(
+                f"  Instrumented: {len(result.instrumented_apks)}/{result.total_apks}"
+            )
         else:
             click.echo(click.style("Preprocessing failed!", fg="red"))
             sys.exit(1)

@@ -629,13 +629,18 @@ class ExperimentConfig(BaseValidatedModel):
         lib_dir = os.path.join(rv_android_dir, "lib")
 
         try:
-            # Create RVStaticAnalysisConfig instance with tool paths
+            # analysis_client_jar defaults from gator_dir, but explicit is clearer
+            gator_dir = os.path.join(lib_dir, "gator")
+            analysis_client_jar = os.path.join(gator_dir, "rvsec-analysis-client.jar")
+
             return RVStaticAnalysisConfig(
                 rvsec_root=rvsec_root,
-                lib_dir=lib_dir,  # Point to rv-android/lib where tools are located
+                lib_dir=lib_dir,
+                gator_dir=gator_dir,
+                analysis_client_jar=analysis_client_jar,
                 output_dir=self.output_dir,
                 working_dir=self.output_dir,
-                validate_on_init=False,  # Defer validation to avoid initialization issues
+                validate_on_init=False,
             )
         except Exception as e:
             raise ConfigurationError(

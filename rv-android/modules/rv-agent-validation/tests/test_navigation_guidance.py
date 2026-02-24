@@ -26,17 +26,13 @@ def main():
     # 1. Load static analysis data
     print("\n1. Loading static analysis data...")
 
-    from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
-
-    parser = StaticAnalysisParser()
+    from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 
     base_path = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk"
 
-    static_data = parser.parse(
-        reach_file=f"{base_path}/cryptoapp.apk.reach",
-        gator_file=f"{base_path}/cryptoapp.apk.wtg",  # WTG is from gator
-        gesda_file=f"{base_path}/cryptoapp.apk.gesda",
-        package="com.example.cryptoapp"
+    static_data = parse_file(
+        f"{base_path}/cryptoapp.apk.json",
+        "com.example.cryptoapp"
     )
 
     print(f"   Classes: {len(static_data.classes.classes)}")

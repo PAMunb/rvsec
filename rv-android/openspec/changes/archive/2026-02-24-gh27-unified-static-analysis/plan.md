@@ -367,7 +367,7 @@ The client reads `mopDir` from `Configs.clientParams`. Output path from `Configs
 
 **Spike Q6 result**: This hypothesis was **wrong**. JCA classes are loaded from `android.jar` (API 33) with full method bodies — `phantom=false`. Cipher has 38 methods, MessageDigest has 18, Mac has 18. Both static calls (`getInstance()`) and instance calls (`doFinal()`, `init()`, `generateKey()`) are fully resolved by CHA using only `android.jar`. The 97 JCA edges found for cryptoapp include 27 static and 70 instance calls.
 
-**Impact**: The `--jre` launcher parameter, `rt_jar` config field (`RVStaticAnalysisConfig.rt_jar`), `ENV_RT_JAR` constant, and Docker `RV_RT_JAR` environment variable are all dead code and will be removed in Group 6 (config cleanup). The Docker base image no longer needs a Java SE runtime for `rt.jar`.
+**Impact**: The `--jre` launcher parameter, `rt_jar` config field (`RVStaticAnalysisConfig.rt_jar`), `ENV_RT_JAR` constant, and Docker `RV_RT_JAR` environment variable are all dead code and will be removed in Group 6 (config cleanup). The Docker base image no longer needs a Java SE 8 runtime — both `RV_RT_JAR` env var AND the Java SE 8 installation (`openjdk-8u44`) must be removed entirely. GATOR/Soot 3.3.0 runs on Java 21+ (verified by integration tests running on Java 21 Temurin).
 
 ### Maven Dependencies
 
@@ -868,7 +868,7 @@ All spikes, unit tests, integration tests, and baseline comparisons use `cryptoa
 
 | File | Action |
 |------|--------|
-| `rv-android/lib/analysis-client/rvsec-analysis-client.jar` | **NEW** — fat JAR from maven-assembly |
+| `rv-android/lib/gator/rvsec-analysis-client.jar` | **NEW** — fat JAR from maven-assembly (replaces `rvsec-gator-client.jar` in same dir) |
 | `rv-android/lib/gator/teste.sh` | **MODIFY** — update client name, jar path, add `-clientParam` (Task 4.4) |
 | `rv-android/lib/gator/rvsec-gator-client.jar` | **DELETE** — superseded by analysis-client (Task 7.8c) |
 | `rv-android/lib/gator/.gitignore` | **MODIFY** — remove old JAR entry (Task 7.8c) |
@@ -883,7 +883,7 @@ All spikes, unit tests, integration tests, and baseline comparisons use `cryptoa
 ```bash
 source /etc/profile
 
-# Build analysis client fat JAR and copy to rv-android/lib/analysis-client/
+# Build analysis client fat JAR and copy to rv-android/lib/gator/
 # maven-resources-plugin copies the JAR during the install phase
 cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client
 mvn clean install -DskipTests
@@ -893,7 +893,7 @@ mvn clean install -DskipTests
 cd $RVSEC_HOME/rv-android
 python lib/gator/gator a \
   -p apks_examples/cryptoapp.apk \
-  --client-jar lib/analysis-client/rvsec-analysis-client.jar \
+  --client-jar lib/gator/rvsec-analysis-client.jar \
   --out /tmp/cryptoapp.json \
   -client RvsecAnalysisClient \
   -clientParam mopDir=$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca \

@@ -82,8 +82,7 @@ flowchart TD
         L_ME[methods-extractor/]
         L_GESDA["gesda/<br/><i>baseline → delete (7.8a)</i>"]
         L_REACH["reach/<br/><i>baseline → delete (7.8b)</i>"]
-        L_GATOR[gator/]
-        L_ANALYSIS["analysis-client/<br/>⭐ NEW"]
+        L_GATOR["gator/<br/>(sootandroid + ⭐ analysis-client)"]
     end
 
     APK -->|install| L_APK
@@ -92,10 +91,10 @@ flowchart TD
     GCO -->|install| L_GESDA
     REACH_MOD -->|install| L_REACH
     SOOT -->|install| L_GATOR
-    CLIENT -->|"install (override outputDir)"| L_ANALYSIS
+    CLIENT -->|install| L_GATOR
 
     style CLIENT fill:#ffd,stroke:#cc0
-    style L_ANALYSIS fill:#ffd,stroke:#cc0
+    style L_GATOR fill:#ffd,stroke:#cc0
     style L_GESDA fill:#fed,stroke:#c93
     style L_REACH fill:#fed,stroke:#c93
 ```
@@ -158,7 +157,7 @@ flowchart TD
 
 **Alternative considered**: Build CG manually inside the client via `CHATransformer.v().transform()`. Rejected because GATOR's `-withCHA` path already does this correctly with proper entry point setup and Soot phase ordering.
 
-**Note on rt.jar**: Spike Q6 confirmed that rt.jar is NOT needed. JCA classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) are loaded from `android.jar` (API 33) with full method bodies — `phantom=false`. Both static and instance JCA method calls are resolved by CHA using only `android.jar`. The `--jre` launcher parameter and `rt_jar` config field are removed.
+**Note on rt.jar and Java version**: Spike Q6 confirmed that rt.jar is NOT needed — JCA classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) are loaded from `android.jar` (API 33) with full method bodies (`phantom=false`). Both static and instance JCA method calls are resolved by CHA using only `android.jar`. The `--jre` launcher parameter, `rt_jar` config field, `ENV_RT_JAR` constant, and Docker Java SE 8 installation are all removed. GATOR/Soot 3.3.0 runs on Java 21+ (verified by integration tests on Temurin-21.0.1).
 
 ### D2: Multi-source BFS on JGraphT graph — boolean-only reachability
 
@@ -196,7 +195,7 @@ JGraphT provides `DefaultDirectedGraph` (efficient adjacency structure), `EdgeRe
 
 **Rationale**: The GATOR launcher passes a single `--client-jar` path. A fat JAR avoids classpath complexity. The project uses `maven-assembly-plugin` (same pattern as `rvsec-reachability`). Dependencies already on GATOR's classpath (`rvsec-gator-sootandroid` and its transitive Soot 3.3.0) are declared as `<scope>provided</scope>` — the assembly plugin excludes `provided` scope by default.
 
-**Implementation**: Modify `rvsec-gator/client/pom.xml`. The current client is a thin JAR (10KB) with only `rvsec-gator-sootandroid` + Gson. The analysis client adds JGraphT, mop-extractor, and apk-reader. The `maven-resources-plugin` output directory is overridden from the parent's `lib/gator/` to `lib/analysis-client/`.
+**Implementation**: Modify `rvsec-gator/client/pom.xml`. The current client is a thin JAR (10KB) with only `rvsec-gator-sootandroid` + Gson. The analysis client adds JGraphT, mop-extractor, and apk-reader. The `maven-resources-plugin` inherits the parent's output directory (`lib/gator/`) — the new `rvsec-analysis-client.jar` replaces the old `rvsec-gator-client.jar` in the same directory.
 
 ```xml
 <!-- rvsec-gator/client/pom.xml changes -->
@@ -273,36 +272,15 @@ JGraphT provides `DefaultDirectedGraph` (efficient adjacency structure), `EdgeRe
                 </execution>
             </executions>
         </plugin>
-        <!-- Override parent copy target: lib/gator/ → lib/analysis-client/ -->
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-resources-plugin</artifactId>
-            <executions>
-                <execution>
-                    <id>copy-resource-one</id>
-                    <phase>install</phase>
-                    <goals><goal>copy-resources</goal></goals>
-                    <configuration>
-                        <outputDirectory>${main.basedir}/rv-android/lib/analysis-client</outputDirectory>
-                        <overwrite>true</overwrite>
-                        <resources>
-                            <resource>
-                                <directory>${project.build.directory}</directory>
-                                <includes>
-                                    <include>${final.jar.name}.jar</include>
-                                </includes>
-                            </resource>
-                        </resources>
-                    </configuration>
-                </execution>
-            </executions>
-        </plugin>
+        <!-- Inherits maven-resources-plugin from rvsec-gator-parent:
+             copies ${final.jar.name}.jar to ${main.basedir}/rv-android/lib/gator/ on install.
+             No override needed — parent config + overridden final.jar.name is sufficient. -->
     </plugins>
 </build>
 ```
 
 **Build command**: `cd $RVSEC_HOME/rvsec/rvsec-android/rvsec-gator/client && mvn clean install -DskipTests`
-**Result**: `rv-android/lib/analysis-client/rvsec-analysis-client.jar`
+**Result**: `rv-android/lib/gator/rvsec-analysis-client.jar`
 
 ### D5: JSON section ordering — reachability first
 
@@ -515,9 +493,9 @@ Before starting Task Group 1, a lightweight verification spike MUST answer the 6
 | Q3 | `grep -A 10 "clientParam" lib/gator/gator` | Launcher propagates to `Configs.clientParams` | Pass via `-DmopDir=<path>` system property (Task 1.2) |
 | Q4 | `apktool d cryptoapp.apk -o /tmp/cryptoapp && grep -r "android:entries" /tmp/cryptoapp/res/layout/` | `@array/name` reference (not inline); array items may have `@string/name` refs (50+ APKs verified) | Resolve `@array/` from `arrays.xml`, resolve `@string/` items via GATOR's `DefaultXMLParser.convertAndroidTextToString()` (Task 3.4) |
 | Q5 | `find $RVSEC_HOME/rvsec/rvsec-mop-extractor -name "*.java" -exec grep -h "^import soot\." {} \; \| sort -u` | Only Scene, SootClass, SootMethod (compatible with 3.3.0) | Regex-based `.mop` parser (Task 1.4) |
-| Q6 | ~~Add `--jre` to GATOR launcher~~ Run test client on `cryptoapp.apk` with `-withCHA`, compare CG edges for JCA instance methods | `update()`, `digest()`, `init()`, `doFinal()` present WITH rt.jar; absent WITHOUT | Test with Sable `android-platforms` enhanced JARs (Task 0.6) |
+| Q6 | ~~Add `--jre` to GATOR launcher~~ Run test client on `cryptoapp.apk` with `-withCHA`, compare CG edges for JCA instance methods | **RESOLVED**: All JCA instance calls present WITHOUT rt.jar (70 instance edges). `android.jar` provides full class bodies. rt.jar and Java SE 8 not needed. | N/A — hypothesis disproven |
 
-**Q6 detail**: Without `rt.jar`, JCA classes are phantom references with no active body. Static calls (`MessageDigest.getInstance()`) are resolved from the call site in app code, but instance calls (`md.update()`, `md.digest()`) require the class hierarchy from the active body for virtual dispatch. REACH and GESDA solve this by passing `rt.jar` via `set_soot_classpath()` + `set_prepend_classpath(true)`. GATOR's `Main.java` accepts `-jre` and includes it in `computeClasspath()`, but the launcher never passes it. The spike must confirm the fix and update all artifacts.
+**Q6 detail** (**RESOLVED — hypothesis disproven**): The original hypothesis stated JCA classes would be phantom without `rt.jar`. Spike Q6 proved this WRONG: JCA classes are loaded from `android.jar` (API 33) with full method bodies (`phantom=false`). Both static and instance calls resolved by CHA. rt.jar is NOT needed; Java SE 8 is NOT needed. GATOR/Soot 3.3.0 runs on Java 21+ (verified by integration tests on Temurin-21.0.1). Docker Java SE 8 installation removed entirely.
 
 The spike results are recorded as comments in the respective tasks. No separate document needed — answers go directly into the task checklist.
 
@@ -647,7 +625,7 @@ The legacy analysis (`rvsec-regerar-resultados/docs/NOVO/`) identified concrete 
 
 | APK | Known Violations | What to Validate |
 |-----|-----------------|-----------------|
-| `cryptoapp.apk` | JCA violations (MessageDigest, Cipher, Mac, KeyPairGenerator). **Primary test APK** — custom app built by our team, source at `examples/cryptoapp/`, pre-built at `apks_examples/cryptoapp.apk`. 4 Activities, `unreachableEncrypt()`/`unreachableHash()` for reachability validation, diverse widgets (Spinner with entries, XML+programmatic onClick, OptionsMenu) | All 3 matching points: M1 (RVSEC-COV vs JSON), M2 (directlyReachesMop flag), M3 (RVSEC errors vs JSON classes). Also validates: window/widget extraction, WTG transitions, reachability flags (unreachable methods must be NOT reachable), rt.jar impact (Spike Q6) |
+| `cryptoapp.apk` | JCA violations (MessageDigest, Cipher, Mac, KeyPairGenerator). **Primary test APK** — custom app built by our team, source at `examples/cryptoapp/`, pre-built at `apks_examples/cryptoapp.apk`. 4 Activities, `unreachableEncrypt()`/`unreachableHash()` for reachability validation, diverse widgets (Spinner with entries, XML+programmatic onClick, OptionsMenu) | All 3 matching points: M1 (RVSEC-COV vs JSON), M2 (directlyReachesMop flag), M3 (RVSEC errors vs JSON classes). Also validates: window/widget extraction, WTG transitions, reachability flags (unreachable methods must be NOT reachable), CHA resolution of JCA instance calls (Spike Q6 confirmed — no rt.jar needed) |
 
 **Batch validation (Task Group 10, batch test):** When running the "5 diverse APKs" batch test, select from this list to maximize coverage of edge cases:
 1. `cryptoapp.apk` — baseline, known MOP violations
@@ -677,4 +655,4 @@ These checks MUST be performed during E2E validation (Task Group 10) to confirm 
 
 5. **What is the exact `rvsec-mop-extractor` Soot API surface?** — Need to confirm which Soot classes it imports and whether they exist in Soot 3.3.0. If incompatible, fallback to a simple regex-based `.mop` file parser that extracts method signatures without Soot. Needs verification in Spike (Q5 → Task 1.4).
 
-6. **Does GATOR's call graph include JCA instance method calls when rt.jar is provided?** — Without `rt.jar`, JCA classes are phantom references with no active body. Soot resolves static calls like `MessageDigest.getInstance()` from the app-side call site, but instance calls (`md.update()`, `md.digest()`, `cipher.init()`, `cipher.doFinal()`) require the class hierarchy from the active body for virtual dispatch resolution. REACH and GESDA solve this by passing `rt.jar` via `set_soot_classpath()` + `set_prepend_classpath(true)`. GATOR's `Main.java` accepts `-jre` (L59-60) and includes it in `computeClasspath()`, but the Python launcher never passes this parameter. The spike must: (a) add `--jre` to the launcher, (b) compare CG edges with/without `rt.jar`, (c) verify JCA instance methods appear. Fallback: test with Sable/FlowDroid enhanced `android.jar` (cloned at `/home/pedro/desenvolvimento/aplicativos/android/platforms-sable`). Needs verification in Spike (Q6 → Task 0.6).
+6. ~~**Does GATOR's call graph include JCA instance method calls when rt.jar is provided?**~~ — **RESOLVED by Spike Q6**: The original hypothesis was wrong. JCA classes are NOT phantom — they are loaded from `android.jar` (API 33) with full method bodies (`phantom=false`, Cipher=38 methods, MessageDigest=18, Mac=18). Both static (27 edges) and instance (70 edges) JCA calls are resolved by CHA using only `android.jar`. rt.jar is NOT needed, Java SE 8 is NOT needed. GATOR/Soot 3.3.0 runs on Java 21+ (verified by integration tests). The `--jre` launcher parameter, `rt_jar` config field, `ENV_RT_JAR` constant, and Docker Java SE 8 installation are all removed.

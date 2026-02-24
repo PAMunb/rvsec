@@ -31,7 +31,50 @@ Execution Phase:
                                                   (items, actions, coordinates)
 ```
 
-**rv-static-analysis** runs during the pre-processing phase of an experiment. It executes three external Java tools (GESDA, GATOR, REACH) against the original APK, producing JSON and CSV output files. The `StaticAnalysisParser` then parses these files into the unified `StaticAnalysisData` domain model. This data is consumed by:
+The end-to-end pipeline from static analysis through execution to coverage calculation:
+
+```mermaid
+sequenceDiagram
+    participant Pre as PreProcessor
+    participant SA as StaticAnalyzer
+    participant GATOR as GATOR/RvsecAnalysisClient
+    participant JSON as analysis JSON
+    participant Parser as StaticAnalysisParser
+    participant SAC as StaticAnalysisComponent
+    participant CT as CoverageTracker
+    participant Agent as rv-agent
+    participant APK as Instrumented APK
+    participant LC as .logcat file
+    participant RP as ResultProcessor
+
+    Note over Pre,GATOR: Pre-Processing Phase
+    Pre->>SA: analyze(apk_path)
+    SA->>GATOR: execute via gator launcher
+    GATOR->>JSON: write {reachability, windows, transitions}
+    SA-->>Pre: StaticAnalysisResult(analysis_file)
+
+    Note over SAC,CT: Task Initialization
+    SAC->>JSON: copy to task results dir
+    SAC->>Parser: parse_file(json_path, code_package)
+    Parser-->>SAC: StaticAnalysisData(Classes, Windows, WTG)
+    SAC->>CT: initialize(static_data)
+    CT->>CT: build LogcatRepository (method universe)
+
+    Note over Agent,LC: Execution Phase
+    CT->>LC: start monitoring (background thread)
+    Agent->>APK: explore via UIAutomator
+    APK->>LC: Coverage.aj logs RVSEC-COV signatures
+    APK->>LC: MOP monitors log RVSEC errors
+    CT->>LC: read new lines (incremental)
+    CT->>CT: register_method_call / register_rv_error
+
+    Note over CT,RP: Post-Processing Phase
+    CT->>CT: calculate_metrics()
+    CT-->>RP: coverage dict (method%, activity%, mop%)
+    RP->>RP: generate CSV, JSON results
+```
+
+**rv-static-analysis** runs during the pre-processing phase of an experiment. It executes a single GATOR analysis client (`RvsecAnalysisClient`) against the original APK, producing a single JSON output file containing reachability data, window/widget inventory, and window transition graph. The `StaticAnalysisParser` then parses this file into the unified `StaticAnalysisData` domain model. This data is consumed by:
 - rv-coverage (to initialize the LogcatRepository with the known method universe)
 - rv-agent (to guide exploration via WTG transitions and MOP reachability)
 - rv-platform (to load static data as a TaskExecutor component)
@@ -42,15 +85,15 @@ Execution Phase:
 
 ### Key Design Decisions
 
-1. **REACH defines the method universe**: The total number of reachable methods from REACH output is the denominator for all coverage percentages. Without REACH data, coverage percentages cannot be computed (only absolute method call counts). The `CoverageAnalyzer` has explicit fallback modes for this scenario.
+1. **Reachability defines the method universe**: The total number of reachable methods from the analysis JSON's `reachability` section is the denominator for all coverage percentages. Without reachability data, coverage percentages cannot be computed (only absolute method call counts). The `CoverageAnalyzer` has explicit fallback modes for this scenario.
 
-2. **GESDA is a prerequisite for REACH**: The analysis pipeline MUST execute GESDA before REACH, because REACH uses GESDA's application structure output. GATOR is independent and can run in parallel with GESDA.
+2. **Single GATOR analysis client**: A single GATOR invocation (`RvsecAnalysisClient`) produces all three data sections (reachability, windows, transitions) in one JSON file. The client writes sections in priority order: reachability first (coverage denominator), then windows, then transitions. On timeout, partial JSON preserves the most critical data first.
 
-3. **MOP means Monitored Operations, not security**: The term "MOP" refers to methods being monitored by ANY specification set (JCA cryptographic specifications or generic FSM specifications). The `reaches_mop` and `directly_reaches_mop` flags in REACH output indicate paths to monitored API methods, regardless of specification domain. Do NOT use "security" terminology when referring to MOP coverage.
+3. **MOP means Monitored Operations, not security**: The term "MOP" refers to methods being monitored by ANY specification set (JCA cryptographic specifications or generic FSM specifications). The `reaches_mop` and `directly_reaches_mop` flags in the reachability section indicate paths to monitored API methods, regardless of specification domain. Do NOT use "security" terminology when referring to MOP coverage.
 
 4. **Coverage.aj logs via HashSet dedup**: The Coverage.aj aspect woven into instrumented APKs logs method calls via `Log.v("RVSEC-COV", signature)` with a `HashSet` to ensure each signature is logged only once per execution. The signature format is `<className: returnType methodName(params)>`. The `LogcatParser` also supports a legacy format (`class:::method:::params`) for backward compatibility.
 
-5. **SignatureNormalizer for inner class notation**: Static analysis tools (Soot) use `$` for inner classes (`OuterClass$InnerClass`), but GESDA and GATOR output may use `.` notation (`OuterClass.InnerClass`). All three parsers (GatorParser, GesdaParser, ReachParser) use `SignatureNormalizer` to convert `.` to `$` based on Java naming convention heuristics (uppercase after separator indicates inner class).
+5. **SignatureNormalizer for inner class notation**: Static analysis tools (Soot) use `$` for inner classes (`OuterClass$InnerClass`), but the analysis JSON may use `.` notation (`OuterClass.InnerClass`). The `StaticAnalysisParser` uses `SignatureNormalizer` to convert `.` to `$` based on Java naming convention heuristics (uppercase after separator indicates inner class).
 
 6. **PackageDetector resolves manifest vs code package**: In approximately 27.5% of APKs, the AndroidManifest.xml package name differs from the actual code package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`). The `PackageDetector` uses a priority-based heuristic with 6 strategies: same-package check, game engine detection, single package, common prefix, frequency-based selection, and string similarity fallback. Static analysis parsers receive `code_package` (not `package_name`) for class filtering.
 
@@ -62,9 +105,9 @@ Execution Phase:
 
 ```
 StaticAnalysisData:
-  classes: Classes              # Collection of application classes and methods from REACH
-  windows: Windows              # Collection of UI windows and widgets from GESDA
-  wtg: WindowTransitionGraph    # Navigation graph from GATOR
+  classes: Classes              # Collection of application classes and methods (reachability section)
+  windows: Windows              # Collection of UI windows and widgets (windows section)
+  wtg: WindowTransitionGraph    # Navigation graph (transitions section)
 
 Classes:
   classes: Dict[str, Clazz]     # Class name -> class info (is_activity, is_main_activity, methods)
@@ -183,12 +226,10 @@ PackageDetectionResult:
   game_engine: str              # Detected game engine name, if any
 
 StaticAnalysisResult:
-  gesda_file: str               # Path to GESDA output file
-  gator_file: str               # Path to GATOR WTG output file
-  reach_file: str               # Path to REACH reachability output file
+  analysis_file: str            # Path to unified analysis JSON output file
+  timed_out: bool               # Whether analysis exceeded timeout (partial JSON may exist)
   success: bool                 # Overall pipeline success
   errors: List[str]             # Error messages during analysis
-  execution_times: Dict[str, float]  # Per-tool execution times in seconds
 
 CoverageCalculationMode:
   FULL_STATIC_ANALYSIS          # Complete static data available
@@ -220,9 +261,11 @@ rv-screen-parser:
 ### Input
 
 - `apk_path: str` -- Path to Android APK file (source: rv-experiment or user, consumed by StaticAnalyzer)
-- `code_package: str` -- Application code package name (source: App.code_package via PackageDetector, consumed by all static analysis parsers for class filtering)
+- `code_package: str` -- Application code package name (source: App.code_package via PackageDetector, consumed by StaticAnalysisParser for class filtering)
 - `rvsec_root: str` -- Path to RVSEC installation (source: RVSEC_HOME env var or explicit, consumed by RVStaticAnalysisConfig for tool path resolution)
-- `mop_dir: str` -- Path to MOP specification directory (source: RVStaticAnalysisConfig, consumed by REACH tool)
+- `mop_dir: str` -- Path to MOP specification directory (source: RVStaticAnalysisConfig, consumed by the analysis client via `-clientParam mopDir=<path>`)
+- `analysis_timeout: float` -- Timeout in seconds for the analysis tool (default: 600.0). Passed both as `Command.timeout` (Python process-level kill) and `--timeout` (GATOR's internal timeout)
+- `analysis_client_jar: str` -- Path to the analysis client fat JAR (`lib/gator/rvsec-analysis-client.jar`)
 - `logcat_file: str` -- Path to Android logcat output file (source: LogcatComponent in rv-platform, consumed by CoverageTracker and CoverageAnalyzer)
 - `static_data: StaticAnalysisData` -- Parsed static analysis data (source: StaticAnalyzer.get_static_data(), consumed by CoverageTracker for repository initialization)
 - `xml_data: str` -- UIAutomator2 XML hierarchy dump string (source: uiautomator2 device.dump_hierarchy(), consumed by UIAutomator2Parser)
@@ -233,7 +276,7 @@ rv-screen-parser:
 ### Output
 
 - `StaticAnalysisData` -- Unified static analysis results containing Classes, Windows, and WTG (destination: rv-platform StaticAnalysisComponent, rv-agent, rv-coverage)
-- `StaticAnalysisResult` -- Analysis pipeline status with file paths, execution times, and errors (destination: rv-experiment pre-processing)
+- `StaticAnalysisResult` -- Analysis pipeline status with analysis file path, timeout flag, and errors (destination: rv-experiment pre-processing)
 - `Dict[str, float]` -- Coverage metrics dictionary with method_coverage, activity_coverage, mop_method_coverage, called_methods, total_errors (destination: rv-platform CoverageComponent)
 - `ScreenDescription` -- Complete screen state with items, actions, and coordinates (destination: rv-agent ScreenProcessor, LLM prompt generation)
 - `ScreenshotAnalysisResult` -- Visual analysis results with detected texts, buttons, errors, and interactive elements (destination: rv-agent screenshot analysis)
@@ -241,32 +284,29 @@ rv-screen-parser:
 
 ### Side-Effects
 
-- **File System (GESDA)**: Creates `{app_name}.gesda` JSON file in output directory containing application structure
-- **File System (GATOR)**: Creates `{app_name}.wtg` JSON file in output directory containing window transition graph
-- **File System (REACH)**: Creates `{app_name}.reach` CSV file in output directory containing method reachability data
+- **File System (analysis)**: Creates `{app_name}.json` analysis output file in output directory containing reachability, windows, and transitions sections
 - **File System (logcat)**: CoverageTracker creates empty logcat file if it does not exist
 - **Background Thread**: CoverageTracker starts a daemon thread for continuous logcat monitoring; thread terminates on stop() or context manager exit
 
 ### Error
 
-- `StaticAnalysisException` -- Raised when a static analysis tool (GESDA, GATOR, or REACH) returns a non-zero exit code. Contains tool name, exit code, and stderr output. Handled by StaticAnalyzer.analyze() which sets result.success=False.
-- `ConfigurationError` -- Raised by RVStaticAnalysisConfig when required paths are missing, tool JARs are not found, Android SDK is not configured, or MOP directory does not exist.
+- `StaticAnalysisException` -- Raised when the analysis tool returns a non-zero exit code. Contains tool name ("ANALYSIS"), exit code, and stderr output.
+- `RVCommandTimeoutError` -- Raised when the analysis tool exceeds `analysis_timeout`. The `Command` class kills the process tree via `kill_process_tree()`.
+- `ConfigurationError` -- Raised by RVStaticAnalysisConfig when required paths are missing (analysis client JAR, MOP directory, Android SDK).
 - `ValueError` -- Raised by ItemAction coordinate validation when coordinates are not a 2-element integer tuple or contain negative values.
-- Parser errors (all three parsers) -- Caught internally and logged; parsers return empty domain objects (empty Classes, empty Windows, empty WindowTransitionGraph) on failure rather than propagating exceptions.
+- Parser errors -- Caught internally and logged; the parser returns empty domain objects per-section (empty Classes, empty Windows, empty WindowTransitionGraph) on failure rather than propagating exceptions.
 
 ## Invariants
 
-- **INV-ANA-01**: GESDA analysis MUST complete before REACH analysis begins. REACH depends on GESDA output for application structure data. GATOR MAY execute independently of GESDA and REACH.
+- **INV-ANA-02**: The `StaticAnalysisParser` MUST apply `SignatureNormalizer` to all class names and method signatures before storing them in domain models. The normalization converts inner class dot notation (`OuterClass.InnerClass`) to dollar notation (`OuterClass$InnerClass`) using Java naming convention heuristics. The normalizer is applied in all three JSON sections (`windows`, `transitions`, `reachability`).
 
-- **INV-ANA-02**: All static analysis parsers (GatorParser, GesdaParser, ReachParser) MUST apply `SignatureNormalizer` to class names and method signatures before storing them in domain models. The normalization converts inner class dot notation (`OuterClass.InnerClass`) to dollar notation (`OuterClass$InnerClass`) using Java naming convention heuristics.
-
-- **INV-ANA-03**: Static analysis parsers MUST receive `code_package` (from `App.code_package`, detected by `PackageDetector`) for class filtering, NOT `package_name` (from AndroidManifest.xml). This ensures correct behavior for APKs where the manifest package differs from the implementation package.
+- **INV-ANA-03**: The `StaticAnalysisParser` MUST receive `code_package` (from `App.code_package`, detected by `PackageDetector`) for class filtering, NOT `package_name` (from AndroidManifest.xml). The parser MUST filter classes in the `reachability` section and windows in the `windows` section by verifying that class names contain the `code_package` string.
 
 - **INV-ANA-04**: The `CoverageTracker` MUST log coverage metric updates whenever coverage metrics change. It MUST log MOP error detections immediately when an RV error is detected. Log entries MUST include the `task_id` if one was provided during initialization.
 
 - **INV-ANA-05**: The `CoverageTracker` MUST be thread-safe. All shared state access MUST be protected by the `_reader_lock` (RLock). The background monitoring thread MUST be a daemon thread that terminates when stop() is called or the context manager exits.
 
-- **INV-ANA-06**: Static analysis parsers MUST NOT propagate exceptions to callers. On parse failure, they MUST log the error and return empty domain objects: `Classes()` for ReachParser, `Windows()` for GesdaParser, `WindowTransitionGraph()` for GatorParser. The `StaticAnalysisParser` facade applies the same graceful degradation per-parser.
+- **INV-ANA-06**: The `StaticAnalysisParser` MUST NOT propagate exceptions to callers. On parse failure of any section (`windows`, `transitions`, `reachability`), it MUST log the error and return empty domain objects for that section: `Windows()` for window parsing failures, `WindowTransitionGraph()` for transition parsing failures, `Classes()` for reachability parsing failures. Each section is parsed independently — a failure in one section MUST NOT prevent parsing of other sections.
 
 - **INV-ANA-07**: The `LogcatParser` MUST support two coverage message formats: the modern format (`<class: returnType method(params)>`) and the legacy format (`class:::method:::params`). Both formats MUST produce valid `RvCoverageLog` instances.
 
@@ -276,7 +316,7 @@ rv-screen-parser:
 
 - **INV-ANA-10**: The `ScreenDescription` MUST build an `events_by_id` mapping from all `ItemAction` objects across all `ScreenItem` elements. The `get_action_by_id()` method MUST return the correct `ItemAction` for any valid ID within the screen context.
 
-- **INV-ANA-11**: The `StaticAnalyzer` MUST implement intelligent caching: if an output file already exists, the corresponding tool execution MUST be skipped. A `CommandResult(0, b"", b"")` MUST be returned for cached results.
+- **INV-ANA-11**: The `StaticAnalyzer` MUST implement intelligent caching: if the analysis `.json` output file already exists, tool execution MUST be skipped. A `CommandResult(0, b"", b"")` MUST be returned for cached results. An info log with `execution_status='cached'` MUST be recorded.
 
 - **INV-ANA-12**: The `Node.accept(visitor)` method MUST dispatch to element-specific visitor methods based on `view_class` (e.g., `visit_button` for `android.widget.Button`). System navigation buttons (navbar, status bar) MUST be filtered by calling `visitor.should_exclude_system_button(node)` for leaf nodes only, never for container nodes. Container filtering would exclude all children.
 
@@ -284,130 +324,127 @@ rv-screen-parser:
 
 - **INV-ANA-14**: The `PackageDetector` MUST apply detection heuristics in the following priority order: (1) same-as-manifest, (2) game engine detection, (3) single package, (4) common prefix, (5) most common (60%+ frequency), (6) string similarity (85%+ threshold), (7) manifest fallback. Each strategy returns early if a match is found.
 
-- **INV-ANA-15**: Coverage metrics MUST be calculated with REACH data as the denominator. `method_coverage` = (called methods) / (total reachable methods from REACH). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_mop=true from REACH). Without REACH data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
+- **INV-ANA-15**: Coverage metrics MUST be calculated with reachability data as the denominator. `method_coverage` = (called methods) / (total reachable methods from the analysis JSON's reachability section). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_mop=true). Without reachability data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
 
 ## Requirements
 
-### Requirement: GATOR Analysis - Window Transition Graph (FR04)
+### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
-The system MUST run GATOR static analysis to produce a Window Transition Graph (WTG) representing the navigation structure of an Android application. GATOR is a program analysis toolkit that performs static analysis of the application's UI to construct a directed graph where nodes represent windows (Activities, Fragments) and edges represent transitions triggered by user events (click, long_click, scroll, selection, etc.).
+The system MUST run a single GATOR analysis client to produce a single JSON output file containing three data sections written in priority order: (1) method reachability relative to MOP specifications (coverage denominator), (2) window and widget inventory with event listeners, and (3) window transition graph. The section ordering is deliberate: `reachability` is written first because it defines the method universe used as the coverage denominator. On timeout, partial JSON preserves the most critical data first.
 
-The WTG is consumed by rv-agent's `TransitionManager` to guide exploration toward unvisited windows, and by the `WtgScorer` to boost the ranking of actions that correspond to known transitions. Without GATOR data, exploration falls back to purely algorithmic or LLM-driven strategies without navigation guidance.
+The analysis tool is a GATOR client (`RvsecAnalysisClient`) that implements the `GUIAnalysisClient` interface. GATOR initializes Soot once, builds its constraint graph and fixpoint analysis, and then invokes the client's `run(GUIAnalysisOutput output)` method. Inside this method, the client writes each JSON section incrementally with explicit flush, so that a timeout or crash after any section produces a parseable partial file. The execution order inside `run()`:
 
-GATOR execution involves a Python script (`gator`) that orchestrates a Java client JAR (`rvsec-gator-client.jar`) with the `RvsecWtgClient` mode. The output is a JSON file containing windows (with IDs and names) and transitions (with source/target IDs, events, widget IDs, event types, and handler signatures).
+1. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. For each application method, it computes: `reachable` (reachable from Android framework entry points), `reachesMop` (has a direct or indirect path to a monitored API method from the MOP specification directory), and `directlyReachesMop` (directly invokes a monitored API method). MOP method signatures are loaded from `.mop` specification files via `JavamopFacade`. This section is written and flushed first — it establishes the method universe that Coverage.aj runtime logging matches against (both use Soot's `<class: returnType method(params)>` signature format).
 
-The `GatorParser` processes this JSON output into domain objects. For each window, it normalizes the class name via `SignatureNormalizer`, adds it to the `Classes` collection if it belongs to the application package, and creates or retrieves a `Window` object. For each transition, it resolves source and target windows by ID, processes events to create `Widget` objects with `WidgetEvent` entries, and adds `WindowTransition` edges to the `WindowTransitionGraph`.
+2. **Extracts windows and widgets** using GATOR's internal APIs (`getActivities()`, `getActivityRoots()`, `PropertyManager`). GATOR's interprocedural analysis provides the widget inventory (IDs, names, types, text, hint, listeners) including dynamically-registered listeners discovered through interprocedural data flow. Two fields not available via GATOR APIs — `inputType` and `entries` — are extracted by parsing the decoded layout XML files at `Configs.resourceLocation`.
 
-GATOR is independent of GESDA and MAY run in parallel with it.
+3. **Extracts the Window Transition Graph** using GATOR's `WTGBuilder` and `WTGAnalysisOutput`, producing window IDs, transition edges with event types, widget IDs, and handler signatures.
 
-#### Scenario: Successful GATOR analysis with valid APK
+The analysis JSON output is parsed by `StaticAnalysisParser` into the `StaticAnalysisData` domain model (Classes, Windows, WindowTransitionGraph). Downstream consumers (rv-agent, rv-coverage, rv-platform) receive this data structure.
 
-- **WHEN** StaticAnalyzer._run_gator() is called with a valid APK path and output file path
-- **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <client_jar> --out <output_file> -client RvsecWtgClient`
-- **AND** the resulting `.wtg` JSON file MUST be parseable by GatorParser into a WindowTransitionGraph
+The reachability section defines the **method universe** — the total set of reachable methods that serves as the denominator for all coverage percentage calculations. Without reachability data, the system can count absolute method calls but cannot compute coverage percentages. The `CoverageAnalyzer` explicitly switches to `RUNTIME_ONLY` or `FALLBACK_MODE` when reachability data is unavailable.
 
-#### Scenario: GATOR output parsing with inner class normalization
+The reachability section also provides MOP prioritization data consumed by rv-agent. The `MopScorer` in rv-agent's `ActionRanker` assigns +100 score to actions with `directly_reaches_mop=true` and +50 to actions with `reaches_mop=true`, directing exploration toward MOP-relevant code paths.
 
-- **WHEN** GatorParser encounters a window name like `com.example.OuterActivity.InnerFragment`
-- **THEN** SignatureNormalizer MUST convert it to `com.example.OuterActivity$InnerFragment`
-- **AND** the normalized class name MUST be used for Classes collection lookup and Window creation
+The call graph is built using Soot's default entry point strategy — Android lifecycle callbacks discovered by FlowDroid's callback analysis. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points. If reachability is insufficient for specific APKs, GATOR supports a `-withCHA` flag that enables CHA (Class Hierarchy Analysis), which resolves all virtual calls based on the class hierarchy.
 
-#### Scenario: GATOR output with widget events
+**Module**: rv-static-analysis
+**Key components**: `StaticAnalyzer`, `StaticAnalysisParser`, `RVStaticAnalysisConfig`
 
-- **WHEN** GatorParser processes a transition containing events with widget IDs and handler signatures
-- **THEN** each event MUST be converted to a `WidgetEventType` using the mapping (click events -> CLICK, long_click events -> LONG_CLICK, scroll -> SCROLL, etc.)
-- **AND** events with type OTHER MUST be skipped
-- **AND** widgets not yet in the Windows collection MUST be created with `WidgetType.from_class_name(widgetClass)`
-- **AND** widgets with type OTHER MUST be skipped (create_widget returns None)
+#### Scenario: Successful static analysis with valid APK
 
-#### Scenario: GATOR output file does not exist
+- **WHEN** `StaticAnalyzer._run_analysis()` is called with a valid APK path and the analysis client JAR exists at `lib/gator/rvsec-analysis-client.jar`
+- **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> -withCHA`
+- **AND** the resulting `.json` file MUST be parseable by `StaticAnalysisParser` into a `StaticAnalysisData` containing non-empty `Classes`, `Windows`, and `WindowTransitionGraph`
 
-- **WHEN** GatorParser.parse_file() is called with a non-existent file path
+#### Scenario: Static analysis JSON parsing — windows section
+
+- **WHEN** `StaticAnalysisParser._parse_windows()` processes the `windows` array from the analysis JSON
+- **THEN** each window entry MUST produce a `Window` object with `id`, `name`, `type` (ACTIVITY, DIALOG, OPTIONSMENU), and `isMain` flag
+- **AND** each widget in the window's `widgets` array MUST produce a `Widget` object with `id`, `idName`, `type`, `text`, `hint`, `inputType`, and `entries`
+- **AND** each listener in a widget's `listeners` array MUST produce a `WidgetEvent` with `event_type` mapped from the listener's `eventType` string (click → CLICK, long_click → LONG_CLICK, scroll → SCROLL, selection → SELECTION) and `signature` from the `handler` field
+- **AND** listeners with `eventType` mapping to `OTHER` MUST be excluded
+- **AND** class names MUST be normalized via `SignatureNormalizer` (INV-ANA-02)
+- **AND** windows with class names not containing `code_package` MUST be filtered out (INV-ANA-03)
+
+#### Scenario: Static analysis JSON parsing — transitions section
+
+- **WHEN** `StaticAnalysisParser._parse_transitions()` processes the `transitions` array from the analysis JSON
+- **THEN** each transition MUST resolve `sourceId` and `targetId` to `Window` objects from the previously parsed `windows` section
+- **AND** each event in the transition's `events` array MUST produce a `Widget` (if not already created) with `widgetId`, `widgetClass`, and `widgetName`, and a `WidgetEvent` with the handler signature
+- **AND** a `WindowTransition` edge MUST be added to the `WindowTransitionGraph` connecting source to target window
+- **AND** transitions referencing unknown window IDs MUST be logged as warnings and skipped
+
+#### Scenario: Static analysis JSON parsing — reachability section
+
+- **WHEN** `StaticAnalysisParser._parse_classes()` processes the `reachability` array from the analysis JSON
+- **THEN** each class entry MUST produce a `Clazz` object with `name`, `isActivity`, and `isMainActivity` flags
+- **AND** each method in the class's `methods` array MUST produce a `Method` object with `name`, `signature`, `reachable`, `reachesMop`, and `directlyReachesMop` flags
+- **AND** class names and signatures MUST be normalized via `SignatureNormalizer` (INV-ANA-02)
+- **AND** classes not containing `code_package` in their name MUST be filtered out (INV-ANA-03)
+
+#### Scenario: Static analysis JSON parsing with inner class normalization
+
+- **WHEN** `StaticAnalysisParser` encounters a class name like `com.example.OuterActivity.InnerFragment` in any section
+- **THEN** `SignatureNormalizer` MUST convert it to `com.example.OuterActivity$InnerFragment`
+- **AND** the normalized name MUST be used for all domain model lookups and storage
+
+#### Scenario: Analysis output file does not exist
+
+- **WHEN** `StaticAnalysisParser.parse_file()` is called with a non-existent file path
 - **THEN** a warning MUST be logged
-- **AND** an empty `WindowTransitionGraph()` MUST be returned
+- **AND** an empty `StaticAnalysisData` MUST be returned with empty `Classes()`, `Windows()`, and `WindowTransitionGraph()`
 
-#### Scenario: GATOR analysis result is cached
+#### Scenario: Partial JSON parse failure (per-section graceful degradation)
 
-- **WHEN** StaticAnalyzer._execute_command() detects that the `.wtg` output file already exists
+- **WHEN** the analysis JSON file exists but the `reachability` section contains malformed data
+- **THEN** `StaticAnalysisParser._parse_classes()` MUST catch the exception, log an error, and return empty `Classes()`
+- **AND** the `windows` and `transitions` sections MUST still be parsed successfully
+- **AND** the returned `StaticAnalysisData` MUST contain the successfully parsed `Windows` and `WindowTransitionGraph` with empty `Classes`
+
+#### Scenario: Analysis result is cached
+
+- **WHEN** `StaticAnalyzer._execute_command()` detects that the `.json` output file already exists
 - **THEN** tool execution MUST be skipped
 - **AND** a `CommandResult(0, b"", b"")` MUST be returned
-- **AND** an info log with execution_status='cached' MUST be recorded
+- **AND** an info log with `execution_status='cached'` MUST be recorded
 
-### Requirement: GESDA Analysis - GUI Element Extraction (FR05)
+#### Scenario: Analysis timeout
 
-The system MUST run GESDA analysis to extract GUI elements including activities, widgets, and event listeners from Android applications. GESDA (GUI Element Static Detection for Android) analyzes application bytecode to produce a comprehensive inventory of UI components, their properties, and registered event handlers.
+- **WHEN** the analysis tool execution exceeds `analysis_timeout` (default: 600 seconds)
+- **THEN** `Command` MUST kill the process tree via `kill_process_tree()`
+- **AND** `StaticAnalysisResult.timed_out` MUST be set to `True`
+- **AND** the `StaticAnalyzer` MUST log a warning with the tool name and timeout duration
+- **AND** `StaticAnalysisResult.analysis_file` MUST be set to the expected output path (which may not exist)
 
-GESDA output is consumed directly by REACH analysis (as a prerequisite), by rv-agent for widget information, and by the `StaticAnalysisParser` for building the `Windows` domain model. GESDA provides the widget-level detail that GATOR does not: text content, hint text, input types, layout file associations, and listener-to-callback method mappings.
+#### Scenario: Timeout with partial JSON output
 
-GESDA execution is a Java JAR (`rvsec-gesda.jar`) invoked with the APK path, Android SDK platforms directory, Java rt.jar path, and output file path. The output is a JSON file containing windows with type (ACTIVITY, SERVICE, etc.), isMain flag, layout file name, and widgets with IDs, names, types, text, hints, input types, and listener arrays.
+- **WHEN** the analysis tool times out after writing a partial JSON file (e.g., `reachability` section written and flushed, but `windows` and `transitions` sections missing due to timeout)
+- **THEN** `StaticAnalysisParser` MUST attempt to parse the partial file. If `json.loads()` fails due to truncation, the parser MUST attempt recovery by finding the last complete `]` bracket, truncating the content there, closing the JSON object, and retrying
+- **AND** valid sections present in the recovered JSON MUST be parsed successfully into their domain objects
+- **AND** missing or truncated sections MUST result in empty domain objects for those sections (INV-ANA-06)
+- **AND** a warning MUST be logged indicating incomplete file due to timeout
+- **AND** `StaticAnalysisResult.timed_out` MUST be `True`
 
-The `GesdaParser` processes this JSON output. For each window, it normalizes the class name, verifies the window belongs to the application package (via `code_package` filtering), creates the Window object with type and layout information, and parses widgets with their event listeners. Listeners are mapped to `WidgetEventType` values (OnClickListener -> CLICK, OnLongClickListener -> LONG_CLICK, OnScrollListener -> SCROLL, etc.).
+#### Scenario: Analysis output equivalence to previous 3-tool pipeline
 
-#### Scenario: Successful GESDA analysis with valid APK
+- **WHEN** the analysis tool analyzes `cryptoapp.apk` and its output is compared against saved baseline from the previous 3-tool pipeline (GESDA + GATOR + REACH)
+- **THEN** window count MUST match exactly (±0)
+- **AND** transition count MUST match exactly (±0)
+- **AND** total method count MUST match exactly (±0)
+- **AND** `reachable` and `reachesMop` method counts MAY differ by up to ±10% due to the removal of `cg all-reachable` — differences MUST be documented
+- **AND** `directlyReachesMop` counts MUST match exactly (±0) because direct call edges are CG-construction-independent
+- **AND** widget `inputType` and `entries` fields MUST match GESDA output for the same APK
 
-- **WHEN** StaticAnalyzer._run_gesda() is called with a valid APK path
-- **THEN** the system MUST execute: `java -jar rvsec-gesda.jar --android-dir <platforms_dir> --rt-jar <rt_jar> --output <output_file> --apk <apk_path>`
-- **AND** the resulting `.gesda` JSON file MUST be parseable by GesdaParser into Windows and Widget objects
+#### Scenario: Reachability data used as coverage denominator
 
-#### Scenario: GESDA parser filters by code_package
+- **WHEN** `CoverageTracker` or `CoverageAnalyzer` initializes with `StaticAnalysisData` containing `Classes` parsed from the analysis JSON's `reachability` section
+- **THEN** the repository MUST be initialized with all classes and methods from the static data
+- **AND** `method_coverage` MUST be calculated as: (called_methods) / (total_reachable_methods)
+- **AND** `mop_method_coverage` MUST be calculated as: (called_mop_methods) / (total_methods_with_reaches_mop)
+- **AND** these coverage calculations MUST use the `reachability` section from the analysis JSON as the method universe
 
-- **WHEN** GesdaParser.process_window() encounters a window with class_name not containing the `code_package` string
-- **THEN** the window MUST be skipped with a warning log
-- **AND** no Window or Widget objects MUST be created for that entry
-
-#### Scenario: GESDA widget listener parsing
-
-- **WHEN** GesdaParser.parse_listeners() processes a widget's listener array
-- **THEN** each listener type MUST be mapped to a WidgetEventType (OnClickListener -> CLICK, OnLongClickListener -> LONG_CLICK, OnScrollListener -> SCROLL, OnItemSelectedListener -> SELECTION, etc.)
-- **AND** listeners mapping to WidgetEventType.OTHER MUST be excluded
-- **AND** each valid listener MUST produce a WidgetEvent with event_type, className, method name, and callback signature
-
-#### Scenario: GESDA output file does not exist
-
-- **WHEN** GesdaParser.parse_file() is called with a non-existent file path
-- **THEN** a warning MUST be logged
-- **AND** the existing `windows` parameter (or empty `Windows()`) MUST be returned unchanged
-
-### Requirement: REACH Analysis - Method Reachability (FR06)
-
-The system MUST run REACH analysis to compute method reachability information relative to MOP specifications. REACH determines, for each method in the application, three boolean properties: `reachable` (reachable from Android framework entry points), `reaches_mop` (has a direct or indirect call path to a monitored API method), and `directly_reaches_mop` (directly invokes a monitored API method).
-
-REACH defines the **method universe** -- the total set of reachable methods that serves as the denominator for all coverage percentage calculations. This is critical: without REACH data, the system can count absolute method calls but cannot compute coverage percentages (method_coverage, mop_method_coverage). The `CoverageAnalyzer` explicitly switches to `RUNTIME_ONLY` or `FALLBACK_MODE` when REACH data is unavailable.
-
-REACH also provides the MOP prioritization data consumed by rv-agent. The `MopScorer` in rv-agent's `ActionRanker` assigns +100 score to actions with `directly_reaches_mop=true` and +50 to actions with `reaches_mop=true`, directing exploration toward MOP-relevant code paths.
-
-REACH execution requires GESDA output as input. It is a Java JAR (`rvsec-reach.jar`) invoked with the APK path, Android SDK, rt.jar, MOP specification directory, GESDA output file, writer format (CSV), timeout (default 300s), and output path. The output is a CSV file with columns: class, isActivity, isMainActivity, method, params, reachable, reachesMop, directlyReachesMop, signature.
-
-The `ReachParser` processes this CSV. For each row, it normalizes the class name, creates a `Clazz` object (with activity flags), and creates a `Method` object with all reachability flags. Parameters are parsed from a bracket-and-semicolon format (`[param1;param2;...]`). Signatures are normalized via `SignatureNormalizer`.
-
-#### Scenario: Successful REACH analysis with GESDA prerequisite
-
-- **WHEN** StaticAnalyzer._run_reachability() is called after GESDA analysis has completed
-- **THEN** the system MUST execute: `java -jar rvsec-reach.jar --android-dir <platforms_dir> --rt-jar <rt_jar> --mop-dir <mop_dir> --gesda <gesda_file> --writer csv --timeout 300 --apk <apk_path> --output <output_file>`
-- **AND** the `--gesda` argument MUST point to the GESDA output file from the same analysis run
-
-#### Scenario: REACH CSV parsing with reachability flags
-
-- **WHEN** ReachParser.read_file() processes a CSV row: `com.example.App,true,true,doEncrypt,[javax.crypto.Cipher],true,true,true,<com.example.App: void doEncrypt(javax.crypto.Cipher)>`
-- **THEN** a Clazz MUST be created with name=`com.example.App`, is_activity=true, is_main_activity=true
-- **AND** a Method MUST be created with reachable=true, reaches_mop=true, directly_reaches_mop=true
-- **AND** params MUST be parsed as `["javax.crypto.Cipher"]`
-- **AND** the signature MUST be normalized by SignatureNormalizer
-
-#### Scenario: REACH data used as coverage denominator
-
-- **WHEN** CoverageTracker or CoverageAnalyzer initializes with StaticAnalysisData containing REACH-parsed Classes
-- **THEN** the repository MUST be initialized with all classes and methods from static data
-- **AND** method_coverage MUST be calculated as: (called_methods) / (total_reachable_methods)
-- **AND** mop_method_coverage MUST be calculated as: (called_mop_methods) / (total_methods_with_reaches_mop)
-
-#### Scenario: REACH output file does not exist
-
-- **WHEN** ReachParser.parse_file() is called with a non-existent file path
-- **THEN** a warning MUST be logged
-- **AND** the existing `classes` parameter (or empty `Classes()`) MUST be returned unchanged
-
-#### Scenario: Coverage without REACH data (fallback)
+#### Scenario: Coverage without reachability data (fallback)
 
 - **WHEN** CoverageAnalyzer is initialized without StaticAnalysisData or with empty Classes
 - **THEN** calculation_mode MUST be set to RUNTIME_ONLY or FALLBACK_MODE
@@ -418,7 +455,7 @@ The `ReachParser` processes this CSV. For each row, it normalizes the class name
 
 The system MUST track method coverage in real-time during test execution via the `CoverageTracker`, and provide batch analysis via the `CoverageAnalyzer`. Coverage tracking relies on the instrumented APK's Coverage.aj aspect, which logs unique method signatures to Android logcat using the `RVSEC-COV` tag.
 
-The `CoverageTracker` monitors a logcat file in a background daemon thread. It reads new lines incrementally (using file position tracking to avoid re-reading), parses each line via `parse_logcat_line()`, and registers method calls in the `LogcatRepository`. When initialized with `StaticAnalysisData`, the repository is populated with the known method universe from REACH, enabling percentage-based coverage calculation.
+The `CoverageTracker` monitors a logcat file in a background daemon thread. It reads new lines incrementally (using file position tracking to avoid re-reading), parses each line via `parse_logcat_line()`, and registers method calls in the `LogcatRepository`. When initialized with `StaticAnalysisData`, the repository is populated with the known method universe from the analysis JSON's reachability section, enabling percentage-based coverage calculation.
 
 Two types of coverage are tracked:
 - **Overall method coverage**: Percentage of all reachable application methods exercised during testing. Best observed: 26.77% (Humanoid at 300s) in the ICST study.

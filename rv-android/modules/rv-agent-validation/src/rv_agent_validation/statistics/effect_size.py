@@ -2,8 +2,9 @@
 Effect size calculations for experiment results.
 """
 
-from typing import Dict, List, Any, Tuple
 from itertools import combinations
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 
 
@@ -90,9 +91,7 @@ class EffectSize:
         var_x, var_y = np.var(x, ddof=1), np.var(y, ddof=1)
 
         # Pooled standard deviation
-        pooled_std = np.sqrt(
-            ((n_x - 1) * var_x + (n_y - 1) * var_y) / (n_x + n_y - 2)
-        )
+        pooled_std = np.sqrt(((n_x - 1) * var_x + (n_y - 1) * var_y) / (n_x + n_y - 2))
 
         if pooled_std == 0:
             return 0.0, "undefined"
@@ -114,10 +113,7 @@ class EffectSize:
 
     @staticmethod
     def compare_strategies(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategy_a: str,
-        strategy_b: str
+        results: List[Dict[str, Any]], metric: str, strategy_a: str, strategy_b: str
     ) -> Dict[str, Any]:
         """
         Calculate effect sizes between two strategies.
@@ -132,11 +128,13 @@ class EffectSize:
             Effect size results.
         """
         values_a = [
-            r[metric] for r in results
+            r[metric]
+            for r in results
             if r.get("strategy") == strategy_a and r.get(metric) is not None
         ]
         values_b = [
-            r[metric] for r in results
+            r[metric]
+            for r in results
             if r.get("strategy") == strategy_b and r.get(metric) is not None
         ]
 
@@ -152,14 +150,14 @@ class EffectSize:
             "cohen_interpretation": cohen_interp,
             "n_a": len(values_a),
             "n_b": len(values_b),
-            "direction": "a > b" if cliff_delta > 0 else "b > a" if cliff_delta < 0 else "equal",
+            "direction": (
+                "a > b" if cliff_delta > 0 else "b > a" if cliff_delta < 0 else "equal"
+            ),
         }
 
     @staticmethod
     def all_pairwise(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategies: List[str]
+        results: List[Dict[str, Any]], metric: str, strategies: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Calculate effect sizes for all strategy pairs.
@@ -180,9 +178,7 @@ class EffectSize:
 
     @staticmethod
     def summary_matrix(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategies: List[str]
+        results: List[Dict[str, Any]], metric: str, strategies: List[str]
     ) -> Dict[str, Dict[str, float]]:
         """
         Create effect size matrix.
@@ -199,11 +195,13 @@ class EffectSize:
 
         for s1, s2 in combinations(strategies, 2):
             values_a = [
-                r[metric] for r in results
+                r[metric]
+                for r in results
                 if r.get("strategy") == s1 and r.get(metric) is not None
             ]
             values_b = [
-                r[metric] for r in results
+                r[metric]
+                for r in results
                 if r.get("strategy") == s2 and r.get(metric) is not None
             ]
 

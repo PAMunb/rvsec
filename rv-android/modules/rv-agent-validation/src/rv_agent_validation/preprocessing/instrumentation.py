@@ -7,7 +7,7 @@ and rv-static-analysis to prepare APKs for validation experiments.
 Workflow:
 1. Generate monitors once from generic MOP specifications
 2. Instrument all APKs with the generated monitors
-3. Run static analysis on original APKs (GESDA, GATOR, REACH)
+3. Run unified static analysis on original APKs (GATOR-based client)
 4. Organize all data in apks_instrumented/<apk_name>/
 5. Copy pre-existing .methods files
 
@@ -15,29 +15,24 @@ Output structure:
     apks_instrumented/
     ├── app1.apk/
     │   ├── app1.apk              # Instrumented APK
-    │   ├── app1.apk.gesda        # GESDA: app structure
-    │   ├── app1.apk.wtg          # GATOR: Window Transition Graph
-    │   ├── app1.apk.reach        # REACH: reachability analysis
+    │   ├── app1.apk.json         # Unified analysis (reachability, windows, transitions)
     │   └── app1.apk.methods      # Ground truth methods (from all_methods/)
     └── app2.apk/
         └── ...
-
-NOTE: All 3 static analysis files (.gesda, .wtg, .reach) are required
-for StaticAnalysisParser to work correctly.
 """
 
+import logging
 import os
 import shutil
-import logging
 import signal
 import time
-from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from rv_android_core.domain.app import App
-
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +49,12 @@ class InstrumentationResult:
     failed_apks: Dict[str, str] = field(default_factory=dict)
     static_analysis_success: List[str] = field(default_factory=list)
     static_analysis_failed: Dict[str, str] = field(default_factory=dict)
-    static_analysis_timeout: List[str] = field(default_factory=list)  # APKs that timed out
-    complete_apks: List[str] = field(default_factory=list)  # APKs with all 4 required files
+    static_analysis_timeout: List[str] = field(
+        default_factory=list
+    )  # APKs that timed out
+    complete_apks: List[str] = field(
+        default_factory=list
+    )  # APKs with all required files
     monitors_generated: bool = False
 
     @property
@@ -67,7 +66,7 @@ class InstrumentationResult:
 
     @property
     def complete_rate(self) -> float:
-        """Calculate rate of APKs with all 4 required files."""
+        """Calculate rate of APKs with all required files."""
         if self.total_apks == 0:
             return 0.0
         return (len(self.complete_apks) / self.total_apks) * 100
@@ -80,20 +79,14 @@ class InstrumentationWrapper:
     This class coordinates the preprocessing of APKs for validation experiments:
     - Generates runtime verification monitors from MOP specifications
     - Instruments APKs with the generated monitors
-    - Runs static analysis (GESDA, GATOR, REACH) on original APKs
+    - Runs unified static analysis (GATOR-based client) on original APKs
     - Organizes all output files in apks_instrumented/<apk_name>/
 
     Output structure:
         apks_instrumented/<apk_name>/
         ├── <apk_name>.apk         # Instrumented APK
-        ├── <apk_name>.gesda       # GESDA: app structure
-        ├── <apk_name>.wtg         # GATOR: Window Transition Graph
-        ├── <apk_name>.reach       # REACH: reachability analysis
+        ├── <apk_name>.json        # Unified analysis (reachability, windows, transitions)
         └── <apk_name>.methods     # Ground truth (from all_methods/)
-
-    NOTE: All 3 static analysis files are required for StaticAnalysisParser.
-    The .methods files from static analysis are discarded in favor of the
-    pre-existing .methods files in all_methods/ directory.
     """
 
     def __init__(
@@ -115,21 +108,29 @@ class InstrumentationWrapper:
 
         # Input directories (absolute)
         self.apks_dir = (self.validation_data_dir / "apks").resolve()
-        self.specs_dir = Path(specs_dir).resolve() if specs_dir else (self.validation_data_dir / "specs").resolve()
+        self.specs_dir = (
+            Path(specs_dir).resolve()
+            if specs_dir
+            else (self.validation_data_dir / "specs").resolve()
+        )
         self.all_methods_dir = (self.validation_data_dir / "all_methods").resolve()
 
         # Output directory (absolute)
         self.output_dir = (self.validation_data_dir / "apks_instrumented").resolve()
 
         # Temporary directories (absolute)
-        self.temp_dir = Path(temp_dir).resolve() if temp_dir else (self.validation_data_dir / "temp").resolve()
+        self.temp_dir = (
+            Path(temp_dir).resolve()
+            if temp_dir
+            else (self.validation_data_dir / "temp").resolve()
+        )
         self.monitors_dir = (self.temp_dir / "monitors").resolve()
         self.temp_instrumented_dir = (self.temp_dir / "instrumented").resolve()
 
         # Validate input directories
         self._validate_inputs()
 
-        logger.info(f"InstrumentationWrapper initialized")
+        logger.info("InstrumentationWrapper initialized")
         logger.info(f"  APKs dir (input): {self.apks_dir}")
         logger.info(f"  Specs dir: {self.specs_dir}")
         logger.info(f"  Methods dir: {self.all_methods_dir}")
@@ -154,7 +155,9 @@ class InstrumentationWrapper:
         self.monitors_dir.mkdir(parents=True, exist_ok=True)
         self.temp_instrumented_dir.mkdir(parents=True, exist_ok=True)
 
-    def run(self, force: bool = False, skip_static_analysis: bool = False) -> InstrumentationResult:
+    def run(
+        self, force: bool = False, skip_static_analysis: bool = False
+    ) -> InstrumentationResult:
         """
         Execute the complete instrumentation workflow.
 
@@ -199,9 +202,9 @@ class InstrumentationWrapper:
         logger.info("=" * 60)
         self._copy_methods_files(result)
 
-        # Step 5: Validate complete APKs (must have all 4 files)
+        # Step 5: Validate complete APKs (must have all required files)
         logger.info("=" * 60)
-        logger.info("Step 5: Validating complete APKs (all 4 required files)")
+        logger.info("Step 5: Validating complete APKs")
         logger.info("=" * 60)
         self._validate_complete_apks(result)
 
@@ -219,7 +222,9 @@ class InstrumentationWrapper:
         """
         try:
             from rv_monitor_generator.config import RVGeneratorConfig
-            from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
+            from rv_monitor_generator.runtime_verification_generator import (
+                RuntimeVerificationGenerator,
+            )
 
             logger.info(f"Using specifications from: {self.specs_dir}")
             logger.info(f"Monitor output directory: {self.monitors_dir}")
@@ -249,7 +254,9 @@ class InstrumentationWrapper:
             logger.error(f"Monitor generation failed: {e}")
             return False
 
-    def _instrument_apks(self, result: InstrumentationResult, force: bool = False) -> None:
+    def _instrument_apks(
+        self, result: InstrumentationResult, force: bool = False
+    ) -> None:
         """
         Instrument all APKs with the generated monitors.
 
@@ -328,65 +335,73 @@ class InstrumentationWrapper:
                     result.failed_apks[apk_name] = error_msg
                     logger.warning(f"  [FAIL] {apk_name}: {error_msg}")
 
-            logger.info(f"Instrumentation complete: {len(result.instrumented_apks)}/{result.total_apks} successful")
+            logger.info(
+                f"Instrumentation complete: "
+                f"{len(result.instrumented_apks)}/{result.total_apks} successful"
+            )
 
         except ImportError as e:
             logger.error(f"rv-instrumentation module not available: {e}")
         except Exception as e:
             logger.error(f"Instrumentation failed: {e}")
 
-    def _run_static_analysis(self, result: InstrumentationResult, force: bool = False) -> None:
+    def _run_static_analysis(
+        self, result: InstrumentationResult, force: bool = False
+    ) -> None:
         """
-        Run static analysis on ORIGINAL APKs (not instrumented).
+        Run unified static analysis on ORIGINAL APKs (not instrumented).
 
         Static analysis should be performed on original APKs to extract
         the unmodified application structure. Only processes APKs that
         were successfully instrumented.
 
-        Generates 3 files per APK (all required for StaticAnalysisParser):
-        - <apk_name>.gesda - GESDA: app structure
-        - <apk_name>.wtg   - GATOR: Window Transition Graph
-        - <apk_name>.reach - REACH: reachability analysis
+        Generates a single JSON file per APK with reachability, windows,
+        and transitions data.
 
         TIMEOUT: Each APK has 30 minutes to complete static analysis.
         APKs that exceed this timeout are terminated and marked as failed.
 
         Args:
             result: InstrumentationResult to update
-            force: Force re-analysis even if output files already exist
+            force: Force re-analysis even if output file already exists
         """
         try:
-            from rv_static_analysis.analysis.static.static_analysis import StaticAnalyzer
-            from rv_static_analysis.config import RVStaticAnalysisConfig
+            pass
 
             if not result.instrumented_apks:
                 logger.warning("No instrumented APKs to analyze")
                 return
 
-            logger.info(f"Running static analysis on {len(result.instrumented_apks)} ORIGINAL APKs")
-            logger.info(f"Timeout per APK: {STATIC_ANALYSIS_TIMEOUT_SECONDS // 60} minutes")
+            logger.info(
+                f"Running static analysis on {len(result.instrumented_apks)} ORIGINAL APKs"
+            )
+            logger.info(
+                f"Timeout per APK: {STATIC_ANALYSIS_TIMEOUT_SECONDS // 60} minutes"
+            )
 
             for i, apk_name in enumerate(result.instrumented_apks, 1):
-                logger.info(f"[{i}/{len(result.instrumented_apks)}] Analyzing {apk_name}")
+                logger.info(
+                    f"[{i}/{len(result.instrumented_apks)}] Analyzing {apk_name}"
+                )
 
                 # Use ORIGINAL APK for static analysis (not instrumented)
                 apk_path = self.apks_dir / apk_name
                 # Output goes to the same directory as the instrumented APK
                 apk_output_dir = self.output_dir / apk_name
 
-                # Check if analysis already exists
-                gesda_file = apk_output_dir / f"{apk_name}.gesda"
-                wtg_file = apk_output_dir / f"{apk_name}.wtg"
-                reach_file = apk_output_dir / f"{apk_name}.reach"
+                # Check if unified analysis JSON already exists
+                analysis_file = apk_output_dir / f"{apk_name}.json"
 
-                if not force and gesda_file.exists() and wtg_file.exists() and reach_file.exists():
-                    logger.info(f"  [SKIP] {apk_name} - analysis files already exist")
+                if not force and analysis_file.exists():
+                    logger.info(f"  [SKIP] {apk_name} - analysis file already exists")
                     result.static_analysis_success.append(apk_name)
                     continue
 
                 if not apk_path.exists():
-                    logger.warning(f"  [FAIL] {apk_name}: Original APK not found at {apk_path}")
-                    result.static_analysis_failed[apk_name] = f"Original APK not found"
+                    logger.warning(
+                        f"  [FAIL] {apk_name}: Original APK not found at {apk_path}"
+                    )
+                    result.static_analysis_failed[apk_name] = "Original APK not found"
                     continue
 
                 # Run analysis with timeout
@@ -405,16 +420,24 @@ class InstrumentationWrapper:
                     methods_file = apk_output_dir / f"{apk_name}.methods"
                     if methods_file.exists():
                         methods_file.unlink()
-                        logger.debug(f"  Removed generated .methods file")
+                        logger.debug("  Removed generated .methods file")
                 elif error_msg == "TIMEOUT":
                     result.static_analysis_timeout.append(apk_name)
-                    result.static_analysis_failed[apk_name] = f"Timeout after {STATIC_ANALYSIS_TIMEOUT_SECONDS // 60} minutes"
-                    logger.warning(f"  [TIMEOUT] {apk_name}: Exceeded {STATIC_ANALYSIS_TIMEOUT_SECONDS // 60} minute limit")
+                    result.static_analysis_failed[apk_name] = (
+                        f"Timeout after {STATIC_ANALYSIS_TIMEOUT_SECONDS // 60} minutes"
+                    )
+                    logger.warning(
+                        f"  [TIMEOUT] {apk_name}: "
+                        f"Exceeded {STATIC_ANALYSIS_TIMEOUT_SECONDS // 60} min"
+                    )
                 else:
                     result.static_analysis_failed[apk_name] = error_msg
                     logger.warning(f"  [FAIL] {apk_name}: {error_msg}")
 
-            logger.info(f"Static analysis complete: {len(result.static_analysis_success)}/{len(result.instrumented_apks)} successful")
+            logger.info(
+                f"Static analysis complete: "
+                f"{len(result.static_analysis_success)}/{len(result.instrumented_apks)} successful"
+            )
             if result.static_analysis_timeout:
                 logger.info(f"  Timeouts: {len(result.static_analysis_timeout)}")
 
@@ -479,7 +502,9 @@ class InstrumentationWrapper:
                     # Analysis exceeded timeout - cancel and cleanup
                     future.cancel()
                     elapsed = time.time() - start_time
-                    logger.warning(f"  Analysis timed out after {elapsed:.1f}s - killing Java processes")
+                    logger.warning(
+                        f"  Analysis timed out after {elapsed:.1f}s - killing Java processes"
+                    )
 
                     # Kill any lingering Java processes for this APK
                     self._kill_java_processes(apk_name)
@@ -494,7 +519,7 @@ class InstrumentationWrapper:
         Kill any Java processes related to the given APK.
 
         This is used to cleanup after a timeout in static analysis.
-        GATOR/GESDA/REACH run as Java subprocesses that may linger.
+        The GATOR analysis client runs as a Java subprocess that may linger.
 
         Args:
             apk_name: Name of the APK (used to identify processes)
@@ -503,7 +528,6 @@ class InstrumentationWrapper:
 
         try:
             # Find and kill Java processes for gator/soot that mention this APK
-            # This is a best-effort cleanup - some processes may have already terminated
             result = subprocess.run(
                 ["pgrep", "-f", f"java.*{apk_name}"],
                 capture_output=True,
@@ -574,13 +598,11 @@ class InstrumentationWrapper:
 
     def _validate_complete_apks(self, result: InstrumentationResult) -> None:
         """
-        Validate which APKs have all 4 required files.
+        Validate which APKs have all required files.
 
         Required files for each APK:
         - <apk_name>.apk      - Instrumented APK
-        - <apk_name>.gesda    - GESDA analysis
-        - <apk_name>.wtg      - GATOR WTG
-        - <apk_name>.reach    - REACH analysis
+        - <apk_name>.json     - Unified analysis (reachability, windows, transitions)
         - <apk_name>.methods  - Ground truth methods
 
         Only APKs with ALL files are marked as complete and can be used
@@ -589,18 +611,15 @@ class InstrumentationWrapper:
         Args:
             result: InstrumentationResult to update
         """
-        logger.info("Validating APKs with all 4 required files...")
+        logger.info("Validating APKs with all required files...")
 
         for apk_name in result.instrumented_apks:
             apk_dir = self.output_dir / apk_name
 
-            # Check all 4 required files
             required_files = [
-                apk_dir / apk_name,              # Instrumented APK
-                apk_dir / f"{apk_name}.gesda",   # GESDA
-                apk_dir / f"{apk_name}.wtg",     # GATOR WTG
-                apk_dir / f"{apk_name}.reach",   # REACH
-                apk_dir / f"{apk_name}.methods", # Ground truth
+                apk_dir / apk_name,  # Instrumented APK
+                apk_dir / f"{apk_name}.json",  # Unified analysis
+                apk_dir / f"{apk_name}.methods",  # Ground truth
             ]
 
             missing_files = [f.name for f in required_files if not f.exists()]
@@ -611,7 +630,10 @@ class InstrumentationWrapper:
             else:
                 logger.debug(f"  [INCOMPLETE] {apk_name}: missing {missing_files}")
 
-        logger.info(f"Complete APKs (ready for experiments): {len(result.complete_apks)}/{len(result.instrumented_apks)}")
+        logger.info(
+            f"Complete APKs (ready for experiments): "
+            f"{len(result.complete_apks)}/{len(result.instrumented_apks)}"
+        )
 
     def _print_summary(self, result: InstrumentationResult) -> None:
         """Print a summary of the instrumentation process."""
@@ -620,14 +642,22 @@ class InstrumentationWrapper:
         logger.info("INSTRUMENTATION SUMMARY")
         logger.info("=" * 60)
         logger.info(f"Total APKs: {result.total_apks}")
-        logger.info(f"Successfully instrumented: {len(result.instrumented_apks)} ({result.success_rate:.1f}%)")
+        logger.info(
+            f"Successfully instrumented: "
+            f"{len(result.instrumented_apks)} ({result.success_rate:.1f}%)"
+        )
         logger.info(f"Failed instrumentation: {len(result.failed_apks)}")
         logger.info(f"Static analysis success: {len(result.static_analysis_success)}")
         logger.info(f"Static analysis failed: {len(result.static_analysis_failed)}")
         if result.static_analysis_timeout:
-            logger.info(f"Static analysis timeouts: {len(result.static_analysis_timeout)}")
+            logger.info(
+                f"Static analysis timeouts: {len(result.static_analysis_timeout)}"
+            )
         logger.info("")
-        logger.info(f"*** COMPLETE APKs (all 4 files): {len(result.complete_apks)} ({result.complete_rate:.1f}%) ***")
+        logger.info(
+            f"*** COMPLETE APKs (all files): "
+            f"{len(result.complete_apks)} ({result.complete_rate:.1f}%) ***"
+        )
         logger.info("")
 
         if result.failed_apks:
@@ -649,12 +679,8 @@ class InstrumentationWrapper:
         logger.info(f"Output directory: {self.output_dir}")
         logger.info("Structure: apks_instrumented/<apk_name>/")
         logger.info("  - <apk_name>.apk      (instrumented)")
-        logger.info("  - <apk_name>.gesda    (GESDA: app structure)")
-        logger.info("  - <apk_name>.wtg      (GATOR: Window Transition Graph)")
-        logger.info("  - <apk_name>.reach    (REACH: reachability analysis)")
+        logger.info("  - <apk_name>.json     (unified analysis)")
         logger.info("  - <apk_name>.methods  (ground truth from all_methods/)")
-        logger.info("")
-        logger.info("NOTE: Only COMPLETE APKs (all 4 files) can be used for experiments.")
 
     def _find_rv_android_dir(self) -> Optional[Path]:
         """

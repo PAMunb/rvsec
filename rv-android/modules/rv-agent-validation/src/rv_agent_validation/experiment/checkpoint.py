@@ -4,9 +4,9 @@ Checkpoint management for experiment resume capability.
 
 import json
 import logging
-from pathlib import Path
 from datetime import datetime
-from typing import List, Set, Optional
+from pathlib import Path
+from typing import List, Optional, Set
 
 from .config import RunConfig
 
@@ -39,13 +39,15 @@ class CheckpointManager:
         """Load checkpoint from file if exists."""
         if self.checkpoint_file.exists():
             try:
-                with open(self.checkpoint_file, 'r') as f:
+                with open(self.checkpoint_file, "r") as f:
                     data = json.load(f)
                     self._completed_runs = set(data.get("completed_runs", []))
                     self._failed_runs = set(data.get("failed_runs", []))
                     self._start_time = data.get("start_time")
                     self._last_update = data.get("last_update")
-                    logger.info(f"Loaded checkpoint: {len(self._completed_runs)} completed, {len(self._failed_runs)} failed")
+                    logger.info(
+                        f"Loaded checkpoint: {len(self._completed_runs)} completed, {len(self._failed_runs)} failed"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to load checkpoint: {e}")
                 self._completed_runs = set()
@@ -65,7 +67,7 @@ class CheckpointManager:
         }
 
         self.checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.checkpoint_file, 'w') as f:
+        with open(self.checkpoint_file, "w") as f:
             json.dump(data, f, indent=2)
 
     def start_experiment(self):
@@ -143,7 +145,9 @@ class CheckpointManager:
             "completed": completed,
             "failed": failed,
             "pending": pending,
-            "progress_percent": round(completed / total_runs * 100, 1) if total_runs > 0 else 0,
+            "progress_percent": (
+                round(completed / total_runs * 100, 1) if total_runs > 0 else 0
+            ),
             "start_time": self._start_time,
             "last_update": self._last_update,
         }

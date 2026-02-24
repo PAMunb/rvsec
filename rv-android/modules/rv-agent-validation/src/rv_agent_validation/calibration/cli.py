@@ -14,15 +14,14 @@ from .parameter_space import get_default_params
 @click.group()
 def calibration():
     """RVAgent calibration commands."""
-    pass
 
 
 @calibration.command()
 @click.option(
-    '--params-file',
+    "--params-file",
     required=True,
     type=click.Path(exists=True),
-    help='Path to optimal_params.json'
+    help="Path to optimal_params.json",
 )
 def show_params(params_file: str):
     """
@@ -46,12 +45,13 @@ def show_params(params_file: str):
     click.echo(f"Trials: {data.get('n_trials', 0)}")
     click.echo("\nParameters:")
 
-    for name, value in data.get('best_params', {}).items():
+    for name, value in data.get("best_params", {}).items():
         click.echo(f"  {name}: {value}")
 
     # Show tool spec string
     from .parameter_space import params_to_tool_spec
-    spec = params_to_tool_spec(data.get('best_params', {}))
+
+    spec = params_to_tool_spec(data.get("best_params", {}))
     click.echo(f"\nTool spec string:\n  {spec}")
 
 
@@ -73,5 +73,5 @@ def show_defaults():
         click.echo(f"  {name}: {value}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     calibration()

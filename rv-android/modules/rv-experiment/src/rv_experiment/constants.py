@@ -40,13 +40,10 @@ EXPERIMENT_TASKS_FILE = "tasks.json"
 from rv_android_core.constants import (
     EXTENSION_APK,
     EXTENSION_METHODS,
-    EXTENSION_GESDA,
-    EXTENSION_REACH,
+    EXTENSION_STATIC_ANALYSIS,
     EXTENSION_RVM,
     EXTENSION_JAVA,
 )
-EXTENSION_GATOR = ".gator"
-EXTENSION_WTG = ".wtg"
 EXTENSION_ASPECTJ = ".aj"
 
 # Default timeouts and repetitions
@@ -106,7 +103,7 @@ def get_static_analysis_source_path(output_dir: str, apk_name: str, extension: s
     Args:
         output_dir: Output directory path
         apk_name: APK filename
-        extension: File extension (e.g., .gesda, .gator, .reach)
+        extension: File extension (e.g., .json, .methods)
         
     Returns:
         Source file path in static analysis directory

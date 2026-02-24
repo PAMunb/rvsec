@@ -236,7 +236,7 @@ src/rv_agent/
 | rv-android-core | Foundation: domain models, event system, logging, validation |
 | rv-screen-parser | UI parsing with visitor patterns for screen analysis |
 | rv-uiautomator | UIAutomator2 adapter for device interaction |
-| rv-static-analysis | GATOR/GESDA/REACH integration for WTG and MOP data |
+| rv-static-analysis | Unified GATOR analysis for WTG and MOP data |
 
 ### External
 

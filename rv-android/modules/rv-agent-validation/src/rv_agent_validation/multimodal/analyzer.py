@@ -6,14 +6,13 @@ Aggregates metrics across sessions and performs statistical analysis.
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
 import statistics
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from .metrics import SessionMetrics, HitClassification
 from .collector import MultimodalMetricsCollector
-
+from .metrics import SessionMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -164,10 +163,13 @@ class MultimodalAnalyzer:
         hit_rates = [s.hit_rate for s in sessions]
         coverages = [s.activity_coverage for s in sessions]
         latencies = [s.avg_latency_ms for s in sessions if s.avg_latency_ms > 0]
-        tokens_per_action = [s.tokens_per_action for s in sessions if s.tokens_per_action > 0]
+        tokens_per_action = [
+            s.tokens_per_action for s in sessions if s.tokens_per_action > 0
+        ]
         actions_per_activity = [
-            s.actions_per_activity for s in sessions
-            if s.actions_per_activity < float('inf')
+            s.actions_per_activity
+            for s in sessions
+            if s.actions_per_activity < float("inf")
         ]
         stuck_recovery = [s.stuck_recovery_rate for s in sessions]
         tool_call_rates = [s.tool_call_rate for s in sessions]
@@ -176,13 +178,17 @@ class MultimodalAnalyzer:
         agg.hit_rate_values = hit_rates
         if hit_rates:
             agg.hit_rate_mean = statistics.mean(hit_rates)
-            agg.hit_rate_std = statistics.stdev(hit_rates) if len(hit_rates) > 1 else 0.0
+            agg.hit_rate_std = (
+                statistics.stdev(hit_rates) if len(hit_rates) > 1 else 0.0
+            )
 
         # Coverage
         agg.coverage_values = coverages
         if coverages:
             agg.coverage_mean = statistics.mean(coverages)
-            agg.coverage_std = statistics.stdev(coverages) if len(coverages) > 1 else 0.0
+            agg.coverage_std = (
+                statistics.stdev(coverages) if len(coverages) > 1 else 0.0
+            )
 
         # Latency
         agg.latency_values = latencies
@@ -197,14 +203,18 @@ class MultimodalAnalyzer:
         if tokens_per_action:
             agg.tokens_per_action_mean = statistics.mean(tokens_per_action)
             agg.tokens_per_action_std = (
-                statistics.stdev(tokens_per_action) if len(tokens_per_action) > 1 else 0.0
+                statistics.stdev(tokens_per_action)
+                if len(tokens_per_action) > 1
+                else 0.0
             )
 
         # Actions per activity
         if actions_per_activity:
             agg.actions_per_activity_mean = statistics.mean(actions_per_activity)
             agg.actions_per_activity_std = (
-                statistics.stdev(actions_per_activity) if len(actions_per_activity) > 1 else 0.0
+                statistics.stdev(actions_per_activity)
+                if len(actions_per_activity) > 1
+                else 0.0
             )
 
         # Stuck recovery
@@ -223,9 +233,7 @@ class MultimodalAnalyzer:
 
         return agg
 
-    def compare_modes(
-        self, mode_a: str, mode_b: str
-    ) -> Dict[str, Any]:
+    def compare_modes(self, mode_a: str, mode_b: str) -> Dict[str, Any]:
         """
         Compare two modes statistically.
 
@@ -376,7 +384,7 @@ class MultimodalAnalyzer:
         if len(modes) >= 2:
             comparisons = []
             for i, mode_a in enumerate(modes):
-                for mode_b in modes[i + 1:]:
+                for mode_b in modes[i + 1 :]:
                     comparison = self.compare_modes(mode_a, mode_b)
                     comparisons.append(comparison)
             report["comparisons"] = comparisons
@@ -403,11 +411,15 @@ class MultimodalAnalyzer:
             print(f"\n--- {mode.upper()} ({agg.num_sessions} sessions) ---")
             print(f"  Hit Rate:     {agg.hit_rate_mean:.1%} ± {agg.hit_rate_std:.1%}")
             print(f"  Coverage:     {agg.coverage_mean:.1%} ± {agg.coverage_std:.1%}")
-            print(f"  Latency:      {agg.latency_mean:.0f}ms (p50={agg.latency_p50:.0f}, p95={agg.latency_p95:.0f})")
+            print(
+                f"  Latency:      {agg.latency_mean:.0f}ms (p50={agg.latency_p50:.0f}, p95={agg.latency_p95:.0f})"
+            )
             print(f"  Tokens/Action: {agg.tokens_per_action_mean:.0f}")
             print(f"  Actions/Activity: {agg.actions_per_activity_mean:.1f}")
             print(f"  Stuck Recovery: {agg.stuck_recovery_rate_mean:.1%}")
-            print(f"  Hit Breakdown: {agg.hits_total} hits, {agg.near_misses_total} near, "
-                  f"{agg.ui_misses_total} UI, {agg.empty_misses_total} empty")
+            print(
+                f"  Hit Breakdown: {agg.hits_total} hits, {agg.near_misses_total} near, "
+                f"{agg.ui_misses_total} UI, {agg.empty_misses_total} empty"
+            )
 
         print("\n" + "=" * 60)

@@ -6,20 +6,22 @@ Split into macro (high-impact) and micro (fine-tuning) phases.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List
 
 
 class CalibrationPhase(Enum):
     """Calibration phase determines which parameters to tune."""
+
     MACRO = "macro"  # 11 high-impact parameters
     MICRO = "micro"  # 26 fine-tuning parameters
-    FULL = "full"    # All 37 parameters
+    FULL = "full"  # All 37 parameters
 
 
 @dataclass
 class ParameterDef:
     """Definition of a tunable parameter."""
+
     name: str
     param_type: str  # "float", "int"
     low: float

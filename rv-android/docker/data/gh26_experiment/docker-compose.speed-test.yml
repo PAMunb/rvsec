@@ -1,7 +1,7 @@
 # Speed Test: 5 APKs × 2 tools × 1 rep = 10 tasks.
 # Tests hypothesis: does rvagent close the gap with ape given more time?
 # Timeout: 600s (10min) — post-fix validation run.
-# Uses gh26-pos image, reuses instrumented APKs from validation.
+# Full pipeline: monitors, instrumentation, static analysis from scratch.
 #
 # Usage:
 #   docker compose -f docker/data/gh26_experiment/docker-compose.speed-test.yml up
@@ -14,9 +14,6 @@ x-rvandroid: &rvandroid-base
     RV_REPETITIONS: "1"
     RV_NO_WINDOW: "true"
     RV_JCA_SPEC: "true"
-    RV_SKIP_STATIC_ANALYSIS: "true"
-    RV_SKIP_MONITORS: "true"
-    RV_SKIP_INSTRUMENT: "true"
     RV_APKS_DIR: /opt/rvsec/rv-android/apks
     RV_HUMANOID_URL: humanoid:50405
   devices:

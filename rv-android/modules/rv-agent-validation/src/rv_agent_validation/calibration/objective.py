@@ -7,7 +7,7 @@ Computes a composite score from method coverage, MOP errors, and UI coverage.
 import json
 import logging
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import pandas as pd
 
@@ -30,7 +30,7 @@ class ObjectiveFunction:
         coverage_weight: float = 0.40,
         errors_weight: float = 0.40,
         ui_coverage_weight: float = 0.20,
-        baseline_max_errors: Optional[float] = None
+        baseline_max_errors: Optional[float] = None,
     ):
         """
         Initialize objective function.
@@ -85,8 +85,8 @@ class ObjectiveFunction:
             return 0.0
 
         # Method coverage and MOP errors from summary.csv
-        avg_method_cov = summary['cov_method'].mean()  # 0-100%
-        avg_errors = summary['errors'].mean()  # Raw count
+        avg_method_cov = summary["cov_method"].mean()  # 0-100%
+        avg_errors = summary["errors"].mean()  # Raw count
         normalized_errors = self._normalize_errors(avg_errors)
 
         # UI element coverage from rvagent_metrics.json files
@@ -94,9 +94,9 @@ class ObjectiveFunction:
 
         # Composite score
         score = (
-            self.coverage_weight * avg_method_cov +
-            self.errors_weight * normalized_errors +
-            self.ui_coverage_weight * avg_ui_cov
+            self.coverage_weight * avg_method_cov
+            + self.errors_weight * normalized_errors
+            + self.ui_coverage_weight * avg_ui_cov
         )
 
         logger.info(
@@ -129,7 +129,7 @@ class ObjectiveFunction:
         coverages = []
         for metrics_file in metrics_files:
             try:
-                with open(metrics_file, 'r', encoding='utf-8') as f:
+                with open(metrics_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 element_cov = data.get("ui_coverage", {}).get("element_coverage", 0.0)
                 coverages.append(float(element_cov))
@@ -141,9 +141,7 @@ class ObjectiveFunction:
             return 0.0
 
         avg = sum(coverages) / len(coverages)
-        logger.debug(
-            f"UI coverage from {len(coverages)} files: avg={avg:.1f}%"
-        )
+        logger.debug(f"UI coverage from {len(coverages)} files: avg={avg:.1f}%")
         return avg
 
     def _find_rvagent_metrics(self, results_path: Path) -> List[Path]:
@@ -238,11 +236,11 @@ class ObjectiveFunction:
             summary = pd.read_csv(summary_path)
 
             # Group by tool, compute average errors per tool
-            if 'tool' in summary.columns:
-                tool_errors = summary.groupby('tool')['errors'].mean()
+            if "tool" in summary.columns:
+                tool_errors = summary.groupby("tool")["errors"].mean()
                 max_errors = tool_errors.max()
             else:
-                max_errors = summary['errors'].mean()
+                max_errors = summary["errors"].mean()
 
             logger.info(f"Computed baseline max errors: {max_errors:.2f}")
             return max(max_errors, 1.0)  # Minimum 1 to avoid division by zero

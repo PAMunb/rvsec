@@ -24,7 +24,7 @@ Core Infrastructure:       rv-android-core, rv-platform, rv-tools, rv-uiautomato
 | **rv-uiautomator** | Shared UIAutomator2 components for Android device interaction |
 | **rv-monitor-generator** | JavaMOP/RV-Monitor integration for generating runtime verification monitors |
 | **rv-instrumentation** | APK instrumentation with monitor and coverage aspect weaving |
-| **rv-static-analysis** | Static analysis tools: GATOR (WTG), GESDA (GUI elements), REACH (MOP reachability) |
+| **rv-static-analysis** | Unified GATOR-based static analysis: reachability, windows, transitions |
 | **rv-coverage** | Coverage analysis and tracking for monitored operations |
 | **rv-screen-parser** | Android UI parsing with visitor patterns for state analysis |
 | **rv-agent** | LLM-driven testing tool using Qwen3-VL vision model with LangGraph workflow |
@@ -36,7 +36,7 @@ Core Infrastructure:       rv-android-core, rv-platform, rv-tools, rv-uiautomato
 
 The full experiment workflow consists of three phases:
 
-1. **Pre-processing**: Monitor generation from MOP specs, APK instrumentation with monitors + coverage aspect, static analysis (GATOR, GESDA, REACH)
+1. **Pre-processing**: Monitor generation from MOP specs, APK instrumentation with monitors + coverage aspect, unified GATOR static analysis
 2. **Execution**: Task generation (APK x tool x variant x repetition x timeout), emulator management, tool execution with logcat capture, coverage tracking
 3. **Post-processing**: Result generation in CSV/JSON format (coverage, errors, summary, performance)
 
@@ -156,7 +156,7 @@ RV-Agent uses a Vision Language Model (Qwen3-VL-4B-Instruct) served via SGLang t
 RV-Agent uses a LangGraph workflow: parse UI state from device, route decision to LLM or algorithm, validate the chosen action, execute on device, and learn from the result. Key features:
 
 - **Stateless LLM context**: Fresh context each iteration (~2500 tokens) prevents context overflow
-- **MOP-aware prioritization**: Prioritizes actions that reach monitored operations (using REACH data)
+- **MOP-aware prioritization**: Prioritizes actions that reach monitored operations (from static analysis)
 - **WTG-guided navigation**: Uses Window Transition Graph from GATOR for navigation
 - **Hybrid tool calling**: Native `bind_tools()` with XML/JSON fallback for SGLang compatibility
 - **Coordinate normalization**: Handles Qwen3-VL [0, 1000) coordinate space to device pixels
@@ -358,7 +358,7 @@ rv-android/
 │   ├── rv-uiautomator/        # Device interaction
 │   ├── rv-monitor-generator/  # Monitor generation
 │   ├── rv-instrumentation/    # APK instrumentation
-│   ├── rv-static-analysis/    # Static analysis (GATOR, GESDA, REACH)
+│   ├── rv-static-analysis/    # Unified GATOR static analysis
 │   ├── rv-coverage/           # Coverage tracking
 │   ├── rv-screen-parser/      # UI parsing
 │   ├── rv-agent/              # LLM-driven testing

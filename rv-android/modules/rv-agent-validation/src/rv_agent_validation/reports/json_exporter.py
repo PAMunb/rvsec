@@ -3,16 +3,16 @@ JSON export for experiment results.
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Any
-from datetime import datetime
-
 import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import numpy as np
+from statistics import DescriptiveStats, EffectSize, SignificanceTests
 
-from statistics import DescriptiveStats, SignificanceTests, EffectSize
+import numpy as np
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -41,7 +41,7 @@ class JSONExporter:
         config: Dict[str, Any],
         output_path: Path,
         strategies: List[str],
-        metrics: List[str]
+        metrics: List[str],
     ) -> Path:
         """
         Export aggregated results to JSON.
@@ -62,15 +62,23 @@ class JSONExporter:
             strategy_results = [r for r in results if r.get("strategy") == strategy]
             summary_by_strategy[strategy] = {}
             for metric in metrics:
-                values = [r[metric] for r in strategy_results if r.get(metric) is not None]
-                summary_by_strategy[strategy][metric] = DescriptiveStats.calculate(values)
+                values = [
+                    r[metric] for r in strategy_results if r.get(metric) is not None
+                ]
+                summary_by_strategy[strategy][metric] = DescriptiveStats.calculate(
+                    values
+                )
 
         # Significance tests
         statistical_tests = {}
         for metric in metrics:
             statistical_tests[metric] = {
-                "kruskal_wallis": SignificanceTests.kruskal_wallis(results, metric, strategies),
-                "pairwise_wilcoxon": SignificanceTests.all_pairwise(results, metric, strategies),
+                "kruskal_wallis": SignificanceTests.kruskal_wallis(
+                    results, metric, strategies
+                ),
+                "pairwise_wilcoxon": SignificanceTests.all_pairwise(
+                    results, metric, strategies
+                ),
             }
 
         # Effect sizes
@@ -85,8 +93,12 @@ class JSONExporter:
                 "name": config.get("experiment_name", "Strategy Validation"),
                 "timestamp": datetime.now().isoformat(),
                 "total_runs": len(results),
-                "completed_runs": len([r for r in results if r.get("status") == "completed"]),
-                "failed_runs": len([r for r in results if r.get("status") != "completed"]),
+                "completed_runs": len(
+                    [r for r in results if r.get("status") == "completed"]
+                ),
+                "failed_runs": len(
+                    [r for r in results if r.get("status") != "completed"]
+                ),
             },
             "configuration": config,
             "summary_by_strategy": summary_by_strategy,
@@ -95,7 +107,7 @@ class JSONExporter:
         }
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(output, f, indent=2, cls=NumpyEncoder)
 
         return output_path
@@ -117,7 +129,7 @@ class JSONExporter:
         if runs_dir.exists():
             for result_file in runs_dir.glob("*.json"):
                 try:
-                    with open(result_file, 'r') as f:
+                    with open(result_file, "r") as f:
                         results.append(json.load(f))
                 except Exception as e:
                     print(f"Error loading {result_file}: {e}")

@@ -4,19 +4,19 @@ Metrics dataclasses for multimodal validation.
 Defines structured records for LLM actions and exploration tracking.
 """
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Tuple, List, Dict
-import time
+from typing import Dict, List, Optional, Tuple
 
 
 class HitClassification(Enum):
     """Classification of click accuracy relative to target element."""
 
-    HIT = "hit"                    # Click inside target element bounds
-    NEAR_MISS = "near_miss"        # Click hit another interactive element
-    UI_MISS = "ui_miss"            # Click hit non-interactive UI (text, image)
-    EMPTY_MISS = "empty_miss"      # Click hit empty screen area
+    HIT = "hit"  # Click inside target element bounds
+    NEAR_MISS = "near_miss"  # Click hit another interactive element
+    UI_MISS = "ui_miss"  # Click hit non-interactive UI (text, image)
+    EMPTY_MISS = "empty_miss"  # Click hit empty screen area
 
 
 @dataclass
@@ -38,15 +38,11 @@ class ElementBounds:
 
     @property
     def center(self) -> Tuple[int, int]:
-        return (
-            (self.left + self.right) // 2,
-            (self.top + self.bottom) // 2
-        )
+        return ((self.left + self.right) // 2, (self.top + self.bottom) // 2)
 
     def contains(self, x: int, y: int) -> bool:
         """Check if point (x, y) is inside bounds."""
-        return (self.left <= x <= self.right and
-                self.top <= y <= self.bottom)
+        return self.left <= x <= self.right and self.top <= y <= self.bottom
 
     def distance_to(self, x: int, y: int) -> float:
         """Calculate distance from point to nearest edge if outside, 0 if inside."""
@@ -65,7 +61,7 @@ class UIElement:
     """Representation of a UI element for hit classification."""
 
     bounds: ElementBounds
-    element_type: str           # Button, EditText, TextView, ImageView, etc.
+    element_type: str  # Button, EditText, TextView, ImageView, etc.
     text: str = ""
     resource_id: str = ""
     is_clickable: bool = False
@@ -90,15 +86,15 @@ class LLMActionRecord:
     iteration: int = 0
 
     # Coordinates
-    raw_coords: Tuple[int, int] = (0, 0)          # [0, 1000) from LLM
-    device_coords: Tuple[int, int] = (0, 0)       # Pixels after conversion
+    raw_coords: Tuple[int, int] = (0, 0)  # [0, 1000) from LLM
+    device_coords: Tuple[int, int] = (0, 0)  # Pixels after conversion
 
     # Classification
     target_element: Optional[ElementBounds] = None
     hit_classification: HitClassification = HitClassification.EMPTY_MISS
-    distance_to_target: float = 0.0               # Distance to intended target
-    distance_to_nearest: float = 0.0              # Distance to any element hit
-    hit_element_type: str = ""                    # Type of element actually hit
+    distance_to_target: float = 0.0  # Distance to intended target
+    distance_to_nearest: float = 0.0  # Distance to any element hit
+    hit_element_type: str = ""  # Type of element actually hit
 
     # Performance
     latency_ms: float = 0.0
@@ -106,9 +102,9 @@ class LLMActionRecord:
     tokens_output: int = 0
 
     # Parsing
-    tool_name: str = ""                           # android_click, android_type_text, etc.
+    tool_name: str = ""  # android_click, android_type_text, etc.
     tool_args: dict = field(default_factory=dict)
-    parser_strategy: str = ""                     # native, xml, fallback
+    parser_strategy: str = ""  # native, xml, fallback
 
     # Context
     activity: str = ""
@@ -137,18 +133,18 @@ class ExplorationRecord:
     # Activity tracking
     activity: str = ""
     is_new_activity: bool = False
-    actions_since_last_new: int = 0               # Efficiency metric
+    actions_since_last_new: int = 0  # Efficiency metric
     total_activities_discovered: int = 0
 
     # Stuck detection
     screen_hash: str = ""
     is_stuck: bool = False
-    stuck_iterations: int = 0                     # Consecutive same-state iterations
-    stuck_recovered: Optional[bool] = None        # None if not stuck, True/False after
+    stuck_iterations: int = 0  # Consecutive same-state iterations
+    stuck_recovered: Optional[bool] = None  # None if not stuck, True/False after
 
     # Action info
-    action_type: str = ""                         # CLICK, SET_TEXT, BACK, etc.
-    action_source: str = ""                       # llm, algorithm
+    action_type: str = ""  # CLICK, SET_TEXT, BACK, etc.
+    action_source: str = ""  # llm, algorithm
 
 
 @dataclass
@@ -171,7 +167,9 @@ class UIElementMetrics:
     # Per-screen metrics
     screens_visited: int = 0
     elements_per_screen: Dict[str, int] = field(default_factory=dict)  # screen -> count
-    coverage_per_screen: Dict[str, float] = field(default_factory=dict)  # screen -> coverage%
+    coverage_per_screen: Dict[str, float] = field(
+        default_factory=dict
+    )  # screen -> coverage%
 
     # Element testing distribution
     untested_elements: int = 0
@@ -206,8 +204,8 @@ class SessionMetrics:
 
     # Session info
     app_package: str = ""
-    agent_mode: str = ""                          # pure_algorithm, llm_only, multimode
-    strategy: str = ""                            # dfs, bfs, greedy, rvagent
+    agent_mode: str = ""  # pure_algorithm, llm_only, multimode
+    strategy: str = ""  # dfs, bfs, greedy, rvagent
     timeout_seconds: int = 0
     seed: int = 0
     start_time: float = field(default_factory=time.time)
@@ -229,7 +227,7 @@ class SessionMetrics:
 
     # Exploration metrics
     exploration_records: List[ExplorationRecord] = field(default_factory=list)
-    total_activities: int = 0                     # From static analysis
+    total_activities: int = 0  # From static analysis
     activities_discovered: int = 0
     total_iterations: int = 0
 
@@ -293,7 +291,7 @@ class SessionMetrics:
     @property
     def actions_per_activity(self) -> float:
         if self.activities_discovered == 0:
-            return float('inf')
+            return float("inf")
         return self.total_iterations / self.activities_discovered
 
     @property

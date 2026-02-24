@@ -73,11 +73,9 @@ rv-agent-validation/
 │   └── __main__.py           # CLI entry point
 │
 ├── data/
-│   ├── calibration_dataset_v2/  # 105 APKs instrumented + SA flat (420 files)
+│   ├── calibration_dataset_v2/  # 105 APKs instrumented + SA flat
 │   │   ├── name.apk            #   Instrumented APK with JCA monitors
-│   │   ├── name.apk.gesda      #   GESDA — named {apk_filename}.gesda
-│   │   ├── name.apk.wtg        #   GATOR WTG — named {apk_filename}.wtg
-│   │   └── name.apk.reach      #   REACH — named {apk_filename}.reach
+│   │   └── name.apk.json       #   Unified analysis (reachability, windows, transitions)
 │   ├── calibration_set_v2.txt   # 75 APKs for calibration (Phases C/D)
 │   ├── holdout_set_v2.txt       # 30 APKs for hold-out validation (Phase E)
 │   ├── all_valid_apks.txt       # 105 APKs (all valid)
@@ -457,7 +455,7 @@ uv run pytest --cov=src tests/
 
 - **rv-android-core**: Foundation infrastructure (App, StaticAnalysisData, LogcatManager)
 - **rv-agent**: Agent execution (AgentFactory, RVAgentConfig)
-- **rv-static-analysis**: Static analysis parsing (StaticAnalysisParser)
+- **rv-static-analysis**: Static analysis parsing (`parse_file()` — unified JSON format)
 - **rv-screen-parser**: UI parsing utilities
 - **rv-monitor-generator**: Monitor generation for instrumentation
 - **rv-instrumentation**: APK instrumentation

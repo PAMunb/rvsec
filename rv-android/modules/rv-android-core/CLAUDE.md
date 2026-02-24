@@ -103,6 +103,7 @@ src/rv_android_core/
 | `util/android/package_detector.py` | Detects code package vs manifest package (~27.5% APKs differ) | ~650 |
 | `util/android/signature_normalizer.py` | Normalizes inner class notation in Soot signatures | ~350 |
 | `util/android/android.py` | ADB operations (install, uninstall, permissions, boot) | ~250 |
+| `constants.py` | File extensions, env var names (`EXTENSION_STATIC_ANALYSIS = ".json"`) | ~30 |
 
 ## Important: `package_name` vs `code_package`
 

@@ -11,7 +11,7 @@ rv-experiment orchestrates the complete experiment lifecycle for the RV-Android 
 - Three-phase workflow: pre-processing, execution, post-processing
 - Tool specification DSL (`tool:variant@param=value`)
 - APK instrumentation with runtime verification monitors
-- Static analysis generation (GATOR, GESDA, REACH)
+- Unified GATOR static analysis
 - Parallel execution support (multiple emulators)
 - APK filtering for subset execution
 - Coordination with rv-platform for task execution
@@ -53,7 +53,7 @@ uv run rv-experiment run [OPTIONS]
 |--------|---------|-------------|
 | `--generate-monitors / --skip-monitors` | enabled | Generate runtime verification monitors |
 | `--instrument-apks / --skip-instrument` | enabled | Instrument APKs with monitors |
-| `--static-analysis / --skip-static` | enabled | Run static analysis (GATOR, GESDA, REACH) |
+| `--static-analysis / --skip-static` | enabled | Run unified GATOR static analysis |
 | `--run-execution / --skip-execution` | enabled | Execute tasks after preprocessing |
 
 **Note:** On resume (via `--name` with existing `tasks.json` or `--resume-dir`), all pre-processing flags are forced to disabled regardless of CLI values.
@@ -152,7 +152,7 @@ Format: `tool[:variant][@param1=value1,param2=value2]`
 
 - **Monitor Generation**: Creates JavaMOP/RV-Monitor monitors from specification files
 - **APK Instrumentation**: Instruments APKs with runtime verification monitors
-- **Static Analysis**: Runs GATOR (WTG), GESDA, REACH on APKs
+- **Static Analysis**: Runs unified GATOR analysis on APKs
 
 Skippable with `--skip-monitors`, `--skip-instrument`, `--skip-static`.
 
@@ -312,5 +312,5 @@ uv run pytest modules/rv-experiment/tests/ -v
 - **rv-android-core**: Logging, error handling, domain models
 - **rv-tools**: Tool registry and plugin system
 - **rv-instrumentation**: APK instrumentation
-- **rv-static-analysis**: GATOR, GESDA, REACH integration
+- **rv-static-analysis**: Unified GATOR static analysis
 - **rv-monitor-generator**: JavaMOP/RV-Monitor integration

@@ -21,14 +21,12 @@ import random
 import subprocess
 import sys
 import time
-import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
 
-from .config import ExperimentConfig, RunConfig
 from .checkpoint import CheckpointManager
-from .seed_manager import SeedManager
+from .config import ExperimentConfig, RunConfig
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +67,12 @@ _setup_imports()
 
 # Import after path setup
 try:
-    from rv_agent.config.agent_config import RVAgentConfig
     from rv_agent.agent.agent_factory import AgentFactory
+    from rv_agent.config.agent_config import RVAgentConfig
     from rv_android_core.domain.app import App
     from rv_android_core.domain.static import StaticAnalysisData
     from rv_android_core.util.android.logcat_manager import LogcatManager
+
     RVAGENT_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"rv-agent imports not available: {e}")
@@ -85,11 +84,11 @@ except ImportError as e:
 # Coverage tracking
 try:
     from rv_agent_validation.coverage import (
+        CoverageTracker,
         LogcatCoverageParser,
         MethodsParser,
-        CoverageTracker,
-        CoverageResult,
     )
+
     COVERAGE_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"Coverage imports not available: {e}")
@@ -97,15 +96,19 @@ except ImportError as e:
 
 # Static analysis parser
 try:
-    from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
+    from rv_static_analysis.parser.static.static_analysis_parser import (
+        parse_file as parse_static_analysis,
+    )
+
     STATIC_ANALYSIS_AVAILABLE = True
 except ImportError:
     STATIC_ANALYSIS_AVAILABLE = False
-    StaticAnalysisParser = None
+    parse_static_analysis = None
 
 # Metrics collector
 try:
     from rv_agent_validation.multimodal.collector import MultimodalMetricsCollector
+
     METRICS_COLLECTOR_AVAILABLE = True
 except ImportError:
     METRICS_COLLECTOR_AVAILABLE = False
@@ -114,6 +117,7 @@ except ImportError:
 # Calibration metrics (optional)
 try:
     from rv_agent_validation.calibration import CalibrationMetricsCollector
+
     CALIBRATION_AVAILABLE = True
 except ImportError:
     CALIBRATION_AVAILABLE = False
@@ -144,7 +148,9 @@ def install_apk(apk_path: Path, device_serial: str = "emulator-5554") -> bool:
     try:
         result = subprocess.run(
             ["adb", "-s", device_serial, "install", "-r", "-g", str(apk_path)],
-            capture_output=True, text=True, timeout=120
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         if "Success" in result.stdout:
             logger.info("APK installed successfully")
@@ -166,7 +172,9 @@ def uninstall_apk(package_name: str, device_serial: str = "emulator-5554") -> bo
     try:
         result = subprocess.run(
             ["adb", "-s", device_serial, "uninstall", package_name],
-            capture_output=True, text=True, timeout=60
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         return "Success" in result.stdout
     except Exception as e:
@@ -179,34 +187,30 @@ def clear_app_data(package_name: str, device_serial: str = "emulator-5554"):
     try:
         subprocess.run(
             ["adb", "-s", device_serial, "shell", "pm", "clear", package_name],
-            check=True, capture_output=True, timeout=30
+            check=True,
+            capture_output=True,
+            timeout=30,
         )
         time.sleep(1)
     except Exception as e:
         logger.warning(f"Failed to clear app data: {e}")
 
 
-def load_static_data(apk_path: Path, package_name: str) -> Optional["StaticAnalysisData"]:
+def load_static_data(
+    apk_path: Path, package_name: str
+) -> Optional["StaticAnalysisData"]:
     """Load static analysis data from APK directory if available."""
-    if not STATIC_ANALYSIS_AVAILABLE or not StaticAnalysisParser:
+    if not STATIC_ANALYSIS_AVAILABLE or not parse_static_analysis:
         return None
 
     try:
         apk_dir = apk_path.parent
-        wtg_file = apk_dir / f"{apk_path.name}.wtg"
-        gesda_file = apk_dir / f"{apk_path.name}.gesda"
-        reach_file = apk_dir / f"{apk_path.name}.reach"
+        analysis_file = apk_dir / f"{apk_path.name}.json"
 
-        if not (wtg_file.exists() and gesda_file.exists() and reach_file.exists()):
+        if not analysis_file.exists():
             return None
 
-        parser = StaticAnalysisParser()
-        static_data = parser.parse(
-            reach_file=str(reach_file),
-            gator_file=str(wtg_file),
-            gesda_file=str(gesda_file),
-            package=package_name,
-        )
+        static_data = parse_static_analysis(str(analysis_file), package_name)
         logger.info(f"Loaded static analysis for {package_name}")
         return static_data
     except Exception as e:
@@ -252,7 +256,7 @@ class ExperimentRunner:
         # Setup logging
         self._setup_logging()
 
-        logger.info(f"ExperimentRunner initialized")
+        logger.info("ExperimentRunner initialized")
         logger.info(f"Experiment: {config.experiment_id}")
         logger.info(f"Total runs: {config.total_runs}")
         logger.info(f"Estimated time: {config.estimated_time_hours:.1f} hours")
@@ -264,7 +268,7 @@ class ExperimentRunner:
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(logging.INFO)
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         file_handler.setFormatter(formatter)
         logging.getLogger().addHandler(file_handler)
@@ -324,14 +328,18 @@ class ExperimentRunner:
         for i, run in enumerate(pending_runs):
             progress = self.checkpoint.get_progress(len(all_runs))
             logger.info("-" * 40)
-            logger.info(f"Run {progress['completed'] + 1}/{progress['total']}: {run.run_id}")
+            logger.info(
+                f"Run {progress['completed'] + 1}/{progress['total']}: {run.run_id}"
+            )
             logger.info(f"Progress: {progress['progress_percent']:.1f}%")
 
             try:
                 # Install app if different
                 if current_installed_package != run.package_name:
                     if current_installed_package:
-                        uninstall_apk(current_installed_package, self.config.device_serial)
+                        uninstall_apk(
+                            current_installed_package, self.config.device_serial
+                        )
 
                     apk_path = Path(run.apk_path)
                     if not install_apk(apk_path, self.config.device_serial):
@@ -347,9 +355,11 @@ class ExperimentRunner:
                 logger.info(f"Completed: {run.run_id}")
                 logger.info(f"  States: {result.get('states_discovered', 0)}")
                 logger.info(f"  Actions: {result.get('total_actions', 0)}")
-                if result.get('coverage_metrics'):
-                    cov = result['coverage_metrics']
-                    logger.info(f"  Method Coverage: {cov.get('method_coverage', 0):.1f}%")
+                if result.get("coverage_metrics"):
+                    cov = result["coverage_metrics"]
+                    logger.info(
+                        f"  Method Coverage: {cov.get('method_coverage', 0):.1f}%"
+                    )
 
             except Exception as e:
                 logger.error(f"Failed: {run.run_id} - {e}", exc_info=True)
@@ -388,7 +398,9 @@ class ExperimentRunner:
 
                 error_msg = str(result.get("error", ""))
                 if is_infrastructure_error(error_msg):
-                    logger.warning(f"Infrastructure error (attempt {attempt + 1}/{MAX_RETRIES}): {error_msg}")
+                    logger.warning(
+                        f"Infrastructure error (attempt {attempt + 1}/{MAX_RETRIES}): {error_msg}"
+                    )
                     last_error = error_msg
                     if attempt < MAX_RETRIES - 1:
                         time.sleep(RETRY_DELAY_SECONDS)
@@ -399,7 +411,9 @@ class ExperimentRunner:
             except Exception as e:
                 error_msg = str(e)
                 if is_infrastructure_error(error_msg):
-                    logger.warning(f"Infrastructure exception (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+                    logger.warning(
+                        f"Infrastructure exception (attempt {attempt + 1}/{MAX_RETRIES}): {e}"
+                    )
                     last_error = error_msg
                     if attempt < MAX_RETRIES - 1:
                         time.sleep(RETRY_DELAY_SECONDS)
@@ -415,7 +429,9 @@ class ExperimentRunner:
 
     def _execute_run(self, run: RunConfig) -> Dict[str, Any]:
         """Execute a single run with logcat capture and coverage calculation."""
-        logger.info(f"Executing: package={run.package_name}, strategy={run.strategy}, rep={run.repetition}")
+        logger.info(
+            f"Executing: package={run.package_name}, strategy={run.strategy}, rep={run.repetition}"
+        )
 
         random.seed(run.seed)
         clear_app_data(run.package_name, self.config.device_serial)
@@ -452,7 +468,9 @@ class ExperimentRunner:
         if METRICS_COLLECTOR_AVAILABLE and MultimodalMetricsCollector:
             total_activities = 0
             if static_data and static_data.classes:
-                total_activities = sum(1 for c in static_data.classes.classes.values() if c.is_activity)
+                total_activities = sum(
+                    1 for c in static_data.classes.classes.values() if c.is_activity
+                )
 
             collector = MultimodalMetricsCollector(
                 app_package=run.package_name,
@@ -515,7 +533,9 @@ class ExperimentRunner:
             result["iterations"] = agent_result.get("iterations", 0)
 
             # Extract metrics from agent
-            metrics = self._extract_agent_metrics(agent, agent_result, start_time, end_time)
+            metrics = self._extract_agent_metrics(
+                agent, agent_result, start_time, end_time
+            )
             result.update(metrics)
 
             # Capture UI coverage from agent
@@ -532,7 +552,7 @@ class ExperimentRunner:
                     run_id=run.run_id,
                     package_name=run.package_name,
                     seed=run.seed,
-                    execution_time=end_time - start_time
+                    execution_time=end_time - start_time,
                 )
 
         except Exception as e:
@@ -555,7 +575,9 @@ class ExperimentRunner:
             try:
                 logcat_parser = LogcatCoverageParser()
                 cov_entries, err_entries = logcat_parser.parse_file(logcat_file)
-                logger.info(f"Parsed logcat: {len(cov_entries)} coverage, {len(err_entries)} errors")
+                logger.info(
+                    f"Parsed logcat: {len(cov_entries)} coverage, {len(err_entries)} errors"
+                )
 
                 if methods_file and methods_file.exists():
                     methods_parser = MethodsParser(methods_file)
@@ -593,11 +615,7 @@ class ExperimentRunner:
         return result
 
     def _extract_agent_metrics(
-        self,
-        agent,
-        result: Dict[str, Any],
-        start_time: float,
-        end_time: float
+        self, agent, result: Dict[str, Any], start_time: float, end_time: float
     ) -> Dict[str, Any]:
         """Extract detailed metrics from agent execution."""
         execution_time = end_time - start_time
@@ -630,7 +648,9 @@ class ExperimentRunner:
             "ui_total_elements": ui_coverage_stats.get("total_unique_elements", 0),
             "ui_total_interactions": ui_coverage_stats.get("total_interactions", 0),
             "ui_elements_by_type": ui_coverage_stats.get("elements_by_type", {}),
-            "ui_interactions_by_type": ui_coverage_stats.get("interactions_by_type", {}),
+            "ui_interactions_by_type": ui_coverage_stats.get(
+                "interactions_by_type", {}
+            ),
             "start_time": datetime.fromtimestamp(start_time).isoformat(),
             "end_time": datetime.fromtimestamp(end_time).isoformat(),
             # Routing metrics (LLM vs Algorithm distribution)
@@ -651,13 +671,13 @@ class ExperimentRunner:
     def _save_config(self):
         """Save experiment configuration."""
         config_file = self.experiment_dir / "config.json"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump(self.config.to_dict(), f, indent=2)
 
     def _save_run_result(self, run: RunConfig, result: Dict[str, Any]):
         """Save individual run result."""
         result_file = self.runs_dir / f"{run.run_id}.json"
-        with open(result_file, 'w') as f:
+        with open(result_file, "w") as f:
             json.dump(result, f, indent=2, default=str)
 
 
@@ -665,7 +685,7 @@ def main():
     """CLI entry point."""
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     parser = argparse.ArgumentParser(description="RV-Agent Validation Runner")
@@ -676,17 +696,37 @@ def main():
     run_parser.add_argument("--config", type=Path, help="Path to config JSON file")
     run_parser.add_argument("--apks-dir", type=str, help="Directory containing APKs")
     run_parser.add_argument("--apks", type=str, help="Comma-separated APK paths")
-    run_parser.add_argument("--strategies", type=str, default="rvagent",
-                          help="Comma-separated strategies (default: rvagent)")
-    run_parser.add_argument("--mode", type=str, default="pure_algorithm",
-                          help="Agent mode (pure_algorithm, llm_only, multimode)")
-    run_parser.add_argument("--timeout", type=int, default=300, help="Timeout per run (seconds)")
-    run_parser.add_argument("--repetitions", type=int, default=3, help="Repetitions per config")
+    run_parser.add_argument(
+        "--strategies",
+        type=str,
+        default="rvagent",
+        help="Comma-separated strategies (default: rvagent)",
+    )
+    run_parser.add_argument(
+        "--mode",
+        type=str,
+        default="pure_algorithm",
+        help="Agent mode (pure_algorithm, llm_only, multimode)",
+    )
+    run_parser.add_argument(
+        "--timeout", type=int, default=300, help="Timeout per run (seconds)"
+    )
+    run_parser.add_argument(
+        "--repetitions", type=int, default=3, help="Repetitions per config"
+    )
     run_parser.add_argument("--seed", type=int, default=42, help="Base random seed")
-    run_parser.add_argument("--output", type=str, default="results", help="Output directory")
-    run_parser.add_argument("--device", type=str, default="emulator-5554", help="Device serial")
-    run_parser.add_argument("--no-resume", action="store_true", help="Don't resume from checkpoint")
-    run_parser.add_argument("--no-static", action="store_true", help="Disable static analysis")
+    run_parser.add_argument(
+        "--output", type=str, default="results", help="Output directory"
+    )
+    run_parser.add_argument(
+        "--device", type=str, default="emulator-5554", help="Device serial"
+    )
+    run_parser.add_argument(
+        "--no-resume", action="store_true", help="Don't resume from checkpoint"
+    )
+    run_parser.add_argument(
+        "--no-static", action="store_true", help="Disable static analysis"
+    )
     run_parser.add_argument("--name", type=str, help="Experiment name")
 
     args = parser.parse_args()

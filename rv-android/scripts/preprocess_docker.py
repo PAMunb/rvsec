@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 CONTAINER_STAGGER_SECONDS = 10
 
 # SA file extensions that must all be present for an APK to pass completeness
-SA_EXTENSIONS = (".gesda", ".wtg", ".reach")
+SA_EXTENSIONS = (".json",)
 
 
 # ---------------------------------------------------------------------------
@@ -153,12 +153,12 @@ def filter_by_sa_completeness(
 ) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Filter APKs by static analysis completeness.
 
-    An APK passes if it has all 3 SA files: .gesda, .wtg, .reach.
-    SA files are named {apk_filename}.{ext} (e.g. com.example.app.apk.gesda).
+    An APK passes if it has the unified analysis JSON file (.json).
+    SA files are named {apk_filename}.json (e.g. com.example.app.apk.json).
 
     Returns:
         (passed, failed) where:
-        - passed: list of APK filenames that have all 3 SA files
+        - passed: list of APK filenames that have the analysis JSON
         - failed: list of (apk_filename, missing_extensions) for APKs missing files
     """
     apk_files = sorted(f.name for f in dataset_dir.glob("*.apk"))

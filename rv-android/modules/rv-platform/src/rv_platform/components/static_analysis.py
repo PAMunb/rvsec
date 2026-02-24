@@ -18,7 +18,7 @@ from rv_android_core.util.logging.constants import (
     LOG_SKIPPED, 
     LOG_ERROR
 )
-from rv_android_core.constants import EXTENSION_REACH, EXTENSION_GATOR, EXTENSION_GESDA, EXTENSION_METHODS
+from rv_android_core.constants import EXTENSION_STATIC_ANALYSIS, EXTENSION_METHODS
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
@@ -173,8 +173,8 @@ class StaticAnalysisComponent:
         
         self.logger.info(f"Copying static analysis files for {apk_name} to {target_dir}")
         
-        # Extensions to copy, matching original ExecutionManager implementation
-        extensions = [EXTENSION_METHODS, EXTENSION_GESDA, EXTENSION_GATOR, EXTENSION_REACH]
+        # Extensions to copy: unified analysis JSON + methods list
+        extensions = [EXTENSION_METHODS, EXTENSION_STATIC_ANALYSIS]
         copied_files = 0
 
         try:

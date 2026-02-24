@@ -46,7 +46,7 @@ class TestApp:
 # Available Test Apps
 # =============================================================================
 
-# Apps with complete static analysis (reach, wtg, gesda)
+# Apps with complete static analysis (.json)
 APPS_WITH_STATIC = [
     TestApp(
         name="cryptoapp",

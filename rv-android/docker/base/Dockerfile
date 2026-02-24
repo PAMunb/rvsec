@@ -7,7 +7,6 @@ SHELL ["/bin/bash", "-c"]
 
 # Environment variables for installation paths as per your provided Dockerfile
 ENV JAVA_HOME=/opt/openjdk-25.0.2
-ENV RV_RT_JAR=/opt/java-se-8u44-ri/jre/lib/rt.jar
 ENV MAVEN_HOME=/opt/apache-maven-3.9.12
 ENV ASPECTJ_HOME=/opt/aspectj
 ENV PATH=$ASPECTJ_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH
@@ -25,12 +24,6 @@ RUN wget https://download.java.net/java/GA/jdk25.0.2/b1e0dfa218384cb9959bdcb8971
     tar -xzf openjdk-25.0.2_linux-x64_bin.tar.gz && \
     mv jdk-25.0.2 openjdk-25.0.2 && \
     rm openjdk-25.0.2_linux-x64_bin.tar.gz
-
-# Download and install Java (jre) 8 exactly as in your provided Dockerfile
-RUN wget https://download.java.net/openjdk/jdk8u44/ri/openjdk-8u44-linux-x64.tar.gz && \
-    tar -xzf openjdk-8u44-linux-x64.tar.gz && \
-    rm -Rf java-se-8u44-ri/sample java-se-8u44-ri/src.zip java-se-8u44-ri/demo && \
-    rm openjdk-8u44-linux-x64.tar.gz
 
 # Install Maven exactly as in your provided Dockerfile
 RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.zip && \

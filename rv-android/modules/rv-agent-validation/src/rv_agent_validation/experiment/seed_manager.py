@@ -44,12 +44,7 @@ class SeedManager:
 
         return self._cache[key]
 
-    def get_all_seeds(
-        self,
-        apps: list,
-        strategies: list,
-        repetitions: int
-    ) -> dict:
+    def get_all_seeds(self, apps: list, strategies: list, repetitions: int) -> dict:
         """
         Generate all seeds for an experiment.
 

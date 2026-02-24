@@ -263,7 +263,7 @@ graph TD
 | rv-android-core | Foundation: domain models, event system, logging |
 | rv-screen-parser | UI parsing with visitor patterns |
 | rv-uiautomator | UIAutomator2 adapter for device interaction |
-| rv-static-analysis | GATOR/GESDA integration for WTG and MOP data |
+| rv-static-analysis | Unified GATOR analysis for WTG and MOP data |
 
 ### External
 

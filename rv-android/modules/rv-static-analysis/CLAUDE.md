@@ -4,21 +4,21 @@ This file provides guidance to Claude Code when working with the rv-static-analy
 
 ## Module Overview
 
-The rv-static-analysis module provides static analysis capabilities for Android applications through coordinated execution of three analysis tools: GATOR, GESDA, and REACH. It parses tool outputs into unified domain objects for integration with the broader RV-Android ecosystem.
+The rv-static-analysis module runs unified GATOR-based static analysis on Android applications, producing a single JSON output with reachability, windows, and transitions data. It provides both analysis orchestration (running GATOR) and parsing (loading JSON into domain objects).
 
 ### Purpose
 
-- Orchestrate execution of static analysis tools (GATOR, GESDA, REACH)
-- Parse tool outputs into consistent domain objects
-- Provide unified configuration management for static analysis workflows
-- Enable navigation and reachability analysis for Android applications
+- Run unified GATOR analysis client on Android APKs
+- Parse analysis JSON into `StaticAnalysisData` domain objects
+- Provide configuration management for the analysis pipeline
+- Enable navigation guidance and MOP prioritization in rv-agent
 
 ### Key Features
 
-- **Tool Orchestration**: Coordinated execution of GATOR, GESDA, and REACH tools
-- **Unified Parsing**: Convert tool-specific outputs into consistent domain objects
-- **Configuration Management**: Multi-source configuration with environment variables and validation
-- **Intelligent Caching**: Skip analysis if output files already exist
+- **Single-Client Architecture**: One GATOR invocation produces all analysis data (reachability, windows, transitions) in a single JSON file
+- **Priority-Ordered Output**: Reachability written first, then windows, then transitions — timeout preserves the most critical data
+- **Graceful Degradation**: Parser recovers partial data when sections are missing (e.g., timeout killed analysis before transitions were written)
+- **File-Level Caching**: If output JSON already exists, analysis is skipped
 
 ## Architecture
 
@@ -27,32 +27,33 @@ The rv-static-analysis module provides static analysis capabilities for Android 
 ```
 rv-static-analysis/
 ├── src/rv_static_analysis/
-│   ├── __init__.py              # Public API exports
+│   ├── __init__.py              # Public API: StaticAnalyzer, RVStaticAnalysisConfig
 │   ├── __main__.py              # CLI entry point
-│   ├── config.py                # RVStaticAnalysisConfig
+│   ├── config.py                # RVStaticAnalysisConfig (Pydantic model)
 │   ├── analysis/
 │   │   └── static/
 │   │       └── static_analysis.py  # StaticAnalyzer, StaticAnalysisResult
 │   └── parser/
 │       └── static/
-│           ├── base_parser.py           # BaseStaticAnalysisParser
-│           ├── gator_parser.py          # GatorParser (WTG)
-│           ├── gesda_parser.py          # GesdaParser (GUI elements)
-│           ├── reach_parser.py          # ReachParser (reachability)
-│           └── static_analysis_parser.py # StaticAnalysisParser (facade)
+│           └── static_analysis_parser.py  # parse_file(), StaticAnalysisParser
 └── tests/
-    ├── conftest.py              # Test fixtures
+    ├── conftest.py              # Test fixtures (parser, tmp_path helpers)
     ├── test_config.py           # Configuration tests
-    ├── analysis/                # Analyzer tests
-    ├── parser/                  # Parser tests
-    └── resources/               # Sample output files (.gesda, .wtg, .reach)
+    ├── analysis/
+    │   └── static/
+    │       └── test_static_analysis.py  # Analyzer tests
+    ├── parser/
+    │   └── static/
+    │       └── test_static_analysis_parser.py  # Parser tests (55 tests)
+    └── resources/
+        └── cryptoapp.apk.json   # Reference analysis output for testing
 ```
 
 ### Core Components
 
 #### StaticAnalyzer (`analysis/static/static_analysis.py`)
 
-Main orchestrator for static analysis execution:
+Orchestrates GATOR execution and produces `StaticAnalysisData`:
 
 ```python
 from rv_static_analysis import StaticAnalyzer, RVStaticAnalysisConfig
@@ -67,142 +68,138 @@ if result.success:
     static_data = analyzer.get_static_data()  # Returns StaticAnalysisData
 ```
 
-**Analysis Pipeline Order**:
-1. GESDA - Application structure extraction (required by REACH)
-2. GATOR - Window Transition Graph generation (independent)
-3. REACH - Reachability analysis (depends on GESDA output)
-
 #### RVStaticAnalysisConfig (`config.py`)
 
-Configuration management with priority-based path resolution:
+Pydantic configuration model with priority-based path resolution:
 
 ```python
 from rv_static_analysis.config import RVStaticAnalysisConfig
 
-# Priority order for path resolution:
+# Priority order:
 # 1. Explicit parameters (highest)
-# 2. rvsec_root parameter with standard paths
+# 2. rvsec_root with standard layout
 # 3. RVSEC_HOME environment variable
-# 4. Current working directory parent (fallback)
+# 4. Current working directory parent
 
 config = RVStaticAnalysisConfig(
     rvsec_root="/path/to/rvsec",
-    lib_dir="/custom/lib",        # Optional: override lib directory
     output_dir="/output",
-    validate_on_init=True         # Validate tool availability
+    jvm_memory="8g",         # JVM heap for GATOR (default: 8g)
+    validate_on_init=True    # Validate GATOR availability
 )
 
-# Get tool commands
-cmd = config.get_tool_command('gesda', apk_path, output_file)
+# Build GATOR command
+cmd = config.build_analysis_command(apk_path, output_file, mop_dir)
 ```
 
-#### Parser Infrastructure
+Key config fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `android_jar`, `mop_dir`, `output_dir`, `jvm_memory`.
 
-**BaseStaticAnalysisParser** - Abstract base class:
-- Provides consistent interface for all parsers
-- Standard logging and error handling
-- Package validation helper
+#### Parser (`parser/static/static_analysis_parser.py`)
 
-**Specialized Parsers**:
-
-| Parser | Input Format | Output | Purpose |
-|--------|-------------|--------|---------|
-| GatorParser | JSON (.wtg) | WindowTransitionGraph | UI navigation graph |
-| GesdaParser | JSON (.gesda) | Windows, Widgets | GUI element extraction |
-| ReachParser | CSV (.reach) | Classes, Methods | Method reachability |
-
-All three parsers use **SignatureNormalizer** (from `rv_android_core.util.android.signature_normalizer`) to normalize inner class notation. Static analysis tools (Soot) use `$` for inner classes (`Outer$Inner`), but GESDA/GATOR output may use `.` (`Outer.Inner`). The normalizer ensures consistent matching by converting `.` notation to `$` using Java convention heuristics (uppercase after separator = inner class).
-
-**Important**: Parsers receive `code_package` (not `package_name`) from the `App` model for class filtering. This ensures correct behavior for APKs where the manifest package differs from the implementation package.
-
-**StaticAnalysisParser** - Facade that coordinates all parsers:
+Parses unified JSON into `StaticAnalysisData`:
 
 ```python
+from rv_static_analysis.parser.static.static_analysis_parser import parse_file
+
+# Convenience function (recommended)
+static_data = parse_file("/path/to/app.apk.json", "com.example.app")
+
+# Class-based API
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
-
 parser = StaticAnalysisParser()
-static_data = parser.parse(reach_file, gator_file, gesda_file, code_package)
-# Returns StaticAnalysisData(classes, windows, wtg)
+static_data = parser.parse_file("/path/to/app.apk.json", "com.example.app")
 ```
 
-## Static Analysis Tools
+The parser processes three JSON sections:
+1. **reachability**: Classes, methods, activity flags, MOP reachability flags
+2. **windows**: Window definitions with widgets, event listeners, inputType, hint, entries
+3. **transitions**: WTG edges between windows with triggering events
 
-### GATOR (GUI Analysis TOol foR Android)
+**Important**: The `code_package` parameter filters classes by prefix — only classes starting with `code_package` are included. This handles APKs where the manifest package differs from the implementation package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`).
 
-**Purpose**: Builds Window Transition Graph (WTG) representing app navigation structure
+**SignatureNormalizer** normalizes inner class notation (`.` → `$`) for consistent matching. The GATOR client writes `$` notation via `SootClass.getName()`, so the normalizer is a safety net — it should be a no-op on well-formed output.
 
-**Output Format**: JSON file with windows and transitions
+## JSON Output Format
+
+Analysis produces one JSON file per APK: `{app_name}.json`
+
 ```json
 {
-  "windows": [{"id": 1, "name": "com.example.MainActivity"}],
-  "transitions": [{"sourceId": 1, "targetId": 2, "events": [...]}]
+  "reachability": [
+    {
+      "className": "com.example.MainActivity",
+      "isActivity": true,
+      "isMainActivity": true,
+      "methods": [
+        {
+          "name": "onCreate",
+          "signature": "<com.example.MainActivity: void onCreate(android.os.Bundle)>",
+          "reachable": true,
+          "reachesMop": true,
+          "directlyReachesMop": false
+        }
+      ]
+    }
+  ],
+  "windows": [
+    {
+      "id": 1234,
+      "name": "com.example.MainActivity",
+      "type": "ACTIVITY",
+      "isMain": true,
+      "widgets": [
+        {
+          "id": 5678,
+          "name": "buttonSubmit",
+          "type": "Button",
+          "text": "Submit",
+          "hint": "Click to submit",
+          "inputType": "none",
+          "entries": [],
+          "listeners": [
+            {
+              "eventType": "click",
+              "handlerMethod": "<com.example.MainActivity$1: void onClick(android.view.View)>"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "sourceId": 1234,
+      "targetId": 5679,
+      "events": [
+        {
+          "widgetId": 5678,
+          "type": "click",
+          "handlerMethod": "<com.example.MainActivity: void showSettings(android.view.View)>"
+        }
+      ]
+    }
+  ]
 }
 ```
-
-**Parsed Data**:
-- Window definitions with IDs
-- Widget event handlers (click, long_click, scroll, etc.)
-- Navigation transitions between windows
-
-### GESDA (GUI Element Static Detection for Android)
-
-**Purpose**: Extracts comprehensive application structure and GUI elements
-
-**Output Format**: JSON file with windows and widgets
-```json
-{
-  "windows": [{
-    "name": "com.example.MainActivity",
-    "type": "ACTIVITY",
-    "isMain": true,
-    "widgets": [...]
-  }]
-}
-```
-
-**Parsed Data**:
-- Application components (Activities, Services)
-- Widget properties (id, type, text, hint, inputType)
-- Event listeners (OnClickListener, OnScrollListener, etc.)
-- Layout file associations
-
-### REACH (Reachability Analysis)
-
-**Purpose**: Determines reachability of monitored operations from entry points
-
-**Output Format**: CSV file with method reachability
-```csv
-class,isActivity,isMainActivity,method,params,reachable,reachesMop,directlyReachesMop,signature
-com.example.MainActivity,true,true,onCreate,[Bundle],true,true,false,<sig>
-```
-
-**Parsed Data**:
-- Class information (activity status, main activity flag)
-- Method details (name, parameters, signature)
-- Reachability flags (reachable, reaches_mop, directly_reaches_mop)
 
 ## Development Commands
-
-### Installation
-
-```bash
-cd modules/rv-static-analysis
-uv sync
-```
 
 ### Running Tests
 
 ```bash
+cd modules/rv-static-analysis
+
 # All tests
-uv run pytest
+uv run pytest tests/ -v
 
-# With coverage
-uv run pytest --cov=rv_static_analysis
+# Parser tests (55 tests — includes baseline equivalence, normalizer safety net)
+uv run pytest tests/parser/ -v
 
-# Specific test categories
-uv run pytest tests/parser/     # Parser tests
-uv run pytest tests/analysis/   # Analyzer tests
-uv run pytest tests/test_config.py  # Configuration tests
+# Analyzer tests (13 tests)
+uv run pytest tests/analysis/ -v
+
+# Configuration tests (8 tests)
+uv run pytest tests/test_config.py -v
 ```
 
 ### CLI Usage
@@ -211,16 +208,10 @@ uv run pytest tests/test_config.py  # Configuration tests
 # Analyze single APK
 rv-static-analysis analyze --apk /path/to/app.apk --output /output
 
-# Batch analyze multiple APKs
+# Batch analyze
 rv-static-analysis batch --apks-dir /path/to/apks --output /output
 
-# Dry run (validate configuration only)
-rv-static-analysis analyze --apk app.apk --output /tmp --dry-run
-
-# With custom tool paths
-rv-static-analysis analyze --apk app.apk --gesda-jar /custom/gesda.jar --output /output
-
-# Verbose output with summary
+# Verbose with summary
 rv-static-analysis analyze --apk app.apk --output /output --verbose --summary
 ```
 
@@ -232,108 +223,59 @@ rv-static-analysis analyze --apk app.apk --output /output --verbose --summary
 |----------|-------------|---------|
 | `RVSEC_HOME` | RVSEC installation root | `/home/user/rvsec` |
 | `ANDROID_HOME` | Android SDK path | `/opt/android-sdk` |
-| `RV_RT_JAR` | Java runtime JAR | `/usr/lib/jvm/java-8/jre/lib/rt.jar` |
 
 ### Standard Directory Layout
 
-The configuration expects this RVSEC directory structure:
 ```
 $RVSEC_HOME/
 ├── rv-android/
 │   └── lib/
-│       ├── gesda/rvsec-gesda.jar
-│       ├── gator/
-│       │   ├── gator (Python script)
-│       │   └── rvsec-gator-client.jar
-│       └── reach/rvsec-reach.jar
-└── rvsec/rvsec-mop/src/main/resources/jca/  # MOP specifications
+│       └── gator/
+│           ├── gator                         # Python launcher script
+│           └── rvsec-analysis-client.jar     # Unified analysis client JAR
+└── rvsec/rvsec-mop/src/main/resources/jca/   # MOP specifications
 ```
 
 ### Validation
 
 Configuration validation checks:
-1. Required paths (lib_dir, output_dir)
-2. Tool availability (JAR files, GATOR Python script)
-3. Android SDK (platforms directory, android.jar)
-4. Java runtime (rt.jar)
-5. MOP specifications directory
-
-Disable validation for dry-run mode:
-```python
-config = RVStaticAnalysisConfig(validate_on_init=False)
-```
+1. GATOR directory exists with Python launcher
+2. Analysis client JAR available
+3. Android SDK platforms directory with android.jar
+4. MOP specifications directory (for reachability analysis)
 
 ## Integration Points
 
 ### With rv-android-core
 
-- Uses `App` domain model for APK representation
-- Uses `ErrorHandler` decorators for error management
-- Uses `LoggingManager` for structured logging
-- Uses domain models: `Classes`, `Windows`, `WindowTransitionGraph`, `StaticAnalysisData`
+- `App` domain model for APK metadata (package_name, code_package)
+- `StaticAnalysisData`, `Classes`, `Windows`, `WindowTransitionGraph` domain models
+- `EXTENSION_STATIC_ANALYSIS = ".json"` constant
+- `SignatureNormalizer` for inner class notation
+- `ErrorHandler`, `LoggingManager`, `BaseAnalyzer`
 
-### With rv-experiment
+### With rv-platform
 
-```python
-from rv_experiment.config import ExperimentConfig
-
-config = ExperimentConfig(
-    name="experiment",
-    run_static_analysis=True
-)
-# Static analysis automatically configured and executed in pre-processing phase
-```
+- `StaticAnalysisComponent` calls `StaticAnalyzer.analyze()` in pre-processing
+- Passes `app.code_package` (not `package_name`) to parser for correct class filtering
 
 ### With rv-agent
 
-Static analysis data provides:
-- Window Transition Graph for navigation guidance
-- Method reachability for MOP prioritization
-- Widget information for UI interaction
+- `TransitionManager` uses WTG for navigation guidance
+- `RVAgentVisitor` uses MOP flags for action prioritization
+- `NavigationGuidance` provides unvisited-screen hints from WTG
 
-## Output Files
+### With rv-coverage
 
-Analysis generates three output files per APK:
-```
-output_dir/
-├── app_name.gesda   # GESDA application structure (JSON)
-├── app_name.wtg     # GATOR window transition graph (JSON)
-└── app_name.reach   # REACH reachability analysis (CSV)
-```
+- `Classes.methods` defines the method universe (denominator for coverage %)
+- `reachable` flag distinguishes reachable vs unreachable methods
 
 ## Error Handling
 
-- `StaticAnalysisException`: Raised for analysis execution failures
-- `ConfigurationError`: Raised for invalid configuration
-- All parsers gracefully handle missing files (return empty objects)
-- Tool execution failures logged with detailed context
-
-## Important Notes
-
-### Caching Behavior
-
-StaticAnalyzer implements intelligent caching:
-- If output file exists, tool execution is skipped
-- Use `--force` CLI flag to override caching
-
-### Tool Dependencies
-
-- GESDA output is required for REACH analysis
-- GATOR is independent and can run in parallel with GESDA
-- All tools require Java runtime
-
-### MOP Specifications
-
-- Default MOP directory points to JCA (Java Cryptography Architecture) specifications
-- Can be overridden for generic specifications or custom monitors
-- REACH tool uses these specifications for reachability analysis
-
-### Performance Considerations
-
-- Static analysis can be slow for large APKs
-- Execution times tracked per tool in `StaticAnalysisResult.execution_times`
-- Use `get_metrics()` for detailed performance information
-
+- `StaticAnalysisException`: Analysis execution failures
+- `ConfigurationError`: Invalid configuration
+- Parser returns empty sections for missing/malformed JSON data (graceful degradation)
+- Timeout produces partial JSON — parser recovers whatever sections were written
 
 ## Development Notes
 
@@ -348,4 +290,3 @@ This module is part of the RV-Android uv workspace. All modules are installed in
 # From project root
 uv sync             # Install/update all modules (also removes unused packages)
 ```
-

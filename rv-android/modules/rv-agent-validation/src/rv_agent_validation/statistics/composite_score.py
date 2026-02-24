@@ -9,7 +9,8 @@ Implements multi-objective scoring that balances:
 """
 
 from collections import defaultdict
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 
@@ -69,10 +70,10 @@ class CompositeScorer:
         robustness_score = self._calculate_robustness_score(metrics)
 
         composite = (
-            self.weights["coverage"] * coverage_score +
-            self.weights["mop"] * mop_score +
-            self.weights["efficiency"] * efficiency_score +
-            self.weights["robustness"] * robustness_score
+            self.weights["coverage"] * coverage_score
+            + self.weights["mop"] * mop_score
+            + self.weights["efficiency"] * efficiency_score
+            + self.weights["robustness"] * robustness_score
         )
 
         return round(composite * 100, 2)
@@ -159,14 +160,17 @@ class CompositeScorer:
         return {
             "coverage_score": round(self._calculate_coverage_score(metrics) * 100, 2),
             "mop_score": round(self._calculate_mop_score(metrics) * 100, 2),
-            "efficiency_score": round(self._calculate_efficiency_score(metrics) * 100, 2),
-            "robustness_score": round(self._calculate_robustness_score(metrics) * 100, 2),
+            "efficiency_score": round(
+                self._calculate_efficiency_score(metrics) * 100, 2
+            ),
+            "robustness_score": round(
+                self._calculate_robustness_score(metrics) * 100, 2
+            ),
             "composite_score": self.calculate_score(metrics),
         }
 
     def rank_strategies(
-        self,
-        results: List[Dict[str, Any]]
+        self, results: List[Dict[str, Any]]
     ) -> List[Tuple[str, float, Dict[str, float]]]:
         """
         Rank strategies by average composite score.
@@ -207,10 +211,7 @@ class CompositeScorer:
         return rankings
 
     def rank_by_metric(
-        self,
-        results: List[Dict[str, Any]],
-        metric: str,
-        ascending: bool = False
+        self, results: List[Dict[str, Any]], metric: str, ascending: bool = False
     ) -> List[Tuple[str, float]]:
         """
         Rank strategies by a specific metric.
@@ -242,8 +243,7 @@ class CompositeScorer:
         return rankings
 
     def get_strategy_summary(
-        self,
-        results: List[Dict[str, Any]]
+        self, results: List[Dict[str, Any]]
     ) -> Dict[str, Dict[str, Any]]:
         """
         Generate comprehensive summary for each strategy.
@@ -306,10 +306,7 @@ class CompositeScorer:
 
         return summary
 
-    def recommend_best_strategy(
-        self,
-        results: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def recommend_best_strategy(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Recommend the best strategy based on composite score.
 

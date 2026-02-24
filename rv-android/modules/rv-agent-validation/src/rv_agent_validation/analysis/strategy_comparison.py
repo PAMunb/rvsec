@@ -20,19 +20,13 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 # Setup path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from statistics import (
-    CompositeScorer,
-    DescriptiveStats,
-    SignificanceTests,
-    EffectSize,
-)
-
+from statistics import CompositeScorer, DescriptiveStats, EffectSize, SignificanceTests
 
 # Key metrics for analysis
 KEY_METRICS = [
@@ -56,9 +50,7 @@ class StrategyComparison:
     """
 
     def __init__(
-        self,
-        results: List[Dict[str, Any]],
-        strategies: Optional[List[str]] = None
+        self, results: List[Dict[str, Any]], strategies: Optional[List[str]] = None
     ):
         """
         Initialize comparison analysis.
@@ -177,7 +169,9 @@ class StrategyComparison:
             # Stats per strategy
             strategy_stats = {}
             for strategy in self.strategies:
-                strat_results = [r for r in app_results if r.get("strategy") == strategy]
+                strat_results = [
+                    r for r in app_results if r.get("strategy") == strategy
+                ]
                 if strat_results:
                     scores = [self.scorer.calculate_score(r) for r in strat_results]
                     strategy_stats[strategy] = {
@@ -210,7 +204,9 @@ class StrategyComparison:
         print("\n" + "-" * 80)
         print("1. COMPOSITE SCORE RANKINGS")
         print("-" * 80)
-        print(f"{'Rank':<6}{'Strategy':<15}{'Score':<10}{'Coverage':<12}{'MOP':<10}{'Efficiency':<12}{'Robust':<10}")
+        print(
+            f"{'Rank':<6}{'Strategy':<15}{'Score':<10}{'Coverage':<12}{'MOP':<10}{'Efficiency':<12}{'Robust':<10}"
+        )
         print("-" * 80)
         for entry in analysis["composite_rankings"]["rankings"]:
             comp = entry["components"]
@@ -235,20 +231,28 @@ class StrategyComparison:
             for strategy in self.strategies:
                 if strategy in stats:
                     s = stats[strategy]
-                    print(f"    {strategy:<12}: {s['mean']:>8.2f} +/- {s['std']:<8.2f} (n={s['n']})")
+                    print(
+                        f"    {strategy:<12}: {s['mean']:>8.2f} +/- {s['std']:<8.2f} (n={s['n']})"
+                    )
 
         # 3. Statistical Significance
         print("\n" + "-" * 80)
         print("3. STATISTICAL SIGNIFICANCE")
         print("-" * 80)
 
-        for metric in ["states_discovered", "ui_coverage_percentage", "mop_methods_reached"]:
+        for metric in [
+            "states_discovered",
+            "ui_coverage_percentage",
+            "mop_methods_reached",
+        ]:
             sig = analysis["significance"].get(metric, {})
             kw = sig.get("kruskal_wallis", {})
             print(f"\n  {metric}:")
             if "error" not in kw:
                 sig_marker = "*" if kw.get("significant") else ""
-                print(f"    Kruskal-Wallis: H={kw.get('H_statistic', 'N/A')}, p={kw.get('p_value', 'N/A')}{sig_marker}")
+                print(
+                    f"    Kruskal-Wallis: H={kw.get('H_statistic', 'N/A')}, p={kw.get('p_value', 'N/A')}{sig_marker}"
+                )
 
             pairwise = sig.get("pairwise_wilcoxon", [])
             significant_pairs = [p for p in pairwise if p.get("significant_bonferroni")]
@@ -269,7 +273,9 @@ class StrategyComparison:
             delta = effect.get("cliff_delta", 0)
             interp = effect.get("cliff_interpretation", "?")
             direction = ">" if delta > 0 else "<" if delta < 0 else "="
-            print(f"    {effect['comparison']}: delta={delta:.3f} ({interp}) [{direction}]")
+            print(
+                f"    {effect['comparison']}: delta={delta:.3f} ({interp}) [{direction}]"
+            )
 
         # 5. Per-App Best Strategy
         print("\n" + "-" * 80)
@@ -306,7 +312,9 @@ class StrategyComparison:
             print(f"  Composite Score: {rec['composite_score']:.2f}")
             print(f"  Confidence: {rec.get('confidence', 'N/A')}")
             if rec.get("second_place"):
-                print(f"  Second Place: {rec['second_place']} (gap: {rec.get('gap_to_second', 0):.2f})")
+                print(
+                    f"  Second Place: {rec['second_place']} (gap: {rec.get('gap_to_second', 0):.2f})"
+                )
         else:
             print(f"\n  {rec.get('reason', 'No recommendation available')}")
 
@@ -386,25 +394,20 @@ def parse_args():
 
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument(
-        "--experiment-dir", type=str,
-        help="Path to experiment results directory"
+        "--experiment-dir", type=str, help="Path to experiment results directory"
     )
     source_group.add_argument(
-        "--results-file", type=str,
-        help="Path to results JSON file"
+        "--results-file", type=str, help="Path to results JSON file"
     )
 
     parser.add_argument(
-        "--strategies", type=str,
-        help="Comma-separated list of strategies to compare"
+        "--strategies", type=str, help="Comma-separated list of strategies to compare"
     )
     parser.add_argument(
-        "--output", "-o", type=str,
-        help="Output file for analysis results (JSON)"
+        "--output", "-o", type=str, help="Output file for analysis results (JSON)"
     )
     parser.add_argument(
-        "--quiet", "-q", action="store_true",
-        help="Suppress printed output"
+        "--quiet", "-q", action="store_true", help="Suppress printed output"
     )
 
     return parser.parse_args()

@@ -2,12 +2,14 @@
 Significance tests for experiment results.
 """
 
-from typing import Dict, List, Any, Tuple
 from itertools import combinations
+from typing import Any, Dict, List
+
 import numpy as np
 
 try:
     from scipy import stats
+
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
@@ -29,9 +31,7 @@ class SignificanceTests:
 
     @staticmethod
     def kruskal_wallis(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategies: List[str]
+        results: List[Dict[str, Any]], metric: str, strategies: List[str]
     ) -> Dict[str, Any]:
         """
         Kruskal-Wallis H-test for comparing multiple strategies.
@@ -53,7 +53,8 @@ class SignificanceTests:
         groups = []
         for strategy in strategies:
             values = [
-                r[metric] for r in results
+                r[metric]
+                for r in results
                 if r.get("strategy") == strategy and r.get(metric) is not None
             ]
             if values:
@@ -77,10 +78,7 @@ class SignificanceTests:
 
     @staticmethod
     def wilcoxon_pairwise(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategy_a: str,
-        strategy_b: str
+        results: List[Dict[str, Any]], metric: str, strategy_a: str, strategy_b: str
     ) -> Dict[str, Any]:
         """
         Wilcoxon signed-rank test for paired comparison.
@@ -108,13 +106,17 @@ class SignificanceTests:
         for app in apps:
             # Get mean for each strategy on this app
             values_a = [
-                r[metric] for r in results
-                if r.get("app") == app and r.get("strategy") == strategy_a
+                r[metric]
+                for r in results
+                if r.get("app") == app
+                and r.get("strategy") == strategy_a
                 and r.get(metric) is not None
             ]
             values_b = [
-                r[metric] for r in results
-                if r.get("app") == app and r.get("strategy") == strategy_b
+                r[metric]
+                for r in results
+                if r.get("app") == app
+                and r.get("strategy") == strategy_b
                 and r.get(metric) is not None
             ]
 
@@ -125,7 +127,7 @@ class SignificanceTests:
         if len(pairs_a) < 5:
             return {
                 "error": f"Need at least 5 paired samples, got {len(pairs_a)}",
-                "comparison": f"{strategy_a}_vs_{strategy_b}"
+                "comparison": f"{strategy_a}_vs_{strategy_b}",
             }
 
         try:
@@ -146,9 +148,7 @@ class SignificanceTests:
 
     @staticmethod
     def all_pairwise(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategies: List[str]
+        results: List[Dict[str, Any]], metric: str, strategies: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Run all pairwise Wilcoxon tests.
@@ -169,9 +169,7 @@ class SignificanceTests:
 
     @staticmethod
     def full_analysis(
-        results: List[Dict[str, Any]],
-        metric: str,
-        strategies: List[str]
+        results: List[Dict[str, Any]], metric: str, strategies: List[str]
     ) -> Dict[str, Any]:
         """
         Run complete significance analysis.
@@ -186,6 +184,10 @@ class SignificanceTests:
         """
         return {
             "metric": metric,
-            "kruskal_wallis": SignificanceTests.kruskal_wallis(results, metric, strategies),
-            "pairwise_wilcoxon": SignificanceTests.all_pairwise(results, metric, strategies),
+            "kruskal_wallis": SignificanceTests.kruskal_wallis(
+                results, metric, strategies
+            ),
+            "pairwise_wilcoxon": SignificanceTests.all_pairwise(
+                results, metric, strategies
+            ),
         }

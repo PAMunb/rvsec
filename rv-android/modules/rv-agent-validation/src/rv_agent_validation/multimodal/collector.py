@@ -5,21 +5,19 @@ Collects LLM action and exploration metrics during agent execution.
 """
 
 import json
-import time
 import logging
+import time
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
+from .hit_classifier import HitClassifier, parse_ui_elements_from_dump
 from .metrics import (
-    LLMActionRecord,
-    ExplorationRecord,
-    SessionMetrics,
-    HitClassification,
     ElementBounds,
-    UIElementMetrics,
+    ExplorationRecord,
+    HitClassification,
+    LLMActionRecord,
+    SessionMetrics,
 )
-from .hit_classifier import HitClassifier, UIElement, parse_ui_elements_from_dump
-
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +71,9 @@ class MultimodalMetricsCollector:
 
         # UI element tracking
         self._element_interactions: Dict[str, int] = {}  # element_id -> count
-        self._elements_by_screen: Dict[str, set] = {}  # screen_hash -> set of element_ids
+        self._elements_by_screen: Dict[str, set] = (
+            {}
+        )  # screen_hash -> set of element_ids
         self._component_types: Dict[str, str] = {}  # element_id -> component_type
 
         logger.info(
@@ -131,8 +131,13 @@ class MultimodalMetricsCollector:
 
         # Accept both formats: "android_click" and "CLICK"
         click_actions = (
-            "android_click", "android_long_click", "android_type_text",
-            "CLICK", "LONG_CLICK", "TYPE", "SET_TEXT"
+            "android_click",
+            "android_long_click",
+            "android_type_text",
+            "CLICK",
+            "LONG_CLICK",
+            "TYPE",
+            "SET_TEXT",
         )
         if tool_name in click_actions:
             if ui_dump:
@@ -191,7 +196,9 @@ class MultimodalMetricsCollector:
         # Track UI element metrics
         if hit_element_type and tool_name in click_actions:
             element_id = f"{device_coords[0]}:{device_coords[1]}"
-            self._element_interactions[element_id] = self._element_interactions.get(element_id, 0) + 1
+            self._element_interactions[element_id] = (
+                self._element_interactions.get(element_id, 0) + 1
+            )
             self._component_types[element_id] = hit_element_type
 
             if screen_hash:
@@ -321,13 +328,21 @@ class MultimodalMetricsCollector:
         """
         # Map CoverageResult fields to SessionMetrics fields
         self.session.method_coverage = coverage_metrics.get("method_coverage", 0.0)
-        self.session.mop_method_coverage = coverage_metrics.get("reaches_mop_coverage", 0.0)
-        self.session.direct_mop_method_coverage = coverage_metrics.get("directly_reaches_mop_coverage", 0.0)
+        self.session.mop_method_coverage = coverage_metrics.get(
+            "reaches_mop_coverage", 0.0
+        )
+        self.session.direct_mop_method_coverage = coverage_metrics.get(
+            "directly_reaches_mop_coverage", 0.0
+        )
         self.session.called_methods = coverage_metrics.get("called_methods", 0)
         self.session.total_mop_methods = coverage_metrics.get("total_reaches_mop", 0)
         self.session.called_mop_methods = coverage_metrics.get("called_reaches_mop", 0)
-        self.session.total_direct_mop_methods = coverage_metrics.get("total_directly_reaches_mop", 0)
-        self.session.called_direct_mop_methods = coverage_metrics.get("called_directly_reaches_mop", 0)
+        self.session.total_direct_mop_methods = coverage_metrics.get(
+            "total_directly_reaches_mop", 0
+        )
+        self.session.called_direct_mop_methods = coverage_metrics.get(
+            "called_directly_reaches_mop", 0
+        )
         self.session.unique_errors = coverage_metrics.get("unique_errors", 0)
         self.session.total_errors = coverage_metrics.get("total_errors", 0)
 
@@ -435,20 +450,32 @@ class MultimodalMetricsCollector:
         # Actions by component type
         for element_id, count in self._element_interactions.items():
             comp_type = self._component_types.get(element_id, "Unknown")
-            ui.actions_by_component[comp_type] = ui.actions_by_component.get(comp_type, 0) + count
+            ui.actions_by_component[comp_type] = (
+                ui.actions_by_component.get(comp_type, 0) + count
+            )
 
         # Elements by component type
         for element_id, comp_type in self._component_types.items():
-            ui.elements_by_component[comp_type] = ui.elements_by_component.get(comp_type, 0) + 1
+            ui.elements_by_component[comp_type] = (
+                ui.elements_by_component.get(comp_type, 0) + 1
+            )
 
         # Coverage by component type
         for comp_type in set(self._component_types.values()):
-            elements_of_type = [eid for eid, ct in self._component_types.items() if ct == comp_type]
-            tested_of_type = [eid for eid in elements_of_type if eid in self._element_interactions]
+            elements_of_type = [
+                eid for eid, ct in self._component_types.items() if ct == comp_type
+            ]
+            tested_of_type = [
+                eid for eid in elements_of_type if eid in self._element_interactions
+            ]
             ui.coverage_by_component[comp_type] = {
                 "total": len(elements_of_type),
                 "tested": len(tested_of_type),
-                "coverage": len(tested_of_type) / len(elements_of_type) * 100 if elements_of_type else 0
+                "coverage": (
+                    len(tested_of_type) / len(elements_of_type) * 100
+                    if elements_of_type
+                    else 0
+                ),
             }
 
         # Per-screen metrics
@@ -456,7 +483,9 @@ class MultimodalMetricsCollector:
         for screen_hash, elements in self._elements_by_screen.items():
             ui.elements_per_screen[screen_hash[:8]] = len(elements)
             tested = len([e for e in elements if e in self._element_interactions])
-            ui.coverage_per_screen[screen_hash[:8]] = tested / len(elements) * 100 if elements else 0
+            ui.coverage_per_screen[screen_hash[:8]] = (
+                tested / len(elements) * 100 if elements else 0
+            )
 
         logger.info(
             f"UI metrics calculated: "
@@ -513,7 +542,8 @@ class MultimodalMetricsCollector:
                 "total_llm_calls": self.session.total_llm_calls,
                 "total_tokens_input": self.session.total_tokens_input,
                 "total_tokens_output": self.session.total_tokens_output,
-                "total_tokens": self.session.total_tokens_input + self.session.total_tokens_output,
+                "total_tokens": self.session.total_tokens_input
+                + self.session.total_tokens_output,
                 "total_latency_ms": self.session.total_latency_ms,
                 "avg_latency_ms": self.session.avg_latency_ms,
                 "tokens_per_action": self.session.tokens_per_action,
@@ -639,7 +669,9 @@ class MultimodalMetricsCollector:
         session.ui_misses = data["hit_rate_metrics"]["ui_misses"]
         session.empty_misses = data["hit_rate_metrics"]["empty_misses"]
 
-        session.activities_discovered = data["exploration_metrics"]["activities_discovered"]
+        session.activities_discovered = data["exploration_metrics"][
+            "activities_discovered"
+        ]
         session.total_iterations = data["exploration_metrics"]["total_iterations"]
 
         session.stuck_events = data["stuck_metrics"]["stuck_events"]
@@ -651,7 +683,9 @@ class MultimodalMetricsCollector:
             cov = data["coverage_metrics"]
             session.method_coverage = cov.get("method_coverage", 0.0)
             session.mop_method_coverage = cov.get("mop_method_coverage", 0.0)
-            session.direct_mop_method_coverage = cov.get("direct_mop_method_coverage", 0.0)
+            session.direct_mop_method_coverage = cov.get(
+                "direct_mop_method_coverage", 0.0
+            )
             session.called_methods = cov.get("called_methods", 0)
             session.total_mop_methods = cov.get("total_mop_methods", 0)
             session.called_mop_methods = cov.get("called_mop_methods", 0)
@@ -664,11 +698,17 @@ class MultimodalMetricsCollector:
         # Restore UI metrics if present
         if "ui_metrics" in data:
             ui = data["ui_metrics"]
-            session.ui_metrics.total_unique_elements = ui.get("total_unique_elements", 0)
+            session.ui_metrics.total_unique_elements = ui.get(
+                "total_unique_elements", 0
+            )
             session.ui_metrics.total_interactions = ui.get("total_interactions", 0)
             session.ui_metrics.actions_by_component = ui.get("actions_by_component", {})
-            session.ui_metrics.elements_by_component = ui.get("elements_by_component", {})
-            session.ui_metrics.coverage_by_component = ui.get("coverage_by_component", {})
+            session.ui_metrics.elements_by_component = ui.get(
+                "elements_by_component", {}
+            )
+            session.ui_metrics.coverage_by_component = ui.get(
+                "coverage_by_component", {}
+            )
             session.ui_metrics.screens_visited = ui.get("screens_visited", 0)
             session.ui_metrics.elements_per_screen = ui.get("elements_per_screen", {})
             session.ui_metrics.coverage_per_screen = ui.get("coverage_per_screen", {})

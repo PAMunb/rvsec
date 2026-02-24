@@ -152,9 +152,7 @@ data/
 ├── apks_instrumented/       # Instrumented APKs (after preprocess)
 ├── calibration_dataset/     # Pre-instrumented APKs for calibration (15 APKs)
 │   ├── *.apk                # Instrumented APK files
-│   ├── *.apk.gesda          # GESDA static analysis
-│   ├── *.apk.wtg            # WTG (Window Transition Graph)
-│   └── *.apk.reach          # REACH analysis
+│   └── *.apk.json           # Unified static analysis (reachability, windows, transitions)
 ├── smoke_test_dataset/      # Small dataset for quick tests (2 APKs)
 ├── calibration_set.txt      # 10 APKs for calibration trials
 ├── holdout_set.txt          # 5 APKs for hold-out validation

@@ -18,14 +18,14 @@ class SignatureNormalizer:
             Input:  "onTabSelected(TabLayout.Tab)"
             Output: "onTabSelected(TabLayout$Tab)"
         """
-        if '(' not in signature:
+        if "(" not in signature:
             return signature
 
-        paren_start = signature.find('(')
+        paren_start = signature.find("(")
         method_part = signature[:paren_start]
         remaining = signature[paren_start:]
 
-        if not remaining.endswith(')'):
+        if not remaining.endswith(")"):
             return signature
 
         param_content = remaining[1:-1]
@@ -44,10 +44,10 @@ class SignatureNormalizer:
             Input:  "com.example.OuterClass.InnerClass"
             Output: "com.example.OuterClass$InnerClass"
         """
-        if '.' not in class_name:
+        if "." not in class_name:
             return class_name
 
-        parts = re.split(r'([.$])', class_name)
+        parts = re.split(r"([.$])", class_name)
         result = []
         i = 0
 
@@ -55,14 +55,14 @@ class SignatureNormalizer:
             if i == 0:
                 result.append(parts[i])
                 i += 1
-            elif parts[i] in ['.', '$']:
+            elif parts[i] in [".", "$"]:
                 sep = parts[i]
                 i += 1
                 if i < len(parts):
                     next_part = parts[i]
-                    prev_part = result[-1] if result else ''
+                    prev_part = result[-1] if result else ""
                     if self._is_likely_inner_class(prev_part, next_part):
-                        result.append('$')
+                        result.append("$")
                     else:
                         result.append(sep)
                     result.append(next_part)
@@ -71,14 +71,14 @@ class SignatureNormalizer:
                 result.append(parts[i])
                 i += 1
 
-        return ''.join(result)
+        return "".join(result)
 
     def _normalize_parameter_list(self, parameters: str) -> str:
         """Normalize parameter list for inner class corrections."""
         if not parameters or not parameters.strip():
             return parameters
 
-        separator = ';' if ';' in parameters else ','
+        separator = ";" if ";" in parameters else ","
         param_parts = parameters.split(separator)
         normalized_parts = []
 
@@ -94,13 +94,13 @@ class SignatureNormalizer:
 
     def _normalize_single_parameter(self, param_type: str) -> str:
         """Normalize a single parameter type for inner classes."""
-        array_suffix = ''
-        while param_type.endswith('[]'):
-            array_suffix += '[]'
+        array_suffix = ""
+        while param_type.endswith("[]"):
+            array_suffix += "[]"
             param_type = param_type[:-2]
 
-        if '.' in param_type and '$' not in param_type:
-            parts = param_type.split('.')
+        if "." in param_type and "$" not in param_type:
+            parts = param_type.split(".")
             normalized_parts = []
 
             for i, part in enumerate(parts):
@@ -110,13 +110,13 @@ class SignatureNormalizer:
                     previous_part = parts[i - 1]
                     if self._is_likely_inner_class(previous_part, part):
                         if normalized_parts:
-                            normalized_parts[-1] = normalized_parts[-1] + '$' + part
+                            normalized_parts[-1] = normalized_parts[-1] + "$" + part
                         else:
                             normalized_parts.append(part)
                     else:
                         normalized_parts.append(part)
 
-            param_type = '.'.join(normalized_parts)
+            param_type = ".".join(normalized_parts)
 
         return param_type + array_suffix
 
@@ -132,10 +132,29 @@ class SignatureNormalizer:
             return False
 
         known_packages = {
-            'android', 'java', 'javax', 'com', 'org', 'net', 'io',
-            'os', 'lang', 'util', 'content', 'widget', 'app',
-            'support', 'design', 'fragment', 'activity', 'graphics',
-            'text', 'database', 'preference', 'animation', 'concurrent'
+            "android",
+            "java",
+            "javax",
+            "com",
+            "org",
+            "net",
+            "io",
+            "os",
+            "lang",
+            "util",
+            "content",
+            "widget",
+            "app",
+            "support",
+            "design",
+            "fragment",
+            "activity",
+            "graphics",
+            "text",
+            "database",
+            "preference",
+            "animation",
+            "concurrent",
         }
 
         if outer_part.islower() and outer_part in known_packages:

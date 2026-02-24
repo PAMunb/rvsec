@@ -2,8 +2,9 @@
 Descriptive statistics for experiment results.
 """
 
+from typing import Any, Dict, List
+
 import numpy as np
-from typing import Dict, List, Any
 
 
 class DescriptiveStats:
@@ -52,8 +53,7 @@ class DescriptiveStats:
 
     @staticmethod
     def aggregate_by_strategy(
-        results: List[Dict[str, Any]],
-        metric: str
+        results: List[Dict[str, Any]], metric: str
     ) -> Dict[str, Dict[str, float]]:
         """
         Aggregate metrics by strategy.
@@ -84,8 +84,7 @@ class DescriptiveStats:
 
     @staticmethod
     def aggregate_by_app(
-        results: List[Dict[str, Any]],
-        metric: str
+        results: List[Dict[str, Any]], metric: str
     ) -> Dict[str, Dict[str, float]]:
         """
         Aggregate metrics by app.
@@ -116,8 +115,7 @@ class DescriptiveStats:
 
     @staticmethod
     def summary_table(
-        results: List[Dict[str, Any]],
-        metrics: List[str]
+        results: List[Dict[str, Any]], metrics: List[str]
     ) -> Dict[str, Dict[str, Dict[str, float]]]:
         """
         Generate summary table for multiple metrics by strategy.

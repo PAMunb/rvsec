@@ -6,7 +6,6 @@ Supports threadtime format with RVSEC-COV and RVSEC tags.
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Set, Tuple
 
@@ -16,6 +15,7 @@ from rv_agent_validation.coverage.signature_normalizer import SignatureNormalize
 @dataclass
 class CoverageEntry:
     """A single coverage log entry."""
+
     class_name: str
     method: str
     signature: str  # Normalized: class.method(params)
@@ -25,6 +25,7 @@ class CoverageEntry:
 @dataclass
 class ErrorEntry:
     """A single error log entry."""
+
     spec: str
     class_name: str
     method: str
@@ -49,9 +50,7 @@ class LogcatCoverageParser:
     )
 
     # Coverage message pattern: <class: returnType method(params)>
-    COVERAGE_PATTERN = re.compile(
-        r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>"
-    )
+    COVERAGE_PATTERN = re.compile(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>")
 
     # Generic spec error pattern: class.method(file:line) ::: SpecName message
     GENERIC_ERROR_PATTERN = re.compile(
@@ -63,7 +62,9 @@ class LogcatCoverageParser:
         self._first_timestamp: Optional[float] = None
         self._first_date: Optional[str] = None
 
-    def parse_file(self, file_path: Path) -> Tuple[List[CoverageEntry], List[ErrorEntry]]:
+    def parse_file(
+        self, file_path: Path
+    ) -> Tuple[List[CoverageEntry], List[ErrorEntry]]:
         """
         Parse logcat file and extract coverage and error entries.
 
@@ -81,7 +82,7 @@ class LogcatCoverageParser:
         self._first_timestamp = None
         self._first_date = None
 
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -91,9 +92,9 @@ class LogcatCoverageParser:
                 if not entry:
                     continue
 
-                tag = entry['tag']
-                message = entry['message']
-                timestamp = self._calculate_relative_time(entry['date'], entry['time'])
+                tag = entry["tag"]
+                message = entry["message"]
+                timestamp = self._calculate_relative_time(entry["date"], entry["time"])
 
                 if tag == self.TAG_COV:
                     cov = self._parse_coverage_message(message)
@@ -118,10 +119,10 @@ class LogcatCoverageParser:
 
         date, time, pid, tid, level, tag, message = match.groups()
         return {
-            'date': date,
-            'time': time,
-            'tag': tag,
-            'message': message,
+            "date": date,
+            "time": time,
+            "tag": tag,
+            "message": message,
         }
 
     def _parse_coverage_message(self, message: str) -> Optional[CoverageEntry]:
@@ -155,7 +156,7 @@ class LogcatCoverageParser:
             method_name = parts[1].strip()
             params = parts[2].strip() if len(parts) > 2 else ""
 
-            if params.startswith('(') and params.endswith(')'):
+            if params.startswith("(") and params.endswith(")"):
                 signature = f"{class_name}.{method_name}{params}"
             else:
                 signature = f"{class_name}.{method_name}({params})"
@@ -178,7 +179,9 @@ class LogcatCoverageParser:
         if " ::: " in message:
             match = self.GENERIC_ERROR_PATTERN.match(message)
             if match:
-                class_name, method_name, file_name, line_number, spec, error_msg = match.groups()
+                class_name, method_name, file_name, line_number, spec, error_msg = (
+                    match.groups()
+                )
                 normalized_class = self.normalizer.normalize_class_name(class_name)
                 unique_key = f"{normalized_class}:::{method_name}:::{spec}"
 
@@ -213,10 +216,10 @@ class LogcatCoverageParser:
 
     def _calculate_relative_time(self, date: str, time: str) -> float:
         """Calculate seconds since first event."""
-        time_parts = time.split(':')
+        time_parts = time.split(":")
         hours = int(time_parts[0])
         minutes = int(time_parts[1])
-        seconds_part = time_parts[2].split('.')
+        seconds_part = time_parts[2].split(".")
         seconds = int(seconds_part[0])
         milliseconds = int(seconds_part[1]) if len(seconds_part) > 1 else 0
 
@@ -229,8 +232,8 @@ class LogcatCoverageParser:
         # Handle day rollover
         day_offset = 0
         if date != self._first_date:
-            first_month, first_day = map(int, self._first_date.split('-'))
-            current_month, current_day = map(int, date.split('-'))
+            first_month, first_day = map(int, self._first_date.split("-"))
+            current_month, current_day = map(int, date.split("-"))
 
             if current_month == first_month:
                 day_offset = current_day - first_day

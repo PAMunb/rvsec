@@ -5,14 +5,10 @@ Classifies clicks as HIT, NEAR_MISS, UI_MISS, or EMPTY_MISS
 with adaptive tolerance based on element size.
 """
 
-from typing import List, Optional, Tuple
 from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
-from .metrics import (
-    HitClassification,
-    ElementBounds,
-    UIElement,
-)
+from .metrics import ElementBounds, HitClassification, UIElement
 
 
 @dataclass
@@ -101,7 +97,7 @@ class HitClassifier:
         tolerance = self.calculate_tolerance(target_element)
 
         # Calculate distance to target
-        distance_to_target = float('inf')
+        distance_to_target = float("inf")
         if target_element:
             distance_to_target = target_element.distance_to(click_x, click_y)
 
@@ -118,8 +114,8 @@ class HitClassifier:
         # Find best element that was hit
         # Prefer: 1) Interactive elements, 2) Smaller/more specific elements
         hit_element: Optional[UIElement] = None
-        min_distance = float('inf')
-        best_area = float('inf')
+        min_distance = float("inf")
+        best_area = float("inf")
 
         for element in ui_elements:
             if element.bounds.contains(click_x, click_y):
@@ -191,9 +187,7 @@ class HitClassifier:
             List of ClassificationResults
         """
         results = []
-        for (x, y), target, ui_elements in zip(
-            clicks, targets, ui_elements_per_click
-        ):
+        for (x, y), target, ui_elements in zip(clicks, targets, ui_elements_per_click):
             result = self.classify(x, y, target, ui_elements)
             results.append(result)
         return results

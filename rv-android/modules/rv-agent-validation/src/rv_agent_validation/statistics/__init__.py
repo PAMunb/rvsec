@@ -8,10 +8,10 @@ Provides:
 - CompositeScorer: Multi-objective scoring for strategy comparison
 """
 
-from .descriptive import DescriptiveStats
-from .significance import SignificanceTests
-from .effect_size import EffectSize
 from .composite_score import CompositeScorer
+from .descriptive import DescriptiveStats
+from .effect_size import EffectSize
+from .significance import SignificanceTests
 
 __all__ = [
     "DescriptiveStats",

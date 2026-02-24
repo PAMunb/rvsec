@@ -15,6 +15,7 @@ from rv_agent_validation.coverage.methods_parser import MethodsParser
 @dataclass
 class CoverageResult:
     """Coverage calculation results."""
+
     # Percentages (0-100)
     activity_coverage: float = 0.0
     class_coverage: float = 0.0

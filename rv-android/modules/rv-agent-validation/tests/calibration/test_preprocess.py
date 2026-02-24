@@ -27,17 +27,13 @@ def _create_container_output(output_dir: Path, container_idx: int, apk_names: li
 
     Mimics what rv-experiment produces in out/instrumented_apks/:
     - {apk_name} (instrumented APK)
-    - {apk_name}.gesda
-    - {apk_name}.wtg
-    - {apk_name}.reach
+    - {apk_name}.json (unified static analysis)
     """
     instrumented = output_dir / f"preprocess_{container_idx}" / "instrumented_apks"
     instrumented.mkdir(parents=True, exist_ok=True)
     for apk_name in apk_names:
         (instrumented / apk_name).write_text("fake apk data")
-        (instrumented / f"{apk_name}.gesda").write_text("{}")
-        (instrumented / f"{apk_name}.wtg").write_text("{}")
-        (instrumented / f"{apk_name}.reach").write_text("method,reachable")
+        (instrumented / f"{apk_name}.json").write_text("{}")
 
 
 # ---------------------------------------------------------------------------
@@ -56,8 +52,8 @@ def test_collect_merges_all_containers(tmp_path):
     assert (dataset_dir / "app_a.apk").exists()
     assert (dataset_dir / "app_b.apk").exists()
     assert (dataset_dir / "app_c.apk").exists()
-    assert (dataset_dir / "app_a.apk.gesda").exists()
-    assert (dataset_dir / "app_c.apk.reach").exists()
+    assert (dataset_dir / "app_a.apk.json").exists()
+    assert (dataset_dir / "app_c.apk.json").exists()
 
 
 def test_collect_no_duplicates(tmp_path):
@@ -87,15 +83,15 @@ def test_collect_handles_missing_container(tmp_path):
 
 
 def test_collect_file_count(tmp_path):
-    """T26: Each APK produces 4 files (apk + 3 SA), all collected."""
+    """T26: Each APK produces 2 files (apk + .json), all collected."""
     apks = ["app_a.apk", "app_b.apk", "app_c.apk"]
     _create_container_output(tmp_path, 0, apks)
 
     dataset_dir = collect_preprocessed_artifacts(tmp_path, n_containers=1)
 
-    # 3 APKs x 4 files each = 12 files
+    # 3 APKs x 2 files each = 6 files
     files = list(dataset_dir.iterdir())
-    assert len(files) == 12
+    assert len(files) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -104,14 +100,12 @@ def test_collect_file_count(tmp_path):
 
 
 def test_filter_all_complete(tmp_path):
-    """T27: APKs with all 3 SA files pass."""
+    """T27: APKs with analysis JSON pass."""
     dataset = tmp_path / "dataset"
     dataset.mkdir()
     for name in ["app_a.apk", "app_b.apk"]:
         (dataset / name).write_text("")
-        (dataset / f"{name}.gesda").write_text("")
-        (dataset / f"{name}.wtg").write_text("")
-        (dataset / f"{name}.reach").write_text("")
+        (dataset / f"{name}.json").write_text("{}")
 
     passed, failed = filter_by_sa_completeness(dataset)
 
@@ -119,21 +113,19 @@ def test_filter_all_complete(tmp_path):
     assert failed == []
 
 
-def test_filter_missing_one_sa_file(tmp_path):
-    """T28: APK missing one SA file fails with correct missing extension."""
+def test_filter_missing_sa_file(tmp_path):
+    """T28: APK missing analysis JSON fails with correct missing extension."""
     dataset = tmp_path / "dataset"
     dataset.mkdir()
     (dataset / "app.apk").write_text("")
-    (dataset / "app.apk.gesda").write_text("")
-    (dataset / "app.apk.wtg").write_text("")
-    # Missing: app.apk.reach
+    # Missing: app.apk.json
 
     passed, failed = filter_by_sa_completeness(dataset)
 
     assert passed == []
     assert len(failed) == 1
     assert failed[0][0] == "app.apk"
-    assert ".reach" in failed[0][1]
+    assert ".json" in failed[0][1]
 
 
 def test_filter_mixed_pass_fail(tmp_path):
@@ -143,23 +135,21 @@ def test_filter_mixed_pass_fail(tmp_path):
 
     # app_a: complete
     (dataset / "app_a.apk").write_text("")
-    for ext in (".gesda", ".wtg", ".reach"):
-        (dataset / f"app_a.apk{ext}").write_text("")
+    (dataset / "app_a.apk.json").write_text("{}")
 
-    # app_b: missing all SA files
+    # app_b: missing analysis JSON
     (dataset / "app_b.apk").write_text("")
 
     # app_c: complete
     (dataset / "app_c.apk").write_text("")
-    for ext in (".gesda", ".wtg", ".reach"):
-        (dataset / f"app_c.apk{ext}").write_text("")
+    (dataset / "app_c.apk.json").write_text("{}")
 
     passed, failed = filter_by_sa_completeness(dataset)
 
     assert passed == ["app_a.apk", "app_c.apk"]
     assert len(failed) == 1
     assert failed[0][0] == "app_b.apk"
-    assert len(failed[0][1]) == 3  # All 3 extensions missing
+    assert len(failed[0][1]) == 1  # 1 extension missing (.json)
 
 
 def test_filter_empty_dataset(tmp_path):

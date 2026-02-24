@@ -3,7 +3,7 @@ LaTeX table generation for experiment results.
 """
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class LaTeXExporter:
@@ -17,7 +17,7 @@ class LaTeXExporter:
         output_path: Path,
         metrics: List[str],
         caption: str = "Summary statistics by strategy",
-        label: str = "tab:summary"
+        label: str = "tab:summary",
     ) -> Path:
         """
         Export summary statistics to LaTeX table.
@@ -51,7 +51,9 @@ class LaTeXExporter:
         # Header row
         header_parts = ["Strategy"]
         for metric in metrics:
-            header_parts.append(f"\\multicolumn{{2}}{{c}}{{{LaTeXExporter._format_metric_name(metric)}}}")
+            header_parts.append(
+                f"\\multicolumn{{2}}{{c}}{{{LaTeXExporter._format_metric_name(metric)}}}"
+            )
         lines.append(" & ".join(header_parts) + r" \\")
 
         # Subheader row
@@ -79,7 +81,7 @@ class LaTeXExporter:
         lines.append(r"\end{tabular}")
         lines.append(r"\end{table}")
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write("\n".join(lines))
 
         return output_path
@@ -89,7 +91,7 @@ class LaTeXExporter:
         pairwise_results: List[Dict[str, Any]],
         output_path: Path,
         caption: str = "Pairwise significance tests (Wilcoxon)",
-        label: str = "tab:significance"
+        label: str = "tab:significance",
     ) -> Path:
         """
         Export significance test results to LaTeX table.
@@ -144,7 +146,7 @@ class LaTeXExporter:
         lines.append(r"\end{tabular}")
         lines.append(r"\end{table}")
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write("\n".join(lines))
 
         return output_path
@@ -155,7 +157,7 @@ class LaTeXExporter:
         strategies: List[str],
         output_path: Path,
         caption: str = "Cliff's Delta effect size matrix",
-        label: str = "tab:effect_size"
+        label: str = "tab:effect_size",
     ) -> Path:
         """
         Export effect size matrix to LaTeX table.
@@ -204,7 +206,7 @@ class LaTeXExporter:
         lines.append(r"\end{tabular}")
         lines.append(r"\end{table}")
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write("\n".join(lines))
 
         return output_path

@@ -8,7 +8,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
-from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
+from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
@@ -35,14 +35,9 @@ def static_analysis_path(fixtures_path):
 
 @pytest.fixture
 def static_data(static_analysis_path) -> StaticAnalysisData:
-    """Load real static analysis data using StaticAnalysisParser."""
-    parser = StaticAnalysisParser()
-
-    reach_file = str(static_analysis_path / "cryptoapp.apk.reach")
-    gator_file = str(static_analysis_path / "cryptoapp.apk.wtg")
-    gesda_file = str(static_analysis_path / "cryptoapp.apk.gesda")
-
-    return parser.parse(reach_file, gator_file, gesda_file, "br.unb.cic.cryptoapp")
+    """Load real static analysis data from unified JSON."""
+    json_file = str(static_analysis_path / "cryptoapp.apk.json")
+    return parse_file(json_file, "br.unb.cic.cryptoapp")
 
 
 @pytest.fixture

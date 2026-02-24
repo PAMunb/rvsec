@@ -190,11 +190,8 @@ coverage = CoverageMetrics(
 print(f"Method coverage: {coverage.method_coverage}%")
 
 # Static analysis integration
-static_data = StaticAnalysisData.from_files(
-  gesda_file="app.gesda",
-  gator_file="app.wtg",
-  reach_file="app.reach"
-)
+from rv_static_analysis.parser.static.static_analysis_parser import parse_file
+static_data = parse_file("app.apk.json", "com.example.app")
 
 # Command execution with validation
 result = CommandResult(

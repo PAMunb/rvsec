@@ -6,9 +6,9 @@ action scoring weights for optimal exploration coverage.
 """
 
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
 from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RunMetrics:
     """Metrics from a single run."""
+
     run_id: str
     package_name: str
     seed: int
@@ -59,12 +60,7 @@ class CalibrationMetricsCollector:
         self.aggregated: Dict[str, Any] = {}
 
     def extract_metrics(
-        self,
-        agent,
-        run_id: str,
-        package_name: str,
-        seed: int,
-        execution_time: float
+        self, agent, run_id: str, package_name: str, seed: int, execution_time: float
     ) -> RunMetrics:
         """
         Extract calibration metrics from an executed agent.
@@ -83,7 +79,7 @@ class CalibrationMetricsCollector:
             run_id=run_id,
             package_name=package_name,
             seed=seed,
-            execution_time_seconds=execution_time
+            execution_time_seconds=execution_time,
         )
 
         try:
@@ -115,12 +111,14 @@ class CalibrationMetricsCollector:
                     metrics.screens.append(screen_metrics)
 
             # Extract UI coverage from memory coordinator (same source as runner)
-            memory = getattr(agent, 'memory_coordinator', None)
+            memory = getattr(agent, "memory_coordinator", None)
             if memory and memory.ui_coverage:
                 try:
                     ui_stats = memory.ui_coverage.get_comprehensive_metrics()
                     metrics.ui_coverage_percent = ui_stats.get("element_coverage", 0.0)
-                    metrics.element_coverage_percent = ui_stats.get("element_coverage", 0.0)
+                    metrics.element_coverage_percent = ui_stats.get(
+                        "element_coverage", 0.0
+                    )
                 except Exception:
                     pass
 
@@ -140,7 +138,9 @@ class CalibrationMetricsCollector:
             )
 
             # Log per-screen coverage
-            low_coverage_screens = [s for s in metrics.screens if s["coverage_percent"] < 60]
+            low_coverage_screens = [
+                s for s in metrics.screens if s["coverage_percent"] < 60
+            ]
             if low_coverage_screens:
                 logger.warning(
                     f"[METRICS] low_coverage_screens={len(low_coverage_screens)} "
@@ -171,7 +171,9 @@ class CalibrationMetricsCollector:
         total_states = sum(r.states_discovered for r in self.runs)
         total_actions = sum(r.total_actions for r in self.runs)
         avg_ui_coverage = sum(r.ui_coverage_percent for r in self.runs) / len(self.runs)
-        avg_elem_coverage = sum(r.element_coverage_percent for r in self.runs) / len(self.runs)
+        avg_elem_coverage = sum(r.element_coverage_percent for r in self.runs) / len(
+            self.runs
+        )
 
         # Calculate screen coverage distribution
         all_screens = []
@@ -213,7 +215,8 @@ class CalibrationMetricsCollector:
                 pkg: {
                     "runs": len(runs),
                     "avg_states": sum(r.states_discovered for r in runs) / len(runs),
-                    "avg_ui_coverage": sum(r.ui_coverage_percent for r in runs) / len(runs),
+                    "avg_ui_coverage": sum(r.ui_coverage_percent for r in runs)
+                    / len(runs),
                 }
                 for pkg, runs in by_package.items()
             },
@@ -255,12 +258,14 @@ class CalibrationMetricsCollector:
             pct = count / agg["total_screens"] * 100 if agg["total_screens"] > 0 else 0
             lines.append(f"  {bucket}: {count} screens ({pct:.1f}%)")
 
-        lines.extend([
-            "",
-            "-" * 40,
-            "ANALYSIS",
-            "-" * 40,
-        ])
+        lines.extend(
+            [
+                "",
+                "-" * 40,
+                "ANALYSIS",
+                "-" * 40,
+            ]
+        )
 
         # Identify issues
         issues = []
@@ -272,8 +277,8 @@ class CalibrationMetricsCollector:
             )
 
         low_cov_screens = (
-            agg["screen_coverage_distribution"]["0-20%"] +
-            agg["screen_coverage_distribution"]["20-40%"]
+            agg["screen_coverage_distribution"]["0-20%"]
+            + agg["screen_coverage_distribution"]["20-40%"]
         )
         if low_cov_screens > agg["total_screens"] * 0.3:
             issues.append(
@@ -286,16 +291,18 @@ class CalibrationMetricsCollector:
         else:
             lines.append("  No major issues detected.")
 
-        lines.extend([
-            "",
-            "=" * 60,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 60,
+            ]
+        )
 
         return "\n".join(lines)
 
     def save_report(self, path: str) -> None:
         """Save calibration report to file."""
         report = self.get_calibration_report()
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             f.write(report)
         logger.info(f"Calibration report saved to {path}")

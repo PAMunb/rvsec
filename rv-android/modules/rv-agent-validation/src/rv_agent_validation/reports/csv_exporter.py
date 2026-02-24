@@ -4,7 +4,7 @@ CSV export for experiment results.
 
 import csv
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class CSVExporter:
@@ -14,9 +14,7 @@ class CSVExporter:
 
     @staticmethod
     def export_per_run(
-        results: List[Dict[str, Any]],
-        output_path: Path,
-        metrics: List[str]
+        results: List[Dict[str, Any]], output_path: Path, metrics: List[str]
     ) -> Path:
         """
         Export per-run metrics to CSV.
@@ -34,8 +32,8 @@ class CSVExporter:
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+        with open(output_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
 
             for result in sorted(results, key=lambda x: x.get("run_id", "")):
@@ -48,7 +46,7 @@ class CSVExporter:
     def export_summary(
         summary_by_strategy: Dict[str, Dict[str, Dict[str, float]]],
         output_path: Path,
-        metrics: List[str]
+        metrics: List[str],
     ) -> Path:
         """
         Export strategy summary to CSV.
@@ -80,7 +78,7 @@ class CSVExporter:
         for metric in metrics:
             fieldnames.extend([f"{metric}_mean", f"{metric}_std", f"{metric}_median"])
 
-        with open(output_path, 'w', newline='') as f:
+        with open(output_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
@@ -89,8 +87,7 @@ class CSVExporter:
 
     @staticmethod
     def export_pairwise(
-        pairwise_results: List[Dict[str, Any]],
-        output_path: Path
+        pairwise_results: List[Dict[str, Any]], output_path: Path
     ) -> Path:
         """
         Export pairwise comparison results to CSV.
@@ -105,12 +102,16 @@ class CSVExporter:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         fieldnames = [
-            "comparison", "p_value", "significant", "significant_bonferroni",
-            "cliff_delta", "cliff_interpretation"
+            "comparison",
+            "p_value",
+            "significant",
+            "significant_bonferroni",
+            "cliff_delta",
+            "cliff_interpretation",
         ]
 
-        with open(output_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+        with open(output_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
 
             for result in pairwise_results:

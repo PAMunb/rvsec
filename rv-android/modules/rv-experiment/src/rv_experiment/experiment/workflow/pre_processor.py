@@ -266,24 +266,14 @@ class PreProcessor:
 
 
     def _get_target_apks_for_analysis(self) -> List[str]:
-        """Get APKs for static analysis (prefer instrumented over original)."""
-        target_apks = []
+        """Get original APKs for static analysis.
 
-        # Get expected APK filenames from filtered config
-        expected_names = {os.path.basename(p) for p in self.config.get_apk_list()}
-
-        # Try instrumented APKs first, filtered by expected set
-        instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
-        if os.path.exists(instrumented_dir):
-            for file in os.listdir(instrumented_dir):
-                if file.endswith(EXTENSION_APK) and file in expected_names:
-                    target_apks.append(os.path.join(instrumented_dir, file))
-
-        # Fallback to original APKs if no instrumented found
-        if not target_apks:
-            target_apks.extend(self.config.get_apk_list())
-
-        return target_apks
+        GATOR/Soot cannot process instrumented APKs because the AspectJ-woven
+        bytecode causes TypeResolver errors. Static analysis always runs on
+        original APKs; the output goes to instrumented_apks/ so rv-platform
+        finds the JSON alongside the instrumented APK.
+        """
+        return self.config.get_apk_list()
 
     def get_instrumented_apks(self) -> List[App]:
         """

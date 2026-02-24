@@ -1,21 +1,21 @@
 """
 RV Static Analysis Module
 
-Static analysis tools integration (GATOR, GESDA, REACH) and result parsing
-for Android applications with runtime verification monitor integration.
+Unified GATOR-based static analysis for Android applications,
+producing reachability, windows, and transitions data.
 """
 
-from .config import RVStaticAnalysisConfig
 from .analysis.static.static_analysis import (
-    StaticAnalyzer,
+    StaticAnalysisException,
     StaticAnalysisResult,
-    StaticAnalysisException
+    StaticAnalyzer,
 )
+from .config import RVStaticAnalysisConfig
 
 __version__ = "0.1.0"
 __all__ = [
     "RVStaticAnalysisConfig",
-    "StaticAnalyzer", 
+    "StaticAnalyzer",
     "StaticAnalysisResult",
-    "StaticAnalysisException"
+    "StaticAnalysisException",
 ]

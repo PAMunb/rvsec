@@ -26,7 +26,7 @@ The system consists of the following modules:
 **Analysis and Processing:**
 5. **rv-monitor-generator**: JavaMOP/RV-Monitor integration for generating runtime verification monitors
 6. **rv-instrumentation**: APK instrumentation with monitor weaving capabilities
-7. **rv-static-analysis**: Static analysis tools (GATOR, GESDA, REACH) for Android applications
+7. **rv-static-analysis**: Unified GATOR-based static analysis for Android applications
 8. **rv-coverage**: Coverage analysis and tracking for monitored operations
 9. **rv-screen-parser**: Android UI parsing with visitor patterns for state analysis
 
@@ -189,6 +189,11 @@ Comments describe what the code does *now*. No migration history ("migrated from
 
 ### Git Commits
 - NEVER add `Co-Authored-By` or any co-author trailer to commit messages. The user is the sole author.
+
+### Emulator Management — DO NOT TOUCH
+- **NEVER start, stop, or manage Android emulators manually.** rv-platform manages the entire emulator lifecycle automatically (start, boot wait, APK install, cleanup). This applies to ALL contexts: E2E validation, experiments, testing, debugging — no exceptions.
+- Do NOT run `emulator` commands, `adb emu kill`, or any emulator-related shell commands. If a task requires an emulator, use `rv-experiment run` or `rv-platform run` — they handle everything.
+- This rule is PERMANENT and must NEVER be removed from this file.
 
 ### Constants
 - Use constants instead of magic values whenever possible

@@ -18,7 +18,7 @@ The rv-coverage and rv-screen-parser modules are unaffected — they consume `St
 - `code_package: str` — Application code package name from `App.code_package` (unchanged)
 - `mop_dir: str` — Path to MOP specification directory. Previously consumed only by REACH via `--mop-dir` CLI flag. Now passed to the single GATOR analysis client via `-clientParam mopDir=<path>`.
 - `analysis_timeout: float` — Timeout in seconds for the analysis tool (default: 600.0). Replaces the implicit no-timeout behavior of the previous three-tool pipeline. Passed both as `Command.timeout` (Python process-level kill) and `--timeout` (GATOR's internal timeout).
-- `analysis_client_jar: str` — Path to the analysis client fat JAR (`lib/analysis-client/rvsec-analysis-client.jar`). Replaces `gesda_jar`, `gator_dir`, and `reach_jar`.
+- `analysis_client_jar: str` — Path to the analysis client fat JAR (`lib/gator/rvsec-analysis-client.jar`). Replaces `gesda_jar`, `gator_dir`, and `reach_jar`.
 - `jvm_memory: str` — JVM max heap size (default: `"8g"`). Applied as `-Xmx` flag to the GATOR launcher.
 
 ### Output (changed)
@@ -75,7 +75,7 @@ The call graph is built using Soot's default entry point strategy — Android li
 
 #### Scenario: Successful static analysis with valid APK
 
-- **WHEN** `StaticAnalyzer._run_analysis()` is called with a valid APK path and the analysis client JAR exists at `lib/analysis-client/rvsec-analysis-client.jar`
+- **WHEN** `StaticAnalyzer._run_analysis()` is called with a valid APK path and the analysis client JAR exists at `lib/gator/rvsec-analysis-client.jar`
 - **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> -withCHA`
 - **AND** the resulting `.json` file MUST be parseable by `StaticAnalysisParser` into a `StaticAnalysisData` containing non-empty `Classes`, `Windows`, and `WindowTransitionGraph`
 

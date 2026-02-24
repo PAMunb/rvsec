@@ -13,6 +13,7 @@ from typing import Dict, Optional, Set
 @dataclass
 class MethodData:
     """Method information from .methods file."""
+
     class_name: str
     name: str
     parameters: str
@@ -59,21 +60,21 @@ class MethodsParser:
 
     def _parse(self) -> None:
         """Parse .methods file and build lookup tables."""
-        with open(self.file_path, 'r') as f:
+        with open(self.file_path, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 # Build full signature: class.method(params)
                 signature = f"{row['class']}.{row['signature']}"
 
                 method = MethodData(
-                    class_name=row['class'],
-                    name=row['method'],
-                    parameters=row['parameters'],
+                    class_name=row["class"],
+                    name=row["method"],
+                    parameters=row["parameters"],
                     signature=signature,
-                    is_activity=row['is_activity'].lower() == 'true',
-                    reachable=row['reachable'].lower() == 'true',
-                    reaches_mop=row['reaches_mop'].lower() == 'true',
-                    directly_reaches_mop=row['directly_reaches_mop'].lower() == 'true',
+                    is_activity=row["is_activity"].lower() == "true",
+                    reachable=row["reachable"].lower() == "true",
+                    reaches_mop=row["reaches_mop"].lower() == "true",
+                    directly_reaches_mop=row["directly_reaches_mop"].lower() == "true",
                 )
 
                 # Add to lookup tables

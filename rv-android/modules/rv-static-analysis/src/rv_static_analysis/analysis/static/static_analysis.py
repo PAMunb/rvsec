@@ -1,491 +1,417 @@
 """
-Static analysis module providing analyzers for Android applications.
+Orchestrate static analysis of Android applications via the GATOR-based client.
 
-This module contains analyzers for different static analysis tools:
-- GESDA: For extracting application structure and components
-- GATOR: For window transition graph analysis
-- REACH: For reachability analysis of security-relevant components
+Run the unified GATOR analysis client on Android APKs to produce a single JSON
+file containing reachability data, window definitions, and window transitions.
+The client writes sections in priority order with flush between each, so a
+timeout still preserves the most critical data (reachability first, then
+windows, then transitions).
 
-The analyzers follow the BaseAnalyzer pattern for consistent interfaces
-and interoperability with the rest of the system.
+### Architectural Decisions:
+
+- Single-client invocation: one GATOR process produces all three analysis
+  sections (reachability, windows, transitions) in a single JSON file, avoiding
+  the coordination overhead of three separate tools (GESDA, GATOR, REACH)
+- Priority-ordered output: the client flushes reachability before windows and
+  windows before transitions, so timeout yields gracefully degraded data
+- File-level caching: if the output JSON already exists, the analysis is
+  skipped entirely (no content validation — existence implies completion or
+  partial timeout output that the parser can recover)
+
+### Role in the System:
+
+- Called by StaticAnalysisComponent in rv-platform during pre-processing
+  (Phase 1 of TaskExecutor, outside emulator session)
+- Produces StaticAnalysisData consumed by rv-agent (navigation guidance,
+  MOP prioritization) and rv-coverage (method universe for coverage %)
+
+### Integration Points:
+
+- Input: App instance (APK path, package name) from rv-android-core
+- Output: StaticAnalysisResult with JSON file path and execution metrics
+- Parser: StaticAnalysisParser converts the JSON into StaticAnalysisData
+- Dependencies: rv-android-core (Command, ErrorHandler, App, BaseAnalyzer)
 """
 
 import os.path
 import sys
 import time
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, field_validator
-
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_result import CommandResult
+from rv_android_core.constants import EXTENSION_STATIC_ANALYSIS
+from rv_android_core.domain.app import App
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.error.exceptions import RVAndroidError
+from rv_android_core.util.error.exceptions import RVAndroidError, RVCommandTimeoutError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.context_adapter import ContextAdapter
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel, validated_model
+
 from rv_static_analysis.config import RVStaticAnalysisConfig
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 
 
 class StaticAnalysisException(RVAndroidError):
     """Exception raised for errors in static analysis execution."""
-    pass
 
 
 class StaticAnalysisResult(BaseValidatedModel):
-    """
-    Data model representing comprehensive results from static analysis execution.
-    
-    This model encapsulates all outputs and metadata from the static analysis pipeline,
-    including file paths, execution status, error information, and performance metrics.
-    The model provides a standardized interface for accessing static analysis results
-    across the RV-Android system.
+    """Result from static analysis execution."""
 
-    ### Architectural Role:
-    - Serves as the primary data contract for static analysis output
-    - Provides standardized access to analysis artifacts and metadata
-    - Enables consistent error reporting and performance tracking
-    - Facilitates integration with downstream analysis components
-    """
-
-    gesda_file: str = Field(
-        default="",
-        description="Path to GESDA analysis output file containing application structure"
+    analysis_file: str = Field(
+        default="", description="Path to unified analysis JSON output"
     )
-    gator_file: str = Field(
-        default="",
-        description="Path to GATOR window transition graph output file"
-    )
-    reach_file: str = Field(
-        default="",
-        description="Path to REACH reachability analysis output file"
-    )
-    success: bool = Field(
-        default=True,
-        description="Overall success status of the static analysis pipeline"
+    success: bool = Field(default=True, description="Overall success status")
+    timed_out: bool = Field(
+        default=False, description="Whether analysis was interrupted by timeout"
     )
     errors: List[str] = Field(
-        default_factory=list,
-        description="List of error messages encountered during analysis"
+        default_factory=list, description="Error messages encountered during analysis"
     )
     execution_times: Dict[str, float] = Field(
-        default_factory=dict,
-        description="Execution times for each analysis tool in seconds"
+        default_factory=dict, description="Execution times per phase in seconds"
     )
 
 
-@validated_model(['app', 'config', 'output_dir'])
+@validated_model(["app", "config", "output_dir"])
 class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     """
-    Comprehensive analyzer for static analysis of Android applications.
-    
-    The StaticAnalyzer orchestrates the execution of multiple static analysis tools
-    (GESDA, GATOR, REACH) and aggregates their results into a unified output format.
-    It follows the BaseAnalyzer pattern for consistent integration with the broader
-    analysis pipeline and provides robust error handling and logging.
+    Run the unified GATOR-based analysis client on a single APK.
+
+    Orchestrate command execution, caching, timeout handling, and result
+    parsing for the GATOR analysis client. The client produces a single JSON
+    file with reachability, windows, and transitions sections written in
+    priority order. On timeout, partial JSON is preserved and the parser
+    recovers truncated sections via bracket recovery (INV-ANA-06).
 
     ### Architectural Decisions:
-    - Integrates with centralized ErrorHandler for consistent error management
-    - Uses structured logging through LoggingManager for operational visibility
-    - Follows dependency-aware execution order (GESDA → GATOR, REACH)
-    - Provides comprehensive validation and error reporting
-    - Supports both individual tool execution and complete pipeline execution
+
+    - Pydantic + BaseAnalyzer dual inheritance: Pydantic provides validated
+      construction and serialization; BaseAnalyzer provides the analyze/
+      get_metrics interface expected by rv-platform components
+    - File-level caching: if the output file exists, execution is skipped.
+      This enables experiment resume without re-running expensive analysis
+    - Timeout tolerance: RVCommandTimeoutError is caught and treated as a
+      partial success — the parser handles truncated JSON gracefully
 
     ### Role in the System:
-    - Acts as the primary interface for static analysis execution
-    - Coordinates execution of multiple static analysis tools
-    - Provides unified result aggregation and error handling
-    - Integrates with the broader analysis pipeline for data flow
-    - Enables downstream analyzers through parsed static data access
+
+    - Instantiated by StaticAnalysisComponent in rv-platform for each task
+    - analyze() returns StaticAnalysisResult; get_static_data() parses the
+      JSON into StaticAnalysisData for downstream consumers
+    - get_metrics() provides execution timing for performance reporting
 
     ### Integration Points:
-    - Consumed by coverage analyzers for static-dynamic correlation
-    - Used by experiment orchestration systems for batch analysis
-    - Integrated with result storage and reporting systems
-    - Provides data for UI navigation and security analysis components
+
+    - Input: App (APK path, package), RVStaticAnalysisConfig (tool paths)
+    - Output: StaticAnalysisResult (file path, timing, status)
+    - Parser: StaticAnalysisParser converts JSON to StaticAnalysisData
+    - Error handling: @ErrorHandler on analyze(), error_context in commands
     """
 
-    app: App = Field(
-        ...,
-        description="Android application to analyze"
-    )
+    app: App = Field(..., description="Android application to analyze")
     config: RVStaticAnalysisConfig = Field(
         default_factory=RVStaticAnalysisConfig,
-        description="Configuration for static analysis tools"
+        description="Configuration for static analysis",
     )
     output_dir: Optional[str] = Field(
-        default=None,
-        description="Directory for storing analysis output"
+        default=None, description="Directory for analysis output"
     )
 
-    # BaseAnalyzer inherited fields (excluded from constructor but maintained internally)
+    # BaseAnalyzer inherited fields
     analyzer_name: str = Field(default="static", exclude=True)
     static_data: Optional[StaticAnalysisData] = Field(default=None, exclude=True)
 
-    # Internal state fields (not part of constructor)
+    # Internal state
     execution_times: Dict[str, float] = Field(default_factory=dict, exclude=True)
-    result: StaticAnalysisResult = Field(default_factory=StaticAnalysisResult, exclude=True)
+    result: StaticAnalysisResult = Field(
+        default_factory=StaticAnalysisResult, exclude=True
+    )
     logger: Optional[ContextAdapter] = Field(default=None, exclude=True)
     error_handler: Optional[ErrorHandler] = Field(default=None, exclude=True)
-    gesda_file: str = Field(default="", exclude=True)
-    gator_file: str = Field(default="", exclude=True)
-    reach_file: str = Field(default="", exclude=True)
+    analysis_file: str = Field(default="", exclude=True)
 
-    @field_validator('app')
+    @field_validator("app")
     @classmethod
     def validate_app(cls, v):
         """Validate that app is a valid App instance."""
-        if not hasattr(v, 'name') or not hasattr(v, 'package_name') or not hasattr(v, 'path'):
-            raise ValueError("app must be a valid App instance with name, package_name, and path attributes")
+        if (
+            not hasattr(v, "name")
+            or not hasattr(v, "package_name")
+            or not hasattr(v, "path")
+        ):
+            raise ValueError(
+                "app must be a valid App instance with name, package_name, and path"
+            )
         return v
 
     def model_post_init(self, __context) -> None:
-        """
-        Initialize analyzer components after Pydantic model construction.
-        
-        This method sets up all necessary components for static analysis execution,
-        including configuration validation, output directory preparation, and integration
-        with centralized error handling and logging infrastructure.
-        """
-        # Resolve output directory
-        if self.output_dir is None:
-            self.output_dir = os.path.join(self.config.output_dir, self.app.package_name)
+        """Initialize analyzer state after Pydantic construction.
 
-        # Initialize internal state
+        Resolve the output directory, create it on disk, build the analysis
+        file path, and set up logging and error handling.
+
+        State:
+            self.output_dir: Resolved output directory. Defaults to
+                config.output_dir / app.package_name if not provided.
+            self.execution_times: Empty dict, populated during analyze().
+            self.result: Fresh StaticAnalysisResult, updated during analyze().
+            self.logger: ContextAdapter scoped to this analyzer instance.
+            self.error_handler: Shared ErrorHandler singleton.
+            self.analysis_file: Full path to the output JSON file.
+        """
+        if self.output_dir is None:
+            self.output_dir = os.path.join(
+                self.config.output_dir, self.app.package_name
+            )
+
         self.execution_times = {}
         self.result = StaticAnalysisResult()
 
-        # Initialize structured logging through LoggingManager
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_static_analysis.analysis.static.static_analysis.StaticAnalyzer',
-            {
-                CONTEXT_COMPONENT: 'StaticAnalyzer',
-                'component_module': 'rv-static-analysis',
-                'app_package': self.app.package_name
-            }
+            "rv_static_analysis.analysis.static.static_analysis.StaticAnalyzer",
+            {CONTEXT_COMPONENT: "StaticAnalyzer", "app_package": self.app.package_name},
         )
-
-        # Initialize centralized error handling
         self.error_handler = ErrorHandler.get_instance()
 
-        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # Setup file paths for analysis results using application name
-        self.gesda_file = os.path.join(self.output_dir, f"{self.app.name}.gesda")
-        self.gator_file = os.path.join(self.output_dir, f"{self.app.name}.wtg")
-        self.reach_file = os.path.join(self.output_dir, f"{self.app.name}.reach")
+        # Single output file: {app_name}.json
+        self.analysis_file = os.path.join(
+            self.output_dir, f"{self.app.name}{EXTENSION_STATIC_ANALYSIS}"
+        )
+        self.result.analysis_file = self.analysis_file
 
-        # Update result model with resolved file paths
-        self.result.gesda_file = self.gesda_file
-        self.result.gator_file = self.gator_file
-        self.result.reach_file = self.reach_file
-
-        self.logger.info("StaticAnalyzer initialized", extra={
-            'output_dir': self.output_dir,
-            'app_name': self.app.name,
-            'config_summary': self.config.get_configuration_summary()
-        })
+        self.logger.info(
+            "StaticAnalyzer initialized",
+            extra={
+                "output_dir": self.output_dir,
+                "app_name": self.app.name,
+                "analysis_file": self.analysis_file,
+            },
+        )
 
     def _initialize_from_static_data(self) -> None:
-        """
-        Initialize analyzer from existing static data.
-        
-        This analyzer serves as the entry point for generating static data
-        rather than consuming it, so no initialization from static data is required.
-        This method satisfies the BaseAnalyzer interface contract.
-        """
-        pass
+        """Satisfy BaseAnalyzer interface — no initialization needed."""
 
     @ErrorHandler.handle_errors(component="StaticAnalyzer", phase="static_analysis")
     def analyze(self, data: Any = None) -> StaticAnalysisResult:
-        """
-        Execute the complete static analysis pipeline for the Android application.
-        
-        This method orchestrates the execution of all static analysis tools in the
-        correct dependency order and aggregates their results. It provides comprehensive
-        error handling and performance tracking for each analysis step.
-        
-        ### Analysis Pipeline:
-        1. GESDA analysis for application structure extraction
-        2. GATOR analysis for window transition graph generation
-        3. REACH analysis for security-relevant code reachability (depends on GESDA)
-        4. Result aggregation and performance metrics collection
-        
+        """Run the unified analysis client on the APK.
+
+        Execute the GATOR analysis command and collect execution metrics.
+        On StaticAnalysisException (non-zero exit code), the result is
+        marked as failed but still returned with error details.
+
         Args:
-            data: Unused parameter (required by BaseAnalyzer interface)
-            
+            data: Unused. Present to satisfy the BaseAnalyzer interface.
+
         Returns:
-            StaticAnalysisResult containing paths to analysis output files,
-            execution status, and performance metrics
-            
-        Raises:
-            StaticAnalysisException: If any critical analysis step fails
+            StaticAnalysisResult with analysis file path, success status,
+            timeout flag, error messages, and per-phase execution times.
         """
-        self.logger.info("Starting comprehensive static analysis pipeline", extra={
-            'app_name': self.app.name,
-            'app_package': self.app.package_name,
-            'pipeline_stage': 'initialization'
-        })
-        self.logger.debug(self.config)
+        self.logger.info(
+            "Starting static analysis",
+            extra={
+                "app_name": self.app.name,
+                "app_package": self.app.package_name,
+            },
+        )
 
         try:
-            # Execute analysis pipeline in dependency order
-            self._run_gesda()
-            self._run_gator()
-            self._run_reachability()
-
-            # Update result with execution performance metrics
+            self._run_analysis()
             self.result.execution_times = self.execution_times
 
-            self.logger.info("Static analysis pipeline completed successfully", extra={
-                'execution_times': self.execution_times,
-                'total_time': sum(self.execution_times.values()),
-                'pipeline_stage': 'completed'
-            })
-
+            self.logger.info(
+                "Static analysis completed",
+                extra={
+                    "execution_times": self.execution_times,
+                    "total_time": sum(self.execution_times.values()),
+                },
+            )
             return self.result
 
         except StaticAnalysisException as e:
-            self.logger.error("Static analysis pipeline failed", extra={
-                'error_message': str(e),
-                'pipeline_stage': 'failed'
-            })
+            self.logger.error(
+                "Static analysis failed",
+                extra={
+                    "error_message": str(e),
+                },
+            )
             self.result.success = False
             self.result.errors.append(str(e))
             return self.result
 
-    def _run_gesda(self) -> None:
-        """
-        Execute GESDA analysis for comprehensive application component extraction.
-        
-        GESDA (General Static Data Analyzer) analyzes the application bytecode to extract
-        structural information including components, methods, class hierarchies, and
-        security-relevant code patterns. This analysis forms the foundation for
-        subsequent reachability analysis.
-        
-        ### GESDA Analysis Output:
-        - Application component inventory (Activities, Services, etc.)
-        - Method-level call graph information
-        - Class hierarchy and inheritance relationships
-        - Security-relevant API usage patterns
-        
-        Raises:
-            StaticAnalysisException: If GESDA analysis execution fails
-        """
-        cmd_args = self.config.get_tool_command('gesda', self.app.path, self.gesda_file)
-        gesda_cmd = Command(cmd_args[0], cmd_args[1:])
-        self._execute_command("GESDA", self.gesda_file, gesda_cmd)
-
-    def _run_gator(self) -> None:
-        """
-        Execute GATOR analysis for window transition graph generation.
-        
-        GATOR (GUI Analysis TOol foR Android) performs static analysis of the application's
-        user interface to construct a window transition graph. This graph represents all
-        possible navigation paths through the application's UI components and activities.
-        
-        ### GATOR Analysis Output:
-        - Window transition graph representing UI navigation flows
-        - Activity and fragment relationship mappings
-        - Event handler and callback analysis
-        - UI element hierarchy and interaction patterns
-        
-        Raises:
-            StaticAnalysisException: If GATOR analysis execution fails
-        """
-        cmd_args = self.config.get_tool_command('gator', self.app.path, self.gator_file)
-        gator_cmd = Command(cmd_args[0], cmd_args[1:])
-        self._execute_command("GATOR", self.gator_file, gator_cmd)
-
-    def _run_reachability(self) -> None:
-        """
-        Execute comprehensive reachability analysis for security-relevant code detection.
-        
-        REACH analysis determines which security-relevant code (defined by MOP specifications)
-        is reachable from application entry points. This analysis depends on GESDA output
-        for accurate call graph information and uses monitor specifications to identify
-        security-critical API usage patterns.
-        
-        ### REACH Analysis Output:
-        - Reachability information for security-relevant methods
-        - Call path analysis from entry points to critical APIs
-        - Monitor specification coverage analysis
-        - Security risk assessment based on reachable code patterns
-        
-        Raises:
-            StaticAnalysisException: If reachability analysis execution fails
-        """
+    def _run_analysis(self) -> None:
+        """Build and execute the GATOR analysis command."""
         cmd_args = self.config.get_tool_command(
-            'reach',
-            self.app.path,
-            self.reach_file,
-            gesda_file=self.gesda_file,
-            timeout=300
+            "analysis", self.app.path, self.analysis_file
         )
-        reach_cmd = Command(cmd_args[0], cmd_args[1:])
-        self._execute_command("REACHABILITY", self.reach_file, reach_cmd)
+        cmd = Command(cmd_args[0], cmd_args[1:])
+        self._execute_command("ANALYSIS", self.analysis_file, cmd)
 
-    def _execute_command(self, name: str, result_file: str, command: Command) -> CommandResult:
-        """
-        Execute static analysis command with comprehensive logging and error handling.
-        
-        This method provides standardized execution for all static analysis tools with
-        consistent error handling, performance tracking, and result validation. It
-        implements intelligent caching by skipping analysis if output already exists.
-        
+    def _execute_command(
+        self, name: str, result_file: str, command: Command
+    ) -> CommandResult:
+        """Execute analysis command with caching, timeout handling, and logging.
+
+        If the output file already exists, execution is skipped (cache hit).
+        On timeout, the partial JSON is preserved -- the parser handles
+        truncated files via bracket recovery (INV-ANA-06).
+
         Args:
-            name: Human-readable name of the analysis tool for logging
-            result_file: Path to the expected output file for result validation
-            command: Command object configured for tool execution
-            
+            name: Human-readable label for the analysis phase (used in logs
+                and execution_times keys).
+            result_file: Expected output file path. If this file exists,
+                execution is skipped.
+            command: Command instance to invoke.
+
         Returns:
-            CommandResult containing execution status and output information
-            
+            CommandResult from the executed command, or a synthetic
+            success result (exit code 0) on cache hit or timeout.
+
         Raises:
-            StaticAnalysisException: If command execution fails or produces invalid results
+            StaticAnalysisException: When the command exits with a non-zero
+                code (not caused by timeout).
         """
-        # Use centralized error handling for consistent error management
         with self.error_handler.error_context(
-                component="StaticAnalyzer",
-                phase="command_execution",
-                tool_name=name,
-                app_name=self.app.name
+            component="StaticAnalyzer",
+            phase="command_execution",
+            tool_name=name,
+            app_name=self.app.name,
         ):
-            # Implement intelligent caching - skip if result already exists
+            # Cache: skip if result already exists
             if os.path.isfile(result_file):
-                self.logger.info("Analysis result already exists, skipping execution", extra={
-                    'tool_name': name,
-                    'result_file': result_file,
-                    'execution_status': 'cached'
-                })
+                self.logger.info(
+                    "Analysis result already exists, skipping",
+                    extra={
+                        "tool_name": name,
+                        "result_file": result_file,
+                    },
+                )
                 return CommandResult(0, b"", b"")
 
-            self.logger.info(f"Executing static analysis tool: {name}", extra={
-                'tool_name': name,
-                'app_name': self.app.name,
-                'command_args': command.args[:3] if len(command.args) > 3 else command.args,  # Truncate for logging
-                'execution_status': 'starting'
-            })
+            self.logger.info(
+                f"Executing analysis: {name}",
+                extra={
+                    "tool_name": name,
+                    "app_name": self.app.name,
+                },
+            )
 
-            # Execute with comprehensive timing and monitoring
             start_time = time.time()
-            cmd_result = command.invoke(stdout=sys.stdout)
-            execution_time = time.time() - start_time
+            # Timeout is treated as partial success because the GATOR client
+            # flushes each JSON section before starting the next. The parser
+            # recovers truncated files via bracket completion (INV-ANA-06),
+            # so even a timed-out run yields usable reachability data.
+            try:
+                cmd_result = command.invoke(stdout=sys.stdout)
+            except RVCommandTimeoutError:
+                execution_time = time.time() - start_time
+                self.execution_times[name] = execution_time
+                self.result.timed_out = True
+                self.logger.warning(
+                    "Analysis timed out, partial JSON preserved",
+                    extra={
+                        "tool_name": name,
+                        "execution_time": execution_time,
+                    },
+                )
+                # Partial JSON is usable — parser recovers truncated files
+                return CommandResult(0, b"", b"")
 
-            # Store execution performance metrics
+            execution_time = time.time() - start_time
             self.execution_times[name] = execution_time
 
-            # Validate execution results
             if cmd_result.code != 0:
-                error_msg = f"Static analysis tool {name} failed with exit code {cmd_result.code}"
+                error_msg = f"Analysis {name} failed with exit code {cmd_result.code}"
                 if cmd_result.stderr:
-                    stderr_text = cmd_result.get_stderr_text()
-                    error_msg += f". Error output: {stderr_text}"
-
-                self.logger.error("Static analysis tool execution failed", extra={
-                    'tool_name': name,
-                    'exit_code': cmd_result.code,
-                    'execution_time': execution_time,
-                    'execution_status': 'failed'
-                })
+                    error_msg += f". Error: {cmd_result.get_stderr_text()}"
+                self.logger.error(
+                    "Analysis execution failed",
+                    extra={
+                        "tool_name": name,
+                        "exit_code": cmd_result.code,
+                        "execution_time": execution_time,
+                    },
+                )
                 raise StaticAnalysisException(error_msg)
 
-            self.logger.info(f"Static analysis tool '{name}' execution completed successfully", extra={
-                'tool_name': name,
-                'execution_time': execution_time,
-                'execution_status': 'completed'
-            })
-
+            self.logger.info(
+                f"Analysis '{name}' completed",
+                extra={
+                    "tool_name": name,
+                    "execution_time": execution_time,
+                },
+            )
             return cmd_result
 
     def get_metrics(self) -> Dict[str, Any]:
-        """
-        Generate comprehensive metrics about the static analysis execution process.
-        
-        This method provides detailed performance and status information that can be
-        used for monitoring, debugging, and optimization of the static analysis pipeline.
-        
-        Returns:
-            Dictionary containing comprehensive execution metrics including:
-            - Individual tool execution times
-            - Overall success status
-            - Error count and details
-            - Tool-specific performance characteristics
-        """
-        total_execution_time = sum(self.execution_times.values())
+        """Collect execution metrics for monitoring and debugging.
 
+        Returns:
+            Dictionary with keys:
+            - "execution_times" (Dict[str, float]): Per-phase times in seconds.
+            - "total_execution_time" (float): Sum of all phase times.
+            - "success" (bool): Whether analysis completed without errors.
+            - "timed_out" (bool): Whether analysis was interrupted by timeout.
+            - "error_count" (int): Number of errors encountered.
+            - "errors" (List[str]): Error messages.
+            - "analysis_file" (str): Path to the output JSON file.
+        """
+        total_time = sum(self.execution_times.values())
         return {
             "execution_times": self.execution_times,
-            "total_execution_time": total_execution_time,
+            "total_execution_time": total_time,
             "success": self.result.success,
+            "timed_out": self.result.timed_out,
             "error_count": len(self.result.errors),
             "errors": self.result.errors,
-            "tools_executed": list(self.execution_times.keys()),
-            "average_tool_time": total_execution_time / len(self.execution_times) if self.execution_times else 0,
-            "output_files": {
-                "gesda": self.gesda_file,
-                "gator": self.gator_file,
-                "reach": self.reach_file
-            }
+            "analysis_file": self.analysis_file,
         }
 
     def get_static_data(self) -> Optional[StaticAnalysisData]:
-        """
-        Load and parse static analysis data from generated output files.
-        
-        This method uses the StaticAnalysisParser to convert raw tool output files
-        into structured domain objects that can be consumed by other analyzers and
-        components in the RV-Android system.
-        
-        ### Data Integration:
-        - Parses GESDA output for application structure information
-        - Processes GATOR output for UI navigation graph data
-        - Integrates REACH output for security reachability information
-        - Provides unified StaticAnalysisData object for downstream consumption
-        
+        """Parse the analysis JSON into StaticAnalysisData.
+
+        Use StaticAnalysisParser.parse_file() which handles truncated JSON
+        from timeout gracefully -- partial sections return empty domain objects.
+
         Returns:
-            StaticAnalysisData containing parsed and structured static analysis
-            information, or None if parsing fails or analysis was unsuccessful
-            
-        Raises:
-            No exceptions raised - errors are logged and None is returned for robustness
+            StaticAnalysisData with classes, windows, and WTG parsed from
+            the analysis JSON, or None if analysis failed (not timed out)
+            or parsing raised an exception.
         """
-        if not self.result.success:
-            self.logger.warning("Cannot load static data because analysis was not successful", extra={
-                'error_count': len(self.result.errors),
-                'errors': self.result.errors
-            })
+        if not self.result.success and not self.result.timed_out:
+            self.logger.warning(
+                "Cannot load static data: analysis failed",
+                extra={
+                    "errors": self.result.errors,
+                },
+            )
             return None
 
         try:
             parser = StaticAnalysisParser()
-            static_data = parser.parse(
-                self.gesda_file,
-                self.gator_file,
-                self.reach_file,
-                self.app.code_package
+            static_data = parser.parse_file(self.analysis_file, self.app.code_package)
+            self.logger.info(
+                "Static analysis data parsed",
+                extra={
+                    "package": self.app.code_package,
+                },
             )
-
-            self.logger.info("Static analysis data parsed successfully", extra={
-                'package_name': self.app.code_package,
-                'data_available': static_data is not None
-            })
-
             return static_data
 
         except Exception as e:
-            self.logger.error("Error parsing static analysis data", extra={
-                'error_message': str(e),
-                'package_name': self.app.package_name,
-                'gesda_file': self.gesda_file,
-                'gator_file': self.gator_file,
-                'reach_file': self.reach_file
-            })
+            self.logger.error(
+                "Error parsing static analysis data",
+                extra={
+                    "error_message": str(e),
+                    "analysis_file": self.analysis_file,
+                },
+            )
             return None

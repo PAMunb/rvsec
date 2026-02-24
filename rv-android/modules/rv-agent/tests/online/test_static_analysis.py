@@ -4,7 +4,7 @@ Static analysis integration tests.
 Tests RVAgent with and without static analysis data to verify:
 - MOP prioritization works with static data
 - Graceful degradation without static data
-- Static data loading from .reach, .wtg, .gesda files
+- Static data loading from unified .json file
 """
 
 import pytest
@@ -33,32 +33,14 @@ pytestmark = [pytest.mark.online, pytest.mark.static_analysis]
 class TestStaticDataLoading:
     """Test loading static analysis data."""
 
-    def test_reach_file_exists(self, cryptoapp):
-        """Verify .reach file exists for cryptoapp."""
+    def test_json_file_exists(self, cryptoapp):
+        """Verify unified .json analysis file exists for cryptoapp."""
         if not cryptoapp.static_data_dir:
             pytest.skip("No static data directory")
 
-        reach_files = list(cryptoapp.static_data_dir.glob("*.reach"))
-        assert len(reach_files) > 0, "No .reach file found"
-        print(f"\n  Found .reach: {reach_files[0].name}")
-
-    def test_wtg_file_exists(self, cryptoapp):
-        """Verify .wtg file exists for cryptoapp."""
-        if not cryptoapp.static_data_dir:
-            pytest.skip("No static data directory")
-
-        wtg_files = list(cryptoapp.static_data_dir.glob("*.wtg"))
-        assert len(wtg_files) > 0, "No .wtg file found"
-        print(f"\n  Found .wtg: {wtg_files[0].name}")
-
-    def test_gesda_file_exists(self, cryptoapp):
-        """Verify .gesda file exists for cryptoapp."""
-        if not cryptoapp.static_data_dir:
-            pytest.skip("No static data directory")
-
-        gesda_files = list(cryptoapp.static_data_dir.glob("*.gesda"))
-        assert len(gesda_files) > 0, "No .gesda file found"
-        print(f"\n  Found .gesda: {gesda_files[0].name}")
+        json_files = list(cryptoapp.static_data_dir.glob("*.json"))
+        assert len(json_files) > 0, "No .json analysis file found"
+        print(f"\n  Found .json: {json_files[0].name}")
 
     def test_load_static_analysis_data(self, cryptoapp):
         """Can load static analysis data from files."""
