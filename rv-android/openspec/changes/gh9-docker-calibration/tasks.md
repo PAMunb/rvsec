@@ -131,7 +131,7 @@ Code fixes for risks identified during deep analysis, plus the new preprocessing
 - [x] 12.5 **R1: Naming mismatch** — Fix `filter_apks_static_analysis.py` to output `passed_apks.txt` instead of `valid_apks.txt`.
 - [x] 12.5a **Wrapper script fixes** — Fix `run_phase_d.sh`: use `host.docker.internal:30000/v1` (not hardcoded desktop IP), separate host-side preflight from container URL, add `--sglang-url` to orchestrator command. Fix `run_phase_e.sh`: add `--sglang-url`, SGLang preflight check. Remove broken `--resume` flag from `run_phase_b.sh` and `run_phase_e.sh` (baseline_docker.py does not accept it).
 
-- [x] 12.6 **Create `scripts/preprocess_docker.py`** — Dedicated compose generator for Phase A (Docker preprocessing). Pure functions: `generate_preprocess_compose()` (entrypoint override with `--skip-execution`), `collect_preprocessed_artifacts()` (merge per-container `out/` into single dataset), `filter_by_sa_completeness()` (check for .gesda, .wtg, .reach). See design.md Section 1 for compose structure.
+- [x] 12.6 **Create `scripts/preprocess_docker.py`** — Dedicated compose generator for Phase A (Docker preprocessing). Pure functions: `generate_preprocess_compose()` (entrypoint override with `--skip-execution`), `collect_preprocessed_artifacts()` (merge per-container `out/` into single dataset), `filter_by_sa_completeness()` (check for unified `.json` analysis file). See design.md Section 1 for compose structure.
 - [x] 12.7 **Unit tests for `preprocess_docker.py`** — 8 compose tests (T15-T22) in `test_compose_generation.py`, 8 collection/filter tests (T23-T30) in `test_preprocess.py`.
 - [x] 12.8 **Unit tests for `extra_hosts` and `--sglang-url`** — 6 tests (T9-T14) in `test_compose_generation.py`.
 - [x] 12.9 Run all tests: 84/84 passed (3.11s).
@@ -203,7 +203,7 @@ Commit all infrastructure code, bug fixes, preprocessing script, and the rewritt
 
 ### 13a. Rebuild Docker Image
 
-The existing `phtcosta/rvandroid:0.8.0` image predates gh26 (exploration strategy, 341 tasks) and gh18 (error detection). Containers run baked-in code, not mounted source — so the image MUST be rebuilt (overwriting the `0.8.0` tag) to include all current changes. Calibrating on old code would produce meaningless parameters. The gh26 experiment images (`gh26-pre`, `gh26-pos`) are no longer needed — gh26 is archived.
+The existing `phtcosta/rvandroid:0.8.0` image predates gh26 (exploration strategy), gh18 (error detection), and gh27 (unified static analysis). Containers run baked-in code, not mounted source — so the image MUST be rebuilt (overwriting the `0.8.0` tag) to include all current changes. Calibrating on old code would produce meaningless parameters. The gh26 experiment images (`gh26-pre`, `gh26-pos`) are no longer needed — gh26 is archived.
 
 - [ ] 13a.1 On desktop, after `git pull` + `uv sync`, rebuild the production image (overwrites `0.8.0`):
   ```
@@ -219,8 +219,13 @@ The existing `phtcosta/rvandroid:0.8.0` image predates gh26 (exploration strateg
   docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
     "python -c \"from rv_agent.config.agent_config import RVAgentConfig; c = RVAgentConfig(package_name='test'); print('error_detection_confidence:', c.error_detection_confidence)\""
   ```
-- [ ] 13a.4 Quick E2E smoke: run rv-experiment with `--tools monkey --timeout 30` on 1 APK to verify the image works end-to-end.
-- [ ] 13a.5 Remove obsolete gh26 experiment images: `docker rmi phtcosta/rvandroid:gh26-pre phtcosta/rvandroid:gh26-pos`
+- [ ] 13a.4 Verify the rebuilt image has gh27 code (unified static analysis):
+  ```
+  docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
+    "python -c \"from rv_android_core.constants import EXTENSION_STATIC_ANALYSIS; print('gh27 OK:', EXTENSION_STATIC_ANALYSIS)\""
+  ```
+- [ ] 13a.5 Quick E2E smoke: run rv-experiment with `--tools monkey --timeout 30` on 1 APK to verify the image works end-to-end.
+- [ ] 13a.6 Remove obsolete gh26 experiment images: `docker rmi phtcosta/rvandroid:gh26-pre phtcosta/rvandroid:gh26-pos`
 
 ### 14. Transfer and Verify on Desktop
 
@@ -257,7 +262,7 @@ Transfer code to the desktop machine and run smoke tests to validate end-to-end 
 *Runbook reference: design.md Section 1 "Verification"*
 
 - [ ] 16.1 `passed_apks.txt` exists with ≥100 APKs.
-- [ ] 16.2 All passing APKs have `.gesda`, `.wtg`, `.reach` files in assembled dataset.
+- [ ] 16.2 All passing APKs have `.json` analysis file in assembled dataset.
 - [ ] 16.3 Run `select_dataset.py` to create 75 cal + 30 holdout split.
 - [ ] 16.4 Verify `calibration_set_v2.txt` (75), `holdout_set_v2.txt` (30), `all_valid_apks.txt` (~105).
 - [ ] 16.5 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.

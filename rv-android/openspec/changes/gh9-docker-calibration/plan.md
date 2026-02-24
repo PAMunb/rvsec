@@ -1,10 +1,15 @@
 # Plan: Docker-Based Calibration Infrastructure
 
+> **Note (2026-02-24)**: This plan covers the COMPLETED infrastructure phase (Tasks 1–6).
+> Parameter counts (24) and test counts (35) below reflect the original infrastructure scope.
+> Current values: 37 parameters (11 MACRO + 26 MICRO), 86 unit tests.
+> See `tasks.md` for the full execution campaign (Tasks 13–27).
+
 **GitHub Issue**: #9
 **Workflow**: Quick Path (Analyze -> Fix -> Verify)
 **Branch**: `modules` (current)
 **Reference**: `docs/20260213_plano_calibracao.md` (Phase 0 ideation artifact — full technical design)
-**Agent spec**: `openspec/specs/agent/spec.md` (line 127: "24 tunable parameters", line 221: "rv-agent-validation for calibration")
+**Agent spec**: `openspec/specs/agent/spec.md` (line 127: "37 tunable parameters", line 221: "rv-agent-validation for calibration")
 
 ## Context
 

@@ -38,7 +38,7 @@ E  → Validation (30 holdout APKs, 37 params, SGLang)
 
 RVSEC_HOME and Java 8 are **not required on the host**. The Docker image contains all prerequisites (RVSEC_HOME, Java 8, rv-android, Android SDK). All preprocessing and execution happens inside containers.
 
-**IMPORTANT**: The Docker image `phtcosta/rvandroid:0.8.0` MUST be rebuilt from the current `modules` branch before calibration. The existing `0.8.0` image predates gh26 (exploration strategy) and gh18 (error detection). Rebuilding overwrites the tag with current code. See Task 13a for the rebuild procedure.
+**IMPORTANT**: The Docker image `phtcosta/rvandroid:0.8.0` MUST be rebuilt from the current `modules` branch before calibration. The existing `0.8.0` image predates gh26 (exploration strategy), gh18 (error detection), and gh27 (unified static analysis — single `.json` output instead of `.gesda/.wtg/.reach`). Rebuilding overwrites the tag with current code. See Task 13a for the rebuild procedure.
 
 ### APK Source (Phase A only)
 
@@ -75,7 +75,7 @@ For Phases D and E (multimode), containers also need `extra_hosts: ["host.docker
 
 ### Purpose
 
-Run all preprocessing (monitor generation, APK instrumentation, static analysis) inside Docker containers using `--skip-execution`. This merges the previous Phase 0 (APK filtering by SA tool success) into Phase A — filtering happens AFTER container preprocessing, based on which APKs produced all 3 SA files.
+Run all preprocessing (monitor generation, APK instrumentation, static analysis) inside Docker containers using `--skip-execution`. This merges the previous Phase 0 (APK filtering by SA tool success) into Phase A — filtering happens AFTER container preprocessing, based on which APKs produced the unified analysis JSON file.
 
 The Docker image (rebuilt from `modules` branch as `phtcosta/rvandroid:0.8.0`) contains RVSEC_HOME, Java 8, and all tools for preprocessing. Instead of installing these on the host, we run rv-experiment inside containers with `--skip-execution` to perform only the preprocessing phases (monitors + instrumentation + SA), without launching emulators or executing testing tools.
 
@@ -90,7 +90,7 @@ The Docker image (rebuilt from `modules` branch as `phtcosta/rvandroid:0.8.0`) c
    - No skip flags for preprocessing — monitors, instrumentation, and SA all run
 4. Each container's `out/` directory is mounted as a volume on the host
 5. After all containers finish, `preprocess_docker.py` collects artifacts from all containers
-6. Filtering: APKs that produced all 3 SA files (.gesda, .wtg, .reach) pass → `passed_apks.txt` (filenames only, e.g. `com.example.app.apk`, not full paths — must match `apks_complete.csv` `apk` column for `select_dataset.py` join)
+6. Filtering: APKs that produced the analysis JSON file (`.json`) pass → `passed_apks.txt` (filenames only, e.g. `com.example.app.apk`, not full paths — must match `apks_complete.csv` `apk` column for `select_dataset.py` join)
 7. `select_dataset.py` creates 75 calibration + 30 holdout split (stratified by category)
 8. The assembled flat `calibration_dataset_v2/` directory is ready for Phases B-E
 
@@ -171,14 +171,12 @@ results/preprocessing_v2/
 │   ├── instrumented_apks/              # Instrumented APKs
 │   └── ...                             # SA output files
 ├── preprocess_1/ ... preprocess_5/     # Containers 1-5
-├── passed_apks.txt                     # APKs with all 3 SA files (~105-107)
+├── passed_apks.txt                     # APKs with analysis JSON (~105-107)
 ├── failed_apks.txt                     # APKs that failed (with reasons)
 └── dataset/                            # Assembled flat directory
     ├── app1.apk                        # Instrumented APK
-    ├── app1.apk.gesda                  # GESDA output
-    ├── app1.apk.wtg                    # GATOR WTG output
-    ├── app1.apk.reach                  # REACH output
-    └── ...                             # ~105 APKs x 4 files = ~420 files
+    ├── app1.apk.json                   # Unified analysis (reachability, windows, transitions)
+    └── ...                             # ~105 APKs x 2 files = ~210 files
 
 modules/rv-agent-validation/data/
 ├── calibration_dataset_v2/             # Copied from results/preprocessing_v2/dataset/
@@ -199,18 +197,16 @@ wc -l modules/rv-agent-validation/data/calibration_set_v2.txt    # → 75
 wc -l modules/rv-agent-validation/data/holdout_set_v2.txt        # → 30
 wc -l modules/rv-agent-validation/data/all_valid_apks.txt        # → ~105
 
-# 3. Verify each APK in dataset has its 3 SA files
+# 3. Verify each APK in dataset has its analysis JSON
 for apk in modules/rv-agent-validation/data/calibration_dataset_v2/*.apk; do
     base=$(basename "$apk")
-    for ext in gesda wtg reach; do
-        if [ ! -s "${apk}.${ext}" ]; then
-            echo "MISSING: ${base}.${ext}"
-        fi
-    done
+    if [ ! -s "${apk}.json" ]; then
+        echo "MISSING: ${base}.json"
+    fi
 done
 ```
 
-**Gate**: `passed_apks.txt` has ≥100 APKs. `calibration_set_v2.txt` has 75 entries, `holdout_set_v2.txt` has 30 entries, `all_valid_apks.txt` has ≥100 entries. Every APK in `calibration_dataset_v2/` has matching `.gesda`, `.wtg`, `.reach` files.
+**Gate**: `passed_apks.txt` has ≥100 APKs. `calibration_set_v2.txt` has 75 entries, `holdout_set_v2.txt` has 30 entries, `all_valid_apks.txt` has ≥100 entries. Every APK in `calibration_dataset_v2/` has a matching `.json` analysis file.
 
 ---
 
