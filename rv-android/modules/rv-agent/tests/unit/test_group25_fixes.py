@@ -1,9 +1,9 @@
 """
 Tests for Group 25 bug fixes (gh26).
 
-Covers four related bugs:
+Covers four related fixes:
 (a) H4: key_event excluded from saturation rate
-(b) H1: MopScorer defers scoring for lowercase "click" actions
+(b) MopScorer scores based on MOP reachability (deferral dead code removed)
 (c) M1: _has_untested_inputs uses make_element_id_from_tuple format
 (d) H5: forced_back_count increments only once per forced-back event
 """
@@ -96,73 +96,52 @@ class TestKeyEventExcludedFromSaturation:
 
 
 # ---------------------------------------------------------------------------
-# (b) H1: MopScorer defers for lowercase "click"
+# (b) MopScorer scores based on MOP reachability (deferral dead code removed)
 # ---------------------------------------------------------------------------
 
 
-class TestMopScorerDeferral:
-    """Verify MopScorer defers scoring for 'click' actions when untested inputs exist."""
+class TestMopScorerScoring:
+    """MopScorer scores based on MOP reachability flags.
 
-    def test_defers_for_lowercase_click(self):
-        """MopScorer returns 0.0 for 'click' action when has_untested_inputs=True."""
+    The original deferral logic checked action.action_type, which doesn't
+    exist on ItemAction — it was dead code and has been removed.
+    """
+
+    def test_direct_mop_scores_regardless_of_untested_inputs(self):
+        """directly_reaches_mop=True gets full score even with untested inputs."""
         scorer = MopScorer()
 
-        action = MockAction(
-            action_type="click",
-            directly_reaches_mop=True,
-        )
+        action = MockAction(directly_reaches_mop=True)
 
         context = MagicMock(spec=RankingContext)
         context.has_untested_inputs = True
 
         score = scorer.score(action, context)
-        assert score == 0.0
+        assert score == MopScorer.DEFAULT_DIRECT_SCORE
 
-    def test_does_not_defer_for_uppercase_click(self):
-        """MopScorer does NOT defer for 'CLICK' (uppercase) — the bug was using uppercase."""
+    def test_transitive_mop_scores_normally(self):
+        """reaches_mop=True gets transitive score."""
         scorer = MopScorer()
 
-        action = MockAction(
-            action_type="CLICK",
-            directly_reaches_mop=True,
-        )
+        action = MockAction(reaches_mop=True)
 
         context = MagicMock(spec=RankingContext)
         context.has_untested_inputs = True
 
-        # Uppercase "CLICK" should NOT match the deferral condition
         score = scorer.score(action, context)
-        assert score > 0.0
+        assert score == MopScorer.DEFAULT_TRANSITIVE_SCORE
 
-    def test_scores_normally_when_no_untested_inputs(self):
-        """MopScorer scores normally when has_untested_inputs=False."""
+    def test_non_mop_returns_zero(self):
+        """Non-MOP actions return 0.0."""
         scorer = MopScorer()
 
-        action = MockAction(
-            action_type="click",
-            directly_reaches_mop=True,
-        )
+        action = MockAction()
 
         context = MagicMock(spec=RankingContext)
         context.has_untested_inputs = False
 
         score = scorer.score(action, context)
-        assert score > 0.0
-
-    def test_defers_only_for_click_not_text_change(self):
-        """MopScorer does not defer for 'text_change' actions."""
-        scorer = MopScorer()
-
-        action = MockAction(
-            action_type="text_change",
-            directly_reaches_mop=True,
-        )
-
-        context = MagicMock(spec=RankingContext)
-        context.has_untested_inputs = True
-
-        score = scorer.score(action, context)
-        assert score > 0.0
+        assert score == 0.0
 
 
 # ---------------------------------------------------------------------------

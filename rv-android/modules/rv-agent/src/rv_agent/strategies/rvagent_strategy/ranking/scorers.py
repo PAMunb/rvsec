@@ -6,7 +6,7 @@ by the ActionRanker to determine final action ranking.
 
 Scorer Architecture (9 scorers total):
   Prioritization:
-    - MopScorer: MOP-reaching actions (with form-context deferral)
+    - MopScorer: MOP-reaching actions
     - WtgScorer: WTG-guided navigation
     - SaturationScorer: Bonus for unsaturated states
     - ComponentPriorityScorer: Button/form/navigation priority
@@ -83,13 +83,6 @@ class MopScorer(Scorer):
             self.transitive_score = self.DEFAULT_TRANSITIVE_SCORE
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        # Defer MOP scoring for CLICK when untested text inputs exist on screen
-        if (
-            getattr(context, "has_untested_inputs", False)
-            and getattr(action, "action_type", "") == "click"
-        ):
-            return 0.0
-
         if action.directly_reaches_mop:
             return self.direct_score
         elif action.reaches_mop:
@@ -333,7 +326,10 @@ class SystemElementFilter(Scorer):
     """
 
     SYSTEM_PENALTY = -5000.0
-    SYSTEM_PACKAGES = frozenset({"com.android.systemui", "android"})
+    # Only penalize com.android.systemui (status bar, nav bar).
+    # "android" package is used by system dialogs (permissions, alerts) that are
+    # part of app flow — it's in SYSTEM_DIALOG_PACKAGES and must NOT be penalized.
+    SYSTEM_PACKAGES = frozenset({"com.android.systemui"})
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if not action.target_view:

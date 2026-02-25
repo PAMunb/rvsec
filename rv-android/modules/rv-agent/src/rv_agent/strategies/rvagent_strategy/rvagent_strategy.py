@@ -1026,9 +1026,15 @@ class RVAgentStrategy(ExplorationStrategy):
             # Action signatures use device-space coordinates (INV-AGT-40)
             exec_count = node.get_action_execution_count(action.coords_for_matching)
 
-            # Score decay formula: divides base score by log2 of execution count
+            # Score decay: reduce attractiveness as execution count grows.
+            # Positive scores are divided (smaller = less attractive).
+            # Negative scores are multiplied (more negative = less attractive).
             if exec_count > 0:
-                decayed_score = base_score / (1 + math.log2(exec_count))
+                decay_factor = 1 + math.log2(exec_count)
+                if base_score >= 0:
+                    decayed_score = base_score / decay_factor
+                else:
+                    decayed_score = base_score * decay_factor
             else:
                 decayed_score = base_score
 

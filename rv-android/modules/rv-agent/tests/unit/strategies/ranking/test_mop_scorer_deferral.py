@@ -1,10 +1,9 @@
 """
-Tests for MopScorer form-context deferral (gh26 Group 3).
+Tests for MopScorer scoring behavior.
 
-Verifies INV-AGT-39:
-- MOP scoring deferred for CLICK when untested inputs exist
-- MOP scoring NOT deferred for SET_TEXT (always prioritized)
-- Full MOP score when no untested inputs
+The original deferral logic (INV-AGT-39) checked action.action_type, which
+doesn't exist on ItemAction — it was dead code. The deferral block was removed.
+MopScorer now always scores based on MOP reachability flags.
 """
 
 import pytest
@@ -33,49 +32,44 @@ def context_without_untested_inputs():
     return ctx
 
 
-class TestMopScorerDeferral:
-    """Verify form-context deferral behavior."""
+class TestMopScorerScoring:
+    """Verify MopScorer scores based on MOP reachability."""
 
-    def test_mop_deferred_when_untested_inputs(
+    def test_direct_mop_gets_full_score(
         self, config, context_with_untested_inputs
     ):
-        """CLICK with directly_reaches_mop=True deferred when untested inputs exist."""
+        """directly_reaches_mop=True gets direct score regardless of untested inputs."""
         scorer = MopScorer(config=config)
 
         action = MagicMock()
         action.directly_reaches_mop = True
         action.reaches_mop = True
-        action.action_type = "click"
 
         score = scorer.score(action, context_with_untested_inputs)
-        assert score == 0.0, "MOP click should be deferred when untested inputs exist"
+        assert score == config.mop_direct_score
 
-    def test_mop_not_deferred_for_set_text(self, config, context_with_untested_inputs):
-        """SET_TEXT with reaches_mop=True NOT deferred even with untested inputs."""
+    def test_transitive_mop_gets_transitive_score(self, config, context_with_untested_inputs):
+        """reaches_mop=True (not direct) gets transitive score."""
         scorer = MopScorer(config=config)
 
         action = MagicMock()
         action.directly_reaches_mop = False
         action.reaches_mop = True
-        action.action_type = "SET_TEXT"
 
         score = scorer.score(action, context_with_untested_inputs)
-        assert (
-            score == config.mop_transitive_score
-        ), "MOP SET_TEXT should NOT be deferred when untested inputs exist"
+        assert score == config.mop_transitive_score
 
-    def test_mop_full_score_when_no_untested_inputs(
+    def test_full_score_when_no_untested_inputs(
         self, config, context_without_untested_inputs
     ):
-        """CLICK with directly_reaches_mop=True gets full +500 when no untested inputs."""
+        """directly_reaches_mop=True gets full score when no untested inputs."""
         scorer = MopScorer(config=config)
 
         action = MagicMock()
         action.directly_reaches_mop = True
         action.reaches_mop = True
-        action.action_type = "click"
 
         score = scorer.score(action, context_without_untested_inputs)
         assert (
             score == config.mop_direct_score
-        ), f"MOP click should get full score ({config.mop_direct_score}) when no untested inputs"
+        ), f"MOP action should get full score ({config.mop_direct_score})"
