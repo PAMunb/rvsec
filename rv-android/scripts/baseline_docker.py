@@ -83,6 +83,7 @@ def generate_baseline_compose(
                 "RV_EXPERIMENT_NAME": f"batch_{i}",
                 "RV_REPETITIONS": str(repetitions),
                 "RV_TIMEOUTS": str(timeout),
+                "RV_APKS_DIR": "/opt/rvsec/rv-android/apks",
                 "RV_APKS_FILTER": f"/opt/rvsec/rv-android/filters/batch_{i}_apks.txt",
                 "RV_NO_WINDOW": "true",
                 "RV_SKIP_MONITORS": "true",

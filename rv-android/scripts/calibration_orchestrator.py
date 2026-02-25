@@ -105,6 +105,7 @@ def generate_calibration_compose(
                 "RV_TOOLS": tool_spec,
                 "RV_EXPERIMENT_NAME": f"trial_{trial_num}",
                 "RV_TIMEOUTS": str(timeout),
+                "RV_APKS_DIR": "/opt/rvsec/rv-android/apks",
                 "RV_NO_WINDOW": "true",
                 "RV_SKIP_MONITORS": "true",
                 "RV_SKIP_INSTRUMENT": "true",
