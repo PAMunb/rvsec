@@ -58,6 +58,7 @@ def generate_preprocess_compose(
     image: str,
     cpus: int,
     memory: str,
+    sa_timeout: Optional[int] = None,
 ) -> dict:
     """Generate a docker-compose dict for preprocessing containers.
 
@@ -109,6 +110,11 @@ def generate_preprocess_compose(
                 }
             },
         }
+
+        if sa_timeout is not None:
+            services[service_name]["environment"] = [
+                f"RV_SA_TIMEOUT={sa_timeout}",
+            ]
 
     return {"services": services}
 
@@ -272,6 +278,12 @@ def main():
         help="Memory limit per container (default: 20g)",
     )
     parser.add_argument(
+        "--sa-timeout",
+        type=int,
+        default=None,
+        help="Static analysis timeout in seconds (default: use image default of 600s)",
+    )
+    parser.add_argument(
         "--generate-only",
         action="store_true",
         help="Generate compose file and filters, then exit without launching containers",
@@ -322,6 +334,7 @@ def main():
         image=args.image,
         cpus=args.cpus,
         memory=args.memory,
+        sa_timeout=args.sa_timeout,
     )
 
     compose_path = output_path / "docker-compose.yml"

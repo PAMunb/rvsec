@@ -73,16 +73,18 @@ rv-agent-validation/
 │   └── __main__.py           # CLI entry point
 │
 ├── data/
-│   ├── calibration_dataset_v2/  # 105 APKs instrumented + SA flat
-│   │   ├── name.apk            #   Instrumented APK with JCA monitors
-│   │   └── name.apk.json       #   Unified analysis (reachability, windows, transitions)
-│   ├── calibration_set_v2.txt   # 75 APKs for calibration (Phases C/D)
-│   ├── holdout_set_v2.txt       # 30 APKs for hold-out validation (Phase E)
-│   ├── all_valid_apks.txt       # 105 APKs (all valid)
-│   ├── dataset_split.csv        # Metadata + set assignment
-│   ├── calibration_dataset/     # Legacy: 15 APKs (v1)
-│   ├── calibration_set.txt      # Legacy: 10 APKs (v1)
-│   └── holdout_set.txt          # Legacy: 5 APKs (v1)
+│   ├── apks_complete.csv          # Master APK catalog (253 APKs, all metadata)
+│   ├── exp01_jca_apks.txt         # 188 JCA APKs filter (from apks_complete.csv where exp01_jca=True)
+│   ├── calibration_dataset_v2/    # Instrumented APKs + SA flat (assembled by Phase A)
+│   │   ├── name.apk              #   Instrumented APK with JCA monitors
+│   │   └── name.apk.json         #   Unified analysis (reachability, windows, transitions)
+│   ├── calibration_set_v2.txt     # APKs for calibration (Phases C/D)
+│   ├── holdout_set_v2.txt         # APKs for hold-out validation (Phase E)
+│   ├── all_valid_apks.txt         # All APKs that passed SA (union of cal + holdout)
+│   ├── dataset_split.csv          # Metadata + set assignment
+│   ├── calibration_dataset/       # Legacy: 15 APKs (v1)
+│   ├── calibration_set.txt        # Legacy: 10 APKs (v1)
+│   └── holdout_set.txt            # Legacy: 5 APKs (v1)
 │
 ├── results/                  # Experiment output
 │   └── <experiment_id>/

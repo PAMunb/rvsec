@@ -253,7 +253,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             "analysis", self.app.path, self.analysis_file,
             code_package=self.app.code_package,
         )
-        cmd = Command(cmd_args[0], cmd_args[1:])
+        cmd = Command(cmd_args[0], cmd_args[1:], timeout=self.config.analysis_timeout)
         self._execute_command("ANALYSIS", self.analysis_file, cmd)
 
     def _execute_command(

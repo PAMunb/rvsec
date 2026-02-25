@@ -633,6 +633,13 @@ class ExperimentConfig(BaseValidatedModel):
             gator_dir = os.path.join(lib_dir, "gator")
             analysis_client_jar = os.path.join(gator_dir, "rvsec-analysis-client.jar")
 
+            # RV_SA_TIMEOUT env var overrides the default 600s analysis timeout.
+            # Used by preprocess_docker.py --sa-timeout for retry runs.
+            kwargs = {}
+            sa_timeout = os.environ.get("RV_SA_TIMEOUT")
+            if sa_timeout:
+                kwargs["analysis_timeout"] = int(sa_timeout)
+
             return RVStaticAnalysisConfig(
                 rvsec_root=rvsec_root,
                 lib_dir=lib_dir,
@@ -641,6 +648,7 @@ class ExperimentConfig(BaseValidatedModel):
                 output_dir=self.output_dir,
                 working_dir=self.output_dir,
                 validate_on_init=False,
+                **kwargs,
             )
         except Exception as e:
             raise ConfigurationError(

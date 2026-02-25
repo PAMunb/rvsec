@@ -16,15 +16,19 @@ This is an **execution runbook**, not a code design. Each section corresponds to
 
 ```
 A  → Preprocessing (188 APKs, ~2h)
-B0 → Pre-baseline (20 APKs, 2 tools × 1 rep)
-C0 → Pre-macro (20 APKs, 30 trials, 11 MACRO params)
-D0 → Pre-micro (20 APKs, 40 trials, 26 MICRO params, SGLang)
-     [update defaults from pre-cal results]
-B  → Full baseline (105 APKs, 3 tools × 3 reps)
-C  → Full macro (75 APKs, 80 trials, 11 MACRO params)
-D  → Full micro (75 APKs, 100 trials, 26 MICRO params, SGLang)
-E  → Validation (30 holdout APKs, 37 params, SGLang)
+B  → Baseline (ALL valid APKs, 3 tools × 3 reps) — establishes reference + BASELINE_MAX_ERRORS
+C0 → Pre-macro (20 APKs, 30 trials, 11 MACRO params) — validates calibration approach
+D0 → Pre-micro (20 APKs, 40 trials, 26 MICRO params, SGLang) — validates multimode calibration
+     [evaluate: did pre-cal improve over baseline defaults?]
+     [if yes: update defaults, proceed to full calibration]
+C  → Full macro (cal APKs, 80 trials, 11 MACRO params)
+D  → Full micro (cal APKs, 100 trials, 26 MICRO params, SGLang)
+E  → Validation (holdout APKs, 37 params, SGLang)
 ```
+
+**Rationale**: Baseline runs first because (1) it establishes the real `BASELINE_MAX_ERRORS` for the objective function (not an estimate from a 20-APK subset), (2) it provides empirical evidence of current performance before investing in calibration, and (3) it eliminates the B0 phase entirely. The pre-calibration (C0/D0) then validates whether Optuna can find params better than defaults — if not, the methodology needs revision before committing to the full campaign.
+
+**Dataset sizing**: The number of APKs for each phase depends on Phase A results. All APKs that produce both an instrumented `.apk` and an analysis `.json` are valid. The cal/holdout split is decided after Phase B, based on the actual dataset size.
 
 ### Environment
 
@@ -36,32 +40,32 @@ E  → Validation (30 holdout APKs, 37 params, SGLang)
 | rv-android | uv sync, all modules | `uv run python -c "from rv_agent_validation.calibration import ObjectiveFunction; print('OK')"` |
 | SGLang (Phases D, E) | Server at `localhost:30000` | `curl -s http://localhost:30000/v1/models` |
 
-RVSEC_HOME and Java 8 are **not required on the host**. The Docker image contains all prerequisites (RVSEC_HOME, Java 8, rv-android, Android SDK). All preprocessing and execution happens inside containers.
+RVSEC_HOME and Java are **not required on the host**. The Docker image contains all prerequisites (RVSEC_HOME, Java 25, rv-android, Android SDK). All preprocessing and execution happens inside containers.
+
+**Known issue**: Docker image 0.8.0 uses Java 25 (was Java 11 in 0.0.1). This causes dex2jar v2.4 to fail on 1 APK (`com.danielme.muspyforandroid_3`). Java 8 `rt.jar` (needed by GATOR/Soot for JDK class resolution) is bundled separately in the image and not affected by the JDK version change.
 
 **IMPORTANT**: The Docker image `phtcosta/rvandroid:0.8.0` MUST be rebuilt from the current `modules` branch before calibration. The existing `0.8.0` image predates gh26 (exploration strategy), gh18 (error detection), and gh27 (unified static analysis — single `.json` output instead of `.gesda/.wtg/.reach`). Rebuilding overwrites the tag with current code. See Task 13a for the rebuild procedure.
 
-### APK Source (Phase A only)
+### Data paths (relative to rv-android root)
 
-The 188 APKs from experiment 1 (`exp01_jca=True` in `apks_complete.csv`) are the starting point. On the desktop, they should all be in a single flat directory — no subdirectories. The CSV file for metadata:
-
+**Reference data** (committed, always available):
 ```
-# Laptop path (for reference)
-/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal/dataset/results/apks/apks_complete.csv
-
-# Copy CSV to rv-android before transfer:
-cp /path/to/apks_complete.csv modules/rv-agent-validation/data/apks_complete.csv
+APKS_CSV=modules/rv-agent-validation/data/apks_complete.csv       # Master catalog (253 APKs, all metadata)
+FILTER_JCA=modules/rv-agent-validation/data/exp01_jca_apks.txt    # 188 JCA APKs (Phase A input)
 ```
 
-### Data paths (relative to rv-android root, used by Phases B-E)
+**APK source** (Phase A only — desktop path, flat directory, no subdirectories):
+```
+APKS_DIR=/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS
+```
 
+**Created by Phase A** (do not exist until Phase A completes):
 ```
 DATA_DIR=modules/rv-agent-validation/data/calibration_dataset_v2
 FILTER_ALL=modules/rv-agent-validation/data/all_valid_apks.txt
 FILTER_CAL=modules/rv-agent-validation/data/calibration_set_v2.txt
 FILTER_HOLDOUT=modules/rv-agent-validation/data/holdout_set_v2.txt
 ```
-
-These files are created by Phase A. They do not exist until that phase completes.
 
 ### Container configuration
 
@@ -77,7 +81,7 @@ For Phases D and E (multimode), containers also need `extra_hosts: ["host.docker
 
 Run all preprocessing (monitor generation, APK instrumentation, static analysis) inside Docker containers using `--skip-execution`. This merges the previous Phase 0 (APK filtering by SA tool success) into Phase A — filtering happens AFTER container preprocessing, based on which APKs produced the unified analysis JSON file.
 
-The Docker image (rebuilt from `modules` branch as `phtcosta/rvandroid:0.8.0`) contains RVSEC_HOME, Java 8, and all tools for preprocessing. Instead of installing these on the host, we run rv-experiment inside containers with `--skip-execution` to perform only the preprocessing phases (monitors + instrumentation + SA), without launching emulators or executing testing tools.
+The Docker image (rebuilt from `modules` branch as `phtcosta/rvandroid:0.8.0`) contains RVSEC_HOME, Java 25, and all tools for preprocessing. Instead of installing these on the host, we run rv-experiment inside containers with `--skip-execution` to perform only the preprocessing phases (monitors + instrumentation + SA), without launching emulators or executing testing tools.
 
 ### How it works
 
@@ -90,9 +94,10 @@ The Docker image (rebuilt from `modules` branch as `phtcosta/rvandroid:0.8.0`) c
    - No skip flags for preprocessing — monitors, instrumentation, and SA all run
 4. Each container's `out/` directory is mounted as a volume on the host
 5. After all containers finish, `preprocess_docker.py` collects artifacts from all containers
-6. Filtering: APKs that produced the analysis JSON file (`.json`) pass → `passed_apks.txt` (filenames only, e.g. `com.example.app.apk`, not full paths — must match `apks_complete.csv` `apk` column for `select_dataset.py` join)
-7. `select_dataset.py` creates 75 calibration + 30 holdout split (stratified by category)
-8. The assembled flat `calibration_dataset_v2/` directory is ready for Phases B-E
+6. Filtering: APKs that produced the analysis JSON file (`.json`) pass → `passed_apks.txt` (filenames only, e.g. `com.example.app.apk`, not full paths — must match `apks_complete.csv` `apk` column)
+7. Failed APKs are retried with extended timeout (task 15g) to recover timeout-only failures
+8. The assembled flat dataset directory (instrumented APKs + SA JSONs) is copied to `calibration_dataset_v2/` (task 16)
+9. Cal/holdout split is created later (task 25), after baseline validates the dataset
 
 ### Docker compose structure
 
@@ -129,37 +134,15 @@ services:
 ### Execution
 
 ```bash
-# Step 1: Extract APK names from CSV
-python3 -c "
-import csv
-with open('modules/rv-agent-validation/data/apks_complete.csv') as f:
-    reader = csv.DictReader(f)
-    apks = [r['filename'] for r in reader if r.get('exp01_jca') == 'True']
-print(f'{len(apks)} APKs with exp01_jca=True')
-with open('/tmp/exp01_jca_apks.txt', 'w') as f:
-    for a in sorted(apks):
-        f.write(a + '\n')
-"
-
-# Step 2: Run Docker preprocessing
+# Run Docker preprocessing (filter file is committed in the repo)
 uv run python scripts/preprocess_docker.py \
-    --apks-dir /path/to/desktop/original_apks \
-    --filter-file /tmp/exp01_jca_apks.txt \
+    --apks-dir /pedro/desenvolvimento/RV_ANDROID/NOVO/APKS \
+    --filter-file modules/rv-agent-validation/data/exp01_jca_apks.txt \
     --output-dir ./results/preprocessing_v2 \
     --n-containers 6
-
-# Step 3: Dataset selection (75 cal + 30 holdout)
-uv run python scripts/select_dataset.py \
-    --passed-apks ./results/preprocessing_v2/passed_apks.txt \
-    --csv modules/rv-agent-validation/data/apks_complete.csv \
-    --output-dir modules/rv-agent-validation/data \
-    --cal-size 75 \
-    --seed 42
-
-# Step 4: Copy assembled dataset to data directory
-cp -r ./results/preprocessing_v2/dataset/* \
-    modules/rv-agent-validation/data/calibration_dataset_v2/
 ```
+
+Dataset selection and copy are separate tasks (16 and 25) — see tasks.md.
 
 **Expected duration**: ~2 hours (instrumentation + SA on 188 APKs across 6 containers, no tool execution overhead).
 
@@ -193,12 +176,6 @@ results/preprocessing_v2/
     ├── app1.apk.json                   # Unified analysis (reachability, windows, transitions)
     └── ...                             # ~145 APKs x 2 files = ~290 files
 
-modules/rv-agent-validation/data/
-├── calibration_dataset_v2/             # Copied from results/preprocessing_v2/dataset/
-├── all_valid_apks.txt                  # All passing APKs (~145)
-├── calibration_set_v2.txt              # 75 APKs for calibration (Phases C/D)
-├── holdout_set_v2.txt                  # 30 APKs for validation (Phase E)
-└── dataset_split.csv                   # Metadata + set assignment
 ```
 
 ### Verification
@@ -207,13 +184,8 @@ modules/rv-agent-validation/data/
 # 1. Check pass count (expect ~145-150 after fixes, was 125 before)
 wc -l results/preprocessing_v2/passed_apks.txt
 
-# 2. Verify dataset split
-wc -l modules/rv-agent-validation/data/calibration_set_v2.txt    # → 75
-wc -l modules/rv-agent-validation/data/holdout_set_v2.txt        # → 30
-wc -l modules/rv-agent-validation/data/all_valid_apks.txt        # → ~145
-
-# 3. Verify each APK in dataset has its analysis JSON
-for apk in modules/rv-agent-validation/data/calibration_dataset_v2/*.apk; do
+# 2. Verify each APK in dataset has its analysis JSON
+for apk in results/preprocessing_v2/dataset/*.apk; do
     base=$(basename "$apk")
     if [ ! -s "${apk}.json" ]; then
         echo "MISSING: ${base}.json"
@@ -221,34 +193,21 @@ for apk in modules/rv-agent-validation/data/calibration_dataset_v2/*.apk; do
 done
 ```
 
-**Gate**: `passed_apks.txt` has ≥140 APKs. `calibration_set_v2.txt` has 75 entries, `holdout_set_v2.txt` has 30 entries, `all_valid_apks.txt` has ≥140 entries. Every APK in `calibration_dataset_v2/` has a matching `.json` analysis file.
+**Gate**: `passed_apks.txt` has ≥140 APKs (improvement from 125 in first run). Every APK in `dataset/` has a matching `.json` analysis file. Cal/holdout split is deferred to task 25.
 
 ---
 
-## 1b. Pre-Calibration Phases (B0 → C0 → D0)
+## 1b. Pre-Calibration Phases (C0 → D0)
 
 ### Purpose
 
-Run a reduced-scale calibration on 20 APKs (subset of the 75-APK calibration set) before the full campaign. This validates infrastructure end-to-end, determines if trial counts (80/100) are sufficient for 37 parameters, and produces better starting defaults for the full campaign.
+Run a reduced-scale calibration on 20 APKs before the full campaign. This validates that Optuna can find parameters better than current defaults (using the real `BASELINE_MAX_ERRORS` from Phase B), determines if the trial counts and objective function work, and produces better starting defaults for the full campaign.
 
-**APK selection**: 20 APKs drawn from `calibration_set_v2.txt`, stratified by category. Saved as `precal_set.txt`. The 30-APK holdout set is never touched.
+**Prerequisite**: Phase B (baseline) must be complete — provides `BASELINE_MAX_ERRORS` for the objective function. B0 is not needed because the full baseline already exists.
 
-**No new scripts** — pre-calibration reuses the same `baseline_docker.py` and `calibration_orchestrator.py` with `--filter-file precal_set.txt` and fewer trials.
+**APK selection**: 20 APKs drawn from the valid dataset, stratified by category. Saved as `precal_set.txt`.
 
-### Phase B0 — Pre-baseline
-
-```bash
-uv run python scripts/baseline_docker.py \
-    --tools ape,rvagent:pure_algorithm \
-    --data-dir $DATA_DIR \
-    --filter-file modules/rv-agent-validation/data/precal_set.txt \
-    --output-dir ./results/precal_baseline \
-    --n-containers 6 --timeout TIMEOUT_SECS --repetitions 1
-```
-
-**Tasks**: 2 tools x 20 APKs x 1 rep = 40 tasks. **Duration**: ~1.5h (at 600s timeout) to ~2.5h (at 900s).
-
-Output: `BASELINE_MAX_ERRORS_PRE` (for normalizing pre-cal objective function).
+**No new scripts** — pre-calibration reuses `calibration_orchestrator.py` with `--filter-file precal_set.txt` and fewer trials.
 
 ### Phase C0 — Pre-macro (30 trials, 11 MACRO params)
 
@@ -259,7 +218,7 @@ uv run python scripts/calibration_orchestrator.py \
     --filter-file modules/rv-agent-validation/data/precal_set.txt \
     --output-dir ./results/precal_macro \
     --timeout TIMEOUT_SECS --agent-mode pure_algorithm --seed 42 \
-    --baseline-dir ./results/precal_baseline
+    --baseline-dir ./results/baseline_v2
 ```
 
 **Trials**: 30 total. Each trial processes 20 APKs. **Duration**: ~5.5h (600s) to ~8.3h (900s).
@@ -274,17 +233,21 @@ uv run python scripts/calibration_orchestrator.py \
     --output-dir ./results/precal_micro \
     --timeout TIMEOUT_SECS --agent-mode multimode --seed 42 \
     --best-macro ./results/precal_macro/optimal_params.json \
-    --baseline-dir ./results/precal_baseline \
+    --baseline-dir ./results/baseline_v2 \
     --sglang-url http://host.docker.internal:30000/v1
 ```
 
 **Trials**: 40 total. Each trial processes 20 APKs with multimode. **Duration**: ~7.4h (600s) to ~11.1h (900s).
 
+### Decision gate after pre-cal
+
+Compare pre-cal best score against the baseline defaults score on the same 20 APKs. If pre-cal shows meaningful improvement → proceed to full calibration with pre-cal values as starting defaults. If not → investigate objective function, parameter ranges, or methodology before committing to the full campaign.
+
 ### How pre-cal feeds into the full campaign
 
 1. C0 optimal values become starting defaults for Phase C. Ranges optionally narrowed to +/-30% around C0 best values (clamped to original bounds).
 2. D0 optimal values become starting defaults for Phase D. Same narrowing applies.
-3. Update `parameter_space.py` defaults from pre-cal results before Phase B.
+3. Update `parameter_space.py` defaults from pre-cal results before full calibration.
 
 ### Verification
 
@@ -308,7 +271,7 @@ print(f'Parameters: {len(data[\"best_params\"])} (expected 37)')
 "
 ```
 
-**Gate**: C0 shows convergence trend. D0 produces `optimal_params.json` with 37 parameters. Pre-cal total duration < 25h.
+**Gate**: C0 shows convergence trend. D0 produces `optimal_params.json` with 37 parameters.
 
 ---
 
@@ -316,7 +279,7 @@ print(f'Parameters: {len(data[\"best_params\"])} (expected 37)')
 
 ### Purpose
 
-Establish performance baselines for 3 tools (APE, FastBot, RVAgent:pure_algorithm) on all 105 APKs with 3 repetitions. The key output is `BASELINE_MAX_ERRORS` — the maximum average error count across tools — which normalizes the error component of the objective function in Phases C and D. Uses pre-calibrated defaults from Phase B0/C0/D0 as starting values.
+Establish performance baselines for 3 tools (APE, FastBot, RVAgent:pure_algorithm) on ALL valid APKs from Phase A, with 3 repetitions. This is the **first execution phase** after preprocessing — it runs with current defaults (no calibration yet). The key output is `BASELINE_MAX_ERRORS` — the maximum average error count across tools — which normalizes the error component of the objective function in Phases C0, C, and D.
 
 ### Execution
 
@@ -331,9 +294,9 @@ uv run python scripts/baseline_docker.py \
     --n-containers 6 --timeout TIMEOUT_SECS --repetitions 3
 ```
 
-**Tasks**: 3 tools x 105 APKs x 3 reps = 945 tasks, split across 6 containers (~158 tasks each).
+**Tasks**: 3 tools × N APKs × 3 reps (N = number of valid APKs from Phase A, expected ~145-150). Split across 6 containers.
 
-**Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~26h. At 900s: ~39h.
+**Expected duration**: Depends on TIMEOUT_SECS and N. At N=150 and 600s: ~37h. At 900s: ~56h.
 
 ### Expected outputs
 
@@ -367,7 +330,7 @@ print(f'BASELINE_MAX_ERRORS = {max_errors:.2f}')
 "
 ```
 
-**Gate**: All 6 batch summaries exist, aggregated CSV has 945 data rows, 3 tools present, BASELINE_MAX_ERRORS is a finite positive number. Record the value — it is needed for Phases C and D.
+**Gate**: All 6 batch summaries exist, aggregated CSV has 3×N×3 data rows, 3 tools present, BASELINE_MAX_ERRORS is a finite positive number. Record the value — it is needed for Phases C0, C, D0, and D.
 
 ### Troubleshooting
 
@@ -388,7 +351,7 @@ Each container uses `RV_EXPERIMENT_NAME=batch_{N}`, enabling rv-experiment's tas
 
 ### Purpose
 
-Tune 11 high-impact parameters (scorer weights, exploration settings, and flow-altering thresholds) using Optuna's TPESampler with batch parallelism. Each trial evaluates one parameter set by running RVAgent on all 75 calibration APKs. Starting defaults come from Phase C0 pre-calibration.
+Tune 11 high-impact parameters (scorer weights, exploration settings, and flow-altering thresholds) using Optuna's TPESampler with batch parallelism. Each trial evaluates one parameter set by running RVAgent on the calibration APK subset. Starting defaults come from Phase C0 pre-calibration (if it showed improvement) or from current code defaults.
 
 ### Parameters tuned
 
@@ -420,7 +383,7 @@ uv run python scripts/calibration_orchestrator.py \
     --baseline-dir ./results/baseline_v2
 ```
 
-**Trials**: 80 total, in batches of 6. Each trial processes 75 APKs. Starting defaults from C0 pre-calibration.
+**Trials**: 80 total, in batches of 6. Each trial processes the calibration APK subset. Starting defaults from C0 pre-calibration (or current defaults if C0 was skipped).
 
 **Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~167h. At 900s: ~250h.
 
@@ -476,7 +439,7 @@ The script recovers orphaned RUNNING trials from SQLite, scores any that have re
 
 ### Purpose
 
-Fine-tune 26 additional parameters while keeping the 11 macro parameters fixed at their optimal values from Phase C. Uses `multimode` agent mode, which requires the SGLang server (Qwen3-VL-4B). Starting defaults come from Phase D0 pre-calibration.
+Fine-tune 26 additional parameters while keeping the 11 macro parameters fixed at their optimal values from Phase C. Uses `multimode` agent mode, which requires the SGLang server (Qwen3-VL-4B). Starting defaults come from Phase D0 pre-calibration (if it showed improvement) or from current code defaults.
 
 ### Prerequisites (in addition to Section 0)
 
@@ -519,7 +482,7 @@ uv run python scripts/calibration_orchestrator.py \
 
 `--sglang-url` injects `llm_base_url` into the tool spec so containers can reach the SGLang server via `host.docker.internal`. The compose file includes `extra_hosts: ["host.docker.internal:host-gateway"]` to resolve this hostname on Linux.
 
-**Trials**: 100 total, in batches of 6. Each trial processes 75 APKs with multimode (70% LLM / 30% algorithm by default, but `llm_probability` is one of the tuned parameters). Starting defaults from D0 pre-calibration.
+**Trials**: 100 total, in batches of 6. Each trial processes the calibration APK subset with multimode (70% LLM / 30% algorithm by default, but `llm_probability` is one of the tuned parameters). Starting defaults from D0 pre-calibration (or current defaults if D0 was skipped).
 
 **Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~208h. At 900s: ~313h.
 
@@ -543,7 +506,7 @@ Same as Phase C — add `--resume` flag. Additional concern: SGLang server may n
 
 ### Purpose
 
-Validate the 37 calibrated parameters on the 30-APK holdout set (never seen during calibration). Run the same 3 tools x 3 repetitions as the baseline for direct statistical comparison.
+Validate the 37 calibrated parameters on the holdout set (never seen during calibration). Run the same 3 tools × 3 repetitions as the baseline for direct statistical comparison.
 
 ### Prerequisites (in addition to Section 0)
 
@@ -568,9 +531,9 @@ uv run python scripts/baseline_docker.py \
 
 `--sglang-url` is required because the calibrated RVAgent uses multimode, which needs `llm_base_url` to reach the SGLang server. The script injects it into the tool spec and adds `extra_hosts` to the compose.
 
-**Tasks**: 3 tools x 30 APKs x 3 reps = 270 tasks.
+**Tasks**: 3 tools × H holdout APKs × 3 reps (H determined by task 25 split).
 
-**Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~7.5h. At 900s: ~11.3h.
+**Expected duration**: Depends on TIMEOUT_SECS and H.
 
 ### Verification
 
@@ -612,7 +575,7 @@ print(f'Calibrated mean: {val_rv[\"errors\"].mean():.2f}')
 "
 ```
 
-**Gate**: 270 data rows, 3 tools present. The calibrated RVAgent should show improvement over baseline on at least one metric (coverage or error reduction). Statistical significance (p < 0.05) is desired but not required for the gate — the holdout set has only 30 APKs, which may limit statistical power.
+**Gate**: 3×H×3 data rows, 3 tools present. The calibrated RVAgent should show improvement over baseline on at least one metric (coverage or error reduction). Statistical significance (p < 0.05) is desired but not required for the gate — a small holdout set may limit statistical power.
 
 ---
 
@@ -625,7 +588,7 @@ After Phase E validates the 37 calibrated parameters, apply them to the codebase
 3. **Update unit tests**: Any tests that assert default parameter values need updating
 4. **Commit**: `closes #9` — the full calibration lifecycle is complete
 
-This step is tracked as Tasks 25-27 and will be executed as an FF SDD change for the agent spec update.
+This step is tracked as Tasks 32-34 and will be executed as an FF SDD change for the agent spec update.
 
 ---
 

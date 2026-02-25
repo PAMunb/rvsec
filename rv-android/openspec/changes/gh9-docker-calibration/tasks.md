@@ -2,7 +2,7 @@
 
 ## Execution Order
 
-Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15f cover Phase A corrections: fix StackOverflowError + class filtering in RvsecAnalysisClient, add missing Android platforms to Docker image, re-run Phase A. Task 15a is IN PROGRESS (code fixes done, unit tests pending). Tasks 15b-15f are PENDING. Task 16 covers dataset assembly. Tasks 16a-16h cover pre-calibration (Phases B0/C0/D0). Tasks 17-24 cover the full calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
+Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15c cover Phase A corrections (DONE). Tasks 15d-15f cover verification and Phase A re-run (IN PROGRESS). Task 16 covers dataset assembly. Tasks 17-18 cover Phase B baseline (runs FIRST with current defaults on ALL valid APKs). Tasks 19-24 cover pre-calibration (C0/D0 on 20 APKs — validates approach before full campaign). Tasks 25-31 cover the full calibration campaign (C/D/E — only if pre-cal validates). Tasks 32-34 cover post-execution parameter application.
 
 When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
@@ -49,46 +49,50 @@ Phase A completed with 125/188 APKs passing SA. Investigation revealed 3 categor
 | `StackOverflowError` in `RvsecAnalysisClient.collectEventHandlers` | ~15-20 | Recursive GUI node traversal without cycle detection — infinite recursion on cyclic node graphs | YES — add visited set |
 | Soot crash / Timeout | ~15-20 | Soot `InternalTypingException` or APK too complex for 600s timeout | NO — inherent Soot/APK limitations |
 
-### Phase A Corrections (PENDING)
+### Phase A Corrections (15a-15d DONE, 15e-15h IN PROGRESS)
 
-15a. Task 15a: Fix `StackOverflowError` in `RvsecAnalysisClient.java`
-15b. Task 15b: Fix Docker image — add Android platforms 10-18 + sdkmanager symlink
-15c. Task 15c: Rebuild JARs + Docker image
-15d. Task 15d: Verify fixes locally with 10 test APKs
-15e. Task 15e: Re-run Phase A preprocessing (6 containers)
-15f. Task 15f: Verify Phase A results + assemble dataset
+15a. Task 15a: Fix `StackOverflowError` in `RvsecAnalysisClient.java` — DONE
+15b. Task 15b: Fix Docker image — add Android platforms 10-18 + sdkmanager symlink — DONE
+15c. Task 15c: Rebuild JARs + Docker image — DONE
+15d. Task 15d: Verify fixes in Docker (10 test APKs) — DONE
+15e. Task 15e: Re-run Phase A preprocessing (6 containers) — IN PROGRESS
+15f. Task 15f: Verify Phase A results
+15g. Task 15g: Retry failed APKs with extended timeout
+15h. Task 15h: Assemble final dataset + commit
 
 ### Dataset Assembly (PENDING)
 
-16. Task 16: Assemble dataset + transfer to `data/calibration_dataset_v2/`
+16. Task 16: Copy dataset to `data/calibration_dataset_v2/` + create `all_valid_apks.txt`
+
+### Phase B — Baseline (PENDING)
+
+17. Task 17: Phase B — Execute baseline (ALL valid APKs, 3 tools × 3 reps, current defaults)
+18. Task 18: Phase B — Verify results + compute BASELINE_MAX_ERRORS
 
 ### Pre-Calibration (PENDING)
 
-16a. Task 16a: Select 20 pre-calibration APKs (stratified from calibration set)
-16b. Task 16b: Phase B0 — Execute pre-baseline (20 APKs, 2 tools, 1 rep)
-16c. Task 16c: Phase B0 — Verify results + compute BASELINE_MAX_ERRORS_PRE
-16d. Task 16d: Phase C0 — Execute pre-macro (30 trials, 11 MACRO params)
-16e. Task 16e: Phase C0 — Verify convergence
-16f. Task 16f: Phase D0 — Execute pre-micro (40 trials, 26 MICRO params, SGLang)
-16g. Task 16g: Phase D0 — Verify convergence
-16h. Task 16h: Update `parameter_space.py` defaults from pre-cal optimal params
+19. Task 19: Select 20 pre-calibration APKs
+20. Task 20: Phase C0 — Execute pre-macro (30 trials, 11 MACRO params)
+21. Task 21: Phase C0 — Verify convergence
+22. Task 22: Phase D0 — Execute pre-micro (40 trials, 26 MICRO params, SGLang)
+23. Task 23: Phase D0 — Verify + decision gate
+24. Task 24: Update defaults from pre-cal results
 
-### Execution Campaign (PENDING)
+### Full Calibration Campaign (PENDING — only if pre-cal validates)
 
-17. Task 17: Phase B — Execute baseline
-18. Task 18: Phase B — Verify results + compute BASELINE_MAX_ERRORS
-19. Task 19: Phase C — Execute macro calibration (80 trials, 11 MACRO params)
-20. Task 20: Phase C — Verify results + analyze convergence
-21. Task 21: Phase D — Execute micro calibration (100 trials, 26 MICRO params, SGLang)
-22. Task 22: Phase D — Verify results + compare modes
-23. Task 23: Phase E — Execute validation (37 params, SGLang)
-24. Task 24: Phase E — Verify results + statistical comparison
+25. Task 25: Create cal/holdout split
+26. Task 26: Phase C — Execute macro calibration (80 trials, 11 MACRO params)
+27. Task 27: Phase C — Verify results
+28. Task 28: Phase D — Execute micro calibration (100 trials, 26 MICRO params, SGLang)
+29. Task 29: Phase D — Verify results
+30. Task 30: Phase E — Execute validation (37 params, SGLang)
+31. Task 31: Phase E — Verify results + statistical comparison
 
 ### Post-Execution (PENDING)
 
-25. Task 25: Apply 37 optimal parameters to code
-26. Task 26: Update agent spec (FF SDD delta spec)
-27. Task 27: Archive change and close issue (closes #9)
+32. Task 32: Apply 37 optimal parameters to code
+33. Task 33: Update agent spec (FF SDD delta spec)
+34. Task 34: Archive change and close issue (closes #9)
 
 ---
 
@@ -247,7 +251,7 @@ Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), 
 
 ---
 
-## Phase A Corrections (PENDING)
+## Phase A Corrections (15a-15d DONE, 15e-15h IN PROGRESS)
 
 ### 15a. Fix RvsecAnalysisClient — StackOverflow + Class Filtering
 
@@ -306,111 +310,112 @@ The Docker image (`docker/android/Dockerfile`) installs platforms 19-35 but many
 
 ### 15c. Rebuild JARs + Docker Images
 
-- [ ] 15c.1 Rebuild full image chain: `rvsec_android:0.8.0` → `rvandroid_tools:0.8.0` → `rvandroid:0.8.0`.
-- [ ] 15c.2 Verify new JAR in image: `docker run --rm phtcosta/rvandroid:0.8.0 ls -la /opt/rvsec/rv-android/lib/gator/rvsec-analysis-client.jar`.
-- [ ] 15c.3 Verify platforms: `docker run --rm phtcosta/rvandroid:0.8.0 ls /opt/android/platforms/ | sort -V`.
-- [ ] 15c.4 Verify sdkmanager symlink: `docker run --rm phtcosta/rvandroid:0.8.0 ls -la /opt/android/tools/bin/sdkmanager`.
+**IMPORTANT**: The `rvandroid:0.8.0` image has an ENTRYPOINT (`/opt/docker-entrypoint.sh`) that intercepts all commands and starts the experiment pipeline. Verification commands MUST use `--entrypoint ""` to bypass the entrypoint and run commands directly.
 
-### 15d. Verify Fixes Locally (10 Test APKs)
+- [x] 15c.1 Rebuild full image chain: `rvsec_android:0.8.0` → `rvandroid_tools:0.8.0` → `rvandroid:0.8.0`. (User rebuilt 2026-02-25.)
+- [x] 15c.2 Verify new JAR in image: 59MB, dated 2026-02-25 12:55. Present at correct path.
+- [x] 15c.3 Verify platforms: android-10 through android-35 — all 26 levels present.
+- [x] 15c.4 Verify sdkmanager symlink: `tools/bin/sdkmanager -> cmdline-tools/tools/bin/sdkmanager`. Correct.
 
-Re-run the same 10 APKs from Phase A investigation to confirm fixes.
+### 15d. Verify Fixes in Docker (10 Test APKs) — DONE
 
-- [ ] 15d.1 Re-run GATOR locally for the 3 StackOverflow APKs: `com.gh4a_73`, `com.koushikdutta.superuser_1030`, `com.cyanogenmod.filemanager.ics_1015`. All must produce JSON.
-- [ ] 15d.2 Re-run GATOR inside Docker for the 5 missing-platform APKs: `com.blippex.app_5`, `com.gracecode.android.presentation_20131114`, `org.nick.wwwjdic_2370`, `com.andrew.apollo_2`, `com.Bisha.TI89EmuDonation_1133`. All must produce JSON.
-- [ ] 15d.3 Verify the 2 unfixable APKs still fail: `com.alienpants.leafpicrevived_24` (Soot crash), `com.amphoras.tpthelper_25` (timeout).
+Re-ran the same 10 APKs from Phase A investigation inside Docker (5 containers, 2 APKs each, `--entrypoint ""`, timeout 300s). Tests both StackOverflow fix (JAR) and platform fix (image) simultaneously.
+
+- [x] 15d.1 StackOverflow APKs (3):
+  - `com.gh4a_73`: timeout at 300s (verified locally at 600s in 15a.16 — needs longer timeout, not a fix issue)
+  - `com.koushikdutta.superuser_1030`: SUCCESS — 450KB JSON, 102 classes
+  - `com.cyanogenmod.filemanager.ics_1015`: SUCCESS — 1.4MB JSON, 485 classes
+- [x] 15d.2 Missing-platform APKs (5): all produced JSON
+  - `com.blippex.app_5`: 47KB, 26 classes
+  - `com.gracecode.android.presentation_20131114`: 98KB, 38 classes
+  - `org.nick.wwwjdic_2370`: 685KB, 239 classes
+  - `com.andrew.apollo_2`: 939KB, 261 classes
+  - `com.Bisha.TI89EmuDonation_1133`: 154KB, 0 classes (app package not matched — investigate)
+- [x] 15d.3 Previously unfixable APKs (2):
+  - `com.alienpants.leafpicrevived_24`: SURPRISE SUCCESS — 742KB, 380 classes (Soot crash was likely StackOverflow misattributed)
+  - `com.amphoras.tpthelper_25`: timeout as expected (no JSON)
+
+**Result**: 8/10 produced JSON (expected 7/10). Fix effectiveness confirmed. Full E2E validation in task 15e.
 
 ### 15e. Re-run Phase A Preprocessing
 
-- [ ] 15e.1 Clean previous preprocessing results (use Docker alpine container for root-owned files).
-- [ ] 15e.2 Run `preprocess_docker.py` with 6 containers on all 188 APKs.
-- [ ] 15e.3 Monitor progress (~2h expected).
+- [x] 15e.0 Add reference data files to `modules/rv-agent-validation/data/`:
+  - `apks_complete.csv`: master APK catalog (253 rows, from ase-journal repo)
+  - `exp01_jca_apks.txt`: 188 JCA APK names (generated from CSV where `exp01_jca=True`)
+  - Updated CLAUDE.md (data dir tree), design.md (data paths, execution commands)
+- [x] 15e.1 Clean previous preprocessing results (Docker alpine for root-owned dirs + rm user-owned files).
+- [x] 15e.2 Run `preprocess_docker.py` with 6 containers on all 188 APKs.
+- [x] 15e.3 Monitor progress. Results: 187/188 instrumented (1 dex2jar failure), 165 JSONs produced. 4 containers completed normally. Containers 2 and 3 stopped manually after 3h (due to sequential SA timeouts consuming 10 min each).
 
-### 15f. Verify Phase A Results + Assemble Dataset
+### 15f. Verify Phase A Results — DONE
 
-- [ ] 15f.1 `passed_apks.txt` has ≥140 APKs (expect ~145-150, up from 125).
-- [ ] 15f.2 All passing APKs have `.json` analysis file in assembled dataset.
-- [ ] 15f.3 `failed_apks.txt` reduced to ~40 APKs (only Soot crash + timeout).
-- [ ] 15f.4 Commit fixes with `refs #9`.
+- [x] 15f.1 `passed_apks.txt` has 165 APKs (exceeds gate of 125, up from first-run's 125).
+- [x] 15f.2 All 165 passing APKs have `.json` analysis file in assembled `dataset/` (187 APKs + 165 JSONs = 352 files). Orphan JSON for `com.danielme.muspyforandroid_3` removed (dex2jar failure, no instrumented APK).
+- [x] 15f.3 Categorized 22 failed APKs (no JSON):
+  - **SA timeout (exit 206)**: 10 APKs — GATOR timed out at 600s, may recover with extended timeout
+  - **Never started SA**: 12 APKs — container 2 stopped before reaching them in the queue (all instrumented, just need SA run)
 
-**Gate**: passed_apks count > 125 (improvement from first run). StackOverflow APKs now produce JSON. Missing-platform APKs now produce JSON.
+**Gate**: PASSED — 165 > 125.
 
----
+### 15f-bug. Fix SA Timeout Not Enforced by Command — DONE
 
-## Dataset Assembly and Transfer (PENDING)
+**Bug discovered during 15e**: `StaticAnalyzer._run_analysis()` created `Command(cmd_args[0], cmd_args[1:])` without passing `timeout=self.config.analysis_timeout` (static_analysis.py:256). The `Command.invoke()` method called `proc.communicate(timeout=None)` — waited indefinitely. The `--timeout 600` CLI argument only controlled the GATOR Python wrapper's internal `call()`, not the Python `Command` process-level timeout.
 
-### 16. Assemble Dataset + Transfer
+In practice, the GATOR wrapper timeout WAS working for most APKs (exit code 206 after 600s). The missing Command timeout was a safety-net gap — if the GATOR wrapper hung, Command would wait forever. This fix ensures both timeout layers are active.
 
-- [ ] 16.1 Run `select_dataset.py` to create calibration + holdout split.
-- [ ] 16.2 Verify `calibration_set_v2.txt`, `holdout_set_v2.txt`, `all_valid_apks.txt`.
-- [ ] 16.3 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
-- [ ] 16.4 Copy `apks_complete.csv` to `modules/rv-agent-validation/data/`.
-- [ ] 16.5 Commit dataset files with `refs #9`.
+- [x] 15f-bug.1 Fix `static_analysis.py:256`: pass `timeout=self.config.analysis_timeout` to `Command()` constructor.
+- [x] 15f-bug.2 Add test `test_run_analysis_passes_timeout_to_command`: verifies `Command` receives `timeout=600` from config. 15/15 tests passing.
+- [ ] 15f-bug.3 Commit + rebuild Docker image `rvandroid:0.8.0`.
 
-**Gate**: All 5 checks pass before proceeding to pre-calibration.
+### 15g. Retry Failed APKs with Extended Timeout
 
----
+**Prerequisite**: 15f-bug.3 (Docker image rebuild with timeout fix + SA timeout env var support).
 
-## Pre-Calibration Tasks
+Give 22 failed APKs a second chance with a longer SA timeout (30 min). 10 are confirmed timeouts, 12 never ran SA (container stopped before reaching them).
 
-### 16a. Select 20 Pre-Calibration APKs
+**SA timeout mechanism**: `RV_SA_TIMEOUT` env var → `ExperimentConfig.get_static_analysis_config()` reads it → passes `analysis_timeout` to `RVStaticAnalysisConfig` → `StaticAnalyzer` creates `Command(timeout=...)`.
 
-- [ ] 16a.1 Select 20 APKs from `calibration_set_v2.txt` (stratified by category from `dataset_split.csv`).
-- [ ] 16a.2 Save as `modules/rv-agent-validation/data/precal_set.txt`.
-- [ ] 16a.3 Verify: all 20 APKs exist in `calibration_dataset_v2/` with SA files.
+- [x] 15g.1 Collected 22 failed APKs from 15f. Excluded `com.danielme.muspyforandroid_3` (dex2jar/Java 25 incompatibility — no instrumented APK).
+- [x] 15g.2 Created `retry_filter.txt` with 22 APKs in `results/preprocessing_v2/`.
+- [x] 15g.3 Added `--sa-timeout` parameter to `preprocess_docker.py`: injects `RV_SA_TIMEOUT` env var in compose services.
+- [x] 15g.4 Updated `ExperimentConfig.get_static_analysis_config()`: reads `RV_SA_TIMEOUT` env var, passes as `analysis_timeout` to `RVStaticAnalysisConfig`.
+- [ ] 15g.5 Run `preprocess_docker.py` with retry filter, `--sa-timeout 1800`, fewer containers (scale to 22 APKs).
+- [ ] 15g.6 Collect results, merge recovered APKs into dataset.
+- [ ] 15g.7 Update `passed_apks.txt` and `failed_apks.txt` with final counts.
 
-### 16b. Phase B0 — Execute Pre-Baseline
+### 15h. Assemble Final Dataset + Commit
 
-*Runbook reference: design.md Section 1b*
+- [ ] 15h.1 Merge 15e + 15g results into final dataset.
+- [ ] 15h.2 Verify: every APK in dataset has matching `.json` analysis file.
+- [ ] 15h.3 Record final counts: total valid APKs, total failed (truly unfixable).
+- [ ] 15h.4 Commit with `refs #9`.
 
-- [ ] 16b.1 Run `baseline_docker.py --tools ape,rvagent:pure_algorithm --filter-file precal_set.txt --repetitions 1 --timeout TIMEOUT_SECS`.
-- [ ] 16b.2 Monitor progress (40 tasks, ~1.5-2.5h expected).
-
-### 16c. Phase B0 — Verify Results
-
-- [ ] 16c.1 `summary.csv` has 40 data rows (2 tools x 20 APKs x 1 rep).
-- [ ] 16c.2 Compute and record `BASELINE_MAX_ERRORS_PRE` value.
-
-### 16d. Phase C0 — Execute Pre-Macro
-
-- [ ] 16d.1 Run `calibration_orchestrator.py --phase macro --n-trials 30 --filter-file precal_set.txt --timeout TIMEOUT_SECS`.
-- [ ] 16d.2 Monitor progress (30 trials, ~5.5-8.3h expected).
-
-### 16e. Phase C0 — Verify Convergence
-
-- [ ] 16e.1 30 trials completed.
-- [ ] 16e.2 Convergence visible: last 10 trials avg > first 10 avg.
-- [ ] 16e.3 `optimal_params.json` saved with 11 MACRO params.
-
-### 16f. Phase D0 — Execute Pre-Micro
-
-**Prerequisite**: SGLang server running at `localhost:30000`.
-
-- [ ] 16f.1 Start SGLang server.
-- [ ] 16f.2 Run `calibration_orchestrator.py --phase micro --n-trials 40 --filter-file precal_set.txt --best-macro precal_macro/optimal_params.json --sglang-url ... --timeout TIMEOUT_SECS`.
-- [ ] 16f.3 Monitor progress (40 trials, ~7.4-11.1h expected).
-
-### 16g. Phase D0 — Verify Convergence
-
-- [ ] 16g.1 40 trials completed.
-- [ ] 16g.2 `optimal_params.json` contains 37 parameters (11 macro + 26 micro).
-- [ ] 16g.3 Pre-cal total duration < 25h.
-
-### 16h. Update Defaults from Pre-Cal Results
-
-- [ ] 16h.1 Update `parameter_space.py` defaults from C0 + D0 `optimal_params.json`.
-- [ ] 16h.2 Optionally narrow ranges to +/-30% around best values (clamped to original bounds).
-- [ ] 16h.3 Run tests: 86/86 must pass.
-- [ ] 16h.4 Commit with `refs #9`.
+**Gate**: Final dataset assembled. All recoverable APKs included.
 
 ---
 
-## Execution Campaign Tasks
+## Dataset Assembly (PENDING)
+
+### 16. Assemble Dataset
+
+- [ ] 16.1 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
+- [ ] 16.2 Create `all_valid_apks.txt` (all APKs that have both .apk + .json).
+- [ ] 16.3 Verify: every APK in dataset has matching `.json` analysis file.
+- [ ] 16.4 Commit dataset files with `refs #9`.
+
+**Gate**: Dataset assembled with N valid APKs (expect ~145-150). Every APK has its `.json`.
+
+---
+
+## Phase B — Baseline (PENDING)
+
+Baseline runs FIRST, before any calibration, to establish reference performance with current defaults.
 
 ### 17. Phase B — Execute Baseline
 
 *Runbook reference: design.md Section 2*
 
-- [ ] 17.1 Run `./scripts/run_phase_b.sh` (or `baseline_docker.py` manually with `--timeout TIMEOUT_SECS`).
+- [ ] 17.1 Run `baseline_docker.py` with ALL valid APKs, 3 tools (ape, fastbot, rvagent:pure_algorithm), 3 reps, `--timeout TIMEOUT_SECS`.
 - [ ] 17.2 Monitor progress: check batch directories for `tasks.json` growth.
 - [ ] 17.3 If interrupted: re-run same command (resume is automatic via `RV_EXPERIMENT_NAME`).
 
@@ -419,99 +424,148 @@ Re-run the same 10 APKs from Phase A investigation to confirm fixes.
 *Runbook reference: design.md Section 2 "Verification"*
 
 - [ ] 18.1 All 6 batch summaries exist.
-- [ ] 18.2 Aggregated `summary.csv` has 945 data rows.
+- [ ] 18.2 Aggregated `summary.csv` has 3 × N × 3 data rows (N = valid APKs).
 - [ ] 18.3 All 3 tools present in summary.
 - [ ] 18.4 Compute and record `BASELINE_MAX_ERRORS` value.
 - [ ] 18.5 Symlink `aggregated_summary.csv` intact.
 
-**Gate**: All 5 checks pass before proceeding to Phase C.
+**Gate**: All 5 checks pass. BASELINE_MAX_ERRORS is a finite positive number.
 
-### 19. Phase C — Execute Macro Calibration (11 MACRO params)
+---
 
-*Runbook reference: design.md Section 3*
+## Pre-Calibration (PENDING)
 
-Starting defaults from C0 pre-calibration.
+Validates that Optuna can find params better than defaults using a 20-APK subset. Uses the real `BASELINE_MAX_ERRORS` from Phase B. B0 is not needed — the full baseline already exists.
 
-- [ ] 19.1 Run `./scripts/run_phase_c.sh` (or `calibration_orchestrator.py` manually with `--timeout TIMEOUT_SECS`).
-- [ ] 19.2 Monitor progress: check `trial_history.json` growth, `orchestrator.log` for errors.
-- [ ] 19.3 If interrupted: re-run with `--resume`.
+### 19. Select 20 Pre-Calibration APKs
 
-### 20. Phase C — Verify Results
+- [ ] 19.1 Select 20 APKs from valid dataset (stratified by category from `apks_complete.csv`).
+- [ ] 19.2 Save as `modules/rv-agent-validation/data/precal_set.txt`.
+- [ ] 19.3 Verify: all 20 APKs exist in `calibration_dataset_v2/` with SA files.
 
-*Runbook reference: design.md Section 3 "Verification"*
+### 20. Phase C0 — Execute Pre-Macro
 
-- [ ] 20.1 All 80 trials completed (check `trial_history.json`).
-- [ ] 20.2 Best score > 0.0.
-- [ ] 20.3 Convergence visible: last 20 trials score higher than first 20 on average.
-- [ ] 20.4 `optimal_params.json` and `param_string.txt` exist and are valid.
+*Runbook reference: design.md Section 1b*
 
-**Gate**: All 4 checks pass before proceeding to Phase D.
+- [ ] 20.1 Run `calibration_orchestrator.py --phase macro --n-trials 30 --filter-file precal_set.txt --baseline-dir ./results/baseline_v2 --timeout TIMEOUT_SECS`.
+- [ ] 20.2 Monitor progress (30 trials, ~5.5-8.3h expected).
 
-### 21. Phase D — Execute Micro Calibration (26 MICRO params)
+### 21. Phase C0 — Verify Convergence
 
-*Runbook reference: design.md Section 4*
+- [ ] 21.1 30 trials completed.
+- [ ] 21.2 Convergence visible: last 10 trials avg > first 10 avg.
+- [ ] 21.3 `optimal_params.json` saved with 11 MACRO params.
 
-Starting defaults from D0 pre-calibration. 11 macro params fixed from Phase C.
+### 22. Phase D0 — Execute Pre-Micro
 
 **Prerequisite**: SGLang server running at `localhost:30000`.
 
-- [ ] 21.1 Start SGLang server: `cd rvsec-vision-llm && docker compose up -d`.
-- [ ] 21.2 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
-- [ ] 21.3 Run `./scripts/run_phase_d.sh` (or `calibration_orchestrator.py` manually with `--sglang-url --timeout TIMEOUT_SECS`).
-- [ ] 21.4 Monitor progress: check `trial_history.json` growth, SGLang server health.
-- [ ] 21.5 If interrupted: re-run with `--resume`.
+- [ ] 22.1 Start SGLang server.
+- [ ] 22.2 Run `calibration_orchestrator.py --phase micro --n-trials 40 --filter-file precal_set.txt --best-macro precal_macro/optimal_params.json --baseline-dir ./results/baseline_v2 --sglang-url ... --timeout TIMEOUT_SECS`.
+- [ ] 22.3 Monitor progress (40 trials, ~7.4-11.1h expected).
 
-### 22. Phase D — Verify Results
+### 23. Phase D0 — Verify + Decision Gate
 
-*Runbook reference: design.md Section 4 "Verification"*
+- [ ] 23.1 40 trials completed.
+- [ ] 23.2 `optimal_params.json` contains 37 parameters (11 macro + 26 micro).
+- [ ] 23.3 Compare pre-cal best score vs baseline defaults on the same 20 APKs.
+- [ ] 23.4 **Decision**: if pre-cal improved → update defaults, proceed to full calibration. If not → investigate before committing.
 
-- [ ] 22.1 All 100 trials completed.
-- [ ] 22.2 Best score > 0.0.
-- [ ] 22.3 `optimal_params.json` contains all 37 parameters (11 macro + 26 micro).
-- [ ] 22.4 Compare micro best score vs macro best score (improvement expected).
+**Gate**: Pre-cal shows meaningful improvement over baseline defaults.
+
+### 24. Update Defaults from Pre-Cal Results
+
+- [ ] 24.1 Update `parameter_space.py` defaults from C0 + D0 `optimal_params.json`.
+- [ ] 24.2 Optionally narrow ranges to +/-30% around best values (clamped to original bounds).
+- [ ] 24.3 Run tests: 86/86 must pass.
+- [ ] 24.4 Commit with `refs #9`.
+
+---
+
+## Full Calibration Campaign (PENDING)
+
+Only proceed after pre-cal validates the approach. Cal/holdout split is decided here based on dataset size.
+
+### 25. Create Cal/Holdout Split
+
+- [ ] 25.1 Run `select_dataset.py` to split valid APKs into calibration + holdout sets.
+- [ ] 25.2 Verify `calibration_set_v2.txt`, `holdout_set_v2.txt`.
+- [ ] 25.3 Commit split files with `refs #9`.
+
+### 26. Phase C — Execute Macro Calibration (11 MACRO params)
+
+*Runbook reference: design.md Section 3*
+
+- [ ] 26.1 Run `calibration_orchestrator.py --phase macro --n-trials 80 --filter-file calibration_set_v2.txt --baseline-dir ./results/baseline_v2 --timeout TIMEOUT_SECS`.
+- [ ] 26.2 Monitor progress: check `trial_history.json` growth, `orchestrator.log` for errors.
+- [ ] 26.3 If interrupted: re-run with `--resume`.
+
+### 27. Phase C — Verify Results
+
+- [ ] 27.1 All 80 trials completed (check `trial_history.json`).
+- [ ] 27.2 Best score > 0.0.
+- [ ] 27.3 Convergence visible: last 20 trials score higher than first 20 on average.
+- [ ] 27.4 `optimal_params.json` and `param_string.txt` exist and are valid.
+
+**Gate**: All 4 checks pass before proceeding to Phase D.
+
+### 28. Phase D — Execute Micro Calibration (26 MICRO params)
+
+*Runbook reference: design.md Section 4*
+
+**Prerequisite**: SGLang server running at `localhost:30000`.
+
+- [ ] 28.1 Start SGLang server: `cd rvsec-vision-llm && docker compose up -d`.
+- [ ] 28.2 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
+- [ ] 28.3 Run `calibration_orchestrator.py --phase micro --n-trials 100 --filter-file calibration_set_v2.txt --best-macro calibration_macro_v2/optimal_params.json --baseline-dir ./results/baseline_v2 --sglang-url ... --timeout TIMEOUT_SECS`.
+- [ ] 28.4 Monitor progress: check `trial_history.json` growth, SGLang server health.
+- [ ] 28.5 If interrupted: re-run with `--resume`.
+
+### 29. Phase D — Verify Results
+
+- [ ] 29.1 All 100 trials completed.
+- [ ] 29.2 Best score > 0.0.
+- [ ] 29.3 `optimal_params.json` contains all 37 parameters (11 macro + 26 micro).
+- [ ] 29.4 Compare micro best score vs macro best score (improvement expected).
 
 **Gate**: All 4 checks pass before proceeding to Phase E.
 
-### 23. Phase E — Execute Validation
+### 30. Phase E — Execute Validation
 
 *Runbook reference: design.md Section 5*
 
-**Prerequisite**: SGLang server still running (calibrated RVAgent uses multimode).
+- [ ] 30.1 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
+- [ ] 30.2 Run `baseline_docker.py` with holdout APKs, calibrated params, `--sglang-url`.
+- [ ] 30.3 Monitor progress.
 
-- [ ] 23.1 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
-- [ ] 23.2 Run `./scripts/run_phase_e.sh` (or `baseline_docker.py` manually with `--sglang-url`).
-- [ ] 23.3 Monitor progress.
+### 31. Phase E — Verify Results
 
-### 24. Phase E — Verify Results
+- [ ] 31.1 `summary.csv` has expected data rows, 3 tools present.
+- [ ] 31.2 Run statistical comparison (Wilcoxon) between calibrated and baseline RVAgent.
+- [ ] 31.3 Document results: coverage improvement, error reduction, p-values.
+- [ ] 31.4 Stop SGLang server: `cd rvsec-vision-llm && docker compose down`.
 
-*Runbook reference: design.md Section 5 "Verification"*
-
-- [ ] 24.1 `summary.csv` has 270 data rows, 3 tools present.
-- [ ] 24.2 Run statistical comparison (Wilcoxon) between calibrated and baseline RVAgent.
-- [ ] 24.3 Document results: coverage improvement, error reduction, p-values.
-- [ ] 24.4 Stop SGLang server: `cd rvsec-vision-llm && docker compose down`.
-
-**Gate**: 270 rows present. Calibrated RVAgent shows improvement over baseline on at least one metric.
+**Gate**: Calibrated RVAgent shows improvement over baseline on at least one metric.
 
 ---
 
 ## Post-Execution Tasks
 
-### 25. Apply 37 Optimal Parameters to Code
+### 32. Apply 37 Optimal Parameters to Code
 
 *Runbook reference: design.md Section 6*
 
-- [ ] 25.1 Update default values in `parameter_space.py` — 11 MACRO + 26 MICRO from `optimal_params.json`.
-- [ ] 25.2 Update any unit tests that assert default parameter values.
-- [ ] 25.3 Run `uv run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
+- [ ] 32.1 Update default values in `parameter_space.py` — 11 MACRO + 26 MICRO from `optimal_params.json`.
+- [ ] 32.2 Update any unit tests that assert default parameter values.
+- [ ] 32.3 Run `uv run pytest modules/rv-agent-validation/tests/calibration/ -v` — all must pass.
 
-### 26. Update Agent Spec
+### 33. Update Agent Spec
 
-- [ ] 26.1 Create FF SDD delta spec for `openspec/specs/agent/spec.md` with calibrated default values.
-- [ ] 26.2 Sync delta spec to main spec.
+- [ ] 33.1 Create FF SDD delta spec for `openspec/specs/agent/spec.md` with calibrated default values.
+- [ ] 33.2 Sync delta spec to main spec.
 
-### 27. Archive and Close
+### 34. Archive and Close
 
-- [ ] 27.1 Run `openspec archive "gh9-docker-calibration" --skip-specs` (archives to `openspec/changes/archive/YYYY-MM-DD-gh9-docker-calibration/`).
-- [ ] 27.2 Commit with `closes #9`.
-- [ ] 27.3 Verify issue closed on GitHub.
+- [ ] 34.1 Run `openspec archive "gh9-docker-calibration" --skip-specs` (archives to `openspec/changes/archive/YYYY-MM-DD-gh9-docker-calibration/`).
+- [ ] 34.2 Commit with `closes #9`.
+- [ ] 34.3 Verify issue closed on GitHub.
