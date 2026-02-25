@@ -8,6 +8,10 @@
 /apks_mini/
 /results/
 
+# Calibration datasets (instrumented APKs + SA JSONs, ~658MB)
+modules/rv-agent-validation/data/calibration_dataset/
+modules/rv-agent-validation/data/calibration_dataset_v2/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

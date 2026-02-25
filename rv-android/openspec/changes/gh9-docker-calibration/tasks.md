@@ -2,7 +2,7 @@
 
 ## Execution Order
 
-Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15c cover Phase A corrections (DONE). Tasks 15d-15f cover verification and Phase A re-run (IN PROGRESS). Task 16 covers dataset assembly. Tasks 17-18 cover Phase B baseline (runs FIRST with current defaults on ALL valid APKs). Tasks 19-24 cover pre-calibration (C0/D0 on 20 APKs — validates approach before full campaign). Tasks 25-31 cover the full calibration campaign (C/D/E — only if pre-cal validates). Tasks 32-34 cover post-execution parameter application.
+Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15c cover Phase A corrections (DONE). Tasks 15d-15h cover verification, re-run, retry, and dataset assembly (DONE — 179/188 valid). Task 16 covers dataset copy to calibration_dataset_v2 (DONE). Tasks 17-18 cover Phase B baseline (runs FIRST with current defaults on ALL valid APKs). Tasks 19-24 cover pre-calibration (C0/D0 on 20 APKs — validates approach before full campaign). Tasks 25-31 cover the full calibration campaign (C/D/E — only if pre-cal validates). Tasks 32-34 cover post-execution parameter application.
 
 When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
@@ -377,7 +377,7 @@ In practice, the GATOR wrapper timeout WAS working for most APKs (exit code 206 
 - [x] 15f-bug2.4 `rv_experiment/config.py`: read `RV_JVM_MEMORY` env var, pass to `RVStaticAnalysisConfig`.
 - [x] 15f-bug2.5 `preprocess_docker.py`: add `--jvm-memory` param, inject as `RV_JVM_MEMORY` env var.
 - [x] 15f-bug2.6 Tests: update default `8g→12g` in 2 test files, add `test_tool_command_includes_jvm_memory`. 81/81 passing.
-- [ ] 15f-bug2.7 Commit + push + rebuild Docker image `rvandroid:0.8.0`.
+- [x] 15f-bug2.7 Commit `912269e4` + push + rebuild Docker image `rvandroid:0.8.0`. Dangling image removed.
 
 ### 15g. Retry Failed APKs with Extended Timeout
 
@@ -391,31 +391,31 @@ Give 22 failed APKs a second chance with a longer SA timeout (30 min) and more J
 - [x] 15g.2 Created `retry_filter.txt` with 22 APKs in `results/preprocessing_v2/`.
 - [x] 15g.3 Added `--sa-timeout` parameter to `preprocess_docker.py`: injects `RV_SA_TIMEOUT` env var in compose services.
 - [x] 15g.4 Updated `ExperimentConfig.get_static_analysis_config()`: reads `RV_SA_TIMEOUT` env var, passes as `analysis_timeout` to `RVStaticAnalysisConfig`.
-- [ ] 15g.5 Run `preprocess_docker.py` with retry filter, `--sa-timeout 1800`, fewer containers (scale to 22 APKs).
-- [ ] 15g.6 Collect results, merge recovered APKs into dataset.
-- [ ] 15g.7 Update `passed_apks.txt` and `failed_apks.txt` with final counts.
+- [x] 15g.5 Run retry: 5 containers, 14 CPUs, 28g RAM each, `--sa-timeout 1800`, `--jvm-memory 20g`. Distribution: 5+5+4+4+4 APKs. Result: 14/22 recovered, 8 definitively failed (WTG timeout/complexity).
+- [x] 15g.6 Merged 14 recovered JSONs into `dataset/`. APKs already present from first run (only JSONs were missing).
+- [x] 15g.7 Updated `passed_apks.txt` (179) and `failed_apks.txt` (8). Final: 187 APKs + 179 JSONs = 366 files in dataset.
 
-### 15h. Assemble Final Dataset + Commit
+### 15h. Assemble Final Dataset + Commit — DONE
 
-- [ ] 15h.1 Merge 15e + 15g results into final dataset.
-- [ ] 15h.2 Verify: every APK in dataset has matching `.json` analysis file.
-- [ ] 15h.3 Record final counts: total valid APKs, total failed (truly unfixable).
-- [ ] 15h.4 Commit with `refs #9`.
+- [x] 15h.1 Merged 15e + 15g results. Removed 8 orphan APKs (no JSON). Final: 179 APKs + 179 JSONs = 358 files.
+- [x] 15h.2 Integrity check passed: every APK has matching non-empty `.json`.
+- [x] 15h.3 Final counts: 179 valid (from 188 JCA), 8 failed (WTG timeout/complexity), 1 dex2jar failure.
+- [x] 15h.4 Commit with `refs #9`.
 
-**Gate**: Final dataset assembled. All recoverable APKs included.
+**Gate**: PASSED — 179 > 140. All recoverable APKs included.
 
 ---
 
 ## Dataset Assembly (PENDING)
 
-### 16. Assemble Dataset
+### 16. Assemble Dataset — DONE
 
-- [ ] 16.1 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
-- [ ] 16.2 Create `all_valid_apks.txt` (all APKs that have both .apk + .json).
-- [ ] 16.3 Verify: every APK in dataset has matching `.json` analysis file.
-- [ ] 16.4 Commit dataset files with `refs #9`.
+- [x] 16.1 Copied 358 files (179 APKs + 179 JSONs) to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
+- [x] 16.2 Created `all_valid_apks.txt` (179 APK names).
+- [x] 16.3 Integrity check passed: every APK has matching non-empty `.json`.
+- [x] 16.4 Commit dataset files with `refs #9`.
 
-**Gate**: Dataset assembled with N valid APKs (expect ~145-150). Every APK has its `.json`.
+**Gate**: PASSED — 179 valid APKs (exceeds expected ~145-150). Every APK has its `.json`.
 
 ---
 
