@@ -57,7 +57,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         default=None, description="Path to rvsec-analysis-client.jar"
     )
     jvm_memory: str = Field(
-        default="8g", description="JVM heap size for analysis (e.g. '8g', '12g')"
+        default="12g", description="JVM heap size for analysis (e.g. '12g', '20g')"
     )
     analysis_timeout: int = Field(
         default=600, description="Analysis timeout in seconds"
@@ -247,6 +247,8 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "-withCHA",
             "--timeout",
             str(timeout),
+            "--jvm-memory",
+            self.jvm_memory.upper(),
         ]
 
         # Pass detected code package so the GATOR client filters classes

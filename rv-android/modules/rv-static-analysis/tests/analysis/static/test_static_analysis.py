@@ -44,7 +44,7 @@ def mock_config():
     config.output_dir = "/tmp/test_output"
     config.gator_dir = "/fake/gator"
     config.analysis_client_jar = "/fake/gator/rvsec-analysis-client.jar"
-    config.jvm_memory = "8g"
+    config.jvm_memory = "12g"
     config.analysis_timeout = 600
     config.get_tool_command.return_value = [
         "python",

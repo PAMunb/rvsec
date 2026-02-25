@@ -633,12 +633,15 @@ class ExperimentConfig(BaseValidatedModel):
             gator_dir = os.path.join(lib_dir, "gator")
             analysis_client_jar = os.path.join(gator_dir, "rvsec-analysis-client.jar")
 
-            # RV_SA_TIMEOUT env var overrides the default 600s analysis timeout.
-            # Used by preprocess_docker.py --sa-timeout for retry runs.
+            # RV_SA_TIMEOUT and RV_JVM_MEMORY env vars override SA defaults.
+            # Used by preprocess_docker.py --sa-timeout/--jvm-memory for retry runs.
             kwargs = {}
             sa_timeout = os.environ.get("RV_SA_TIMEOUT")
             if sa_timeout:
                 kwargs["analysis_timeout"] = int(sa_timeout)
+            jvm_memory = os.environ.get("RV_JVM_MEMORY")
+            if jvm_memory:
+                kwargs["jvm_memory"] = jvm_memory
 
             return RVStaticAnalysisConfig(
                 rvsec_root=rvsec_root,

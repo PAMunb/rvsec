@@ -73,7 +73,8 @@ def analyze(args, unknown):
 
     # sootandroid_dir = os.path.join(gator_dir, 'sootandroid')
     # os.path.join(gator_dir, os.path.abspath('..'))
-    cmd = ['java', '-Xmx12G', '-cp', jar, 'presto.android.Main',
+    jvm_memory = getattr(args, 'jvm_memory', '12G')
+    cmd = ['java', f'-Xmx{jvm_memory}', '-cp', jar, 'presto.android.Main',
            '-sootandroidDir', gator_dir,
            '-sdkDir', sdk_path,
            '-listenerSpecFile', os.path.join(gator_dir, 'listeners.xml'),
@@ -241,6 +242,11 @@ def main():
                                 metavar='APK',
                                 required=True,
                                 help='path to the APK')
+
+    parser_analyze.add_argument('--jvm-memory',
+                                dest='jvm_memory',
+                                default='12G',
+                                help='JVM heap size (default: 12G)')
 
     ####################################
     ####################################

@@ -365,13 +365,25 @@ In practice, the GATOR wrapper timeout WAS working for most APKs (exit code 206 
 
 - [x] 15f-bug.1 Fix `static_analysis.py:256`: pass `timeout=self.config.analysis_timeout` to `Command()` constructor.
 - [x] 15f-bug.2 Add test `test_run_analysis_passes_timeout_to_command`: verifies `Command` receives `timeout=600` from config. 15/15 tests passing.
-- [ ] 15f-bug.3 Commit + rebuild Docker image `rvandroid:0.8.0`.
+- [x] 15f-bug.3 Commit `156ec8f7` + rebuild Docker image `rvandroid:0.8.0`.
+
+### 15f-bug2. Parametrize GATOR JVM Memory
+
+**Bug**: GATOR wrapper (`lib/gator/gator`) has `-Xmx12G` hardcoded. `RVStaticAnalysisConfig.jvm_memory` (default `8g`) exists but is never passed to the GATOR command. Large APKs (84K vertices, 863K edges) may need more heap.
+
+- [x] 15f-bug2.1 `lib/gator/gator`: add `--jvm-memory` argument (default `12G`), replace hardcoded `-Xmx12G`.
+- [x] 15f-bug2.2 `config.py` (`get_tool_command`): pass `--jvm-memory {self.jvm_memory.upper()}` to GATOR.
+- [x] 15f-bug2.3 `config.py`: change default `jvm_memory` from `8g` to `12g` (match GATOR's current default).
+- [x] 15f-bug2.4 `rv_experiment/config.py`: read `RV_JVM_MEMORY` env var, pass to `RVStaticAnalysisConfig`.
+- [x] 15f-bug2.5 `preprocess_docker.py`: add `--jvm-memory` param, inject as `RV_JVM_MEMORY` env var.
+- [x] 15f-bug2.6 Tests: update default `8g→12g` in 2 test files, add `test_tool_command_includes_jvm_memory`. 81/81 passing.
+- [ ] 15f-bug2.7 Commit + push + rebuild Docker image `rvandroid:0.8.0`.
 
 ### 15g. Retry Failed APKs with Extended Timeout
 
-**Prerequisite**: 15f-bug.3 (Docker image rebuild with timeout fix + SA timeout env var support).
+**Prerequisite**: 15f-bug2.7 (Docker image rebuild with JVM memory + SA timeout parametrization).
 
-Give 22 failed APKs a second chance with a longer SA timeout (30 min). 10 are confirmed timeouts, 12 never ran SA (container stopped before reaching them).
+Give 22 failed APKs a second chance with a longer SA timeout (30 min) and more JVM heap (20g). 10 are confirmed timeouts, 12 never ran SA (container stopped before reaching them).
 
 **SA timeout mechanism**: `RV_SA_TIMEOUT` env var → `ExperimentConfig.get_static_analysis_config()` reads it → passes `analysis_timeout` to `RVStaticAnalysisConfig` → `StaticAnalyzer` creates `Command(timeout=...)`.
 

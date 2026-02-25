@@ -59,6 +59,7 @@ def generate_preprocess_compose(
     cpus: int,
     memory: str,
     sa_timeout: Optional[int] = None,
+    jvm_memory: Optional[str] = None,
 ) -> dict:
     """Generate a docker-compose dict for preprocessing containers.
 
@@ -111,10 +112,13 @@ def generate_preprocess_compose(
             },
         }
 
+        env_vars = []
         if sa_timeout is not None:
-            services[service_name]["environment"] = [
-                f"RV_SA_TIMEOUT={sa_timeout}",
-            ]
+            env_vars.append(f"RV_SA_TIMEOUT={sa_timeout}")
+        if jvm_memory is not None:
+            env_vars.append(f"RV_JVM_MEMORY={jvm_memory}")
+        if env_vars:
+            services[service_name]["environment"] = env_vars
 
     return {"services": services}
 
@@ -284,6 +288,11 @@ def main():
         help="Static analysis timeout in seconds (default: use image default of 600s)",
     )
     parser.add_argument(
+        "--jvm-memory",
+        default=None,
+        help="JVM heap size for GATOR (e.g. '20g'). Default: use image default of 12g",
+    )
+    parser.add_argument(
         "--generate-only",
         action="store_true",
         help="Generate compose file and filters, then exit without launching containers",
@@ -335,6 +344,7 @@ def main():
         cpus=args.cpus,
         memory=args.memory,
         sa_timeout=args.sa_timeout,
+        jvm_memory=args.jvm_memory,
     )
 
     compose_path = output_path / "docker-compose.yml"

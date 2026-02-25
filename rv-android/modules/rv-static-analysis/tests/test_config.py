@@ -189,7 +189,7 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
                 rvsec_root=temp_dir,
             )
 
-            self.assertEqual(config.jvm_memory, "8g")
+            self.assertEqual(config.jvm_memory, "12g")
             self.assertEqual(config.analysis_timeout, 600)
 
     def test_tool_command_with_custom_timeout(self):
@@ -255,3 +255,22 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
 
             # No codePackage anywhere in the command
             self.assertFalse(any("codePackage" in v for v in cmd))
+
+    def test_tool_command_includes_jvm_memory(self):
+        """Test that get_tool_command passes --jvm-memory from config."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = RVStaticAnalysisConfig(
+                validate_on_init=False,
+                rvsec_root=temp_dir,
+                gator_dir=str(Path(temp_dir) / "gator"),
+                analysis_client_jar=str(Path(temp_dir) / "gator" / "client.jar"),
+                mop_dir=str(Path(temp_dir) / "mop"),
+                jvm_memory="20g",
+            )
+
+            cmd = config.get_tool_command(
+                "analysis", "/test/app.apk", "/test/output.json",
+            )
+
+            idx = cmd.index("--jvm-memory")
+            self.assertEqual(cmd[idx + 1], "20G")
