@@ -230,7 +230,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         gator_python = str(Path(self.gator_dir) / "gator")
         timeout = kwargs.get("timeout", self.analysis_timeout)
 
-        return [
+        cmd = [
             "python",
             gator_python,
             "a",
@@ -248,6 +248,14 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "--timeout",
             str(timeout),
         ]
+
+        # Pass detected code package so the GATOR client filters classes
+        # to app-only (excludes library classes from coverage denominator)
+        code_package = kwargs.get("code_package")
+        if code_package:
+            cmd.extend(["-clientParam", f"codePackage={code_package}"])
+
+        return cmd
 
     def get_configuration_summary(self) -> Dict[str, Any]:
         """Configuration summary for logging."""

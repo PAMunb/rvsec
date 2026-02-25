@@ -99,6 +99,24 @@ class TestStaticAnalyzer:
         mock_command_instance.invoke.assert_called_once_with(stdout=sys.stdout)
 
     @patch("rv_static_analysis.analysis.static.static_analysis.Command")
+    def test_run_analysis_passes_code_package(self, mock_command, analyzer):
+        """Test that _run_analysis passes code_package to get_tool_command."""
+        mock_command_instance = MagicMock()
+        mock_command_instance.invoke.return_value = CommandResult(0, "Success", "")
+        mock_command.return_value = mock_command_instance
+
+        with patch("os.path.isfile", return_value=False):
+            analyzer._run_analysis()
+
+        # Verify get_tool_command was called with code_package kwarg
+        analyzer.config.get_tool_command.assert_called_once_with(
+            "analysis",
+            analyzer.app.path,
+            analyzer.analysis_file,
+            code_package=analyzer.app.code_package,
+        )
+
+    @patch("rv_static_analysis.analysis.static.static_analysis.Command")
     def test_run_analysis_skip_if_exists(self, mock_command, analyzer):
         """Test that analysis is skipped if the result file already exists."""
         mock_command_instance = MagicMock()

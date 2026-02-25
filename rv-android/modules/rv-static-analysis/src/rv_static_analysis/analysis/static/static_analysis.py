@@ -250,7 +250,8 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     def _run_analysis(self) -> None:
         """Build and execute the GATOR analysis command."""
         cmd_args = self.config.get_tool_command(
-            "analysis", self.app.path, self.analysis_file
+            "analysis", self.app.path, self.analysis_file,
+            code_package=self.app.code_package,
         )
         cmd = Command(cmd_args[0], cmd_args[1:])
         self._execute_command("ANALYSIS", self.analysis_file, cmd)

@@ -207,3 +207,51 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
                 "analysis", "/test/app.apk", "/test/output.json", timeout=1200
             )
             self.assertIn("1200", cmd)
+
+    def test_tool_command_with_code_package(self):
+        """Test that code_package kwarg adds codePackage clientParam to GATOR command."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = RVStaticAnalysisConfig(
+                validate_on_init=False,
+                rvsec_root=temp_dir,
+                gator_dir=str(Path(temp_dir) / "gator"),
+                analysis_client_jar=str(Path(temp_dir) / "gator" / "client.jar"),
+                mop_dir=str(Path(temp_dir) / "mop"),
+            )
+
+            cmd = config.get_tool_command(
+                "analysis", "/test/app.apk", "/test/output.json",
+                code_package="com.gh4a",
+            )
+
+            # Must have TWO -clientParam flags: mopDir and codePackage
+            client_param_indices = [i for i, v in enumerate(cmd) if v == "-clientParam"]
+            self.assertEqual(len(client_param_indices), 2)
+
+            # First -clientParam is mopDir
+            self.assertTrue(cmd[client_param_indices[0] + 1].startswith("mopDir="))
+
+            # Second -clientParam is codePackage
+            self.assertEqual(cmd[client_param_indices[1] + 1], "codePackage=com.gh4a")
+
+    def test_tool_command_without_code_package(self):
+        """Test that omitting code_package does not add codePackage clientParam."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = RVStaticAnalysisConfig(
+                validate_on_init=False,
+                rvsec_root=temp_dir,
+                gator_dir=str(Path(temp_dir) / "gator"),
+                analysis_client_jar=str(Path(temp_dir) / "gator" / "client.jar"),
+                mop_dir=str(Path(temp_dir) / "mop"),
+            )
+
+            cmd = config.get_tool_command(
+                "analysis", "/test/app.apk", "/test/output.json",
+            )
+
+            # Only ONE -clientParam (mopDir)
+            client_param_indices = [i for i, v in enumerate(cmd) if v == "-clientParam"]
+            self.assertEqual(len(client_param_indices), 1)
+
+            # No codePackage anywhere in the command
+            self.assertFalse(any("codePackage" in v for v in cmd))

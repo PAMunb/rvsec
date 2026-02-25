@@ -73,12 +73,22 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		String mopDir = getMopDir();
 		String outputPath = Configs.pathoutfilename;
 
+		// Resolve the package to filter classes: prefer codePackage clientParam
+		// (detected by Python-side PackageDetector via Androguard component analysis),
+		// fall back to manifest package from AndroidManifest.xml
+		String codePackage = getCodePackage();
+		String manifestPackage = output.getAppPackageName();
+		String filterPackage = (codePackage != null) ? codePackage : manifestPackage;
+
 		System.out.println("[RvsecAnalysisClient] Starting unified analysis");
 		System.out.println("[RvsecAnalysisClient] MOP dir: " + mopDir);
 		System.out.println("[RvsecAnalysisClient] Output: " + outputPath);
+		System.out.println("[RvsecAnalysisClient] Code package: " + codePackage);
+		System.out.println("[RvsecAnalysisClient] Manifest package: " + manifestPackage);
+		System.out.println("[RvsecAnalysisClient] Filter package: " + filterPackage);
 
-		// 1. Enumerate application classes and methods
-		Map<SootClass, List<SootMethod>> appClasses = extractClasses();
+		// 1. Enumerate application classes filtered by app package
+		Map<SootClass, List<SootMethod>> appClasses = extractClasses(filterPackage);
 		System.out.println("[RvsecAnalysisClient] Application classes: " + appClasses.size());
 
 		// 2. Load MOP signatures and resolve to SootMethods
@@ -147,6 +157,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		return param.substring("mopDir=".length());
 	}
 
+	private String getCodePackage() {
+		String param = Configs.getClientParamCode("codePackage=");
+		if (param == null) {
+			return null;
+		}
+		return param.substring("codePackage=".length());
+	}
+
 	private Set<MopMethod> loadMopSignatures(String mopDir) {
 		try {
 			JavamopFacade facade = new JavamopFacade();
@@ -184,13 +202,43 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// Class/Method Enumeration
 	// ========================================================================
 
-	private Map<SootClass, List<SootMethod>> extractClasses() {
+	/**
+	 * Enumerate application classes filtered by package prefix.
+	 * Only classes whose fully-qualified name starts with filterPackage are
+	 * included. Generated classes (R, R$*, BuildConfig) are excluded — they
+	 * are not real app code and would inflate the coverage denominator.
+	 */
+	private Map<SootClass, List<SootMethod>> extractClasses(String filterPackage) {
 		Map<SootClass, List<SootMethod>> result = new LinkedHashMap<>();
+		int skipped = 0;
 		for (SootClass cls : Scene.v().getApplicationClasses()) {
+			if (!isAppClass(cls.getName(), filterPackage)) {
+				skipped++;
+				continue;
+			}
 			List<SootMethod> methods = new ArrayList<>(cls.getMethods());
 			result.put(cls, methods);
 		}
+		System.out.println("[RvsecAnalysisClient] Filtered " + skipped
+				+ " classes (libraries/generated) using package: " + filterPackage);
 		return result;
+	}
+
+	/**
+	 * Check if a fully-qualified class name belongs to the application package.
+	 * Returns false for library classes (different package prefix) and for
+	 * generated classes (R, R$*, BuildConfig) which inflate coverage denominator.
+	 */
+	// Package-private for unit testing
+	static boolean isAppClass(String className, String filterPackage) {
+		if (!className.startsWith(filterPackage)) {
+			return false;
+		}
+		String suffix = className.substring(filterPackage.length());
+		if (suffix.equals(".R") || suffix.startsWith(".R$") || suffix.equals(".BuildConfig")) {
+			return false;
+		}
+		return true;
 	}
 
 	// ========================================================================
@@ -316,10 +364,11 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		}
 
 		// Event handlers from all GUI objects (widgets with listeners)
+		Set<NNode> visited = new HashSet<>();
 		for (SootClass activity : output.getActivities()) {
 			Set<NNode> roots = output.getActivityRoots(activity);
 			for (NNode root : roots) {
-				collectEventHandlers(output, root, callbacks);
+				collectEventHandlers(output, root, callbacks, visited);
 			}
 		}
 
@@ -343,7 +392,11 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		}
 	}
 
-	private void collectEventHandlers(GUIAnalysisOutput output, NNode node, Set<SootMethod> handlers) {
+	private void collectEventHandlers(GUIAnalysisOutput output, NNode node,
+			Set<SootMethod> handlers, Set<NNode> visited) {
+		if (!visited.add(node)) {
+			return;
+		}
 		if (node instanceof NObjectNode) {
 			NObjectNode objNode = (NObjectNode) node;
 			Map<EventType, Set<SootMethod>> events = output.getAllEventsAndTheirHandlers(objNode);
@@ -352,7 +405,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			}
 		}
 		for (NNode child : node.getChildren()) {
-			collectEventHandlers(output, child, handlers);
+			collectEventHandlers(output, child, handlers, visited);
 		}
 	}
 
@@ -385,8 +438,9 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			List<Map<String, Object>> widgets = new ArrayList<>();
 			Set<NNode> roots = output.getActivityRoots(activity);
+			Set<NNode> widgetVisited = new HashSet<>();
 			for (NNode root : roots) {
-				collectWidgets(output, root, widgets);
+				collectWidgets(output, root, widgets, widgetVisited);
 			}
 			window.put("widgets", widgets);
 			windows.add(window);
@@ -404,8 +458,9 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			List<Map<String, Object>> widgets = new ArrayList<>();
 			Set<NNode> roots = output.getDialogRoots(dialog);
+			Set<NNode> dialogVisited = new HashSet<>();
 			for (NNode root : roots) {
-				collectWidgets(output, root, widgets);
+				collectWidgets(output, root, widgets, dialogVisited);
 			}
 			window.put("widgets", widgets);
 			windows.add(window);
@@ -461,7 +516,11 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		return windows;
 	}
 
-	private void collectWidgets(GUIAnalysisOutput output, NNode node, List<Map<String, Object>> widgets) {
+	private void collectWidgets(GUIAnalysisOutput output, NNode node,
+			List<Map<String, Object>> widgets, Set<NNode> visited) {
+		if (!visited.add(node)) {
+			return;
+		}
 		if (node instanceof NObjectNode) {
 			NObjectNode objNode = (NObjectNode) node;
 			Map<String, Object> widget = new LinkedHashMap<>();
@@ -506,7 +565,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		}
 
 		for (NNode child : node.getChildren()) {
-			collectWidgets(output, child, widgets);
+			collectWidgets(output, child, widgets, visited);
 		}
 	}
 

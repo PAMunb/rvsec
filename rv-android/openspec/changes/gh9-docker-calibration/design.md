@@ -112,6 +112,7 @@ services:
         --specification-set jca
         --apks-dir /opt/rvsec/rv-android/apks
         --apks-filter /opt/rvsec/rv-android/filters/filter.txt
+        --output-dir /opt/rvsec/rv-android/out
         --no-window
     volumes:
       - /path/to/original_apks:/opt/rvsec/rv-android/apks:ro
@@ -122,6 +123,8 @@ services:
       resources:
         limits: { cpus: "10", memory: "20g" }
 ```
+
+**IMPORTANT**: `--output-dir /opt/rvsec/rv-android/out` is required. Without it, rv-experiment writes to `results/cli_experiment_...` inside the container (a path not visible on the host via the volume mount).
 
 ### Execution
 
@@ -160,6 +163,18 @@ cp -r ./results/preprocessing_v2/dataset/* \
 
 **Expected duration**: ~2 hours (instrumentation + SA on 188 APKs across 6 containers, no tool execution overhead).
 
+### Known SA failure categories
+
+Phase A first run (125/188 passed) revealed three categories of SA failure:
+
+1. **Missing Android platforms** (~20-25 APKs): APKs targeting API levels 10-18 fail because the Docker image only has platforms 19-35. The GATOR wrapper tries to install via `sdkmanager` at `$ANDROID_HOME/tools/bin/sdkmanager` (hardcoded path that doesn't exist in the image). **Fix**: add platforms 10-18 to `docker/android/Dockerfile` + create sdkmanager symlink.
+
+2. **StackOverflowError in RvsecAnalysisClient** (~15-20 APKs): `collectEventHandlers()` and `collectWidgets()` recursively traverse GATOR's GUI node tree without cycle detection. Some APKs produce cyclic node graphs causing infinite recursion. Java crashes with `StackOverflowError`, exit code is 0, no JSON produced. **Fix**: add `Set<NNode> visited` parameter to prevent revisiting nodes.
+
+3. **Soot crash / Timeout** (~15-20 APKs): Soot `InternalTypingException` on certain bytecode patterns, or APK too complex for the 600s GATOR timeout. **No fix** — inherent limitation.
+
+After applying fixes 1 and 2, expect ~145-150 passing APKs (up from 125).
+
 ### Expected outputs
 
 ```
@@ -168,19 +183,19 @@ results/preprocessing_v2/
 ├── preprocess_{0..5}_filter.txt        # Per-container APK filter files
 ├── preprocess_0/                       # Container 0 out/ volume
 │   ├── monitors/                       # Generated JCA monitors (redundant across containers)
-│   ├── instrumented_apks/              # Instrumented APKs
-│   └── ...                             # SA output files
+│   ├── instrumented_apks/              # Instrumented APKs + SA JSON files
+│   └── experiment_completion.json      # Completion marker
 ├── preprocess_1/ ... preprocess_5/     # Containers 1-5
-├── passed_apks.txt                     # APKs with analysis JSON (~105-107)
+├── passed_apks.txt                     # APKs with analysis JSON (~145-150)
 ├── failed_apks.txt                     # APKs that failed (with reasons)
 └── dataset/                            # Assembled flat directory
     ├── app1.apk                        # Instrumented APK
     ├── app1.apk.json                   # Unified analysis (reachability, windows, transitions)
-    └── ...                             # ~105 APKs x 2 files = ~210 files
+    └── ...                             # ~145 APKs x 2 files = ~290 files
 
 modules/rv-agent-validation/data/
 ├── calibration_dataset_v2/             # Copied from results/preprocessing_v2/dataset/
-├── all_valid_apks.txt                  # All passing APKs (~105)
+├── all_valid_apks.txt                  # All passing APKs (~145)
 ├── calibration_set_v2.txt              # 75 APKs for calibration (Phases C/D)
 ├── holdout_set_v2.txt                  # 30 APKs for validation (Phase E)
 └── dataset_split.csv                   # Metadata + set assignment
@@ -189,13 +204,13 @@ modules/rv-agent-validation/data/
 ### Verification
 
 ```bash
-# 1. Check pass count (expect ~105-107)
+# 1. Check pass count (expect ~145-150 after fixes, was 125 before)
 wc -l results/preprocessing_v2/passed_apks.txt
 
 # 2. Verify dataset split
 wc -l modules/rv-agent-validation/data/calibration_set_v2.txt    # → 75
 wc -l modules/rv-agent-validation/data/holdout_set_v2.txt        # → 30
-wc -l modules/rv-agent-validation/data/all_valid_apks.txt        # → ~105
+wc -l modules/rv-agent-validation/data/all_valid_apks.txt        # → ~145
 
 # 3. Verify each APK in dataset has its analysis JSON
 for apk in modules/rv-agent-validation/data/calibration_dataset_v2/*.apk; do
@@ -206,7 +221,7 @@ for apk in modules/rv-agent-validation/data/calibration_dataset_v2/*.apk; do
 done
 ```
 
-**Gate**: `passed_apks.txt` has ≥100 APKs. `calibration_set_v2.txt` has 75 entries, `holdout_set_v2.txt` has 30 entries, `all_valid_apks.txt` has ≥100 entries. Every APK in `calibration_dataset_v2/` has a matching `.json` analysis file.
+**Gate**: `passed_apks.txt` has ≥140 APKs. `calibration_set_v2.txt` has 75 entries, `holdout_set_v2.txt` has 30 entries, `all_valid_apks.txt` has ≥140 entries. Every APK in `calibration_dataset_v2/` has a matching `.json` analysis file.
 
 ---
 

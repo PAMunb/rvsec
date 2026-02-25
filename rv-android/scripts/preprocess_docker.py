@@ -91,11 +91,9 @@ def generate_preprocess_compose(
                 "--specification-set jca "
                 "--apks-dir /opt/rvsec/rv-android/apks "
                 "--apks-filter /opt/rvsec/rv-android/filters/filter.txt "
+                "--output-dir /opt/rvsec/rv-android/out "
                 "--no-window"
             ],
-            "environment": {
-                "RV_EXPERIMENT_NAME": service_name,
-            },
             "volumes": [
                 f"{data_dir}:/opt/rvsec/rv-android/apks:ro",
                 f"{output_dir}/{service_name}_filter.txt:/opt/rvsec/rv-android/filters/filter.txt:ro",

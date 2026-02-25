@@ -2,7 +2,7 @@
 
 ## Execution Order
 
-Tasks 1-12 cover infrastructure development (COMPLETED — 86 tests passing). Tasks 12a-12d cover parameter space expansion (gh18/gh26 sync). Task 13 handles commit. Task 13a rebuilds the Docker image with gh26/gh18 code (CRITICAL — old `0.8.0` image has pre-gh26 code). Task 14 covers desktop transfer and smoke tests. Tasks 15-16 cover Docker preprocessing (Phase A). Tasks 16a-16h cover pre-calibration (Phases B0/C0/D0). Tasks 17-24 cover the full calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
+Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15f cover Phase A corrections: fix StackOverflowError + class filtering in RvsecAnalysisClient, add missing Android platforms to Docker image, re-run Phase A. Task 15a is IN PROGRESS (code fixes done, unit tests pending). Tasks 15b-15f are PENDING. Task 16 covers dataset assembly. Tasks 16a-16h cover pre-calibration (Phases B0/C0/D0). Tasks 17-24 cover the full calibration execution campaign (Phases B-E). Tasks 25-27 cover post-execution parameter application.
 
 When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
@@ -31,16 +31,36 @@ When bugs are discovered during execution, correction tasks are inserted as sub-
 12c. Task 12c: Update `design.md` — pre-cal phases, expanded params, TIMEOUT_SECS placeholder
 12d. Task 12d: Update `tasks.md` — add pre-cal tasks, update param counts
 
-### Commit, Docker Rebuild, and Transfer (PENDING)
+### Commit, Docker Rebuild, and Transfer (COMPLETED)
 
 13. Task 13: Commit all code + rewritten artifacts (refs #9)
 13a. Task 13a: Rebuild Docker image `0.8.0` (overwrite with current `modules` branch code)
-14. Task 14: Transfer and verify on desktop (smoke tests)
 
-### Docker Preprocessing (PENDING)
+### Phase A — First Run (COMPLETED — 125/188 passed)
 
-15. Task 15: Phase A — Execute Docker preprocessing
-16. Task 16: Phase A — Verify results + assemble dataset
+14. Task 14: Phase A — Execute Docker preprocessing (6 containers)
+15. Task 15: Phase A — Verify results
+
+Phase A completed with 125/188 APKs passing SA. Investigation revealed 3 categories of failure affecting 62 APKs:
+
+| Category | Count | Root Cause | Fixable? |
+|----------|-------|-----------|----------|
+| Missing Android platforms in Docker | ~20-25 | Docker image lacks platforms 4-18; GATOR wrapper uses hardcoded `tools/bin/sdkmanager` path that doesn't exist in image | YES — add platforms + symlink |
+| `StackOverflowError` in `RvsecAnalysisClient.collectEventHandlers` | ~15-20 | Recursive GUI node traversal without cycle detection — infinite recursion on cyclic node graphs | YES — add visited set |
+| Soot crash / Timeout | ~15-20 | Soot `InternalTypingException` or APK too complex for 600s timeout | NO — inherent Soot/APK limitations |
+
+### Phase A Corrections (PENDING)
+
+15a. Task 15a: Fix `StackOverflowError` in `RvsecAnalysisClient.java`
+15b. Task 15b: Fix Docker image — add Android platforms 10-18 + sdkmanager symlink
+15c. Task 15c: Rebuild JARs + Docker image
+15d. Task 15d: Verify fixes locally with 10 test APKs
+15e. Task 15e: Re-run Phase A preprocessing (6 containers)
+15f. Task 15f: Verify Phase A results + assemble dataset
+
+### Dataset Assembly (PENDING)
+
+16. Task 16: Assemble dataset + transfer to `data/calibration_dataset_v2/`
 
 ### Pre-Calibration (PENDING)
 
@@ -189,83 +209,142 @@ Sync 6 existing defaults changed by gh26, add 3 new MACRO params (gh26 + gh18), 
 
 ---
 
-## Commit and Transfer
+## Commit and Transfer (COMPLETED)
 
 ### 13. Commit All Code + Rewritten Artifacts
 
-Commit all infrastructure code, bug fixes, preprocessing script, and the rewritten SDD artifacts. Update GH#9 title/body. Use `refs #9` (not `closes` — the issue stays open for execution).
-
-- [ ] 13.1 Run unit tests: all must pass.
-- [ ] 13.2 Update GH#9 title to: "Docker-based calibration: infrastructure + full execution campaign (Phases A-E)"
-- [ ] 13.3 Update GH#9 body with full lifecycle acceptance criteria.
-- [ ] 13.4 Stage all files: scripts, tests, dead code removals, docs, OpenSpec artifacts, uv.lock.
-- [ ] 13.5 Commit with `refs #9`.
+- [x] 13.1-13.5: Infrastructure commit completed (refs #9).
 
 ### 13a. Rebuild Docker Image
 
-The existing `phtcosta/rvandroid:0.8.0` image predates gh26 (exploration strategy), gh18 (error detection), and gh27 (unified static analysis). Containers run baked-in code, not mounted source — so the image MUST be rebuilt (overwriting the `0.8.0` tag) to include all current changes. Calibrating on old code would produce meaningless parameters. The gh26 experiment images (`gh26-pre`, `gh26-pos`) are no longer needed — gh26 is archived.
-
-- [ ] 13a.1 On desktop, after `git pull` + `uv sync`, rebuild the production image (overwrites `0.8.0`):
-  ```
-  cd docker/rvandroid && ./build.sh
-  ```
-- [ ] 13a.2 Verify the rebuilt image has gh26 code:
-  ```
-  docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
-    "python -c \"from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer; print('gh26 OK')\""
-  ```
-- [ ] 13a.3 Verify the rebuilt image has gh18 code:
-  ```
-  docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
-    "python -c \"from rv_agent.config.agent_config import RVAgentConfig; c = RVAgentConfig(package_name='test'); print('error_detection_confidence:', c.error_detection_confidence)\""
-  ```
-- [ ] 13a.4 Verify the rebuilt image has gh27 code (unified static analysis):
-  ```
-  docker run --rm phtcosta/rvandroid:0.8.0 bash -c \
-    "python -c \"from rv_android_core.constants import EXTENSION_STATIC_ANALYSIS; print('gh27 OK:', EXTENSION_STATIC_ANALYSIS)\""
-  ```
-- [ ] 13a.5 Quick E2E smoke: run rv-experiment with `--tools monkey --timeout 30` on 1 APK to verify the image works end-to-end.
-- [ ] 13a.6 Remove obsolete gh26 experiment images: `docker rmi phtcosta/rvandroid:gh26-pre phtcosta/rvandroid:gh26-pos`
-
-### 14. Transfer and Verify on Desktop
-
-Transfer code to the desktop machine and run smoke tests to validate end-to-end before the campaign.
-
-- [ ] 14.1 `git pull` on desktop.
-- [ ] 14.2 `uv sync` on desktop.
-- [ ] 14.3 Verify environment: Docker image `phtcosta/rvandroid:0.8.0` (rebuilt in 13a), KVM, disk space. (RVSEC_HOME and Java 8 NOT needed on host.)
-- [ ] 14.4 Copy `apks_complete.csv` to `modules/rv-agent-validation/data/`.
-- [ ] 14.5 Verify APK source directory: flat structure, 188+ APKs.
-- [ ] 14.6 **S1: Preprocessing smoke** — `preprocess_docker.py` with 3 APKs, 2 containers.
-  - Verify: compose has entrypoint override with `--skip-execution`, `out/` volume mounted, instrumented APKs and SA files collected.
-- [ ] 14.7 **S2: Calibration orchestrator smoke** — `--phase macro --n-trials 2 --n-containers 2 --timeout 60 --seed 42` with 3 APKs.
-  - Verify: `optuna_study.db` exists, `trial_0/trial_0/summary.csv` exists, `optimal_params.json` saved, 11 macro params suggested.
-- [ ] 14.8 **S3: Baseline docker smoke** — `--tools rvagent:pure_algorithm --n-containers 2 --timeout 60 --repetitions 1` with 3 APKs.
-  - Verify: `batch_0/batch_0/summary.csv` exists, `summary.csv` aggregated, `aggregated_summary.csv` symlink.
-- [ ] 14.9 **S4: Generate-only smoke** — `--tools ape,fastbot,rvagent:pure_algorithm --n-containers 6 --generate-only`.
-  - Verify: `docker-compose.yml` has 6 services, no containers launched, batch filter files created.
+- [x] 13a.1-13a.6: Docker image `0.8.0` rebuilt from `modules` branch. E2E smoke passed (rvagent:pure_algorithm). Obsolete gh26 images removed.
 
 ---
 
-## Docker Preprocessing Tasks
+## Phase A — First Run (COMPLETED — 125/188)
 
-### 15. Phase A — Execute Docker Preprocessing
+### 14. Phase A — Execute Docker Preprocessing
 
-*Runbook reference: design.md Section 1*
+- [x] 14.1 Fixed `preprocess_docker.py`: added `--output-dir /opt/rvsec/rv-android/out` to align with Docker volume mount. Removed unused `RV_EXPERIMENT_NAME` env var.
+- [x] 14.2 Validated with 1-APK smoke test (1 container, `biz.gyrus.yaab_30.apk`): APK + JSON collected.
+- [x] 14.3 Executed Phase A: 6 containers, 188 APKs, `--specification-set jca`.
+- [x] 14.4 All 6 containers completed (4 exit 0, 2 exit 1 — non-zero due to SA failures, not script failures).
 
-- [ ] 15.1 Extract 188 APK names from `apks_complete.csv` (`exp01_jca=True`).
-- [ ] 15.2 Run `preprocess_docker.py` with `--n-containers 6`.
-- [ ] 15.3 Monitor progress (~2h expected). Each container runs monitors + instrumentation + SA independently.
+### 15. Phase A — Verify Results
 
-### 16. Phase A — Verify Results + Assemble Dataset
+- [x] 15.1 `passed_apks.txt` has 125 APKs (exceeds design expectation of ~105).
+- [x] 15.2 `failed_apks.txt` has 62 APKs (all `missing: .json`).
+- [x] 15.3 1 APK failed instrumentation: `com.danielme.muspyforandroid_3.apk` (dex2jar failure).
+- [x] 15.4 `dataset/` assembled: 187 APKs + 125 JSONs = 312 files.
+- [x] 15.5 Investigated failure categories (10 APKs tested locally):
 
-*Runbook reference: design.md Section 1 "Verification"*
+| Category | Tested | Result | Root Cause |
+|----------|--------|--------|-----------|
+| Missing platforms | 5 APKs (targets 16-18) | All SUCCESS locally | Docker image lacks platforms 10-18 |
+| StackOverflowError | 3 APKs (targets 14-30) | All FAILED locally too | `collectEventHandlers()` recursion without visited set |
+| Soot crash | 1 APK (target 28) | FAILED locally | Soot `InternalTypingException: Unexpected type null` |
+| Timeout | 1 APK (target 29) | FAILED locally (exit 206) | APK too complex for 300s timeout |
 
-- [ ] 16.1 `passed_apks.txt` exists with ≥100 APKs.
-- [ ] 16.2 All passing APKs have `.json` analysis file in assembled dataset.
-- [ ] 16.3 Run `select_dataset.py` to create 75 cal + 30 holdout split.
-- [ ] 16.4 Verify `calibration_set_v2.txt` (75), `holdout_set_v2.txt` (30), `all_valid_apks.txt` (~105).
-- [ ] 16.5 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
+---
+
+## Phase A Corrections (PENDING)
+
+### 15a. Fix RvsecAnalysisClient — StackOverflow + Class Filtering
+
+Two bugs in `RvsecAnalysisClient.java`:
+
+1. **StackOverflowError**: `collectEventHandlers()` and `collectWidgets()` recursively traverse GUI nodes without cycle detection. Cyclic node graphs → infinite recursion → no JSON output.
+2. **Library classes in reachability**: `extractClasses()` uses `Scene.v().getApplicationClasses()` which returns ALL DEX classes (app + libraries like retrofit2, kotlinx, etc.). This inflates the coverage denominator — the reachability section defines the 100% universe for coverage calculation.
+
+**Fix for (2)**: Pass the detected `code_package` (from Python-side `PackageDetector`) to GATOR via `-clientParam "codePackage=..."`. In Java, filter `extractClasses()` by this prefix. Fallback to manifest package when `codePackage` param is absent.
+
+**Source files**:
+- Java: `rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/RvsecAnalysisClient.java`
+- Python: `modules/rv-static-analysis/src/rv_static_analysis/config.py`, `modules/rv-static-analysis/src/rv_static_analysis/analysis/static/static_analysis.py`
+
+#### StackOverflow fix (DONE)
+
+- [x] 15a.1 Fix `collectEventHandlers()`: add `Set<NNode> visited` parameter, skip already-visited nodes.
+- [x] 15a.2 Fix `collectWidgets()`: same pattern — add `Set<NNode> visited` parameter.
+- [x] 15a.3 Update callers in `complementWithCallbacks()` and `extractWindows()` to pass `new HashSet<>()`.
+
+#### Class filtering fix (DONE)
+
+- [x] 15a.4 Java: add `getCodePackage()` method to read `codePackage=` from `-clientParam`.
+- [x] 15a.5 Java: modify `extractClasses(String filterPackage)` — filter by `className.startsWith(filterPackage)`, exclude `R`, `R$*`, `BuildConfig`.
+- [x] 15a.6 Java: update `run()` — resolve `filterPackage` (prefer `codePackage` param, fallback to manifest package), pass to `extractClasses()`.
+- [x] 15a.7 Python `config.py`: add `code_package` kwarg to `get_tool_command()`, append `-clientParam "codePackage=..."` when provided.
+- [x] 15a.8 Python `static_analysis.py`: pass `self.app.code_package` to `get_tool_command()` via kwarg.
+
+#### Unit tests (DONE)
+
+- [x] 15a.9 Java: extract `isAppClass(String className, String filterPackage)` as package-private static method for testability.
+- [x] 15a.10 Java: create `ExtractClassesFilterTest.java` — 25 tests covering app classes, library classes, R/BuildConfig exclusion, inner classes, edge cases.
+- [x] 15a.11 Python `test_config.py`: 2 tests — `get_tool_command()` includes `codePackage` clientParam when kwarg provided, omits when absent.
+- [x] 15a.12 Python `test_static_analysis.py`: 1 test — `_run_analysis()` passes `code_package=self.app.code_package` to `get_tool_command()`.
+- [x] 15a.13 Build updated JAR: 44 Java tests passing (25 filter + 12 BFS + 7 JSON).
+- [x] 15a.14 Run Java unit tests: `mvn test -pl rvsec-gator/client -DskipTests=false` — 44/44 passed.
+- [x] 15a.15 Run Python unit tests: `uv run pytest modules/rv-static-analysis/tests/` — 24/24 passed.
+
+#### Local verification (DONE)
+
+- [x] 15a.16 Test locally with `com.gh4a_73.apk` — verified:
+  - 965 app classes (was 2933 unfiltered), all `com.gh4a.*`, zero library classes
+  - R/BuildConfig correctly excluded
+  - 1968 classes filtered (libraries + generated)
+  - MOP reachability works: 120 signatures loaded, 119 resolved, 59.8% reachesMop
+  - WTG: 90 windows (47 activities, 3 dialogs, 40 menus), all app-internal
+  - Compared with 13 APKs from old `.reach` data: filtered counts match exactly (e.g., `ca.farrelltonsolar.classic_314`: OLD=49, NEW filtered=49; `org.emunix.insteadlauncher_80601`: OLD=131, NEW filtered=131)
+
+### 15b. Fix Docker Image — Add Platforms + sdkmanager Symlink (DONE)
+
+The Docker image (`docker/android/Dockerfile`) installs platforms 19-35 but many APKs target earlier levels (10-18). The GATOR wrapper also uses a hardcoded path `$ANDROID_HOME/tools/bin/sdkmanager` which doesn't exist — the image has `cmdline-tools/tools/bin/sdkmanager`.
+
+- [x] 15b.1 Update `docker/android/Dockerfile`: add `platforms;android-10` through `platforms;android-18` to `ANDROID_SDK_PACKAGES`.
+- [x] 15b.2 Add `RUN mkdir -p $ANDROID_HOME/tools/bin && ln -s $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager` for GATOR wrapper compatibility.
+- [ ] 15b.3 Rebuild `phtcosta/rvsec_android:0.8.0` base image (moved to 15c — full chain rebuild).
+
+### 15c. Rebuild JARs + Docker Images
+
+- [ ] 15c.1 Rebuild full image chain: `rvsec_android:0.8.0` → `rvandroid_tools:0.8.0` → `rvandroid:0.8.0`.
+- [ ] 15c.2 Verify new JAR in image: `docker run --rm phtcosta/rvandroid:0.8.0 ls -la /opt/rvsec/rv-android/lib/gator/rvsec-analysis-client.jar`.
+- [ ] 15c.3 Verify platforms: `docker run --rm phtcosta/rvandroid:0.8.0 ls /opt/android/platforms/ | sort -V`.
+- [ ] 15c.4 Verify sdkmanager symlink: `docker run --rm phtcosta/rvandroid:0.8.0 ls -la /opt/android/tools/bin/sdkmanager`.
+
+### 15d. Verify Fixes Locally (10 Test APKs)
+
+Re-run the same 10 APKs from Phase A investigation to confirm fixes.
+
+- [ ] 15d.1 Re-run GATOR locally for the 3 StackOverflow APKs: `com.gh4a_73`, `com.koushikdutta.superuser_1030`, `com.cyanogenmod.filemanager.ics_1015`. All must produce JSON.
+- [ ] 15d.2 Re-run GATOR inside Docker for the 5 missing-platform APKs: `com.blippex.app_5`, `com.gracecode.android.presentation_20131114`, `org.nick.wwwjdic_2370`, `com.andrew.apollo_2`, `com.Bisha.TI89EmuDonation_1133`. All must produce JSON.
+- [ ] 15d.3 Verify the 2 unfixable APKs still fail: `com.alienpants.leafpicrevived_24` (Soot crash), `com.amphoras.tpthelper_25` (timeout).
+
+### 15e. Re-run Phase A Preprocessing
+
+- [ ] 15e.1 Clean previous preprocessing results (use Docker alpine container for root-owned files).
+- [ ] 15e.2 Run `preprocess_docker.py` with 6 containers on all 188 APKs.
+- [ ] 15e.3 Monitor progress (~2h expected).
+
+### 15f. Verify Phase A Results + Assemble Dataset
+
+- [ ] 15f.1 `passed_apks.txt` has ≥140 APKs (expect ~145-150, up from 125).
+- [ ] 15f.2 All passing APKs have `.json` analysis file in assembled dataset.
+- [ ] 15f.3 `failed_apks.txt` reduced to ~40 APKs (only Soot crash + timeout).
+- [ ] 15f.4 Commit fixes with `refs #9`.
+
+**Gate**: passed_apks count > 125 (improvement from first run). StackOverflow APKs now produce JSON. Missing-platform APKs now produce JSON.
+
+---
+
+## Dataset Assembly and Transfer (PENDING)
+
+### 16. Assemble Dataset + Transfer
+
+- [ ] 16.1 Run `select_dataset.py` to create calibration + holdout split.
+- [ ] 16.2 Verify `calibration_set_v2.txt`, `holdout_set_v2.txt`, `all_valid_apks.txt`.
+- [ ] 16.3 Copy assembled dataset to `modules/rv-agent-validation/data/calibration_dataset_v2/`.
+- [ ] 16.4 Copy `apks_complete.csv` to `modules/rv-agent-validation/data/`.
+- [ ] 16.5 Commit dataset files with `refs #9`.
 
 **Gate**: All 5 checks pass before proceeding to pre-calibration.
 
