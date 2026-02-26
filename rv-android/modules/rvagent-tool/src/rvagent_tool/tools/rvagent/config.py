@@ -33,13 +33,15 @@ def build_agent_config_dict(
         "package_name": app.package_name,
     }
 
-    # Map device_id from task configuration
+    # Map device_id, timeout, and repetition from task configuration
     task_config = task.config if hasattr(task, 'config') else None
     if task_config:
         if hasattr(task_config, 'device_id') and task_config.device_id:
             config_dict["device_id"] = task_config.device_id
         if hasattr(task_config, 'timeout') and task_config.timeout:
             config_dict["timeout"] = task_config.timeout
+        if hasattr(task_config, 'repetition') and task_config.repetition:
+            config_dict["repetition"] = task_config.repetition
 
     # Map agent_mode from tool variant config
     if "agent_mode" in tool_config:

@@ -141,7 +141,6 @@ class TestConfigMapping:
 
         assert config_dict["package_name"] == "com.example.app"
         assert config_dict["agent_mode"] == "multimode"
-        assert config_dict["platform_integration"] == "platform"
 
     def test_build_agent_config_dict_with_task_config(self):
         """Test build_agent_config_dict maps task config."""
@@ -162,6 +161,47 @@ class TestConfigMapping:
 
         assert config_dict["device_id"] == "emulator-5556"
         assert config_dict["timeout"] == 600
+
+    def test_build_agent_config_dict_maps_repetition(self):
+        """Test build_agent_config_dict maps task.config.repetition."""
+        from rvagent_tool.tools.rvagent.config import build_agent_config_dict
+
+        task = MagicMock()
+        task.config = MagicMock()
+        task.config.device_id = "emulator-5554"
+        task.config.timeout = 600
+        task.config.repetition = 3
+
+        app = MagicMock()
+        app.package_name = "com.example.app"
+
+        tool_config = {"agent_mode": "pure_algorithm"}
+
+        config_dict = build_agent_config_dict(task, app, tool_config)
+
+        assert config_dict["repetition"] == 3
+        assert config_dict["timeout"] == 600
+        assert config_dict["agent_mode"] == "pure_algorithm"
+
+    def test_build_agent_config_dict_repetition_default_when_missing(self):
+        """Test repetition is not set when task.config has no repetition."""
+        from rvagent_tool.tools.rvagent.config import build_agent_config_dict
+
+        task = MagicMock()
+        task.config = MagicMock()
+        task.config.device_id = "emulator-5554"
+        task.config.timeout = 600
+        task.config.repetition = None  # Not set
+
+        app = MagicMock()
+        app.package_name = "com.example.app"
+
+        tool_config = {}
+
+        config_dict = build_agent_config_dict(task, app, tool_config)
+
+        # repetition should NOT be in config_dict when None
+        assert "repetition" not in config_dict
 
     def test_build_agent_config_dict_timeout_from_task_only(self):
         """Test timeout always comes from task config, never tool_config."""

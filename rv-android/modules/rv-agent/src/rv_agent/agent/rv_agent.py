@@ -329,6 +329,7 @@ class RVAgent:
                     self.config.package_name,
                     self.config.agent_mode,
                     self.config.timeout,
+                    self.config.repetition,
                 ).replace(".rvagent_metrics.json", ".trace")
                 trace_path = Path(self.config.metrics_output_dir) / trace_filename
                 trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -481,6 +482,7 @@ class RVAgent:
                 package_name=self.config.package_name,
                 agent_mode=self.config.agent_mode,
                 timeout=self.config.timeout,
+                repetition=self.config.repetition,
             )
 
         # Clean up trace file handler

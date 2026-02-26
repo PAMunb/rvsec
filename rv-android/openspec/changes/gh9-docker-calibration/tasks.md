@@ -2,7 +2,7 @@
 
 ## Execution Order
 
-Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15c cover Phase A corrections (DONE). Tasks 15d-15h cover verification, re-run, retry, and dataset assembly (DONE — 179/188 valid). Task 16 covers dataset copy to calibration_dataset_v2 (DONE). Tasks 17-18 cover Phase B baseline (runs FIRST with current defaults on ALL valid APKs). Tasks 19-24 cover pre-calibration (C0/D0 on 20 APKs — validates approach before full campaign). Tasks 25-31 cover the full calibration campaign (C/D/E — only if pre-cal validates). Tasks 32-34 cover post-execution parameter application.
+Tasks 1-12d cover infrastructure development (COMPLETED — 86 tests passing). Tasks 13-13a cover commit + Docker image rebuild (COMPLETED). Tasks 14-15 cover Phase A first run (COMPLETED — 125/188 passed). Tasks 15a-15c cover Phase A corrections (DONE). Tasks 15d-15h cover verification, re-run, retry, and dataset assembly (DONE — 179/188 valid). Task 16 covers dataset copy to calibration_dataset_v2 (DONE). Task 16a covers monitoring script (DONE). Tasks 17-18 cover Phase B baseline (IN PROGRESS — 6 containers, ~45h remaining). Tasks 19-24 cover pre-calibration (C0/D0 on 20 APKs — validates approach before full campaign). Tasks 25-31 cover the full calibration campaign (C/D/E — only if pre-cal validates). Tasks 32-34 cover post-execution parameter application.
 
 When bugs are discovered during execution, correction tasks are inserted as sub-tasks (e.g., Task 17a) to preserve numbering.
 
@@ -419,17 +419,46 @@ Give 22 failed APKs a second chance with a longer SA timeout (30 min) and more J
 
 ---
 
-## Phase B — Baseline (PENDING)
+## Phase B — Baseline (IN PROGRESS)
 
 Baseline runs FIRST, before any calibration, to establish reference performance with current defaults.
+
+### 16a. Docker Batch Monitoring Script — DONE
+
+- [x] 16a.1 Created `scripts/monitor_docker.py` — generic progress monitor for all Docker batch experiment phases.
+  - Reads `tasks.json` + filter files from any results directory
+  - Shows per-batch progress, APKs done, avg task duration, ETA
+  - `--watch N` mode for auto-refresh every N seconds
+  - Reusable for baseline, calibration, and validation phases (just change the results dir path)
 
 ### 17. Phase B — Execute Baseline
 
 *Runbook reference: design.md Section 2*
 
-- [ ] 17.1 Run `baseline_docker.py` with ALL valid APKs, 3 tools (ape, fastbot, rvagent:pure_algorithm), 3 reps, `--timeout TIMEOUT_SECS`.
-- [ ] 17.2 Monitor progress: check batch directories for `tasks.json` growth.
-- [ ] 17.3 If interrupted: re-run same command (resume is automatic via `RV_EXPERIMENT_NAME`).
+Config: 179 APKs × 3 tools (ape, fastbot, rvagent:pure_algorithm) × 3 reps × 600s timeout = 1611 tasks, 6 containers.
+Measured task duration: ~650s (37.5s emulator boot + 600s tool + 12.7s teardown).
+Projected wall clock: ~48.8h (bottleneck: 270 tasks/batch on batches 0-4).
+
+- [x] 17.1 First run: `baseline_docker.py` with 6 containers, 600s timeout, 3 reps. Completed 114/1611 tasks (~3.5h). Stopped for analysis.
+- [x] 17.1a Fixed `RV_APKS_DIR` missing in `baseline_docker.py` and `calibration_orchestrator.py` (commit `09103a03`).
+- [x] 17.2 Resumed: `docker compose up -d` in `results/baseline_v2/`. Resume confirmed — 19 tasks/batch skipped, 251 remaining/batch.
+- [ ] 17.3 Monitor progress: `python scripts/monitor_docker.py results/baseline_v2`
+- [ ] 17.4 If interrupted: `docker compose up -d` in `results/baseline_v2/` (resume is automatic via `RV_EXPERIMENT_NAME`).
+
+### 17a. Fix RVAgent Repetition/Filename Bug
+
+**Bug**: RVAgent `.trace` and `.rvagent_metrics.json` files only generated for rep 1. Reps 2 and 3 overwrite the same file (hardcoded `repetition=1`). Two causes:
+
+1. **Repetition not propagated**: `build_agent_config_dict()` never maps `task.config.repetition` → `RVAgentConfig` has no `repetition` field → `MetricsExporter` defaults to `repetition=1`.
+2. **Filename prefix mismatch**: RVAgent uses `package_name` (e.g., `biz.gyrus.yaab`), platform expects `apk_name` (e.g., `biz.gyrus.yaab_30.apk`).
+
+- [x] 17a.1 `RVAgentConfig`: add `repetition: int = Field(default=1, ge=1)`.
+- [x] 17a.2 `rvagent_tool/config.py`: map `task.config.repetition` to config dict.
+- [x] 17a.3 `rv_agent.py`: pass `self.config.repetition` to `build_filename()` (line 328) and `MetricsExporter.export()` (line 478).
+- [x] 17a.4 Unit tests: `test_build_agent_config_dict_maps_repetition` and `test_build_agent_config_dict_repetition_default_when_missing` in `rvagent_tool/tests/unit/test_tool.py`.
+- [ ] 17a.5 Rebuild Docker image `rvandroid:0.8.0`.
+- [ ] 17a.6 Reset rvagent tasks in baseline `tasks.json` files: change `state` from `COMPLETED` to `READY` for all tasks where `tool_config.name == "rvagent"`. This leverages the resume mechanism — `Platform._skip_completed_tasks()` only skips `COMPLETED` tasks, so ape/fastbot results are preserved and only rvagent re-executes. Also delete corrupted `.trace` and `.rvagent_metrics.json` files (all have `__1__` in filename regardless of rep).
+- [ ] 17a.7 Resume baseline: `docker compose up -d` in `results/baseline_v2/`. Monitor with `python scripts/monitor_docker.py results/baseline_v2`.
 
 ### 18. Phase B — Verify Results
 
@@ -460,7 +489,7 @@ Validates that Optuna can find params better than defaults using a 20-APK subset
 *Runbook reference: design.md Section 1b*
 
 - [ ] 20.1 Run `calibration_orchestrator.py --phase macro --n-trials 30 --filter-file precal_set.txt --baseline-dir ./results/baseline_v2 --timeout TIMEOUT_SECS`.
-- [ ] 20.2 Monitor progress (30 trials, ~5.5-8.3h expected).
+- [ ] 20.2 Monitor progress: `python scripts/monitor_docker.py results/calibration_macro_v2` (30 trials, ~5.5-8.3h expected).
 
 ### 21. Phase C0 — Verify Convergence
 
@@ -474,7 +503,7 @@ Validates that Optuna can find params better than defaults using a 20-APK subset
 
 - [ ] 22.1 Start SGLang server.
 - [ ] 22.2 Run `calibration_orchestrator.py --phase micro --n-trials 40 --filter-file precal_set.txt --best-macro precal_macro/optimal_params.json --baseline-dir ./results/baseline_v2 --sglang-url ... --timeout TIMEOUT_SECS`.
-- [ ] 22.3 Monitor progress (40 trials, ~7.4-11.1h expected).
+- [ ] 22.3 Monitor progress: `python scripts/monitor_docker.py results/calibration_micro_v2` (40 trials, ~7.4-11.1h expected).
 
 ### 23. Phase D0 — Verify + Decision Gate
 
@@ -509,7 +538,7 @@ Only proceed after pre-cal validates the approach. Cal/holdout split is decided 
 *Runbook reference: design.md Section 3*
 
 - [ ] 26.1 Run `calibration_orchestrator.py --phase macro --n-trials 80 --filter-file calibration_set_v2.txt --baseline-dir ./results/baseline_v2 --timeout TIMEOUT_SECS`.
-- [ ] 26.2 Monitor progress: check `trial_history.json` growth, `orchestrator.log` for errors.
+- [ ] 26.2 Monitor progress: `python scripts/monitor_docker.py results/calibration_macro_v2`
 - [ ] 26.3 If interrupted: re-run with `--resume`.
 
 ### 27. Phase C — Verify Results
@@ -530,7 +559,7 @@ Only proceed after pre-cal validates the approach. Cal/holdout split is decided 
 - [ ] 28.1 Start SGLang server: `cd rvsec-vision-llm && docker compose up -d`.
 - [ ] 28.2 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
 - [ ] 28.3 Run `calibration_orchestrator.py --phase micro --n-trials 100 --filter-file calibration_set_v2.txt --best-macro calibration_macro_v2/optimal_params.json --baseline-dir ./results/baseline_v2 --sglang-url ... --timeout TIMEOUT_SECS`.
-- [ ] 28.4 Monitor progress: check `trial_history.json` growth, SGLang server health.
+- [ ] 28.4 Monitor progress: `python scripts/monitor_docker.py results/calibration_micro_v2`
 - [ ] 28.5 If interrupted: re-run with `--resume`.
 
 ### 29. Phase D — Verify Results
@@ -548,7 +577,7 @@ Only proceed after pre-cal validates the approach. Cal/holdout split is decided 
 
 - [ ] 30.1 Verify SGLang server: `curl -s http://localhost:30000/v1/models`.
 - [ ] 30.2 Run `baseline_docker.py` with holdout APKs, calibrated params, `--sglang-url`.
-- [ ] 30.3 Monitor progress.
+- [ ] 30.3 Monitor progress: `python scripts/monitor_docker.py results/validation_v2`
 
 ### 31. Phase E — Verify Results
 

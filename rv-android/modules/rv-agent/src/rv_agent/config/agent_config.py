@@ -64,6 +64,11 @@ class RVAgentConfig(BaseValidatedModel):
         ge=60,
         description="Test execution timeout in seconds",
     )
+    repetition: int = Field(
+        default=1,
+        ge=1,
+        description="Task repetition number (from platform, used in output filenames)",
+    )
     results_dir: str = Field(
         default="./results", description="Directory for test results and artifacts"
     )
