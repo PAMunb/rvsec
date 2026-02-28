@@ -442,10 +442,10 @@ Projected wall clock: ~48.8h (bottleneck: 270 tasks/batch on batches 0-4).
 - [x] 17.1 First run: `baseline_docker.py` with 6 containers, 600s timeout, 3 reps. Completed 114/1611 tasks (~3.5h). Stopped for analysis.
 - [x] 17.1a Fixed `RV_APKS_DIR` missing in `baseline_docker.py` and `calibration_orchestrator.py` (commit `09103a03`).
 - [x] 17.2 Resumed: `docker compose up -d` in `results/baseline_v2/`. Resume confirmed — 19 tasks/batch skipped, 251 remaining/batch.
-- [ ] 17.3 Monitor progress: `python scripts/monitor_docker.py results/baseline_v2`
-- [ ] 17.4 If interrupted: `docker compose up -d` in `results/baseline_v2/` (resume is automatic via `RV_EXPERIMENT_NAME`).
+- [x] 17.3 Completed: 1550/1611 COMPLETED, 61 ERROR (all EmulatorError). 6 containers, ~48h wall clock.
+- [x] 17.4 Interrupted twice (reboot), resumed via `docker compose up -d`. Resume mechanism creates duplicate ERROR entries for already-failed APKs (tasks.json has 200 duplicates, real errors are 61).
 
-### 17a. Fix RVAgent Repetition/Filename Bug
+### 17a. Fix RVAgent Repetition/Filename Bug — DONE
 
 **Bug**: RVAgent `.trace` and `.rvagent_metrics.json` files only generated for rep 1. Reps 2 and 3 overwrite the same file (hardcoded `repetition=1`). Two causes:
 
@@ -456,9 +456,29 @@ Projected wall clock: ~48.8h (bottleneck: 270 tasks/batch on batches 0-4).
 - [x] 17a.2 `rvagent_tool/config.py`: map `task.config.repetition` to config dict.
 - [x] 17a.3 `rv_agent.py`: pass `self.config.repetition` to `build_filename()` (line 328) and `MetricsExporter.export()` (line 478).
 - [x] 17a.4 Unit tests: `test_build_agent_config_dict_maps_repetition` and `test_build_agent_config_dict_repetition_default_when_missing` in `rvagent_tool/tests/unit/test_tool.py`.
-- [ ] 17a.5 Rebuild Docker image `rvandroid:0.8.0`.
-- [ ] 17a.6 Reset rvagent tasks in baseline `tasks.json` files: change `state` from `COMPLETED` to `READY` for all tasks where `tool_config.name == "rvagent"`. This leverages the resume mechanism — `Platform._skip_completed_tasks()` only skips `COMPLETED` tasks, so ape/fastbot results are preserved and only rvagent re-executes. Also delete corrupted `.trace` and `.rvagent_metrics.json` files (all have `__1__` in filename regardless of rep).
-- [ ] 17a.7 Resume baseline: `docker compose up -d` in `results/baseline_v2/`. Monitor with `python scripts/monitor_docker.py results/baseline_v2`.
+- [x] 17a.5 Rebuild Docker image `rvandroid:0.8.0` (commit `94426bbf`).
+- [x] 17a.6 Reset 142 rvagent tasks to READY + deleted corrupted `.trace`/`.rvagent_metrics.json` files via Docker alpine/python.
+- [x] 17a.7 Resumed baseline. All 142 rvagent tasks re-executed successfully with correct repetition filenames.
+
+### 17b. Remove APKs with Full Baseline Failure
+
+5 APKs failed all 9 tasks (3 tools × 3 reps) with EmulatorError — the emulator consistently crashes when running these APKs. Remove from `calibration_dataset_v2/` and `all_valid_apks.txt`.
+
+**APKs removed** (all EmulatorError, 9/9 tasks failed):
+1. `fr.free.nrw.commons_1034.apk`
+2. `net.momodalo.app.vimtouch_25.apk`
+3. `org.astonbitecode.rustkeylock_1401.apk`
+4. `org.smc.inputmethod.indic_103.apk`
+5. `org.sufficientlysecure.viewer_2827.apk`
+
+**APKs with partial failure (kept)** — 5 APKs had 3/9 failures (1 tool), other tools completed:
+- `community.fairphone.clock_3.apk`, `community.fairphone.mycontacts_3.apk`, `org.fdroid.fdroid.privileged_2130.apk`, `org.fitchfamily.android.dejavu_21.apk`, `org.kde.necessitas.ministro_14.apk`
+
+Dataset after removal: 179 - 5 = **174 APKs**.
+
+- [ ] 17b.1 Remove 5 APKs + their JSONs from `calibration_dataset_v2/`.
+- [ ] 17b.2 Update `all_valid_apks.txt` (174 entries).
+- [ ] 17b.3 Commit with `refs #9`.
 
 ### 18. Phase B — Verify Results
 
