@@ -30,6 +30,14 @@ E  → Validation (holdout APKs, 37 params, SGLang)
 
 **Dataset sizing**: The number of APKs for each phase depends on Phase A results. All APKs that produce both an instrumented `.apk` and an analysis `.json` are valid. The cal/holdout split is decided after Phase B, based on the actual dataset size.
 
+### Parameter forwarding chain
+
+Calibration parameters flow: orchestrator → docker-compose env vars → docker-entrypoint → rv-experiment CLI `--tools` → ToolFactory → `build_agent_config_dict()` → RVAgentConfig → scorers/strategy code.
+
+The bottleneck is `build_agent_config_dict()` in `modules/rvagent-tool/src/rvagent_tool/tools/rvagent/config.py` which uses explicit whitelists (`llm_params`, `strategy_params`, `scorer_params`) to forward parameters. Any new parameter added to `RVAgentConfig` MUST also be added to the appropriate whitelist, otherwise it will be silently dropped (the tool_config dict has the value, but it never reaches RVAgentConfig).
+
+**All 37 calibration parameters** (11 MACRO + 26 MICRO from `parameter_space.py`) must appear in the whitelists. See Task 20a for the C0-era fix that added 15 missing params.
+
 ### Environment
 
 | Requirement | Value | Verification |
@@ -387,7 +395,35 @@ uv run python scripts/calibration_orchestrator.py \
 
 **Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~167h. At 900s: ~250h.
 
-**Objective function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage.
+**Objective function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage. Weights are configurable via `--coverage-weight`, `--errors-weight`, `--ui-coverage-weight` CLI params (default 0.40/0.40/0.20).
+
+**Error normalization**: Log-scaled with max-APK reference. `compute_baseline_max_errors()` computes `groupby('apk')['errors'].mean().max()` — the maximum per-APK average error count across all tools. The normalization formula is `min(log(1 + avg_errors) / log(1 + baseline_max_errors) * 100, 100)`. This provides continuous gradient across the error range without saturation in practice (saturation only at avg_errors >= max-APK errors, which is impossible as a dataset mean).
+
+**Rationale**: The original linear normalization (`avg_errors / mean_per_tool * 100`) saturated at avg_errors >= 1.58 (the max tool mean across 167 APKs), providing zero gradient to Optuna on 40% of the score. Log normalization with a higher reference (max-APK ≈ 22.33) eliminates this problem. Investigation during C0 showed UI coverage is statistically independent from method coverage (r=0.049, p=0.256), confirming the 40/40/20 split is appropriate.
+
+### Scoring architecture and parameter ranges
+
+All 9 scorers in `ActionRanker` are composed via **pure additive sum**: `total = sum(scorer.score() for scorer in scorers)`. The action with the highest total is selected (deterministic) or used as Gumbel-max base (stochastic, 15% probability).
+
+**Typical score contributions per scorer** (at default parameter values):
+
+| Scorer | Max contribution | Condition for max |
+|--------|-----------------|-------------------|
+| MopScorer | +500 | Action directly reaches MOP method |
+| GradualDecayScorer | +200 | First visit to element (decays with visits) |
+| CoverageDensityScorer | +200 | Destination state fully untested |
+| WtgScorer | +150 | WTG suggests this action for navigation |
+| SaturationScorer | +100 | Current state fully unsaturated (state-level) |
+| ComponentPriorityScorer | +50 | Button, input, or navigation element |
+| StrengthScorer | +65 | Perfect historical success + max reward |
+| VisitationPenaltyScorer | -60 | State visited 50+ times (state-level, log-based) |
+| SystemElementFilter | -5000 | systemui package (effectively blocks) |
+
+**Realistic composite range**: [-60, +1225]. MopScorer dominates at 41% of the max.
+
+**Range widening rationale**: C0 analysis showed near-zero variation in scores because some secondary scorers are capped too low relative to MOP magnitude — Optuna cannot explore configurations where coverage exploration or historical success meaningfully compete with MOP targeting. Since the objective function gives coverage and errors equal weight (40% each), the parameter ranges should allow coverage-favoring strategies. See Task 20b for the 11 widened ranges and rationale.
+
+**Dead code note**: 3 MICRO params (`mop_nav_weight`, `max_short_term_iterations`, `llm_max_retries`) are defined in `RVAgentConfig` but never consumed at runtime. They must be excluded from D0 calibration or wired into the code first. See Task 20b.
 
 ### Expected outputs
 

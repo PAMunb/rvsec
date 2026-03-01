@@ -6,6 +6,7 @@ Computes a composite score from method coverage, MOP errors, and UI coverage.
 
 import json
 import logging
+import math
 from pathlib import Path
 from typing import List, Optional
 
@@ -182,9 +183,17 @@ class ObjectiveFunction:
 
     def _normalize_errors(self, avg_errors: float) -> float:
         """
-        Normalize error count to 0-100 scale.
+        Normalize error count to 0-100 scale using logarithmic normalization.
 
-        Uses baseline_max_errors if available, otherwise fallback.
+        Log normalization prevents saturation when avg_errors exceeds the
+        baseline reference. With linear normalization and baseline_max_errors=1.58,
+        any trial producing avg_errors >= 1.58 would saturate at 100.0 — making
+        40% of the objective score invisible to Optuna. Log normalization gives
+        diminishing returns: going from 0→1 errors matters more than 10→11,
+        preserving gradient across the full range.
+
+        Reference value is max mean errors per APK from baseline (~22.33),
+        not mean-of-tool-means (~1.58).
 
         Args:
             avg_errors: Average error count per APK
@@ -192,12 +201,11 @@ class ObjectiveFunction:
         Returns:
             Normalized error score (0-100)
         """
-        if self.baseline_max_errors and self.baseline_max_errors > 0:
-            # Adaptive normalization using baseline
-            normalized = (avg_errors / self.baseline_max_errors) * 100
-        else:
-            # Fallback: assume max ~10 errors per app is excellent
-            normalized = avg_errors * 10
+        if avg_errors <= 0:
+            return 0.0
+
+        ref = self.baseline_max_errors if self.baseline_max_errors and self.baseline_max_errors > 0 else 10.0
+        normalized = math.log(1 + avg_errors) / math.log(1 + ref) * 100
 
         return min(normalized, 100.0)
 
@@ -219,11 +227,15 @@ class ObjectiveFunction:
         """
         Compute max average errors from baseline results.
 
+        Groups errors by APK (across all tools and repetitions), then takes the
+        max per-APK mean. This yields a reference representing the most
+        error-prone APK, providing a wider normalization range for log scaling.
+
         Args:
             baseline_dir: Path to baseline experiment directory
 
         Returns:
-            Maximum average error count across all tools
+            Maximum average error count per APK
         """
         baseline_path = Path(baseline_dir)
         summary_path = baseline_path / "summary.csv"
@@ -235,14 +247,21 @@ class ObjectiveFunction:
         try:
             summary = pd.read_csv(summary_path)
 
-            # Group by tool, compute average errors per tool
-            if "tool" in summary.columns:
+            # Group by APK, compute mean errors per APK (across all tools/repetitions),
+            # then take the max across APKs. This produces a reference that represents
+            # the most error-prone APK (~22.33), preventing saturation when most APKs
+            # produce few errors. Previous approach (mean-per-tool, max across tools)
+            # yielded ~1.58, causing 90%+ of trials to saturate at 100.0.
+            if "apk" in summary.columns:
+                apk_errors = summary.groupby("apk")["errors"].mean()
+                max_errors = apk_errors.max()
+            elif "tool" in summary.columns:
                 tool_errors = summary.groupby("tool")["errors"].mean()
                 max_errors = tool_errors.max()
             else:
                 max_errors = summary["errors"].mean()
 
-            logger.info(f"Computed baseline max errors: {max_errors:.2f}")
+            logger.info(f"Computed baseline max errors (per-APK max): {max_errors:.2f}")
             return max(max_errors, 1.0)  # Minimum 1 to avoid division by zero
 
         except Exception as e:

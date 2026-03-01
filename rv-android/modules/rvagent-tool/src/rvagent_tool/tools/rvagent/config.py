@@ -75,7 +75,11 @@ def build_agent_config_dict(
     # Map exploration strategy parameters
     strategy_params = [
         "plateau_window", "max_input_variations",
-        "stochastic_probability", "stochastic_temperature"
+        "stochastic_probability", "stochastic_temperature",
+        # Advanced exploration (gh26)
+        "backtrack_saturation_threshold",
+        "multi_value_saturation_threshold",
+        "mop_nav_weight", "mop_max_input_variations",
     ]
     for param in strategy_params:
         if param in tool_config:
@@ -99,10 +103,34 @@ def build_agent_config_dict(
         "component_high_priority", "component_medium_priority",
         # SuccessorTracker
         "max_re_enables", "ui_coverage_threshold",
+        # CoverageDensityScorer (gh26)
+        "coverage_density_weight",
+        # RewardPropagator (gh26)
+        "reward_gamma", "reward_score_weight",
         # Exploration
         "scroll_probability",
     ]
     for param in scorer_params:
+        if param in tool_config:
+            config_dict[param] = tool_config[param]
+
+    # Map error detection parameters (gh18)
+    error_detection_params = [
+        "error_detection_confidence",
+        "error_max_indicator_size", "error_max_indicator_count",
+        # Spatial association
+        "spatial_edittext_boost", "spatial_spinner_boost",
+        "spatial_min_match_threshold",
+    ]
+    for param in error_detection_params:
+        if param in tool_config:
+            config_dict[param] = tool_config[param]
+
+    # Map fallback/memory parameters
+    fallback_params = [
+        "max_short_term_iterations", "llm_max_retries",
+    ]
+    for param in fallback_params:
         if param in tool_config:
             config_dict[param] = tool_config[param]
 

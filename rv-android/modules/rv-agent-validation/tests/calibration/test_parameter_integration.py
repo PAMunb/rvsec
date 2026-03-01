@@ -30,6 +30,11 @@ def test_suggest_params_with_ask_trial():
     assert 300.0 <= params["mop_direct_score"] <= 700.0
     assert "stochastic_probability" in params
     assert 0.05 <= params["stochastic_probability"] <= 0.4
+    # Widened ranges (Task 20b)
+    assert "coverage_density_weight" in params
+    assert 50.0 <= params["coverage_density_weight"] <= 600.0
+    assert "visitation_penalty_factor" in params
+    assert -40.0 <= params["visitation_penalty_factor"] <= -3.0
     # New gh26/gh18 MACRO params
     assert "backtrack_saturation_threshold" in params
     assert "coverage_density_weight" in params
@@ -60,6 +65,8 @@ def test_tool_spec_dsl_string():
 
 def test_objective_compute_with_mock_results(tmp_path):
     """T31: ObjectiveFunction.compute() returns expected score from synthetic data."""
+    import math
+
     # Create a summary.csv with known values
     df = pd.DataFrame([{
         "apk": "test.apk",
@@ -79,9 +86,11 @@ def test_objective_compute_with_mock_results(tmp_path):
 
     assert score > 0.0
     # 0.4 * 50.0 (cov) + 0.4 * normalized_errors + 0.2 * 0.0 (no metrics files)
-    # normalized_errors = min(5.0 * 10, 100) = 50.0 (fallback normalization)
-    # expected = 0.4 * 50.0 + 0.4 * 50.0 + 0.2 * 0.0 = 40.0
-    assert abs(score - 40.0) < 1.0
+    # Log normalization fallback (no baseline): ref=10.0
+    # normalized_errors = log(1+5) / log(1+10) * 100 = log(6)/log(11)*100 ≈ 74.76
+    expected_errors = math.log(6) / math.log(11) * 100
+    expected = 0.4 * 50.0 + 0.4 * expected_errors + 0.2 * 0.0
+    assert abs(score - expected) < 1.0
 
 
 def test_objective_missing_summary(tmp_path):
@@ -92,22 +101,27 @@ def test_objective_missing_summary(tmp_path):
 
 
 def test_baseline_max_errors_computation(tmp_path):
-    """T33: compute_baseline_max_errors with synthetic baseline CSV."""
-    # Create summary.csv with multiple tools
+    """T33: compute_baseline_max_errors groups by APK, takes max per-APK mean."""
+    # Create summary.csv with multiple tools and APKs
     rows = []
-    for tool, avg_errors in [("ape", 5.0), ("fastbot", 8.0), ("rvagent", 3.0)]:
-        for i in range(3):
+    for tool, errors_by_apk in [
+        ("ape", [2.0, 10.0, 1.0]),
+        ("fastbot", [3.0, 12.0, 2.0]),
+        ("rvagent", [1.0, 8.0, 0.5]),
+    ]:
+        for i, err in enumerate(errors_by_apk):
             rows.append({
                 "apk": f"app_{i}.apk",
                 "tool": tool,
-                "errors": avg_errors,
+                "errors": err,
             })
     pd.DataFrame(rows).to_csv(tmp_path / "summary.csv", index=False)
 
     max_errors = ObjectiveFunction.compute_baseline_max_errors(str(tmp_path))
 
-    # Max average errors across tools = 8.0
-    assert abs(max_errors - 8.0) < 0.01
+    # Per-APK means: app_0=(2+3+1)/3=2.0, app_1=(10+12+8)/3=10.0, app_2=(1+2+0.5)/3=1.17
+    # Max per-APK mean = 10.0
+    assert abs(max_errors - 10.0) < 0.01
 
 
 def test_macro_phase_suggests_11_params():
@@ -120,24 +134,27 @@ def test_macro_phase_suggests_11_params():
     assert len(params) == 11
 
 
-def test_micro_phase_suggests_26_params():
-    """T35: suggest_params with MICRO phase suggests exactly 26 parameters."""
+def test_micro_phase_suggests_24_params():
+    """T35: suggest_params with MICRO phase suggests exactly 24 parameters."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.MICRO)
 
-    assert len(params) == 26
+    assert len(params) == 24
+    # Dead code params excluded from calibration
+    assert "mop_nav_weight" not in params
+    assert "llm_max_retries" not in params
 
 
-def test_full_phase_suggests_37_params():
-    """T36: suggest_params with FULL phase suggests all 37 parameters."""
+def test_full_phase_suggests_35_params():
+    """T36: suggest_params with FULL phase suggests all 35 parameters."""
     study = optuna.create_study(direction="maximize")
     trial = study.ask()
 
     params = suggest_params(trial, CalibrationPhase.FULL)
 
-    assert len(params) == 37
+    assert len(params) == 35
 
 
 def test_new_micro_params_exist():
@@ -146,7 +163,7 @@ def test_new_micro_params_exist():
 
     param_names = {p.name for p in ALL_PARAMETERS}
     new_micro = [
-        "mop_nav_weight", "mop_max_input_variations", "reward_gamma",
+        "mop_max_input_variations", "reward_gamma",
         "reward_score_weight", "error_max_indicator_size",
         "error_max_indicator_count", "spatial_edittext_boost",
         "spatial_spinner_boost", "spatial_min_match_threshold",

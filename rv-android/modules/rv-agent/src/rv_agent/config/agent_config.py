@@ -234,7 +234,7 @@ class RVAgentConfig(BaseValidatedModel):
     mop_transitive_score: float = Field(
         default=300.0,
         ge=0.0,
-        le=500.0,
+        le=600.0,
         description="Score for actions transitively reaching MOP methods",
     )
 
@@ -250,7 +250,7 @@ class RVAgentConfig(BaseValidatedModel):
     unsaturated_bonus: float = Field(
         default=100.0,
         ge=0.0,
-        le=200.0,
+        le=250.0,
         description="Bonus score for actions in unsaturated states",
     )
 
@@ -369,7 +369,7 @@ class RVAgentConfig(BaseValidatedModel):
     multi_value_saturation_threshold: int = Field(
         default=4,
         ge=2,
-        le=8,
+        le=12,
         description=(
             "Execution count threshold for multi-value widgets"
             " (EditText, Spinner, SeekBar) before saturation."
@@ -397,13 +397,13 @@ class RVAgentConfig(BaseValidatedModel):
     reward_score_weight: float = Field(
         default=1.0,
         ge=0.1,
-        le=3.0,
+        le=5.0,
         description="Weight for cumulative_reward influence in StrengthScorer",
     )
     coverage_density_weight: float = Field(
         default=200.0,
         ge=50.0,
-        le=400.0,
+        le=600.0,
         description="CoverageDensityScorer weight for prioritizing screens with untested elements",
     )
 

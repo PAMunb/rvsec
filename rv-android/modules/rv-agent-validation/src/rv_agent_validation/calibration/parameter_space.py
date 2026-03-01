@@ -14,8 +14,8 @@ class CalibrationPhase(Enum):
     """Calibration phase determines which parameters to tune."""
 
     MACRO = "macro"  # 11 high-impact parameters
-    MICRO = "micro"  # 26 fine-tuning parameters
-    FULL = "full"  # All 37 parameters
+    MICRO = "micro"  # 24 fine-tuning parameters
+    FULL = "full"  # All 35 parameters
 
 
 @dataclass
@@ -48,7 +48,7 @@ MACRO_PARAMETERS: List[ParameterDef] = [
         name="wtg_guided_score",
         param_type="float",
         low=50.0,
-        high=300.0,
+        high=400.0,
         default=150.0,
         description="Score for WTG-guided navigation to unvisited screens",
         phase=CalibrationPhase.MACRO,
@@ -58,7 +58,7 @@ MACRO_PARAMETERS: List[ParameterDef] = [
         name="unsaturated_bonus",
         param_type="float",
         low=50.0,
-        high=150.0,
+        high=250.0,
         default=100.0,
         description="Bonus score for actions in unsaturated states",
         phase=CalibrationPhase.MACRO,
@@ -98,7 +98,7 @@ MACRO_PARAMETERS: List[ParameterDef] = [
         name="strength_weight",
         param_type="float",
         low=25.0,
-        high=100.0,
+        high=150.0,
         default=50.0,
         description="Weight for action strength (historical success rate)",
         phase=CalibrationPhase.MACRO,
@@ -107,8 +107,8 @@ MACRO_PARAMETERS: List[ParameterDef] = [
     ParameterDef(
         name="visitation_penalty_factor",
         param_type="float",
-        low=-25.0,
-        high=-5.0,
+        low=-40.0,
+        high=-3.0,
         default=-15.0,
         description="Penalty factor for over-visited states (negative value)",
         phase=CalibrationPhase.MACRO,
@@ -129,7 +129,7 @@ MACRO_PARAMETERS: List[ParameterDef] = [
         name="coverage_density_weight",
         param_type="float",
         low=50.0,
-        high=400.0,
+        high=600.0,
         default=200.0,
         description="Weight for coverage density in successor scoring",
         phase=CalibrationPhase.MACRO,
@@ -147,13 +147,13 @@ MACRO_PARAMETERS: List[ParameterDef] = [
     ),
 ]
 
-# Micro parameters (Phase 2) - 26 fine-tuning parameters
+# Micro parameters (Phase 2) - 24 fine-tuning parameters
 MICRO_PARAMETERS: List[ParameterDef] = [
     ParameterDef(
         name="mop_transitive_score",
         param_type="float",
         low=150.0,
-        high=450.0,
+        high=600.0,
         default=300.0,
         description="Score for actions transitively reaching MOP methods",
         phase=CalibrationPhase.MICRO,
@@ -203,7 +203,7 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         name="gradual_decay_rate",
         param_type="float",
         low=0.5,
-        high=0.9,
+        high=0.95,
         default=0.7,
         description="Decay rate per visit (0.7 = 70% retention)",
         phase=CalibrationPhase.MICRO,
@@ -233,7 +233,7 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         name="gradual_decay_base",
         param_type="float",
         low=100.0,
-        high=300.0,
+        high=400.0,
         default=200.0,
         description="Base score for GradualDecayScorer",
         phase=CalibrationPhase.MICRO,
@@ -263,7 +263,7 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         name="llm_temperature",
         param_type="float",
         low=0.001,
-        high=0.9,
+        high=1.5,
         default=0.01,
         description="LLM temperature for tool calling",
         phase=CalibrationPhase.MICRO,
@@ -279,16 +279,8 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         phase=CalibrationPhase.MICRO,
         importance=3,  # Controls LLM context window management
     ),
-    ParameterDef(
-        name="llm_max_retries",
-        param_type="int",
-        low=0,
-        high=5,
-        default=2,
-        description="Max consecutive LLM failures before fallback",
-        phase=CalibrationPhase.MICRO,
-        importance=2,  # Robustness parameter, small effect on objective
-    ),
+    # llm_max_retries: excluded from calibration — dead code (config field
+    # exists but never consumed at runtime by any component)
     ParameterDef(
         name="llm_top_p",
         param_type="float",
@@ -310,16 +302,8 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         importance=2,  # Sampling detail — secondary to temperature
     ),
     # New MICRO parameters from gh26
-    ParameterDef(
-        name="mop_nav_weight",
-        param_type="float",
-        low=0.5,
-        high=5.0,
-        default=2.0,
-        description="Weight for MOP navigation guidance in successor scoring",
-        phase=CalibrationPhase.MICRO,
-        importance=3,  # Modulates MOP-based navigation priority
-    ),
+    # mop_nav_weight: excluded from calibration — dead code (config field
+    # exists but never consumed by any scorer or strategy at runtime)
     ParameterDef(
         name="mop_max_input_variations",
         param_type="int",
@@ -344,7 +328,7 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         name="reward_score_weight",
         param_type="float",
         low=0.1,
-        high=3.0,
+        high=5.0,
         default=1.0,
         description="Weight for reward score in action selection",
         phase=CalibrationPhase.MICRO,
@@ -405,7 +389,7 @@ MICRO_PARAMETERS: List[ParameterDef] = [
         name="multi_value_saturation_threshold",
         param_type="int",
         low=2,
-        high=8,
+        high=12,
         default=4,
         description="Saturation threshold for multi-value widgets (EditText, Spinner, SeekBar)",
         phase=CalibrationPhase.MICRO,

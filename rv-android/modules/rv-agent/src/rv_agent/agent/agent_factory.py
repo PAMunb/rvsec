@@ -204,7 +204,9 @@ class AgentFactory:
 
         # Create memory components (ui_coverage already created above)
         long_term_memory = LongTermMemory(static_data=static_data)
-        short_term_memory = ShortTermMemory()
+        short_term_memory = ShortTermMemory(
+            max_iterations=config.max_short_term_iterations
+        )
         agent_memory = AgentMemoryManager(max_action_history=5, max_navigation_path=5)
         logger.info("Created memory components")
 

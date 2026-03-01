@@ -471,50 +471,185 @@ Projected wall clock: ~48.8h (bottleneck: 270 tasks/batch on batches 0-4).
 4. `org.smc.inputmethod.indic_103.apk`
 5. `org.sufficientlysecure.viewer_2827.apk`
 
-**APKs with partial failure (kept)** — 5 APKs had 3/9 failures (1 tool), other tools completed:
-- `community.fairphone.clock_3.apk`, `community.fairphone.mycontacts_3.apk`, `org.fdroid.fdroid.privileged_2130.apk`, `org.fitchfamily.android.dejavu_21.apk`, `org.kde.necessitas.ministro_14.apk`
-
 Dataset after removal: 179 - 5 = **174 APKs**.
 
-- [ ] 17b.1 Remove 5 APKs + their JSONs from `calibration_dataset_v2/`.
-- [ ] 17b.2 Update `all_valid_apks.txt` (174 entries).
-- [ ] 17b.3 Commit with `refs #9`.
+- [x] 17b.1 Remove 5 APKs + their JSONs from `calibration_dataset_v2/`.
+- [x] 17b.2 Update `all_valid_apks.txt` (174 entries).
+- [x] 17b.3 Commit `82b88c1f` with `refs #9`.
+
+### 17c. Remove APKs with Zero Coverage (All Tools) — DONE
+
+7 APKs had 0% method coverage across ALL tools and ALL reps in the baseline. These produce no useful data for calibration. 5 were partial-failure APKs kept in 17b, plus 2 newly identified.
+
+**APKs removed** (0% coverage, all tools, all reps):
+1. `community.fairphone.clock_3.apk` (was partial failure — rvagent EmulatorError)
+2. `community.fairphone.mycontacts_3.apk` (was partial failure — rvagent EmulatorError)
+3. `nz.gen.geek_central.ObjViewer_1.apk` (0% all tools, no EmulatorError — app just doesn't produce coverage)
+4. `org.fdroid.fdroid.privileged_2130.apk` (was partial failure — rvagent EmulatorError)
+5. `org.fitchfamily.android.dejavu_21.apk` (was partial failure — rvagent EmulatorError)
+6. `org.kde.necessitas.ministro_14.apk` (was partial failure — rvagent EmulatorError)
+7. `tranquvis.simplesmsremote_140.apk` (0% all tools, no EmulatorError)
+
+Dataset after removal: 174 - 7 = **167 APKs**.
+
+- [x] 17c.1 Remove 7 APKs + JSONs from `calibration_dataset_v2/`.
+- [x] 17c.2 Update `all_valid_apks.txt` (167 entries).
+- [x] 17c.3 Regenerated `precal_set.txt` (20 APKs, no zero-coverage APKs).
 
 ### 18. Phase B — Verify Results
 
 *Runbook reference: design.md Section 2 "Verification"*
 
-- [ ] 18.1 All 6 batch summaries exist.
-- [ ] 18.2 Aggregated `summary.csv` has 3 × N × 3 data rows (N = valid APKs).
-- [ ] 18.3 All 3 tools present in summary.
-- [ ] 18.4 Compute and record `BASELINE_MAX_ERRORS` value.
-- [ ] 18.5 Symlink `aggregated_summary.csv` intact.
+- [x] 18.1 All 6 batch summaries exist (261-268 lines each).
+- [x] 18.2 Aggregated summary has 1551 data rows (expected 1566 = 174×3×3; 15 missing from 5 APKs with partial EmulatorError failure).
+- [x] 18.3 All 3 tools present: ape, fastbot, rvagent:pure_algorithm.
+- [x] 18.4 **BASELINE_MAX_ERRORS = 23** (org.mosad.seil0.projectlaogai_6000.apk). Total errors: 2188, avg 1.41/task, 38.9% of tasks detected errors.
+- [x] 18.5 `aggregated_summary.csv` created (1551 deduplicated rows, sorted by apk/tool/rep).
 
-**Gate**: All 5 checks pass. BASELINE_MAX_ERRORS is a finite positive number.
+**Baseline summary** (174 APKs, 1551 completed tasks):
+
+| Tool | N | Method Cov | Activity Cov | MOP Reach | Errors (avg) |
+|------|---|-----------|-------------|-----------|-------------|
+| ape | 507 | 28.3% | 63.7% | 38.2% | 1.6 |
+| rvagent:pure_algorithm | 522 | 24.2% | 57.4% | 32.6% | 1.4 |
+| fastbot | 522 | 22.5% | 52.7% | 30.0% | 1.3 |
+
+**Gate**: PASSED — BASELINE_MAX_ERRORS = 23 (finite positive number).
 
 ---
 
-## Pre-Calibration (PENDING)
+## Pre-Calibration (IN PROGRESS)
 
 Validates that Optuna can find params better than defaults using a 20-APK subset. Uses the real `BASELINE_MAX_ERRORS` from Phase B. B0 is not needed — the full baseline already exists.
 
-### 19. Select 20 Pre-Calibration APKs
+### 19. Select 20 Pre-Calibration APKs — DONE
 
-- [ ] 19.1 Select 20 APKs from valid dataset (stratified by category from `apks_complete.csv`).
-- [ ] 19.2 Save as `modules/rv-agent-validation/data/precal_set.txt`.
-- [ ] 19.3 Verify: all 20 APKs exist in `calibration_dataset_v2/` with SA files.
+- [x] 19.1 Select 20 APKs from valid dataset, stratified by category (14 categories → proportional allocation, spread by MOP coverage within each).
+- [x] 19.2 Saved as `modules/rv-agent-validation/data/precal_set.txt`.
+- [x] 19.3 Verified: all 20 APKs + JSONs present in `calibration_dataset_v2/`.
 
-### 20. Phase C0 — Execute Pre-Macro
+### 19a. Fix Calibration Orchestrator Bugs — DONE
+
+Two bugs fixed before C0 execution:
+
+1. **`round_timeout` too short**: Was `timeout × 4 = 2400s (40 min)`, but each container needs ~3.6h. Containers would be killed after 40 min. Fix: compute from `n_apks × (timeout + overhead) × safety_margin` = 21,600s (6h).
+2. **TPESampler not configured for parallelism**: Was `TPESampler(seed=42)` without `constant_liar`. With 6 parallel trials, all 6 would be suggested from the same model snapshot. Fix: added `constant_liar=True`, `multivariate=True`, `n_startup_trials=12`.
+
+- [x] 19a.1 Replace `ROUND_TIMEOUT_MULTIPLIER` with `compute_round_timeout(timeout, n_apks)`.
+- [x] 19a.2 Add `count_filter_apks()` to read filter file.
+- [x] 19a.3 Add `constant_liar=True`, `multivariate=True`, `n_startup_trials=2*n_containers` to TPESampler.
+- [x] 19a.4 Create `summary.csv` symlink in `baseline_v2/` → `aggregated_summary.csv` (ObjectiveFunction expects `summary.csv`).
+- [x] 19a.5 Verified: 86/86 calibration tests pass.
+
+### 20. Phase C0 — Execute Pre-Macro — IN PROGRESS
 
 *Runbook reference: design.md Section 1b*
 
-- [ ] 20.1 Run `calibration_orchestrator.py --phase macro --n-trials 30 --filter-file precal_set.txt --baseline-dir ./results/baseline_v2 --timeout TIMEOUT_SECS`.
-- [ ] 20.2 Monitor progress: `python scripts/monitor_docker.py results/calibration_macro_v2` (30 trials, ~5.5-8.3h expected).
+Config: 50 trials, 9 rounds (6 containers/round, last round 2 trials), 20 APKs × 1 rep × 600s timeout.
+
+- [x] 20.1 First run aborted: precal_set included 4 APKs with 0% rvagent coverage (EmulatorError). Stopped at round 2 (6/50 trials). Cleaned results + regenerated precal_set (Task 17c).
+- [x] 20.2 Restarted with clean precal_set. PID 2115005. Round 1 started at 19:26.
+- [x] 20.3 Ran 36/50 trials (rounds 1-6, ~3h20min/round). Scores clustered at 58.4-59.7 with near-zero variation. Deep investigation revealed 3 bugs (Task 20a). Stopped C0 for fixes.
+
+### 20a. Fix C0 Infrastructure Bugs — DONE (except commit+rebuild)
+
+Three bugs discovered during C0 execution that compromise calibration quality. All must be fixed before restarting C0.
+
+**Bug 1: config.py whitelist drops 15 calibration params** (CRITICAL)
+
+`build_agent_config_dict()` in `modules/rvagent-tool/src/rvagent_tool/tools/rvagent/config.py` uses explicit whitelists. 3 MACRO + 12 MICRO params added in gh26/gh18 are missing. Params are sent to Docker containers but silently dropped before reaching `RVAgentConfig`. Proven by trace logs: trial_25 docker-compose has `backtrack_saturation_threshold=0.5453` but agent uses default `0.8`.
+
+MACRO params missing (3 of 11):
+- `backtrack_saturation_threshold` (importance 4 — controls proactive backtracking trigger)
+- `coverage_density_weight` (importance 3 — second-most impactful scorer after MopScorer)
+- `error_detection_confidence` (importance 3 — error detection threshold)
+
+MICRO params missing (12 of 26):
+- `max_short_term_iterations`, `llm_max_retries` (fallback/memory)
+- `mop_nav_weight`, `mop_max_input_variations` (MOP exploration, gh26)
+- `reward_gamma`, `reward_score_weight` (reward propagation, gh26)
+- `error_max_indicator_size`, `error_max_indicator_count` (error detection, gh18)
+- `spatial_edittext_boost`, `spatial_spinner_boost`, `spatial_min_match_threshold` (spatial association, gh18)
+- `multi_value_saturation_threshold` (widget saturation, gh26)
+
+Note: `mop_nav_weight` is defined in `RVAgentConfig` but not consumed by any code yet — include it anyway for consistency.
+
+- [x] 20a.1 Add 3 MACRO params to `scorer_params` list in `config.py`.
+- [x] 20a.2 Add 12 MICRO params to appropriate sections in `config.py`.
+- [x] 20a.3 Add unit tests verifying all 35 calibration params are forwarded (`TestCalibrationParamForwarding` — 2 tests in rvagent-tool).
+
+**Bug 2: Error normalization saturates at 40% of objective** (HIGH)
+
+`ObjectiveFunction._normalize_errors()` uses linear normalization with `baseline_max_errors=1.58` (mean errors per tool, max across tools — computed over ALL 167 APKs). The precal 20 APKs produce avg_errors≈2.0, so `2.0/1.58*100=126.6%` → capped at 100. Result: 34/37 trials have identical error component (100.0), providing zero gradient to Optuna on 40% of the score.
+
+Fix: change to log normalization with max-APK reference.
+
+- [x] 20a.4 Change `compute_baseline_max_errors()`: from `groupby('tool').mean().max()` to `groupby('apk').mean().max()` (gives ~22.33 instead of 1.58).
+- [x] 20a.5 Change `_normalize_errors()`: from `(avg_errors / ref) * 100` to `log(1 + avg_errors) / log(1 + ref) * 100`.
+- [x] 20a.6 Update unit tests for new normalization behavior (T31 log normalization, T33 per-APK reference).
+
+**Bug 3: Docker rebuild required**
+
+Bug 1 fix changes code inside the Docker image (`rvagent-tool` module). Docker image must be rebuilt before restarting C0.
+
+- [ ] 20a.7 Commit all fixes (20a + 20b) with `refs #9`.
+- [ ] 20a.8 Rebuild Docker image `rvandroid:0.8.0`.
+- [x] 20a.9 Stop C0 (PID 2115005), clean results. Restart after all fixes (20a + 20b).
+
+**Analysis: UI coverage weight investigated, no change needed**
+
+Deep investigation concluded that UI coverage is statistically independent from method coverage (Pearson r=0.049, p=0.256) and has zero correlation with MOP errors. Increasing the weight would bias Optuna toward configs that click more UI elements without improving crypto misuse detection. Weights remain at 40/40/20 (coverage/errors/ui_coverage).
+
+### 20b. Widen Parameter Ranges for Optuna Exploration — DONE
+
+Deep analysis of the scoring architecture (all 9 scorers, additive composition, typical range [-60, +1225]) revealed 11 parameters whose ranges may prevent Optuna from finding the true optimum. Additionally, 3 MICRO parameters are dead code (defined in config but never consumed at runtime).
+
+**Scoring architecture summary**: `ActionRanker.rank()` sums all scorer outputs. MopScorer dominates at +500 (direct) / +300 (transitive). Best-case composite: ~1225. Several secondary scorers are capped too low relative to MOP magnitude.
+
+**MACRO params to widen (5 of 11):**
+
+| Parameter | Current | Proposed | Rationale |
+|-----------|---------|----------|-----------|
+| `wtg_guided_score` | 50-300 | 50-400 | Allow WTG > MOP transitive; Pydantic le=500 OK |
+| `unsaturated_bonus` | 50-150 | 50-250 | Currently weak tiebreaker; Pydantic le=200 → 250 |
+| `strength_weight` | 25-100 | 25-150 | Allow StrengthScorer to compete with WTG; Pydantic le=200 OK |
+| `visitation_penalty_factor` | -25/-5 | -40/-3 | Allow aggressive anti-revisitation; Pydantic ge=-50 OK |
+| `coverage_density_weight` | 50-400 | 50-600 | Objective weights coverage=40%; allow coverage-first; Pydantic le=400 → 600 |
+
+**MICRO params to widen (6 of 26):**
+
+| Parameter | Current | Proposed | Rationale |
+|-----------|---------|----------|-----------|
+| `mop_transitive_score` | 150-450 | 150-600 | Maintain proportion with direct (300-700); Pydantic le=500 → 600 |
+| `multi_value_saturation_threshold` | 2-8 | 2-12 | Interact with mop_max_input_variations (5-15, default 11) |
+| `reward_score_weight` | 0.1-3.0 | 0.1-5.0 | Allow reward to dominate strength component |
+| `gradual_decay_base` | 100-300 | 100-400 | Parity with mop_transitive range |
+| `gradual_decay_rate` | 0.5-0.9 | 0.5-0.95 | Explore slow-decay regime (score stays high longer) |
+| `llm_temperature` | 0.001-0.9 | 0.001-1.5 | For multimode Phase D; Pydantic le=2.0 OK |
+
+**Dead code params (3 MICRO — excluded from calibration):**
+
+| Parameter | Issue | Action |
+|-----------|-------|--------|
+| `mop_nav_weight` | Defined in RVAgentConfig, never read by any scorer/strategy | Removed from MICRO_PARAMETERS |
+| `max_short_term_iterations` | Config value not passed to `ShortTermMemory()` in `AgentFactory` | Fixed wiring (20b.4) — remains in calibration |
+| `llm_max_retries` | `AgentState.max_retries` never set from config | Removed from MICRO_PARAMETERS |
+
+**Pydantic bounds that need updating** (`agent_config.py`):
+- `unsaturated_bonus`: le=200 → le=250
+- `coverage_density_weight`: le=400 → le=600
+- `mop_transitive_score`: le=500 → le=600
+
+- [x] 20b.1 Update `parameter_space.py` — widen 11 ranges (5 MACRO + 6 MICRO).
+- [x] 20b.2 Update `agent_config.py` Pydantic bounds for 5 fields (unsaturated_bonus, mop_transitive_score, coverage_density_weight, multi_value_saturation_threshold, reward_score_weight).
+- [x] 20b.3 Update unit tests for new ranges (T28 widened ranges, T35 24 MICRO, T36 35 FULL).
+- [x] 20b.4 Fix `max_short_term_iterations` wiring in `AgentFactory`.
+- [x] 20b.5 Exclude `mop_nav_weight` and `llm_max_retries` from MICRO calibration (dead code — removed from `MICRO_PARAMETERS`).
 
 ### 21. Phase C0 — Verify Convergence
 
-- [ ] 21.1 30 trials completed.
-- [ ] 21.2 Convergence visible: last 10 trials avg > first 10 avg.
+- [ ] 21.1 50 trials completed.
+- [ ] 21.2 Convergence visible: last 15 trials avg > first 15 avg.
 - [ ] 21.3 `optimal_params.json` saved with 11 MACRO params.
 
 ### 22. Phase D0 — Execute Pre-Micro
@@ -528,7 +663,7 @@ Validates that Optuna can find params better than defaults using a 20-APK subset
 ### 23. Phase D0 — Verify + Decision Gate
 
 - [ ] 23.1 40 trials completed.
-- [ ] 23.2 `optimal_params.json` contains 37 parameters (11 macro + 26 micro).
+- [ ] 23.2 `optimal_params.json` contains 35 parameters (11 macro + 24 micro).
 - [ ] 23.3 Compare pre-cal best score vs baseline defaults on the same 20 APKs.
 - [ ] 23.4 **Decision**: if pre-cal improved → update defaults, proceed to full calibration. If not → investigate before committing.
 
