@@ -44,8 +44,6 @@ com.maxfierke.sandwichroulette_2.apk
 com.mde.potdroid_82.apk
 com.mishiranu.dashchan_1043.apk
 com.mobiperf_1050.apk
-community.fairphone.clock_3.apk
-community.fairphone.mycontacts_3.apk
 com.nhellfire.kerneladiutor_248.apk
 com.orpheusdroid.screenrecorder_33.apk
 com.orpheusdroid.sqliteviewer_1.apk
@@ -128,7 +126,6 @@ net.sourceforge.subsonic.androidapp_59.apk
 net.xvello.salasana_3.apk
 net.yolosec.routerkeygen2_80.apk
 nl.patrickkostjens.kandroid_20.apk
-nz.gen.geek_central.ObjViewer_1.apk
 ohi.andre.consolelauncher_205.apk
 ohm.quickdice_48.apk
 org.asdtm.fas_3.apk
@@ -141,12 +138,9 @@ org.emergent.android.weave_8.apk
 org.emunix.insteadlauncher_80601.apk
 org.exarhteam.iitc_mobile_1691435831.apk
 org.fastergps_14.apk
-org.fdroid.fdroid.privileged_2130.apk
-org.fitchfamily.android.dejavu_21.apk
 org.geometerplus.zlibrary.ui.android_2050920.apk
 org.gmote.client.android_5.apk
 org.jamienicol.episodes_12.apk
-org.kde.necessitas.ministro_14.apk
 org.moire.ultrasonic_129.apk
 org.mosad.seil0.projectlaogai_6000.apk
 org.mupen64plusae.v3.alpha_246.apk
@@ -169,6 +163,5 @@ pw.thedrhax.mosmetro_77.apk
 re.jcg.playmusicexporter_110.apk
 t20kdc.offlinepuzzlesolver_4.apk
 tk.giesecke.painlessmesh_14.apk
-tranquvis.simplesmsremote_140.apk
 uk.ac.swansea.eduroamcat_59.apk
 uk.org.boddie.android.weatherforecast_166.apk

@@ -19,8 +19,8 @@ class ObjectiveFunction:
     """
     Objective function for calibration optimization.
 
-    Computes a weighted score: 40% method coverage + 40% normalized MOP errors
-    + 20% UI element coverage (from rvagent_metrics.json).
+    Computes a weighted score: 30% method coverage + 20% normalized MOP errors
+    + 50% UI element coverage (from rvagent_metrics.json).
 
     Higher error count is BETTER - indicates more monitored operations triggered.
     Higher UI coverage is BETTER - indicates more UI elements interacted with.
@@ -28,9 +28,9 @@ class ObjectiveFunction:
 
     def __init__(
         self,
-        coverage_weight: float = 0.40,
-        errors_weight: float = 0.40,
-        ui_coverage_weight: float = 0.20,
+        coverage_weight: float = 0.30,
+        errors_weight: float = 0.20,
+        ui_coverage_weight: float = 0.50,
         baseline_max_errors: Optional[float] = None,
     ):
         """

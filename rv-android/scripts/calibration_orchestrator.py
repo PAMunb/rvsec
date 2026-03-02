@@ -51,10 +51,11 @@ MIN_DISK_SPACE_BYTES = 10 * 1024 * 1024 * 1024
 # Stagger delay between containers to avoid boot-storm on the host (seconds)
 CONTAINER_STAGGER_SECONDS = 10
 
-# Per-round timeout multiplier applied to the per-APK timeout.
-# Each container runs all APKs sequentially, so the round timeout must be
-# generous enough to cover the slowest container.
-ROUND_TIMEOUT_MULTIPLIER = 4
+# Overhead per task beyond the tool timeout (emulator boot + teardown + margin)
+TASK_OVERHEAD_SECONDS = 120
+
+# Safety margin applied to the computed round timeout
+ROUND_TIMEOUT_SAFETY_MARGIN = 1.5
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +174,24 @@ def recover_orphaned_trials(
         recovered += 1
 
     return recovered
+
+
+def count_filter_apks(filter_file: str) -> int:
+    """Count non-empty lines in a filter file."""
+    with open(filter_file, "r", encoding="utf-8") as f:
+        return sum(1 for line in f if line.strip())
+
+
+def compute_round_timeout(timeout: int, n_apks: int) -> int:
+    """
+    Compute a round timeout based on the number of APKs each container processes.
+
+    Each container runs n_apks tasks sequentially. Each task takes approximately
+    ``timeout + TASK_OVERHEAD_SECONDS`` seconds (tool execution + emulator boot/teardown).
+    A safety margin is applied to account for variance.
+    """
+    per_task = timeout + TASK_OVERHEAD_SECONDS
+    return int(n_apks * per_task * ROUND_TIMEOUT_SAFETY_MARGIN)
 
 
 def preflight_checks(data_dir: str, filter_file: str, agent_mode: str) -> None:
@@ -447,7 +466,12 @@ def main() -> None:
     storage_url = f"sqlite:///{storage_path}"
     study_name = f"calibration_{args.phase}_{args.seed}"
 
-    sampler = optuna.samplers.TPESampler(seed=args.seed)
+    sampler = optuna.samplers.TPESampler(
+        seed=args.seed,
+        constant_liar=True,
+        multivariate=True,
+        n_startup_trials=2 * args.n_containers,
+    )
     study = optuna.create_study(
         study_name=study_name,
         storage=storage_url,
@@ -486,7 +510,9 @@ def main() -> None:
 
     # --- Main optimization loop ---
     round_number = 0
-    round_timeout = args.timeout * ROUND_TIMEOUT_MULTIPLIER
+    n_apks = count_filter_apks(args.filter_file)
+    round_timeout = compute_round_timeout(args.timeout, n_apks)
+    logger.info(f"Round timeout: {round_timeout}s ({round_timeout / 3600:.1f}h) for {n_apks} APKs")
 
     while remaining > 0:
         round_number += 1

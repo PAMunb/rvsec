@@ -183,7 +183,7 @@ uv run python -m rv_agent_validation show-defaults
 4. **Phase D (Micro)**: `calibration_orchestrator.py --phase micro` — fine-tune 26 additional parameters
 5. **Phase E (Validation)**: `baseline_docker.py` — validate 37 params on hold-out set
 
-**Objective Function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage.
+**Objective Function**: 30% method coverage + 20% normalized MOP errors + 50% UI coverage.
 
 ## Configuration Format
 
@@ -331,11 +331,11 @@ from rv_agent_validation.calibration import (
     suggest_params,
 )
 
-# Objective function (40% coverage + 40% errors + 20% UI coverage)
+# Objective function (30% coverage + 20% errors + 50% UI coverage)
 objective_fn = ObjectiveFunction(
-    coverage_weight=0.40,
-    errors_weight=0.40,
-    ui_coverage_weight=0.20,
+    coverage_weight=0.30,
+    errors_weight=0.20,
+    ui_coverage_weight=0.50,
     baseline_max_errors=10.0  # From baseline experiment
 )
 

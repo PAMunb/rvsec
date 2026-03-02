@@ -395,11 +395,11 @@ uv run python scripts/calibration_orchestrator.py \
 
 **Expected duration**: Depends on TIMEOUT_SECS. At 600s: ~167h. At 900s: ~250h.
 
-**Objective function**: 40% method coverage + 40% normalized MOP errors + 20% UI coverage. Weights are configurable via `--coverage-weight`, `--errors-weight`, `--ui-coverage-weight` CLI params (default 0.40/0.40/0.20).
+**Objective function**: 30% method coverage + 20% normalized MOP errors + 50% UI coverage. Weights are configurable via `--coverage-weight`, `--errors-weight`, `--ui-coverage-weight` CLI params (default 0.30/0.20/0.50).
 
 **Error normalization**: Log-scaled with max-APK reference. `compute_baseline_max_errors()` computes `groupby('apk')['errors'].mean().max()` — the maximum per-APK average error count across all tools. The normalization formula is `min(log(1 + avg_errors) / log(1 + baseline_max_errors) * 100, 100)`. This provides continuous gradient across the error range without saturation in practice (saturation only at avg_errors >= max-APK errors, which is impossible as a dataset mean).
 
-**Rationale**: The original linear normalization (`avg_errors / mean_per_tool * 100`) saturated at avg_errors >= 1.58 (the max tool mean across 167 APKs), providing zero gradient to Optuna on 40% of the score. Log normalization with a higher reference (max-APK ≈ 22.33) eliminates this problem. Investigation during C0 showed UI coverage is statistically independent from method coverage (r=0.049, p=0.256), confirming the 40/40/20 split is appropriate.
+**Rationale**: The original linear normalization (`avg_errors / mean_per_tool * 100`) saturated at avg_errors >= 1.58 (the max tool mean across 167 APKs), providing zero gradient to Optuna on 40% of the score. Log normalization with a higher reference (max-APK ≈ 22.33) eliminates this problem. C0 analysis (Task 21a) showed MOP errors and method coverage are insensitive to MACRO params (14/20 APKs std=0 for errors, most std<3% for coverage), while UI element coverage varies 20-83% per APK. Weights rebalanced from 40/40/20 to 30/20/50 to give Optuna a stronger optimization signal on the responsive metric.
 
 ### Scoring architecture and parameter ranges
 

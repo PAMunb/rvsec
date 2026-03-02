@@ -40,7 +40,7 @@ def test_recover_completed_orphan(tmp_path):
     _create_summary_csv(results_dir)
 
     objective_fn = ObjectiveFunction(
-        coverage_weight=0.4, errors_weight=0.4, ui_coverage_weight=0.2
+        coverage_weight=0.3, errors_weight=0.2, ui_coverage_weight=0.5
     )
 
     recovered = recover_orphaned_trials(study, str(tmp_path), objective_fn)

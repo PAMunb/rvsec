@@ -77,19 +77,19 @@ def test_objective_compute_with_mock_results(tmp_path):
     df.to_csv(tmp_path / "summary.csv", index=False)
 
     objective_fn = ObjectiveFunction(
-        coverage_weight=0.4,
-        errors_weight=0.4,
-        ui_coverage_weight=0.2,
+        coverage_weight=0.3,
+        errors_weight=0.2,
+        ui_coverage_weight=0.5,
     )
 
     score = objective_fn.compute(str(tmp_path))
 
     assert score > 0.0
-    # 0.4 * 50.0 (cov) + 0.4 * normalized_errors + 0.2 * 0.0 (no metrics files)
+    # 0.3 * 50.0 (cov) + 0.2 * normalized_errors + 0.5 * 0.0 (no metrics files)
     # Log normalization fallback (no baseline): ref=10.0
     # normalized_errors = log(1+5) / log(1+10) * 100 = log(6)/log(11)*100 ≈ 74.76
     expected_errors = math.log(6) / math.log(11) * 100
-    expected = 0.4 * 50.0 + 0.4 * expected_errors + 0.2 * 0.0
+    expected = 0.3 * 50.0 + 0.2 * expected_errors + 0.5 * 0.0
     assert abs(score - expected) < 1.0
 
 

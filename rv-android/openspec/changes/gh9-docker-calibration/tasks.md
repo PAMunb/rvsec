@@ -592,8 +592,8 @@ Fix: change to log normalization with max-APK reference.
 
 Bug 1 fix changes code inside the Docker image (`rvagent-tool` module). Docker image must be rebuilt before restarting C0.
 
-- [ ] 20a.7 Commit all fixes (20a + 20b) with `refs #9`.
-- [ ] 20a.8 Rebuild Docker image `rvandroid:0.8.0`.
+- [x] 20a.7 Commit all fixes (20a + 20b) with `refs #9`. Commit `0dfa0bc8`.
+- [x] 20a.8 Rebuild Docker image `rvandroid:0.8.0` (sha256:60ee3b5f5353).
 - [x] 20a.9 Stop C0 (PID 2115005), clean results. Restart after all fixes (20a + 20b).
 
 **Analysis: UI coverage weight investigated, no change needed**
@@ -646,11 +646,138 @@ Deep analysis of the scoring architecture (all 9 scorers, additive composition, 
 - [x] 20b.4 Fix `max_short_term_iterations` wiring in `AgentFactory`.
 - [x] 20b.5 Exclude `mop_nav_weight` and `llm_max_retries` from MICRO calibration (dead code — removed from `MICRO_PARAMETERS`).
 
-### 21. Phase C0 — Verify Convergence
+### 20c. Phase C0 — Second Run (post bug-fix)
 
-- [ ] 21.1 50 trials completed.
-- [ ] 21.2 Convergence visible: last 15 trials avg > first 15 avg.
-- [ ] 21.3 `optimal_params.json` saved with 11 MACRO params.
+Config: 50 trials, 4 rounds (16 containers/round), 20 APKs × 1 rep × 600s timeout, 3 CPUs/container, 12g RAM. Docker image `rvandroid:0.8.0` (commit `0dfa0bc8`).
+
+- [x] 20c.1 Launched C0 with 16 containers (PID 3350616). Started 2026-03-01 19:59.
+- [x] 20c.2 50/50 trials completed. 0 failures. Best score: 33.34 (trial_43). Range: 19.33-33.34.
+- [x] 20c.3 3 APKs fail to launch consistently across all trials: `com.spisoft.quicknote`, `info.guardianproject.gilga`, `io.github.x0b.rcx`. These contribute 0 coverage and 0 errors.
+
+### 21. Phase C0 — Verify Convergence — NEGATIVE RESULT
+
+- [x] 21.1 50 trials completed.
+- [ ] ~~21.2 Convergence visible: last 15 trials avg > first 15 avg.~~ **NOT MET** — see analysis below.
+- [ ] ~~21.3 `optimal_params.json` saved with 11 MACRO params.~~ **NOT APPLICABLE** — C0 did not produce meaningful improvement.
+
+**C0 Analysis:**
+
+Score distribution: min=19.33, max=33.34, mean=30.59, median=32.25, stdev=2.75. Very narrow range on a 0-100 scale.
+
+Score decomposition (best trial_43):
+
+| Component | Weight | Raw Value | Contribution | Max Possible |
+|-----------|--------|-----------|--------------|--------------|
+| method_cov | 40% | 23.8% | 9.5 | 40.0 |
+| MOP errors | 40% | 2.0/APK (norm: 34.9/100) | 14.0 | 40.0 |
+| UI element cov | 20% | 49.3% | 9.9 | 20.0 |
+| **TOTAL** | | | **33.34** | **100.0** |
+
+Comparison with baseline on same 20 APKs:
+
+| Metric | APE | Fastbot | BL-RVAgent (defaults) | C0-RVAgent (best) |
+|--------|-----|---------|----------------------|-------------------|
+| Activity cov | 70.0% | 61.4% | 61.6% | 60.5% |
+| Method cov | 25.9% | 21.2% | 23.5% | 23.8% |
+| MOP cov | 38.2% | 31.9% | 36.0% | 36.1% |
+| MOP errors | 2.1 | 1.9 | 2.0 | 2.0 |
+
+**Conclusion**: C0 MACRO calibration produced results statistically indistinguishable from baseline defaults. Despite wide parameter ranges (3-5× variation), the scoring weights do not meaningfully affect exploration outcomes on these 20 APKs with 600s timeout.
+
+**Root cause investigation:**
+
+1. **Parameter forwarding**: VERIFIED CORRECT. Full trace from CLI → rv-experiment → rvagent-tool → `build_agent_config_dict()` → `RVAgentConfig` (Pydantic auto-converts string→float) → 9 scorers. No break in chain.
+2. **Optuna setup**: VERIFIED CORRECT. `constant_liar=True` (batch), `multivariate=True`, `n_startup_trials=2*n_containers`. No distributed mode needed for ask/tell pattern.
+3. **Objective function**: Log normalization with baseline_max_errors=22.33 is correct. Score range reflects reality.
+4. **Hypothesis**: MACRO params (scoring weights) control action *ordering* within the DFS strategy, but on small/medium apps with 600s timeout, most orderings reach the same methods and trigger the same MOP errors. The exploration space of these APKs is too constrained for scoring weight differentiation.
+
+### 21a. Investigate C0 Negative Result — DONE
+
+Per-APK variance analysis across 50 trials revealed:
+
+**MOP errors**: 14/20 APKs have std=0.0 (identical errors across all trials). Only `io.github.domi04151309.home` (std=5.0, range 0-18) shows meaningful variance. MOP errors are effectively deterministic per app — the code path is either always reached or never reached, regardless of scoring weights.
+
+**Method coverage**: Most APKs have std < 3%. Exceptions (`blippex`, `eduroamcat`) have high ranges (44-61%) but driven by crash/launch failures (min≈0), not parameter sensitivity.
+
+**UI element coverage**: THIS metric shows real variance driven by params:
+
+| APK | mean | std | min | max | range |
+|-----|------|-----|-----|-----|-------|
+| tramhunter | 49.2% | 17.0 | 20.5 | 82.8 | **62.3** |
+| investmenttracker | 54.4% | 8.9 | 2.4 | 67.3 | **64.9** |
+| domi04151309.home | 45.0% | 12.4 | 0.0 | 59.8 | **59.8** |
+| moneytracker | 49.7% | 8.8 | 16.7 | 65.7 | **49.0** |
+| quasseldroid | 41.1% | 12.4 | 12.5 | 58.3 | **45.8** |
+| driibo | 70.4% | 13.9 | 40.0 | 83.7 | **43.7** |
+
+Overall: 46.1% mean, 727/1593 elements untested (46% waste).
+
+**Key insight**: Scoring weights DO change which UI elements are selected (UI coverage varies 20-83% per APK), but the objective function weights UI coverage at only 20% — too low for Optuna to optimize effectively. Method_cov (40%) and MOP errors (40%) are insensitive to MACRO params, so 80% of the score is noise.
+
+**Decision**: Rebalance objective weights to 30/20/50 (method_cov/errors/ui_cov), expand precal set to 40 APKs (remove 3 failed, add 23 diverse), re-run C0. See Task 21b.
+
+### 21b. Rebalance Objective + Expand Precal Set — PENDING
+
+**Rationale**: UI element coverage is the only score component responsive to MACRO params, but has only 20% weight. Increasing to 50% gives Optuna a real optimization signal. Expanding from 20 to 40 APKs increases diversity and reduces per-APK noise.
+
+**Changes required:**
+
+1. **Objective weights**: 40/40/20 → **30/20/50** (method_cov/errors/ui_cov)
+   - File: `modules/rv-agent-validation/src/rv_agent_validation/calibration/objective.py`
+   - Update `__init__` defaults: `coverage_weight=0.30, errors_weight=0.20, ui_coverage_weight=0.50`
+
+2. **Expand precal_set.txt**: 20 → 40 APKs
+   - File: `modules/rv-agent-validation/data/precal_set.txt`
+   - Remove 3 failed: `com.spisoft.quicknote_241.apk`, `info.guardianproject.gilga_11.apk`, `io.github.x0b.rcx_220.apk`
+   - Keep 17 remaining
+   - Add 23 new APKs selected for diversity (MOP errors 0-23, method_cov 4-64%)
+
+3. **Update unit tests**: Adjust any tests that hardcode 40/40/20 weights.
+
+4. **Commit + rebuild Docker image**.
+
+5. **Re-run C0**: 50 trials, 16 containers, 40 APKs × 600s timeout. Expected time: 40 APKs × ~10min = ~400min (~6.7h) per round, 4 rounds = ~27h.
+
+**New precal_set (40 APKs):**
+
+17 KEPT from current set (minus 3 failed):
+- `com.andybotting.tramhunter_1300.apk`, `com.blippex.app_5.apk`, `com.blogspot.e_kanivets.moneytracker_38.apk`, `com.iskrembilen.quasseldroid_1322.apk`, `com.refactech.driibo_3.apk`, `com.soumikshah.investmenttracker_3.apk`, `de.nellessen.usercontrolleddecryptionoperations_6.apk`, `github.vatsal.easyweatherdemo_11.apk`, `io.github.domi04151309.home_1100.apk`, `io.github.subhamtyagi.privacyapplock_8.apk`, `me.kuehle.carreport_79.apk`, `net.jjc1138.android.scrobbler_7.apk`, `net.sf.andhsli.hotspotlogin_20.apk`, `org.fastergps_14.apk`, `org.passwordmaker.android_11.apk`, `org.pyload.android.client_21.apk`, `uk.ac.swansea.eduroamcat_59.apk`
+
+23 NEW (selected by diversity — high MOP errors, varied coverage):
+- `org.mosad.seil0.projectlaogai_6000.apk` (err=23, meth=45%)
+- `com.akop.bach_120.apk` (err=10, meth=6%)
+- `org.pulpdust.lesserpad_42.apk` (err=6, meth=52%)
+- `info.guardianproject.checkey_101.apk` (err=6, meth=64%)
+- `com.example.openpass_1.apk` (err=5, meth=64%)
+- `com.reddyetwo.hashmypass.app_24.apk` (err=5, meth=60%)
+- `org.emunix.insteadlauncher_80601.apk` (err=5, meth=55%)
+- `fr.kwiatkowski.ApkTrack_24.apk` (err=5, meth=40%)
+- `eu.bubu1.fdroidclassic_1110.apk` (err=5, meth=39%)
+- `info.zamojski.soft.towercollector_2140302.apk` (err=5, meth=36%)
+- `org.decsync.flym_46.apk` (err=5, meth=30%)
+- `com.jonbanjo.cupsprintservice_23.apk` (err=5, meth=7%)
+- `net.frju.flym_40.apk` (err=4, meth=32%)
+- `com.mde.potdroid_82.apk` (err=4, meth=36%)
+- `ee.ioc.phon.android.speak_1814.apk` (err=4, meth=26%)
+- `digital.selfdefense.lucia_20001.apk` (err=3, meth=59%)
+- `com.allansimon.verbisteandroid_2.apk` (err=2, meth=48%)
+- `max.music_cyclon_4.apk` (err=2, meth=43%)
+- `byrne.utilities.hashpass_2.apk` (err=1, meth=36%)
+- `biz.gyrus.yaab_30.apk` (err=0, meth=44%)
+- `com.vwp.owmini_128.apk` (err=0, meth=47%)
+- `ohm.quickdice_48.apk` (err=0, meth=38%)
+- `org.gmote.client.android_5.apk` (err=0, meth=18%)
+
+**Subtasks:**
+
+- [x] 21b.1 Update `objective.py` default weights to 30/20/50.
+- [x] 21b.2 Update unit tests for new default weights (test_parameter_integration.py T31, test_orphan_recovery.py T19).
+- [x] 21b.3 Generate new `precal_set.txt` with 40 APKs. All 40 APKs + JSONs verified in calibration_dataset_v2/.
+- [x] 21b.4 Run tests: 86/86 calibration + 21/21 rvagent-tool tests pass.
+- [ ] 21b.5 Commit with `refs #9`.
+- [ ] 21b.6 Rebuild Docker image `rvandroid:0.8.0`.
+- [ ] 21b.7 Re-run C0: `uv run python scripts/calibration_orchestrator.py --data-dir modules/rv-agent-validation/data/calibration_dataset_v2 --filter-file modules/rv-agent-validation/data/precal_set.txt --output-dir ./results/precal_macro --n-containers 16 --n-trials 50 --timeout 600 --phase macro --cpus 3 --memory 12g --baseline-dir ./results/baseline_v2`.
+- [ ] 21b.8 Monitor: `bash scripts/monitor_calibration.sh results/precal_macro`. Verify: best score > 33.34 (previous C0), convergence visible.
 
 ### 22. Phase D0 — Execute Pre-Micro
 
