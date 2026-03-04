@@ -6,15 +6,552 @@ rvsmart is a Java-based Android exploration agent that runs inside the Android e
 
 The agent is packaged as a standalone fat JAR (`rvsmart.jar`) with zero dependency on rv-android Python code at runtime. It lives in `$RVSEC_HOME/rvsec-android/rvsmart/`, built with Maven (Java 8), compiled against android.jar API 29 stubs. At runtime, `app_process` bootstraps an ART VM with the JAR on the classpath, executing `br.unb.cic.rvsmart.Main` with Shell UID 2000 (`INJECT_EVENTS` permission, no root required).
 
-rvsmart operates in four degradation modes depending on what data is available. The base algorithm is always the same; additional data sources add scoring layers without changing the core loop. When static analysis data (`static_analysis.json` from rv-static-analysis) is provided, MopScorer and WtgScorer activate to prioritize monitored-operation-reaching actions. When running on instrumented APKs (AspectJ-weaved by rv-instrumentation), a LogcatReader drains `RVSEC-COV` tags in real time, feeding a ConfirmedCoverageScorer with ground-truth reward signal. Without either data source, rvsmart operates as a heuristic explorer using component priority, gradual decay, and stuck detection — still functional, still DFS-driven, still achieving 12-16 evt/s.
+### Problem Context
 
-Running inside the emulator enables algorithmic improvements impossible from the outside: multi-attempt cycles (retry no-effect actions within the same iteration at ~8ms cost instead of wasting a full ~700ms iteration), instant crash detection via `ActivityController.appCrashed()` callback (instead of 1-2 iterations of indirect detection), system dialog dismissal in the same cycle (instead of wasting iterations interacting with crash/permission dialogs), and direct app restart via `IActivityManager.forceStopPackage()` (~50-100ms instead of ~1-2s via ADB shell).
+The Python RVAgent achieves ~1 iteration/second in pure_algorithm mode, limited by two external communication bottlenecks: UIAutomator2 over ADB (~200ms per UI capture round-trip) and a fixed inter-iteration sleep (500ms). Competing tools like APE achieve ~10 events/second by running inside the emulator via `app_process`, bypassing these bottlenecks entirely. This 10x throughput gap means that in a 300-second time budget, the Python agent executes ~300 actions while APE executes ~3000. More actions per second directly translates to more UI states explored and higher probability of reaching monitored operations (MOP methods).
 
-LLM integration (Phase 2) adds a hybrid mode where `RoutingManager` decides per iteration whether to use the algorithm path (~1-5ms) or the LLM path (~1.5-3s via SGLang). The LLM is reached from inside the emulator via `http://10.0.2.2:30000/v1` (host loopback) through a socat bridge to the sglang container. `LlmCircuitBreaker` handles network failures: 3 consecutive failures trigger a 60-second cooldown with automatic fallback to the algorithm path.
+Beyond raw speed, running externally prevents algorithmic improvements that require sub-millisecond feedback:
+- **Multi-attempt cycles**: Retry no-effect actions within the same iteration at ~8ms cost instead of wasting a full ~700ms iteration
+- **Instant crash detection**: `ActivityController.appCrashed()` callback fires immediately (~0ms) instead of 1-2 iterations of indirect detection via UIAutomator timeout
+- **System dialog dismissal**: Same-cycle detection and dismissal instead of wasting iterations interacting with crash/permission dialogs
+- **Direct app restart**: `IActivityManager.forceStopPackage()` (~50-100ms) instead of `adb shell am force-stop` (~1-2s)
+- **Real-time coverage rewards**: Logcat `RVSEC-COV` tags read in-process for ground-truth coverage feedback via `ConfirmedCoverageScorer` (new scorer, not present in Python agent)
+
+### Position in the Pipeline
+
+rvsmart operates in the **execution phase** of the RV-Android pipeline, at the same level as the Python RVAgent, APE, DroidBot, and Monkey — it is a testing tool option, not a replacement. It receives an instrumented APK (from rv-instrumentation) and optional static analysis data (from rv-static-analysis), explores the running application inside the emulator, and produces exploration metrics via stdout trace and logcat. Coverage and violation data are captured by rv-platform's `CoverageComponent` via logcat monitoring.
+
+```mermaid
+flowchart LR
+    SA[rv-static-analysis] -->|static_analysis.json| RST[RVSmartTool<br/>Python plugin]
+    RI[rv-instrumentation] -->|Instrumented APK| EMU[Android Emulator<br/>API 29]
+    RST -->|adb push JAR + JSON| EMU
+    RST -->|adb shell app_process| EMU
+
+    subgraph EMU[Android Emulator]
+        RS[rvsmart.jar<br/>via app_process]
+    end
+
+    RS -->|stdout JSON lines| RST
+    RS -->|logcat RVSEC-COV| COV[rv-coverage<br/>CoverageComponent]
+    RST -->|trace file + metrics| RP[rv-platform<br/>ResultProcessor]
+    COV -->|coverage_metrics| RP
+```
+
+The tool operates in two contexts:
+1. **Managed** (via `rv-experiment`): rv-platform manages emulator lifecycle, APK installation, and coverage tracking. CLI: `rv-experiment run --tools rvsmart:mvp`
+2. **Standalone**: User manages emulator, rvsmart is executed directly via `adb shell CLASSPATH=... /system/bin/app_process ...`
+
+### Core Architecture
+
+rvsmart is structured into 7 packages, each with a single responsibility. The `Main` class bootstraps service connections and delegates to `AgentLoop`, which orchestrates one iteration per cycle using components from all packages.
+
+```mermaid
+flowchart TB
+    subgraph Main["Main (entry point)"]
+        CLI[CLI arg parsing]
+        API[API level assertion]
+        BS[Bootstrap ServiceManager]
+    end
+
+    subgraph core["core/"]
+        AL[AgentLoop]
+        LN[Learner]
+        CFG[Config]
+        RM[RoutingManager]
+    end
+
+    subgraph device["device/"]
+        DC[DeviceController]
+        UC[UiCapture]
+        II[InputInjector]
+        AC[AppController]
+        CI[CrashInterceptor]
+        SD[SystemDialogDetector]
+        LR[LogcatReader]
+        HM[HeapMonitor]
+    end
+
+    subgraph strategy["strategy/"]
+        AS[ActionSelector<br/>4-tier selection]
+        SC[10 Scorers]
+        ST[SuccessorTracker]
+        PB[PathBuffer]
+        RP[RewardPropagator]
+    end
+
+    subgraph recovery["recovery/"]
+        STK[StuckDetector]
+        BFS[BacktrackBfs]
+    end
+
+    subgraph graph["graph/"]
+        DSG[DynamicStateGraph]
+        SN[ScreenNode]
+    end
+
+    subgraph staticdata["staticdata/"]
+        SM[StaticMap<br/>nullable]
+    end
+
+    subgraph llm["llm/ (Phase 2)"]
+        SGC[SglangClient]
+        CB[LlmCircuitBreaker]
+        TCP[ToolCallParser]
+        PBL[PromptBuilder]
+        IP[ImageProcessor]
+        CN[CoordinateNormalizer]
+        SSC[ScreenshotCapture]
+    end
+
+    subgraph output["output/"]
+        TW[TraceWriter<br/>stdout JSON lines]
+        MC[MetricsCollector]
+        RT[RvTrack<br/>logcat structured logging]
+    end
+
+    Main --> AL
+    AL --> UC & II & AC & SD & LR & HM
+    AL --> AS
+    AL --> LN
+    AL --> RM
+    AL --> TW & MC
+    AS --> SC & ST & PB
+    AS --> DSG
+    LN --> RP & STK
+    STK --> BFS
+    RM -->|LLM path| SGC
+    SGC --> CB
+    SGC --> TCP --> CN
+    SGC --> PBL --> IP
+    PBL --> SSC
+    SC --> SM
+    SC --> DSG
+```
+
+### Main Loop Flow
+
+Each iteration of the `AgentLoop` follows a fixed sequence. The loop exits ONLY on timeout (INV-RSM-01).
+
+```mermaid
+flowchart TD
+    START([Loop Start]) --> CHECK{Timeout<br/>expired?}
+    CHECK -->|Yes| METRICS[MetricsCollector<br/>writeFinalReport]
+    METRICS --> END_([Exit 0])
+    CHECK -->|No| CAPTURE[UiCapture<br/>captureScreen]
+    CAPTURE --> NULL{Root<br/>null?}
+    NULL -->|Yes| CRASH_CHECK{App process<br/>alive?}
+    CRASH_CHECK -->|No| RESTART_APP[Native crash:<br/>forceStop + startActivity]
+    RESTART_APP --> THROTTLE
+    CRASH_CHECK -->|Yes| WAIT[Wait one cycle<br/>possible ANR]
+    WAIT --> THROTTLE
+    NULL -->|No| GRAPH[DynamicStateGraph<br/>recordVisit]
+    GRAPH --> SYSDLG{System<br/>dialog?}
+    SYSDLG -->|Yes| DISMISS[Dismiss dialog<br/>re-capture UI]
+    DISMISS --> GRAPH
+    SYSDLG -->|No| LOGCAT[LogcatReader<br/>drainCoverageTags]
+    LOGCAT --> ROUTE{RoutingManager<br/>shouldUseLlm?}
+    ROUTE -->|Algorithm| ALGO[ActionSelector<br/>selectAction]
+    ROUTE -->|LLM| SCREENSHOT[ScreenshotCapture]
+    SCREENSHOT --> COMPRESS[ImageProcessor<br/>compress + resize]
+    COMPRESS --> PROMPT[PromptBuilder<br/>build messages]
+    PROMPT --> SGLANG[SglangClient<br/>generate]
+    SGLANG --> PARSE_TC[ToolCallParser<br/>parse response]
+    PARSE_TC --> NORMALIZE[CoordinateNormalizer<br/>denormalize]
+    NORMALIZE --> PREMARK
+    ALGO --> PREMARK[Pre-mark action<br/>in graph]
+    PREMARK --> INJECT[InputInjector<br/>inject action]
+    INJECT --> VERIFY[UiCapture<br/>verify effect]
+    VERIFY --> EFFECT{Action had<br/>effect?}
+    EFFECT -->|Yes| LEARN[Learner<br/>update graph + rewards]
+    EFFECT -->|No| RETRY{Retries <<br/>MAX?}
+    RETRY -->|Yes| NEXTBEST[selectNextBest<br/>from Tier 4 queue]
+    NEXTBEST --> PREMARK
+    RETRY -->|No| LEARN
+    LEARN --> RVTRACK[RvTrack<br/>log decision]
+    RVTRACK --> TRACE[TraceWriter<br/>write JSON line]
+    TRACE --> HEAP{HeapMonitor<br/>check needed?}
+    HEAP -->|Pressure| ADAPT[Increase throttle<br/>reduce MAX_ITEMS]
+    ADAPT --> THROTTLE
+    HEAP -->|OK| THROTTLE[Thread.sleep<br/>throttle_ms]
+    THROTTLE --> CHECK
+```
+
+### Four Operational Modes (Graceful Degradation)
+
+rvsmart operates in four degradation modes depending on what data is available. The base algorithm is always the same; additional data sources add scoring layers without changing the core loop.
+
+```mermaid
+flowchart TD
+    START([rvsmart starts]) --> HAS_STATIC{static_analysis.json<br/>provided?}
+    HAS_STATIC -->|Yes| LOAD_SM[Load StaticMap<br/>MopScorer + WtgScorer active]
+    HAS_STATIC -->|No| NULL_SM[StaticMap = null<br/>MopScorer + WtgScorer return 0]
+    LOAD_SM --> HAS_INSTR{Instrumented APK?<br/>RVSEC-COV in logcat?}
+    NULL_SM --> HAS_INSTR2{Instrumented APK?<br/>RVSEC-COV in logcat?}
+    HAS_INSTR -->|Yes| FULL["**Full Mode**<br/>All 10 scorers active<br/>Confirmed coverage + MOP priorities"]
+    HAS_INSTR -->|No| MOP["**MOP-Directed Mode**<br/>9 scorers (no ConfirmedCoverage)<br/>MOP priorities from static analysis"]
+    HAS_INSTR2 -->|Yes| COV["**Coverage-Aware Mode**<br/>8 scorers (no Mop, no Wtg)<br/>Confirmed coverage from logcat"]
+    HAS_INSTR2 -->|No| HEUR["**Heuristic Mode**<br/>7 scorers only<br/>Component priority + decay + stuck detection"]
+```
+
+| Mode | StaticMap | LogcatReader | Active Scorers | Use Case |
+|------|-----------|--------------|----------------|----------|
+| **Full** | loaded | has RVSEC-COV | All 10 | Production: instrumented APK + static analysis |
+| **MOP-directed** | loaded | no data | 9 (no ConfirmedCoverage) | Static analysis only, original APK |
+| **Coverage-aware** | null | has RVSEC-COV | 8 (no Mop, no Wtg) | Instrumented APK, no static analysis |
+| **Heuristic** | null | no data | 7 | Neither: pure DFS with component priority |
+
+### Tiered Action Selection
+
+The `ActionSelector` implements a 4-tier selection with a unified Tier 4 queue (INV-RSM-12). This is an improvement over the Python agent's 5-tier design — BACK and RESTART are synthetic actions competing in the same priority queue as widget actions, eliminating the need for a separate Tier 5 fallback.
+
+```mermaid
+flowchart TD
+    SELECT([selectAction called]) --> T1{Tier 1:<br/>PathBuffer<br/>non-empty?}
+    T1 -->|Yes| DISPENSE[Dispense one<br/>buffered action]
+    T1 -->|No| T2{Tier 2:<br/>Untested actions<br/>exist?}
+    T2 -->|Yes| RANK_UT[Rank untested actions<br/>via 10 scorers]
+    RANK_UT --> SELECT_UT[Select highest-scored<br/>untested action]
+    T2 -->|No| T3{Tier 3:<br/>Saturation ≥<br/>threshold?}
+    T3 -->|Yes| BFS_PLAN[Plan path via BFS<br/>to unsaturated ancestor]
+    BFS_PLAN --> FOUND{Path<br/>found?}
+    FOUND -->|Yes| BUFFER[Buffer path<br/>in PathBuffer]
+    BUFFER --> DISPENSE
+    FOUND -->|No| T4
+    T3 -->|No| T4[Tier 4: Unified Queue]
+    T4 --> BUILD[Build queue:<br/>widget actions + BACK + RESTART]
+    BUILD --> SCORE_W[Score widgets via<br/>10 scorers]
+    BUILD --> SCORE_B[Score BACK:<br/>base - decay × repeats]
+    BUILD --> SCORE_R[Score RESTART:<br/>base only]
+    SCORE_W & SCORE_B & SCORE_R --> SORT[Sort by score<br/>descending]
+    SORT --> STOCH{random < stochastic_<br/>probability?}
+    STOCH -->|Yes| RANDOM[Random action<br/>from queue]
+    STOCH -->|No| TOP[Select highest-scored<br/>action]
+    DISPENSE & SELECT_UT & RANDOM & TOP --> RETURN([Return action<br/>NEVER null])
+```
+
+### Multi-Attempt Cycles
+
+When an action has no effect, the agent retries with the next-best action from the Tier 4 queue within the same iteration. This is a key throughput advantage of running inside the emulator — each retry costs ~8ms instead of a full external iteration (~700ms).
+
+```mermaid
+sequenceDiagram
+    participant AL as AgentLoop
+    participant AS as ActionSelector
+    participant II as InputInjector
+    participant UC as UiCapture
+
+    AL->>AS: selectAction()
+    AS-->>AL: Action A (score 350)
+    AL->>II: inject(A)
+    AL->>UC: captureScreen()
+    UC-->>AL: same hash, same activity
+
+    Note over AL: No effect → retry
+    AL->>AS: selectNextBest(exclude=A)
+    AS-->>AL: Action B (score 280)
+    AL->>II: inject(B)
+    AL->>UC: captureScreen()
+    UC-->>AL: same hash, same activity
+
+    Note over AL: No effect → retry (2/3)
+    AL->>AS: selectNextBest(exclude=A,B)
+    AS-->>AL: Action C (score 150)
+    AL->>II: inject(C)
+    AL->>UC: captureScreen()
+    UC-->>AL: new hash "d4e5f6"!
+
+    Note over AL: Effect detected → learn
+    AL->>AL: Learner.update(actionHadEffect=true)
+```
+
+### Two-Level Stuck Detection
+
+Stuck detection is a safety net for cases where the action selection tiers are insufficient — for example, when the app hangs, the UI becomes unresponsive, or the agent is trapped in a cycle of states that are each individually below the saturation threshold but collectively unproductive.
+
+```mermaid
+flowchart TD
+    CHECK([Post-action check]) --> SAME{Screen hash<br/>unchanged?}
+    SAME -->|No| RESET[Reset stuck_count = 0<br/>Reset BACK decay]
+    SAME -->|Yes| INC[stuck_count++]
+    INC --> L1{stuck_count ≥<br/>stuck_max_blocks?}
+    L1 -->|No| CONTINUE([Continue])
+    L1 -->|Yes| BACK[Force BACK action<br/>Level 1 recovery]
+    BACK --> BACK_EFFECT{BACK had<br/>effect?}
+    BACK_EFFECT -->|Yes| RESET
+    BACK_EFFECT -->|No| L2{Consecutive<br/>BACK failures ≥<br/>max_backtrack_failures?}
+    L2 -->|No| BACK
+    L2 -->|Yes| BFS_SEARCH[BFS on back_successors<br/>find unsaturated ancestor]
+    BFS_SEARCH --> ANCESTOR{Ancestor<br/>found within<br/>max_hops?}
+    ANCESTOR -->|Yes| NAV_BACK[Navigate BACK<br/>toward ancestor]
+    ANCESTOR -->|No| RESTART[Force RESTART<br/>forceStop + startActivity]
+    NAV_BACK & RESTART --> CONTINUE
+```
+
+### LLM Hybrid Data Flow (Phase 2)
+
+In `multimode` or `llm_only` mode, the `RoutingManager` decides per iteration whether to use the algorithm path (~1-5ms) or the LLM path (~1.5-3s). The LLM is reached from inside the emulator via `http://10.0.2.2:30000/v1` (host loopback) through a socat bridge to the sglang container.
+
+```mermaid
+sequenceDiagram
+    participant AL as AgentLoop
+    participant RM as RoutingManager
+    participant CB as LlmCircuitBreaker
+    participant SC as ScreenshotCapture
+    participant IP as ImageProcessor
+    participant PB as PromptBuilder
+    participant SG as SglangClient<br/>(10.0.2.2:30000)
+    participant TP as ToolCallParser
+    participant CN as CoordinateNormalizer
+
+    AL->>RM: shouldUseLlm(screen, graph)
+    RM->>CB: isOpen()?
+    CB-->>RM: false
+    RM-->>AL: true (LLM path)
+
+    AL->>SC: capture()
+    SC-->>AL: Bitmap (SurfaceControl ~20ms)
+    AL->>IP: compress(bitmap, JPEG 80, 1000px)
+    IP-->>AL: byte[] compressed
+    AL->>PB: build(b64_image, screen_items, nav_hint)
+    PB-->>AL: messages[]
+    AL->>SG: POST /v1/chat/completions
+    SG-->>AL: response JSON
+
+    alt Success
+        AL->>TP: parse(response)
+        TP-->>AL: action_type, qwen_coords
+        AL->>CN: denormalize(499, 547, 1080, 1920)
+        CN-->>AL: Action(CLICK, 539, 1050, source="llm")
+        AL->>CB: recordSuccess()
+    else Network failure
+        AL->>CB: recordFailure()
+        Note over CB: 3 consecutive → open 60s
+        AL->>AL: Fallback to algorithm path
+    end
+```
+
+### Key Data Models
+
+```
+ScreenState:
+  items: List<ScreenItem>          # Parsed UI elements from AccessibilityNodeInfo BFS
+  activity: String                 # Current Activity name (from getRunningTasks)
+  hash: String                     # Structural hash (SHA-256[:12], INV-RSM-03)
+
+ScreenItem:
+  className: String                # Simple class name (e.g., "Button")
+  resourceId: String               # View ID resource name (normalized)
+  text: String                     # Display text (nullable)
+  contentDescription: String       # Accessibility description (nullable)
+  bounds: Rect                     # Bounding box in device pixels
+  packageName: String              # Owning package
+  clickable: boolean               # Widget clickability
+  scrollable: boolean              # Widget scrollability
+  checkable: boolean               # Widget checkability
+  enabled: boolean                 # Widget enabled state
+  longClickable: boolean           # Widget long-clickability
+  editable: boolean                # Widget editability (EditText)
+  parentIndex: int                 # BFS parent for tree reconstruction
+
+Action:
+  type: ActionType                 # CLICK | LONG_CLICK | SET_TEXT | SCROLL | SWIPE | BACK | KEY_EVENT | RESTART
+  x: int                          # Device pixel X coordinate
+  y: int                          # Device pixel Y coordinate
+  text: String                     # Text for SET_TEXT (nullable)
+  source: String                   # "algorithm" | "llm" (metadata only, INV-RSM-08)
+  signature(): String              # Unique identifier: "type@x,y" or "type:text@x,y"
+
+Config:
+  # Execution (4)
+  timeout: int                     # Execution timeout in seconds (required, CLI)
+  throttle_ms: int                 # Inter-iteration sleep (default 50)
+  max_retries_per_cycle: int       # Multi-attempt retries (default 3)
+  seed: int                        # Random seed for reproducibility (optional)
+
+  # Routing (2)
+  mode: String                     # pure_algorithm | multimode | llm_only (default pure_algorithm)
+  llm_probability: float           # Multimode LLM probability (default 0.05)
+
+  # Scorer weights (13)
+  mop_direct_score: float          # MopScorer direct MOP (default 500.0)
+  mop_transitive_score: float      # MopScorer transitive MOP (default 300.0)
+  wtg_guided_score: float          # WtgScorer guided (default 150.0)
+  gradual_decay_base: float        # GradualDecayScorer base (default 200.0)
+  gradual_decay_rate: float        # GradualDecayScorer rate (default 0.7)
+  gradual_decay_min_visits: int    # GradualDecayScorer min visits for zero (default 5)
+  coverage_density_weight: float   # CoverageDensityScorer weight (default 200.0)
+  saturation_bonus: float          # SaturationScorer bonus (default 100.0)
+  component_high_priority: float   # ComponentPriorityScorer high (default 50.0)
+  component_medium_priority: float # ComponentPriorityScorer medium (default 40.0)
+  strength_weight: float           # StrengthScorer weight (default 50.0)
+  reward_score_weight: float       # StrengthScorer reward weight (default 1.0)
+  visitation_penalty_factor: float # VisitationPenaltyScorer factor (default 15.0)
+
+  # Synthetic actions (3)
+  back_base_score: float           # BACK base score (default -100.0)
+  restart_base_score: float        # RESTART base score (default -500.0)
+  back_decay_per_repeat: float     # BACK decay per consecutive no-effect (default 200.0)
+
+  # Stochastic selection (2)
+  stochastic_probability: float    # Probability of random selection (default 0.15)
+  stochastic_temperature: float    # Not used — simple random, not Gumbel-max (default 1.0)
+
+  # Reward propagation (4)
+  reward_gamma: float              # Discount factor (default 0.8)
+  reward_propagation_n: int        # N-step lookback (default 5)
+  reward_mop_weight: float         # MOP reward value (default 5.0)
+  max_cumulative_factor: float     # Cumulative reward clamp factor (default 3.0)
+
+  # Successor tracker (3)
+  max_re_enables: int              # Max re-enablements per action (default 6)
+  multi_value_saturation_threshold: int  # Multi-value widget saturation (default 4)
+  ui_coverage_threshold: float     # Coverage threshold for re-enablement (default 0.8)
+
+  # Path buffer (4)
+  path_buffer_strategy_priority: String  # C>B>A ordering (default "coverage,mop,backtrack")
+  max_backtrack_hops: int          # Max BFS depth (default 8)
+  coverage_path_weight: float      # Coverage path BFS weight (default 1.0)
+  mop_path_weight: float           # MOP path BFS weight (default 2.0)
+
+  # Stuck detection (3)
+  stuck_max_blocks: int            # Level 1 threshold (default 10)
+  max_backtrack_failures: int      # Level 2 escalation (default 5)
+  backtrack_saturation_threshold: float  # Tier 3 activation (default 0.8)
+
+  # MOP navigation (3)
+  mop_nav_weight: float            # BFS MOP density weight (default 2.0)
+  mop_max_input_variations: int    # Max SET_TEXT variations (default 5)
+  confirmed_coverage_window_s: float  # Logcat attribution window (default 2.0)
+
+  # LLM inference (7)
+  llm_base_url: String             # SGLang URL (default "http://10.0.2.2:30000/v1")
+  llm_model: String                # Model ID (default "Qwen/Qwen3-VL-4B-Instruct")
+  llm_temperature: float           # Sampling temperature (default 0.01)
+  llm_top_p: float                 # Top-p (default 0.6)
+  llm_top_k: int                   # Top-k (default 50)
+  llm_max_tokens: int              # Max output tokens (default 2048)
+  llm_timeout_s: float             # HTTP timeout (default 30.0)
+
+  # Logcat (1)
+  logcat_buffer_size: int          # ConcurrentLinkedQueue max (default 10000)
+
+  # Total: ~49 parameters, ~40 calibratable by Optuna
+
+ScreenNode:
+  visitCount: int                  # Times this state has been visited
+  executedActions: Map<String, Integer>   # action signature → execution count
+  failedActions: Map<String, Integer>     # action signature → consecutive failure count
+  cumulativeReward: double         # Accumulated reward from propagation
+  transitions: Set<String>         # Hashes of reachable states
+
+DynamicStateGraph:
+  nodes: HashMap<String, ScreenNode>  # hash → ScreenNode
+  # Methods:
+  recordVisit(hash): void          # Increment visit count
+  recordTransition(from, to): void # Record edge
+  recordAction(hash, signature): void   # Pre-mark action (crash safety)
+  recordActionFailure(hash, sig): void  # Record consecutive failure
+  getVisitCount(hash): int         # Query visits
+  getSaturation(hash): float       # tested / total actions (0.0-1.0)
+```
+
+### Relationships with Other Domains
+
+**Consumes:**
+- `static_analysis.json` from rv-static-analysis (reachability for MOP scoring, windows for WTG navigation, transitions for path planning) — same format as Python agent
+- `RVSEC-COV` logcat tags from rv-instrumentation's AspectJ weaving — ground-truth coverage signal for `ConfirmedCoverageScorer`
+- `Command` class from rv-android-core (used by `RVSmartTool` for adb operations)
+- `AbstractTool` contract from rv-tools (extended by `RVSmartTool`)
+
+**Produces:**
+- Stdout JSON lines (trace): one line per iteration with action, state, and timing data
+- `RVSMART_METRICS:` final JSON report on stdout at timeout
+- `[RVTRACK:<CATEGORY>]` structured log entries via Android logcat (15 categories)
+- Touch/key events injected into the target app via `InputManager`
+- App lifecycle operations via `IActivityManager` (force-stop, start-activity)
+
+**Consumed by:**
+- `RVSmartTool` (rv-tools plugin): captures stdout trace, extracts metrics JSON
+- rv-platform `CoverageComponent`: reads logcat `RVSEC-COV` tags (standard pipeline, no changes)
+- rv-platform `ResultProcessorComponent`: reads `coverage_metrics` (standard pipeline, no changes)
+- rv-experiment: orchestrates rvsmart tasks via `--tools rvsmart:mvp` CLI
+- Optuna calibration scripts: parse `rvsmart_metrics.json` for objective function
+
+### Structural Hash Compatibility (INV-RSM-03)
+
+The structural hash algorithm MUST produce identical output to the Python agent's `compute_screen_hash_from_description()` for the same UI tree. The algorithm canonicalizes the screen state into a deterministic JSON string and computes SHA-256, taking the first 12 hex characters. This is the primary bridge between the Java and Python worlds — both agents produce the same hash for the same UI state, enabling direct comparison of state graphs across runs.
+
+```mermaid
+flowchart LR
+    subgraph Input
+        SI[List of ScreenItems<br/>+ Activity name]
+    end
+
+    subgraph Canonicalization
+        SORT[Sort items:<br/>primary: resource_id ∥ 'zzz'<br/>secondary: class]
+        FIELDS[Extract hash fields:<br/>class, resource_id, package,<br/>clickable, scrollable, checkable,<br/>enabled, long_clickable, editable]
+        JSON[Build JSON via<br/>TreeMap → Gson<br/>compact, sorted keys]
+    end
+
+    subgraph Output
+        SHA[SHA-256 of<br/>JSON string]
+        TRUNC[First 12 hex<br/>characters]
+        HASH["Hash: 'a1b2c3d4e5f6'"]
+    end
+
+    SI --> SORT --> FIELDS --> JSON --> SHA --> TRUNC --> HASH
+```
+
+**Canonicalization rules** (must match Python exactly):
+1. Items sorted by `(resource_id or "zzz", class)` — empty resource_id sorts to end
+2. Hash fields: `class`, `resource_id`, `package`, `clickable`, `scrollable`, `checkable`, `enabled`, `long_clickable`, `editable`
+3. Top-level JSON structure: `{"activity":"<name>","items":[...]}`
+4. JSON serialization: `GsonBuilder().create()` on `TreeMap<String, Object>` for sorted keys, compact format (no spaces after separators, equivalent to Python `separators=(",", ":")`)
+5. Output: `SHA-256(json_string)[:12]` as hex
+
+### Worked Example: CryptoApp Exploration (Tier Selection)
+
+CryptoApp has 4 Activities. The main screen has a Spinner (algorithm selector), an EditText (text input), and a Button ("GENERATE HASH" — MOP-reaching via `MessageDigest.getInstance()`). This example traces the first ~15 iterations to illustrate tiered action selection.
+
+**Iteration 1-3: First visit to MainActivity (S0)**
+- `UiCapture` finds 3 interactive widgets: Spinner (A), EditText (B), Button "GENERATE HASH" (C)
+- **Tier 2** activates (3 untested actions)
+- MopScorer assigns +500 to C (`directly_reaches_mop=True` from static analysis)
+- GradualDecayScorer assigns +200 to all (0 visits)
+- ComponentPriorityScorer: C=+50 (Button), A=+50 (Spinner), B=+50 (EditText)
+- C scores highest (~800), selected → clicks GENERATE HASH on empty form
+- Iteration 2: A and B untested. A (Spinner, +300) selected → navigates to dropdown screen S1
+- S1 has 12 algorithm options (SHA-1, MD5, etc.), all untested → Tier 2 picks first
+
+**Iteration 4-6: Dropdown exploration (S1)**
+- Agent clicks "MD5" → returns to S0' (new hash — spinner now shows "MD5")
+- S0' is a NEW state (different structural hash), so all 3 actions are untested again
+- Tier 2 selects C (GENERATE HASH, MOP +500) → triggers `MessageDigest.getInstance("MD5")`
+- `ConfirmedCoverageScorer` rewards this action (+500 from logcat RVSEC-COV)
+- `RewardPropagator` propagates `mop_reached` reward backward to preceding actions
+
+**Iteration 7-10: Form filling and saturation**
+- On S0', B (EditText) still untested → Tier 2 selects B → `SET_TEXT "test123"`
+- After B tested, all 3 actions tested (saturation = 33%, below threshold 80%)
+- **Tier 4** activates: unified queue scores all actions + BACK + RESTART
+- C scores ~800 (MOP +500 + ConfirmedCoverage +200 + ComponentPriority +50)
+- Agent re-executes C with MD5 selected AND text filled → valid MOP trigger
+- Saturation increases as actions are re-executed
+
+**Iteration 11-15: Backtracking**
+- After 6-9 iterations on S0', saturation reaches 80%
+- **Tier 3** activates: BFS finds S0 (original spinner state) as unsaturated ancestor
+- PathBuffer buffers BACK sequence → Tier 1 dispenses BACK actions
+- Agent navigates to S0, selects a different algorithm ("SHA-256") → explores new state S0''
+- Cycle repeats with different algorithm + text combinations
+
+This pattern maximizes MOP coverage by systematically combining different input configurations.
 
 ## Data Contracts
 
 ### Input
+
 - `--package <string>` — Target app package name (required). Passed via CLI. Example: `br.unb.cic.cryptoapp`.
 - `--timeout <int>` — Execution timeout in seconds (required). The ONLY exit condition from the main loop.
 - `--health-check` — Validate ServiceManager connections and exit with code 0/1 (optional). Used by RVSmartTool for fast failure detection.
@@ -24,17 +561,20 @@ LLM integration (Phase 2) adds a hybrid mode where `RoutingManager` decides per 
 - `--seed <int>` — Random seed for reproducibility (optional).
 
 ### Output
+
 - **Stdout (JSON lines)**: One JSON line per iteration with: `iteration`, `timestamp_ms`, `hash`, `activity`, `action_type`, `action_source`, `action_had_effect`, `retries`, `unique_states`, `elapsed_s`.
 - **Stdout (final report)**: Last line prefixed with `RVSMART_METRICS:` containing a JSON object with sections: `metadata`, `exploration`, `decisions`, `ui_coverage`, `confirmed_coverage`, `llm`.
-- **Logcat**: Standard Android logcat entries via `android.util.Log` (tag: `RVSMART`).
+- **Logcat**: Standard Android logcat entries via `android.util.Log` (tag: `RVSMART`). Includes `[RVTRACK:<CATEGORY>]` structured decision logs.
 
 ### Side-Effects
+
 - **[Android System]**: Injects touch/key events into the target app via `InputManager`.
 - **[Android System]**: May force-stop and restart the target app on crash or stuck recovery.
 - **[Android System]**: Dismisses system dialogs (crash, permission, battery optimization).
-- **[Network]**: In multimode/llm_only, makes HTTP POST requests to SGLang API.
+- **[Network]**: In multimode/llm_only, makes HTTP POST requests to SGLang API via `10.0.2.2:30000`.
 
 ### Error
+
 - **Bootstrap failure**: If reflection fails to connect to ServiceManager services → stderr message + exit code 1.
 - **Runtime crash of agent itself**: Uncaught exception → stack trace to stderr + exit code 1. (Crashes of the target app are handled gracefully via CrashInterceptor.)
 
@@ -73,11 +613,46 @@ RVSMART_METRICS:{"metadata":{"tool":"rvsmart","package":"br.unb.cic.cryptoapp","
 - **INV-RSM-12**: The candidate action list MUST NEVER be empty. BACK and RESTART are synthetic actions injected into the Tier 4 unified queue alongside widget actions, using their own base scores (NOT scored by the 10 widget scorers — see Ten Weighted Scorers section). Saturated widget actions remain in the list with reduced scores (via GradualDecayScorer) — they are deprioritized, never removed. System elements receive a -5000 penalty but stay in the list. `ActionSelector.selectAction()` MUST NEVER return null. When all widget scores fall below BACK's score, BACK wins naturally. When consecutive BACKs fail to change state, BACK's effective score decreases dynamically (`back_score -= back_decay_per_repeat`, default 200 per consecutive no-effect BACK), making saturated widget actions and eventually RESTART more attractive. This self-correcting mechanism prevents BACK/RESTART infinite loops without special-case escape logic.
 - **INV-RSM-13**: `HeapMonitor` MUST check `Runtime.freeMemory()` every 100 iterations and increase `throttle_ms` by 50% when free memory falls below 10% of max heap (critical threshold). Warning threshold at 20%. If pressure persists for 3 consecutive checks, reduce `MAX_ITEMS` cap to 1000 temporarily. This prevents OOM on long runs with large UI trees.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Bootstrap via app_process
 
-rvsmart SHALL bootstrap by connecting to Android system services via `ServiceManager.getService()` using reflection. The bootstrap sequence is: (1) parse CLI arguments, (2) assert API level (warn if `Build.VERSION.SDK_INT != 29`), (3) connect to `ActivityManagerService`, `WindowManagerService`, and `InputManager` via ServiceManager, (4) register `ActivityController` for crash/ANR interception, (5) load `static_analysis.json` if provided (otherwise null), (6) load `config.properties` if provided (otherwise defaults), (7) start `LogcatReader` daemon thread (uses `ConcurrentLinkedQueue<String>` for thread-safe producer-consumer between the reader thread and the main loop's `drainCoverageTags()` call), (8) start target app via `IActivityManager.startActivity()` (validates that `forceStopPackage()` and `startActivity()` work with Shell UID 2000 during PoC), (9) enter main loop.
+rvsmart SHALL bootstrap by connecting to Android system services via `ServiceManager.getService()` using reflection. The bootstrap sequence establishes connections to three critical services that provide the agent's core capabilities: UI capture, event injection, and app lifecycle management.
+
+```mermaid
+sequenceDiagram
+    participant M as Main
+    participant SM as ServiceManager
+    participant DC as DeviceController
+    participant CI as CrashInterceptor
+    participant LR as LogcatReader
+    participant AC as AppController
+
+    M->>M: Parse CLI arguments
+    M->>M: Assert API level (warn if ≠ 29)
+    M->>DC: connect()
+    DC->>SM: getService("activity")
+    SM-->>DC: IActivityManager binder
+    DC->>SM: getService("window")
+    SM-->>DC: IWindowManager binder
+    DC->>SM: getService("input")
+    SM-->>DC: InputManager handle
+
+    alt Any service fails
+        DC-->>M: Bootstrap failed
+        M->>M: stderr + exit(1)
+    end
+
+    M->>CI: register(IActivityManager)
+    CI->>CI: Set ActivityController callback
+    M->>M: Load StaticMap (if --static-data)
+    M->>M: Load Config (if --config)
+    M->>LR: start() daemon thread
+    LR->>LR: ConcurrentLinkedQueue<String>
+    M->>AC: startApp(package)
+    AC->>AC: forceStopPackage + startActivity
+    M->>M: Enter main loop (AgentLoop)
+```
 
 If any ServiceManager connection fails, the agent SHALL log the error to stderr and exit with code 1. This is the Go/No-Go gate — if fundamental APIs are not accessible on the target emulator image, the agent cannot function.
 
@@ -103,6 +678,13 @@ If any ServiceManager connection fails, the agent SHALL log the error to stderr 
 - **WHEN** `ServiceManager.getService("activity")` returns null or reflection fails
 - **THEN** Main SHALL log "Bootstrap failed: cannot connect to ActivityManagerService" to stderr
 - **AND** Main SHALL exit with code 1
+
+#### Scenario: Health check mode
+- **WHEN** rvsmart is started with `--health-check`
+- **THEN** Main SHALL attempt to connect to all three ServiceManager services
+- **AND** SHALL print status of each connection (success/failure) to stdout
+- **AND** SHALL exit with code 0 if all connections succeed, code 1 otherwise
+- **AND** SHALL NOT enter the main loop
 
 ### Requirement: UI Capture via AccessibilityNodeInfo
 
@@ -150,6 +732,22 @@ The resulting `ScreenState` contains the list of `ScreenItem` objects, the curre
 
 rvsmart SHALL inject touch and key events using `InputManager.injectInputEvent()` via reflection. Supported action types: CLICK, LONG_CLICK, SET_TEXT, SCROLL, SWIPE, BACK, KEY_EVENT, RESTART. Each action carries device pixel coordinates (x, y), optional text (for SET_TEXT), and a source field ("algorithm" or "llm") that is metadata only — the injection path is identical regardless of source (INV-RSM-08).
 
+```mermaid
+flowchart LR
+    subgraph ActionTypes["Supported Action Types"]
+        CLICK["CLICK<br/>MotionEvent DOWN+UP"]
+        LONG["LONG_CLICK<br/>MotionEvent DOWN, 1s, UP"]
+        TEXT["SET_TEXT<br/>Focus + clear + key events"]
+        SCROLL["SCROLL<br/>MotionEvent DOWN+MOVE+UP"]
+        SWIPE["SWIPE<br/>MotionEvent DOWN+MOVE+UP"]
+        BACK["BACK<br/>KeyEvent KEYCODE_BACK"]
+        KEY["KEY_EVENT<br/>KeyEvent custom keycode"]
+        RESTART["RESTART<br/>forceStop + startActivity"]
+    end
+
+    ActionTypes --> IM["InputManager<br/>injectInputEvent()<br/>INJECT_INPUT_EVENT_MODE_ASYNC"]
+```
+
 #### Scenario: Click injection
 - **WHEN** the strategy selects a CLICK action at coordinates (540, 960) on a 1080x1920 display
 - **THEN** `InputInjector` SHALL create a `MotionEvent` (ACTION_DOWN + ACTION_UP) at (540, 960)
@@ -159,6 +757,11 @@ rvsmart SHALL inject touch and key events using `InputManager.injectInputEvent()
 #### Scenario: SET_TEXT injection
 - **WHEN** the strategy selects a SET_TEXT action with text "test@email.com" on an editable field
 - **THEN** `InputInjector` SHALL focus the target field (CLICK), clear existing text, then inject key events for each character
+
+#### Scenario: BACK injection
+- **WHEN** a BACK action is selected (from stuck recovery or Tier 4 queue)
+- **THEN** `InputInjector` SHALL create a `KeyEvent` with `KEYCODE_BACK` (ACTION_DOWN + ACTION_UP)
+- **AND** latency SHALL be <1ms
 
 ### Requirement: Main Loop and Multi-Attempt Cycles
 
@@ -198,12 +801,10 @@ The `actionHadEffect` check uses a compound criterion: hash change OR activity c
 
 rvsmart SHALL implement a tiered action selection based on the Python RVAgentStrategy's 5-tier design, with one key improvement: **BACK and RESTART are synthetic actions in the same priority queue as widget actions in Tier 4** (INV-RSM-12), eliminating the need for a separate Tier 5 fallback. The candidate list is NEVER empty — saturated actions remain with reduced scores, system elements remain with heavy penalty, and BACK/RESTART always participate in Tier 4 scoring.
 
-The class is named `ActionSelector` (not `ActionSelector`) because the implementation uses 4 tiers. The Python agent's `RVAgentStrategy` uses 5 tiers; rvsmart's redesign merges Tiers 4+5 into a unified queue.
-
 | Tier | Name | Condition | Action |
 |------|------|-----------|--------|
 | 1 | PathBuffer | Buffer non-empty | Dispense one buffered action |
-| 2 | Untested Actions | Has untested actions on current screen | Select untested action |
+| 2 | Untested Actions | Has untested actions on current screen | Select untested action via 10 scorers |
 | 3 | Proactive Backtrack | Saturation ≥ threshold (default 0.8) | Plan BACK sequence via BFS to unsaturated ancestor |
 | 4 | Unified Queue | All tested (including saturated), or no path found in Tier 3 | Select action with highest score from unified queue (widgets + BACK + RESTART) |
 
@@ -232,7 +833,7 @@ Tier 4 uses score aggregation as sum of all scorer outputs (for widget actions) 
 - **THEN** ActionSelector SHALL include all widget actions (even saturated), BACK, and RESTART in the unified queue
 - **AND** aggregate scores from all 10 scorers SHALL be computed for widget actions
 - **AND** BACK and RESTART SHALL use their base scores (adjusted for consecutive repeats)
-- **AND** the action with the highest score SHALL be selected (with Gumbel-max noise if enabled)
+- **AND** the action with the highest score SHALL be selected (with random noise if stochastic fires)
 
 #### Scenario: All widgets are system elements — BACK wins naturally (INV-RSM-12)
 - **WHEN** all widget actions on the screen are system elements (score -5000 each)
@@ -265,6 +866,31 @@ Tier 4 uses score aggregation as sum of all scorer outputs (for widget actions) 
 
 rvsmart SHALL implement 10 scorers, each returning an integer score for a candidate action. Scorers are grouped by data dependency:
 
+```mermaid
+flowchart LR
+    subgraph always["Always Active (7)"]
+        GD[GradualDecayScorer<br/>200 × 0.7^visits]
+        CD[CoverageDensityScorer<br/>200 × coverage_gap]
+        SAT[SaturationScorer<br/>100 × (1 - saturation)]
+        CP[ComponentPriorityScorer<br/>+50 buttons, +40 toggles]
+        STR[StrengthScorer<br/>50 × success_rate + reward]
+        SEF[SystemElementFilter<br/>-5000 for systemui]
+        VP[VisitationPenaltyScorer<br/>-15 × log(1 + visits)]
+    end
+
+    subgraph static["Require StaticMap (2)"]
+        MOP[MopScorer<br/>+500 direct, +300 transitive]
+        WTG[WtgScorer<br/>+150 guided transitions]
+    end
+
+    subgraph logcat["Require LogcatReader (1)"]
+        CC[ConfirmedCoverageScorer<br/>+500 direct, +200 historical]
+    end
+
+    always & static & logcat --> SUM["Score = Σ all scorers"]
+    SUM --> RANK[Rank actions<br/>by total score]
+```
+
 **Always active (7 scorers):**
 - `GradualDecayScorer`: `base × decay_rate^visits` (0 after min_visits). Defaults: base=200.0, rate=0.7, min_visits=5.
 - `CoverageDensityScorer`: `weight × coverage_gap` (gap in [0.0, 1.0]; 0.5 for unknown destinations). Default weight=200.0.
@@ -273,7 +899,7 @@ rvsmart SHALL implement 10 scorers, each returning an integer score for a candid
   - **High priority** (+50.0): Button, ImageButton, MaterialButton, FloatingActionButton, ExtendedFloatingActionButton, EditText, AutoCompleteTextView, MultiAutoCompleteTextView, TextInputEditText, Spinner, AppCompatSpinner, DrawerLayout, Tab, TabLayout, TabView, ActionBar$Tab, TabItem, BottomNavigationItemView, NavigationBarItemView, NavigationBarView, NavigationRailView, ActionMenuItemView, MenuItemView, OverflowMenuButton, Chip, LinearLayout.
   - **Medium priority** (+40.0): CheckBox, MaterialCheckBox, AppCompatCheckBox, Switch, SwitchCompat, SwitchMaterial, ToggleButton, AppCompatToggleButton, RadioButton, MaterialRadioButton, AppCompatRadioButton, SeekBar, AppCompatSeekBar, Slider, RangeSlider, RatingBar, ViewPager, RecyclerView, CheckedTextView, AppCompatCheckedTextView.
   - All other components: 0.0.
-  - ComponentPriorityScorer applies ONLY to widget actions. BACK/RESTART synthetic actions do NOT pass through this scorer (see synthetic action scoring below).
+  - ComponentPriorityScorer applies ONLY to widget actions. BACK/RESTART synthetic actions do NOT pass through this scorer.
 - `StrengthScorer`: `weight × success_rate + reward_weight × cumulative_reward`. Default weight=50.0, reward_weight=1.0. Untested actions get success_rate=0.5.
 - `SystemElementFilter`: -5000.0 for system UI elements (package `com.android.systemui` only — status bar, navigation bar). The `android` package is NOT penalized because system dialogs (permissions, crash alerts) from the `android` package are part of app flow and handled by `SystemDialogDetector` instead. Fixed value, not configurable.
 - `VisitationPenaltyScorer`: `-factor × log(1 + visits)`. Default factor=15.0.
@@ -283,7 +909,7 @@ rvsmart SHALL implement 10 scorers, each returning an integer score for a candid
 - `WtgScorer`: +150.0 for WTG-guided transitions to unvisited screens. Same note: use 150.0 as Java default (Python config default).
 
 **Requires logcat data (1 scorer, new for rvsmart — not present in Python agent, returns 0 when LogcatReader has no data):**
-- `ConfirmedCoverageScorer`: +500 if action directly triggered new coverage (logcat RVSEC-COV tag within 2s of action execution), +200 if action's screen historically led to coverage events. This scorer is unique to rvsmart — the Python agent does not have real-time logcat access. The 9 other scorers are ported from the Python agent's `ActionRanker`.
+- `ConfirmedCoverageScorer`: +500 if action directly triggered new coverage (logcat RVSEC-COV tag within `confirmed_coverage_window_s` seconds of action execution), +200 if action's screen historically led to coverage events. This scorer is unique to rvsmart — the Python agent does not have real-time logcat access. The 9 other scorers are ported from the Python agent's `ActionRanker`.
 
 **Synthetic action scoring (BACK and RESTART):**
 
@@ -305,6 +931,14 @@ All scorer weights and synthetic action scores are configurable via `rvsmart.pro
 - **THEN** all 10 scorers SHALL produce scores
 - **AND** MopScorer SHALL return +500 for actions that directly reach a MOP method
 
+#### Scenario: Concrete scoring example (CryptoApp)
+- **WHEN** the agent is on CryptoApp main screen with 3 widgets: Spinner (untested), EditText (untested), Button "GENERATE HASH" (untested, directly_reaches_mop=True)
+- **AND** StaticMap is loaded (full mode)
+- **THEN** Button score = MopScorer(+500) + GradualDecay(+200) + Saturation(+100) + ComponentPriority(+50) + Strength(+25) = +875
+- **AND** Spinner score = GradualDecay(+200) + Saturation(+100) + ComponentPriority(+50) + Strength(+25) = +375
+- **AND** EditText score = GradualDecay(+200) + Saturation(+100) + ComponentPriority(+50) + Strength(+25) = +375
+- **AND** Button SHALL be selected (highest score)
+
 ### Requirement: Crash Detection and Recovery
 
 rvsmart SHALL detect app crashes via two mechanisms:
@@ -312,6 +946,26 @@ rvsmart SHALL detect app crashes via two mechanisms:
 1. **Java crash callback**: `ActivityController.appCrashed()` fires immediately with the exception and stack trace. The agent marks the preceding action as crash-causing, logs the crash info, and restarts the app via `IActivityManager.forceStopPackage()` + `startActivity()` (INV-RSM-06).
 
 2. **Native crash detection**: At the start of each cycle, if `getRootInActiveWindow()` returns null, the agent checks `IActivityManager.getRunningTasks()`. If the target app process is gone, it is treated as a native crash (SIGSEGV, SIGABRT, OOM-killed). The agent logs the event, restarts the app, and continues.
+
+```mermaid
+flowchart TD
+    subgraph Java Crash
+        JC[ActivityController.appCrashed<br/>fires callback] --> MARK[Mark action as<br/>crash-causing]
+        MARK --> LOG_J[Log crash + stack trace<br/>RVTRACK:CRASH type=java]
+        LOG_J --> FS[forceStopPackage<br/>~50ms]
+        FS --> SA[startActivity<br/>~50ms]
+    end
+
+    subgraph Native Crash
+        NULL[UiCapture returns null root] --> CHECK{App process<br/>alive?}
+        CHECK -->|No| LOG_N[Log native crash<br/>RVTRACK:CRASH type=native]
+        LOG_N --> FS2[forceStopPackage<br/>~50ms]
+        FS2 --> SA2[startActivity<br/>~50ms]
+        CHECK -->|Yes| WAIT[Wait one cycle<br/>possible ANR]
+    end
+
+    SA & SA2 --> CONT([Continue main loop])
+```
 
 #### Scenario: Java crash detection and recovery
 - **WHEN** the target app throws an uncaught exception
@@ -397,11 +1051,17 @@ The LLM path captures a screenshot via `SurfaceControl.screenshot()` (~20ms if a
 - **AND** `shouldUseLlm()` SHALL return false for 60 seconds
 - **AND** the agent SHALL fall back to algorithm path during the cooldown
 
+#### Scenario: New-screen-only routing
+- **WHEN** mode is `multimode`, strategy is `new_screen_only`
+- **AND** the current screen has `visitCount = 1` (first visit)
+- **THEN** `shouldUseLlm()` SHALL return true for this iteration
+- **AND** on subsequent visits (`visitCount > 1`), `shouldUseLlm()` SHALL return false
+
 ### Requirement: Configurable Parameters via Properties
 
 rvsmart SHALL load all configurable parameters from a `java.util.Properties` file specified via `--config`. When the file is absent, internal defaults SHALL be used. The file format is standard Java Properties (key=value, `#` comments).
 
-Parameters are grouped into: execution (4: timeout, throttle_ms, max_retries_per_cycle, seed), routing (2: mode, llm_probability), scorer weights (13: mop_direct_score, mop_transitive_score, wtg_guided_score, gradual_decay_base, gradual_decay_rate, gradual_decay_min_visits, coverage_density_weight, saturation_bonus, component_high_priority, component_medium_priority, strength_weight, reward_score_weight, visitation_penalty_factor), synthetic actions (3: back_base_score, restart_base_score, back_decay_per_repeat), stochastic selection (2: stochastic_probability, stochastic_temperature), reward propagation (4: reward_gamma, reward_propagation_n, reward_mop_weight, max_cumulative_factor), successor tracker (3: max_re_enables, multi_value_saturation_threshold, ui_coverage_threshold), path buffer (4: path_buffer_strategy_priority, max_backtrack_hops, coverage_path_weight, mop_path_weight), stuck detection (3: stuck_max_blocks, max_backtrack_failures, backtrack_saturation_threshold), MOP navigation (3: mop_nav_weight, mop_max_input_variations, confirmed_coverage_window_s), LLM inference (7: llm_base_url, llm_model, llm_temperature, llm_top_p, llm_top_k, llm_max_tokens, llm_timeout_s), logcat (1: logcat_buffer_size). Total: ~49 parameters, ~40 calibratable by Optuna (excluding fixed infrastructure params like llm_base_url, llm_model, timeout, seed, mode).
+Parameters are organized into 11 groups (see Key Data Models → Config for the complete list of ~49 parameters). All scorer weights, synthetic action scores, reward propagation parameters, and stuck detection thresholds are calibratable by Optuna (~40 of ~49 parameters). The remaining ~9 are infrastructure parameters (llm_base_url, llm_model, timeout, seed, mode, etc.) that are set per-experiment, not calibrated.
 
 #### Scenario: Custom scorer weights via config
 - **WHEN** rvsmart.properties contains `mop_direct_score=800.0` and `gradual_decay_base=150.0`
@@ -439,7 +1099,7 @@ Categories (matching Python agent where applicable):
 
 Format: `[RVTRACK:<CATEGORY>] key1=value1 key2=value2 ...`
 
-Aggregate counters SHALL be maintained for experiment-level metrics (same set as Python agent where applicable): backtrack_count, restart_count, multi_attempt_retries, system_dialogs_dismissed, crash_recoveries, stuck_level1_count, stuck_level2_count, circuit_breaker_trips, ooom_throttle_events. These counters are included in the `RVSMART_METRICS:` final report.
+Aggregate counters SHALL be maintained for experiment-level metrics (same set as Python agent where applicable): backtrack_count, restart_count, multi_attempt_retries, system_dialogs_dismissed, crash_recoveries, stuck_level1_count, stuck_level2_count, circuit_breaker_trips, oom_throttle_events. These counters are included in the `RVSMART_METRICS:` final report.
 
 #### Scenario: Filtering RVTRACK logs from logcat
 - **WHEN** an experiment completes with rvsmart
@@ -456,7 +1116,7 @@ Aggregate counters SHALL be maintained for experiment-level metrics (same set as
 
 rvsmart SHALL write per-iteration trace data as JSON lines to stdout, captured by the rv-tools plugin into the task trace file. At timeout, rvsmart SHALL write a final metrics report as the last stdout line, prefixed with `RVSMART_METRICS:` (INV-RSM-10).
 
-The metrics report contains 6 sections: `metadata` (tool, package, mode, timeout, timestamp), `exploration` (iterations, execution time, unique states, total transitions, throughput), `decisions` (total actions, LLM/algorithm counts, multi-attempt retries, forced backs, crashes, system dialogs), `ui_coverage` (unique activities, unique hashes, widgets discovered/interacted, coverage ratio), `confirmed_coverage` (enabled flag, unique methods, total events, MOP methods reached), `llm` (total calls, tokens in/out, total time, circuit breaker trips).
+The metrics report contains 6 sections: `metadata` (tool, package, mode, timeout, timestamp, version), `exploration` (iterations, execution time, unique states, total transitions, throughput), `decisions` (total actions, LLM/algorithm counts, multi-attempt retries, forced backs, crashes, system dialogs), `ui_coverage` (unique activities, unique hashes, widgets discovered/interacted, coverage ratio), `confirmed_coverage` (enabled flag, unique methods, total events, MOP methods reached), `llm` (total calls, tokens in/out, total time, circuit breaker trips).
 
 #### Scenario: Trace output during execution
 - **WHEN** the agent completes iteration 42 at elapsed time 15.2s
@@ -479,6 +1139,13 @@ When ConfirmedCoverageScorer detects actual coverage via logcat, `RewardPropagat
 - **WHEN** an action causes a transition from MainActivity to SettingsActivity (new activity)
 - **THEN** RewardPropagator SHALL assign reward 2.0 to the current action
 - **AND** reward SHALL propagate backward: action[-1] gets 2.0×0.8=1.6, action[-2] gets 2.0×0.64=1.28, etc.
+- **AND** propagation SHALL stop at N=5 steps or when the chain runs out
+
+#### Scenario: Confirmed coverage reward from logcat
+- **WHEN** `LogcatReader.drainCoverageTags()` returns `["javax.crypto.Cipher.getInstance"]`
+- **AND** the tag appeared within `confirmed_coverage_window_s` (2.0s) of the last action
+- **THEN** `RewardPropagator.propagateConfirmedCoverage()` SHALL propagate `mop_reached` reward (5.0) for the last action
+- **AND** backward propagation with gamma=0.8 for the preceding N actions
 
 ### Requirement: Successor Tracker
 
@@ -492,6 +1159,11 @@ Re-enablement is limited to `max_re_enables` (default 6) per action. Multi-value
 - **THEN** SuccessorTracker SHALL re-enable the parent action that led to ChildScreen
 - **AND** Tier 2 (untested actions) SHALL pick up the re-enabled action
 
+#### Scenario: Multi-value widget saturation
+- **WHEN** a Spinner action has been executed 4 times (reaching `multi_value_saturation_threshold`)
+- **THEN** SuccessorTracker SHALL NOT re-enable that action again
+- **AND** the action remains saturated in the graph
+
 ### Requirement: Dynamic State Graph
 
 rvsmart SHALL maintain a `DynamicStateGraph` using `HashMap<String, ScreenNode>` where keys are structural hashes. Each `ScreenNode` stores: visit count, executed actions (with success/failure counts), cumulative reward, and transitions to other states.
@@ -502,3 +1174,7 @@ The graph supports: `recordVisit()`, `recordTransition()`, `recordAction()`, `re
 - **WHEN** the strategy selects an action on screen "a1b2c3"
 - **THEN** `graph.recordAction("a1b2c3", action.signature())` SHALL be called BEFORE execution
 - **AND** if the app crashes during execution, the graph SHALL still contain the action record
+
+#### Scenario: Saturation calculation
+- **WHEN** screen "a1b2c3" has 10 actions in its `ScreenNode`, 8 of which appear in `executedActions`
+- **THEN** `graph.getSaturation("a1b2c3")` SHALL return 0.8
