@@ -2,7 +2,7 @@
 
 ## Purpose
 
-rvsmart is a Java-based Android exploration agent that runs inside the Android emulator via `app_process`, achieving ~12-16 events/second in pure algorithm mode — approximately 10x the throughput of the Python RVAgent. It implements the same 5-tier DFS-based exploration strategy as the Python agent but uses internal Android APIs (`AccessibilityNodeInfo`, `InputManager`, `ActivityController`) instead of external UIAutomator2 over ADB.
+rvsmart is a Java-based Android exploration agent that runs inside the Android emulator via `app_process`, achieving ~12-16 events/second in pure algorithm mode — approximately 10x the throughput of the Python RVAgent. It implements a 4-tier DFS-based exploration strategy derived from the Python agent's 5-tier design (BACK/RESTART consolidated into a unified Tier 4 queue, eliminating the separate Tier 5 fallback) and uses internal Android APIs (`AccessibilityNodeInfo`, `InputManager`, `ActivityController`) instead of external UIAutomator2 over ADB.
 
 The agent is packaged as a standalone fat JAR (`rvsmart.jar`) with zero dependency on rv-android Python code at runtime. It lives in `$RVSEC_HOME/rvsec-android/rvsmart/`, built with Maven (Java 8), compiled against android.jar API 29 stubs. At runtime, `app_process` bootstraps an ART VM with the JAR on the classpath, executing `br.unb.cic.rvsmart.Main` with Shell UID 2000 (`INJECT_EVENTS` permission, no root required).
 
@@ -393,9 +393,8 @@ Config:
   restart_base_score: float        # RESTART base score (default -500.0)
   back_decay_per_repeat: float     # BACK decay per consecutive no-effect (default 200.0)
 
-  # Stochastic selection (2)
+  # Stochastic selection (1)
   stochastic_probability: float    # Probability of random selection (default 0.15)
-  stochastic_temperature: float    # Not used — simple random, not Gumbel-max (default 1.0)
 
   # Reward propagation (4)
   reward_gamma: float              # Discount factor (default 0.8)
@@ -431,12 +430,12 @@ Config:
   llm_top_p: float                 # Top-p (default 0.6)
   llm_top_k: int                   # Top-k (default 50)
   llm_max_tokens: int              # Max output tokens (default 2048)
-  llm_timeout_s: float             # HTTP timeout (default 30.0)
+  llm_timeout_s: float             # Total HTTP timeout in seconds — connect + read combined (default 30.0)
 
   # Logcat (1)
   logcat_buffer_size: int          # ConcurrentLinkedQueue max (default 10000)
 
-  # Total: ~49 parameters, ~40 calibratable by Optuna
+  # Total: ~48 parameters, ~39 calibratable by Optuna
 
 ScreenNode:
   visitCount: int                  # Times this state has been visited
@@ -446,7 +445,7 @@ ScreenNode:
   transitions: Set<String>         # Hashes of reachable states
 
 DynamicStateGraph:
-  nodes: HashMap<String, ScreenNode>  # hash → ScreenNode
+  nodes: LinkedHashMap<String, ScreenNode>  # hash → ScreenNode (insertion-ordered for deterministic BFS with --seed)
   # Methods:
   recordVisit(hash): void          # Increment visit count
   recordTransition(from, to): void # Record edge
@@ -504,10 +503,11 @@ flowchart LR
 ```
 
 **Canonicalization rules** (must match Python exactly):
-1. Items sorted by `(resource_id or "zzz", class)` — empty resource_id sorts to end
+1. Items sorted by `(resource_id or "zzz", class)` — empty/null resource_id sorts to end
 2. Hash fields: `class`, `resource_id`, `package`, `clickable`, `scrollable`, `checkable`, `enabled`, `long_clickable`, `editable`
-3. Top-level JSON structure: `{"activity":"<name>","items":[...]}`
-4. JSON serialization: `GsonBuilder().create()` on `TreeMap<String, Object>` for sorted keys, compact format (no spaces after separators, equivalent to Python `separators=(",", ":")`)
+3. Null handling for String hash fields: null values serialize as JSON `null` (not empty string `""`), matching Python's `json.dumps` behavior. Empty string `""` and `null` are distinct. `resource_id` null/empty is replaced by `"zzz"` for SORTING only — the actual JSON value remains null or empty string.
+4. Top-level JSON structure: `{"activity":"<name>","items":[...]}`
+4. JSON serialization: `GsonBuilder().create()` on `TreeMap<String, Object>` for sorted keys at EVERY nesting level — the top-level object AND each ScreenItem object in the `items` array MUST be represented as `TreeMap<String, Object>` (not POJO or HashMap). Gson does not guarantee recursive key ordering for arbitrary objects; using TreeMap at every level ensures sorted keys match Python's `json.dumps(sort_keys=True)`. Compact format (no spaces after separators, equivalent to Python `separators=(",", ":")`).
 5. Output: `SHA-256(json_string)[:12]` as hex
 
 ### Worked Example: CryptoApp Exploration (Tier Selection)
@@ -556,7 +556,7 @@ This pattern maximizes MOP coverage by systematically combining different input 
 - `--timeout <int>` — Execution timeout in seconds (required). The ONLY exit condition from the main loop.
 - `--health-check` — Validate ServiceManager connections and exit with code 0/1 (optional). Used by RVSmartTool for fast failure detection.
 - `--static-data <path>` — Path to `static_analysis.json` on device filesystem (optional). When absent, MopScorer and WtgScorer return 0.
-- `--config <path>` — Path to `rvsmart.properties` on device filesystem (optional). When absent, internal defaults used for all ~49 parameters.
+- `--config <path>` — Path to `rvsmart.properties` on device filesystem (optional). When absent, internal defaults used for all ~48 parameters.
 - `--mode <enum>` — Execution mode: `pure_algorithm` (default), `multimode`, `llm_only`.
 - `--seed <int>` — Random seed for reproducibility (optional).
 
@@ -601,7 +601,7 @@ RVSMART_METRICS:{"metadata":{"tool":"rvsmart","package":"br.unb.cic.cryptoapp","
 
 - **INV-RSM-01**: The main loop SHALL exit ONLY when elapsed time exceeds the configured timeout. No other exit condition (saturation, error count, empty action list) SHALL terminate the loop.
 - **INV-RSM-02**: Every `AccessibilityNodeInfo` obtained via `getChild()` MUST be recycled via `node.recycle()` in a finally block. Failure to recycle causes Binder reference leaks leading to OOM within minutes at 14 evt/s.
-- **INV-RSM-03**: The structural hash algorithm MUST produce identical output to the Python agent's `compute_screen_hash_from_description()` (in `dynamic_state_graph.py`) for the same UI tree. Same fields (class, resource_id, package, clickable, scrollable, checkable, enabled, long_clickable, editable), same ordering (primary sort by resource_id with empty string replaced by `"zzz"` for sort-to-end, secondary sort by class — matching the Python `sort(key=lambda x: (x["resource_id"] or "zzz", x["class"]))`), same JSON canonicalization: Gson with `GsonBuilder().create()` on a `TreeMap<String, Object>` to guarantee sorted keys, compact format with no spaces after separators (equivalent to Python `separators=(",", ":")`) — NOT `setPrettyPrinting()`, NOT custom TypeAdapter. The JSON structure is `{"activity":"<name>","items":[...]}` with `sort_keys=True` at top level. Output format: SHA-256[:12] hex string. Unit tests MUST include a golden test: given a concrete input (hardcoded list of ScreenItems), assert the exact hash output matches a reference value computed by the Python agent.
+- **INV-RSM-03**: The structural hash algorithm MUST produce identical output to the Python agent's `compute_screen_hash_from_description()` (in `dynamic_state_graph.py`) for the same UI tree. Same fields (class, resource_id, package, clickable, scrollable, checkable, enabled, long_clickable, editable), same ordering (primary sort by resource_id with empty string replaced by `"zzz"` for sort-to-end, secondary sort by class — matching the Python `sort(key=lambda x: (x["resource_id"] or "zzz", x["class"]))`), same JSON canonicalization: Gson with `GsonBuilder().create()` on `TreeMap<String, Object>` at EVERY nesting level (top-level object AND each ScreenItem in the items array) to guarantee sorted keys recursively — Gson does not sort keys for POJOs or HashMaps, only for TreeMap. Compact format with no spaces after separators (equivalent to Python `separators=(",", ":")`) — NOT `setPrettyPrinting()`, NOT custom TypeAdapter. The JSON structure is `{"activity":"<name>","items":[...]}` with sorted keys at all levels. Output format: SHA-256[:12] hex string. Unit tests MUST include a golden test: given a concrete input (hardcoded list of ScreenItems), assert the exact hash output matches a reference value computed by the Python agent.
 - **INV-RSM-04**: When `--static-data` is not provided, `StaticMap` SHALL be null and all scorers that depend on static data (MopScorer, WtgScorer) SHALL return 0. The agent MUST continue to function in heuristic mode.
 - **INV-RSM-05**: When `LogcatReader` has no `RVSEC-COV` data (original APK or logcat unavailable), `ConfirmedCoverageScorer` SHALL return 0. The agent MUST continue using MopScorer estimates or heuristic scoring.
 - **INV-RSM-06**: `CrashInterceptor.appCrashed()` callback MUST immediately mark the preceding action as crash-causing and initiate app restart. The agent MUST NOT attempt to execute additional actions before the restart completes.
@@ -682,8 +682,9 @@ If any ServiceManager connection fails, the agent SHALL log the error to stderr 
 #### Scenario: Health check mode
 - **WHEN** rvsmart is started with `--health-check`
 - **THEN** Main SHALL attempt to connect to all three ServiceManager services
-- **AND** SHALL print status of each connection (success/failure) to stdout
-- **AND** SHALL exit with code 0 if all connections succeed, code 1 otherwise
+- **AND** SHALL perform one UI capture via `UiCapture.captureScreen()` to validate AccessibilityNodeInfo reflection
+- **AND** SHALL print status of each connection and the UI capture result (success/failure, element count) to stdout
+- **AND** SHALL exit with code 0 if all connections and UI capture succeed, code 1 otherwise
 - **AND** SHALL NOT enter the main loop
 
 ### Requirement: UI Capture via AccessibilityNodeInfo
@@ -1038,7 +1039,11 @@ In `multimode` or `llm_only` mode, `RoutingManager` SHALL decide per iteration w
 
 In `pure_algorithm` mode, `shouldUseLlm()` always returns false. In `llm_only` mode, it always returns true (except when LlmCircuitBreaker is open).
 
-The LLM path captures a screenshot via `SurfaceControl.screenshot()` (~20ms if available with Shell UID 2000). If `SurfaceControl` is not accessible (PoC Task 2.7 validates this), the fallback is `adb exec-out screencap -p` piped from the host via a helper thread (~100-200ms, acceptable because LLM inference dominates at ~1.5-3s). The screenshot is compressed to JPEG quality 80, resized to 1000px longest edge, sent with the UI element list to SGLang, the tool call response is parsed, and Qwen3-VL [0,1000) coordinates are denormalized to device pixels.
+The LLM path captures a screenshot via `SurfaceControl.screenshot()` (~20ms if available with Shell UID 2000). If `SurfaceControl` is not accessible (PoC Task 2.7 validates this), two fallback paths exist depending on execution context:
+- **Managed mode** (via `RVSmartTool`): the plugin provides screenshot data via `adb exec-out screencap -p` piped to a temporary file on the device before each LLM iteration (~100-200ms, acceptable because LLM inference dominates at ~1.5-3s). This introduces a host dependency but only in the managed execution path.
+- **Standalone mode** (bare `adb shell`): LLM modes (`multimode`, `llm_only`) are unavailable without `SurfaceControl` — the agent logs a warning at bootstrap and forces `pure_algorithm` mode. The standalone "zero Python dependency" claim applies to algorithm-only operation.
+
+The screenshot is compressed to JPEG quality 80, resized to 1000px longest edge, sent with the UI element list to SGLang, the tool call response is parsed, and Qwen3-VL [0,1000) coordinates are denormalized to device pixels.
 
 #### Scenario: Probabilistic routing in multimode
 - **WHEN** mode is `multimode`, strategy is `probabilistic`, llm_probability is 0.05 (default)
@@ -1061,7 +1066,7 @@ The LLM path captures a screenshot via `SurfaceControl.screenshot()` (~20ms if a
 
 rvsmart SHALL load all configurable parameters from a `java.util.Properties` file specified via `--config`. When the file is absent, internal defaults SHALL be used. The file format is standard Java Properties (key=value, `#` comments).
 
-Parameters are organized into 11 groups (see Key Data Models → Config for the complete list of ~49 parameters). All scorer weights, synthetic action scores, reward propagation parameters, and stuck detection thresholds are calibratable by Optuna (~40 of ~49 parameters). The remaining ~9 are infrastructure parameters (llm_base_url, llm_model, timeout, seed, mode, etc.) that are set per-experiment, not calibrated.
+Parameters are organized into 11 groups (see Key Data Models → Config for the complete list of ~48 parameters). All scorer weights, synthetic action scores, reward propagation parameters, and stuck detection thresholds are calibratable by Optuna (~39 of ~48 parameters). The remaining ~9 are infrastructure parameters (llm_base_url, llm_model, timeout, seed, mode, etc.) that are set per-experiment, not calibrated.
 
 #### Scenario: Custom scorer weights via config
 - **WHEN** rvsmart.properties contains `mop_direct_score=800.0` and `gradual_decay_base=150.0`
@@ -1166,7 +1171,7 @@ Re-enablement is limited to `max_re_enables` (default 6) per action. Multi-value
 
 ### Requirement: Dynamic State Graph
 
-rvsmart SHALL maintain a `DynamicStateGraph` using `HashMap<String, ScreenNode>` where keys are structural hashes. Each `ScreenNode` stores: visit count, executed actions (with success/failure counts), cumulative reward, and transitions to other states.
+rvsmart SHALL maintain a `DynamicStateGraph` using `LinkedHashMap<String, ScreenNode>` where keys are structural hashes. `LinkedHashMap` preserves insertion order, ensuring deterministic BFS traversal when using `--seed` for reproducibility (`HashMap` iteration order is non-deterministic). Each `ScreenNode` stores: visit count, executed actions (with success/failure counts), cumulative reward, and transitions to other states.
 
 The graph supports: `recordVisit()`, `recordTransition()`, `recordAction()`, `recordActionFailure()`, `getVisitCount()`, `getSaturation()`. Actions are pre-marked before execution (crash safety — if the app crashes during execution, the graph still records that the action was attempted).
 

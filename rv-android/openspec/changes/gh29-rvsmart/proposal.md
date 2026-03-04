@@ -6,7 +6,7 @@ The current RVAgent (Python) achieves ~1 iter/s in pure_algorithm mode, limited 
 
 ## What Changes
 
-- **New Java agent (rvsmart)**: Standalone executable JAR (`rvsmart.jar`) that runs inside the Android emulator via `app_process`. Implements the same 5-tier DFS-based exploration strategy as the Python RVAgent but using internal Android APIs (`AccessibilityNodeInfo`, `InputManager`, `ActivityController`, `IActivityManager`) instead of external UIAutomator2. Located at `$RVSEC_HOME/rvsec-android/rvsmart/`, built with Maven, same ecosystem as rvsec-gator.
+- **New Java agent (rvsmart)**: Standalone executable JAR (`rvsmart.jar`) that runs inside the Android emulator via `app_process`. Implements a 4-tier DFS-based exploration strategy derived from the Python RVAgent's 5-tier design (BACK/RESTART consolidated into a unified Tier 4 queue, eliminating the separate Tier 5 fallback) using internal Android APIs (`AccessibilityNodeInfo`, `InputManager`, `ActivityController`, `IActivityManager`) instead of external UIAutomator2. Located at `$RVSEC_HOME/rvsec-android/rvsmart/`, built with Maven, same ecosystem as rvsec-gator.
 - **New rv-tools plugin**: `RVSmartTool` extending `AbstractTool` — pushes JAR + optional static analysis data to emulator, executes via `adb shell CLASSPATH=... /system/bin/app_process`, captures stdout trace. Registers as built-in tool with variants (`mvp`, `fast`, `hybrid`).
 - **Graceful degradation**: 4 operational modes depending on available data — full (static analysis + instrumented APK), MOP-directed (static analysis only), coverage-aware (instrumented APK only), heuristic (neither). All modes use the same core algorithm; additional data sources add scoring layers.
 - **LLM hybrid mode (Phase 2)**: Optional SGLang integration via HTTP from inside emulator (`10.0.2.2` → socat bridge → sglang container). `RoutingManager` selects between algorithm and LLM paths per iteration. `LlmCircuitBreaker` handles network failures with automatic fallback.
@@ -17,7 +17,7 @@ The current RVAgent (Python) achieves ~1 iter/s in pure_algorithm mode, limited 
 
 ### New Capabilities
 
-- `rvsmart`: The rvsmart Java agent — architecture, bootstrap via `app_process`, main loop, internal components (device interaction, strategy, graph, recovery, LLM, output), configurable parameters (~49 via `Properties`, ~40 calibratable), operational modes, and the rv-tools plugin integration. This is a new standalone system within the RVSEC ecosystem that does not modify existing rv-agent behavior.
+- `rvsmart`: The rvsmart Java agent — architecture, bootstrap via `app_process`, main loop, internal components (device interaction, strategy, graph, recovery, LLM, output), configurable parameters (~48 via `Properties`, ~39 calibratable), operational modes, and the rv-tools plugin integration. This is a new standalone system within the RVSEC ecosystem that does not modify existing rv-agent behavior.
 
 ### Modified Capabilities
 
@@ -52,7 +52,7 @@ The current RVAgent (Python) achieves ~1 iter/s in pure_algorithm mode, limited 
 **Phased delivery**:
 - Phase 0 (PoC): Validate `app_process` fundamentals — bootstrap, UI capture, event injection, crash callback
 - Phase 1 (MVP): 3-tier selection, multi-attempt, crash detection, system dialogs, rv-tools plugin, ~12-16 evt/s
-- Phase 2 (Full): 5-tier selection, all 10 scorers, LLM hybrid, confirmed coverage, all 4 operational modes
+- Phase 2 (Full): 4-tier selection with all 10 scorers, LLM hybrid, confirmed coverage, all 4 operational modes
 - Phase 3 (Calibration): Optuna integration, equivalence tests, benchmark vs APE/FastBot/rvagent-python
 
 ## Acceptance Criteria
@@ -64,6 +64,7 @@ The current RVAgent (Python) achieves ~1 iter/s in pure_algorithm mode, limited 
 - [ ] Phase 1: TraceWriter output + `RVSMART_METRICS:` report extracted correctly
 - [ ] Phase 2: All 4 operational modes functional (full, MOP-directed, coverage-aware, heuristic)
 - [ ] Phase 2: LLM circuit breaker trips after 3 consecutive failures, auto-resets after 60s
-- [ ] Phase 2: Zero Binder reference leaks after 1000 iterations (INV-RSM-02 validated by HeapMonitor)
+- [ ] Phase 2: Node recycling validated — unit test with mock UI tree confirms all AccessibilityNodeInfo refs are recycled in try/finally (INV-RSM-02)
+- [ ] Phase 2: No OutOfMemoryError during 1000 continuous iterations on cryptoapp (INV-RSM-13 validated by HeapMonitor)
 - [ ] Phase 3: Optuna calibration integration functional with objective function
 - [ ] All code follows P1-P4 principles

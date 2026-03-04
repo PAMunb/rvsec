@@ -39,12 +39,12 @@ The tool spec SHALL be:
 | `fast` | pure_algorithm | 30 | Reduced throttle for maximum throughput |
 | `hybrid` | multimode | 50 | LLM hybrid mode, requires SGLang |
 
-The `hybrid` variant SHALL additionally include `llm_url: "http://10.0.2.2:30000/v1"` in its configuration.
+The `hybrid` variant SHALL additionally include `llm_base_url: "http://10.0.2.2:30000/v1"` in its configuration.
 
 #### Scenario: Variant resolution for hybrid mode
 - **WHEN** `ToolFactory.create_tool(ToolConfig(name="rvsmart", variant="hybrid"))` is called
 - **THEN** `tool.config["mode"]` SHALL be "multimode"
-- **AND** `tool.config["llm_url"]` SHALL be "http://10.0.2.2:30000/v1"
+- **AND** `tool.config["llm_base_url"]` SHALL be "http://10.0.2.2:30000/v1"
 
 #### Scenario: Parameter override on variant
 - **WHEN** `ToolFactory.create_tool(ToolConfig(name="rvsmart", variant="mvp", parameters={"throttle_ms": 100}))` is called
@@ -60,7 +60,7 @@ The `hybrid` variant SHALL additionally include `llm_url: "http://10.0.2.2:30000
 5. Build the `adb shell` command: `adb -s <device_serial> shell CLASSPATH=/data/local/tmp/rvsmart.jar /system/bin/app_process /data/local/tmp/ br.unb.cic.rvsmart.Main --package <package_name> --timeout <timeout> [--static-data ...] [--config ...] [--mode ...]`.
 6. Execute via `self._execute_and_check_command()` with stdout and stderr directed to `task.result.trace_file`.
 
-Before full execution, `RVSmartTool` SHALL run a health check: `adb shell CLASSPATH=... app_process ... --health-check`. This validates ServiceManager connections and exits with code 0 (success) or 1 (failure). If the health check fails, the tool SHALL log an error with the health check output and raise an exception (faster failure feedback than waiting for bootstrap timeout).
+Before full execution, `RVSmartTool` SHALL run a health check: `adb shell CLASSPATH=... app_process ... --health-check`. This validates ServiceManager connections and performs one UI capture to verify AccessibilityNodeInfo reflection, then exits with code 0 (success) or 1 (failure). If the health check fails, the tool SHALL log an error with the health check output and raise an exception (faster failure feedback than waiting for bootstrap timeout).
 
 Timeout behavior follows the standard `AbstractTool` contract: `RVCommandTimeoutError` is converted to `RVToolTimeoutError` by the base class. This is expected behavior (INV-TOOL-06).
 

@@ -108,7 +108,7 @@ The components fall into three categories: **device interaction** (direct Androi
 | `SystemDialogDetector` | Detect system dialogs by package name | `ScreenState` | Dismissed or pass-through |
 | `LogcatReader` | Non-blocking logcat reader for RVSEC-COV tags (INV-RSM-05) | Logcat stream | `List<String>` covered methods |
 | `ActionSelector` | 4-tier action selection + multi-attempt (INV-RSM-12). Tier 4 uses unified priority queue where widget actions (scored by 10 scorers, even saturated) and BACK/RESTART (scored by their own base scores, NOT by widget scorers) compete. BACK has dynamic decay on consecutive no-effect — self-correcting, prevents infinite loops. | Screen, Graph, StaticMap | `Action` (never null) |
-| `DynamicStateGraph` | HashMap-based state graph with transitions | Visit/transition records | Visit counts, rewards, transitions |
+| `DynamicStateGraph` | LinkedHashMap-based state graph with transitions (insertion-ordered for deterministic BFS with --seed) | Visit/transition records | Visit counts, rewards, transitions |
 | `StuckDetector` | Level 1 (BACK) + Level 2 (BFS to unsaturated ancestor) | Screen hash history | Recovery action |
 | `StaticMap` | Loads `static_analysis.json` (nullable) (INV-RSM-04) | JSON file path | Reachability, windows, transitions |
 | `RoutingManager` | LLM vs algorithm decision per iteration | Mode, screen, graph | Boolean (use LLM?) |
@@ -116,7 +116,7 @@ The components fall into three categories: **device interaction** (direct Androi
 | `TraceWriter` | Per-iteration JSON line to stdout (INV-RSM-10) | Iteration data | JSON line |
 | `MetricsCollector` | Final metrics JSON report at timeout | Aggregated stats | JSON report |
 | `RvTrack` | Structured decision logging via `[RVTRACK:<CATEGORY>]` to logcat. Same prefix convention as Python agent for tooling compatibility. 15 categories, aggregate counters. | Decision data | `Log.i("RVSMART", "[RVTRACK:...] key=value")` |
-| `Config` | `java.util.Properties` loader with defaults (~49 params, ~40 calibratable) | Properties file | Typed config values |
+| `Config` | `java.util.Properties` loader with defaults (~48 params, ~39 calibratable) | Properties file | Typed config values |
 | `HeapMonitor` | Runtime memory monitoring (INV-RSM-13) | `Runtime.freeMemory()` | Adaptive throttle adjustments |
 | `RVSmartTool` (Python) | rv-tools plugin: push, execute, capture (FR18, FR20) | Task, App | Trace file |
 
@@ -158,7 +158,7 @@ This table traces each requirement from its spec invariant through the Java/Pyth
 - Support 4 graceful degradation modes based on available data — full, MOP-directed, coverage-aware, heuristic (INV-RSM-04, INV-RSM-05)
 - Add multi-attempt cycles (INV-RSM-07), instant crash detection (INV-RSM-06), and confirmed coverage rewards (INV-RSM-05) as algorithmic improvements enabled by internal execution
 - Maintain standalone usability — `rvsmart.jar` + bare `adb shell` command, no rv-android dependency at runtime
-- All ~49 parameters configurable via `java.util.Properties` for Optuna calibration (~40 calibratable), enabling systematic parameter optimization in Phase 3
+- All ~48 parameters configurable via `java.util.Properties` for Optuna calibration (~39 calibratable), enabling systematic parameter optimization in Phase 3
 
 **Non-Goals:**
 - Replacing the Python RVAgent — both coexist; rvsmart is a separate tool option accessible via `--tools rvsmart:<variant>`
@@ -201,9 +201,9 @@ The key insight is that UIAutomator2 internally does exactly this — it gets th
 
 ### D4: Gson for JSON (not org.json)
 
-**Chosen**: Gson. **Rationale**: Already in the RVSEC ecosystem (`RvsecAnalysisClient` uses Gson for parsing `static_analysis.json`). The critical property is sorted key serialization for deterministic structural hashes — Gson serializes `TreeMap<String, Object>` keys in natural order, producing deterministic JSON without custom TypeAdapters. This directly supports INV-RSM-03 (structural hash compatibility with the Python agent).
+**Chosen**: Gson. **Rationale**: Already in the RVSEC ecosystem (`RvsecAnalysisClient` uses Gson for parsing `static_analysis.json`). The critical property is sorted key serialization for deterministic structural hashes — Gson serializes `TreeMap<String, Object>` keys in natural order. **Important**: this only works when every object in the JSON tree is a `TreeMap`, not a POJO or HashMap. Both the top-level object and each ScreenItem in the items array MUST be constructed as `TreeMap<String, Object>` to ensure recursive key sorting matching Python's `json.dumps(sort_keys=True)`. This directly supports INV-RSM-03 (structural hash compatibility with the Python agent).
 
-The golden test for hash compatibility is: hardcoded `ScreenItem` objects → canonical JSON → SHA-256[:12] must match the Python agent reference value. Using Gson's default `TreeMap` serialization makes this straightforward — no need for custom serializers or post-processing sort steps.
+The golden test for hash compatibility is: hardcoded `ScreenItem` objects → `TreeMap` per item → canonical JSON → SHA-256[:12] must match the Python agent reference value. Using Gson's `TreeMap` serialization at every level makes this straightforward — no need for custom serializers or post-processing sort steps.
 
 **Alternative**: `org.json` — viable but lacks automatic sorted key output, requiring manual `JSONObject` → `TreeMap` conversion.
 
@@ -211,7 +211,7 @@ The golden test for hash compatibility is: hardcoded `ScreenItem` objects → ca
 
 **Chosen**: `java.util.Properties` loaded from `--config rvsmart.properties`. **Rationale (P1 Simplicity)**: Zero dependency, trivially parseable, `key=value` format maps directly to Optuna's parameter space. In the calibration loop (Phase 3), Optuna generates `.properties` files programmatically — each trial writes its parameter values as `key=value` pairs, pushes the file to the emulator, and rvsmart reads them at startup. No YAML parser, no JSON config schema, no configuration framework — just `Properties.load(new FileInputStream(path))`.
 
-The ~49 parameters (listed in the spec's Key Data Models section) cover exploration weights, timing, thresholds, and LLM settings. Each has a sensible default hardcoded in `Config`, so the properties file is entirely optional. The subset of ~40 calibratable parameters maps 1:1 to Optuna's search space definition.
+The ~48 parameters (listed in the spec's Key Data Models section) cover exploration weights, timing, thresholds, and LLM settings. Each has a sensible default hardcoded in `Config`, so the properties file is entirely optional. The subset of ~39 calibratable parameters maps 1:1 to Optuna's search space definition.
 
 ### D6: Socat bridge for LLM networking (not adb reverse)
 
@@ -234,7 +234,7 @@ The phased approach de-risks the investment. Phase 0 validates `app_process` fun
 - **Phase 0 (PoC)**: Validate `app_process` fundamentals — bootstrap, UI capture success rate >99%, event injection >99%, crash callback fires on forced crash. Estimated: 3-5 days.
 - **Phase 1 (MVP)**: 3-tier selection (path buffer, untested, scored queue), multi-attempt, crash detection, system dialogs, rv-tools plugin, TraceWriter. Target: ≥12 evt/s.
 - **Phase 2 (Full)**: 4-tier selection with all 10 scorers, LLM hybrid mode, confirmed coverage, all 4 operational modes. Full algorithm parity with Python agent.
-- **Phase 3 (Calibration)**: Optuna integration for ~40 calibratable parameters, equivalence tests (Python vs Java hashes), benchmark vs APE/FastBot/rvagent-python.
+- **Phase 3 (Calibration)**: Optuna integration for ~39 calibratable parameters, equivalence tests (Python vs Java hashes), benchmark vs APE/FastBot/rvagent-python.
 
 ## API Design
 
@@ -278,7 +278,7 @@ class RVSmartTool(AbstractTool):
             "default": {"mode": "pure_algorithm", "throttle_ms": 50},
             "mvp": {"mode": "pure_algorithm", "throttle_ms": 50},
             "fast": {"mode": "pure_algorithm", "throttle_ms": 30},
-            "hybrid": {"mode": "multimode", "llm_url": "http://10.0.2.2:30000/v1"},
+            "hybrid": {"mode": "multimode", "llm_base_url": "http://10.0.2.2:30000/v1"},
         }
 
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:

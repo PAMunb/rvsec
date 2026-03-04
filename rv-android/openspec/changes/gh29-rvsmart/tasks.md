@@ -109,9 +109,9 @@
 
 - [ ] 3.1 Implement `core/ScreenState.java`: items list, activity name, structural hash. `computeHash()` MUST match Python agent output (INV-RSM-03): same fields, same ordering (resource_id then class), Gson sorted keys, SHA-256[:12]
 - [ ] 3.2 Implement `core/Action.java`: type enum (CLICK, LONG_CLICK, SET_TEXT, SCROLL, SWIPE, BACK, KEY_EVENT, RESTART), x/y device pixels, text (nullable), source ("algorithm"/"llm"), `signature()` method
-- [ ] 3.3 Implement `core/Config.java`: load from `java.util.Properties` file with typed getters and defaults for all ~49 parameters (see spec Parameters section for complete list)
+- [ ] 3.3 Implement `core/Config.java`: load from `java.util.Properties` file with typed getters and defaults for all ~48 parameters (see spec Parameters section for complete list)
 - [ ] 3.4 Implement `graph/ScreenNode.java`: visitCount, executedActions map (ActionSignature → count), failedActions map, cumulativeReward, transitions set
-- [ ] 3.5 Implement `graph/DynamicStateGraph.java`: `HashMap<String, ScreenNode>`, methods: `recordVisit()`, `recordTransition()`, `recordAction()`, `recordActionFailure()`, `getVisitCount()`, `getSaturation()`
+- [ ] 3.5 Implement `graph/DynamicStateGraph.java`: `LinkedHashMap<String, ScreenNode>` (insertion-ordered for deterministic BFS with --seed), methods: `recordVisit()`, `recordTransition()`, `recordAction()`, `recordActionFailure()`, `getVisitCount()`, `getSaturation()`
 - [ ] 3.6 Add JUnit tests: structural hash equivalence with Python reference hashes (golden test: hardcoded ScreenItems → exact expected hash), Config default loading, DynamicStateGraph operations. Include at least 3 reference hashes computed by the Python agent from real `uiautomator dump` captures of cryptoapp screens (not just synthetic trees). Document how to generate new reference hashes using the Python agent (for future maintenance).
 - [ ] 3.7 Run `mvn test` — verify all unit tests pass
 - [ ] 3.8 Run `/rv-code-reviewer` (Java scope: `$RVSEC_HOME/rvsec-android/rvsmart/src/main/java/br/unb/cic/rvsmart/core/`, `graph/`)
@@ -174,7 +174,7 @@
 > **Skills**: This group uses `/rv-doc-code` and `/rv-test-run` — the subagent MUST invoke these skills.
 
 - [ ] 8.1 Create `modules/rv-tools/src/rv_tools/builtin/rvsmart/__init__.py` and `tool.py`: `RVSmartTool` extending `AbstractTool` with TOOL_SPEC, 4 variants (default, mvp, fast, hybrid), `configure()`, `execute_tool_specific_logic()`
-- [ ] 8.2 Implement JAR resolution via `JarResolver` (search: module dir, `$TOOLS_DIR/rvsmart/`, `$RVSEC_HOME/rvsec-android/rvsmart/target/`)
+- [ ] 8.2 Implement JAR resolution via `JarResolver` (search priority: (1) `$RVSEC_HOME/rvsec-android/rvsmart/target/rvsmart.jar`, (2) `$TOOLS_DIR/rvsmart/rvsmart.jar`, (3) `/opt/rv-android/tools/rvsmart/rvsmart.jar`)
 - [ ] 8.3 Implement `execute_tool_specific_logic()`: adb push JAR + optional static data + optional config → build `Command` with `adb shell CLASSPATH=... /system/bin/app_process ...` → execute with stdout to trace file
 - [ ] 8.4 Implement metrics extraction: search trace file for last `RVSMART_METRICS:` line, parse JSON, write to `rvsmart_metrics.json` alongside trace file. When metrics line is missing (agent crashed), write default metrics JSON with zeroed values and `"status":"metrics_unavailable"`. Standard `coverage_metrics` are populated by rv-platform's CoverageComponent from logcat (no changes needed).
 - [ ] 8.4.1 Implement health check: before full execution, run `adb shell CLASSPATH=... app_process ... --health-check`. If exit code 1, log error and raise with clear message (faster than waiting for bootstrap timeout).
