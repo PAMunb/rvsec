@@ -26,6 +26,7 @@ members = [
     "rv-tools",
     "rv-uiautomator",
     "rvagent-tool",
+    "rvsmart-tool",
 ]
 
 [[package]]
@@ -2652,6 +2653,7 @@ dependencies = [
     { name = "rv-tools" },
     { name = "rv-uiautomator" },
     { name = "rvagent-tool" },
+    { name = "rvsmart-tool" },
     { name = "seaborn" },
 ]
 
@@ -2693,6 +2695,7 @@ requires-dist = [
     { name = "rv-tools", editable = "modules/rv-tools" },
     { name = "rv-uiautomator", editable = "modules/rv-uiautomator" },
     { name = "rvagent-tool", editable = "modules/rvagent-tool" },
+    { name = "rvsmart-tool", editable = "modules/rvsmart-tool" },
     { name = "seaborn", specifier = ">=0.13.2" },
 ]
 
@@ -3062,6 +3065,35 @@ dev = [
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-agent", editable = "modules/rv-agent" },
+    { name = "rv-android-core", editable = "modules/rv-android-core" },
+    { name = "rv-tools", editable = "modules/rv-tools" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+]
+
+[[package]]
+name = "rvsmart-tool"
+version = "0.1.0"
+source = { editable = "modules/rvsmart-tool" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "rv-android-core" },
+    { name = "rv-tools" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
     { name = "rv-tools", editable = "modules/rv-tools" },
 ]

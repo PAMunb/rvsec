@@ -22,6 +22,7 @@
 		<!-- <module>rvsec-reachability</module> -->
 		<module>rvsec-gator</module>
 		<module>rvsec-taint</module> <!-- deprecated ... apenas para testes -->
+		<module>rvsmart</module>
 	</modules>
 
 	<properties>

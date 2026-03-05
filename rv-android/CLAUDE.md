@@ -32,10 +32,11 @@ The system consists of the following modules:
 
 **LLM Testing:**
 10. **rv-agent**: Main LLM-driven testing tool using LangGraph for workflow orchestration
+11. **rvsmart-tool**: RVSmart Java exploration agent wrapper for rv-platform integration
 
 **Experiment Orchestration:**
-11. **rv-experiment**: Experiment orchestration and coordination system
-12. **rv-agent-validation**: Validation framework for rv-agent testing and benchmarking
+12. **rv-experiment**: Experiment orchestration and coordination system
+13. **rv-agent-validation**: Validation framework for rv-agent testing and benchmarking
 
 ## Development Commands
 
@@ -110,6 +111,7 @@ See `.claude/project-info.md` for Docker commands, monitor generation, and full 
 - **rv-platform**: Central execution engine used by rv-experiment
 - **rv-experiment**: Experiment orchestration with pre/post processing
 - **rv-agent**: Main LLM-driven testing tool
+- **rvsmart-tool**: Java-based exploration agent running inside emulator via app_process
 - **rv-instrumentation**: APK instrumentation using monitors from rv-monitor-generator
 
 ## Configuration Management

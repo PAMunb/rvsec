@@ -114,6 +114,16 @@ if [ "$RV_DEBUG" = "true" ] || [ "$RV_DEBUG" = "1" ]; then
     CMD="$CMD --debug"
 fi
 
+# Socat bridge for LLM hybrid mode (rvsmart multimode/llm_only)
+# 'sglang' is the expected Docker Compose service name for the SGLang LLM server
+if [ "${RVSMART_LLM_MODE:-false}" = "true" ]; then
+    echo "Starting socat bridge for SGLang server..."
+    socat TCP-LISTEN:30000,bind=127.0.0.1,fork,reuseaddr TCP:sglang:30000 &
+    SOCAT_PID=$!
+    trap "kill $SOCAT_PID 2>/dev/null" EXIT
+    echo "Socat bridge started (PID: $SOCAT_PID)"
+fi
+
 echo "=== RV-Android Docker ==="
 echo "CMD: $CMD"
 echo "========================="

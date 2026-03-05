@@ -1,0 +1,173 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-android</artifactId>
+		<version>0.8.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsmart</artifactId>
+	<packaging>jar</packaging>
+
+	<name>RVSec :: Android :: RVSmart</name>
+	<description>Java exploration agent for Android via app_process</description>
+
+	<properties>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<junit.jupiter.version>5.10.2</junit.jupiter.version>
+	</properties>
+
+	<dependencies>
+		<!-- Android API 29 stubs (compile-time only, ART provides at runtime) -->
+		<dependency>
+			<groupId>com.google.android</groupId>
+			<artifactId>android</artifactId>
+			<version>29</version>
+			<scope>system</scope>
+			<systemPath>${env.ANDROID_HOME}/platforms/android-29/android.jar</systemPath>
+		</dependency>
+
+		<!-- Gson for JSON serialization (sorted keys via TreeMap, structural hash) -->
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>${gson.version}</version>
+		</dependency>
+
+		<!-- JUnit 5 -->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>${junit.jupiter.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Mockito -->
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>4.11.0</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- Compiler: Java 8 -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.11.0</version>
+				<configuration>
+					<source>1.8</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+
+			<!-- Fat JAR with Gson shaded -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.5.2</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<transformers>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<mainClass>br.unb.cic.rvsmart.Main</mainClass>
+								</transformer>
+							</transformers>
+							<finalName>rvsmart</finalName>
+							<filters>
+								<filter>
+									<artifact>com.google.android:android</artifact>
+									<excludes>
+										<exclude>**</exclude>
+									</excludes>
+								</filter>
+							</filters>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Surefire for JUnit 5 -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.2.5</version>
+			</plugin>
+
+			<!-- Convert fat JAR to DEX format for app_process.
+			     app_process requires classes.dex inside the JAR (Android Dalvik/ART bytecode).
+			     d8 outputs to a temp dir, then we inject classes.dex into the JAR. -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>dex-convert</id>
+						<phase>package</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<executable>bash</executable>
+							<arguments>
+								<argument>-c</argument>
+								<argument>
+									set -e
+									D8=${ANDROID_HOME}/build-tools/35.0.1/d8
+									JAR=${project.build.directory}/rvsmart.jar
+									TMPDIR=${project.build.directory}/dex-tmp
+									rm -rf $TMPDIR &amp;&amp; mkdir -p $TMPDIR
+									$D8 --min-api 29 --output $TMPDIR $JAR
+									cd $TMPDIR &amp;&amp; jar uf $JAR classes.dex
+									rm -rf $TMPDIR
+								</argument>
+							</arguments>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- Copy rvsmart.jar to the Python tool module directory (same pattern as APE).
+			     JarResolver uses os.path.dirname(__file__) as first search path. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>copy-jar-to-tool-module</id>
+						<phase>install</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${main.basedir}/rv-android/modules/rvsmart-tool/src/rvsmart_tool/tools/rvsmart</outputDirectory>
+							<overwrite>true</overwrite>
+							<resources>
+								<resource>
+									<directory>${project.build.directory}</directory>
+									<includes>
+										<include>rvsmart.jar</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

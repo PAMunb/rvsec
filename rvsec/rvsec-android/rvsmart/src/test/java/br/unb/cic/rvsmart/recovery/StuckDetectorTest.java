@@ -1,0 +1,144 @@
+package br.unb.cic.rvsmart.recovery;
+
+import br.unb.cic.rvsmart.core.Action;
+import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.output.RvTrack;
+import br.unb.cic.rvsmart.strategy.PathBuffer;
+import br.unb.cic.rvsmart.strategy.SuccessorTracker;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Tests for StuckDetector — detects when the app is stuck on the same screen.
+ * Also covers Level 2 BFS recovery via the recover() method.
+ */
+class StuckDetectorTest {
+
+    @BeforeEach
+    void setUp() {
+        RvTrack.logEnabled = false;
+    }
+
+    @Test
+    void testNotStuckInitially() {
+        StuckDetector detector = new StuckDetector(3);
+        assertFalse(detector.update("hash_A"));
+        assertEquals(0, detector.getConsecutiveUnchanged());
+    }
+
+    @Test
+    void testIncrementingConsecutiveUnchanged() {
+        StuckDetector detector = new StuckDetector(5);
+        detector.update("hash_A"); // first visit, sets lastHash
+        assertFalse(detector.update("hash_A")); // consecutiveUnchanged=1
+        assertEquals(1, detector.getConsecutiveUnchanged());
+
+        assertFalse(detector.update("hash_A")); // consecutiveUnchanged=2
+        assertEquals(2, detector.getConsecutiveUnchanged());
+    }
+
+    @Test
+    void testStuckAfterMaxBlocks() {
+        StuckDetector detector = new StuckDetector(3);
+        detector.update("hash_A"); // sets lastHash, consecutive=0
+        detector.update("hash_A"); // consecutive=1
+        detector.update("hash_A"); // consecutive=2
+        assertTrue(detector.update("hash_A"), // consecutive=3 >= stuckMaxBlocks(3)
+                "Should be stuck after 3 consecutive unchanged hashes");
+    }
+
+    @Test
+    void testResetOnHashChange() {
+        StuckDetector detector = new StuckDetector(3);
+        detector.update("hash_A");
+        detector.update("hash_A"); // consecutive=1
+        detector.update("hash_A"); // consecutive=2
+
+        // Screen changes — reset
+        assertFalse(detector.update("hash_B"));
+        assertEquals(0, detector.getConsecutiveUnchanged());
+        assertEquals("hash_B", detector.getLastHash());
+    }
+
+    @Test
+    void testResetOnNullHash() {
+        StuckDetector detector = new StuckDetector(3);
+        detector.update("hash_A");
+        detector.update("hash_A"); // consecutive=1
+
+        // Null hash = crash recovery, resets everything
+        assertFalse(detector.update(null));
+        assertEquals(0, detector.getConsecutiveUnchanged());
+        assertNull(detector.getLastHash());
+    }
+
+    @Test
+    void testResetMethod() {
+        StuckDetector detector = new StuckDetector(3);
+        detector.update("hash_A");
+        detector.update("hash_A"); // consecutive=1
+
+        detector.reset();
+        assertEquals(0, detector.getConsecutiveUnchanged());
+        assertNull(detector.getLastHash());
+    }
+
+    @Test
+    void testCustomStuckMaxBlocks() {
+        StuckDetector detector = new StuckDetector(1);
+        detector.update("hash_A");
+        // With stuckMaxBlocks=1, the very first repeat triggers stuck
+        assertTrue(detector.update("hash_A"),
+                "Should be stuck with stuckMaxBlocks=1 after first repeat");
+    }
+
+    @Test
+    void testRecoverReturnsRestartWhenNoBfsConfigured() {
+        // Without BacktrackBfs and PathBuffer, recover() always returns RESTART
+        StuckDetector detector = new StuckDetector(3);
+        DynamicStateGraph graph = new DynamicStateGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        Action action = detector.recover("hash_A", tracker, graph);
+        assertNotNull(action);
+        assertEquals(Action.Type.RESTART, action.getType());
+    }
+
+    @Test
+    void testRecoverLoadsPathBufferWhenUnsaturatedAncestorFound() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        PathBuffer buffer = new PathBuffer();
+        StuckDetector detector = new StuckDetector(3, bfs, buffer);
+
+        DynamicStateGraph graph = new DynamicStateGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // Create an unsaturated ancestor for hash_A
+        // hash_parent has 1 visit (below default saturation threshold of 5)
+        graph.recordVisit("hash_parent", "ActivityP");
+        tracker.record("hash_parent", "hash_A");
+
+        Action action = detector.recover("hash_A", tracker, graph);
+        assertNotNull(action);
+        // Should return the first BACK from the BFS path
+        assertEquals(Action.Type.BACK, action.getType());
+    }
+
+    @Test
+    void testRecoverReturnsRestartWhenAllAncestorsSaturated() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        PathBuffer buffer = new PathBuffer();
+        StuckDetector detector = new StuckDetector(3, bfs, buffer);
+
+        DynamicStateGraph graph = new DynamicStateGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // hash_A has no parents — BFS finds no path
+        Action action = detector.recover("hash_A", tracker, graph);
+        assertNotNull(action);
+        assertEquals(Action.Type.RESTART, action.getType());
+    }
+}

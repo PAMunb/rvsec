@@ -18,6 +18,7 @@ dependencies = [
     "rv-agent",
     "rv-agent-validation",
     "rvagent-tool",
+    "rvsmart-tool",
     "rv-experiment",
     # Shared third-party
     "requests>=2.32.0",
@@ -65,4 +66,5 @@ rv-platform = { workspace = true }
 rv-agent = { workspace = true }
 rv-agent-validation = { workspace = true }
 rvagent-tool = { workspace = true }
+rvsmart-tool = { workspace = true }
 rv-experiment = { workspace = true }

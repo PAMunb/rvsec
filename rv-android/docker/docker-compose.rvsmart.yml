@@ -1,0 +1,46 @@
+# RV-Android + RVSmart LLM hybrid mode execution.
+#
+# Extends docker-compose.yml with an SGLang inference server and enables
+# the socat bridge in the rvandroid container so rvsmart can reach it via
+# 127.0.0.1:30000 (the bridge forwards to sglang:30000).
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.rvsmart.yml up
+#
+# The sglang service is placed under the "llm" profile so it only starts
+# when LLM mode is active. The rvandroid service override does not use a
+# profile, meaning it inherits the base service definition and only adds the
+# LLM-specific environment variable and dependency.
+
+services:
+  sglang:
+    profiles:
+      - llm
+    image: lmsysorg/sglang:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      python -m sglang.launch_server
+      --model-path Qwen/Qwen3-VL-4B-Instruct
+      --port 30000
+      --host 0.0.0.0
+    ports:
+      - "30000:30000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  rvandroid:
+    environment:
+      - RVSMART_LLM_MODE=true
+    depends_on:
+      sglang:
+        condition: service_healthy
