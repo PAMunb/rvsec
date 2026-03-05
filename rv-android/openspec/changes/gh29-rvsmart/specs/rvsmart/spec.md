@@ -910,7 +910,7 @@ flowchart LR
 - `WtgScorer`: +150.0 for WTG-guided transitions to unvisited screens. Same note: use 150.0 as Java default (Python config default).
 
 **Requires logcat data (1 scorer, new for rvsmart — not present in Python agent, returns 0 when LogcatReader has no data):**
-- `ConfirmedCoverageScorer`: +500 if action directly triggered new coverage (logcat RVSEC-COV tag within `confirmed_coverage_window_s` seconds of action execution), +200 if action's screen historically led to coverage events. This scorer is unique to rvsmart — the Python agent does not have real-time logcat access. The 9 other scorers are ported from the Python agent's `ActionRanker`.
+- `ConfirmedCoverageScorer`: +500 if action directly triggered new coverage (logcat RVSEC-COV tag within `confirmed_coverage_window_s` seconds of action execution), +200 if action's screen historically led to coverage events. **Attribution semantics**: when multiple actions execute within the attribution window, coverage is attributed to the **most recent** action only (last-action-wins). "Historically" means any prior execution of this specific action signature on this screen hash that was followed by a coverage event within the window — no recency weighting, binary yes/no. Cross-iteration coverage (action in iteration N, logcat drained in iteration N+1) is handled naturally because `drainCoverageTags()` accumulates between drains and the 2.0s window spans wall-clock time, not iteration boundaries. This scorer is unique to rvsmart — the Python agent does not have real-time logcat access. The 9 other scorers are ported from the Python agent's `ActionRanker`.
 
 **Synthetic action scoring (BACK and RESTART):**
 
@@ -931,6 +931,25 @@ All scorer weights and synthetic action scores are configurable via `rvsmart.pro
 - **WHEN** StaticMap is loaded and LogcatReader has RVSEC-COV data
 - **THEN** all 10 scorers SHALL produce scores
 - **AND** MopScorer SHALL return +500 for actions that directly reach a MOP method
+
+#### Scenario: ConfirmedCoverageScorer attribution with multiple actions in window
+- **WHEN** action A executes at t=10.0s and action B executes at t=10.5s
+- **AND** logcat drains at t=11.0s with RVSEC-COV tag timestamped at t=10.8s
+- **AND** `confirmed_coverage_window_s` is 2.0s
+- **THEN** coverage SHALL be attributed to action B only (most recent action within window, last-action-wins)
+- **AND** action A SHALL NOT receive the +500 direct coverage score for this event
+
+#### Scenario: ConfirmedCoverageScorer historical attribution
+- **WHEN** action "CLICK@540,960" on screen hash "a1b2c3d4e5f6" triggered coverage in iteration 5
+- **AND** the agent returns to screen "a1b2c3d4e5f6" in iteration 42
+- **THEN** "CLICK@540,960" SHALL receive +200 historical score (same action signature + same screen hash + prior coverage event)
+- **AND** other actions on the same screen that never triggered coverage SHALL receive +0 historical score
+
+#### Scenario: Cross-iteration coverage attribution
+- **WHEN** action executes at t=15.0s in iteration N
+- **AND** `drainCoverageTags()` runs at t=15.8s in iteration N+1
+- **AND** the RVSEC-COV tag appeared at t=15.3s (within 2.0s window of the action)
+- **THEN** coverage SHALL be attributed to the action from iteration N (wall-clock window spans iteration boundaries)
 
 #### Scenario: Concrete scoring example (CryptoApp)
 - **WHEN** the agent is on CryptoApp main screen with 3 widgets: Spinner (untested), EditText (untested), Button "GENERATE HASH" (untested, directly_reaches_mop=True)

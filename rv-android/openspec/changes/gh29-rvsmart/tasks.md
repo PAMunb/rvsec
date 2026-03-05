@@ -185,7 +185,7 @@
 
 # Phase 2: Full Algorithm + LLM Hybrid
 
-## 9. Complete Strategy (5-Tier + All Scorers)
+## 9. Complete Strategy (4-Tier + All Scorers)
 
 > **Dispatch**: Subagent (general-purpose). **PARALLEL with Group 10**. Pass: specs/rvsmart/spec.md (Ten Scorers, Successor Tracker, Reward Propagation, Stuck Detection Level 2), design.md (ActionSelector, PathBuffer, SuccessorTracker, RewardPropagator, BacktrackBfs).
 > **Files**: ~7 new Java files in `strategy/`, `recovery/` + tests
@@ -247,7 +247,7 @@
 > **Dispatch**: Subagent (general-purpose). Depends on groups 8 + 12. Pass: specs/rvsmart/spec.md (INV-RSM-03 hash compatibility, INV-RSM-10 metrics format), design.md (Testing Strategy: Equivalence layer).
 > **Files**: ~3 new Python scripts
 
-- [ ] 13.1 Create hash equivalence test script (Python): capture real UI trees from cryptoapp + at least 2 third-party apps (starslinger, privacyfriendlyludo) via `uiautomator dump` → compute hash with Python agent algorithm → compute hash with rvsmart (via subprocess on emulator or extracted logic) → assert equality (INV-RSM-03). Use real UI dumps, not synthetic trees — real dumps expose format differences (resource_id, special characters, deep nesting) that synthetic trees miss.
+- [ ] 13.1 Create hash equivalence test script (Python): capture real UI trees from cryptoapp + at least 4 third-party apps (starslinger, privacyfriendlyludo, and 2+ additional) via `uiautomator dump` → compute hash with Python agent algorithm → compute hash with rvsmart (via subprocess on emulator or extracted logic) → assert equality (INV-RSM-03). Corpus requirement: ≥20 screens from 5+ distinct apps, including edge cases: (a) screen with all-null text/contentDescription, (b) screen with emoji/Unicode in text, (c) RecyclerView with 500+ nodes (tests MAX_ITEMS cap), (d) screen with deeply nested fragments overlay. Use real UI dumps, not synthetic trees — real dumps expose format differences (resource_id, special characters, deep nesting) that synthetic trees miss.
 - [ ] 13.2 Create Optuna integration script (Python): generate `rvsmart.properties` files from Optuna trial parameters → push to emulator → run rvsmart → parse `rvsmart_metrics.json` → return objective value. **Objective function**: `maximize: throughput_evt_per_s × (unique_states / elapsed_s)`, subject to: `memory_peak < 80% heap`, `crash_rate < 1%`. Multi-objective with Pareto front if needed.
 - [ ] 13.3 Test all 4 operational modes using pre-instrumented APKs from `results/gh27_batch_validation/instrumented_apks/`: full (instrumented APK + `.apk.json`), MOP-directed (`.apk.json` only), coverage-aware (instrumented APK only), heuristic (original APK, neither). Use `scripts/run_emulator.sh` for standalone emulator. Test on cryptoapp + at least 1 third-party APK (starslinger or privacyfriendlyludo).
 - [ ] 13.4 E2E validation via rv-platform: `rv-experiment run --tools rvsmart:mvp --apks-dir results/gh27_batch_validation/instrumented_apks/ --timeout 60 --skip-monitors --skip-instrument --skip-static` — verify trace file, metrics JSON, coverage results. Use instrumented APKs directory directly (skip flags because APKs are already pre-processed).

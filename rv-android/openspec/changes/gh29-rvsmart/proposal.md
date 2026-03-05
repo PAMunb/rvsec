@@ -62,9 +62,12 @@ The current RVAgent (Python) achieves ~1 iter/s in pure_algorithm mode, limited 
 - [ ] Phase 1: Structural hash produces identical output to Python agent for same UI (3 reference screens from real uiautomator dumps)
 - [ ] Phase 1: rv-tools plugin resolves JAR, pushes, executes, captures trace file
 - [ ] Phase 1: TraceWriter output + `RVSMART_METRICS:` report extracted correctly
-- [ ] Phase 2: All 4 operational modes functional (full, MOP-directed, coverage-aware, heuristic)
+- [ ] Phase 2: All 4 operational modes produce non-zero coverage on cryptoapp in 60s
+- [ ] Phase 2: multimode at 5% LLM achieves ≥10 evt/s on cryptoapp (throughput degradation ≤20% vs pure_algorithm)
 - [ ] Phase 2: LLM circuit breaker trips after 3 consecutive failures, auto-resets after 60s
 - [ ] Phase 2: Node recycling validated — unit test with mock UI tree confirms all AccessibilityNodeInfo refs are recycled in try/finally (INV-RSM-02)
 - [ ] Phase 2: No OutOfMemoryError during 1000 continuous iterations on cryptoapp (INV-RSM-13 validated by HeapMonitor)
+- [ ] Phase 3: Hash equivalence: 0 divergences across ≥20 reference screens from 5+ apps (including edge cases: null fields, emoji/Unicode, deep nesting, RecyclerView with 500+ nodes)
 - [ ] Phase 3: Optuna calibration integration functional with objective function
+- [ ] Phase 3: rvsmart coverage ≥80% of APE coverage on same APKs (N≥5 APKs, paired comparison)
 - [ ] All code follows P1-P4 principles
