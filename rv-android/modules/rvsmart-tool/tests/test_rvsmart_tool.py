@@ -179,7 +179,7 @@ class TestJarSearchPaths:
     @patch.dict(os.environ, {"RVSEC_HOME": "/fake/rvsec"})
     def test_jar_search_paths_includes_rvsec_home(self):
         paths = RVSmartTool._get_jar_search_paths()
-        expected = os.path.join("/fake/rvsec", "rvsec-android", "rvsmart", "target")
+        expected = os.path.join("/fake/rvsec", "rvsec", "rvsec-android", "rvsmart", "target")
         assert expected in paths
 
     @patch.dict(os.environ, {"TOOLS_DIR": "/fake/tools"})
@@ -210,6 +210,7 @@ class TestBuildCommand:
 
         app = MagicMock()
         app.package_name = "br.unb.cic.cryptoapp"
+        app.code_package = "br.unb.cic.cryptoapp"
 
         cmd = tool._build_main_command(
             app=app,
@@ -223,6 +224,8 @@ class TestBuildCommand:
         assert "br.unb.cic.cryptoapp" in args
         assert "--timeout" in args
         assert "300" in args
+        assert "--code-package" in args
+        assert "br.unb.cic.cryptoapp" in args
         assert RVSMART_MAIN_CLASS in args
         assert f"CLASSPATH={RVSMART_DEVICE_JAR_PATH}" in args
 
@@ -234,6 +237,7 @@ class TestBuildCommand:
 
         app = MagicMock()
         app.package_name = "com.example.app"
+        app.code_package = "com.example.app"
 
         cmd = tool._build_main_command(
             app=app,
@@ -254,6 +258,7 @@ class TestBuildCommand:
 
         app = MagicMock()
         app.package_name = "com.example.app"
+        app.code_package = "com.example.app"
 
         cmd = tool._build_main_command(
             app=app,
@@ -274,6 +279,7 @@ class TestBuildCommand:
 
         app = MagicMock()
         app.package_name = "com.example.app"
+        app.code_package = "com.example.app"
 
         cmd = tool._build_main_command(
             app=app,

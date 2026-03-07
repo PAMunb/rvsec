@@ -69,7 +69,7 @@ public class Action {
      */
     public String signature() {
         String typeName = type.name().toLowerCase();
-        if (type == Type.SET_TEXT && text != null) {
+        if ((type == Type.SET_TEXT || type == Type.SCROLL) && text != null) {
             return typeName + ":" + text + "@" + x + "," + y;
         }
         return typeName + "@" + x + "," + y;

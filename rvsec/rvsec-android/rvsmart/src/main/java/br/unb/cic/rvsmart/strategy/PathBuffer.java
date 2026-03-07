@@ -79,6 +79,25 @@ public class PathBuffer {
     }
 
     /**
+     * Validates the agent's current position before consuming the next hop.
+     * If the agent diverged from the expected position, the path is invalidated
+     * and null is returned instead of consuming a stale hop.
+     *
+     * @param currentHash the agent's current screen hash
+     * @return the next BACK action, or null if path is empty or position mismatches
+     */
+    public Action consumeNext(String currentHash) {
+        if (path.isEmpty()) return null;
+        String expected = expectedHashes.peek();
+        if (expected != null && !expected.equals(currentHash)) {
+            invalidate();
+            return null;
+        }
+        expectedHashes.poll();
+        return path.poll();
+    }
+
+    /**
      * Clears all stored paths. Called when the navigation plan is no longer valid.
      */
     public void invalidate() {

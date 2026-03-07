@@ -1,30 +1,29 @@
 package br.unb.cic.rvsmart.core;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Represents the current UI state: items + activity name + structural hash.
  *
- * The structural hash (INV-RSM-03) MUST produce identical output to the Python agent's
- * compute_screen_hash_from_description(). Algorithm:
- *   1. Extract 9 structural attributes per item (class, resource_id, package,
- *      clickable, scrollable, checkable, enabled, long_clickable, editable)
- *   2. Sort items by (resource_id || "zzz", class)
- *   3. Create canonical JSON with sorted keys and compact separators
- *   4. SHA-256 of UTF-8 bytes, truncated to 12 hex characters
+ * The structural hash uses Objects.hash() over deduplicated, sorted widget signatures.
+ * Each widget signature encodes 3 structural fields: className, resourceID, interactMask.
+ * Widgets with identical signatures are merged (FastBot pattern) to prevent list items
+ * from inflating state counts.
  */
 public class ScreenState {
 
-    private static final Gson GSON = new GsonBuilder().create();
+    // Interaction flag bitmask positions
+    private static final int MASK_CLICKABLE      = 1;
+    private static final int MASK_SCROLLABLE     = 2;
+    private static final int MASK_CHECKABLE      = 4;
+    private static final int MASK_LONG_CLICKABLE = 8;
+    private static final int MASK_ENABLED        = 16;
 
     private final List<ScreenItem> items;
     private final String activity;
@@ -49,67 +48,49 @@ public class ScreenState {
     }
 
     /**
-     * Compute structural hash matching the Python agent's algorithm.
+     * Compute structural hash from deduplicated, sorted widget signatures.
      *
-     * Uses TreeMap at every nesting level to guarantee sorted keys in Gson output.
-     * Python uses json.dumps(sort_keys=True, separators=(",", ":")).
-     * Gson serializing TreeMap produces the same ordered compact JSON.
+     * Algorithm:
+     *   1. Build a signature string per widget: "className|resourceID|interactMask"
+     *   2. Deduplicate identical signatures (Set)
+     *   3. Sort signatures by natural string ordering (className first, then resourceID)
+     *   4. Hash via Objects.hash(activity, sig1, sig2, ...) and format as 8-char hex
      */
     static String computeHash(List<ScreenItem> items, String activity) {
-        // Build structural representation for each item
-        List<TreeMap<String, Object>> structuralItems = new ArrayList<>(items.size());
-
+        // Build deduplicated signature set
+        Set<String> signatureSet = new LinkedHashSet<>();
         for (ScreenItem item : items) {
-            TreeMap<String, Object> view = new TreeMap<>();
-            view.put("checkable", item.isCheckable());
-            view.put("class", item.getClassName());
-            view.put("clickable", item.isClickable());
-            view.put("editable", item.isEditable());
-            view.put("enabled", item.isEnabled());
-            view.put("long_clickable", item.isLongClickable());
-            view.put("package", item.getPackageName());
-            view.put("resource_id", item.getResourceId() != null ? item.getResourceId() : "");
-            view.put("scrollable", item.isScrollable());
-            structuralItems.add(view);
+            signatureSet.add(widgetSignature(item));
         }
 
-        // Sort by (resource_id || "zzz", class)
-        Collections.sort(structuralItems, new Comparator<TreeMap<String, Object>>() {
-            @Override
-            public int compare(TreeMap<String, Object> a, TreeMap<String, Object> b) {
-                String ridA = (String) a.get("resource_id");
-                String ridB = (String) b.get("resource_id");
-                String sortKeyA = ridA.isEmpty() ? "zzz" : ridA;
-                String sortKeyB = ridB.isEmpty() ? "zzz" : ridB;
-                int cmp = sortKeyA.compareTo(sortKeyB);
-                if (cmp != 0) return cmp;
-                return ((String) a.get("class")).compareTo((String) b.get("class"));
-            }
-        });
+        // Sort for determinism
+        List<String> sorted = new ArrayList<>(signatureSet);
+        Collections.sort(sorted);
 
-        // Build top-level TreeMap for sorted keys
-        TreeMap<String, Object> canonical = new TreeMap<>();
-        canonical.put("activity", activity);
-        canonical.put("items", structuralItems);
+        // Build args array: activity + all sorted signatures
+        Object[] hashArgs = new Object[sorted.size() + 1];
+        hashArgs[0] = activity;
+        for (int i = 0; i < sorted.size(); i++) {
+            hashArgs[i + 1] = sorted.get(i);
+        }
 
-        // Gson with TreeMap produces compact JSON with sorted keys
-        String json = GSON.toJson(canonical);
-
-        // SHA-256 → first 12 hex chars
-        return sha256Hex(json).substring(0, 12);
+        int hashCode = Objects.hash(hashArgs);
+        return String.format("%08x", hashCode);
     }
 
-    private static String sha256Hex(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder(64);
-            for (byte b : digest) {
-                hex.append(String.format("%02x", b & 0xff));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
+    /**
+     * Build a structural signature for a widget using only identity-relevant fields.
+     * Format: "className|resourceID|interactMask"
+     */
+    private static String widgetSignature(ScreenItem item) {
+        String className = item.getClassName() != null ? item.getClassName() : "";
+        String resourceId = item.getResourceId() != null ? item.getResourceId() : "";
+        int mask = 0;
+        if (item.isClickable())     mask |= MASK_CLICKABLE;
+        if (item.isScrollable())    mask |= MASK_SCROLLABLE;
+        if (item.isCheckable())     mask |= MASK_CHECKABLE;
+        if (item.isLongClickable()) mask |= MASK_LONG_CLICKABLE;
+        if (item.isEnabled())       mask |= MASK_ENABLED;
+        return className + "|" + resourceId + "|" + mask;
     }
 }

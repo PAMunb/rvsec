@@ -42,10 +42,70 @@ class WtgScorerTest {
     }
 
     @Test
-    void testReturnsZeroWhenWtgDataNotParsed() {
-        // Current StaticMap does not expose WTG transition lookups yet
+    void testReturnsZeroForScrollAction() {
+        // SCROLL actions should not receive WTG boost
         StaticMap staticMap = new StaticMap(null);
-        Action action = new Action(Action.Type.CLICK, 50, 60, "algorithm", "Button");
+        Action action = new Action(Action.Type.SCROLL, 50, 60, "down", "algorithm", "ListView");
         assertEquals(0, scorer.score(action, screen, graph, staticMap));
+    }
+
+    @Test
+    void testReturnsZeroForBackAction() {
+        StaticMap staticMap = new StaticMap(null);
+        Action action = Action.back("algorithm");
+        assertEquals(0, scorer.score(action, screen, graph, staticMap));
+    }
+
+    @Test
+    void testReturnsZeroForRestartAction() {
+        StaticMap staticMap = new StaticMap(null);
+        Action action = Action.restart("algorithm");
+        assertEquals(0, scorer.score(action, screen, graph, staticMap));
+    }
+
+    @Test
+    void testReturnsZeroForSetTextAction() {
+        StaticMap staticMap = new StaticMap(null);
+        Action action = new Action(Action.Type.SET_TEXT, 50, 60, "text", "algorithm", "EditText");
+        assertEquals(0, scorer.score(action, screen, graph, staticMap));
+    }
+
+    @Test
+    void testReturnsZeroWhenActivityIsNull() {
+        // Screen with null activity
+        ScreenState nullActivityScreen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), null);
+        StaticMap staticMap = new StaticMap(null);
+        Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+        assertEquals(0, scorer.score(action, nullActivityScreen, graph, staticMap));
+    }
+
+    @Test
+    void testReturnsZeroWhenActivityIsEmpty() {
+        ScreenState emptyActivityScreen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "");
+        StaticMap staticMap = new StaticMap(null);
+        Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+        assertEquals(0, scorer.score(action, emptyActivityScreen, graph, staticMap));
+    }
+
+    // --- BFS logic tests (using bfsBoost directly) ---
+
+    @Test
+    void testBfsBoostReturnsZeroWithNoTransitions() {
+        // StaticMap not loaded returns empty transitions
+        StaticMap staticMap = new StaticMap(null);
+        assertEquals(0, scorer.bfsBoost("MainActivity", graph, staticMap));
+    }
+
+    @Test
+    void testBfsBoostReturnsZeroWhenAllTargetsVisited() {
+        // Even if transitions exist, if all targets are visited, boost is 0.
+        // This test uses StaticMap(null) which is not loaded, so getTransitions
+        // returns empty. A more complete test would need a loaded StaticMap.
+        StaticMap staticMap = new StaticMap(null);
+        graph.getOrCreate("hash1", "TargetActivity");
+        graph.recordVisit("hash1", "TargetActivity");
+        assertEquals(0, scorer.bfsBoost("MainActivity", graph, staticMap));
     }
 }

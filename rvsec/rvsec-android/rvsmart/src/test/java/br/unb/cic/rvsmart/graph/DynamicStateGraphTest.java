@@ -88,7 +88,9 @@ class DynamicStateGraphTest {
         // No actions executed
         assertEquals(0.0f, node.getSaturationRate(), 0.01f);
 
-        // Execute one action twice (threshold=2 for Button)
+        // Execute one action 4 times (threshold=4 for Button)
+        node.recordAction("click@100,200", "Button");
+        node.recordAction("click@100,200", "Button");
         node.recordAction("click@100,200", "Button");
         node.recordAction("click@100,200", "Button");
         // 1 saturated / 3 total = 0.33

@@ -19,7 +19,7 @@ import java.util.Set;
 public class ScreenNode {
 
     /** Single-action widget saturation threshold. */
-    private static final int DEFAULT_SATURATION_THRESHOLD = 2;
+    private static final int DEFAULT_SATURATION_THRESHOLD = 4;
 
     /** Widget classes that need more executions before saturation. */
     private static final Set<String> MULTI_VALUE_WIDGETS = new HashSet<>();
@@ -61,7 +61,7 @@ public class ScreenNode {
     private final Map<String, String> widgetClasses = new HashMap<>();
     private final Set<String> transitions = new HashSet<>();
 
-    private int multiValueThreshold = 4;
+    private int multiValueThreshold = 6;
 
     public ScreenNode(String screenHash, String activity) {
         this.screenHash = screenHash;

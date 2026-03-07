@@ -475,6 +475,9 @@ class RVSmartTool(AbstractTool):
         if has_static_data:
             cmd_args.extend(["--static-data", RVSMART_DEVICE_STATIC_DATA_PATH])
 
+        # Add code package for StaticMap activity-based MOP lookup
+        cmd_args.extend(["--code-package", app.code_package])
+
         # Add config path if config was pushed
         if self._tool_config:
             cmd_args.extend(["--config", RVSMART_DEVICE_CONFIG_PATH])

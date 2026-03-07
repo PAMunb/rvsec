@@ -155,6 +155,25 @@ public class UiCapture {
         CharSequence pkgName = node.getPackageName();
         CharSequence resId = node.getViewIdResourceName();
 
+        // Extract hint text from AccessibilityNodeInfo extras (API 26+)
+        String hint = null;
+        try {
+            CharSequence hintText = node.getHintText();
+            if (hintText != null) {
+                hint = hintText.toString();
+            }
+        } catch (NoSuchMethodError e) {
+            // getHintText() not available below API 26
+        }
+
+        // Extract inputType from AccessibilityNodeInfo extras (API 28+)
+        int inputType = 0;
+        try {
+            inputType = node.getInputType();
+        } catch (NoSuchMethodError e) {
+            // getInputType() not available below API 28
+        }
+
         return new ScreenItem(
                 className != null ? simplifyClassName(className.toString()) : "",
                 resId != null ? normalizeResourceId(resId.toString()) : null,
@@ -168,7 +187,9 @@ public class UiCapture {
                 node.isEnabled(),
                 node.isLongClickable(),
                 isEditable(node),
-                parentIndex
+                parentIndex,
+                hint,
+                inputType
         );
     }
 

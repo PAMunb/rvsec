@@ -20,10 +20,11 @@ public class Config {
     private String mode = "pure_algorithm";
     private Integer seed;
     private String staticDataPath;
+    private String codePackage;
 
     // --- Execution (4) ---
-    private static final int DEFAULT_THROTTLE_MS = 200;
-    private static final int DEFAULT_MAX_RETRIES_PER_CYCLE = 1;
+    private static final int DEFAULT_THROTTLE_MS = 100;
+    private static final int DEFAULT_MAX_RETRIES_PER_CYCLE = 3;
     private static final int DEFAULT_ADAPTIVE_WAIT_MS = 150;
 
     // --- Routing (2) ---
@@ -45,7 +46,7 @@ public class Config {
     private static final float DEFAULT_VISITATION_PENALTY_FACTOR = 15.0f;
 
     // --- Synthetic actions (3) ---
-    private static final float DEFAULT_BACK_BASE_SCORE = -500.0f;
+    private static final float DEFAULT_BACK_BASE_SCORE = -100.0f;
     private static final float DEFAULT_RESTART_BASE_SCORE = -500.0f;
     private static final float DEFAULT_BACK_DECAY_PER_REPEAT = 100.0f;
 
@@ -60,7 +61,7 @@ public class Config {
 
     // --- Successor tracker (3) ---
     private static final int DEFAULT_MAX_RE_ENABLES = 6;
-    private static final int DEFAULT_MULTI_VALUE_SATURATION_THRESHOLD = 4;
+    private static final int DEFAULT_MULTI_VALUE_SATURATION_THRESHOLD = 6;
     private static final float DEFAULT_UI_COVERAGE_THRESHOLD = 0.8f;
 
     // --- Path buffer (4) ---
@@ -130,6 +131,9 @@ public class Config {
     public String getStaticDataPath() { return staticDataPath; }
     public void setStaticDataPath(String staticDataPath) { this.staticDataPath = staticDataPath; }
 
+    public String getCodePackage() { return codePackage; }
+    public void setCodePackage(String codePackage) { this.codePackage = codePackage; }
+
     // --- Execution ---
     public int getThrottleMs() { return getInt("throttle_ms", DEFAULT_THROTTLE_MS); }
     public int getMaxRetriesPerCycle() { return getInt("max_retries_per_cycle", DEFAULT_MAX_RETRIES_PER_CYCLE); }
@@ -159,7 +163,12 @@ public class Config {
     public float getBackDecayPerRepeat() { return getFloat("back_decay_per_repeat", DEFAULT_BACK_DECAY_PER_REPEAT); }
 
     // --- Stochastic selection ---
-    public float getStochasticProbability() { return getFloat("stochastic_probability", DEFAULT_STOCHASTIC_PROBABILITY); }
+    public float getStochasticProbability() {
+        if (stochasticProbabilityOverride != null) return stochasticProbabilityOverride;
+        return getFloat("stochastic_probability", DEFAULT_STOCHASTIC_PROBABILITY);
+    }
+    private Float stochasticProbabilityOverride;
+    public void setStochasticProbability(float value) { this.stochasticProbabilityOverride = value; }
 
     // --- Reward propagation ---
     public float getRewardGamma() { return getFloat("reward_gamma", DEFAULT_REWARD_GAMMA); }

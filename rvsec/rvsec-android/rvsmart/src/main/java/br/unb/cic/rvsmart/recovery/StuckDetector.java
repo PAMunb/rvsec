@@ -22,10 +22,15 @@ import java.util.List;
 public class StuckDetector {
 
     private static final int DEFAULT_SATURATION_THRESHOLD = 5;
+    private static final long TIME_STUCK_MS = 30_000;
+    private static final int MIN_DYNAMIC_THRESHOLD = 8;
 
     private String lastHash;
     private int consecutiveUnchanged;
     private final int stuckMaxBlocks;
+
+    // Time-based stuck detection
+    private long lastNewScreenTime;
 
     // Level 2 dependencies (optional — null means Level 2 is disabled)
     private final BacktrackBfs backtrackBfs;
@@ -88,6 +93,54 @@ public class StuckDetector {
         }
 
         return Action.restart("algorithm");
+    }
+
+    /**
+     * Update with action type awareness. SET_TEXT and checkable toggle actions
+     * do not increment the stuck counter — they change field content but not
+     * the screen hash, so counting them as "no progress" triggers premature BACK.
+     */
+    public boolean updateWithActionType(String currentHash, Action.Type actionType) {
+        if (currentHash == null) {
+            lastHash = null;
+            consecutiveUnchanged = 0;
+            return false;
+        }
+        if (currentHash.equals(lastHash)) {
+            // Form action exemption: SET_TEXT doesn't increment stuck counter
+            if (actionType == Action.Type.SET_TEXT) {
+                return consecutiveUnchanged >= stuckMaxBlocks;
+            }
+            consecutiveUnchanged++;
+            return consecutiveUnchanged >= stuckMaxBlocks;
+        } else {
+            lastHash = currentHash;
+            consecutiveUnchanged = 0;
+            return false;
+        }
+    }
+
+    /**
+     * Record new screen discovery (resets time-based stuck timer).
+     */
+    public void recordNewScreen(long currentTimeMs) {
+        lastNewScreenTime = currentTimeMs;
+    }
+
+    /**
+     * Time-based stuck detection: stuck when > 30 seconds since last new screen.
+     */
+    public boolean isTimeStuck(long currentTimeMs) {
+        return (currentTimeMs - lastNewScreenTime) > TIME_STUCK_MS;
+    }
+
+    /**
+     * Dynamic threshold: max(8, numElements * 1.5).
+     * Screens with many elements deserve more patience.
+     */
+    public boolean isStuckWithDynamicThreshold(int numElements) {
+        int threshold = Math.max(MIN_DYNAMIC_THRESHOLD, (int) (numElements * 1.5));
+        return consecutiveUnchanged >= threshold;
     }
 
     /** Reset all state (e.g., after app restart). */

@@ -127,6 +127,95 @@ class StuckDetectorTest {
         assertEquals(Action.Type.BACK, action.getType());
     }
 
+    // --- Time-based stuck detection (task 1.3a) ---
+
+    @Test
+    void testTimeStuckAfter30Seconds() {
+        StuckDetector detector = new StuckDetector(100); // high threshold so iteration-based won't trigger
+        long now = 100_000L;
+        detector.recordNewScreen(now); // last new screen at t=100s
+
+        // 29 seconds later — not stuck
+        assertFalse(detector.isTimeStuck(now + 29_000));
+
+        // 31 seconds later — stuck
+        assertTrue(detector.isTimeStuck(now + 31_000));
+    }
+
+    @Test
+    void testTimeStuckResetsOnNewScreen() {
+        StuckDetector detector = new StuckDetector(100);
+        long now = 100_000L;
+        detector.recordNewScreen(now);
+
+        // 31 seconds — stuck
+        assertTrue(detector.isTimeStuck(now + 31_000));
+
+        // New screen discovered at t=131s
+        detector.recordNewScreen(now + 31_000);
+
+        // 10 seconds after new screen — not stuck
+        assertFalse(detector.isTimeStuck(now + 41_000));
+    }
+
+    // --- Form action exemption (task 1.3b) ---
+
+    @Test
+    void testSetTextDoesNotIncrementStuckCounter() {
+        StuckDetector detector = new StuckDetector(3);
+        detector.update("hash_A");
+        detector.update("hash_A"); // consecutive=1
+
+        // SET_TEXT on same screen should NOT increment counter
+        detector.updateWithActionType("hash_A", Action.Type.SET_TEXT);
+        assertEquals(1, detector.getConsecutiveUnchanged(),
+                "SET_TEXT should not increment stuck counter");
+    }
+
+    @Test
+    void testClickDoesIncrementStuckCounter() {
+        StuckDetector detector = new StuckDetector(3);
+        detector.update("hash_A");
+        detector.update("hash_A"); // consecutive=1
+
+        // CLICK on same screen SHOULD increment counter
+        detector.updateWithActionType("hash_A", Action.Type.CLICK);
+        assertEquals(2, detector.getConsecutiveUnchanged(),
+                "CLICK should increment stuck counter");
+    }
+
+    // --- Dynamic threshold (task 1.3c) ---
+
+    @Test
+    void testDynamicThresholdWithFewElements() {
+        // max(8, 3 * 1.5) = max(8, 4.5) = 8
+        StuckDetector detector = new StuckDetector(10); // base threshold
+        detector.update("hash_A");
+        for (int i = 0; i < 7; i++) {
+            detector.update("hash_A"); // consecutive 1-7
+        }
+        assertFalse(detector.isStuckWithDynamicThreshold(3),
+                "7 consecutive < max(8, 3*1.5)=8, not stuck");
+        detector.update("hash_A"); // consecutive=8
+        assertTrue(detector.isStuckWithDynamicThreshold(3),
+                "8 consecutive >= max(8, 3*1.5)=8, stuck");
+    }
+
+    @Test
+    void testDynamicThresholdWithManyElements() {
+        // max(8, 30 * 1.5) = max(8, 45) = 45
+        StuckDetector detector = new StuckDetector(100);
+        detector.update("hash_A");
+        for (int i = 0; i < 44; i++) {
+            detector.update("hash_A"); // consecutive 1-44
+        }
+        assertFalse(detector.isStuckWithDynamicThreshold(30),
+                "44 consecutive < max(8, 30*1.5)=45, not stuck");
+        detector.update("hash_A"); // consecutive=45
+        assertTrue(detector.isStuckWithDynamicThreshold(30),
+                "45 consecutive >= max(8, 30*1.5)=45, stuck");
+    }
+
     @Test
     void testRecoverReturnsRestartWhenAllAncestorsSaturated() {
         BacktrackBfs bfs = new BacktrackBfs();

@@ -10,76 +10,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Golden tests for structural hash equivalence with Python agent (INV-RSM-03).
- *
- * Reference hashes computed using Python agent's compute_screen_hash_from_description()
- * with json.dumps(sort_keys=True, separators=(",", ":")) + SHA-256[:12].
- *
- * To generate new reference hashes:
- *   cd modules/rv-agent
- *   python3 -c "
- *     import json, hashlib
- *     items = [{'class': '...', 'resource_id': '...', 'package': '...', ...}]
- *     items.sort(key=lambda x: (x['resource_id'] or 'zzz', x['class']))
- *     canonical = json.dumps({'activity': '...', 'items': items},
- *                            sort_keys=True, separators=(',', ':'))
- *     print(hashlib.sha256(canonical.encode()).hexdigest()[:12])
- *   "
+ * Tests for structural hash using Objects.hash() over deduplicated widget signatures.
  */
 class ScreenStateTest {
 
     /**
-     * CryptoApp MainActivity — 6 items captured from real PoC run on API 29.
-     * Python reference: 5fcb1c0b4337
-     */
-    @Test
-    void testCryptoAppMainActivityHash() {
-        List<ScreenItem> items = Arrays.asList(
-                item("FrameLayout", null, "br.unb.cic.cryptoapp",
-                        false, false, false, true, false, false),
-                item("TextView", null, "br.unb.cic.cryptoapp",
-                        false, false, false, true, false, false),
-                item("ImageView", null, "br.unb.cic.cryptoapp",
-                        true, false, false, true, false, false),
-                item("Button", "br.unb.cic.cryptoapp:id/buttonMessageDigest", "br.unb.cic.cryptoapp",
-                        true, false, false, true, false, false),
-                item("Button", "br.unb.cic.cryptoapp:id/buttonCipher", "br.unb.cic.cryptoapp",
-                        true, false, false, true, false, false),
-                item("Button", "br.unb.cic.cryptoapp:id/buttonGenerated", "br.unb.cic.cryptoapp",
-                        true, false, false, true, false, false)
-        );
-
-        ScreenState state = new ScreenState(items, "MainActivity");
-        assertEquals("5fcb1c0b4337", state.getHash());
-    }
-
-    /**
-     * Empty screen — no items.
-     * Python reference: 924e689d3b4e
-     */
-    @Test
-    void testEmptyScreenHash() {
-        ScreenState state = new ScreenState(Collections.<ScreenItem>emptyList(), "EmptyActivity");
-        assertEquals("924e689d3b4e", state.getHash());
-    }
-
-    /**
-     * Single EditText with resource ID.
-     * Python reference: 00b4da4644e3
-     */
-    @Test
-    void testSingleEditTextHash() {
-        List<ScreenItem> items = Collections.singletonList(
-                item("EditText", "com.example:id/input", "com.example",
-                        true, false, false, true, false, true)
-        );
-
-        ScreenState state = new ScreenState(items, "FormActivity");
-        assertEquals("00b4da4644e3", state.getHash());
-    }
-
-    /**
-     * Verify that item order doesn't matter — hash sorts by (resource_id, class).
+     * Verify that item order doesn't matter — hash sorts signatures before hashing.
      */
     @Test
     void testOrderIndependence() {
@@ -127,12 +63,12 @@ class ScreenStateTest {
     }
 
     /**
-     * Verify hash is exactly 12 characters.
+     * Hash is exactly 8 hex characters (Objects.hash int formatted as %08x).
      */
     @Test
     void testHashLength() {
         ScreenState state = new ScreenState(Collections.<ScreenItem>emptyList(), "Test");
-        assertEquals(12, state.getHash().length());
+        assertEquals(8, state.getHash().length());
     }
 
     /**
@@ -144,6 +80,135 @@ class ScreenStateTest {
         items.add(item("Button", null, "pkg", true, false, false, true, false, false));
         ScreenState state = new ScreenState(items, "Test");
         assertThrows(UnsupportedOperationException.class, () -> state.getItems().clear());
+    }
+
+    /**
+     * Widget deduplication: 5 identical list items produce same hash as 1 item.
+     * This is the FastBot pattern — prevents list items from inflating state counts.
+     */
+    @Test
+    void testWidgetDeduplication() {
+        ScreenItem single = item("TextView", "pkg:id/row", "pkg",
+                true, false, false, true, false, false);
+
+        List<ScreenItem> fiveItems = Arrays.asList(single, single, single, single, single);
+        List<ScreenItem> oneItem = Collections.singletonList(single);
+
+        ScreenState stateFive = new ScreenState(fiveItems, "ListActivity");
+        ScreenState stateOne = new ScreenState(oneItem, "ListActivity");
+
+        assertEquals(stateFive.getHash(), stateOne.getHash());
+    }
+
+    /**
+     * Text exclusion: same widget with different text produces same hash.
+     */
+    @Test
+    void testTextExclusion() {
+        ScreenItem item1 = new ScreenItem("TextView", "pkg:id/label", "Hello World", null,
+                null, "pkg", false, false, false, true, false, false, 0);
+        ScreenItem item2 = new ScreenItem("TextView", "pkg:id/label", "Goodbye", null,
+                null, "pkg", false, false, false, true, false, false, 0);
+
+        ScreenState state1 = new ScreenState(Collections.singletonList(item1), "Test");
+        ScreenState state2 = new ScreenState(Collections.singletonList(item2), "Test");
+
+        assertEquals(state1.getHash(), state2.getHash());
+    }
+
+    /**
+     * Coordinate exclusion: same widget with different bounds produces same hash.
+     */
+    @Test
+    void testCoordinateExclusion() {
+        // bounds is null in both — ScreenItem constructor accepts Rect which is Android-only,
+        // but the hash never uses bounds, so different parentIndex values also don't matter
+        ScreenItem item1 = new ScreenItem("Button", "pkg:id/btn", null, null,
+                null, "pkg", true, false, false, true, false, false, 0);
+        ScreenItem item2 = new ScreenItem("Button", "pkg:id/btn", null, null,
+                null, "pkg", true, false, false, true, false, false, 5);
+
+        ScreenState state1 = new ScreenState(Collections.singletonList(item1), "Test");
+        ScreenState state2 = new ScreenState(Collections.singletonList(item2), "Test");
+
+        assertEquals(state1.getHash(), state2.getHash());
+    }
+
+    /**
+     * Determinism: same inputs always produce same hash across multiple constructions.
+     */
+    @Test
+    void testDeterminism() {
+        List<ScreenItem> items = Arrays.asList(
+                item("Button", "pkg:id/a", "pkg", true, false, false, true, false, false),
+                item("TextView", null, "pkg", false, false, false, true, false, false),
+                item("EditText", "pkg:id/input", "pkg", true, false, false, true, false, true)
+        );
+
+        String hash1 = new ScreenState(items, "FormActivity").getHash();
+        String hash2 = new ScreenState(items, "FormActivity").getHash();
+        String hash3 = new ScreenState(items, "FormActivity").getHash();
+
+        assertEquals(hash1, hash2);
+        assertEquals(hash2, hash3);
+    }
+
+    /**
+     * Activity-based grouping: same widgets on different activities produce different hashes.
+     */
+    @Test
+    void testActivityBasedGrouping() {
+        List<ScreenItem> items = Arrays.asList(
+                item("Button", "pkg:id/ok", "pkg", true, false, false, true, false, false),
+                item("Button", "pkg:id/cancel", "pkg", true, false, false, true, false, false)
+        );
+
+        ScreenState stateA = new ScreenState(items, "DialogActivity");
+        ScreenState stateB = new ScreenState(items, "ConfirmActivity");
+
+        assertNotEquals(stateA.getHash(), stateB.getHash());
+    }
+
+    /**
+     * Package name is excluded from hash — same widget from different packages has same hash.
+     */
+    @Test
+    void testPackageExclusion() {
+        ScreenItem item1 = item("Button", "id/btn", "com.app1",
+                true, false, false, true, false, false);
+        ScreenItem item2 = item("Button", "id/btn", "com.app2",
+                true, false, false, true, false, false);
+
+        ScreenState state1 = new ScreenState(Collections.singletonList(item1), "Test");
+        ScreenState state2 = new ScreenState(Collections.singletonList(item2), "Test");
+
+        assertEquals(state1.getHash(), state2.getHash());
+    }
+
+    /**
+     * Interaction flags affect hash — clickable vs non-clickable button is a different state.
+     */
+    @Test
+    void testInteractionFlagsAffectHash() {
+        ScreenItem clickable = item("Button", "pkg:id/btn", "pkg",
+                true, false, false, true, false, false);
+        ScreenItem notClickable = item("Button", "pkg:id/btn", "pkg",
+                false, false, false, true, false, false);
+
+        ScreenState state1 = new ScreenState(Collections.singletonList(clickable), "Test");
+        ScreenState state2 = new ScreenState(Collections.singletonList(notClickable), "Test");
+
+        assertNotEquals(state1.getHash(), state2.getHash());
+    }
+
+    /**
+     * Hash format is valid hex string.
+     */
+    @Test
+    void testHashIsValidHex() {
+        ScreenState state = new ScreenState(Collections.<ScreenItem>emptyList(), "Test");
+        assertTrue(state.getHash().matches("[0-9a-f]{8}"),
+                "Hash should be 8 hex characters, got: " + state.getHash());
     }
 
     // --- Helper ---

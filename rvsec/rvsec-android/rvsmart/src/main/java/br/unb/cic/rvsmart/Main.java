@@ -7,6 +7,8 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import br.unb.cic.rvsmart.core.AgentLoop;
 import br.unb.cic.rvsmart.core.Config;
 import br.unb.cic.rvsmart.core.Learner;
+import br.unb.cic.rvsmart.core.RoutingManager;
+import br.unb.cic.rvsmart.core.UICoverageTracker;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.device.AppController;
 import br.unb.cic.rvsmart.device.CrashInterceptor;
@@ -17,13 +19,21 @@ import br.unb.cic.rvsmart.device.LogcatReader;
 import br.unb.cic.rvsmart.device.SystemDialogDetector;
 import br.unb.cic.rvsmart.device.UiCapture;
 import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.llm.ImageProcessor;
+import br.unb.cic.rvsmart.llm.LlmCircuitBreaker;
+import br.unb.cic.rvsmart.llm.PromptBuilder;
+import br.unb.cic.rvsmart.llm.ScreenshotCapture;
+import br.unb.cic.rvsmart.llm.SglangClient;
+import br.unb.cic.rvsmart.llm.ToolCallParser;
 import br.unb.cic.rvsmart.output.MetricsCollector;
 import br.unb.cic.rvsmart.output.TraceWriter;
 import br.unb.cic.rvsmart.recovery.BacktrackBfs;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.ActionSelector;
+import br.unb.cic.rvsmart.strategy.InputValueGenerator;
 import br.unb.cic.rvsmart.strategy.PathBuffer;
+import br.unb.cic.rvsmart.strategy.PlateauDetector;
 import br.unb.cic.rvsmart.strategy.RewardPropagator;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
@@ -131,6 +141,7 @@ public class Main {
             // 5. Graph and static data
             DynamicStateGraph graph = new DynamicStateGraph();
             StaticMap staticMap = new StaticMap(config.getStaticDataPath());
+            staticMap.setCodePackage(config.getCodePackage());
 
             // 6. Strategy and recovery
             PathBuffer pathBuffer = new PathBuffer();
@@ -140,8 +151,11 @@ public class Main {
             RewardPropagator rewardPropagator = new RewardPropagator();
             ConfirmedCoverageScorer confirmedCoverageScorer = new ConfirmedCoverageScorer(
                     config.getConfirmedCoverageBase());
+            InputValueGenerator inputValueGenerator = new InputValueGenerator();
+            UICoverageTracker uiCoverageTracker = new UICoverageTracker();
+            PlateauDetector plateauDetector = new PlateauDetector();
             ActionSelector actionSelector = new ActionSelector(config, pathBuffer, successorTracker,
-                    confirmedCoverageScorer);
+                    confirmedCoverageScorer, rewardPropagator, inputValueGenerator, uiCoverageTracker);
             StuckDetector stuckDetector = new StuckDetector(
                     config.getStuckMaxBlocks(), backtrackBfs, pathBuffer);
             Learner learner = new Learner(graph, stuckDetector);
@@ -151,19 +165,51 @@ public class Main {
             metricsCollector = new MetricsCollector(
                     cli.packageName, config.getMode(), config.getTimeout());
 
-            // 8. Start target app
+            // 8. Bootstrap LLM components when mode requires them
+            RoutingManager routingManager = null;
+            SglangClient sglangClient = null;
+            ToolCallParser toolCallParser = null;
+            PromptBuilder promptBuilder = null;
+            ImageProcessor imageProcessor = null;
+            ScreenshotCapture screenshotCapture = null;
+
+            String mode = config.getMode();
+            if ("multimode".equals(mode) || "llm_only".equals(mode)) {
+                Log.i(TAG, "Bootstrapping LLM components for mode=" + mode);
+                sglangClient = new SglangClient(
+                        config.getLlmBaseUrl(), config.getLlmModel(),
+                        config.getLlmTemperature(), config.getLlmTopP(),
+                        config.getLlmTopK(), config.getLlmMaxTokens(),
+                        (int) (config.getLlmTimeoutS() * 1000));
+                toolCallParser = new ToolCallParser();
+                promptBuilder = new PromptBuilder();
+                imageProcessor = new ImageProcessor();
+                screenshotCapture = new ScreenshotCapture();
+                LlmCircuitBreaker circuitBreaker = new LlmCircuitBreaker();
+                RoutingManager.Mode routingMode = "llm_only".equals(mode)
+                        ? RoutingManager.Mode.LLM_ONLY
+                        : RoutingManager.Mode.MULTIMODE;
+                long seed = config.getSeed() != null ? config.getSeed() : -1;
+                routingManager = new RoutingManager(routingMode,
+                        RoutingManager.Strategy.PROBABILISTIC,
+                        config.getLlmProbability(), circuitBreaker, seed);
+            }
+
+            // 9. Start target app
             appController.startApp(cli.packageName);
             try { Thread.sleep(2000); } catch (InterruptedException e) { /* wait for app launch */ }
 
-            // 9. Compute deadline and run
+            // 10. Compute deadline and run
             long deadline = System.currentTimeMillis() + (config.getTimeout() * 1000L);
             AgentLoop loop = new AgentLoop(cli.packageName, deadline, config,
                     devController, uiCapture, inputInjector, appController,
                     crashInterceptor, dialogDetector, logcatReader,
                     heapMonitor, graph, staticMap, actionSelector,
                     stuckDetector, learner, traceWriter, metricsCollector,
-                    null, null, null, null, null, null, confirmedCoverageScorer,
-                    rewardPropagator, successorTracker);
+                    routingManager, sglangClient, toolCallParser,
+                    promptBuilder, imageProcessor, screenshotCapture,
+                    confirmedCoverageScorer, rewardPropagator, successorTracker,
+                    uiCoverageTracker, plateauDetector);
 
             Log.i(TAG, "AgentLoop starting, deadline in " + config.getTimeout() + "s");
             loop.run();
@@ -342,6 +388,12 @@ public class Main {
         if (cli.staticDataPath != null) {
             config.setStaticDataPath(cli.staticDataPath);
         }
+        if (cli.codePackage != null) {
+            config.setCodePackage(cli.codePackage);
+        } else {
+            config.setCodePackage(cli.packageName);
+            Log.w(TAG, "No --code-package provided. MOP scoring may be inaccurate for multi-package apps.");
+        }
         return config;
     }
 
@@ -367,6 +419,9 @@ public class Main {
                     break;
                 case "--seed":
                     cli.seed = Integer.parseInt(requireArg(args, ++i, "--seed"));
+                    break;
+                case "--code-package":
+                    cli.codePackage = requireArg(args, ++i, "--code-package");
                     break;
                 case "--health-check":
                     cli.healthCheck = true;
@@ -408,6 +463,7 @@ public class Main {
         String configPath;
         String mode = "pure_algorithm";
         Integer seed;
+        String codePackage;
         boolean healthCheck;
         boolean pocMode;
         boolean benchmarkMode;

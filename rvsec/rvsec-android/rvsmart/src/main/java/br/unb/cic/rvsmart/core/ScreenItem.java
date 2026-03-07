@@ -6,9 +6,9 @@ import android.graphics.Rect;
  * Single UI element extracted from AccessibilityNodeInfo during BFS traversal.
  *
  * Fields map directly to AccessibilityNodeInfo methods (see spec field mapping table).
- * Nine fields participate in the structural hash (INV-RSM-03):
- *   class, resource_id, package, clickable, scrollable, checkable, enabled, long_clickable, editable.
- * Four fields are excluded from the hash: text, contentDescription, bounds, parentIndex.
+ * Three fields participate in the structural hash: className, resourceID, interactMask
+ * (bitmask of clickable, scrollable, checkable, longClickable, enabled).
+ * Excluded from hash: text, contentDescription, bounds, parentIndex, packageName, editable.
  */
 public class ScreenItem {
 
@@ -25,12 +25,24 @@ public class ScreenItem {
     private final boolean longClickable;
     private final boolean editable;
     private final int parentIndex;
+    private final String hint;
+    private final int inputType;
 
     public ScreenItem(String className, String resourceId, String text,
                       String contentDescription, Rect bounds, String packageName,
                       boolean clickable, boolean scrollable, boolean checkable,
                       boolean enabled, boolean longClickable, boolean editable,
                       int parentIndex) {
+        this(className, resourceId, text, contentDescription, bounds, packageName,
+                clickable, scrollable, checkable, enabled, longClickable, editable,
+                parentIndex, null, 0);
+    }
+
+    public ScreenItem(String className, String resourceId, String text,
+                      String contentDescription, Rect bounds, String packageName,
+                      boolean clickable, boolean scrollable, boolean checkable,
+                      boolean enabled, boolean longClickable, boolean editable,
+                      int parentIndex, String hint, int inputType) {
         this.className = className;
         this.resourceId = resourceId;
         this.text = text;
@@ -44,6 +56,8 @@ public class ScreenItem {
         this.longClickable = longClickable;
         this.editable = editable;
         this.parentIndex = parentIndex;
+        this.hint = hint;
+        this.inputType = inputType;
     }
 
     public String getClassName() { return className; }
@@ -59,6 +73,8 @@ public class ScreenItem {
     public boolean isLongClickable() { return longClickable; }
     public boolean isEditable() { return editable; }
     public int getParentIndex() { return parentIndex; }
+    public String getHint() { return hint; }
+    public int getInputType() { return inputType; }
 
     /**
      * Whether this item represents an interactive widget.

@@ -26,7 +26,7 @@ class ConfirmedCoverageScorerTest {
     @BeforeEach
     void setUp() {
         RvTrack.logEnabled = false;
-        scorer = new ConfirmedCoverageScorer(350);
+        scorer = new ConfirmedCoverageScorer(150);
         graph = new DynamicStateGraph();
         screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
         staticMap = new StaticMap(null);
@@ -39,14 +39,45 @@ class ConfirmedCoverageScorerTest {
     }
 
     @Test
-    void testReturnsConfirmedBaseForConfirmedScreen() {
+    void testReturnsFullScoreOnFirstVisit() {
+        // visitCount=0 (not in graph) → revisits=0 → score = 150/(1+0) = 150
         Set<String> methods = new HashSet<>();
         methods.add("javax.crypto.Cipher.getInstance");
-
         scorer.addConfirmed(screen.getHash(), methods);
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
-        assertEquals(350, scorer.score(action, screen, graph, staticMap));
+        assertEquals(150, scorer.score(action, screen, graph, staticMap));
+    }
+
+    @Test
+    void testDecayAtRevisit1() {
+        // visitCount=2 → revisits=1 → score = 150/(1+1) = 75
+        Set<String> methods = new HashSet<>();
+        methods.add("javax.crypto.Cipher.getInstance");
+        scorer.addConfirmed(screen.getHash(), methods);
+
+        graph.getOrCreate(screen.getHash(), "TestActivity");
+        graph.recordVisit(screen.getHash(), "TestActivity");
+        graph.recordVisit(screen.getHash(), "TestActivity");
+
+        Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+        assertEquals(75, scorer.score(action, screen, graph, staticMap));
+    }
+
+    @Test
+    void testDecayAtRevisit5() {
+        // visitCount=6 → revisits=5 → score = 150/(1+5) = 25
+        Set<String> methods = new HashSet<>();
+        methods.add("javax.crypto.Cipher.getInstance");
+        scorer.addConfirmed(screen.getHash(), methods);
+
+        graph.getOrCreate(screen.getHash(), "TestActivity");
+        for (int i = 0; i < 6; i++) {
+            graph.recordVisit(screen.getHash(), "TestActivity");
+        }
+
+        Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+        assertEquals(25, scorer.score(action, screen, graph, staticMap));
     }
 
     @Test
@@ -58,7 +89,6 @@ class ConfirmedCoverageScorerTest {
     void testHasConfirmedReturnsTrueAfterAddConfirmed() {
         Set<String> methods = new HashSet<>();
         methods.add("javax.crypto.Cipher.init");
-
         scorer.addConfirmed("some_hash", methods);
         assertTrue(scorer.hasConfirmed("some_hash"));
     }
@@ -67,7 +97,6 @@ class ConfirmedCoverageScorerTest {
     void testAddConfirmedAccumulatesMethods() {
         Set<String> methods1 = new HashSet<>();
         methods1.add("method.A");
-
         Set<String> methods2 = new HashSet<>();
         methods2.add("method.B");
 
@@ -75,9 +104,6 @@ class ConfirmedCoverageScorerTest {
         scorer.addConfirmed(screen.getHash(), methods2);
 
         assertTrue(scorer.hasConfirmed(screen.getHash()));
-        // Still confirms (both methods now tracked for the hash)
-        Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
-        assertEquals(350, scorer.score(action, screen, graph, staticMap));
     }
 
     @Test
@@ -100,7 +126,6 @@ class ConfirmedCoverageScorerTest {
                 "OtherActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
-        // otherScreen has a different hash — should score 0
         assertEquals(0, scorer.score(action, otherScreen, graph, staticMap));
     }
 }

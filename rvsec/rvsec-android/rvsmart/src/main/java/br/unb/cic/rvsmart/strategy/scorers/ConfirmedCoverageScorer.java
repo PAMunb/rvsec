@@ -3,6 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
 import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ScreenNode;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import java.util.HashMap;
@@ -56,7 +57,14 @@ public class ConfirmedCoverageScorer implements Scorer {
     @Override
     public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
         if (hasConfirmed(screen.getHash())) {
-            return confirmedBase;
+            // Decay with revisits: preserves "this screen has MOP" signal on first visits
+            // but diminishes on revisits to push exploration toward new screens
+            int revisits = 0;
+            ScreenNode node = graph.get(screen.getHash());
+            if (node != null) {
+                revisits = Math.max(0, node.getVisitCount() - 1);
+            }
+            return confirmedBase / (1 + revisits);
         }
         return 0;
     }

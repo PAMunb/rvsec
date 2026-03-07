@@ -19,8 +19,8 @@ class ConfigTest {
     @Test
     void testDefaults() {
         Config config = Config.defaults();
-        assertEquals(200, config.getThrottleMs());
-        assertEquals(1, config.getMaxRetriesPerCycle());
+        assertEquals(100, config.getThrottleMs());
+        assertEquals(3, config.getMaxRetriesPerCycle());
         assertEquals(150, config.getAdaptiveWaitMs());
         assertEquals(0.05f, config.getLlmProbability(), 0.001f);
         assertEquals(500.0f, config.getMopDirectScore(), 0.01f);
@@ -28,13 +28,13 @@ class ConfigTest {
         assertEquals(200.0f, config.getGradualDecayBase(), 0.01f);
         assertEquals(0.7f, config.getGradualDecayRate(), 0.01f);
         assertEquals(5, config.getGradualDecayMinVisits());
-        assertEquals(-500.0f, config.getBackBaseScore(), 0.01f);
+        assertEquals(-100.0f, config.getBackBaseScore(), 0.01f);
         assertEquals(-500.0f, config.getRestartBaseScore(), 0.01f);
         assertEquals(0.15f, config.getStochasticProbability(), 0.01f);
         assertEquals(0.8f, config.getRewardGamma(), 0.01f);
         assertEquals(5, config.getRewardPropagationN());
         assertEquals(6, config.getMaxReEnables());
-        assertEquals(4, config.getMultiValueSaturationThreshold());
+        assertEquals(6, config.getMultiValueSaturationThreshold());
         assertEquals(8, config.getMaxBacktrackHops());
         assertEquals(10, config.getStuckMaxBlocks());
         assertEquals("http://10.0.2.2:30000/v1", config.getLlmBaseUrl());
@@ -73,17 +73,17 @@ class ConfigTest {
     // --- Timing/throttle tests (Group 18) ---
 
     @Test
-    void testThrottleDefaultIs200ms() {
+    void testThrottleDefaultIs100ms() {
         Config config = Config.defaults();
-        assertEquals(200, config.getThrottleMs(),
-                "Throttle must be 200ms to allow UI transitions to complete");
+        assertEquals(100, config.getThrottleMs(),
+                "Throttle reduced to 100ms for faster exploration; adaptive wait handles slow transitions");
     }
 
     @Test
-    void testMaxRetriesDefaultIs1() {
+    void testMaxRetriesDefaultIs3() {
         Config config = Config.defaults();
-        assertEquals(1, config.getMaxRetriesPerCycle(),
-                "Max retries reduced to 1 to avoid rapid-fire actions on stale screens");
+        assertEquals(3, config.getMaxRetriesPerCycle(),
+                "Max retries set to 3 for multi-attempt retry within a single cycle");
     }
 
     @Test
