@@ -77,8 +77,8 @@ public class BacktrackBfs {
 
     /**
      * Reconstructs the path from startHash to targetHash using the BFS parent map.
-     * Returns the hashes in order from startHash to targetHash (both inclusive),
-     * so PathBuffer can generate one BACK per hop.
+     * Returns the hashes in order from startHash to targetHash (both inclusive).
+     * PathBuffer generates N-1 BACK actions for N hashes.
      */
     private List<String> reconstructPath(String startHash, String targetHash,
                                          Map<String, String> parentMap) {
@@ -89,6 +89,7 @@ public class BacktrackBfs {
             path.add(current);
             current = parentMap.get(current);
         }
+        path.add(startHash); // include starting position
 
         Collections.reverse(path);
         return path;

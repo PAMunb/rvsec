@@ -5,6 +5,7 @@ import br.unb.cic.rvsmart.core.Config;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
 import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ScreenNode;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.scorers.ComponentPriorityScorer;
@@ -19,6 +20,7 @@ import br.unb.cic.rvsmart.strategy.scorers.WtgScorer;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -619,8 +621,148 @@ class ActionSelectorTest {
         // and uses it for SET_TEXT actions instead of hardcoded "test".
         // Full functional verification requires real Rect (integration tests).
         InputValueGenerator generator = new InputValueGenerator();
-        ActionSelector sel = new ActionSelector(config, null, null, null, null, generator);
+        ActionSelector sel = new ActionSelector(config, null, null, null, generator, null);
         assertNotNull(sel);
+    }
+
+    // --- Task 6.3: failure filter safety net ---
+
+    @Test
+    void testFailureFilterSafetyNet_AllCandidatesFiltered_ListPreserved() {
+        // When ALL candidates have failureCount >= 3, the safety net preserves the
+        // unfiltered candidate list so the agent never falls through to RESTART-only.
+        // Setup: spy on generateCandidateActions to return 2 widget actions,
+        // both with 3 failures recorded in the ScreenNode.
+        Action widgetA = new Action(Action.Type.CLICK, 100, 200, null, "algorithm", "Button", null);
+        Action widgetB = new Action(Action.Type.CLICK, 300, 400, null, "algorithm", "Button", null);
+        List<Action> fakeWidgets = Arrays.asList(widgetA, widgetB);
+
+        ActionSelector spy = Mockito.spy(new ActionSelector(config));
+        ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "OnboardingActivity");
+        Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(screen);
+
+        // Register both signatures with 3 executions and 0 successes (failure_count=3)
+        graph.getOrCreate(screen.getHash(), "OnboardingActivity");
+        ScreenNode node = graph.get(screen.getHash());
+        for (int i = 0; i < 3; i++) {
+            node.recordAction(widgetA.signature(), "Button");
+            node.recordAction(widgetB.signature(), "Button");
+            // No recordActionSuccess() -> strength=0 -> failures=executions=3
+        }
+
+        // Safety net must preserve widget candidates rather than falling through to RESTART
+        Action selected = spy.selectAction(screen, graph, staticMap);
+        assertNotNull(selected);
+        assertNotEquals(Action.Type.RESTART, selected.getType(),
+                "Safety net must keep widget candidates when filtering would empty the list");
+        assertTrue(selected.getType() == Action.Type.CLICK,
+                "Should select a widget action, not RESTART, when safety net fires");
+    }
+
+    @Test
+    void testFailureFilterSafetyNet_SomeCandidatesFiltered_HighFailureRemoved() {
+        // When SOME candidates have failureCount >= 3, filtering removes only those.
+        // Setup: widgetA has 3 failures, widgetB has 1 failure — only widgetB survives.
+        Action widgetA = new Action(Action.Type.CLICK, 100, 200, null, "algorithm", "Button", null);
+        Action widgetB = new Action(Action.Type.CLICK, 300, 400, null, "algorithm", "Button", null);
+        List<Action> fakeWidgets = Arrays.asList(widgetA, widgetB);
+
+        ActionSelector spy = Mockito.spy(new ActionSelector(config));
+        ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "OnboardingActivity");
+        Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(screen);
+
+        graph.getOrCreate(screen.getHash(), "OnboardingActivity");
+        ScreenNode node = graph.get(screen.getHash());
+
+        // widgetA: 3 executions, 0 successes -> failure_count=3 (filtered out)
+        for (int i = 0; i < 3; i++) {
+            node.recordAction(widgetA.signature(), "Button");
+        }
+        // widgetB: 2 executions, 1 success -> successes=1, strength=0.5, failures=round(0.5*2)=1
+        // Actually: 2 executions, 1 success -> strength=0.5, round(0.5*2)=1, failures=2-1=1 < 3
+        node.recordAction(widgetB.signature(), "Button");
+        node.recordAction(widgetB.signature(), "Button");
+        node.recordActionSuccess(widgetB.signature(), true);
+
+        // Normal filtering: widgetA removed (3 failures), widgetB kept (1 failure)
+        // Result: widgetB is the only candidate, so it should be selected (or BACK on Tier 4)
+        Action selected = spy.selectAction(screen, graph, staticMap);
+        assertNotNull(selected);
+        // widgetB must survive — the selected action must be widgetB (Tier 2 untested? No: both executed.
+        // Tier 4: widgetB is a candidate, RESTART is also candidate. widgetB should win via scoring.)
+        // The key invariant: widgetA must NOT be selected.
+        assertNotEquals(widgetA.signature(), selected.signature(),
+                "widgetA with failure_count=3 must not be selected after normal filtering");
+    }
+
+    @Test
+    void testFailureFilterSafetyNet_NoCandidatesWithFailures_NormalBehavior() {
+        // When no candidates have failures (0 executions), normal filtering applies
+        // and all candidates remain available.
+        Action widgetA = new Action(Action.Type.CLICK, 100, 200, null, "algorithm", "Button", null);
+        Action widgetB = new Action(Action.Type.CLICK, 300, 400, null, "algorithm", "Button", null);
+        List<Action> fakeWidgets = Arrays.asList(widgetA, widgetB);
+
+        ActionSelector spy = Mockito.spy(new ActionSelector(config));
+        ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
+        Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(screen);
+
+        // No executions recorded: failure_count=0 for both (executions=0 -> getFailureCount returns 0)
+        graph.getOrCreate(screen.getHash(), "TestActivity");
+
+        // Both candidates pass filter — Tier 2 (untested) fires and selects from them
+        Action selected = spy.selectAction(screen, graph, staticMap);
+        assertNotNull(selected);
+        assertEquals(2, spy.getLastSelectedTier(),
+                "Tier 2 (untested) should fire when all candidates have 0 executions");
+        assertTrue(selected.getType() == Action.Type.CLICK,
+                "Should select a widget action from unfiltered candidates");
+    }
+
+    @Test
+    void testFailureFilterSafetyNet_BoundaryAtExactly3_TriggersFallback() {
+        // Boundary test: failure_count=3 triggers the safety net fallback (not failure_count=2).
+        // With exactly failure_count=3 on all candidates, the safety net fires and preserves them.
+        // With failure_count=2, normal filtering keeps them (no fallback needed).
+        Action widgetA = new Action(Action.Type.CLICK, 100, 200, null, "algorithm", "Button", null);
+        List<Action> fakeWidgets = Collections.singletonList(widgetA);
+
+        // --- Sub-case 1: failure_count=3 -> safety net fires, widgetA preserved ---
+        ActionSelector spy3 = Mockito.spy(new ActionSelector(config));
+        ScreenState screen3 = new ScreenState(Collections.<ScreenItem>emptyList(), "BoundaryActivity3");
+        Mockito.doReturn(fakeWidgets).when(spy3).generateCandidateActions(screen3);
+
+        graph.getOrCreate(screen3.getHash(), "BoundaryActivity3");
+        ScreenNode node3 = graph.get(screen3.getHash());
+        for (int i = 0; i < 3; i++) {
+            node3.recordAction(widgetA.signature(), "Button");
+        }
+        // executions=3, successes=0 -> failures=3 -> filter removes it -> safety net kicks in
+
+        Action selected3 = spy3.selectAction(screen3, graph, staticMap);
+        assertNotNull(selected3);
+        assertNotEquals(Action.Type.RESTART, selected3.getType(),
+                "At failure_count=3, safety net must preserve widget candidates");
+
+        // --- Sub-case 2: failure_count=2 -> normal filter keeps widgetA ---
+        DynamicStateGraph graph2 = new DynamicStateGraph();
+        ActionSelector spy2 = Mockito.spy(new ActionSelector(config));
+        ScreenState screen2 = new ScreenState(Collections.<ScreenItem>emptyList(), "BoundaryActivity2");
+        Mockito.doReturn(fakeWidgets).when(spy2).generateCandidateActions(screen2);
+
+        graph2.getOrCreate(screen2.getHash(), "BoundaryActivity2");
+        ScreenNode node2 = graph2.get(screen2.getHash());
+        // 3 executions, 1 success -> strength=1/3, round(1/3 * 3)=round(1)=1, failures=3-1=2
+        for (int i = 0; i < 3; i++) {
+            node2.recordAction(widgetA.signature(), "Button");
+        }
+        node2.recordActionSuccess(widgetA.signature(), true);
+
+        Action selected2 = spy2.selectAction(screen2, graph2, staticMap);
+        assertNotNull(selected2);
+        // failure_count=2 < 3: normal filter keeps widgetA, so it's still a candidate
+        assertTrue(selected2.getType() == Action.Type.CLICK,
+                "At failure_count=2, normal filter keeps the candidate without safety net");
     }
 
     // --- Helpers ---

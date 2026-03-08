@@ -31,8 +31,6 @@ class ConfigTest {
         assertEquals(-100.0f, config.getBackBaseScore(), 0.01f);
         assertEquals(-500.0f, config.getRestartBaseScore(), 0.01f);
         assertEquals(0.15f, config.getStochasticProbability(), 0.01f);
-        assertEquals(0.8f, config.getRewardGamma(), 0.01f);
-        assertEquals(5, config.getRewardPropagationN());
         assertEquals(6, config.getMaxReEnables());
         assertEquals(6, config.getMultiValueSaturationThreshold());
         assertEquals(8, config.getMaxBacktrackHops());

@@ -26,12 +26,14 @@ import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.ActionSelector;
 import br.unb.cic.rvsmart.strategy.InputValueGenerator;
 import br.unb.cic.rvsmart.strategy.PlateauDetector;
-import br.unb.cic.rvsmart.strategy.RewardPropagator;
+
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -87,7 +89,6 @@ public class AgentLoop {
 
     // Optional scoring enhancements — null when not configured
     private final ConfirmedCoverageScorer confirmedCoverageScorer;
-    private final RewardPropagator rewardPropagator;
 
     // Optional transition tracking — null when not configured
     private final SuccessorTracker successorTracker;
@@ -109,6 +110,7 @@ public class AgentLoop {
     private long startTimeMs;
     private int outOfAppCounter;
     private int consecutiveOoaAfterRestart;
+    private int consecutiveSystemDialogs;
 
     // Tracks visited activities for LLM prompt context
     private final Set<String> visitedActivities = new HashSet<>();
@@ -134,7 +136,7 @@ public class AgentLoop {
                 appController, crashInterceptor, dialogDetector, logcatReader,
                 heapMonitor, graph, staticMap, actionSelector, stuckDetector,
                 learner, traceWriter, metricsCollector,
-                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
                 null, null);
     }
 
@@ -155,7 +157,6 @@ public class AgentLoop {
                      ToolCallParser toolCallParser, PromptBuilder promptBuilder,
                      ImageProcessor imageProcessor, ScreenshotCapture screenshotCapture,
                      ConfirmedCoverageScorer confirmedCoverageScorer,
-                     RewardPropagator rewardPropagator,
                      SuccessorTracker successorTracker,
                      UICoverageTracker uiCoverageTracker,
                      PlateauDetector plateauDetector) {
@@ -184,7 +185,6 @@ public class AgentLoop {
         this.imageProcessor = imageProcessor;
         this.screenshotCapture = screenshotCapture;
         this.confirmedCoverageScorer = confirmedCoverageScorer;
-        this.rewardPropagator = rewardPropagator;
         this.successorTracker = successorTracker;
         this.uiCoverageTracker = uiCoverageTracker;
         this.plateauDetector = plateauDetector;
@@ -203,6 +203,12 @@ public class AgentLoop {
                 runIteration();
             } catch (Exception e) {
                 Log.w(TAG, "Iteration " + iteration + " error: " + e.getMessage());
+                // INV-RSM-36: write ERROR trace line instead of silent swallow
+                long elapsed = System.currentTimeMillis() - startTimeMs;
+                traceWriter.writeLine(iteration, elapsed, "", "", "ERROR", "exception",
+                        false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
+                        -1, -1.0, -1, -1, -1, 0,
+                        false, e.getClass().getSimpleName(), e.getMessage());
             }
             iteration++;
         }
@@ -215,6 +221,11 @@ public class AgentLoop {
         if (crashInterceptor.hasCrash()) {
             CrashInterceptor.CrashInfo info = crashInterceptor.consumeCrash();
             String crashType = (info != null && info.isAnr()) ? "anr" : "java";
+            long elapsed = System.currentTimeMillis() - startTimeMs;
+            traceWriter.writeLine(iteration, elapsed, "", "", "SKIP", "crash_at_start",
+                    false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
+                    -1, -1.0, -1, -1, -1, System.currentTimeMillis() - iterStart,
+                    false, "crash_" + crashType, null);
             handleCrashRecovery(crashType);
             return;
         }
@@ -222,15 +233,41 @@ public class AgentLoop {
         // 2. Capture UI root
         AccessibilityNodeInfo root = devController.getUiAutomation().getRootInActiveWindow();
         if (root == null) {
+            long elapsed = System.currentTimeMillis() - startTimeMs;
+            traceWriter.writeLine(iteration, elapsed, "", "", "SKIP", "null_root",
+                    false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
+                    -1, -1.0, -1, -1, -1, System.currentTimeMillis() - iterStart,
+                    false, "null_root", null);
             handleNullRoot();
             return;
         }
 
         // 3. System dialog check (before full capture)
         if (dialogDetector.isSystemDialog(root)) {
-            dialogDetector.dismiss(root);
+            boolean dismissed = dialogDetector.dismiss(root);
+            root.recycle();
+            consecutiveSystemDialogs++;
+            sleep(500); // prevent CPU spinning — without this, spins at 646 it/s
             RvTrack.incrementSystemDialogs();
             metricsCollector.recordSystemDialog();
+            long elapsed = System.currentTimeMillis() - startTimeMs;
+            traceWriter.writeLine(iteration, elapsed, "", "", "SKIP", "system_dialog",
+                    false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
+                    -1, -1.0, -1, -1, -1, System.currentTimeMillis() - iterStart,
+                    false, "system_dialog", null);
+            // First escalation: BACK press after 3 failed dismissals
+            if (!dismissed && consecutiveSystemDialogs >= 3 && consecutiveSystemDialogs < 6) {
+                inputInjector.pressBack();
+                sleep(500);
+            } else if (!dismissed && consecutiveSystemDialogs >= 6) {
+                // Second escalation: force-stop + restart
+                appController.forceStop(packageName);
+                sleep(200);
+                appController.startApp(packageName);
+                sleep(800);
+                consecutiveSystemDialogs = 0;
+                cachedScreenState = null;
+            }
             return;
         }
 
@@ -239,6 +276,7 @@ public class AgentLoop {
         // namespace as the CLI --package argument.
         CharSequence rootPkg = root.getPackageName();
         if (rootPkg == null || !packageName.equals(rootPkg.toString())) {
+            root.recycle();
             String foregroundPkg = rootPkg != null ? rootPkg.toString() : "null";
 
             // Launcher fast-path: immediate RESTART, no tolerance delay
@@ -252,7 +290,7 @@ public class AgentLoop {
                         false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
                         -1, -1.0, -1, -1, -1, iterTotal,
                         true, "launcher_fastpath", foregroundPkg);
-                handleOoaRestart();
+                handleOoaRestart(foregroundPkg);
                 outOfAppCounter = 0;
                 return;
             }
@@ -271,13 +309,21 @@ public class AgentLoop {
                         false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
                         -1, -1.0, -1, -1, -1, iterTotal,
                         true, "tolerance_exceeded", foregroundPkg);
-                handleOoaRestart();
+                handleOoaRestart(foregroundPkg);
                 outOfAppCounter = 0;
+            } else {
+                // OOA within tolerance — log SKIP trace for observability
+                long elapsed2 = System.currentTimeMillis() - startTimeMs;
+                traceWriter.writeLine(iteration, elapsed2, "", "", "SKIP", "ooa_within_tolerance",
+                        false, 0, graph.size(), elapsed2 / 1000.0, 0, 0, null,
+                        -1, -1.0, -1, -1, -1, System.currentTimeMillis() - iterStart,
+                        true, "ooa_within_tolerance", foregroundPkg);
             }
             return;
         }
         outOfAppCounter = 0;
         consecutiveOoaAfterRestart = 0;
+        consecutiveSystemDialogs = 0;
 
         // 5. Full UI capture (reuse cached state when available)
         ScreenState screen;
@@ -291,9 +337,26 @@ public class AgentLoop {
         } else {
             long captureStart = System.currentTimeMillis();
             items = uiCapture.capture(root);
+            root.recycle();
             captureMs = System.currentTimeMillis() - captureStart;
             screen = new ScreenState(items, appController.getCurrentActivityName());
         }
+        // 5a. Empty screen wait (INV-RSM-34): splash screens may auto-transition after 2-3s.
+        // If no interactive items AND no backtrack path available, wait and re-capture.
+        if (items.isEmpty() && successorTracker != null
+                && successorTracker.getParents(screen.getHash()).isEmpty()) {
+            sleep(2000);
+            AccessibilityNodeInfo retryRoot = devController.getUiAutomation().getRootInActiveWindow();
+            if (retryRoot != null) {
+                List<ScreenItem> retryItems = uiCapture.capture(retryRoot);
+                retryRoot.recycle();
+                if (!retryItems.isEmpty()) {
+                    items = retryItems;
+                    screen = new ScreenState(retryItems, appController.getCurrentActivityName());
+                }
+            }
+        }
+
         String hash = screen.getHash();
         String activity = screen.getActivity();
 
@@ -303,20 +366,19 @@ public class AgentLoop {
         graph.recordVisit(hash, activity);
         visitedActivities.add(activity);
 
-        // Initialize totalActions on first visit so getSaturationRate() works correctly
-        if (isNewScreen) {
-            br.unb.cic.rvsmart.graph.ScreenNode screenNode = graph.get(hash);
-            if (screenNode != null) {
-                int interactiveCount = 0;
-                for (ScreenItem item : items) {
-                    if (item.isEnabled() && item.getBounds() != null) {
-                        if (item.isClickable() || item.isLongClickable() || item.isEditable() || item.isScrollable()) {
-                            interactiveCount++;
-                        }
+        // Update totalActions on every visit (INV-RSM-40): Math.max ensures a
+        // transient first visit with 0 elements doesn't permanently lock saturation at 1.0.
+        br.unb.cic.rvsmart.graph.ScreenNode screenNode = graph.get(hash);
+        if (screenNode != null) {
+            int interactiveCount = 0;
+            for (ScreenItem item : items) {
+                if (item.isEnabled() && item.getBounds() != null) {
+                    if (item.isClickable() || item.isLongClickable() || item.isEditable() || item.isScrollable()) {
+                        interactiveCount++;
                     }
                 }
-                screenNode.setTotalActions(interactiveCount);
             }
+            screenNode.setTotalActions(interactiveCount);
         }
 
         // 5c. Register screen elements for UI coverage tracking
@@ -333,10 +395,6 @@ public class AgentLoop {
         if (!coveredMethods.isEmpty()) {
             if (confirmedCoverageScorer != null) {
                 confirmedCoverageScorer.addConfirmed(hash, new HashSet<>(coveredMethods));
-            }
-            // 6b. Wire RewardPropagator: boost the trajectory that led to this coverage
-            if (rewardPropagator != null) {
-                rewardPropagator.propagateConfirmedCoverage(hash, new HashSet<>(coveredMethods), graph);
             }
         }
 
@@ -387,8 +445,9 @@ public class AgentLoop {
             uiCoverageTracker.recordInteraction(hash, elementId);
         }
 
-        // 10. Post-action wait
-        sleep(config.getThrottleMs());
+        // 10. Post-action wait (INV-RSM-42: use HeapMonitor's adaptive throttle)
+        int throttleMs = heapMonitor.check(iteration);
+        sleep(throttleMs);
 
         // 11. Re-capture for effect detection
         String hashAfter = hash;
@@ -401,6 +460,12 @@ public class AgentLoop {
             String crashType = (info != null && info.isAnr()) ? "anr" : "java";
             RvTrack.crash(iteration, crashType, action.signature(), 0);
             metricsCollector.recordCrash();
+            long elapsed = System.currentTimeMillis() - startTimeMs;
+            traceWriter.writeLine(iteration, elapsed, hash, activity, "SKIP", "post_action_crash",
+                    false, 0, graph.size(), elapsed / 1000.0,
+                    action.getX(), action.getY(), action.getWidgetClass(),
+                    -1, -1.0, -1, -1, -1, System.currentTimeMillis() - iterStart,
+                    false, "crash_" + crashType, action.signature());
             recoverApp();
             return;
         }
@@ -408,6 +473,7 @@ public class AgentLoop {
         AccessibilityNodeInfo rootAfter = devController.getUiAutomation().getRootInActiveWindow();
         if (rootAfter != null) {
             List<ScreenItem> itemsAfter = uiCapture.capture(rootAfter);
+            rootAfter.recycle();
             activityAfter = appController.getCurrentActivityName();
             postActionState = new ScreenState(itemsAfter, activityAfter);
             hashAfter = postActionState.getHash();
@@ -416,6 +482,12 @@ public class AgentLoop {
             if (!appController.isAppRunning(packageName)) {
                 RvTrack.crash(iteration, "native", action.signature(), 0);
                 metricsCollector.recordCrash();
+                long elapsed = System.currentTimeMillis() - startTimeMs;
+                traceWriter.writeLine(iteration, elapsed, hash, activity, "SKIP", "native_crash",
+                        false, 0, graph.size(), elapsed / 1000.0,
+                        action.getX(), action.getY(), action.getWidgetClass(),
+                        -1, -1.0, -1, -1, -1, System.currentTimeMillis() - iterStart,
+                        false, "crash_native", action.signature());
                 recoverApp();
                 return;
             }
@@ -423,6 +495,11 @@ public class AgentLoop {
         }
 
         boolean hadEffect = !hash.equals(hashAfter) || !activity.equals(activityAfter);
+
+        // SET_TEXT always has an implicit effect (INV-RSM-35): text was injected even if
+        // the screen hash didn't change. Treating it as no-effect triggers unnecessary
+        // retries and BACK decay, breaking form-filling sequences.
+        if (action.getType() == Action.Type.SET_TEXT) hadEffect = true;
 
         // 11a. Adaptive wait: if no effect detected, wait a bit longer for slow transitions.
         // Only for CLICK and LONG_CLICK — SET_TEXT and SCROLL have immediate effect.
@@ -433,6 +510,7 @@ public class AgentLoop {
             AccessibilityNodeInfo rootAdaptive = devController.getUiAutomation().getRootInActiveWindow();
             if (rootAdaptive != null) {
                 List<ScreenItem> itemsAdaptive = uiCapture.capture(rootAdaptive);
+                rootAdaptive.recycle();
                 activityAfter = appController.getCurrentActivityName();
                 postActionState = new ScreenState(itemsAdaptive, activityAfter);
                 hashAfter = postActionState.getHash();
@@ -444,6 +522,11 @@ public class AgentLoop {
         if (hadEffect && successorTracker != null) {
             successorTracker.record(hash, hashAfter);
         }
+
+        // Save primary action metadata before retries overwrite the action variable.
+        // The trace records the last retried action, so we capture primary separately
+        // for the scores — primary is what was SELECTED, retries are alternatives.
+        Action primaryAction = action;
 
         // 12. Multi-attempt retry (INV-RSM-07): try alternative actions if no effect
         int retries = 0;
@@ -461,6 +544,7 @@ public class AgentLoop {
             rootAfter = devController.getUiAutomation().getRootInActiveWindow();
             if (rootAfter != null) {
                 List<ScreenItem> itemsAfter2 = uiCapture.capture(rootAfter);
+                rootAfter.recycle();
                 activityAfter = appController.getCurrentActivityName();
                 postActionState = new ScreenState(itemsAfter2, activityAfter);
                 hashAfter = postActionState.getHash();
@@ -483,11 +567,9 @@ public class AgentLoop {
                 activity, activityAfter, coveredMethods,
                 iteration, retries);
 
-        // 14a. Record step in RewardPropagator for N-step TD propagation
-        if (rewardPropagator != null) {
-            rewardPropagator.recordStep(hashAfter, reward);
-            rewardPropagator.propagate();
-        }
+        // 14a. Update stuck detector with post-action hash and action type.
+        // SET_TEXT is exempted from incrementing the counter (Anomaly 2/INV-RSM-34).
+        stuckDetector.updateWithActionType(hashAfter, action.getType());
 
         // 15. Trace output with RVTRACK observability fields
         long elapsed = System.currentTimeMillis() - startTimeMs;
@@ -497,6 +579,15 @@ public class AgentLoop {
         long iterTotal = System.currentTimeMillis() - iterStart;
         br.unb.cic.rvsmart.graph.ScreenNode traceNode = graph.get(hashAfter);
         double satRate = traceNode != null ? traceNode.getSaturationRate() : -1.0;
+        // Attach primary action metadata to score breakdown — action variable may have been
+        // overwritten by retries, but scores always belong to the primary selected action.
+        Map<String, Object> scoreBreakdown = actionSelector.getLastScoreBreakdown();
+        if (scoreBreakdown != null) {
+            scoreBreakdown = new HashMap<>(scoreBreakdown); // defensive copy to avoid mutating live map
+            scoreBreakdown.put("primary_action_type", primaryAction.getType().name());
+            scoreBreakdown.put("primary_widget_class",
+                    primaryAction.getWidgetClass() != null ? primaryAction.getWidgetClass() : "");
+        }
         traceWriter.writeLine(iteration, elapsed, hashAfter, activityAfter,
                 action.getType().name(), action.getSource(),
                 hadEffect, retries, graph.size(), elapsed / 1000.0,
@@ -504,7 +595,7 @@ public class AgentLoop {
                 actionSelector.getLastSelectedTier(), satRate,
                 captureMs, scoringMs, injectMs, iterTotal,
                 false, null, null,
-                actionSelector.getLastScoreBreakdown());
+                scoreBreakdown);
 
         // 16. Metrics
         metricsCollector.recordIteration(action.getSource());
@@ -513,10 +604,7 @@ public class AgentLoop {
         // 17. Cycle time profiling (also logged to logcat via RVTRACK for real-time debugging)
         RvTrack.cycle(iteration, captureMs, injectMs, iterTotal);
 
-        // 18. Heap monitor — may adjust throttle for subsequent iterations
-        heapMonitor.check(iteration);
-
-        // 19. Cache post-action state for next iteration (avoids redundant capture)
+        // 18. Cache post-action state for next iteration (avoids redundant capture)
         cachedScreenState = postActionState;
     }
 
@@ -569,16 +657,42 @@ public class AgentLoop {
     }
 
     /**
-     * Handle OOA restart with consecutive-failure fallback.
-     * If the app keeps redirecting to an external intent immediately after restart
-     * (3 consecutive OOA-after-RESTART events), escalate to forceStop + startApp
-     * instead of the standard restart.
+     * Handle OOA restart with multi-stage recovery (INV-RSM-33).
+     *
+     * Stage 1 (default): simple forceStop + startApp via recoverApp().
+     * Stage 2 (after MAX_CONSECUTIVE_OOA_AFTER_RESTART failures): press BACK to
+     * dismiss the foreign app, then check if we returned to ours. If still OOA,
+     * force-stop the foreign package before restarting our app.
+     *
+     * @param foregroundPkg the package currently in the foreground (not our target)
      */
-    private void handleOoaRestart() {
+    private void handleOoaRestart(String foregroundPkg) {
         consecutiveOoaAfterRestart++;
         if (consecutiveOoaAfterRestart >= MAX_CONSECUTIVE_OOA_AFTER_RESTART) {
-            Log.w(TAG, "Consecutive OOA-after-RESTART fallback: forceStop + startApp");
-            RvTrack.ooa(iteration, packageName, "force_restart_fallback");
+            Log.w(TAG, "Multi-stage OOA recovery: BACK -> check -> forceStop foreign if needed");
+            RvTrack.ooa(iteration, packageName, "multi_stage_recovery");
+
+            // Stage 2a: press BACK to dismiss the foreign app
+            inputInjector.pressBack();
+            sleep(500);
+
+            // Stage 2b: re-check foreground package
+            AccessibilityNodeInfo checkRoot = devController.getUiAutomation().getRootInActiveWindow();
+            boolean stillOoa = true;
+            if (checkRoot != null) {
+                CharSequence checkPkg = checkRoot.getPackageName();
+                stillOoa = checkPkg == null || !packageName.equals(checkPkg.toString());
+                checkRoot.recycle();
+            }
+
+            // Stage 2c: if still OOA, force-stop the foreign app
+            if (stillOoa && foregroundPkg != null && !foregroundPkg.equals("null")) {
+                Log.w(TAG, "Still OOA after BACK, force-stopping foreign: " + foregroundPkg);
+                appController.forceStop(foregroundPkg);
+                sleep(200);
+            }
+
+            // Stage 2d: restart our app
             appController.forceStop(packageName);
             sleep(200);
             appController.startApp(packageName);
@@ -611,6 +725,7 @@ public class AgentLoop {
                 appController.startApp(packageName);
                 sleep(800);
                 RvTrack.incrementRestarts();
+                stuckDetector.reset();
                 cachedScreenState = null;
                 break;
             case SET_TEXT:

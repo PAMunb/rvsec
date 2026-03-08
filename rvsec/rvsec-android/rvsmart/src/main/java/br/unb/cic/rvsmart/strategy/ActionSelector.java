@@ -17,7 +17,7 @@ import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
 import br.unb.cic.rvsmart.strategy.scorers.CoverageDensityScorer;
 import br.unb.cic.rvsmart.strategy.scorers.GradualDecayScorer;
 import br.unb.cic.rvsmart.strategy.scorers.MopScorer;
-import br.unb.cic.rvsmart.strategy.scorers.RewardScorer;
+
 import br.unb.cic.rvsmart.strategy.scorers.Scorer;
 import br.unb.cic.rvsmart.strategy.scorers.SystemElementFilter;
 import br.unb.cic.rvsmart.strategy.scorers.WtgScorer;
@@ -95,30 +95,16 @@ public class ActionSelector {
     private final SuccessorTracker successorTracker;
 
     public ActionSelector(Config config) {
-        this(config, null, null, null, null, null, null);
+        this(config, null, null, null, null, null);
     }
 
     public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker) {
-        this(config, pathBuffer, successorTracker, null, null, null, null);
+        this(config, pathBuffer, successorTracker, null, null, null);
     }
 
     public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker,
                           ConfirmedCoverageScorer confirmedCoverageScorer) {
-        this(config, pathBuffer, successorTracker, confirmedCoverageScorer, null, null, null);
-    }
-
-    public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker,
-                          ConfirmedCoverageScorer confirmedCoverageScorer,
-                          RewardPropagator rewardPropagator) {
-        this(config, pathBuffer, successorTracker, confirmedCoverageScorer, rewardPropagator, null, null);
-    }
-
-    public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker,
-                          ConfirmedCoverageScorer confirmedCoverageScorer,
-                          RewardPropagator rewardPropagator,
-                          InputValueGenerator inputValueGenerator) {
-        this(config, pathBuffer, successorTracker, confirmedCoverageScorer, rewardPropagator,
-                inputValueGenerator, null);
+        this(config, pathBuffer, successorTracker, confirmedCoverageScorer, null, null);
     }
 
     /**
@@ -126,8 +112,6 @@ public class ActionSelector {
      *
      * @param confirmedCoverageScorer shared instance also used by AgentLoop for addConfirmed() calls;
      *                                 null to skip confirmed-coverage scoring
-     * @param rewardPropagator shared instance for accumulated reward scoring;
-     *                          null to skip reward-based scoring
      * @param inputValueGenerator generates context-aware text input for SET_TEXT actions;
      *                             null to use default "test" string
      * @param uiCoverageTracker shared instance for coverage-density scoring;
@@ -135,7 +119,6 @@ public class ActionSelector {
      */
     public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker,
                           ConfirmedCoverageScorer confirmedCoverageScorer,
-                          RewardPropagator rewardPropagator,
                           InputValueGenerator inputValueGenerator,
                           UICoverageTracker uiCoverageTracker) {
         this.scorers = new ArrayList<>();
@@ -148,15 +131,12 @@ public class ActionSelector {
                 config.getGradualDecayMinVisits()));
         this.scorers.add(new SystemElementFilter());
         this.scorers.add(new ComponentPriorityScorer());
-        this.scorers.add(new WtgScorer(0));
+        this.scorers.add(new WtgScorer());
         if (uiCoverageTracker != null) {
             this.scorers.add(new CoverageDensityScorer(100, uiCoverageTracker));
         }
         if (confirmedCoverageScorer != null) {
             this.scorers.add(confirmedCoverageScorer);
-        }
-        if (rewardPropagator != null) {
-            this.scorers.add(new RewardScorer(rewardPropagator, config.getRewardScoreWeight()));
         }
 
         this.backBaseScore = config.getBackBaseScore();
@@ -201,12 +181,22 @@ public class ActionSelector {
         // TIER 2: Untested actions — prefer actions never executed on this screen
         List<Action> candidates = generateCandidateActions(screen);
 
-        // Filter out actions with 3+ failures to avoid wasting budget on known-bad elements
+        // Filter out actions with 3+ failures to avoid wasting budget on known-bad elements.
+        // Safety net: if filtering would empty the list, keep unfiltered candidates — the agent
+        // must always have widget actions available to avoid falling through to RESTART-only.
         if (node != null) {
             final ScreenNode nodeRef = node;
-            candidates = candidates.stream()
+            List<Action> filtered = candidates.stream()
                     .filter(a -> getFailureCount(nodeRef, a.signature()) < 3)
                     .collect(Collectors.toList());
+            if (!filtered.isEmpty()) {
+                candidates = filtered;
+            } else if (!candidates.isEmpty()) {
+                if (RvTrack.logEnabled) {
+                    Log.w(TAG, "Failure filter would empty candidates on " + hash
+                            + ", keeping " + candidates.size() + " unfiltered");
+                }
+            }
         }
 
         List<Action> untested = filterUntested(candidates, node);

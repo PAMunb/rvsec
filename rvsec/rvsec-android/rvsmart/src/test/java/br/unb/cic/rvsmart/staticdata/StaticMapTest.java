@@ -5,12 +5,13 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.FileWriter;
 import java.nio.file.Files;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for StaticMap — loading and querying static analysis data.
- * Exercises graceful degradation when data is unavailable.
+ * Tests use the JsonArray format produced by RvsecAnalysisClient (gh27).
  */
 class StaticMapTest {
 
@@ -27,77 +28,182 @@ class StaticMapTest {
     }
 
     @Test
-    void testHasDirectMopReturnsFalseWhenNotLoaded() {
+    void testActivityHasDirectMopReturnsFalseWhenNotLoaded() {
         StaticMap map = new StaticMap(null);
-        assertFalse(map.hasDirectMop("click@100,200"));
+        assertFalse(map.activityHasDirectMop("MainActivity"));
     }
 
     @Test
-    void testHasMopReturnsFalseWhenNotLoaded() {
+    void testActivityHasMopReturnsFalseWhenNotLoaded() {
         StaticMap map = new StaticMap(null);
-        assertFalse(map.hasMop("click@100,200"));
+        assertFalse(map.activityHasMop("MainActivity"));
     }
 
     /**
      * Nonexistent file triggers FileNotFoundException, then Log.i (Android stub).
-     * In unit tests, android.util.Log throws RuntimeException("Stub!"),
-     * so this test verifies the exception propagates rather than being swallowed.
-     * In production (on device), Log.i works and isLoaded=false is set gracefully.
+     * In unit tests, android.util.Log throws RuntimeException("Stub!").
      */
     @Test
     void testNonexistentFileThrowsInUnitTest() {
-        // Android's Log.i is a stub in unit tests, so the catch block in
-        // StaticMap constructor throws RuntimeException instead of logging.
         assertThrows(RuntimeException.class,
                 () -> new StaticMap("/nonexistent/path/to/file.json"));
     }
 
     @Test
-    void testLoadedMapQueriesCorrectly() throws Exception {
-        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+    void testParseReachabilityJsonArray() throws Exception {
+        File tempFile = createJsonWithReachability(
+                "com.example.app.MainActivity", true, true);
         try {
-            String json = "{"
-                    + "\"reachability\": {"
-                    + "\"directly_reaches_mop\": {\"click@100,200\": true, \"click@300,400\": false},"
-                    + "\"reaches_mop\": {\"click@100,200\": true, \"click@500,600\": true}"
-                    + "},"
-                    + "\"windows\": {},"
-                    + "\"transitions\": {}"
-                    + "}";
-            try (FileWriter writer = new FileWriter(tempFile)) {
-                writer.write(json);
-            }
-
             StaticMap map = new StaticMap(tempFile.getAbsolutePath());
             assertTrue(map.isLoaded());
-
-            assertTrue(map.hasDirectMop("click@100,200"));
-            assertFalse(map.hasDirectMop("click@300,400")); // false in JSON
-            assertFalse(map.hasDirectMop("click@999,999")); // not in map
-
-            assertTrue(map.hasMop("click@100,200"));
-            assertTrue(map.hasMop("click@500,600"));
-            assertFalse(map.hasMop("click@999,999")); // not in map
+            assertTrue(map.activityHasDirectMop("MainActivity"));
+            assertTrue(map.activityHasMop("MainActivity"));
         } finally {
             tempFile.delete();
         }
     }
 
     @Test
-    void testLoadedMapWithEmptyReachability() throws Exception {
-        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+    void testParseTransitionsJsonArray() throws Exception {
+        File tempFile = createJsonWithTransitions();
         try {
-            String json = "{\"reachability\": {}, \"windows\": {}, \"transitions\": {}}";
-            try (FileWriter writer = new FileWriter(tempFile)) {
-                writer.write(json);
-            }
-
             StaticMap map = new StaticMap(tempFile.getAbsolutePath());
             assertTrue(map.isLoaded());
-            assertFalse(map.hasDirectMop("click@100,200"));
-            assertFalse(map.hasMop("click@100,200"));
+            List<String> transitions = map.getTransitions("MainActivity");
+            assertFalse(transitions.isEmpty());
+            assertTrue(transitions.contains("SettingsActivity"));
         } finally {
             tempFile.delete();
         }
+    }
+
+    @Test
+    void testActivityNameNormalizationTraceFormat() {
+        // Trace format: dots stripped from relative path
+        assertEquals("SplashActivity",
+                StaticMap.extractSimpleClassName("uiactivitiesSplashActivity"));
+    }
+
+    @Test
+    void testActivityNameNormalizationFullyQualified() {
+        assertEquals("SplashActivity",
+                StaticMap.extractSimpleClassName(
+                        "com.crazyhitty.chdev.ks.munch.ui.activities.SplashActivity"));
+    }
+
+    @Test
+    void testActivityNameNormalizationSimpleName() {
+        assertEquals("MainActivity",
+                StaticMap.extractSimpleClassName("MainActivity"));
+    }
+
+    @Test
+    void testParseEmptyMissingSectionsGracefully() throws Exception {
+        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+        try {
+            // JSON with empty arrays
+            String json = "{\"reachability\":[], \"windows\":[], \"transitions\":[]}";
+            try (FileWriter writer = new FileWriter(tempFile)) {
+                writer.write(json);
+            }
+            StaticMap map = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(map.isLoaded());
+            assertFalse(map.activityHasDirectMop("AnyActivity"));
+            assertTrue(map.getTransitions("AnyActivity").isEmpty());
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testGetMopMethodsForActivityWithDirectMop() throws Exception {
+        File tempFile = createJsonWithReachability(
+                "com.example.app.CryptoActivity", true, false);
+        try {
+            StaticMap map = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(map.activityHasDirectMop("CryptoActivity"));
+            // Trace-format query also works
+            assertTrue(map.activityHasDirectMop("appCryptoActivity"));
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testGetTransitionsReturnsTargets() throws Exception {
+        File tempFile = createJsonWithTransitions();
+        try {
+            StaticMap map = new StaticMap(tempFile.getAbsolutePath());
+            List<String> transitions = map.getTransitions("MainActivity");
+            assertFalse(transitions.isEmpty());
+            // Self-transitions are excluded
+            assertFalse(transitions.contains("MainActivity"));
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testSelfTransitionsExcluded() throws Exception {
+        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+        try {
+            String json = "{"
+                    + "\"reachability\":[],"
+                    + "\"windows\":[{\"id\":1,\"name\":\"com.example.MainActivity\",\"type\":\"ACTIVITY\",\"isMain\":true,\"widgets\":[]}],"
+                    + "\"transitions\":[{\"sourceId\":1,\"targetId\":1,\"events\":[{\"type\":\"implicit_power_event\"}]}]"
+                    + "}";
+            try (FileWriter writer = new FileWriter(tempFile)) {
+                writer.write(json);
+            }
+            StaticMap map = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(map.isLoaded());
+            assertTrue(map.getTransitions("MainActivity").isEmpty());
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    // --- Helpers ---
+
+    private File createJsonWithReachability(String className, boolean directMop, boolean transitiveMop)
+            throws Exception {
+        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+        String json = "{"
+                + "\"reachability\":[{"
+                + "\"className\":\"" + className + "\","
+                + "\"isActivity\":true,"
+                + "\"methods\":[{"
+                + "\"name\":\"doEncrypt\","
+                + "\"signature\":\"<" + className + ": void doEncrypt()>\","
+                + "\"reachable\":true,"
+                + "\"reachesMop\":" + transitiveMop + ","
+                + "\"directlyReachesMop\":" + directMop
+                + "}]"
+                + "}],"
+                + "\"windows\":[],"
+                + "\"transitions\":[]"
+                + "}";
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
+    }
+
+    private File createJsonWithTransitions() throws Exception {
+        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+        String json = "{"
+                + "\"reachability\":[],"
+                + "\"windows\":["
+                + "{\"id\":1,\"name\":\"com.example.app.MainActivity\",\"type\":\"ACTIVITY\",\"isMain\":true,\"widgets\":[]},"
+                + "{\"id\":2,\"name\":\"com.example.app.SettingsActivity\",\"type\":\"ACTIVITY\",\"isMain\":false,\"widgets\":[]}"
+                + "],"
+                + "\"transitions\":["
+                + "{\"sourceId\":1,\"targetId\":2,\"events\":[{\"type\":\"implicit_launch_event\"}]}"
+                + "]"
+                + "}";
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
     }
 }

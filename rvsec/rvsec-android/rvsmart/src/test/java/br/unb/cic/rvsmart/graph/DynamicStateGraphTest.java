@@ -139,15 +139,6 @@ class DynamicStateGraphTest {
     }
 
     @Test
-    void testCumulativeReward() {
-        ScreenNode node = new ScreenNode("hash1", "Main");
-        assertEquals(0.0, node.getCumulativeReward("click@100,200"), 0.01);
-
-        node.setCumulativeReward("click@100,200", 5.0);
-        assertEquals(5.0, node.getCumulativeReward("click@100,200"), 0.01);
-    }
-
-    @Test
     void testInsertionOrder() {
         graph.recordVisit("c", "C");
         graph.recordVisit("a", "A");

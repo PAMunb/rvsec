@@ -36,6 +36,7 @@ class PathBufferTest {
 
     @Test
     void testNextActionReturnsBackActions() {
+        // 3 hashes = 2 hops (start → mid → target)
         List<String> path = Arrays.asList("hash_A", "hash_B", "hash_C");
         buffer.store(PathBuffer.Strategy.MOP, path);
 
@@ -47,11 +48,7 @@ class PathBufferTest {
         assertNotNull(second);
         assertEquals(Action.Type.BACK, second.getType());
 
-        Action third = buffer.nextAction();
-        assertNotNull(third);
-        assertEquals(Action.Type.BACK, third.getType());
-
-        // Path exhausted
+        // Path exhausted after 2 BACKs (N-1 for N hashes)
         assertFalse(buffer.hasPath());
         assertNull(buffer.nextAction());
     }
@@ -86,30 +83,39 @@ class PathBufferTest {
 
     @Test
     void testActiveStrategyTracked() {
-        buffer.store(PathBuffer.Strategy.MOP, Arrays.asList("hash_A"));
+        buffer.store(PathBuffer.Strategy.MOP, Arrays.asList("hash_A", "hash_B"));
         assertEquals(PathBuffer.Strategy.MOP, buffer.getActiveStrategy());
     }
 
     @Test
     void testActiveStrategyNullAfterInvalidate() {
-        buffer.store(PathBuffer.Strategy.COVERAGE, Arrays.asList("hash_A"));
+        buffer.store(PathBuffer.Strategy.COVERAGE, Arrays.asList("hash_A", "hash_B"));
         buffer.invalidate();
         assertNull(buffer.getActiveStrategy());
     }
 
     @Test
+    void testSingleHashStoreResultsInNoPath() {
+        // A single hash means we're already at the target — no BACKs needed
+        buffer.store(PathBuffer.Strategy.BACKTRACK, Arrays.asList("hash_A"));
+        assertFalse(buffer.hasPath());
+    }
+
+    @Test
     void testRemainingActionsCount() {
+        // 3 hashes = 2 BACKs
         buffer.store(PathBuffer.Strategy.BACKTRACK, Arrays.asList("h1", "h2", "h3"));
-        assertEquals(3, buffer.remainingActions());
+        assertEquals(2, buffer.remainingActions());
 
         buffer.nextAction();
-        assertEquals(2, buffer.remainingActions());
+        assertEquals(1, buffer.remainingActions());
     }
 
     @Test
     void testStoreReplacesExistingPath() {
         buffer.store(PathBuffer.Strategy.BACKTRACK, Arrays.asList("hash_A", "hash_B"));
-        buffer.store(PathBuffer.Strategy.MOP, Arrays.asList("hash_X"));
+        // Replace with a 2-hash path (1 BACK)
+        buffer.store(PathBuffer.Strategy.MOP, Arrays.asList("hash_X", "hash_Y"));
         assertEquals(1, buffer.remainingActions());
         assertEquals(PathBuffer.Strategy.MOP, buffer.getActiveStrategy());
     }

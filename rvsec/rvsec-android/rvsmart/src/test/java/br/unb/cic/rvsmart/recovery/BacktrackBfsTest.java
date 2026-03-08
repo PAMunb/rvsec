@@ -99,8 +99,9 @@ class BacktrackBfsTest {
 
         List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5);
         assertNotNull(path);
-        // Path should not include the start hash itself
-        assertFalse(path.contains("hash_A"));
+        // Path includes start hash as first element (for PathBuffer divergence check)
+        assertTrue(path.contains("hash_A"));
+        assertEquals("hash_A", path.get(0));
     }
 
     @Test

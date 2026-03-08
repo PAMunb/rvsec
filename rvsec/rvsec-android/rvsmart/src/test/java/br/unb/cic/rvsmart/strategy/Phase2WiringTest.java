@@ -15,17 +15,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for Phase 2 component wiring.
  *
- * Verifies that SuccessorTracker, PathBuffer, BacktrackBfs, and RewardPropagator
- * work together when wired into ActionSelector and StuckDetector — the same way
- * Main.java instantiates them.
+ * Verifies that SuccessorTracker, PathBuffer, and BacktrackBfs work together
+ * when wired into ActionSelector and StuckDetector — the same way Main.java
+ * instantiates them.
  */
 class Phase2WiringTest {
 
@@ -35,7 +33,6 @@ class Phase2WiringTest {
     private PathBuffer pathBuffer;
     private SuccessorTracker successorTracker;
     private BacktrackBfs backtrackBfs;
-    private RewardPropagator rewardPropagator;
 
     @BeforeEach
     void setUp() {
@@ -48,7 +45,6 @@ class Phase2WiringTest {
         successorTracker = new SuccessorTracker(
                 config.getMaxReEnables(), config.getMultiValueSaturationThreshold());
         backtrackBfs = new BacktrackBfs();
-        rewardPropagator = new RewardPropagator();
     }
 
     // --- Tier 1: PathBuffer dispatches BACK when path is active ---
@@ -180,36 +176,6 @@ class Phase2WiringTest {
         // The exact count depends on BFS path length
         assertTrue(pathBuffer.hasPath() || !pathBuffer.hasPath(),
                 "PathBuffer state depends on BFS path length");
-    }
-
-    // --- RewardPropagator boosts scores for coverage-producing screens ---
-
-    @Test
-    void testRewardPropagatorBoostsTrajectoryOnCoverage() {
-        graph.getOrCreate("hash_A", "ActivityA");
-        graph.getOrCreate("hash_B", "ActivityB");
-
-        // Simulate trajectory recording (what AgentLoop does after learner.update)
-        rewardPropagator.recordStep("hash_A", 1.0);
-        rewardPropagator.recordStep("hash_B", 2.0);
-        rewardPropagator.propagate();
-
-        double rewardA = rewardPropagator.getAccumulatedReward("hash_A");
-        double rewardB = rewardPropagator.getAccumulatedReward("hash_B");
-
-        assertTrue(rewardA > 0.0, "hash_A should have propagated reward");
-        assertTrue(rewardB > 0.0, "hash_B should have propagated reward");
-
-        // Simulate coverage event boosting the trajectory
-        Set<String> methods = new HashSet<>();
-        methods.add("javax.crypto.Cipher.init");
-        rewardPropagator.propagateConfirmedCoverage("hash_B", methods, graph);
-
-        double boostedA = rewardPropagator.getAccumulatedReward("hash_A");
-        double boostedB = rewardPropagator.getAccumulatedReward("hash_B");
-
-        assertTrue(boostedA > rewardA, "Coverage boost should propagate to predecessor");
-        assertTrue(boostedB > rewardB, "Coverage boost should apply to confirmed hash");
     }
 
     // --- Full integration: stuck -> recover -> PathBuffer -> Tier 1 ---

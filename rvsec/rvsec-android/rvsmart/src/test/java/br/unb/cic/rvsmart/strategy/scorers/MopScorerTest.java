@@ -17,10 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for MopScorer — scores actions based on activity-level MOP reachability.
- *
- * MopScorer uses screen.getActivity() to check if any method on that activity
- * reaches a monitored operation. The JSON keys are method signatures like
- * "TestActivity.someMethod()" and the scorer matches by activity prefix.
+ * Uses the JsonArray format from RvsecAnalysisClient (gh27).
  */
 class MopScorerTest {
 
@@ -44,8 +41,7 @@ class MopScorerTest {
 
     @Test
     void testReturnsDirectScoreWhenActivityHasDirectMop() throws Exception {
-        // Method key starts with "TestActivity." so activityHasDirectMop("TestActivity") matches
-        File tempFile = createActivityBasedJson("TestActivity.doEncrypt()", true, false);
+        File tempFile = createReachabilityJson("com.example.TestActivity", true, false);
         try {
             StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
             assertTrue(staticMap.isLoaded());
@@ -59,7 +55,7 @@ class MopScorerTest {
 
     @Test
     void testReturnsTransitiveScoreWhenActivityHasMopButNotDirect() throws Exception {
-        File tempFile = createActivityBasedJson("TestActivity.doHash()", false, true);
+        File tempFile = createReachabilityJson("com.example.TestActivity", false, true);
         try {
             StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
             assertTrue(staticMap.isLoaded());
@@ -73,8 +69,7 @@ class MopScorerTest {
 
     @Test
     void testReturnsZeroWhenActivityNotInMop() throws Exception {
-        // Method key is for a different activity
-        File tempFile = createActivityBasedJson("OtherActivity.doSomething()", true, true);
+        File tempFile = createReachabilityJson("com.example.OtherActivity", true, true);
         try {
             StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
             assertTrue(staticMap.isLoaded());
@@ -89,7 +84,7 @@ class MopScorerTest {
     @Test
     void testCustomConstructorValues() throws Exception {
         MopScorer custom = new MopScorer(1000, 600);
-        File tempFile = createActivityBasedJson("TestActivity.encrypt()", true, false);
+        File tempFile = createReachabilityJson("com.example.TestActivity", true, false);
         try {
             StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
             Action action = new Action(Action.Type.CLICK, 50, 60, "algorithm", "Button");
@@ -100,16 +95,20 @@ class MopScorerTest {
     }
 
     @Test
-    void testActivityWithCodePackagePrefix() throws Exception {
-        // When codePackage is set, the qualified prefix is "com.example.TestActivity."
-        ScreenState pkgScreen = new ScreenState(
-                Collections.<ScreenItem>emptyList(), "TestActivity");
-        File tempFile = createActivityBasedJson("com.example.TestActivity.method()", true, false);
+    void testEndToEndWithJsonArrayFormat() throws Exception {
+        // Verifies the full chain: JSON parsing -> MopScorer returns non-zero
+        File tempFile = createReachabilityJson(
+                "com.example.app.CryptoActivity", true, true);
         try {
             StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
-            staticMap.setCodePackage("com.example");
+            assertTrue(staticMap.isLoaded());
+
+            ScreenState cryptoScreen = new ScreenState(
+                    Collections.<ScreenItem>emptyList(), "CryptoActivity");
             Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
-            assertEquals(500, scorer.score(action, pkgScreen, graph, staticMap));
+            int score = scorer.score(action, cryptoScreen, graph, staticMap);
+            assertTrue(score > 0, "MopScorer should return non-zero for activity with directMop");
+            assertEquals(500, score);
         } finally {
             tempFile.delete();
         }
@@ -117,21 +116,23 @@ class MopScorerTest {
 
     // --- Helper ---
 
-    /**
-     * Creates a temporary JSON file with activity-based method signatures.
-     * The method signature format matches what StaticMap.activityHasDirectMop() expects:
-     * keys start with "ActivityName." so prefix matching works.
-     */
-    private File createActivityBasedJson(String methodSig, boolean directMop, boolean transitiveMop)
+    private File createReachabilityJson(String className, boolean directMop, boolean transitiveMop)
             throws Exception {
-        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+        File tempFile = Files.createTempFile("mop_scorer_test", ".json").toFile();
         String json = "{"
-                + "\"reachability\": {"
-                + "\"directly_reaches_mop\": {\"" + methodSig + "\": " + directMop + "},"
-                + "\"reaches_mop\": {\"" + methodSig + "\": " + transitiveMop + "}"
-                + "},"
-                + "\"windows\": {},"
-                + "\"transitions\": {}"
+                + "\"reachability\":[{"
+                + "\"className\":\"" + className + "\","
+                + "\"isActivity\":true,"
+                + "\"methods\":[{"
+                + "\"name\":\"doEncrypt\","
+                + "\"signature\":\"<" + className + ": void doEncrypt()>\","
+                + "\"reachable\":true,"
+                + "\"reachesMop\":" + transitiveMop + ","
+                + "\"directlyReachesMop\":" + directMop
+                + "}]"
+                + "}],"
+                + "\"windows\":[],"
+                + "\"transitions\":[]"
                 + "}";
         try (FileWriter writer = new FileWriter(tempFile)) {
             writer.write(json);

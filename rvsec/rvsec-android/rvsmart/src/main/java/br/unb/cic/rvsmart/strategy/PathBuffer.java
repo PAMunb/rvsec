@@ -49,14 +49,32 @@ public class PathBuffer {
      * @param strategy     the navigation purpose
      * @param hashSequence ordered list of screen hashes forming the backtrack path
      */
+    /**
+     * Stores a navigation sequence for the given strategy.
+     * hashSequence[0] is the current screen (starting position). The remaining
+     * entries are intermediate positions. The LAST entry is the destination.
+     * N-1 BACK actions are generated for N hashes.
+     *
+     * expectedHashes stores the pre-action positions (all except the last):
+     * before each BACK, the agent should be at expectedHashes[i]. After the
+     * last BACK, the agent arrives at hashSequence[N-1] (the destination).
+     *
+     * @param strategy     the navigation purpose
+     * @param hashSequence ordered list: [current position, ..., target]
+     */
     public void store(Strategy strategy, List<String> hashSequence) {
         path.clear();
         expectedHashes.clear();
         activeStrategy = strategy;
 
-        for (String hash : hashSequence) {
+        if (hashSequence.size() < 2) return; // need at least start + destination
+
+        // For each hop (N-1 hops for N positions):
+        // - expectedHashes[i] = position BEFORE the i-th BACK
+        // - path[i] = BACK action for the i-th hop
+        for (int i = 0; i < hashSequence.size() - 1; i++) {
+            expectedHashes.add(hashSequence.get(i));
             path.add(Action.back(ALGORITHM_SOURCE));
-            expectedHashes.add(hash);
         }
     }
 

@@ -22,7 +22,7 @@ public class UICoverageTracker {
     // screen hash -> set of element IDs on that screen
     private final Map<String, Set<String>> elementsByScreen = new HashMap<>();
 
-    // element ID -> interaction count
+    // composite key "screenHash|elementId" -> interaction count (screen-scoped)
     private final Map<String, Integer> interactionCounts = new HashMap<>();
 
     // element ID -> widget class name
@@ -67,10 +67,12 @@ public class UICoverageTracker {
 
     /**
      * Record an interaction with an element on a screen.
+     * Uses composite key for screen-scoped tracking (INV-RSM-41).
      */
     public void recordInteraction(String screenHash, String elementId) {
-        Integer count = interactionCounts.get(elementId);
-        interactionCounts.put(elementId, count == null ? 1 : count + 1);
+        String key = screenHash + "|" + elementId;
+        Integer count = interactionCounts.get(key);
+        interactionCounts.put(key, count == null ? 1 : count + 1);
     }
 
     /**
@@ -86,7 +88,8 @@ public class UICoverageTracker {
         int total = ids.size();
         int interacted = 0;
         for (String id : ids) {
-            if (interactionCounts.containsKey(id)) {
+            String key = screenHash + "|" + id;
+            if (interactionCounts.containsKey(key)) {
                 interacted++;
             }
         }

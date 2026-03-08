@@ -57,7 +57,6 @@ public class ScreenNode {
     // Action tracking by signature string (e.g., "click@540,960")
     private final Map<String, Integer> executionCounts = new HashMap<>();
     private final Map<String, Integer> successCounts = new HashMap<>();
-    private final Map<String, Double> cumulativeRewards = new HashMap<>();
     private final Map<String, String> widgetClasses = new HashMap<>();
     private final Set<String> transitions = new HashSet<>();
 
@@ -83,7 +82,7 @@ public class ScreenNode {
     }
 
     public void setTotalActions(int totalActions) {
-        this.totalActions = totalActions;
+        this.totalActions = Math.max(this.totalActions, totalActions);
     }
 
     public void addTransition(String targetHash) {
@@ -136,17 +135,6 @@ public class ScreenNode {
         if (executions == 0) return 0.5f;
         int successes = successCounts.getOrDefault(signature, 0);
         return (float) successes / executions;
-    }
-
-    /**
-     * Cumulative reward from N-step reward propagation.
-     */
-    public double getCumulativeReward(String signature) {
-        return cumulativeRewards.getOrDefault(signature, 0.0);
-    }
-
-    public void setCumulativeReward(String signature, double reward) {
-        cumulativeRewards.put(signature, reward);
     }
 
     /**

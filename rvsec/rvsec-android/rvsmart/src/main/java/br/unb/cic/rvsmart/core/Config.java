@@ -42,7 +42,6 @@ public class Config {
     private static final float DEFAULT_COMPONENT_HIGH_PRIORITY = 50.0f;
     private static final float DEFAULT_COMPONENT_MEDIUM_PRIORITY = 40.0f;
     private static final float DEFAULT_STRENGTH_WEIGHT = 50.0f;
-    private static final float DEFAULT_REWARD_SCORE_WEIGHT = 1.0f;
     private static final float DEFAULT_VISITATION_PENALTY_FACTOR = 15.0f;
 
     // --- Synthetic actions (3) ---
@@ -52,12 +51,6 @@ public class Config {
 
     // --- Stochastic selection (1) ---
     private static final float DEFAULT_STOCHASTIC_PROBABILITY = 0.15f;
-
-    // --- Reward propagation (4) ---
-    private static final float DEFAULT_REWARD_GAMMA = 0.8f;
-    private static final int DEFAULT_REWARD_PROPAGATION_N = 5;
-    private static final float DEFAULT_REWARD_MOP_WEIGHT = 5.0f;
-    private static final float DEFAULT_MAX_CUMULATIVE_FACTOR = 3.0f;
 
     // --- Successor tracker (3) ---
     private static final int DEFAULT_MAX_RE_ENABLES = 6;
@@ -154,7 +147,6 @@ public class Config {
     public float getComponentHighPriority() { return getFloat("component_high_priority", DEFAULT_COMPONENT_HIGH_PRIORITY); }
     public float getComponentMediumPriority() { return getFloat("component_medium_priority", DEFAULT_COMPONENT_MEDIUM_PRIORITY); }
     public float getStrengthWeight() { return getFloat("strength_weight", DEFAULT_STRENGTH_WEIGHT); }
-    public float getRewardScoreWeight() { return getFloat("reward_score_weight", DEFAULT_REWARD_SCORE_WEIGHT); }
     public float getVisitationPenaltyFactor() { return getFloat("visitation_penalty_factor", DEFAULT_VISITATION_PENALTY_FACTOR); }
 
     // --- Synthetic actions ---
@@ -169,12 +161,6 @@ public class Config {
     }
     private Float stochasticProbabilityOverride;
     public void setStochasticProbability(float value) { this.stochasticProbabilityOverride = value; }
-
-    // --- Reward propagation ---
-    public float getRewardGamma() { return getFloat("reward_gamma", DEFAULT_REWARD_GAMMA); }
-    public int getRewardPropagationN() { return getInt("reward_propagation_n", DEFAULT_REWARD_PROPAGATION_N); }
-    public float getRewardMopWeight() { return getFloat("reward_mop_weight", DEFAULT_REWARD_MOP_WEIGHT); }
-    public float getMaxCumulativeFactor() { return getFloat("max_cumulative_factor", DEFAULT_MAX_CUMULATIVE_FACTOR); }
 
     // --- Successor tracker ---
     public int getMaxReEnables() { return getInt("max_re_enables", DEFAULT_MAX_RE_ENABLES); }

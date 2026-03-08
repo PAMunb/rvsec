@@ -10,6 +10,9 @@ import br.unb.cic.rvsmart.staticdata.StaticMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.file.Files;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,7 +26,7 @@ class WtgScorerTest {
     @BeforeEach
     void setUp() {
         RvTrack.logEnabled = false;
-        scorer = new WtgScorer(400);
+        scorer = new WtgScorer();
         graph = new DynamicStateGraph();
         screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
     }
@@ -107,5 +110,63 @@ class WtgScorerTest {
         graph.getOrCreate("hash1", "TargetActivity");
         graph.recordVisit("hash1", "TargetActivity");
         assertEquals(0, scorer.bfsBoost("MainActivity", graph, staticMap));
+    }
+
+    @Test
+    void testWtgScorerReturnsNonZeroWithLoadedJsonArray() throws Exception {
+        // End-to-end: JsonArray transitions -> WtgScorer returns boost
+        File tempFile = createTransitionsJson();
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+
+            ScreenState mainScreen = new ScreenState(
+                    Collections.<ScreenItem>emptyList(), "MainActivity");
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+            int score = scorer.score(action, mainScreen, graph, staticMap);
+            assertEquals(200, score, "1-hop unvisited activity should give +200 boost");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWtgScorerReturnsZeroForVisitedTarget() throws Exception {
+        File tempFile = createTransitionsJson();
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+
+            // Mark target as visited
+            graph.getOrCreate("hash1", "SettingsActivity");
+            graph.recordVisit("hash1", "SettingsActivity");
+
+            ScreenState mainScreen = new ScreenState(
+                    Collections.<ScreenItem>emptyList(), "MainActivity");
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+            int score = scorer.score(action, mainScreen, graph, staticMap);
+            assertEquals(0, score, "Visited target should give 0 boost");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    // --- Helper ---
+
+    private File createTransitionsJson() throws Exception {
+        File tempFile = Files.createTempFile("wtg_scorer_test", ".json").toFile();
+        String json = "{"
+                + "\"reachability\":[],"
+                + "\"windows\":["
+                + "{\"id\":1,\"name\":\"com.example.app.MainActivity\",\"type\":\"ACTIVITY\",\"isMain\":true,\"widgets\":[]},"
+                + "{\"id\":2,\"name\":\"com.example.app.SettingsActivity\",\"type\":\"ACTIVITY\",\"isMain\":false,\"widgets\":[]}"
+                + "],"
+                + "\"transitions\":["
+                + "{\"sourceId\":1,\"targetId\":2,\"events\":[{\"type\":\"implicit_launch_event\"}]}"
+                + "]"
+                + "}";
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
     }
 }

@@ -11,18 +11,27 @@ import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Loads static analysis data from a JSON file produced by RvsecAnalysisClient.
- * The JSON has 3 sections: reachability, windows, transitions.
+ * The JSON has 3 top-level JsonArray sections: reachability, windows, transitions.
  *
- * Reachability keys are method signatures like "pkg.ClassName.methodName(params)".
- * Activity-based lookup groups these by class name to determine if any method
- * on the current activity reaches a monitored operation.
+ * Reachability: array of class objects with className and methods array.
+ * Each method has signature, reachable, reachesMop, directlyReachesMop.
  *
- * Transitions map activity names to lists of target activities (WTG edges).
+ * Windows: array of window objects with id and name (fully qualified activity).
+ * Used to cross-reference transition sourceId/targetId with activity names.
+ *
+ * Transitions: array of {sourceId, targetId, events} referencing window IDs.
+ *
+ * Activity names are matched by simple class name (last segment after dot),
+ * which handles both fully-qualified names from JSON and trace-format names
+ * from the agent (e.g., "uiactivitiesSplashActivity" -> "SplashActivity").
+ * Android convention: package segments are lowercase, class names start uppercase.
  *
  * Graceful degradation: if the file is missing, null, or unparseable,
  * isLoaded=false and all query methods return false/empty.
@@ -32,11 +41,16 @@ public class StaticMap {
     private static final String TAG = "StaticMap";
 
     private boolean isLoaded;
-    private Map<String, Boolean> directlyReachesMop;
-    private Map<String, Boolean> reachesMop;
-    private Map<String, List<String>> transitions;
 
-    // Code package for activity name matching against JSON keys
+    // Simple class name -> true if any method in that class directly reaches MOP
+    private Map<String, Boolean> activityDirectMop;
+    // Simple class name -> true if any method in that class reaches MOP (transitive)
+    private Map<String, Boolean> activityTransitiveMop;
+    // Simple class name -> list of target simple class names (WTG edges)
+    private Map<String, List<String>> activityTransitions;
+    // Window ID -> simple class name (for transition cross-reference)
+    private Map<Integer, String> windowIdToActivity;
+
     private String codePackage;
 
     public StaticMap(String jsonPath) {
@@ -46,7 +60,12 @@ public class StaticMap {
         }
         try {
             JsonObject json = new Gson().fromJson(new FileReader(jsonPath), JsonObject.class);
+            activityDirectMop = new HashMap<>();
+            activityTransitiveMop = new HashMap<>();
+            activityTransitions = new HashMap<>();
+            windowIdToActivity = new HashMap<>();
             parseReachability(json);
+            parseWindows(json);
             parseTransitions(json);
             this.isLoaded = true;
         } catch (Exception e) {
@@ -55,45 +74,82 @@ public class StaticMap {
         }
     }
 
+    /**
+     * Parse reachability from JsonArray format produced by RvsecAnalysisClient.
+     * Each element: {className, isActivity, methods: [{signature, reachable, reachesMop, directlyReachesMop}]}
+     */
     private void parseReachability(JsonObject json) {
-        JsonObject reach = json.getAsJsonObject("reachability");
-        if (reach == null) {
-            return;
-        }
+        JsonArray reach = json.getAsJsonArray("reachability");
+        if (reach == null) return;
 
-        JsonObject directObj = reach.getAsJsonObject("directly_reaches_mop");
-        if (directObj != null) {
-            directlyReachesMop = new HashMap<>();
-            for (Map.Entry<String, JsonElement> entry : directObj.entrySet()) {
-                directlyReachesMop.put(entry.getKey(), entry.getValue().getAsBoolean());
-            }
-        }
+        for (JsonElement elem : reach) {
+            JsonObject classObj = elem.getAsJsonObject();
+            String className = classObj.get("className").getAsString();
+            String simpleName = extractSimpleClassName(className);
 
-        JsonObject transitiveObj = reach.getAsJsonObject("reaches_mop");
-        if (transitiveObj != null) {
-            reachesMop = new HashMap<>();
-            for (Map.Entry<String, JsonElement> entry : transitiveObj.entrySet()) {
-                reachesMop.put(entry.getKey(), entry.getValue().getAsBoolean());
+            JsonArray methods = classObj.getAsJsonArray("methods");
+            if (methods == null) continue;
+
+            for (JsonElement methodElem : methods) {
+                JsonObject method = methodElem.getAsJsonObject();
+                if (method.has("directlyReachesMop")
+                        && method.get("directlyReachesMop").getAsBoolean()) {
+                    activityDirectMop.put(simpleName, true);
+                }
+                if (method.has("reachesMop")
+                        && method.get("reachesMop").getAsBoolean()) {
+                    activityTransitiveMop.put(simpleName, true);
+                }
             }
         }
     }
 
-    private void parseTransitions(JsonObject json) {
-        JsonObject transObj = json.getAsJsonObject("transitions");
-        if (transObj == null) {
-            return;
+    /**
+     * Parse windows from JsonArray to build windowId -> activity name map.
+     * Each element: {id, name (fully qualified), type, isMain}
+     */
+    private void parseWindows(JsonObject json) {
+        JsonArray windows = json.getAsJsonArray("windows");
+        if (windows == null) return;
+
+        for (JsonElement elem : windows) {
+            JsonObject window = elem.getAsJsonObject();
+            int id = window.get("id").getAsInt();
+            String name = window.get("name").getAsString();
+            windowIdToActivity.put(id, extractSimpleClassName(name));
         }
-        transitions = new HashMap<>();
-        for (Map.Entry<String, JsonElement> entry : transObj.entrySet()) {
-            List<String> targets = new ArrayList<>();
-            JsonElement val = entry.getValue();
-            if (val.isJsonArray()) {
-                JsonArray arr = val.getAsJsonArray();
-                for (int i = 0; i < arr.size(); i++) {
-                    targets.add(arr.get(i).getAsString());
-                }
-            }
-            transitions.put(entry.getKey(), targets);
+    }
+
+    /**
+     * Parse transitions from JsonArray using window ID cross-reference.
+     * Each element: {sourceId, targetId, events: [{type, widgetClass}]}
+     * Self-transitions (sourceId == targetId) are skipped.
+     */
+    private void parseTransitions(JsonObject json) {
+        JsonArray trans = json.getAsJsonArray("transitions");
+        if (trans == null) return;
+
+        for (JsonElement elem : trans) {
+            JsonObject transition = elem.getAsJsonObject();
+            int sourceId = transition.get("sourceId").getAsInt();
+            int targetId = transition.get("targetId").getAsInt();
+
+            // Skip self-transitions (implicit_power_event, etc.)
+            if (sourceId == targetId) continue;
+
+            String sourceActivity = windowIdToActivity.get(sourceId);
+            String targetActivity = windowIdToActivity.get(targetId);
+            if (sourceActivity == null || targetActivity == null) continue;
+
+            activityTransitions
+                    .computeIfAbsent(sourceActivity, k -> new ArrayList<>())
+                    .add(targetActivity);
+        }
+
+        // Deduplicate target lists
+        for (Map.Entry<String, List<String>> entry : activityTransitions.entrySet()) {
+            List<String> unique = new ArrayList<>(new HashSet<>(entry.getValue()));
+            entry.setValue(unique);
         }
     }
 
@@ -103,63 +159,59 @@ public class StaticMap {
 
     public boolean isLoaded() { return isLoaded; }
 
-    /** @return true if the action signature directly reaches a monitored operation. */
-    public boolean hasDirectMop(String actionSignature) {
-        if (!isLoaded || directlyReachesMop == null) return false;
-        return directlyReachesMop.getOrDefault(actionSignature, false);
-    }
-
-    /** @return true if the action signature transitively reaches a monitored operation. */
-    public boolean hasMop(String actionSignature) {
-        if (!isLoaded || reachesMop == null) return false;
-        return reachesMop.getOrDefault(actionSignature, false);
-    }
-
     /**
      * Check if the given activity has any method that directly reaches a MOP.
-     * Matches by checking if any reachability key starts with the qualified activity name.
+     * Activity name can be fully-qualified, simple, or trace-format.
      */
     public boolean activityHasDirectMop(String activityName) {
-        if (!isLoaded || directlyReachesMop == null) return false;
-        String prefix = qualifiedPrefix(activityName);
-        for (Map.Entry<String, Boolean> entry : directlyReachesMop.entrySet()) {
-            if (entry.getKey().startsWith(prefix) && entry.getValue()) {
-                return true;
-            }
-        }
-        return false;
+        if (!isLoaded || activityDirectMop == null) return false;
+        return activityDirectMop.getOrDefault(extractSimpleClassName(activityName), false);
     }
 
     /**
      * Check if the given activity has any method that transitively reaches a MOP.
      */
     public boolean activityHasMop(String activityName) {
-        if (!isLoaded || reachesMop == null) return false;
-        String prefix = qualifiedPrefix(activityName);
-        for (Map.Entry<String, Boolean> entry : reachesMop.entrySet()) {
-            if (entry.getKey().startsWith(prefix) && entry.getValue()) {
-                return true;
-            }
-        }
-        return false;
+        if (!isLoaded || activityTransitiveMop == null) return false;
+        return activityTransitiveMop.getOrDefault(extractSimpleClassName(activityName), false);
     }
 
     /**
      * Get WTG transitions from the given activity.
-     * Returns empty list if no transitions are available.
+     * Returns simple class names of target activities.
      */
     public List<String> getTransitions(String activityName) {
-        if (!isLoaded || transitions == null) return Collections.emptyList();
-        // Try qualified name first
-        String qualified = (codePackage != null ? codePackage + "." : "") + activityName;
-        List<String> result = transitions.get(qualified);
-        if (result != null) return result;
-        // Try simple name
-        result = transitions.get(activityName);
-        return result != null ? result : Collections.emptyList();
+        if (!isLoaded || activityTransitions == null) return Collections.emptyList();
+        return activityTransitions.getOrDefault(
+                extractSimpleClassName(activityName), Collections.emptyList());
     }
 
-    private String qualifiedPrefix(String activityName) {
-        return (codePackage != null ? codePackage + "." : "") + activityName + ".";
+    /**
+     * Extract simple class name from various formats:
+     * - Fully qualified: "com.example.ui.MainActivity" -> "MainActivity"
+     * - Trace format (dots stripped): "uiactivitiesMainActivity" -> "MainActivity"
+     * - Already simple: "MainActivity" -> "MainActivity"
+     *
+     * Android convention: package segments are lowercase, class names start uppercase.
+     * The simple class name starts at the last dot (if qualified) or at the first
+     * uppercase character (if trace-format with no dots).
+     */
+    static String extractSimpleClassName(String name) {
+        if (name == null || name.isEmpty()) return name;
+
+        // Fully qualified: extract after last dot
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot >= 0) {
+            return name.substring(lastDot + 1);
+        }
+
+        // Trace format (no dots): find first uppercase letter (class name boundary)
+        for (int i = 0; i < name.length(); i++) {
+            if (Character.isUpperCase(name.charAt(i))) {
+                return name.substring(i);
+            }
+        }
+
+        return name;
     }
 }

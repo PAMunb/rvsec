@@ -34,7 +34,6 @@ import br.unb.cic.rvsmart.strategy.ActionSelector;
 import br.unb.cic.rvsmart.strategy.InputValueGenerator;
 import br.unb.cic.rvsmart.strategy.PathBuffer;
 import br.unb.cic.rvsmart.strategy.PlateauDetector;
-import br.unb.cic.rvsmart.strategy.RewardPropagator;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
 
@@ -148,14 +147,13 @@ public class Main {
             SuccessorTracker successorTracker = new SuccessorTracker(
                     config.getMaxReEnables(), config.getMultiValueSaturationThreshold());
             BacktrackBfs backtrackBfs = new BacktrackBfs();
-            RewardPropagator rewardPropagator = new RewardPropagator();
             ConfirmedCoverageScorer confirmedCoverageScorer = new ConfirmedCoverageScorer(
                     config.getConfirmedCoverageBase());
             InputValueGenerator inputValueGenerator = new InputValueGenerator();
             UICoverageTracker uiCoverageTracker = new UICoverageTracker();
             PlateauDetector plateauDetector = new PlateauDetector();
             ActionSelector actionSelector = new ActionSelector(config, pathBuffer, successorTracker,
-                    confirmedCoverageScorer, rewardPropagator, inputValueGenerator, uiCoverageTracker);
+                    confirmedCoverageScorer, inputValueGenerator, uiCoverageTracker);
             StuckDetector stuckDetector = new StuckDetector(
                     config.getStuckMaxBlocks(), backtrackBfs, pathBuffer);
             Learner learner = new Learner(graph, stuckDetector);
@@ -208,7 +206,7 @@ public class Main {
                     stuckDetector, learner, traceWriter, metricsCollector,
                     routingManager, sglangClient, toolCallParser,
                     promptBuilder, imageProcessor, screenshotCapture,
-                    confirmedCoverageScorer, rewardPropagator, successorTracker,
+                    confirmedCoverageScorer, successorTracker,
                     uiCoverageTracker, plateauDetector);
 
             Log.i(TAG, "AgentLoop starting, deadline in " + config.getTimeout() + "s");

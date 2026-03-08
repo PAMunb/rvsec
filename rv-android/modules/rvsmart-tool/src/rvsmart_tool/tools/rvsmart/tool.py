@@ -244,7 +244,10 @@ class RVSmartTool(AbstractTool):
             )
             raise
 
-        # Step 6: Extract metrics from trace file
+        # Step 6: Check for empty trace (possible silent hang or startup crash)
+        self._check_empty_trace(task.result.trace_file)
+
+        # Step 7: Extract metrics from trace file
         self._extract_metrics(task)
 
         self.logger.info("RVSmart execution completed successfully")
@@ -488,6 +491,22 @@ class RVSmartTool(AbstractTool):
             cmd_args.extend(["--mode", mode])
 
         return Command("adb", cmd_args, timeout_seconds)
+
+    def _check_empty_trace(self, trace_file_path: str) -> None:
+        """
+        Check if the trace file is empty (0 bytes).
+
+        An empty trace indicates rvsmart produced no output — possible silent
+        hang or startup crash. Logs a warning but does not mark as failure
+        since the agent ran for the full timeout.
+        """
+        try:
+            if os.path.isfile(trace_file_path) and os.path.getsize(trace_file_path) == 0:
+                self.logger.warning(
+                    "rvsmart produced empty trace file — possible silent hang or startup crash"
+                )
+        except OSError:
+            pass
 
     def _extract_metrics(self, task: Task) -> None:
         """

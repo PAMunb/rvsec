@@ -32,7 +32,9 @@ public class SystemDialogDetector {
     /** Button labels to click for dismissal (case-insensitive matching). */
     private static final Set<String> DISMISS_LABELS = new HashSet<>(Arrays.asList(
             "ok", "allow", "deny", "close", "wait",
-            "open app again", "close app"
+            "open app again", "close app",
+            "cancel", "retry", "dismiss", "got it",
+            "continue", "not now", "no thanks", "done"
     ));
 
     private final InputInjector injector;

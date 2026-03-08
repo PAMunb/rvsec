@@ -166,6 +166,43 @@ class TestMetricsExtraction:
             assert written["status"] == "metrics_unavailable"
 
 
+class TestEmptyTraceDetection:
+    """Tests for empty trace file detection."""
+
+    @patch("rvsmart_tool.tools.rvsmart.tool.LoggingManager")
+    def test_empty_trace_logs_warning(self, mock_logging):
+        mock_logger = MagicMock()
+        mock_logging.get_instance.return_value.get_logger.return_value = mock_logger
+        tool = RVSmartTool()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trace_path = os.path.join(tmpdir, "trace.log")
+            # Create empty file (0 bytes)
+            with open(trace_path, "w"):
+                pass
+
+            tool._check_empty_trace(trace_path)
+
+            mock_logger.warning.assert_called_once_with(
+                "rvsmart produced empty trace file — possible silent hang or startup crash"
+            )
+
+    @patch("rvsmart_tool.tools.rvsmart.tool.LoggingManager")
+    def test_nonempty_trace_no_warning(self, mock_logging):
+        mock_logger = MagicMock()
+        mock_logging.get_instance.return_value.get_logger.return_value = mock_logger
+        tool = RVSmartTool()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trace_path = os.path.join(tmpdir, "trace.log")
+            with open(trace_path, "w") as f:
+                f.write("some output\n")
+
+            tool._check_empty_trace(trace_path)
+
+            mock_logger.warning.assert_not_called()
+
+
 class TestJarSearchPaths:
     """Tests for JAR search path resolution."""
 

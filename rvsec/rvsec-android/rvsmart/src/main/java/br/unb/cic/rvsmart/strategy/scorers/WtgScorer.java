@@ -42,10 +42,7 @@ public class WtgScorer implements Scorer {
     // Under-visited threshold: activities with fewer visits than this are considered worth exploring
     private static final int UNDER_VISITED_THRESHOLD = 3;
 
-    private final int wtgScore;
-
-    public WtgScorer(int wtgScore) {
-        this.wtgScore = wtgScore;
+    public WtgScorer() {
     }
 
     @Override
