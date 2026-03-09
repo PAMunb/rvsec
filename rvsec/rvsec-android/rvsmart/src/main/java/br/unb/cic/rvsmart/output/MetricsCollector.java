@@ -1,6 +1,7 @@
 package br.unb.cic.rvsmart.output;
 
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.StructuralGraph;
 import com.google.gson.Gson;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -33,6 +34,13 @@ public class MetricsCollector {
     private int mopMethodsReached;
     private boolean coverageEnabled;
 
+    // Dual-hash + phase observability fields (gh34)
+    private int contentStates;
+    private int structuralClusters;
+    private int navMapEdges;
+    private final Map<String, Integer> phaseDistribution = new LinkedHashMap<>();
+    private int backtrackReplays;
+
     // LLM (Phase 2)
     private int llmTotalCalls;
     private int llmTokensIn;
@@ -44,6 +52,9 @@ public class MetricsCollector {
         this.packageName = packageName;
         this.mode = mode;
         this.timeout = timeout;
+        phaseDistribution.put("phase1", 0);
+        phaseDistribution.put("phase2", 0);
+        phaseDistribution.put("phase3", 0);
     }
 
     // Increment methods
@@ -72,11 +83,22 @@ public class MetricsCollector {
         this.circuitBreakerTrips = trips;
     }
 
+    // gh34 — dual-hash + phase observability
+    public void recordContentStates(int count) { this.contentStates = count; }
+    public void recordStructuralClusters(int count) { this.structuralClusters = count; }
+    public void recordNavMapEdges(int count) { this.navMapEdges = count; }
+    public void incrementPhaseDistribution(String phase) {
+        if (phaseDistribution.containsKey(phase)) {
+            phaseDistribution.put(phase, phaseDistribution.get(phase) + 1);
+        }
+    }
+    public void incrementBacktrackReplays() { backtrackReplays++; }
+
     /**
      * Write final metrics report to stdout with RVSMART_METRICS: prefix (INV-RSM-10).
      * Called exactly once at timeout.
      */
-    public void writeFinalReport(long startTimeMs, DynamicStateGraph graph,
+    public void writeFinalReport(long startTimeMs, ContentGraph graph,
                                   int widgetsDiscovered, int widgetsInteracted,
                                   Set<String> uniqueActivities) {
         long elapsed = System.currentTimeMillis() - startTimeMs;
@@ -102,6 +124,10 @@ public class MetricsCollector {
         exploration.put("unique_states", graph.size());
         exploration.put("total_transitions", graph.totalTransitions());
         exploration.put("throughput_evt_per_s", round(throughput, 1));
+        exploration.put("content_states", contentStates);
+        exploration.put("structural_clusters", structuralClusters);
+        exploration.put("nav_map_edges", navMapEdges);
+        exploration.put("phase_distribution", new TreeMap<>(phaseDistribution));
         report.put("exploration", exploration);
 
         // decisions
@@ -113,6 +139,7 @@ public class MetricsCollector {
         decisions.put("forced_backs", forcedBacks);
         decisions.put("crashes", crashes);
         decisions.put("system_dialogs", systemDialogs);
+        decisions.put("backtrack_replays", backtrackReplays);
         report.put("decisions", decisions);
 
         // ui_coverage
@@ -162,4 +189,6 @@ public class MetricsCollector {
     public int getForcedBacks() { return forcedBacks; }
     public int getMultiAttemptRetries() { return multiAttemptRetries; }
     public String getMetricsPrefix() { return METRICS_PREFIX; }
+    public int getBacktrackReplays() { return backtrackReplays; }
+    public Map<String, Integer> getPhaseDistribution() { return Collections.unmodifiableMap(phaseDistribution); }
 }

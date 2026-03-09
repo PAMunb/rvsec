@@ -3,7 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SaturationScorerTest {
 
     private SaturationScorer scorer;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private ScreenState screen;
     private StaticMap staticMap;
 
@@ -25,7 +25,7 @@ class SaturationScorerTest {
     void setUp() {
         RvTrack.logEnabled = false;
         scorer = new SaturationScorer(20, 10);
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
         staticMap = new StaticMap(null);
     }
@@ -40,7 +40,7 @@ class SaturationScorerTest {
     @Test
     void testReturnsZeroWhenBelowThreshold() {
         // Visit the screen 5 times — below threshold of 20
-        String hash = screen.getHash();
+        String hash = screen.getContentHash();
         for (int i = 0; i < 5; i++) {
             graph.recordVisit(hash, "TestActivity");
         }
@@ -51,7 +51,7 @@ class SaturationScorerTest {
     @Test
     void testReturnsPenaltyWhenAboveThreshold() {
         // Visit the screen 25 times — 5 above threshold of 20
-        String hash = screen.getHash();
+        String hash = screen.getContentHash();
         for (int i = 0; i < 25; i++) {
             graph.recordVisit(hash, "TestActivity");
         }
@@ -62,7 +62,7 @@ class SaturationScorerTest {
 
     @Test
     void testReturnsZeroAtExactThreshold() {
-        String hash = screen.getHash();
+        String hash = screen.getContentHash();
         for (int i = 0; i < 20; i++) {
             graph.recordVisit(hash, "TestActivity");
         }

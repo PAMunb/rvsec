@@ -2,8 +2,8 @@ package br.unb.cic.rvsmart.strategy.scorers;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.graph.ScreenNode;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 /**
@@ -24,8 +24,8 @@ public class GradualDecayScorer implements Scorer {
     }
 
     @Override
-    public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
-        ScreenNode node = graph.get(screen.getHash());
+    public int score(Action candidate, ScreenState screen, ContentGraph graph, StaticMap staticMap) {
+        ContentNode node = graph.get(screen.getContentHash());
         if (node == null) return base; // Never visited = full score
         int visits = node.getExecutionCount(candidate.signature());
         if (visits >= minVisits) return 0;

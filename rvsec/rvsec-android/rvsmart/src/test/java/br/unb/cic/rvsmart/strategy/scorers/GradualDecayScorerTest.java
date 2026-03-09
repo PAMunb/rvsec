@@ -3,8 +3,8 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.graph.ScreenNode;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import org.junit.jupiter.api.Test;
@@ -26,9 +26,9 @@ class GradualDecayScorerTest {
 
     @Test
     void testFullBaseScoreForNeverVisitedAction() {
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         // Node exists but action never executed (visits=0)
-        graph.getOrCreate(screen.getHash(), "TestActivity");
+        graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         // 200 * 0.7^0 = 200 * 1.0 = 200
@@ -37,8 +37,8 @@ class GradualDecayScorerTest {
 
     @Test
     void testExponentialDecayVisits1() {
-        DynamicStateGraph graph = new DynamicStateGraph();
-        ScreenNode node = graph.getOrCreate(screen.getHash(), "TestActivity");
+        ContentGraph graph = new ContentGraph();
+        ContentNode node = graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         // Execute once
@@ -50,8 +50,8 @@ class GradualDecayScorerTest {
 
     @Test
     void testExponentialDecayVisits2() {
-        DynamicStateGraph graph = new DynamicStateGraph();
-        ScreenNode node = graph.getOrCreate(screen.getHash(), "TestActivity");
+        ContentGraph graph = new ContentGraph();
+        ContentNode node = graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         // Execute twice
@@ -65,8 +65,8 @@ class GradualDecayScorerTest {
 
     @Test
     void testReturnsZeroWhenVisitsAtMinVisits() {
-        DynamicStateGraph graph = new DynamicStateGraph();
-        ScreenNode node = graph.getOrCreate(screen.getHash(), "TestActivity");
+        ContentGraph graph = new ContentGraph();
+        ContentNode node = graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         // Execute 5 times (minVisits=5)
@@ -79,7 +79,7 @@ class GradualDecayScorerTest {
 
     @Test
     void testReturnsBaseWhenGraphNodeIsNull() {
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         // graph.get(hash) returns null for unvisited screens
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
@@ -91,8 +91,8 @@ class GradualDecayScorerTest {
         // The decay formula (base * decayRate^visits) uses 0 < decayRate < 1,
         // so the result is always >= 0. Visits >= minVisits returns 0 explicitly.
         // Verify no negative scores across many visit counts.
-        DynamicStateGraph graph = new DynamicStateGraph();
-        ScreenNode node = graph.getOrCreate(screen.getHash(), "TestActivity");
+        ContentGraph graph = new ContentGraph();
+        ContentNode node = graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         for (int i = 0; i < 100; i++) {
@@ -107,8 +107,8 @@ class GradualDecayScorerTest {
     @Test
     void testCustomConstructorValues() {
         GradualDecayScorer custom = new GradualDecayScorer(400, 0.5, 3);
-        DynamicStateGraph graph = new DynamicStateGraph();
-        ScreenNode node = graph.getOrCreate(screen.getHash(), "TestActivity");
+        ContentGraph graph = new ContentGraph();
+        ContentNode node = graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         node.recordAction(action.signature(), "Button");

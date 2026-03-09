@@ -1,6 +1,6 @@
 ## Context
 
-This redesign addresses three fundamental flaws in rvsmart's exploration algorithm identified by the comparison experiment (100 APKs x 3 reps x 600s, documented in `docs/20260309_rvsmart_comparacao_resultados.md`, Appendix A). RVsmart loses to ape by 3.93pp and to rvagent by ~1pp in method coverage. The root causes are structural — not fixable with incremental patches.
+This redesign addresses three fundamental flaws in rvsmart's exploration algorithm identified by the comparison experiment (100 APKs x 3 reps x 600s). RVsmart loses to ape by 3.93pp and to rvagent by ~1pp in method coverage. The root causes are structural — not fixable with incremental patches.
 
 The change preserves all fixes from gh30-gh32 (StaticMap, OOA recovery, WtgScorer, speed optimizations, resource management) and integrates with LLM capabilities from gh33 when available.
 
@@ -76,6 +76,7 @@ AgentLoop.run()
 - Changes to the rvsmart-tool Python wrapper (external interface unchanged)
 - Changes to rv-platform, rv-experiment, or rv-tools modules
 - Modifying the scoring chain (MopScorer, WtgScorer, etc.) — scorers work as-is with the new phase system
+- Changes to `RoutingManager` — it controls LLM vs. algorithm routing (orthogonal concern). The 3-phase exploration is entirely within the algorithm path. When RoutingManager routes to LLM, the LLM makes a free-form decision regardless of phase. RoutingManager is unchanged.
 
 ## Decisions
 
@@ -106,7 +107,9 @@ AgentLoop.run()
 
 **Phase transitions are reversible**: discovering a new content state at any phase re-activates Phase 1 for that state. PhaseController tracks global phase but always checks for local Phase 1 opportunities.
 
-**Relationship to existing code**: Phase 1 corresponds to current Tier 2 + navigation. Phase 2 absorbs PlateauDetector and UICoverageTracker roles. Phase 3 absorbs the existing stochastic selection boost. Tier 1 (PathBuffer) is absorbed into BacktrackStrategy. Tier 3 (proactive backtrack) is replaced by NavigationMap-based navigation. Tier 4 (unified queue) is eliminated — its iterations are now productive Phase 2/3 iterations.
+**Relationship to existing code**: Phase 1 corresponds to current Tier 2 + navigation. Phase 2 integrates with PlateauDetector (for phase transition detection) and UICoverageTracker (for coverage gap identification) — both classes remain, no deletion. Phase 3 reuses the existing stochastic selection with a boosted probability. Tier 1 (PathBuffer) is replaced by BacktrackStrategy. Tier 3 (proactive backtrack at saturation) is replaced by NavigationMap-based navigation. Tier 4 (unified queue) is eliminated — its iterations become productive Phase 2/3 iterations.
+
+**Phase 1 navigation**: When the current content state is exhausted, Phase 1 navigates to the nearest structural cluster that contains a discovered content state with untested actions. Navigation uses BacktrackStrategy (structural-level BACK + replay). Upon arriving at the structural cluster, the agent gets some content state within that cluster; DFS continues from whatever content state is found there, testing its untested actions. This is sufficient — content states within the same structural cluster are reachable from each other by executing the actions that differentiate them (e.g., selecting a different Spinner option), which are themselves untested Phase 1 candidates. "Nearest" is defined as minimum structural-level BFS hops via NavigationMap from the current structHash.
 
 **Why not keep tiers**: The Tier 4 trap (28.3% wasted iterations) is a direct consequence of the tiered architecture. Phases eliminate the gap because Phase 2 always has productive work (coverage gaps, value variations), and Phase 3 uses stochasticity to discover new states.
 
@@ -153,10 +156,14 @@ Current `DynamicStateGraph` maps `hash → ScreenNode`. The redesign replaces th
 **Modify:**
 - `core/ScreenState.java` — add `computeContentHash()`, keep `computeStructHash()` (current logic renamed)
 - `core/AgentLoop.java` — dual hash registration, phase-based routing, NavigationMap recording
+- `core/Config.java` — remove the 4 PathBuffer config params (`path_buffer_strategy_priority`, `path_buffer_backtrack_hops`, `path_buffer_coverage_weight`, `path_buffer_mop_weight`) that become dead when PathBuffer is backed up
 - `strategy/ActionSelector.java` — phase-aware action selection (replace tiers with phase dispatch)
 - `output/MetricsCollector.java` — extended metrics fields
 - `output/TraceWriter.java` — optional new fields in score breakdown
-- `recovery/BacktrackBfs.java` — adapt to use StructuralGraph (or delete if BacktrackStrategy subsumes it)
+- `output/RvTrack.java` — migrate from `Log.i()` (logcat) to `System.out.println()` (stdout). RvTrack was designed to emit structured `[RVTRACK:<CATEGORY>]` lines to the trace captured by rvsmart-tool, but was implemented using Android logcat. This change fixes the design intent: all structured trace data (TraceWriter JSON + RvTrack diagnostic lines) goes to stdout, captured by the Python wrapper. Remove `import android.util.Log` and `TAG` constant; the `logEnabled` flag is kept for test suppression. The trace file will have two line types: JSON lines (TraceWriter) and `[RVTRACK:]` text lines, both distinguishable by prefix.
+- `llm/PromptBuilder.java` — remove 2 `Log.d("RVSMART-PROMPT", ...)` calls (V13 and V17 templates). LLM prompt text is debug-only and not needed in production trace; relevant LLM data (tokens, timing) is already in MetricsCollector.
+- `llm/ToolCallParser.java` — remove `Log.d("RVSMART-LLM-RESP", rawContent)` call. Same rationale as RVSMART-PROMPT.
+- `recovery/BacktrackBfs.java` — **keep and adapt**: BacktrackBfs finds unsaturated ancestors via BFS on SuccessorTracker parent-child relationships (used by stuck detection), while BacktrackStrategy provides BACK+replay navigation fallback. They serve different purposes and coexist. Since Task 7.5 makes SuccessorTracker operate at structHash level, BacktrackBfs operates naturally on structHashes — no logic change, just type-level consistency.
 
 **Unchanged (preserved from gh30-gh32):**
 - All scorers (`strategy/scorers/*`) — work as-is, receive ContentNode data through same interface
@@ -198,7 +205,7 @@ Current `DynamicStateGraph` maps `hash → ScreenNode`. The redesign replaces th
 | BACK fails (OOA) | BacktrackStrategy step 1 | Detected by OOA check in AgentLoop | RESTART + replay via NavigationMap |
 | Replay path broken | NavigationMap BFS returns path, but intermediate state changed | Verify each step matches expected structHash | Abandon replay, RESTART to root, re-navigate |
 | Content hash explosion | App generates infinite distinct content (e.g., timestamp in TextView) | 50-char text limit + EditText exclusion | If ContentGraph exceeds 1000 nodes, degrade to structural hash only |
-| Phase 1 infinite loop | New content state → Phase 1 → action creates another new state → ... | PhaseController tracks Phase 1 entries per structHash cluster | After 20 Phase 1 re-entries in same cluster, force Phase 2 |
+| Phase 1 infinite loop | New content state → Phase 1 → action creates another new state → ... | PhaseController tracks Phase 1 entries per structHash cluster | After 20 Phase 1 re-entries in same cluster, force Phase 2 for that cluster. This fires before the global 1000-node safety valve (which triggers later). After forcing Phase 2, the cluster is explored with coverage-guided approach instead of DFS. |
 | NavigationMap stale | App state changed externally (notification, background process) | Structural hash verification at each replay step | Abort replay, fall back to BACK or RESTART |
 
 ## Risks / Trade-offs
@@ -227,10 +234,10 @@ Current `DynamicStateGraph` maps `hash → ScreenNode`. The redesign replaces th
 
 Total: ~40 tests.
 
-## Open Questions
+## Resolved Design Questions
 
-1. **Content hash text exclusion for dynamic views**: Should we exclude text from all `TextView` subclasses, or only `EditText`? Dynamic TextViews (clocks, counters) could cause state explosion. Current proposal: exclude only EditText. Monitor content_states metric in initial experiments to validate.
+1. **Content hash text exclusion for dynamic views**: Exclude text from `EditText` only (agent-generated input). For all other widgets, include text ≤ 50 chars. Dynamic TextViews (clocks, counters) typically exceed 50 chars or contain digits that are filtered at the trim level. The `content_states` metric monitors for unexpected explosion. If explosion occurs (ContentGraph > 1000 nodes safety valve), the system degrades to structural hash — making this self-correcting without upfront complexity.
 
-2. **NavigationMap memory**: For 600s runs, NavigationMap could accumulate thousands of edges. Should we cap it? Current proposal: no cap — structural edges are coarse (typically < 100 distinct structural states per app).
+2. **NavigationMap memory**: No cap needed. At 14 evt/s over 600s = ~8400 actions, structural transitions are bounded by `unique_struct_states × actions_per_screen`. Android apps typically have 20–100 structural screens with 10–50 actions each = at most ~5000 map entries (~1MB). This is negligible. No memory management code needed (P1).
 
-3. **Phase 2 re-exploration heuristic**: How should Phase 2 select which states to re-explore? Current proposal: prioritize states with lowest UI coverage percentage, breaking ties by MOP reachability score. May need tuning after initial experiments.
+3. **Phase 2 re-exploration heuristic**: Use `UICoverageTracker.getCoverageGap()` (already implemented) to identify screens with uninteracted elements (coverage gap > `config.uiCoverageThreshold`, default 0.3). Navigate to the highest-gap screen via NavigationMap, breaking ties by MOP reachability score from WtgScorer. This reuses existing infrastructure with no new heuristics.

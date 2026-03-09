@@ -3,11 +3,11 @@ package br.unb.cic.rvsmart.graph;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class ScreenNodeTest {
+class ContentNodeTest {
 
     @Test
     void testDefaultSaturationThresholdIs4() {
-        ScreenNode node = new ScreenNode("hash1", "Activity1");
+        ContentNode node = new ContentNode("hash1", "Activity1");
         node.setTotalActions(1);
         // Need 4 executions to saturate a normal action
         node.recordAction("click@100,200", "Button");
@@ -20,7 +20,7 @@ class ScreenNodeTest {
 
     @Test
     void testMultiValueThresholdIs6() {
-        ScreenNode node = new ScreenNode("hash1", "Activity1");
+        ContentNode node = new ContentNode("hash1", "Activity1");
         node.setTotalActions(1);
         // EditText uses multi-value threshold of 6
         for (int i = 0; i < 5; i++) {

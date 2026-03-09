@@ -307,10 +307,23 @@ class Android:
         result = install_cmd.invoke()
         if result.is_failure():
             error_msg = result.get_combined_output() or "unknown error"
-            raise RuntimeError(
-                f"APK installation failed for {app.name} on {device_name} "
-                f"(exit code {result.code}): {error_msg}"
-            )
+            if "INSTALL_FAILED_UPDATE_INCOMPATIBLE" in error_msg:
+                # Signature mismatch (e.g. previously installed instrumented APK).
+                # Uninstall the old version and retry.
+                logging.info(
+                    f"Signature mismatch for {app.name}, uninstalling old version"
+                )
+                uninstall_cmd = Command(
+                    "adb", ["-s", device_name, "uninstall", app.package_name]
+                )
+                uninstall_cmd.invoke()
+                result = install_cmd.invoke()
+            if result.is_failure():
+                error_msg = result.get_combined_output() or "unknown error"
+                raise RuntimeError(
+                    f"APK installation failed for {app.name} on {device_name} "
+                    f"(exit code {result.code}): {error_msg}"
+                )
 
     @classmethod
     def uninstall_apk(cls, app: App, device_name: str = "emulator-5554"):

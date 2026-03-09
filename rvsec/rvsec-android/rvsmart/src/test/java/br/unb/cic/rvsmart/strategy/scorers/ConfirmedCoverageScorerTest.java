@@ -3,7 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ConfirmedCoverageScorerTest {
 
     private ConfirmedCoverageScorer scorer;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private ScreenState screen;
     private StaticMap staticMap;
 
@@ -27,7 +27,7 @@ class ConfirmedCoverageScorerTest {
     void setUp() {
         RvTrack.logEnabled = false;
         scorer = new ConfirmedCoverageScorer(150);
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
         staticMap = new StaticMap(null);
     }
@@ -43,7 +43,7 @@ class ConfirmedCoverageScorerTest {
         // visitCount=0 (not in graph) → revisits=0 → score = 150/(1+0) = 150
         Set<String> methods = new HashSet<>();
         methods.add("javax.crypto.Cipher.getInstance");
-        scorer.addConfirmed(screen.getHash(), methods);
+        scorer.addConfirmed(screen.getContentHash(), methods);
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         assertEquals(150, scorer.score(action, screen, graph, staticMap));
@@ -54,11 +54,11 @@ class ConfirmedCoverageScorerTest {
         // visitCount=2 → revisits=1 → score = 150/(1+1) = 75
         Set<String> methods = new HashSet<>();
         methods.add("javax.crypto.Cipher.getInstance");
-        scorer.addConfirmed(screen.getHash(), methods);
+        scorer.addConfirmed(screen.getContentHash(), methods);
 
-        graph.getOrCreate(screen.getHash(), "TestActivity");
-        graph.recordVisit(screen.getHash(), "TestActivity");
-        graph.recordVisit(screen.getHash(), "TestActivity");
+        graph.getOrCreate(screen.getContentHash(), "TestActivity");
+        graph.recordVisit(screen.getContentHash(), "TestActivity");
+        graph.recordVisit(screen.getContentHash(), "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         assertEquals(75, scorer.score(action, screen, graph, staticMap));
@@ -69,11 +69,11 @@ class ConfirmedCoverageScorerTest {
         // visitCount=6 → revisits=5 → score = 150/(1+5) = 25
         Set<String> methods = new HashSet<>();
         methods.add("javax.crypto.Cipher.getInstance");
-        scorer.addConfirmed(screen.getHash(), methods);
+        scorer.addConfirmed(screen.getContentHash(), methods);
 
-        graph.getOrCreate(screen.getHash(), "TestActivity");
+        graph.getOrCreate(screen.getContentHash(), "TestActivity");
         for (int i = 0; i < 6; i++) {
-            graph.recordVisit(screen.getHash(), "TestActivity");
+            graph.recordVisit(screen.getContentHash(), "TestActivity");
         }
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
@@ -100,17 +100,17 @@ class ConfirmedCoverageScorerTest {
         Set<String> methods2 = new HashSet<>();
         methods2.add("method.B");
 
-        scorer.addConfirmed(screen.getHash(), methods1);
-        scorer.addConfirmed(screen.getHash(), methods2);
+        scorer.addConfirmed(screen.getContentHash(), methods1);
+        scorer.addConfirmed(screen.getContentHash(), methods2);
 
-        assertTrue(scorer.hasConfirmed(screen.getHash()));
+        assertTrue(scorer.hasConfirmed(screen.getContentHash()));
     }
 
     @Test
     void testAddConfirmedIgnoresNullOrEmptyMethods() {
-        scorer.addConfirmed(screen.getHash(), null);
-        scorer.addConfirmed(screen.getHash(), Collections.emptySet());
-        assertFalse(scorer.hasConfirmed(screen.getHash()));
+        scorer.addConfirmed(screen.getContentHash(), null);
+        scorer.addConfirmed(screen.getContentHash(), Collections.emptySet());
+        assertFalse(scorer.hasConfirmed(screen.getContentHash()));
     }
 
     @Test

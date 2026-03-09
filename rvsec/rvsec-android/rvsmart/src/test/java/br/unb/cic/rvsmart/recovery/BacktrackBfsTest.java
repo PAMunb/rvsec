@@ -1,6 +1,6 @@
 package br.unb.cic.rvsmart.recovery;
 
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
@@ -15,14 +15,14 @@ class BacktrackBfsTest {
 
     private BacktrackBfs bfs;
     private SuccessorTracker tracker;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
 
     @BeforeEach
     void setUp() {
         RvTrack.logEnabled = false;
         bfs = new BacktrackBfs();
         tracker = new SuccessorTracker();
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
     }
 
     @Test

@@ -68,12 +68,6 @@ public class Config {
     private static final int DEFAULT_MULTI_VALUE_SATURATION_THRESHOLD = 6;
     private static final float DEFAULT_UI_COVERAGE_THRESHOLD = 0.8f;
 
-    // --- Path buffer (4) ---
-    private static final String DEFAULT_PATH_BUFFER_STRATEGY_PRIORITY = "coverage,mop,backtrack";
-    private static final int DEFAULT_MAX_BACKTRACK_HOPS = 8;
-    private static final float DEFAULT_COVERAGE_PATH_WEIGHT = 1.0f;
-    private static final float DEFAULT_MOP_PATH_WEIGHT = 2.0f;
-
     // --- Out-of-app detection (1) ---
     private static final int DEFAULT_OUT_OF_APP_TOLERANCE = 3;
 
@@ -202,12 +196,6 @@ public class Config {
     public int getMaxReEnables() { return getInt("max_re_enables", DEFAULT_MAX_RE_ENABLES); }
     public int getMultiValueSaturationThreshold() { return getInt("multi_value_saturation_threshold", DEFAULT_MULTI_VALUE_SATURATION_THRESHOLD); }
     public float getUiCoverageThreshold() { return getFloat("ui_coverage_threshold", DEFAULT_UI_COVERAGE_THRESHOLD); }
-
-    // --- Path buffer ---
-    public String getPathBufferStrategyPriority() { return getString("path_buffer_strategy_priority", DEFAULT_PATH_BUFFER_STRATEGY_PRIORITY); }
-    public int getMaxBacktrackHops() { return getInt("max_backtrack_hops", DEFAULT_MAX_BACKTRACK_HOPS); }
-    public float getCoveragePathWeight() { return getFloat("coverage_path_weight", DEFAULT_COVERAGE_PATH_WEIGHT); }
-    public float getMopPathWeight() { return getFloat("mop_path_weight", DEFAULT_MOP_PATH_WEIGHT); }
 
     // --- Stuck detection ---
     public int getStuckMaxBlocks() { return getInt("stuck_max_blocks", DEFAULT_STUCK_MAX_BLOCKS); }

@@ -2,7 +2,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import java.util.List;
@@ -34,7 +34,7 @@ public class StrengthScorer implements Scorer {
     }
 
     @Override
-    public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
+    public int score(Action candidate, ScreenState screen, ContentGraph graph, StaticMap staticMap) {
         int total = 0;
         for (int i = 0; i < scorers.size(); i++) {
             total += weights.get(i) * scorers.get(i).score(candidate, screen, graph, staticMap);

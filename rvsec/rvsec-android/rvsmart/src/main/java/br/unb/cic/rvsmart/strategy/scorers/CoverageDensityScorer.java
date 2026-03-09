@@ -3,7 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
 import br.unb.cic.rvsmart.core.UICoverageTracker;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 /**
@@ -33,10 +33,10 @@ public class CoverageDensityScorer implements Scorer {
     }
 
     @Override
-    public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
+    public int score(Action candidate, ScreenState screen, ContentGraph graph, StaticMap staticMap) {
         if (tracker == null) return 0;
 
-        float coverageGap = tracker.getCoverageGap(screen.getHash());
+        float coverageGap = tracker.getCoverageGap(screen.getContentHash());
         return (int) (coverageGap * weight);
     }
 }

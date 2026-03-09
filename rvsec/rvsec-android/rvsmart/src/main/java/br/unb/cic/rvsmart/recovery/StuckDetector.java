@@ -1,8 +1,7 @@
 package br.unb.cic.rvsmart.recovery;
 
 import br.unb.cic.rvsmart.core.Action;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.strategy.PathBuffer;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
 import java.util.List;
@@ -15,9 +14,9 @@ import java.util.List;
  * signals that a forced BACK action should be triggered.
  *
  * Level 2 (BFS recovery): when Level 1 triggers, BacktrackBfs searches
- * ancestor states for an unsaturated one. If found, the path is loaded
- * into PathBuffer so ActionSelector can replay the BACK sequence. If no
- * unsaturated ancestor exists, a RESTART action is returned.
+ * ancestor states for an unsaturated one. If found, returns a BACK action
+ * so AgentLoop can execute BacktrackStrategy replay. If no unsaturated
+ * ancestor exists, a RESTART action is returned.
  */
 public class StuckDetector {
 
@@ -34,16 +33,14 @@ public class StuckDetector {
 
     // Level 2 dependencies (optional — null means Level 2 is disabled)
     private final BacktrackBfs backtrackBfs;
-    private final PathBuffer pathBuffer;
 
     public StuckDetector(int stuckMaxBlocks) {
-        this(stuckMaxBlocks, null, null);
+        this(stuckMaxBlocks, null);
     }
 
-    public StuckDetector(int stuckMaxBlocks, BacktrackBfs backtrackBfs, PathBuffer pathBuffer) {
+    public StuckDetector(int stuckMaxBlocks, BacktrackBfs backtrackBfs) {
         this.stuckMaxBlocks = stuckMaxBlocks;
         this.backtrackBfs = backtrackBfs;
-        this.pathBuffer = pathBuffer;
     }
 
     /**
@@ -69,18 +66,18 @@ public class StuckDetector {
 
     /**
      * Level 2 recovery: use BacktrackBfs to find a path to an unsaturated ancestor.
-     * If found, loads the path into PathBuffer and returns the first BACK action.
+     * If found, returns a BACK action so AgentLoop can execute BacktrackStrategy replay.
      * If not found, returns RESTART action.
      *
-     * When backtrackBfs or pathBuffer are not configured, always returns RESTART.
+     * When backtrackBfs is not configured, always returns RESTART.
      *
      * @param currentHash  the screen hash where the agent is stuck
      * @param tracker      parent-child edge store for BFS
-     * @param graph        the DynamicStateGraph for visit counts
-     * @return Action (either BACK as first step of BFS path, or RESTART)
+     * @param graph        the ContentGraph for visit counts
+     * @return Action (either BACK as first step toward unsaturated ancestor, or RESTART)
      */
-    public Action recover(String currentHash, SuccessorTracker tracker, DynamicStateGraph graph) {
-        if (backtrackBfs == null || pathBuffer == null) {
+    public Action recover(String currentHash, SuccessorTracker tracker, ContentGraph graph) {
+        if (backtrackBfs == null) {
             return Action.restart("algorithm");
         }
 
@@ -88,8 +85,7 @@ public class StuckDetector {
                 currentHash, tracker, graph, DEFAULT_SATURATION_THRESHOLD);
 
         if (path != null && !path.isEmpty()) {
-            pathBuffer.store(PathBuffer.Strategy.BACKTRACK, path);
-            return pathBuffer.nextAction();
+            return Action.back("algorithm");
         }
 
         return Action.restart("algorithm");

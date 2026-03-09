@@ -12,13 +12,23 @@ The trace output format (`RVTRACK:` lines) and metrics JSON (`RVSMART_METRICS:`)
 
 After execution completes (timeout or otherwise), `RVSmartTool` SHALL extract the final metrics report from the trace file and write it to a separate file. The extraction logic searches for the last line starting with `RVSMART_METRICS:` in the trace file, parses the JSON payload, and writes it to `rvsmart_metrics.json` alongside the trace file in the task output directory.
 
-The metrics JSON payload SHALL include the following fields (in addition to existing fields preserved from gh30-gh32):
+The metrics JSON payload SHALL include the following fields nested within existing sections (in addition to existing fields preserved from gh30-gh32):
 
+Within the `exploration` section (alongside `unique_states`, `unique_hashes`):
 - `content_states`: integer — number of distinct content-hash states explored
 - `structural_clusters`: integer — number of distinct structural-hash clusters
-- `phase_distribution`: object — `{"phase1": N, "phase2": N, "phase3": N}` counting iterations per phase
 - `nav_map_edges`: integer — number of recorded structural navigation transitions
+- `phase_distribution`: object — `{"phase1": N, "phase2": N, "phase3": N}` counting iterations spent in each phase
+
+Within the `decisions` section (alongside `forced_backs`):
 - `backtrack_replays`: integer — number of times RESTART+replay was used (BACK failure recovery)
+
+Counter wiring in AgentLoop:
+- `content_states`: read from `ContentGraph.size()` at metrics finalization
+- `structural_clusters`: read from `StructuralGraph.size()` at metrics finalization
+- `nav_map_edges`: read from `NavigationMap.size()` at metrics finalization
+- `phase_distribution`: incremented in `AgentLoop.runIteration()` after `PhaseController.currentPhase()` returns
+- `backtrack_replays`: incremented in `BacktrackStrategy` each time replay path is executed
 
 #### Scenario: Metrics JSON includes dual hash and phase data
 

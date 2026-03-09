@@ -493,7 +493,9 @@ class RVSmartTool(AbstractTool):
         if mode:
             cmd_args.extend(["--mode", mode])
 
-        return Command("adb", cmd_args, timeout_seconds)
+        # Add 15s grace period beyond the Java agent's own timeout so Main.java
+        # has time to write RVSMART_METRICS after AgentLoop.run() returns.
+        return Command("adb", cmd_args, timeout_seconds + 15)
 
     def _check_empty_trace(self, trace_file_path: str) -> None:
         """

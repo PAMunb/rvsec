@@ -1,8 +1,12 @@
 package br.unb.cic.rvsmart.core;
 
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.NavigationMap;
+import br.unb.cic.rvsmart.graph.StructuralGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
-import br.unb.cic.rvsmart.strategy.ActionSelector;
+import br.unb.cic.rvsmart.strategy.BacktrackStrategy;
 import br.unb.cic.rvsmart.strategy.InputValueGenerator;
+import br.unb.cic.rvsmart.strategy.PhaseController;
 import br.unb.cic.rvsmart.strategy.PlateauDetector;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -82,15 +87,13 @@ class AgentLoopTest {
     }
 
     @Test
-    void testPlateauBoostsStochasticInActionSelector() {
-        Config config = Config.defaults();
-        config.setSeed(42);
+    void testPlateauDetectorDetectsPlateau() {
+        // Phase transitions (incl. PHASE_3 stochastic boost) are now managed by PhaseController.
+        // This test verifies PlateauDetector's plateau detection logic in isolation.
         PlateauDetector detector = new PlateauDetector();
-        ActionSelector selector = new ActionSelector(config);
 
         // No plateau initially
         assertFalse(detector.isPlateauDetected());
-        assertFalse(selector.isPlateauActive());
 
         // Simulate 10 no-progress iterations to trigger plateau
         for (int i = 0; i < 10; i++) {
@@ -98,15 +101,9 @@ class AgentLoopTest {
         }
         assertTrue(detector.isPlateauDetected());
 
-        // Wire plateau state to selector (as AgentLoop does)
-        selector.setPlateauActive(detector.isPlateauDetected());
-        assertTrue(selector.isPlateauActive());
-
         // New screen clears plateau
         detector.recordIteration(true, false);
         assertFalse(detector.isPlateauDetected());
-        selector.setPlateauActive(detector.isPlateauDetected());
-        assertFalse(selector.isPlateauActive());
     }
 
     @Test
@@ -133,5 +130,100 @@ class AgentLoopTest {
                 0, "search", 0);
         String genericValue = gen.generateInput(genericItem);
         assertEquals("test", genericValue, "Generic field should get 'test' value");
+    }
+
+    // --- gh34 Group 7 integration tests (task 7.8) ---
+
+    /**
+     * Verifies that ContentGraph and StructuralGraph receive entries when the
+     * same registration sequence as AgentLoop.runIteration() is executed.
+     */
+    @Test
+    void testDualHashGraphRegistrationOnIteration() {
+        ContentGraph contentGraph = new ContentGraph();
+        StructuralGraph structuralGraph = new StructuralGraph();
+
+        // Simulate the registration sequence from runIteration():
+        // getOrCreate registers in ContentGraph; register() links struct → content
+        String contentHash = "aabbccdd";
+        String structHash = "11223344";
+        String activity = "com.example.MainActivity";
+
+        contentGraph.getOrCreate(contentHash, activity);
+        structuralGraph.register(structHash, contentHash);
+
+        // ContentGraph has one entry
+        assertEquals(1, contentGraph.size(), "ContentGraph should have 1 entry after registration");
+        assertNotNull(contentGraph.get(contentHash), "ContentNode should be retrievable by contentHash");
+
+        // StructuralGraph clusters the contentHash under the structHash
+        assertEquals(1, structuralGraph.size(), "StructuralGraph should have 1 cluster");
+        assertTrue(structuralGraph.getCluster(structHash).contains(contentHash),
+                "StructuralGraph cluster should contain the registered contentHash");
+
+        // Reverse lookup
+        assertEquals(structHash, structuralGraph.getStructHash(contentHash),
+                "Reverse lookup from contentHash should return structHash");
+    }
+
+    /**
+     * Verifies that PhaseController.onNewContentState() resets to PHASE_1 from any phase,
+     * following the same wiring pattern as AgentLoop.runIteration() (isNewScreen check).
+     */
+    @Test
+    void testPhaseControllerReceivesOnNewContentStateOnNewScreen() {
+        ContentGraph contentGraph = new ContentGraph();
+        UICoverageTracker tracker = new UICoverageTracker();
+        PlateauDetector plateauDetector = new PlateauDetector();
+        PhaseController phaseController = new PhaseController(contentGraph, tracker, plateauDetector);
+
+        // Drive plateau — with empty ContentGraph, PHASE_1 → PHASE_2 immediately (no untested
+        // actions in any reachable state), then PHASE_2 → PHASE_3 after WINDOW_SIZE iterations.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
+            phaseController.onIteration(0);
+        }
+        // Phase is beyond PHASE_1 (either PHASE_2 or PHASE_3 depending on graph state)
+        assertNotEquals(PhaseController.Phase.PHASE_1, phaseController.currentPhase(),
+                "Phase should have advanced past PHASE_1 after sustained no-progress iterations");
+
+        // Now simulate a new content state being discovered — should reset to PHASE_1
+        phaseController.onNewContentState("new-content-hash-xyz");
+        assertEquals(PhaseController.Phase.PHASE_1, phaseController.currentPhase(),
+                "Discovering a new content state should reset phase to PHASE_1 from any phase");
+    }
+
+    /**
+     * Verifies that NavigationMap records an edge after an action with effect,
+     * following the same recording pattern as AgentLoop.runIteration().
+     */
+    @Test
+    void testNavigationMapRecordsEdgeAfterActionWithEffect() {
+        NavigationMap navigationMap = new NavigationMap();
+        StructuralGraph structuralGraph = new StructuralGraph();
+        BacktrackStrategy backtrackStrategy = new BacktrackStrategy(navigationMap, structuralGraph);
+
+        String fromStruct = "struct-a";
+        String toStruct = "struct-b";
+        String actionSig = "CLICK:pkg:id/btn_submit";
+
+        // Initially no path
+        assertFalse(backtrackStrategy.canReach(fromStruct, toStruct),
+                "No path should exist before recording");
+        assertEquals(0, navigationMap.size(), "NavigationMap should be empty initially");
+
+        // Simulate hadEffect == true: record the edge
+        navigationMap.record(fromStruct, actionSig, toStruct);
+
+        // NavigationMap should now have the edge
+        assertEquals(1, navigationMap.size(), "NavigationMap should have 1 edge after recording");
+        assertTrue(backtrackStrategy.canReach(fromStruct, toStruct),
+                "Path should exist after NavigationMap edge is recorded");
+
+        // planReplay should find the path and increment replayCount
+        List<String> replay = backtrackStrategy.planReplay(fromStruct, toStruct);
+        assertFalse(replay.isEmpty(), "Replay path should be non-empty");
+        assertEquals(actionSig, replay.get(0), "Replay should contain the recorded action signature");
+        assertEquals(1, backtrackStrategy.getReplayCount(),
+                "Replay count should increment after successful planReplay");
     }
 }

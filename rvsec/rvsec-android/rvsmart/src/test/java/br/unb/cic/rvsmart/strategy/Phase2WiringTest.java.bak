@@ -4,7 +4,7 @@ import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.Config;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.recovery.BacktrackBfs;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class Phase2WiringTest {
 
     private Config config;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private StaticMap staticMap;
     private PathBuffer pathBuffer;
     private SuccessorTracker successorTracker;
@@ -39,7 +39,7 @@ class Phase2WiringTest {
         RvTrack.logEnabled = false;
         config = Config.defaults();
         config.setSeed(42);
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         staticMap = new StaticMap(null);
         pathBuffer = new PathBuffer();
         successorTracker = new SuccessorTracker(
@@ -58,7 +58,7 @@ class Phase2WiringTest {
         // otherwise invalidateIfDiverged() clears the path before Tier 1 fires.
         ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
         pathBuffer.store(PathBuffer.Strategy.BACKTRACK,
-                Arrays.asList(screen.getHash(), "hash_B"));
+                Arrays.asList(screen.getContentHash(), "hash_B"));
 
         Action action = selector.selectAction(screen, graph, staticMap);
 
@@ -237,7 +237,7 @@ class Phase2WiringTest {
             // we need to verify the path wasn't invalidated by the screen hash mismatch.
             // Register parents for the screen so BACK is available even if path is invalidated.
             ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
-            successorTracker.record("hash_someParent", screen.getHash());
+            successorTracker.record("hash_someParent", screen.getContentHash());
 
             Action tier1Action = selector.selectAction(screen, graph, staticMap);
             assertNotNull(tier1Action);

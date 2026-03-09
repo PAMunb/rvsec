@@ -1,13 +1,10 @@
 package br.unb.cic.rvsmart.output;
 
-import android.util.Log;
-
 /**
- * Structured decision logging via logcat with [RVTRACK:<CATEGORY>] prefix.
+ * Structured decision logging via stdout with [RVTRACK:<CATEGORY>] prefix.
  * All methods are static. Counters are aggregated for MetricsCollector.
  */
 public class RvTrack {
-    private static final String TAG = "RVSMART";
 
     // Aggregate counters
     private static int backtrackCount;
@@ -20,7 +17,7 @@ public class RvTrack {
     private static int circuitBreakerTrips;
     private static int oomThrottleEvents;
 
-    // Test support: disable Log.i() in unit tests
+    // Test support: disable stdout output in unit tests
     public static boolean logEnabled = true;
 
     public static void resetCounters() {
@@ -142,7 +139,7 @@ public class RvTrack {
 
     private static void log(String category, String message) {
         if (logEnabled) {
-            Log.i(TAG, "[RVTRACK:" + category + "] " + message);
+            System.out.println("[RVTRACK:" + category + "] " + message);
         }
     }
 }

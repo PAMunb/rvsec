@@ -2,7 +2,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 /**
@@ -27,7 +27,7 @@ public class MopScorer implements Scorer {
     }
 
     @Override
-    public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
+    public int score(Action candidate, ScreenState screen, ContentGraph graph, StaticMap staticMap) {
         if (staticMap == null || !staticMap.isLoaded()) return 0;
 
         // Activity-based MOP lookup: boost all actions on screens with reachable MOP methods

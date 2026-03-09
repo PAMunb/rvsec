@@ -2,8 +2,8 @@ package br.unb.cic.rvsmart.strategy.scorers;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.graph.ScreenNode;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import java.util.HashSet;
@@ -46,7 +46,7 @@ public class WtgScorer implements Scorer {
     }
 
     @Override
-    public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
+    public int score(Action candidate, ScreenState screen, ContentGraph graph, StaticMap staticMap) {
         if (staticMap == null || !staticMap.isLoaded()) return 0;
 
         // Only boost CLICK and LONG_CLICK actions — other types don't trigger WTG transitions
@@ -67,7 +67,7 @@ public class WtgScorer implements Scorer {
      * Uses diminishing boosts by depth: deeper targets are less valuable because
      * the agent needs more steps to reach them.
      */
-    int bfsBoost(String startActivity, DynamicStateGraph graph, StaticMap staticMap) {
+    int bfsBoost(String startActivity, ContentGraph graph, StaticMap staticMap) {
         int bestBoost = 0;
 
         Set<String> visited = new HashSet<>();
@@ -123,9 +123,9 @@ public class WtgScorer implements Scorer {
      * Count how many times any screen with the given activity name has been visited.
      * Scans all graph nodes because the graph is indexed by hash, not by activity.
      */
-    private int getActivityVisitCount(String activity, DynamicStateGraph graph) {
+    private int getActivityVisitCount(String activity, ContentGraph graph) {
         int total = 0;
-        for (ScreenNode node : graph.getNodes().values()) {
+        for (ContentNode node : graph.getNodes().values()) {
             if (activity.equals(node.getActivity())) {
                 total += node.getVisitCount();
             }

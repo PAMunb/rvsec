@@ -18,7 +18,7 @@ import br.unb.cic.rvsmart.device.InputInjector;
 import br.unb.cic.rvsmart.device.LogcatReader;
 import br.unb.cic.rvsmart.device.SystemDialogDetector;
 import br.unb.cic.rvsmart.device.UiCapture;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.llm.ImageProcessor;
 import br.unb.cic.rvsmart.llm.LlmCircuitBreaker;
 import br.unb.cic.rvsmart.llm.PromptBuilder;
@@ -32,7 +32,6 @@ import br.unb.cic.rvsmart.recovery.StuckDetector;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.ActionSelector;
 import br.unb.cic.rvsmart.strategy.InputValueGenerator;
-import br.unb.cic.rvsmart.strategy.PathBuffer;
 import br.unb.cic.rvsmart.strategy.PlateauDetector;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
@@ -138,12 +137,11 @@ public class Main {
                     config.getThrottleMs(), 2000, uiCapture);
 
             // 5. Graph and static data
-            DynamicStateGraph graph = new DynamicStateGraph();
+            ContentGraph graph = new ContentGraph();
             StaticMap staticMap = new StaticMap(config.getStaticDataPath());
             staticMap.setCodePackage(config.getCodePackage());
 
             // 6. Strategy and recovery
-            PathBuffer pathBuffer = new PathBuffer();
             SuccessorTracker successorTracker = new SuccessorTracker(
                     config.getMaxReEnables(), config.getMultiValueSaturationThreshold());
             BacktrackBfs backtrackBfs = new BacktrackBfs();
@@ -152,10 +150,10 @@ public class Main {
             InputValueGenerator inputValueGenerator = new InputValueGenerator();
             UICoverageTracker uiCoverageTracker = new UICoverageTracker();
             PlateauDetector plateauDetector = new PlateauDetector();
-            ActionSelector actionSelector = new ActionSelector(config, pathBuffer, successorTracker,
+            ActionSelector actionSelector = new ActionSelector(config, successorTracker,
                     confirmedCoverageScorer, inputValueGenerator, uiCoverageTracker);
             StuckDetector stuckDetector = new StuckDetector(
-                    config.getStuckMaxBlocks(), backtrackBfs, pathBuffer);
+                    config.getStuckMaxBlocks(), backtrackBfs);
             Learner learner = new Learner(graph, stuckDetector);
 
             // 7. Output

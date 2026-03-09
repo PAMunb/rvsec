@@ -2,7 +2,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 /**
@@ -20,7 +20,7 @@ public class ComponentPriorityScorer implements Scorer {
     private static final int SCORE_SCROLL     = 25;
 
     @Override
-    public int score(Action candidate, ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
+    public int score(Action candidate, ScreenState screen, ContentGraph graph, StaticMap staticMap) {
         switch (candidate.getType()) {
             case SET_TEXT:
                 return SCORE_TEXT_INPUT;

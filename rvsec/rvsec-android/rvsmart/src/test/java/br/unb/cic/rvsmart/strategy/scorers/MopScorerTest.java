@@ -3,7 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MopScorerTest {
 
     private final MopScorer scorer = new MopScorer(500, 300);
-    private final DynamicStateGraph graph = new DynamicStateGraph();
+    private final ContentGraph graph = new ContentGraph();
     private final ScreenState screen = new ScreenState(
             Collections.<ScreenItem>emptyList(), "TestActivity");
 

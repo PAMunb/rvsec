@@ -9,12 +9,21 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Represents the current UI state: items + activity name + structural hash.
+ * Represents the current UI state: items + activity name + two hashes.
  *
- * The structural hash uses Objects.hash() over deduplicated, sorted widget signatures.
- * Each widget signature encodes 3 structural fields: className, resourceID, interactMask.
- * Widgets with identical signatures are merged (FastBot pattern) to prevent list items
- * from inflating state counts.
+ * Two hashes serve different purposes:
+ *
+ * contentHash: includes activity, className, resourceID, text (≤ 50 chars), enabled, checkable
+ *   per widget. Used as the primary state identity for ContentGraph.
+ *   Text is included only for interactive non-EditText widgets (e.g. Button, CheckBox labels).
+ *   EditText text is excluded to prevent agent-typed input from creating false state loops.
+ *   Non-interactive widget text (output TextViews, status displays) is excluded to prevent
+ *   dynamic display content from creating spurious content hash changes.
+ *   Text is capped at 50 chars to prevent long dynamic content from creating false distinctions.
+ *
+ * structHash: identical to the former computeHash() — className|resourceID|interactMask only.
+ *   Used as the cluster key for StructuralGraph (groups structurally identical screen layouts).
+ *   Widgets with identical structural signatures are merged (FastBot pattern).
  */
 public class ScreenState {
 
@@ -25,14 +34,19 @@ public class ScreenState {
     private static final int MASK_LONG_CLICKABLE = 8;
     private static final int MASK_ENABLED        = 16;
 
+    // Maximum text length included in content hash (prevents dynamic content false distinctions)
+    private static final int MAX_TEXT_LENGTH = 50;
+
     private final List<ScreenItem> items;
     private final String activity;
-    private final String hash;
+    private final String contentHash;
+    private final String structHash;
 
     public ScreenState(List<ScreenItem> items, String activity) {
         this.items = Collections.unmodifiableList(new ArrayList<>(items));
         this.activity = activity;
-        this.hash = computeHash(items, activity);
+        this.contentHash = computeContentHash(items, activity);
+        this.structHash = computeStructHash(items, activity);
     }
 
     public List<ScreenItem> getItems() {
@@ -43,31 +57,34 @@ public class ScreenState {
         return activity;
     }
 
-    public String getHash() {
-        return hash;
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public String getStructHash() {
+        return structHash;
     }
 
     /**
-     * Compute structural hash from deduplicated, sorted widget signatures.
+     * Compute content hash: includes activity, className, resourceID, text (≤ 50 chars,
+     * excluding EditText), enabled, checkable per widget.
      *
      * Algorithm:
-     *   1. Build a signature string per widget: "className|resourceID|interactMask"
+     *   1. Build a signature per widget: "className|resourceID|text|enabled|checkable"
+     *      (text omitted for EditText; text truncated to 50 chars for other widgets)
      *   2. Deduplicate identical signatures (Set)
-     *   3. Sort signatures by natural string ordering (className first, then resourceID)
-     *   4. Hash via Objects.hash(activity, sig1, sig2, ...) and format as 8-char hex
+     *   3. Sort signatures for determinism
+     *   4. Hash via Objects.hash(activity, sig1, sig2, ...) formatted as 8-char hex
      */
-    static String computeHash(List<ScreenItem> items, String activity) {
-        // Build deduplicated signature set
+    static String computeContentHash(List<ScreenItem> items, String activity) {
         Set<String> signatureSet = new LinkedHashSet<>();
         for (ScreenItem item : items) {
-            signatureSet.add(widgetSignature(item));
+            signatureSet.add(contentSignature(item));
         }
 
-        // Sort for determinism
         List<String> sorted = new ArrayList<>(signatureSet);
         Collections.sort(sorted);
 
-        // Build args array: activity + all sorted signatures
         Object[] hashArgs = new Object[sorted.size() + 1];
         hashArgs[0] = activity;
         for (int i = 0; i < sorted.size(); i++) {
@@ -79,10 +96,72 @@ public class ScreenState {
     }
 
     /**
+     * Compute structural hash from deduplicated, sorted widget signatures.
+     * Same logic as the former computeHash() — no behavioral change, renamed for clarity.
+     *
+     * Algorithm:
+     *   1. Build a signature string per widget: "className|resourceID|interactMask"
+     *   2. Deduplicate identical signatures (Set)
+     *   3. Sort signatures by natural string ordering
+     *   4. Hash via Objects.hash(activity, sig1, sig2, ...) formatted as 8-char hex
+     */
+    static String computeStructHash(List<ScreenItem> items, String activity) {
+        Set<String> signatureSet = new LinkedHashSet<>();
+        for (ScreenItem item : items) {
+            signatureSet.add(structSignature(item));
+        }
+
+        List<String> sorted = new ArrayList<>(signatureSet);
+        Collections.sort(sorted);
+
+        Object[] hashArgs = new Object[sorted.size() + 1];
+        hashArgs[0] = activity;
+        for (int i = 0; i < sorted.size(); i++) {
+            hashArgs[i + 1] = sorted.get(i);
+        }
+
+        int hashCode = Objects.hash(hashArgs);
+        return String.format("%08x", hashCode);
+    }
+
+    /**
+     * Build a content signature for a widget.
+     * Includes: className, resourceID, text (trimmed, ≤ 50 chars), enabled, checkable.
+     *
+     * Text inclusion rules:
+     * - EditText (user-typed content): always excluded — prevents agent input from creating
+     *   state loops (each keystroke would produce a new content hash)
+     * - Non-interactive widgets (output-only TextViews, labels, status displays): excluded —
+     *   prevents dynamic display text (cipher output, counters, timestamps) from creating
+     *   spurious content hash changes that trap Phase 1 in a single screen
+     * - Interactive non-EditText (Buttons, CheckBoxes, tabs with text labels): included —
+     *   button/tab text is semantic state content that legitimately distinguishes UI states
+     */
+    private static String contentSignature(ScreenItem item) {
+        String className = item.getClassName() != null ? item.getClassName() : "";
+        String resourceId = item.getResourceId() != null ? item.getResourceId() : "";
+
+        String text = "";
+        boolean isEditText = isEditTextClass(className);
+        // Include text only for interactive non-EditText widgets (e.g. Button, CheckBox).
+        // Output-only widgets (e.g. result TextViews) are excluded via isInteractive() check.
+        if (!isEditText && item.isInteractive() && item.getText() != null) {
+            String raw = item.getText().trim();
+            text = raw.length() > MAX_TEXT_LENGTH ? raw.substring(0, MAX_TEXT_LENGTH) : raw;
+        }
+
+        boolean enabled = item.isEnabled();
+        boolean checkable = item.isCheckable();
+
+        return className + "|" + resourceId + "|" + text
+                + "|" + enabled + "|" + checkable;
+    }
+
+    /**
      * Build a structural signature for a widget using only identity-relevant fields.
      * Format: "className|resourceID|interactMask"
      */
-    private static String widgetSignature(ScreenItem item) {
+    private static String structSignature(ScreenItem item) {
         String className = item.getClassName() != null ? item.getClassName() : "";
         String resourceId = item.getResourceId() != null ? item.getResourceId() : "";
         int mask = 0;
@@ -92,5 +171,18 @@ public class ScreenState {
         if (item.isLongClickable()) mask |= MASK_LONG_CLICKABLE;
         if (item.isEnabled())       mask |= MASK_ENABLED;
         return className + "|" + resourceId + "|" + mask;
+    }
+
+    /**
+     * Returns true if className represents an EditText widget.
+     * Covers the common subclasses used by support and material design libraries.
+     */
+    private static boolean isEditTextClass(String className) {
+        return "EditText".equals(className)
+                || "TextInputEditText".equals(className)
+                || "AppCompatEditText".equals(className)
+                || "AutoCompleteTextView".equals(className)
+                || "AppCompatAutoCompleteTextView".equals(className)
+                || "MultiAutoCompleteTextView".equals(className);
     }
 }

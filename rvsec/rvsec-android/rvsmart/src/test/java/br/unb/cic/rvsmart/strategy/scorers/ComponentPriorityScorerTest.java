@@ -3,7 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ComponentPriorityScorerTest {
 
     private ComponentPriorityScorer scorer;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private ScreenState screen;
     private StaticMap staticMap;
 
@@ -25,7 +25,7 @@ class ComponentPriorityScorerTest {
     void setUp() {
         RvTrack.logEnabled = false;
         scorer = new ComponentPriorityScorer();
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
         staticMap = new StaticMap(null);
     }

@@ -1,9 +1,8 @@
 package br.unb.cic.rvsmart.recovery;
 
 import br.unb.cic.rvsmart.core.Action;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
-import br.unb.cic.rvsmart.strategy.PathBuffer;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -97,9 +96,9 @@ class StuckDetectorTest {
 
     @Test
     void testRecoverReturnsRestartWhenNoBfsConfigured() {
-        // Without BacktrackBfs and PathBuffer, recover() always returns RESTART
+        // Without BacktrackBfs, recover() always returns RESTART
         StuckDetector detector = new StuckDetector(3);
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         SuccessorTracker tracker = new SuccessorTracker();
 
         Action action = detector.recover("hash_A", tracker, graph);
@@ -108,12 +107,11 @@ class StuckDetectorTest {
     }
 
     @Test
-    void testRecoverLoadsPathBufferWhenUnsaturatedAncestorFound() {
+    void testRecoverReturnsBackWhenUnsaturatedAncestorFound() {
         BacktrackBfs bfs = new BacktrackBfs();
-        PathBuffer buffer = new PathBuffer();
-        StuckDetector detector = new StuckDetector(3, bfs, buffer);
+        StuckDetector detector = new StuckDetector(3, bfs);
 
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         SuccessorTracker tracker = new SuccessorTracker();
 
         // Create an unsaturated ancestor for hash_A
@@ -219,10 +217,9 @@ class StuckDetectorTest {
     @Test
     void testRecoverReturnsRestartWhenAllAncestorsSaturated() {
         BacktrackBfs bfs = new BacktrackBfs();
-        PathBuffer buffer = new PathBuffer();
-        StuckDetector detector = new StuckDetector(3, bfs, buffer);
+        StuckDetector detector = new StuckDetector(3, bfs);
 
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         SuccessorTracker tracker = new SuccessorTracker();
 
         // hash_A has no parents — BFS finds no path

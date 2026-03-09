@@ -27,7 +27,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(Arrays.asList(a, b), "Test");
         ScreenState state2 = new ScreenState(Arrays.asList(b, a), "Test");
 
-        assertEquals(state1.getHash(), state2.getHash());
+        assertEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -43,7 +43,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(items, "Activity1");
         ScreenState state2 = new ScreenState(items, "Activity2");
 
-        assertNotEquals(state1.getHash(), state2.getHash());
+        assertNotEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -59,7 +59,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(Collections.singletonList(withText), "Test");
         ScreenState state2 = new ScreenState(Collections.singletonList(withoutText), "Test");
 
-        assertEquals(state1.getHash(), state2.getHash());
+        assertEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -68,7 +68,7 @@ class ScreenStateTest {
     @Test
     void testHashLength() {
         ScreenState state = new ScreenState(Collections.<ScreenItem>emptyList(), "Test");
-        assertEquals(8, state.getHash().length());
+        assertEquals(8, state.getStructHash().length());
     }
 
     /**
@@ -97,7 +97,7 @@ class ScreenStateTest {
         ScreenState stateFive = new ScreenState(fiveItems, "ListActivity");
         ScreenState stateOne = new ScreenState(oneItem, "ListActivity");
 
-        assertEquals(stateFive.getHash(), stateOne.getHash());
+        assertEquals(stateFive.getStructHash(), stateOne.getStructHash());
     }
 
     /**
@@ -113,7 +113,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(Collections.singletonList(item1), "Test");
         ScreenState state2 = new ScreenState(Collections.singletonList(item2), "Test");
 
-        assertEquals(state1.getHash(), state2.getHash());
+        assertEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -131,7 +131,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(Collections.singletonList(item1), "Test");
         ScreenState state2 = new ScreenState(Collections.singletonList(item2), "Test");
 
-        assertEquals(state1.getHash(), state2.getHash());
+        assertEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -145,9 +145,9 @@ class ScreenStateTest {
                 item("EditText", "pkg:id/input", "pkg", true, false, false, true, false, true)
         );
 
-        String hash1 = new ScreenState(items, "FormActivity").getHash();
-        String hash2 = new ScreenState(items, "FormActivity").getHash();
-        String hash3 = new ScreenState(items, "FormActivity").getHash();
+        String hash1 = new ScreenState(items, "FormActivity").getStructHash();
+        String hash2 = new ScreenState(items, "FormActivity").getStructHash();
+        String hash3 = new ScreenState(items, "FormActivity").getStructHash();
 
         assertEquals(hash1, hash2);
         assertEquals(hash2, hash3);
@@ -166,7 +166,7 @@ class ScreenStateTest {
         ScreenState stateA = new ScreenState(items, "DialogActivity");
         ScreenState stateB = new ScreenState(items, "ConfirmActivity");
 
-        assertNotEquals(stateA.getHash(), stateB.getHash());
+        assertNotEquals(stateA.getStructHash(), stateB.getStructHash());
     }
 
     /**
@@ -182,7 +182,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(Collections.singletonList(item1), "Test");
         ScreenState state2 = new ScreenState(Collections.singletonList(item2), "Test");
 
-        assertEquals(state1.getHash(), state2.getHash());
+        assertEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -198,7 +198,7 @@ class ScreenStateTest {
         ScreenState state1 = new ScreenState(Collections.singletonList(clickable), "Test");
         ScreenState state2 = new ScreenState(Collections.singletonList(notClickable), "Test");
 
-        assertNotEquals(state1.getHash(), state2.getHash());
+        assertNotEquals(state1.getStructHash(), state2.getStructHash());
     }
 
     /**
@@ -207,8 +207,8 @@ class ScreenStateTest {
     @Test
     void testHashIsValidHex() {
         ScreenState state = new ScreenState(Collections.<ScreenItem>emptyList(), "Test");
-        assertTrue(state.getHash().matches("[0-9a-f]{8}"),
-                "Hash should be 8 hex characters, got: " + state.getHash());
+        assertTrue(state.getStructHash().matches("[0-9a-f]{8}"),
+                "Hash should be 8 hex characters, got: " + state.getStructHash());
     }
 
     // --- Helper ---

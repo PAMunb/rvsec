@@ -52,6 +52,24 @@ public class TraceWriter {
                           long captureMs, long scoringMs, long execMs, long totalMs,
                           boolean ooa, String ooaRecovery, String ooaForegroundPkg,
                           Map<String, Object> scores) {
+        writeLine(iteration, timestampMs, hash, activity, actionType, actionSource,
+                actionHadEffect, retries, uniqueStates, elapsedS, x, y, widgetClass,
+                scoreTier, saturationRate, captureMs, scoringMs, execMs, totalMs,
+                ooa, ooaRecovery, ooaForegroundPkg, scores, null);
+    }
+
+    /**
+     * Write a trace line with RVTRACK observability fields, per-scorer score breakdown, and phase.
+     * The phase string (e.g. "PHASE_1") is added to the scores object when present.
+     */
+    public void writeLine(int iteration, long timestampMs, String hash, String activity,
+                          String actionType, String actionSource, boolean actionHadEffect,
+                          int retries, int uniqueStates, double elapsedS,
+                          int x, int y, String widgetClass,
+                          int scoreTier, double saturationRate,
+                          long captureMs, long scoringMs, long execMs, long totalMs,
+                          boolean ooa, String ooaRecovery, String ooaForegroundPkg,
+                          Map<String, Object> scores, String phase) {
         TreeMap<String, Object> line = new TreeMap<>();
         line.put("iteration", iteration);
         line.put("timestamp_ms", timestampMs);
@@ -81,7 +99,17 @@ public class TraceWriter {
             if (ooaForegroundPkg != null) line.put("ooa_foreground_pkg", ooaForegroundPkg);
         }
         if (scores != null && !scores.isEmpty()) {
-            line.put("scores", scores);
+            if (phase != null) {
+                TreeMap<String, Object> scoresWithPhase = new TreeMap<>(scores);
+                scoresWithPhase.put("phase", phase);
+                line.put("scores", scoresWithPhase);
+            } else {
+                line.put("scores", scores);
+            }
+        } else if (phase != null) {
+            TreeMap<String, Object> phaseOnly = new TreeMap<>();
+            phaseOnly.put("phase", phase);
+            line.put("scores", phaseOnly);
         }
         System.out.println(GSON.toJson(line));
     }

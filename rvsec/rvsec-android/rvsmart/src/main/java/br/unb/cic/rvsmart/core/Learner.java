@@ -1,6 +1,6 @@
 package br.unb.cic.rvsmart.core;
 
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
 import br.unb.cic.rvsmart.output.RvTrack;
 
@@ -18,13 +18,13 @@ public class Learner {
     static final double NO_EFFECT_PENALTY = -0.1;
     static final double COVERAGE_REWARD_PER_METHOD = 0.5;
 
-    private final DynamicStateGraph graph;
+    private final ContentGraph graph;
     private final StuckDetector stuckDetector;
     private final Set<String> uniqueActivities = new HashSet<>();
     private final Set<String> confirmedMethods = new HashSet<>();
     private int totalCoverageEvents;
 
-    public Learner(DynamicStateGraph graph, StuckDetector stuckDetector) {
+    public Learner(ContentGraph graph, StuckDetector stuckDetector) {
         this.graph = graph;
         this.stuckDetector = stuckDetector;
     }

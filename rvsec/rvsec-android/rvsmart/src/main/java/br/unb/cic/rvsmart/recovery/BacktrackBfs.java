@@ -1,7 +1,7 @@
 package br.unb.cic.rvsmart.recovery;
 
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.graph.ScreenNode;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
 import java.util.ArrayDeque;
@@ -42,7 +42,7 @@ public class BacktrackBfs {
      *         or null if not found
      */
     public List<String> findPathToUnsaturated(String startHash, SuccessorTracker tracker,
-                                              DynamicStateGraph graph, int saturationThreshold) {
+                                              ContentGraph graph, int saturationThreshold) {
         Queue<String> queue = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
         Map<String, String> parentMap = new HashMap<>(); // child -> parent for path reconstruction
@@ -55,7 +55,7 @@ public class BacktrackBfs {
 
             // Check if this node is unsaturated (and not the start node itself)
             if (!current.equals(startHash)) {
-                ScreenNode node = graph.get(current);
+                ContentNode node = graph.get(current);
                 int visitCount = node != null ? node.getVisitCount() : 0;
                 if (visitCount < saturationThreshold) {
                     return reconstructPath(startHash, current, parentMap);

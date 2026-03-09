@@ -114,10 +114,6 @@ public class PromptBuilder {
         context.append("\nIteration: ").append(ctx.getIterationNumber());
         context.append("\nChoose ONE action to explore new UI states or trigger monitored operations.");
 
-        // Log full prompt text for diagnostic analysis (adb logcat -s RVSMART-PROMPT:D)
-        // try/catch guards the Android Stub in JVM unit tests
-        try { android.util.Log.d("RVSMART-PROMPT", context.toString()); } catch (RuntimeException ignored) {}
-
         userParts.add(SglangClient.ContentPart.text(context.toString()));
         messages.add(new SglangClient.Message("user", userParts));
 
@@ -243,9 +239,6 @@ public class PromptBuilder {
         }
 
         sb.append("\nSelect action. Prioritize elements reaching monitored operations, then navigation to new screens.");
-
-        // Log full prompt text for diagnostic analysis (adb logcat -s RVSMART-PROMPT:D)
-        try { android.util.Log.d("RVSMART-PROMPT", sb.toString()); } catch (RuntimeException ignored) {}
 
         userParts.add(SglangClient.ContentPart.text(sb.toString()));
         messages.add(new SglangClient.Message("user", userParts));

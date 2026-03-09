@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Represents a unique UI state in the DynamicStateGraph.
+ * Represents a unique UI state in ContentGraph, identified by content hash.
  *
  * Tracks action execution by coordinate-based signatures (not volatile IDs),
  * enabling stable coverage tracking. Actions are tracked by execution count
@@ -16,7 +16,7 @@ import java.util.Set;
  * Multi-value widgets (EditText, Spinner, SeekBar) use a higher saturation
  * threshold because each interaction can produce different input/state.
  */
-public class ScreenNode {
+public class ContentNode {
 
     /** Single-action widget saturation threshold. */
     private static final int DEFAULT_SATURATION_THRESHOLD = 4;
@@ -48,7 +48,7 @@ public class ScreenNode {
         SYSTEM_ACTION_TYPES.add("key_event");
     }
 
-    private final String screenHash;
+    private final String contentHash;
     private final String activity;
 
     private int visitCount;
@@ -62,12 +62,12 @@ public class ScreenNode {
 
     private int multiValueThreshold = 6;
 
-    public ScreenNode(String screenHash, String activity) {
-        this.screenHash = screenHash;
+    public ContentNode(String contentHash, String activity) {
+        this.contentHash = contentHash;
         this.activity = activity;
     }
 
-    public String getScreenHash() { return screenHash; }
+    public String getContentHash() { return contentHash; }
     public String getActivity() { return activity; }
     public int getVisitCount() { return visitCount; }
     public int getTotalActions() { return totalActions; }

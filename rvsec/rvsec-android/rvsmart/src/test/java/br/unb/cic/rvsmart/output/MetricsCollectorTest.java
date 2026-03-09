@@ -1,6 +1,6 @@
 package br.unb.cic.rvsmart.output;
 
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.AfterEach;
@@ -94,7 +94,7 @@ class MetricsCollectorTest {
     // --- Final report tests ---
 
     private JsonObject writeFinalReportAndParse() {
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         graph.recordVisit("hash1", "Activity1");
         graph.recordVisit("hash2", "Activity2");
         graph.recordTransition("hash1", "hash2");
@@ -252,7 +252,7 @@ class MetricsCollectorTest {
             collector.recordIteration("algorithm");
         }
 
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         graph.recordVisit("h1", "A1");
         Set<String> activities = new HashSet<>();
         activities.add("A1");
@@ -279,9 +279,57 @@ class MetricsCollectorTest {
         assertEquals(1, newlineCount, "Report should be a single line");
     }
 
+    // --- gh34 new fields ---
+
+    @Test
+    void testNewExplorationFieldsPresentInReport() {
+        collector.recordContentStates(5);
+        collector.recordStructuralClusters(3);
+        collector.recordNavMapEdges(12);
+
+        JsonObject report = writeFinalReportAndParse();
+        JsonObject exploration = report.getAsJsonObject("exploration");
+
+        assertTrue(exploration.has("content_states"), "Missing content_states");
+        assertTrue(exploration.has("structural_clusters"), "Missing structural_clusters");
+        assertTrue(exploration.has("nav_map_edges"), "Missing nav_map_edges");
+        assertEquals(5, exploration.get("content_states").getAsInt());
+        assertEquals(3, exploration.get("structural_clusters").getAsInt());
+        assertEquals(12, exploration.get("nav_map_edges").getAsInt());
+    }
+
+    @Test
+    void testPhaseDistributionStructure() {
+        collector.incrementPhaseDistribution("phase1");
+        collector.incrementPhaseDistribution("phase1");
+        collector.incrementPhaseDistribution("phase2");
+
+        JsonObject report = writeFinalReportAndParse();
+        JsonObject exploration = report.getAsJsonObject("exploration");
+
+        assertTrue(exploration.has("phase_distribution"), "Missing phase_distribution");
+        JsonObject pd = exploration.getAsJsonObject("phase_distribution");
+        assertEquals(2, pd.get("phase1").getAsInt());
+        assertEquals(1, pd.get("phase2").getAsInt());
+        assertEquals(0, pd.get("phase3").getAsInt());
+    }
+
+    @Test
+    void testBacktrackReplaysInDecisions() {
+        collector.incrementBacktrackReplays();
+        collector.incrementBacktrackReplays();
+        collector.incrementBacktrackReplays();
+
+        JsonObject report = writeFinalReportAndParse();
+        JsonObject decisions = report.getAsJsonObject("decisions");
+
+        assertTrue(decisions.has("backtrack_replays"), "Missing backtrack_replays");
+        assertEquals(3, decisions.get("backtrack_replays").getAsInt());
+    }
+
     @Test
     void testCoverageRatioZeroWhenNoWidgets() {
-        DynamicStateGraph graph = new DynamicStateGraph();
+        ContentGraph graph = new ContentGraph();
         graph.recordVisit("h1", "A1");
         Set<String> activities = new HashSet<>();
         activities.add("A1");

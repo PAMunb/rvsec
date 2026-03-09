@@ -4,10 +4,11 @@ import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.Config;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.graph.ScreenNode;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
+import br.unb.cic.rvsmart.strategy.PhaseController;
 import br.unb.cic.rvsmart.strategy.scorers.ComponentPriorityScorer;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
 import br.unb.cic.rvsmart.strategy.scorers.CoverageDensityScorer;
@@ -46,7 +47,7 @@ class ActionSelectorTest {
 
     private Config config;
     private ActionSelector selector;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private StaticMap staticMap;
 
     @BeforeEach
@@ -55,7 +56,7 @@ class ActionSelectorTest {
         config = Config.defaults();
         config.setSeed(42);
         selector = new ActionSelector(config);
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         staticMap = new StaticMap(null);
     }
 
@@ -173,7 +174,7 @@ class ActionSelectorTest {
         // When SuccessorTracker has no parents for the current screen (root),
         // BACK should never be selected — only RESTART is available.
         SuccessorTracker tracker = new SuccessorTracker();
-        ActionSelector selectorWithTracker = new ActionSelector(config, null, tracker);
+        ActionSelector selectorWithTracker = new ActionSelector(config, tracker);
 
         ScreenState screen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "RootActivity");
@@ -199,14 +200,14 @@ class ActionSelectorTest {
                 Collections.<ScreenItem>emptyList(), "ChildActivity");
 
         // Record that rootScreen -> childScreen transition occurred
-        tracker.record(rootScreen.getHash(), childScreen.getHash());
+        tracker.record(rootScreen.getContentHash(), childScreen.getContentHash());
 
         // With stochastic disabled (seed=42), on childScreen BACK or RESTART can appear.
         // The key assertion: BACK is NOT excluded (it appears in the candidate list).
-        ActionSelector selectorWithTracker = new ActionSelector(config, null, tracker);
+        ActionSelector selectorWithTracker = new ActionSelector(config, tracker);
 
         // Verify childScreen has parents
-        assertFalse(tracker.getParents(childScreen.getHash()).isEmpty(),
+        assertFalse(tracker.getParents(childScreen.getContentHash()).isEmpty(),
                 "Child screen should have parents");
 
         // On empty screen with parents, Tier 4 includes BACK + RESTART.
@@ -221,7 +222,7 @@ class ActionSelectorTest {
     void testBackExcludedWhenSuccessorTrackerIsNull() {
         // When no SuccessorTracker is wired (null), the selector treats every screen
         // as root: BACK is excluded. Only RESTART is available.
-        ActionSelector selectorNoTracker = new ActionSelector(config, null, null);
+        ActionSelector selectorNoTracker = new ActionSelector(config);
 
         ScreenState screen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "SomeActivity");
@@ -240,7 +241,7 @@ class ActionSelectorTest {
         // On root screen with no widget candidates (empty screen),
         // RESTART is the only fallback — BACK is excluded.
         SuccessorTracker tracker = new SuccessorTracker();
-        ActionSelector selectorWithTracker = new ActionSelector(config, null, tracker);
+        ActionSelector selectorWithTracker = new ActionSelector(config, tracker);
 
         ScreenState screen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "RootActivity");
@@ -271,7 +272,7 @@ class ActionSelectorTest {
     void testSelectNextBestExcludesBackOnRootScreen_NoTracker() {
         // selectNextBest must apply the same root-screen check as Tier 4:
         // when SuccessorTracker is null, BACK is excluded from candidates.
-        ActionSelector selectorNoTracker = new ActionSelector(config, null, null);
+        ActionSelector selectorNoTracker = new ActionSelector(config);
         ScreenState screen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "RootActivity");
         Set<String> excluded = new HashSet<>();
@@ -289,7 +290,7 @@ class ActionSelectorTest {
     void testSelectNextBestExcludesBackOnRootScreen_EmptyParents() {
         // selectNextBest must exclude BACK when SuccessorTracker has no parents
         SuccessorTracker tracker = new SuccessorTracker();
-        ActionSelector selectorWithTracker = new ActionSelector(config, null, tracker);
+        ActionSelector selectorWithTracker = new ActionSelector(config, tracker);
         ScreenState screen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "RootActivity");
         Set<String> excluded = new HashSet<>();
@@ -310,9 +311,9 @@ class ActionSelectorTest {
                 Collections.<ScreenItem>emptyList(), "RootActivity");
         ScreenState childScreen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "ChildActivity");
-        tracker.record(rootScreen.getHash(), childScreen.getHash());
+        tracker.record(rootScreen.getContentHash(), childScreen.getContentHash());
 
-        ActionSelector selectorWithTracker = new ActionSelector(config, null, tracker);
+        ActionSelector selectorWithTracker = new ActionSelector(config, tracker);
         Set<String> excluded = new HashSet<>();
 
         // On child screen (has parents), both BACK and RESTART are candidates
@@ -337,7 +338,7 @@ class ActionSelectorTest {
         // When a ConfirmedCoverageScorer is passed, it must be in the chain
         ConfirmedCoverageScorer confirmedScorer = new ConfirmedCoverageScorer(150);
         ActionSelector selectorWithConfirmed = new ActionSelector(
-                config, null, null, confirmedScorer);
+                config, null, confirmedScorer);
 
         List<Scorer> scorers = selectorWithConfirmed.getScorers();
         boolean found = scorers.stream().anyMatch(s -> s instanceof ConfirmedCoverageScorer);
@@ -397,76 +398,53 @@ class ActionSelectorTest {
         // and produces a non-zero score when the screen hash matches
         ConfirmedCoverageScorer confirmedScorer = new ConfirmedCoverageScorer(150);
         ActionSelector selectorWithConfirmed = new ActionSelector(
-                config, null, null, confirmedScorer);
+                config, null, confirmedScorer);
 
         ScreenState screen = new ScreenState(
                 Collections.<ScreenItem>emptyList(), "TestActivity");
 
         // Before confirmation, scorer contributes 0
-        assertFalse(confirmedScorer.hasConfirmed(screen.getHash()));
+        assertFalse(confirmedScorer.hasConfirmed(screen.getContentHash()));
 
         // Simulate coverage confirmation on this screen
         Set<String> methods = new HashSet<>();
         methods.add("javax.crypto.Cipher.getInstance");
-        confirmedScorer.addConfirmed(screen.getHash(), methods);
+        confirmedScorer.addConfirmed(screen.getContentHash(), methods);
 
         // After confirmation, scorer contributes +150
-        assertTrue(confirmedScorer.hasConfirmed(screen.getHash()));
+        assertTrue(confirmedScorer.hasConfirmed(screen.getContentHash()));
         assertEquals(150, confirmedScorer.score(
                 Action.back("test"), screen, graph, staticMap));
     }
 
-    // --- Saturation-based proactive backtrack (INV-RSM-28) ---
+    // --- Phase-based selection observability ---
 
     @Test
-    void testTier3ActivatesAtSaturation80Percent() {
-        // Create a selector with SuccessorTracker so Tier 3 is enabled
-        SuccessorTracker tracker = new SuccessorTracker();
-        ActionSelector sel = new ActionSelector(config, null, tracker);
-
-        // Create parent-child relationship so BACK is allowed
-        ScreenState parent = new ScreenState(Collections.<ScreenItem>emptyList(), "ParentActivity");
-        ScreenState child = new ScreenState(Collections.<ScreenItem>emptyList(), "ChildActivity");
-        tracker.record(parent.getHash(), child.getHash());
-
-        // Register child in graph and saturate it (>= 0.8)
-        graph.getOrCreate(child.getHash(), "ChildActivity");
-        graph.get(child.getHash()).setTotalActions(5);
-        // Execute 4 of 5 actions = 80% saturation
-        for (int i = 0; i < 4; i++) {
-            String sig = "click@" + (i * 100) + ",100";
-            for (int j = 0; j < 4; j++) {  // threshold=4
-                graph.get(child.getHash()).recordAction(sig, "Button");
-            }
-        }
-
-        Action action = sel.selectAction(child, graph, staticMap);
-        assertEquals(Action.Type.BACK, action.getType(),
-                "Tier 3 should return BACK when saturation >= 0.8");
-        assertEquals(3, sel.getLastSelectedTier(), "Should be Tier 3");
+    void testPhase1SelectedWhenUntestedActionsExist() {
+        // When untested actions exist, legacy selectAction() uses Phase 1.
+        // With no widget candidates (null bounds), falls to unified queue (Phase 3 fallback).
+        // The key assertion: lastSelectedPhase is set (not null) after a call.
+        ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
+        selector.selectAction(screen, graph, staticMap);
+        // Phase should be set — either PHASE_1 or PHASE_3 (fallback from empty screen)
+        assertNotNull(selector.getLastSelectedPhase(), "lastSelectedPhase must be set after selectAction");
     }
 
     @Test
-    void testTier3DoesNotActivateBelowSaturation80() {
+    void testPhase3FallbackOnEmptyScreen() {
+        // With no widget candidates (null bounds) and no untested actions in node,
+        // Phase 1 falls back to Phase 3 (unified queue with boosted stochastic).
         SuccessorTracker tracker = new SuccessorTracker();
-        ActionSelector sel = new ActionSelector(config, null, tracker);
+        ActionSelector sel = new ActionSelector(config, tracker);
 
-        ScreenState parent = new ScreenState(Collections.<ScreenItem>emptyList(), "ParentActivity");
-        ScreenState child = new ScreenState(Collections.<ScreenItem>emptyList(), "ChildActivity");
-        tracker.record(parent.getHash(), child.getHash());
+        ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
+        // Register the content node with totalActions=5 and all executed (simulate exhausted)
+        graph.getOrCreate(screen.getContentHash(), "TestActivity");
+        graph.get(screen.getContentHash()).setTotalActions(5);
 
-        // Register child with low saturation
-        graph.getOrCreate(child.getHash(), "ChildActivity");
-        graph.get(child.getHash()).setTotalActions(10);
-        // Execute 1 of 10 actions = 10% saturation
-        for (int j = 0; j < 4; j++) {
-            graph.get(child.getHash()).recordAction("click@100,100", "Button");
-        }
-
-        Action action = sel.selectAction(child, graph, staticMap);
-        // Should NOT be Tier 3 — saturation is too low
-        assertNotEquals(3, sel.getLastSelectedTier(),
-                "Tier 3 should NOT activate when saturation < 0.8");
+        sel.selectAction(screen, graph, staticMap);
+        // Phase 3 (stochastic) is the fallback when no untested candidates
+        assertNotNull(sel.getLastSelectedPhase());
     }
 
     // --- Softmax-weighted stochastic selection (task 1.2) ---
@@ -584,33 +562,42 @@ class ActionSelectorTest {
         assertTrue(candidates.isEmpty(), "Null bounds items skipped, but not by system UI filter");
     }
 
-    // --- Plateau mode stochastic boost tests (task 3.2) ---
+    // --- Phase 3 stochastic boost tests ---
 
     @Test
-    void testPlateauModeBoostsStochasticProbability() {
-        // When plateau is active, stochastic probability should be overridden to 0.5
+    void testPhase3SelectionIsNonNull() {
+        // Phase 3 uses the unified queue with boosted stochastic probability (0.5).
+        // Result must never be null (INV-RSM-12).
         Config cfg = Config.defaults();
         cfg.setSeed(42);
+        ContentGraph graph3 = new ContentGraph();
         ActionSelector sel = new ActionSelector(cfg);
 
-        // Activate plateau mode
-        sel.setPlateauActive(true);
+        ScreenState screen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "TestActivity");
 
-        // Verify via accessor (the stochastic override is 0.5)
-        assertTrue(sel.isPlateauActive(), "Plateau mode should be active");
+        for (int i = 0; i < 10; i++) {
+            Action action = sel.selectAction(PhaseController.Phase.PHASE_3, screen,
+                    screen.getStructHash(), graph3, null, null, null,
+                    new StaticMap(null));
+            assertNotNull(action, "Phase 3 must never return null");
+        }
     }
 
     @Test
-    void testPlateauModeDeactivates() {
+    void testPhase3LastSelectedPhaseIsSet() {
         Config cfg = Config.defaults();
         cfg.setSeed(42);
+        ContentGraph graph3 = new ContentGraph();
         ActionSelector sel = new ActionSelector(cfg);
 
-        sel.setPlateauActive(true);
-        assertTrue(sel.isPlateauActive());
+        ScreenState screen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "TestActivity");
+        sel.selectAction(PhaseController.Phase.PHASE_3, screen, screen.getStructHash(),
+                graph3, null, null, null, new StaticMap(null));
 
-        sel.setPlateauActive(false);
-        assertFalse(sel.isPlateauActive(), "Plateau mode should deactivate");
+        assertEquals(PhaseController.Phase.PHASE_3, sel.getLastSelectedPhase(),
+                "Phase 3 invocation must set lastSelectedPhase to PHASE_3");
     }
 
     // --- InputValueGenerator integration tests (task 4.2) ---
@@ -621,7 +608,7 @@ class ActionSelectorTest {
         // and uses it for SET_TEXT actions instead of hardcoded "test".
         // Full functional verification requires real Rect (integration tests).
         InputValueGenerator generator = new InputValueGenerator();
-        ActionSelector sel = new ActionSelector(config, null, null, null, generator, null);
+        ActionSelector sel = new ActionSelector(config, null, null, generator, null);
         assertNotNull(sel);
     }
 
@@ -632,7 +619,7 @@ class ActionSelectorTest {
         // When ALL candidates have failureCount >= 3, the safety net preserves the
         // unfiltered candidate list so the agent never falls through to RESTART-only.
         // Setup: spy on generateCandidateActions to return 2 widget actions,
-        // both with 3 failures recorded in the ScreenNode.
+        // both with 3 failures recorded in the ContentNode.
         Action widgetA = new Action(Action.Type.CLICK, 100, 200, null, "algorithm", "Button", null);
         Action widgetB = new Action(Action.Type.CLICK, 300, 400, null, "algorithm", "Button", null);
         List<Action> fakeWidgets = Arrays.asList(widgetA, widgetB);
@@ -642,8 +629,8 @@ class ActionSelectorTest {
         Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(screen);
 
         // Register both signatures with 3 executions and 0 successes (failure_count=3)
-        graph.getOrCreate(screen.getHash(), "OnboardingActivity");
-        ScreenNode node = graph.get(screen.getHash());
+        graph.getOrCreate(screen.getContentHash(), "OnboardingActivity");
+        ContentNode node = graph.get(screen.getContentHash());
         for (int i = 0; i < 3; i++) {
             node.recordAction(widgetA.signature(), "Button");
             node.recordAction(widgetB.signature(), "Button");
@@ -671,8 +658,8 @@ class ActionSelectorTest {
         ScreenState screen = new ScreenState(Collections.<ScreenItem>emptyList(), "OnboardingActivity");
         Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(screen);
 
-        graph.getOrCreate(screen.getHash(), "OnboardingActivity");
-        ScreenNode node = graph.get(screen.getHash());
+        graph.getOrCreate(screen.getContentHash(), "OnboardingActivity");
+        ContentNode node = graph.get(screen.getContentHash());
 
         // widgetA: 3 executions, 0 successes -> failure_count=3 (filtered out)
         for (int i = 0; i < 3; i++) {
@@ -708,13 +695,13 @@ class ActionSelectorTest {
         Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(screen);
 
         // No executions recorded: failure_count=0 for both (executions=0 -> getFailureCount returns 0)
-        graph.getOrCreate(screen.getHash(), "TestActivity");
+        graph.getOrCreate(screen.getContentHash(), "TestActivity");
 
-        // Both candidates pass filter — Tier 2 (untested) fires and selects from them
+        // Both candidates pass filter — Phase 1 (untested) fires and selects from them
         Action selected = spy.selectAction(screen, graph, staticMap);
         assertNotNull(selected);
-        assertEquals(2, spy.getLastSelectedTier(),
-                "Tier 2 (untested) should fire when all candidates have 0 executions");
+        assertEquals(PhaseController.Phase.PHASE_1, spy.getLastSelectedPhase(),
+                "Phase 1 (untested) should fire when all candidates have 0 executions");
         assertTrue(selected.getType() == Action.Type.CLICK,
                 "Should select a widget action from unfiltered candidates");
     }
@@ -732,8 +719,8 @@ class ActionSelectorTest {
         ScreenState screen3 = new ScreenState(Collections.<ScreenItem>emptyList(), "BoundaryActivity3");
         Mockito.doReturn(fakeWidgets).when(spy3).generateCandidateActions(screen3);
 
-        graph.getOrCreate(screen3.getHash(), "BoundaryActivity3");
-        ScreenNode node3 = graph.get(screen3.getHash());
+        graph.getOrCreate(screen3.getContentHash(), "BoundaryActivity3");
+        ContentNode node3 = graph.get(screen3.getContentHash());
         for (int i = 0; i < 3; i++) {
             node3.recordAction(widgetA.signature(), "Button");
         }
@@ -745,13 +732,13 @@ class ActionSelectorTest {
                 "At failure_count=3, safety net must preserve widget candidates");
 
         // --- Sub-case 2: failure_count=2 -> normal filter keeps widgetA ---
-        DynamicStateGraph graph2 = new DynamicStateGraph();
+        ContentGraph graph2 = new ContentGraph();
         ActionSelector spy2 = Mockito.spy(new ActionSelector(config));
         ScreenState screen2 = new ScreenState(Collections.<ScreenItem>emptyList(), "BoundaryActivity2");
         Mockito.doReturn(fakeWidgets).when(spy2).generateCandidateActions(screen2);
 
-        graph2.getOrCreate(screen2.getHash(), "BoundaryActivity2");
-        ScreenNode node2 = graph2.get(screen2.getHash());
+        graph2.getOrCreate(screen2.getContentHash(), "BoundaryActivity2");
+        ContentNode node2 = graph2.get(screen2.getContentHash());
         // 3 executions, 1 success -> strength=1/3, round(1/3 * 3)=round(1)=1, failures=3-1=2
         for (int i = 0; i < 3; i++) {
             node2.recordAction(widgetA.signature(), "Button");

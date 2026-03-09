@@ -1,6 +1,6 @@
 package br.unb.cic.rvsmart.core;
 
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
 
@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class LearnerTest {
 
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private StuckDetector stuckDetector;
     private Learner learner;
 
@@ -26,7 +26,7 @@ class LearnerTest {
     void setUp() {
         RvTrack.logEnabled = false;
         RvTrack.resetCounters();
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         stuckDetector = new StuckDetector(10);
         learner = new Learner(graph, stuckDetector);
     }
@@ -114,7 +114,7 @@ class LearnerTest {
                 "ActivityA", "ActivityB", Collections.emptyList(), 0, 0);
 
         // Reset for clean comparison
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         stuckDetector = new StuckDetector(10);
         learner = new Learner(graph, stuckDetector);
         graph.getOrCreate("h1", "ActivityA");

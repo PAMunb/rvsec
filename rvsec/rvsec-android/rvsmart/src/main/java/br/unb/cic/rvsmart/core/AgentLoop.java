@@ -11,8 +11,13 @@ import br.unb.cic.rvsmart.device.InputInjector;
 import br.unb.cic.rvsmart.device.LogcatReader;
 import br.unb.cic.rvsmart.device.SystemDialogDetector;
 import br.unb.cic.rvsmart.device.UiCapture;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.NavigationMap;
+import br.unb.cic.rvsmart.graph.StructuralGraph;
 import br.unb.cic.rvsmart.core.Config.PromptVersion;
+import br.unb.cic.rvsmart.strategy.BacktrackStrategy;
+import br.unb.cic.rvsmart.strategy.PhaseController;
+import br.unb.cic.rvsmart.strategy.PhaseController.Phase;
 import br.unb.cic.rvsmart.llm.CoordinateNormalizer;
 import br.unb.cic.rvsmart.llm.ImageProcessor;
 import br.unb.cic.rvsmart.llm.PromptBuilder;
@@ -74,7 +79,7 @@ public class AgentLoop {
     private final SystemDialogDetector dialogDetector;
     private final LogcatReader logcatReader;
     private final HeapMonitor heapMonitor;
-    private final DynamicStateGraph graph;
+    private final ContentGraph graph;
     private final StaticMap staticMap;
     private final ActionSelector actionSelector;
     private final StuckDetector stuckDetector;
@@ -99,6 +104,12 @@ public class AgentLoop {
     // Optional gh31 components — null when not configured
     private final UICoverageTracker uiCoverageTracker;
     private final PlateauDetector plateauDetector;
+
+    // gh34 dual-hash components — initialized internally from existing fields
+    private final StructuralGraph structuralGraph;
+    private final NavigationMap navigationMap;
+    private final PhaseController phaseController;
+    private final BacktrackStrategy backtrackStrategy;
 
     // Known Android launcher packages for OOA fast-path detection
     private static final String[] LAUNCHER_PACKAGES = {
@@ -134,7 +145,7 @@ public class AgentLoop {
                      InputInjector inputInjector, AppController appController,
                      CrashInterceptor crashInterceptor,
                      SystemDialogDetector dialogDetector, LogcatReader logcatReader,
-                     HeapMonitor heapMonitor, DynamicStateGraph graph,
+                     HeapMonitor heapMonitor, ContentGraph graph,
                      StaticMap staticMap, ActionSelector actionSelector,
                      StuckDetector stuckDetector, Learner learner,
                      TraceWriter traceWriter, MetricsCollector metricsCollector) {
@@ -155,7 +166,7 @@ public class AgentLoop {
                      InputInjector inputInjector, AppController appController,
                      CrashInterceptor crashInterceptor,
                      SystemDialogDetector dialogDetector, LogcatReader logcatReader,
-                     HeapMonitor heapMonitor, DynamicStateGraph graph,
+                     HeapMonitor heapMonitor, ContentGraph graph,
                      StaticMap staticMap, ActionSelector actionSelector,
                      StuckDetector stuckDetector, Learner learner,
                      TraceWriter traceWriter, MetricsCollector metricsCollector,
@@ -194,6 +205,15 @@ public class AgentLoop {
         this.successorTracker = successorTracker;
         this.uiCoverageTracker = uiCoverageTracker;
         this.plateauDetector = plateauDetector;
+
+        // gh34: initialize dual-hash components internally (not injected — P1 simplicity).
+        // PhaseController requires a non-null PlateauDetector; create a fresh one if not provided.
+        this.structuralGraph = new StructuralGraph();
+        this.navigationMap = new NavigationMap();
+        PlateauDetector effectivePlateauDetector = plateauDetector != null
+                ? plateauDetector : new PlateauDetector();
+        this.phaseController = new PhaseController(graph, uiCoverageTracker, effectivePlateauDetector);
+        this.backtrackStrategy = new BacktrackStrategy(navigationMap, structuralGraph);
     }
 
     /**
@@ -349,8 +369,9 @@ public class AgentLoop {
         }
         // 5a. Empty screen wait (INV-RSM-34): splash screens may auto-transition after 2-3s.
         // If no interactive items AND no backtrack path available, wait and re-capture.
+        // SuccessorTracker operates at structHash level (Task 7.5).
         if (items.isEmpty() && successorTracker != null
-                && successorTracker.getParents(screen.getHash()).isEmpty()) {
+                && successorTracker.getParents(screen.getStructHash()).isEmpty()) {
             sleep(2000);
             AccessibilityNodeInfo retryRoot = devController.getUiAutomation().getRootInActiveWindow();
             if (retryRoot != null) {
@@ -363,7 +384,8 @@ public class AgentLoop {
             }
         }
 
-        String hash = screen.getHash();
+        String hash = screen.getContentHash();
+        String structHash = screen.getStructHash();
         String activity = screen.getActivity();
 
         // 5b. Update graph
@@ -372,9 +394,19 @@ public class AgentLoop {
         graph.recordVisit(hash, activity);
         visitedActivities.add(activity);
 
+        // 5b-gh34. Register in StructuralGraph (structHash → contentHash clustering).
+        structuralGraph.register(structHash, hash);
+
+        // 5b-gh34. Content hash explosion safety valve: degrade to structHash when ContentGraph
+        // grows beyond 1000 entries to prevent infinite state explosion from dynamic content.
+        if (graph.size() > 1000) {
+            Log.w(TAG, "ContentGraph size " + graph.size() + " > 1000 — degrading contentHash to structHash");
+            hash = structHash;
+        }
+
         // Update totalActions on every visit (INV-RSM-40): Math.max ensures a
         // transient first visit with 0 elements doesn't permanently lock saturation at 1.0.
-        br.unb.cic.rvsmart.graph.ScreenNode screenNode = graph.get(hash);
+        br.unb.cic.rvsmart.graph.ContentNode screenNode = graph.get(hash);
         if (screenNode != null) {
             int interactiveCount = 0;
             for (ScreenItem item : items) {
@@ -392,6 +424,16 @@ public class AgentLoop {
             uiCoverageTracker.registerScreenElements(hash, items);
         }
 
+        // 5d. PhaseController: notify of new content state discovery and Phase 1 cluster entry.
+        if (isNewScreen) {
+            phaseController.onNewContentState(hash);
+        }
+        Phase phase = phaseController.currentPhase();
+        if (phase == Phase.PHASE_1) {
+            phaseController.onPhase1Entry(structHash);
+        }
+        metricsCollector.incrementPhaseDistribution(phase.name().toLowerCase().replace("_", ""));
+
         RvTrack.parse(iteration, activity, items.size(), hash, captureMs);
 
         // 6. Drain logcat coverage tags
@@ -404,12 +446,10 @@ public class AgentLoop {
             }
         }
 
-        // 6c. Plateau detection: record iteration and update stochastic probability
-        if (plateauDetector != null) {
-            boolean hasNewMopCoverage = !coveredMethods.isEmpty();
-            plateauDetector.recordIteration(isNewScreen, hasNewMopCoverage);
-            actionSelector.setPlateauActive(plateauDetector.isPlateauDetected());
-        }
+        // 6c. PhaseController: drive phase transitions via coverage delta.
+        // coverageDelta = number of new methods confirmed this iteration.
+        int coverageDelta = coveredMethods.size();
+        phaseController.onIteration(coverageDelta);
 
         // 7. Stuck recovery: when stuck, use BFS to find a path to an unsaturated ancestor
         boolean isStuck = stuckDetector.getConsecutiveUnchanged() >= config.getStuckMaxBlocks();
@@ -428,7 +468,8 @@ public class AgentLoop {
 
         if (action == null) {
             // LLM path unavailable or disabled — fall through to algorithm
-            action = actionSelector.selectAction(screen, graph, staticMap);
+            action = actionSelector.selectAction(phase, screen, structHash,
+                    graph, structuralGraph, navigationMap, uiCoverageTracker, staticMap);
             RvTrack.route(iteration, "algorithm", "algorithm", "llm_unavailable_or_disabled");
         }
 
@@ -463,6 +504,7 @@ public class AgentLoop {
 
         // 11. Re-capture for effect detection
         String hashAfter = hash;
+        String structHashAfter = structHash;  // gh34: track structural hash after action
         String activityAfter = activity;
         ScreenState postActionState = null;
 
@@ -488,7 +530,8 @@ public class AgentLoop {
             rootAfter.recycle();
             activityAfter = appController.getCurrentActivityName();
             postActionState = new ScreenState(itemsAfter, activityAfter);
-            hashAfter = postActionState.getHash();
+            hashAfter = postActionState.getContentHash();
+            structHashAfter = postActionState.getStructHash();
         } else {
             // Possible native crash — app process may be gone
             if (!appController.isAppRunning(packageName)) {
@@ -525,14 +568,19 @@ public class AgentLoop {
                 rootAdaptive.recycle();
                 activityAfter = appController.getCurrentActivityName();
                 postActionState = new ScreenState(itemsAdaptive, activityAfter);
-                hashAfter = postActionState.getHash();
+                hashAfter = postActionState.getContentHash();
+                structHashAfter = postActionState.getStructHash();
                 hadEffect = !hash.equals(hashAfter) || !activity.equals(activityAfter);
             }
         }
 
-        // 11b. Record transition in SuccessorTracker for proactive backtracking
+        // 11b. Record transition in SuccessorTracker at structHash level (Task 7.5)
+        // and in NavigationMap for replay-based backtracking (gh34).
         if (hadEffect && successorTracker != null) {
-            successorTracker.record(hash, hashAfter);
+            successorTracker.record(structHash, structHashAfter);
+        }
+        if (hadEffect) {
+            navigationMap.record(structHash, action.signature(), structHashAfter);
         }
 
         // Save primary action metadata before retries overwrite the action variable.
@@ -559,7 +607,8 @@ public class AgentLoop {
                 rootAfter.recycle();
                 activityAfter = appController.getCurrentActivityName();
                 postActionState = new ScreenState(itemsAfter2, activityAfter);
-                hashAfter = postActionState.getHash();
+                hashAfter = postActionState.getContentHash();
+                structHashAfter = postActionState.getStructHash();
             }
             hadEffect = !hash.equals(hashAfter) || !activity.equals(activityAfter);
 
@@ -589,7 +638,7 @@ public class AgentLoop {
         // When cache is used (captureMs=0), this includes all pre-inject work.
         long scoringMs = injectStart - (iterStart + captureMs);
         long iterTotal = System.currentTimeMillis() - iterStart;
-        br.unb.cic.rvsmart.graph.ScreenNode traceNode = graph.get(hashAfter);
+        br.unb.cic.rvsmart.graph.ContentNode traceNode = graph.get(hashAfter);
         double satRate = traceNode != null ? traceNode.getSaturationRate() : -1.0;
         // Attach primary action metadata to score breakdown — action variable may have been
         // overwritten by retries, but scores always belong to the primary selected action.
@@ -604,14 +653,19 @@ public class AgentLoop {
                 action.getType().name(), action.getSource(),
                 hadEffect, retries, graph.size(), elapsed / 1000.0,
                 action.getX(), action.getY(), action.getWidgetClass(),
-                actionSelector.getLastSelectedTier(), satRate,
+                0, satRate,
                 captureMs, scoringMs, injectMs, iterTotal,
                 false, null, null,
-                scoreBreakdown);
+                scoreBreakdown, phase.name());
 
         // 16. Metrics
         metricsCollector.recordIteration(action.getSource());
         if (retries > 0) metricsCollector.recordRetries(retries);
+
+        // 16a. gh34 observability: update dual-hash metrics each iteration
+        metricsCollector.recordContentStates(graph.size());
+        metricsCollector.recordStructuralClusters(structuralGraph.size());
+        metricsCollector.recordNavMapEdges(navigationMap.size());
 
         // 17. Cycle time profiling (also logged to logcat via RVTRACK for real-time debugging)
         RvTrack.cycle(iteration, captureMs, injectMs, iterTotal);

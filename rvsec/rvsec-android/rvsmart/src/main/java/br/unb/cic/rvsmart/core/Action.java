@@ -4,7 +4,7 @@ package br.unb.cic.rvsmart.core;
  * Represents a user interaction action to be executed on the device.
  *
  * Action types map to InputInjector methods. The signature() method produces
- * a stable identifier for tracking in the DynamicStateGraph: "type@x,y" for
+ * a stable identifier for tracking in the ContentGraph: "type@x,y" for
  * most actions, "SET_TEXT:text@x,y" for text input.
  *
  * The source field ("algorithm" or "llm") is metadata only — both sources

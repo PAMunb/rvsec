@@ -3,7 +3,7 @@ package br.unb.cic.rvsmart.strategy.scorers;
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class VisitationPenaltyScorerTest {
 
     private VisitationPenaltyScorer scorer;
-    private DynamicStateGraph graph;
+    private ContentGraph graph;
     private ScreenState screen;
     private StaticMap staticMap;
 
@@ -25,7 +25,7 @@ class VisitationPenaltyScorerTest {
     void setUp() {
         RvTrack.logEnabled = false;
         scorer = new VisitationPenaltyScorer(15);
-        graph = new DynamicStateGraph();
+        graph = new ContentGraph();
         screen = new ScreenState(Collections.<ScreenItem>emptyList(), "TestActivity");
         staticMap = new StaticMap(null);
     }
@@ -39,14 +39,14 @@ class VisitationPenaltyScorerTest {
     @Test
     void testReturnsZeroForUnexecutedAction() {
         // Screen node exists but action was never executed
-        graph.recordVisit(screen.getHash(), "TestActivity");
+        graph.recordVisit(screen.getContentHash(), "TestActivity");
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
         assertEquals(0, scorer.score(action, screen, graph, staticMap));
     }
 
     @Test
     void testReturnsPenaltyProportionalToVisits() {
-        String hash = screen.getHash();
+        String hash = screen.getContentHash();
         graph.getOrCreate(hash, "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
@@ -63,7 +63,7 @@ class VisitationPenaltyScorerTest {
 
     @Test
     void testPenaltyScalesWithExecutionCount() {
-        String hash = screen.getHash();
+        String hash = screen.getContentHash();
         graph.getOrCreate(hash, "TestActivity");
 
         Action action = new Action(Action.Type.CLICK, 200, 300, "algorithm", "TextView");

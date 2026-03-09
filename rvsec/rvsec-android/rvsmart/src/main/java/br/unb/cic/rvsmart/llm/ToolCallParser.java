@@ -60,13 +60,6 @@ public class ToolCallParser {
     public ParsedAction parse(SglangClient.ChatResponse response) {
         if (response == null) return null;
 
-        // Log raw response content for diagnostic analysis
-        String rawContent = response.getContent();
-        if (rawContent != null && !rawContent.isEmpty()) {
-            // try/catch guards the Android Stub in JVM unit tests
-            try { android.util.Log.d("RVSMART-LLM-RESP", rawContent); } catch (RuntimeException ignored) {}
-        }
-
         // Level 1: native tool_calls list
         if (response.getToolCalls() != null && !response.getToolCalls().isEmpty()) {
             SglangClient.ToolCall tc = response.getToolCalls().get(0);

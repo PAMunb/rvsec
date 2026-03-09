@@ -303,6 +303,26 @@ class TraceWriterTest {
         assertFalse(json.has("scores"), "Null scores should not appear in trace");
     }
 
+    // --- gh34 phase field in score breakdown ---
+
+    @Test
+    void testPhaseFieldInScoreBreakdown() {
+        java.util.Map<String, Object> scores = new java.util.TreeMap<>();
+        scores.put("total", 200);
+
+        writer.writeLine(1, 1000L, "h", "A", "click", "algorithm", true, 0, 5, 1.0,
+                540, 273, "Button",
+                1, 0.2, 10, 2, 30, 80,
+                false, null, null, scores, "PHASE_1");
+        JsonObject json = GSON.fromJson(captured.toString().trim(), JsonObject.class);
+
+        assertTrue(json.has("scores"), "scores field must be present");
+        JsonObject scoresObj = json.getAsJsonObject("scores");
+        assertTrue(scoresObj.has("phase"), "phase field must be present in scores");
+        assertEquals("PHASE_1", scoresObj.get("phase").getAsString());
+        assertEquals(200, scoresObj.get("total").getAsInt());
+    }
+
     @Test
     void testBasicOverloadProducesSameOutputAsExtendedWithSentinels() {
         // Write with basic overload

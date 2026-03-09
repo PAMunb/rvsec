@@ -8,10 +8,13 @@ import br.unb.cic.rvsmart.core.Config;
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.core.ScreenState;
 import br.unb.cic.rvsmart.core.UICoverageTracker;
-import br.unb.cic.rvsmart.graph.DynamicStateGraph;
-import br.unb.cic.rvsmart.graph.ScreenNode;
+import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
+import br.unb.cic.rvsmart.graph.NavigationMap;
+import br.unb.cic.rvsmart.graph.StructuralGraph;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
+import br.unb.cic.rvsmart.strategy.PhaseController.Phase;
 import br.unb.cic.rvsmart.strategy.scorers.ComponentPriorityScorer;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
 import br.unb.cic.rvsmart.strategy.scorers.CoverageDensityScorer;
@@ -31,17 +34,23 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Selects the next action to execute on the current screen using a 4-tier priority system.
+ * Selects the next action to execute on the current screen using phase-based dispatch.
  *
- * Tier 1 (PathBuffer): if a planned backtrack path is active, dispense the next BACK.
- * Tier 2 (untested actions): prefer actions never executed on this screen.
- * Tier 3 (proactive backtrack): when all candidates score below saturation threshold,
- *   trigger a BACK toward a less-visited parent state.
- * Tier 4 (unified queue): all widgets + BACK + RESTART, scored and sorted.
+ * Phase 1 (DFS/broad exploration): prefer untested actions in the current content state.
+ *   Uses the scoring chain to rank candidates. When the current content node is exhausted,
+ *   navigates toward the nearest structural cluster with untested content states
+ *   (via NavigationMap BFS). Falls back to Phase 3 if no path is available.
+ *
+ * Phase 2 (Coverage-Guided): targets UI coverage gaps. If uiCoverageTracker shows a gap
+ *   above config.uiCoverageThreshold, finds the highest-gap screen reachable via
+ *   NavigationMap and navigates there. Falls back to Phase 1 if no target or no path.
+ *
+ * Phase 3 (Stochastic): softmax-selected action with stochastic probability boosted to 0.5,
+ *   escaping local optima and saturated areas.
  *
  * selectAction() NEVER returns null (INV-RSM-12): at minimum, RESTART is always present
- * in Tier 4. BACK is excluded on root screens (no parents in SuccessorTracker) to
- * prevent the agent from exiting the app.
+ * in the unified queue. BACK is excluded on root screens (no parents in SuccessorTracker)
+ * to prevent the agent from exiting the app.
  *
  * Scoring uses 6 pluggable scorers (additive):
  *   1. MopScorer: static analysis reachability (+500 direct, +300 transitive)
@@ -54,11 +63,11 @@ import java.util.stream.Collectors;
  * Scorers NOT included (evaluated and excluded):
  *   - VisitationPenaltyScorer: redundant with GradualDecayScorer (both penalize revisits)
  *   - CoverageDensityScorer: redundant with MopScorer (hardcoded count=1 makes it a constant)
- *   - SaturationScorer: screen-level penalty — handled by proactive backtrack (Tier 3) instead
+ *   - SaturationScorer: screen-level penalty — handled by phase transitions instead
  *   - StrengthScorer: master aggregator with weights — keeping chain simple and additive
  *
- * After scoring, stochastic selection (default 15%) picks a random action instead
- * of the top-scored one, preventing deterministic loops.
+ * After scoring, stochastic selection (default 15%, Phase 3: 50%) picks a random action
+ * instead of the top-scored one, preventing deterministic loops.
  *
  * BACK actions use per-hash decay: each ineffective BACK (no screen change) on the same
  * screen increases the penalty, discouraging repeated BACKs on stuck screens.
@@ -69,42 +78,40 @@ public class ActionSelector {
     private static final String ALGORITHM_SOURCE = "algorithm";
     private static final double SOFTMAX_TEMPERATURE = 50.0;
 
+    /** Stochastic probability override for Phase 3 (escape saturation). */
+    private static final float PHASE3_STOCHASTIC_PROBABILITY = 0.5f;
+
     private final List<Scorer> scorers;
     private final float backBaseScore;
     private final float backDecayPerRepeat;
     private final float restartBaseScore;
     private final float stochasticProbability;
+    private final float uiCoverageThreshold;
     private final Random random;
     private final InputValueGenerator inputValueGenerator;
 
     // Per-hash count of ineffective BACK presses (no screen change)
     private final Map<String, Integer> backDecayCountPerHash;
 
-    // Plateau mode: when active, stochastic probability is boosted to 0.5
-    private static final float PLATEAU_STOCHASTIC_PROBABILITY = 0.5f;
-    private boolean plateauActive;
-
-    // Last selected tier (1-4), exposed for trace observability
-    private int lastSelectedTier;
+    // Last selected phase, exposed for trace observability
+    private Phase lastSelectedPhase;
 
     // Last score breakdown for trace observability (per-scorer contributions)
     private Map<String, Object> lastScoreBreakdown;
 
-    // Phase 2 dependencies: PathBuffer (Tier 1) and SuccessorTracker (Tier 3)
-    private final PathBuffer pathBuffer;
     private final SuccessorTracker successorTracker;
 
     public ActionSelector(Config config) {
-        this(config, null, null, null, null, null);
+        this(config, null, null, null, null);
     }
 
-    public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker) {
-        this(config, pathBuffer, successorTracker, null, null, null);
+    public ActionSelector(Config config, SuccessorTracker successorTracker) {
+        this(config, successorTracker, null, null, null);
     }
 
-    public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker,
+    public ActionSelector(Config config, SuccessorTracker successorTracker,
                           ConfirmedCoverageScorer confirmedCoverageScorer) {
-        this(config, pathBuffer, successorTracker, confirmedCoverageScorer, null, null);
+        this(config, successorTracker, confirmedCoverageScorer, null, null);
     }
 
     /**
@@ -117,7 +124,7 @@ public class ActionSelector {
      * @param uiCoverageTracker shared instance for coverage-density scoring;
      *                           null to disable CoverageDensityScorer
      */
-    public ActionSelector(Config config, PathBuffer pathBuffer, SuccessorTracker successorTracker,
+    public ActionSelector(Config config, SuccessorTracker successorTracker,
                           ConfirmedCoverageScorer confirmedCoverageScorer,
                           InputValueGenerator inputValueGenerator,
                           UICoverageTracker uiCoverageTracker) {
@@ -143,49 +150,80 @@ public class ActionSelector {
         this.backDecayPerRepeat = config.getBackDecayPerRepeat();
         this.restartBaseScore = config.getRestartBaseScore();
         this.stochasticProbability = config.getStochasticProbability();
+        this.uiCoverageThreshold = config.getUiCoverageThreshold();
         this.random = config.getSeed() != null ? new Random(config.getSeed()) : new Random();
 
         this.backDecayCountPerHash = new HashMap<>();
-        this.pathBuffer = pathBuffer;
         this.successorTracker = successorTracker;
         this.inputValueGenerator = inputValueGenerator;
     }
 
     /**
      * Select the best action to execute on the current screen.
-     * Uses a 4-tier priority system.
+     * Legacy overload — dispatches to phase-based selection using Phase 1 by default.
+     * Callers that have not yet been updated to Group 7 wiring use this path.
      *
      * @return selected action, NEVER null (INV-RSM-12)
      */
-    public Action selectAction(ScreenState screen, DynamicStateGraph graph, StaticMap staticMap) {
-        String hash = screen.getHash();
-        ScreenNode node = graph.get(hash);
+    public Action selectAction(ScreenState screen, ContentGraph graph, StaticMap staticMap) {
+        return selectAction(Phase.PHASE_1, screen, screen.getStructHash(),
+                graph, null, null, null, staticMap);
+    }
 
-        // Invalidate PathBuffer if the agent diverged from the planned route
-        if (pathBuffer != null) {
-            pathBuffer.invalidateIfDiverged(hash);
+    /**
+     * Phase-based action selection. Group 7 will call this full signature once AgentLoop
+     * is wired with PhaseController, StructuralGraph, NavigationMap, and UICoverageTracker.
+     *
+     * @param phase          current exploration phase from PhaseController
+     * @param screen         current screen state
+     * @param structHash     structural hash of the current screen (from ScreenState.getStructHash())
+     * @param contentGraph   content-level state graph
+     * @param structuralGraph structural clusters (structHash → contentHashes); may be null
+     * @param navigationMap  structural transition map for BFS navigation; may be null
+     * @param uiCoverageTracker per-screen UI element coverage tracker; may be null
+     * @param staticMap      static analysis data
+     * @return selected action, NEVER null (INV-RSM-12)
+     */
+    public Action selectAction(Phase phase, ScreenState screen, String structHash,
+                               ContentGraph contentGraph,
+                               StructuralGraph structuralGraph,
+                               NavigationMap navigationMap,
+                               UICoverageTracker uiCoverageTracker,
+                               StaticMap staticMap) {
+        switch (phase) {
+            case PHASE_1:
+                return selectPhase1(screen, structHash, contentGraph,
+                        structuralGraph, navigationMap, staticMap);
+            case PHASE_2:
+                return selectPhase2(screen, structHash, contentGraph,
+                        structuralGraph, navigationMap, uiCoverageTracker, staticMap);
+            case PHASE_3:
+                return selectPhase3(screen, contentGraph, staticMap);
+            default:
+                return selectPhase1(screen, structHash, contentGraph,
+                        structuralGraph, navigationMap, staticMap);
         }
+    }
 
-        // TIER 1: PathBuffer — if a planned backtrack path is active, follow it
-        if (pathBuffer != null && pathBuffer.hasPath()) {
-            Action action = pathBuffer.consumeNext(hash);
-            if (action != null) {
-                lastSelectedTier = 1;
-                lastScoreBreakdown = null;
-                RvTrack.strategy(0, 1, "path_buffer", 0, 0.0);
-                return action;
-            }
-            // Path invalidated due to position mismatch — fall through to Tier 2
-        }
+    /**
+     * Phase 1: Broad DFS exploration.
+     * Returns an untested action in the current content state using the scoring chain.
+     * When the current content node is exhausted, navigates toward the nearest structural
+     * cluster with untested content states. Falls back to Phase 3 if no path exists.
+     */
+    private Action selectPhase1(ScreenState screen, String structHash,
+                                 ContentGraph contentGraph,
+                                 StructuralGraph structuralGraph,
+                                 NavigationMap navigationMap,
+                                 StaticMap staticMap) {
+        String hash = screen.getContentHash();
+        ContentNode node = contentGraph.get(hash);
 
-        // TIER 2: Untested actions — prefer actions never executed on this screen
         List<Action> candidates = generateCandidateActions(screen);
 
-        // Filter out actions with 3+ failures to avoid wasting budget on known-bad elements.
-        // Safety net: if filtering would empty the list, keep unfiltered candidates — the agent
-        // must always have widget actions available to avoid falling through to RESTART-only.
+        // Filter out actions with 3+ failures (safety net: keep all if filter empties the list)
         if (node != null) {
-            final ScreenNode nodeRef = node;
+            final ContentNode nodeRef = node;
             List<Action> filtered = candidates.stream()
                     .filter(a -> getFailureCount(nodeRef, a.signature()) < 3)
                     .collect(Collectors.toList());
@@ -202,38 +240,71 @@ public class ActionSelector {
         List<Action> untested = filterUntested(candidates, node);
 
         if (!untested.isEmpty()) {
-            lastSelectedTier = 2;
+            lastSelectedPhase = Phase.PHASE_1;
             double saturation = node != null ? node.getSaturationRate() : 0.0;
-            RvTrack.strategy(0, 2, "untested", untested.size(), saturation);
-            return selectBestScored(untested, screen, graph, staticMap);
+            RvTrack.strategy(0, 1, "p1_untested", untested.size(), saturation);
+            return selectBestScored(untested, screen, contentGraph, staticMap);
         }
 
-        // TIER 3: Proactive backtrack — when screen is saturated (>= 0.8),
-        // return BACK toward a parent state. Self-calibrating: depends only on
-        // how many actions have been tried, not on scorer weights.
-        if (successorTracker != null && node != null && node.getSaturationRate() >= 0.8f) {
-            Set<String> parents = successorTracker.getParents(hash);
-            if (!parents.isEmpty()) {
-                // Prefer a re-enabled parent, otherwise any parent
-                for (String parent : parents) {
-                    if (successorTracker.isReEnabled(parent)) {
-                        successorTracker.consumeReEnable(parent);
-                        lastSelectedTier = 3;
-                        RvTrack.strategy(0, 3, "re_enabled_parent", 0, node.getSaturationRate());
-                        return Action.back(ALGORITHM_SOURCE);
-                    }
+        // Current content node exhausted — navigate to nearest untested cluster
+        Action navAction = navigateToNearestUntestedCluster(
+                structHash, contentGraph, structuralGraph, navigationMap);
+        if (navAction != null) {
+            lastSelectedPhase = Phase.PHASE_1;
+            RvTrack.strategy(0, 1, "p1_nav_cluster", 0, 1.0);
+            return navAction;
+        }
+
+        // No path to untested cluster — fall back to Phase 3
+        return selectPhase3(screen, contentGraph, staticMap);
+    }
+
+    /**
+     * Phase 2: Coverage-guided exploration.
+     * Finds the screen with the highest UI coverage gap reachable via NavigationMap
+     * and navigates toward it. Falls back to Phase 1 if no target or no path.
+     */
+    private Action selectPhase2(ScreenState screen, String structHash,
+                                 ContentGraph contentGraph,
+                                 StructuralGraph structuralGraph,
+                                 NavigationMap navigationMap,
+                                 UICoverageTracker uiCoverageTracker,
+                                 StaticMap staticMap) {
+        if (uiCoverageTracker != null && navigationMap != null) {
+            // Find the structural cluster with the highest average coverage gap
+            String targetStructHash = findHighestGapCluster(
+                    structHash, contentGraph, structuralGraph, navigationMap, uiCoverageTracker);
+
+            if (targetStructHash != null) {
+                List<String> path = navigationMap.findPath(structHash, targetStructHash);
+                if (!path.isEmpty()) {
+                    lastSelectedPhase = Phase.PHASE_2;
+                    RvTrack.strategy(0, 2, "p2_coverage_nav", path.size(), 0.0);
+                    // Execute the first step on the path toward the high-gap cluster
+                    return actionFromSignature(path.get(0));
                 }
-                lastSelectedTier = 3;
-                RvTrack.strategy(0, 3, "saturated", 0, node.getSaturationRate());
-                return Action.back(ALGORITHM_SOURCE);
             }
         }
 
-        // TIER 4: Unified priority queue (all widgets + BACK + RESTART)
-        lastSelectedTier = 4;
+        // No coverage gap target or no path — fall back to Phase 1
+        return selectPhase1(screen, structHash, contentGraph, structuralGraph, navigationMap, staticMap);
+    }
+
+    /**
+     * Phase 3: Stochastic exploration with boosted randomness.
+     * Uses the unified priority queue (all widgets + BACK + RESTART) with stochastic
+     * probability boosted to 0.5, escaping local optima.
+     */
+    private Action selectPhase3(ScreenState screen, ContentGraph contentGraph,
+                                 StaticMap staticMap) {
+        lastSelectedPhase = Phase.PHASE_3;
+        String hash = screen.getContentHash();
+        ContentNode node = contentGraph.get(hash);
         double saturation = node != null ? node.getSaturationRate() : 0.0;
-        RvTrack.strategy(0, 4, "unified_queue", candidates.size(), saturation);
-        return selectFromUnifiedQueue(candidates, screen, graph, staticMap, hash);
+        RvTrack.strategy(0, 3, "p3_stochastic", 0, saturation);
+        return selectFromUnifiedQueue(
+                generateCandidateActions(screen), screen, contentGraph, staticMap, hash,
+                PHASE3_STOCHASTIC_PROBABILITY);
     }
 
     /**
@@ -244,13 +315,13 @@ public class ActionSelector {
      * @return best alternative action, or null if no candidates remain
      */
     public Action selectNextBest(ScreenState screen, Set<String> excludeSignatures,
-                                 DynamicStateGraph graph, StaticMap staticMap) {
-        String hash = screen.getHash();
-        ScreenNode node = graph.get(hash);
+                                 ContentGraph graph, StaticMap staticMap) {
+        String hash = screen.getContentHash();
+        ContentNode node = graph.get(hash);
 
         List<Action> candidates = generateCandidateActions(screen);
 
-        // Only add BACK when not on root screen (same check as Tier 4)
+        // Only add BACK when not on root screen (same check as unified queue)
         boolean isRootScreen = successorTracker == null
                 || successorTracker.getParents(hash).isEmpty();
         if (!isRootScreen) {
@@ -263,13 +334,6 @@ public class ActionSelector {
                 .filter(a -> !excludeSignatures.contains(a.signature()))
                 .filter(a -> node == null || getFailureCount(node, a.signature()) < 3)
                 .collect(Collectors.toList());
-
-        // If PathBuffer has an active plan, only allow BACK/RESTART to protect the route
-        if (pathBuffer != null && pathBuffer.hasPath()) {
-            candidates = candidates.stream()
-                    .filter(a -> a.getType() == Action.Type.BACK || a.getType() == Action.Type.RESTART)
-                    .collect(Collectors.toList());
-        }
 
         if (candidates.isEmpty()) return null;
 
@@ -301,8 +365,12 @@ public class ActionSelector {
         return selected;
     }
 
-    public int getLastSelectedTier() {
-        return lastSelectedTier;
+    /**
+     * Returns the phase selected in the most recent selectAction() call.
+     * Used for trace observability.
+     */
+    public Phase getLastSelectedPhase() {
+        return lastSelectedPhase;
     }
 
     /**
@@ -338,25 +406,6 @@ public class ActionSelector {
     }
 
     /**
-     * Set plateau mode. When active, stochastic probability is boosted to 0.5
-     * to escape local optima detected by PlateauDetector.
-     */
-    public void setPlateauActive(boolean active) {
-        this.plateauActive = active;
-    }
-
-    public boolean isPlateauActive() {
-        return plateauActive;
-    }
-
-    /**
-     * Get the effective stochastic probability, accounting for plateau mode.
-     */
-    private float getEffectiveStochasticProbability() {
-        return plateauActive ? PLATEAU_STOCHASTIC_PROBABILITY : stochasticProbability;
-    }
-
-    /**
      * Get the scorer chain. Used for testing to verify which scorers are active.
      */
     public List<Scorer> getScorers() {
@@ -364,6 +413,90 @@ public class ActionSelector {
     }
 
     // --- Private methods ---
+
+    /**
+     * Navigate to the nearest structural cluster that contains at least one ContentNode
+     * with untested actions. Uses NavigationMap BFS hops to find the path.
+     * Returns the first action on the path, or null if no path exists or graphs are null.
+     */
+    private Action navigateToNearestUntestedCluster(String structHash,
+                                                     ContentGraph contentGraph,
+                                                     StructuralGraph structuralGraph,
+                                                     NavigationMap navigationMap) {
+        if (structHash == null || structuralGraph == null || navigationMap == null) {
+            return null;
+        }
+
+        // Find all structural clusters that have at least one ContentNode with untested actions
+        List<String> candidateClusters = new ArrayList<>();
+        for (Map.Entry<String, ContentNode> entry : contentGraph.getNodes().entrySet()) {
+            String contentHash = entry.getKey();
+            ContentNode node = entry.getValue();
+
+            // A node has untested actions when it has fewer executed actions than total
+            boolean hasUntested = node.getTotalActions() == 0
+                    || node.getExecutedActions().size() < node.getTotalActions();
+            if (!hasUntested) continue;
+
+            String clusterHash = structuralGraph.getStructHash(contentHash);
+            if (clusterHash != null && !clusterHash.equals(structHash)) {
+                candidateClusters.add(clusterHash);
+            }
+        }
+
+        if (candidateClusters.isEmpty()) return null;
+
+        // Find the nearest reachable cluster via BFS distance proxy:
+        // try each candidate and return the first step of the shortest path
+        List<String> shortestPath = null;
+        for (String candidate : candidateClusters) {
+            List<String> path = navigationMap.findPath(structHash, candidate);
+            if (!path.isEmpty()) {
+                if (shortestPath == null || path.size() < shortestPath.size()) {
+                    shortestPath = path;
+                }
+            }
+        }
+
+        if (shortestPath == null || shortestPath.isEmpty()) return null;
+
+        return actionFromSignature(shortestPath.get(0));
+    }
+
+    /**
+     * Find the structural cluster with the highest average UI coverage gap that is
+     * reachable from the current structural hash via NavigationMap.
+     * Returns null if no suitable target exists.
+     */
+    private String findHighestGapCluster(String currentStructHash,
+                                          ContentGraph contentGraph,
+                                          StructuralGraph structuralGraph,
+                                          NavigationMap navigationMap,
+                                          UICoverageTracker uiCoverageTracker) {
+        if (structuralGraph == null || navigationMap == null || uiCoverageTracker == null) {
+            return null;
+        }
+
+        String bestCluster = null;
+        float bestGap = uiCoverageThreshold; // only consider clusters above threshold
+
+        for (Map.Entry<String, ContentNode> entry : contentGraph.getNodes().entrySet()) {
+            String contentHash = entry.getKey();
+            String clusterHash = structuralGraph.getStructHash(contentHash);
+            if (clusterHash == null || clusterHash.equals(currentStructHash)) continue;
+
+            float gap = uiCoverageTracker.getCoverageGap(contentHash);
+            if (gap <= bestGap) continue;
+
+            // Only consider reachable clusters
+            if (!navigationMap.hasPath(currentStructHash, clusterHash)) continue;
+
+            bestGap = gap;
+            bestCluster = clusterHash;
+        }
+
+        return bestCluster;
+    }
 
     /**
      * Generate candidate actions from screen items.
@@ -425,7 +558,7 @@ public class ActionSelector {
      * Filter to actions that have never been executed on this screen.
      * If the screen has never been visited (node is null), all actions are untested.
      */
-    private List<Action> filterUntested(List<Action> candidates, ScreenNode node) {
+    private List<Action> filterUntested(List<Action> candidates, ContentNode node) {
         if (node == null) return candidates;
         return candidates.stream()
                 .filter(a -> node.getExecutionCount(a.signature()) == 0)
@@ -438,7 +571,7 @@ public class ActionSelector {
      * action instead of the best one to avoid deterministic loops.
      */
     private Action selectBestScored(List<Action> actions, ScreenState screen,
-                                    DynamicStateGraph graph, StaticMap staticMap) {
+                                    ContentGraph graph, StaticMap staticMap) {
         Map<Action, Integer> scores = new HashMap<>();
         for (Action action : actions) {
             int score = 0;
@@ -453,7 +586,7 @@ public class ActionSelector {
 
         boolean wasStochastic = false;
         Action selected;
-        if (random.nextDouble() < getEffectiveStochasticProbability() && actions.size() > 1) {
+        if (random.nextDouble() < stochasticProbability && actions.size() > 1) {
             selected = softmaxSelect(actions, scores);
             wasStochastic = true;
         } else {
@@ -465,15 +598,18 @@ public class ActionSelector {
     }
 
     /**
-     * Tier 4: unified priority queue with all widget actions + RESTART (+ BACK if not root).
+     * Unified priority queue with all widget actions + RESTART (+ BACK if not root).
      * BACK is excluded on root screens (no parents in SuccessorTracker) to prevent exiting
      * the app. When included, BACK score decays per-hash as ineffective presses accumulate.
      * RESTART has a fixed low score, acting as the last resort.
      * Guarantees non-null return (INV-RSM-12).
+     *
+     * @param effectiveStochasticProbability stochastic probability override (e.g., 0.5 for Phase 3)
      */
     private Action selectFromUnifiedQueue(List<Action> widgetActions, ScreenState screen,
-                                          DynamicStateGraph graph, StaticMap staticMap,
-                                          String hash) {
+                                          ContentGraph graph, StaticMap staticMap,
+                                          String hash,
+                                          float effectiveStochasticProbability) {
         Map<Action, Integer> scores = new HashMap<>();
 
         // Score widget actions
@@ -521,10 +657,10 @@ public class ActionSelector {
         }
         RvTrack.rank(0, top3.toString());
 
-        // Stochastic selection (softmax-weighted, boosted during plateau)
+        // Stochastic selection (softmax-weighted, boosted in Phase 3)
         boolean wasStochastic = false;
         Action selected;
-        if (random.nextDouble() < getEffectiveStochasticProbability() && allActions.size() > 1) {
+        if (random.nextDouble() < effectiveStochasticProbability && allActions.size() > 1) {
             selected = softmaxSelect(allActions, scores);
             wasStochastic = true;
         } else {
@@ -536,17 +672,63 @@ public class ActionSelector {
     }
 
     /**
-     * Derive failure count from ScreenNode as (executions - successes).
-     * ScreenNode tracks successes (state transitions) separately from executions,
+     * Derive failure count from ContentNode as (executions - successes).
+     * ContentNode tracks successes (state transitions) separately from executions,
      * so failures = executions that did not cause a transition.
      */
-    private int getFailureCount(ScreenNode node, String signature) {
+    private int getFailureCount(ContentNode node, String signature) {
         int executions = node.getExecutionCount(signature);
         // ActionStrength = successes / executions, so successes = strength * executions
         float strength = node.getActionStrength(signature);
         if (executions == 0) return 0;
         int successes = Math.round(strength * executions);
         return executions - successes;
+    }
+
+    /**
+     * Reconstruct an Action object from a NavigationMap action signature string.
+     * NavigationMap stores signatures in the format produced by Action.signature()
+     * (e.g., "click@540,960"). Parses type and coordinates.
+     * Returns a RESTART action if the signature cannot be parsed.
+     */
+    private Action actionFromSignature(String signature) {
+        if (signature == null) return Action.restart(ALGORITHM_SOURCE);
+        try {
+            // Format: "type@x,y" or "type:text@x,y"
+            int atIdx = signature.lastIndexOf('@');
+            if (atIdx < 0) return Action.restart(ALGORITHM_SOURCE);
+            String coords = signature.substring(atIdx + 1);
+            String typeAndText = signature.substring(0, atIdx);
+
+            String typePart;
+            String text = null;
+            int colonIdx = typeAndText.indexOf(':');
+            if (colonIdx >= 0) {
+                typePart = typeAndText.substring(0, colonIdx);
+                text = typeAndText.substring(colonIdx + 1);
+            } else {
+                typePart = typeAndText;
+            }
+
+            String[] xy = coords.split(",");
+            int x = Integer.parseInt(xy[0]);
+            int y = Integer.parseInt(xy[1]);
+
+            Action.Type type;
+            switch (typePart.toLowerCase()) {
+                case "click":      type = Action.Type.CLICK; break;
+                case "long_click": type = Action.Type.LONG_CLICK; break;
+                case "set_text":   type = Action.Type.SET_TEXT; break;
+                case "scroll":     type = Action.Type.SCROLL; break;
+                case "back":       return Action.back(ALGORITHM_SOURCE);
+                case "restart":    return Action.restart(ALGORITHM_SOURCE);
+                default:           return Action.restart(ALGORITHM_SOURCE);
+            }
+
+            return new Action(type, x, y, text, ALGORITHM_SOURCE, null, null);
+        } catch (Exception e) {
+            return Action.restart(ALGORITHM_SOURCE);
+        }
     }
 
     /**
@@ -579,7 +761,7 @@ public class ActionSelector {
      * Compute per-scorer score breakdown for a single action.
      */
     private Map<String, Object> computeScoreBreakdown(Action action, ScreenState screen,
-                                                       DynamicStateGraph graph, StaticMap staticMap,
+                                                       ContentGraph graph, StaticMap staticMap,
                                                        int totalScore, boolean wasStochastic) {
         Map<String, Object> breakdown = new HashMap<>();
         for (Scorer scorer : scorers) {
@@ -599,6 +781,7 @@ public class ActionSelector {
         }
         breakdown.put("total", totalScore);
         breakdown.put("stochastic", wasStochastic);
+        breakdown.put("phase", lastSelectedPhase != null ? lastSelectedPhase.name() : "UNKNOWN");
         return breakdown;
     }
 
