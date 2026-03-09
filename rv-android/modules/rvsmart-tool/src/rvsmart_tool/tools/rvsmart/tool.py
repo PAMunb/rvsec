@@ -118,9 +118,10 @@ class RVSmartTool(AbstractTool):
         Get available RVSmart variants.
 
         Variants configure the exploration mode and throttle for different
-        testing scenarios. LLM variants connect to the SGLang server at
-        192.168.0.36:30000, which is reachable from inside the emulator via
-        the host's network stack.
+        testing scenarios. LLM variants default to 10.0.2.2:30000, which
+        maps to the host's localhost from inside the Android emulator.
+        For Docker, the entrypoint socat bridge forwards this to the
+        SGLang service. Override with RVSMART_LLM_BASE_URL env var.
 
         NOTE: timeout is ALWAYS controlled by Task.config, not by variants.
         The platform manages execution timeout uniformly across all tools.
@@ -143,21 +144,21 @@ class RVSmartTool(AbstractTool):
             },
             "llm_only": {
                 "mode": "llm_only",
-                "llm_base_url": "http://192.168.0.36:30000/v1",
+                "llm_base_url": "http://10.0.2.2:30000/v1",
             },
             "arrival_first_v13": {
                 "mode": "multimode",
                 "llm_multimode_strategy": "arrival_first",
                 "llm_prompt_version": "v13",
                 "llm_new_screen_phase2_probability": "0.30",
-                "llm_base_url": "http://192.168.0.36:30000/v1",
+                "llm_base_url": "http://10.0.2.2:30000/v1",
             },
             "arrival_first_v17": {
                 "mode": "multimode",
                 "llm_multimode_strategy": "arrival_first",
                 "llm_prompt_version": "v17",
                 "llm_new_screen_phase2_probability": "0.30",
-                "llm_base_url": "http://192.168.0.36:30000/v1",
+                "llm_base_url": "http://10.0.2.2:30000/v1",
             },
         }
 
@@ -172,6 +173,12 @@ class RVSmartTool(AbstractTool):
             config: Configuration dictionary with tool-specific parameters
         """
         self._tool_config = config.copy() if config else {}
+
+        # Allow env var override for LLM URL (host execution uses different URL than Docker)
+        llm_url_override = os.environ.get("RVSMART_LLM_BASE_URL")
+        if llm_url_override and "llm_base_url" in self._tool_config:
+            self._tool_config["llm_base_url"] = llm_url_override
+
         self.logger.info(
             f"RVSmart tool configured: mode={self._tool_config.get('mode', 'default')}"
         )

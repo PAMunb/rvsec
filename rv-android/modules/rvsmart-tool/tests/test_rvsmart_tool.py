@@ -77,7 +77,7 @@ class TestVariants:
     def test_llm_variant_has_llm_url(self):
         variants = RVSmartTool.get_variants()
         assert "llm_base_url" in variants["arrival_first_v17"]
-        assert "192.168.0.36" in variants["arrival_first_v17"]["llm_base_url"]
+        assert "10.0.2.2" in variants["arrival_first_v17"]["llm_base_url"]
 
     def test_fast_variant_throttle(self):
         variants = RVSmartTool.get_variants()
@@ -87,7 +87,7 @@ class TestVariants:
         variants = RVSmartTool.get_variants()
         assert "llm_only" in variants
         assert variants["llm_only"]["mode"] == "llm_only"
-        assert "192.168.0.36" in variants["llm_only"]["llm_base_url"]
+        assert "10.0.2.2" in variants["llm_only"]["llm_base_url"]
 
     def test_arrival_first_v13_variant(self):
         variants = RVSmartTool.get_variants()
@@ -97,7 +97,7 @@ class TestVariants:
         assert v["llm_multimode_strategy"] == "arrival_first"
         assert v["llm_prompt_version"] == "v13"
         assert "llm_new_screen_phase2_probability" in v
-        assert "192.168.0.36" in v["llm_base_url"]
+        assert "10.0.2.2" in v["llm_base_url"]
 
     def test_arrival_first_v17_variant(self):
         variants = RVSmartTool.get_variants()
@@ -107,7 +107,7 @@ class TestVariants:
         assert v["llm_multimode_strategy"] == "arrival_first"
         assert v["llm_prompt_version"] == "v17"
         assert "llm_new_screen_phase2_probability" in v
-        assert "192.168.0.36" in v["llm_base_url"]
+        assert "10.0.2.2" in v["llm_base_url"]
 
     def test_hybrid_variant_removed(self):
         variants = RVSmartTool.get_variants()
@@ -142,6 +142,24 @@ class TestConfigure:
         tool.configure(original)
         original["mode"] = "multimode"
         assert tool._tool_config["mode"] == "pure_algorithm"
+
+    @patch.dict(os.environ, {"RVSMART_LLM_BASE_URL": "http://192.168.0.36:30000/v1"})
+    @patch("rvsmart_tool.tools.rvsmart.tool.LoggingManager")
+    def test_configure_env_var_overrides_llm_url(self, mock_logging):
+        """RVSMART_LLM_BASE_URL env var overrides variant llm_base_url."""
+        mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        tool = RVSmartTool()
+        tool.configure({"mode": "multimode", "llm_base_url": "http://10.0.2.2:30000/v1"})
+        assert tool._tool_config["llm_base_url"] == "http://192.168.0.36:30000/v1"
+
+    @patch.dict(os.environ, {"RVSMART_LLM_BASE_URL": "http://192.168.0.36:30000/v1"})
+    @patch("rvsmart_tool.tools.rvsmart.tool.LoggingManager")
+    def test_configure_env_var_ignored_without_llm_url(self, mock_logging):
+        """RVSMART_LLM_BASE_URL env var is ignored when variant has no llm_base_url."""
+        mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
+        tool = RVSmartTool()
+        tool.configure({"mode": "pure_algorithm", "throttle_ms": 50})
+        assert "llm_base_url" not in tool._tool_config
 
 
 class TestMetricsExtraction:
