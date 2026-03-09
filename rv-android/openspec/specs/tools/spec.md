@@ -247,6 +247,10 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **INV-RSM-43**: When `SystemDialogDetector.dismiss()` fails to dismiss a system dialog, `AgentLoop` MUST: (a) sleep 500ms to prevent CPU spinning (prevents 646 it/s SKIP storms), (b) increment a `consecutiveSystemDialogs` counter. When `consecutiveSystemDialogs >= 3`, the agent MUST press BACK. When `consecutiveSystemDialogs >= 6`, the agent MUST force-stop the foreground app and restart the target. The counter MUST reset to 0 when any non-system-dialog iteration runs.
 
+- **INV-TOOL-TRACE-01**: The rvsmart trace file format (`RVTRACK:` lines) SHALL remain parseable by existing post-processing scripts. New trace line types MAY be added with distinct prefixes but existing prefixes SHALL preserve their format.
+
+- **INV-TOOL-METRICS-01**: The `RVSMART_METRICS:` JSON SHALL be a strict superset of the gh32 metrics schema — no existing fields removed, only new fields added.
+
 ## Requirements
 
 ### Requirement: Tool Registration and Factory System (FR18, NFR02)
@@ -622,10 +626,41 @@ Standard coverage metrics (`coverage_metrics` in `TaskResult`) are populated by 
 
 If the `RVSMART_METRICS:` line is not found (e.g., agent crashed before writing it), the tool SHALL log a warning and write a default metrics JSON. This is not a failure condition.
 
+The metrics JSON payload SHALL include the following fields (in addition to existing fields preserved from gh30-gh32):
+
+Within the `exploration` section (alongside `unique_states`, `unique_hashes`):
+- `content_states`: integer — number of distinct content-hash states explored
+- `structural_clusters`: integer — number of distinct structural-hash clusters
+- `nav_map_edges`: integer — number of recorded structural navigation transitions
+- `phase_distribution`: object — `{"phase1": N, "phase2": N, "phase3": N}` counting iterations spent in each phase
+
+Within the `decisions` section (alongside `forced_backs`):
+- `backtrack_replays`: integer — number of times RESTART+replay was used (BACK failure recovery)
+
+Counter wiring in AgentLoop:
+- `content_states`: read from `ContentGraph.size()` at metrics finalization
+- `structural_clusters`: read from `StructuralGraph.size()` at metrics finalization
+- `nav_map_edges`: read from `NavigationMap.size()` at metrics finalization
+- `phase_distribution`: incremented in `AgentLoop.runIteration()` after `PhaseController.currentPhase()` returns
+- `backtrack_replays`: incremented in `BacktrackStrategy` each time replay path is executed
+
 #### Scenario: Metrics extraction from trace file
 - **WHEN** the trace file contains a line `RVSMART_METRICS:{"metadata":{...},...}`
 - **THEN** `RVSmartTool` SHALL parse the JSON after the prefix
 - **AND** the parsed metrics SHALL be written to `rvsmart_metrics.json` in the task output directory
+
+#### Scenario: Metrics JSON includes dual hash and phase data
+- **WHEN** rvsmart completes execution with the redesigned algorithm
+- **THEN** `RVSmartTool` SHALL extract `RVSMART_METRICS:` JSON from trace file
+- **AND** the JSON SHALL contain `content_states` as an integer >= 1
+- **AND** the JSON SHALL contain `structural_clusters` as an integer >= 1
+- **AND** the JSON SHALL contain `phase_distribution` with keys `phase1`, `phase2`, `phase3`
+- **AND** the JSON SHALL contain `backtrack_replays` as an integer >= 0
+
+#### Scenario: Backward-compatible metrics fields preserved
+- **WHEN** rvsmart completes execution
+- **THEN** `RVSMART_METRICS:` JSON SHALL still contain all fields from gh30-gh32 metrics format (iterations, unique_screens, mop_hits, ooa_count, restart_count, avg_cycle_ms, etc.)
+- **AND** `RVSmartTool` Python extraction logic SHALL require no changes
 
 #### Scenario: Missing metrics line
 - **WHEN** the trace file does not contain a `RVSMART_METRICS:` line
