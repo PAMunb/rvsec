@@ -290,7 +290,7 @@ flowchart TD
 
 ### LLM Hybrid Data Flow (Phase 2)
 
-In `multimode` or `llm_only` mode, the `RoutingManager` decides per iteration whether to use the algorithm path (~1-5ms) or the LLM path (~1.5-3s). The LLM is reached from inside the emulator via `http://10.0.2.2:30000/v1` (host loopback) through a socat bridge to the sglang container.
+In `multimode` or `llm_only` mode, the `RoutingManager` decides per iteration whether to use the algorithm path (~1-5ms) or the LLM path (~1.5-3s). The LLM is reached from inside the emulator via the configured `llm_base_url` — the address is deployment-specific (INV-RSM-LLM-01); the emulator must have network routing to the SGLang server.
 
 ```mermaid
 sequenceDiagram
@@ -423,14 +423,17 @@ Config:
   mop_max_input_variations: int    # Max SET_TEXT variations (default 5)
   confirmed_coverage_window_s: float  # Logcat attribution window (default 2.0)
 
-  # LLM inference (7)
-  llm_base_url: String             # SGLang URL (default "http://10.0.2.2:30000/v1")
+  # LLM inference (10)
+  llm_base_url: String             # SGLang URL — deployment-specific, no authoritative default (INV-RSM-LLM-01)
   llm_model: String                # Model ID (default "Qwen/Qwen3-VL-4B-Instruct")
   llm_temperature: float           # Sampling temperature (default 0.01)
   llm_top_p: float                 # Top-p (default 0.6)
   llm_top_k: int                   # Top-k (default 50)
   llm_max_tokens: int              # Max output tokens (default 2048)
   llm_timeout_s: float             # Total HTTP timeout in seconds — connect + read combined (default 30.0)
+  llm_multimode_strategy: String   # Multimode strategy: probabilistic|new_screen_only|stuck_only|arrival_first (default "probabilistic")
+  llm_prompt_version: String       # Prompt template: v13|v17 (default "v13")
+  llm_new_screen_phase2_probability: float  # Phase-2 LLM ratio for arrival_first strategy (default 0.30)
 
   # Logcat (1)
   logcat_buffer_size: int          # ConcurrentLinkedQueue max (default 10000)
@@ -571,7 +574,7 @@ This pattern maximizes MOP coverage by systematically combining different input 
 - **[Android System]**: Injects touch/key events into the target app via `InputManager`.
 - **[Android System]**: May force-stop and restart the target app on crash or stuck recovery.
 - **[Android System]**: Dismisses system dialogs (crash, permission, battery optimization).
-- **[Network]**: In multimode/llm_only, makes HTTP POST requests to SGLang API via `10.0.2.2:30000`.
+- **[Network]**: In multimode/llm_only, makes HTTP POST requests to SGLang API at the deployment-configured `llm_base_url` (INV-RSM-LLM-01).
 
 ### Error
 
@@ -612,6 +615,12 @@ RVSMART_METRICS:{"metadata":{"tool":"rvsmart","package":"br.unb.cic.cryptoapp","
 - **INV-RSM-11**: BFS traversal of the UI tree MUST cap at `MAX_ITEMS` (default 2000) nodes to prevent unbounded memory consumption on pathological UI trees. The 2000 limit is based on empirical observation: typical Android screens have 30-200 nodes; complex apps (e.g., RecyclerView with nested layouts) can reach 500-1500; 2000 provides headroom while keeping memory footprint bounded (~2000 × ~200 bytes/node ≈ 400KB). When the cap is reached, nodes SHALL be prioritized by: (1) interactive widgets (clickable, scrollable, checkable, editable) over non-interactive, (2) shallower depth over deeper depth. This ensures that actionable UI elements are retained even in deeply nested layouts.
 - **INV-RSM-12**: The candidate action list MUST NEVER be empty. BACK and RESTART are synthetic actions injected into the Tier 4 unified queue alongside widget actions, using their own base scores (NOT scored by the 10 widget scorers — see Ten Weighted Scorers section). Saturated widget actions remain in the list with reduced scores (via GradualDecayScorer) — they are deprioritized, never removed. System elements receive a -5000 penalty but stay in the list. `ActionSelector.selectAction()` MUST NEVER return null. When all widget scores fall below BACK's score, BACK wins naturally. When consecutive BACKs fail to change state, BACK's effective score decreases dynamically (`back_score -= back_decay_per_repeat`, default 200 per consecutive no-effect BACK), making saturated widget actions and eventually RESTART more attractive. This self-correcting mechanism prevents BACK/RESTART infinite loops without special-case escape logic.
 - **INV-RSM-13**: `HeapMonitor` MUST check `Runtime.freeMemory()` every 100 iterations and increase `throttle_ms` by 50% when free memory falls below 10% of max heap (critical threshold). Warning threshold at 20%. If pressure persists for 3 consecutive checks, reduce `MAX_ITEMS` cap to 1000 temporarily. This prevents OOM on long runs with large UI trees.
+- **INV-RSM-LLM-01**: The `llm_base_url` config parameter SHALL be set to the actual SGLang server address for the deployment environment. No default value is authoritative — the correct address is deployment-specific and must be supplied by the tool variant or experiment configuration.
+- **INV-RSM-LLM-02**: LLM SHALL NOT be invoked when `outOfAppCount > 0`. Only the algorithm path may act during out-of-app recovery. This prevents wasting LLM budget on home screen / launcher screenshots.
+- **INV-RSM-LLM-03**: `PromptBuilder` SHALL accept a `PromptVersion` parameter and dispatch to the corresponding template. V13 is the baseline (dialog handling, priority rules). V17 is the rich context version (test-status tags, MOP markers, element scores, action history, navigation hints). Unknown version values SHALL raise `IllegalArgumentException` at construction time.
+- **INV-RSM-LLM-04**: `PromptContext` SHALL encapsulate all context fields required by any prompt version. Fields required only by V17 (interaction counts, MOP sets, element scores, recent actions, coverage metrics) SHALL be nullable — when null or empty, V17 degrades gracefully to V13-equivalent output for that section.
+- **INV-RSM-LLM-05**: The ARRIVAL_FIRST strategy SHALL define "arrival" as: the current screen hash differs from the screen hash of the previous iteration. This fires on every navigation event, including returning to a previously-visited screen.
+- **INV-RSM-LLM-06**: In ARRIVAL_FIRST mode, after the first action on a new arrival, subsequent actions on the same screen (hash unchanged) SHALL use the LLM with probability `llm_new_screen_phase2_probability` (default 0.30). The circuit breaker applies to both the arrival action and phase-2 probabilistic actions.
 
 ## Requirements
 
@@ -1050,17 +1059,20 @@ At the critical threshold, `HeapMonitor` increases `throttle_ms` by 50% to reduc
 
 ### Requirement: Routing Manager (LLM Hybrid)
 
-In `multimode` or `llm_only` mode, `RoutingManager` SHALL decide per iteration whether to use the algorithm path or the LLM path. Three strategies are supported:
+The `RoutingManager` decides per iteration whether to use the algorithm path or the LLM path. It operates within three top-level modes: `pure_algorithm` (LLM never called), `llm_only` (LLM always attempted, subject to circuit breaker), and `multimode` (LLM/algorithm blend via strategy). The in-app guard applies in all modes: when `outOfAppCount > 0`, the routing manager SHALL return false regardless of mode or strategy (INV-RSM-LLM-02).
 
-- `probabilistic` (default): Random threshold against `llm_probability` (default 0.05, configurable, calibratable). The conservative 5% default reflects that algorithm iterations are 10x faster — even at 5%, the LLM provides guidance on ~1 in 20 iterations without bottlenecking throughput. Optuna calibration will find the optimal value.
-- `new_screen_only`: LLM only on first visit to a screen (`visitCount <= 1`).
-- `stuck_only`: LLM only when StuckDetector fires.
+Four strategies are supported within `multimode`:
 
-In `pure_algorithm` mode, `shouldUseLlm()` always returns false. In `llm_only` mode, it always returns true (except when LlmCircuitBreaker is open).
+- `probabilistic`: Random threshold against `llm_probability` (default 0.05, configurable, calibratable). The conservative 5% default reflects that algorithm iterations are 10x faster — even at 5%, the LLM provides guidance on ~1 in 20 iterations without bottlenecking throughput. Optuna calibration will find the optimal value. SHALL NOT be used as the default in new tool variants — new variants use `arrival_first` instead.
+- `new_screen_only`: LLM only on first-ever visit to a screen (`visitCount == 1` at the time of the check). Retained for backward compatibility and experimentation.
+- `stuck_only`: LLM only when `StuckDetector` fires. Retained for targeted recovery experiments.
+- `arrival_first` (new): LLM on every screen arrival (hash changed from previous iteration) AND probabilistically with ratio `llm_new_screen_phase2_probability` (default 0.30) when hash is unchanged. See INV-RSM-LLM-05 and INV-RSM-LLM-06.
 
-The LLM path captures a screenshot via `SurfaceControl.screenshot()` (~20ms if available with Shell UID 2000). If `SurfaceControl` is not accessible (PoC Task 2.7 validates this), two fallback paths exist depending on execution context:
-- **Managed mode** (via `RVSmartTool`): the plugin provides screenshot data via `adb exec-out screencap -p` piped to a temporary file on the device before each LLM iteration (~100-200ms, acceptable because LLM inference dominates at ~1.5-3s). This introduces a host dependency but only in the managed execution path.
-- **Standalone mode** (bare `adb shell`): LLM modes (`multimode`, `llm_only`) are unavailable without `SurfaceControl` — the agent logs a warning at bootstrap and forces `pure_algorithm` mode. The standalone "zero Python dependency" claim applies to algorithm-only operation.
+In `pure_algorithm` mode, `shouldUseLlm()` always returns false. In `llm_only` mode, it always returns true (except when LlmCircuitBreaker is open or `outOfAppCount > 0`).
+
+The LLM path captures a screenshot via `SurfaceControl.screenshot()` (~20ms if available with Shell UID 2000). If `SurfaceControl` is not accessible, two fallback paths exist depending on execution context:
+- **Managed mode** (via `RVSmartTool`): the plugin provides screenshot data via `adb exec-out screencap -p` piped to a temporary file on the device before each LLM iteration (~100-200ms, acceptable because LLM inference dominates at ~1.5-3s).
+- **Standalone mode** (bare `adb shell`): LLM modes (`multimode`, `llm_only`) are unavailable without `SurfaceControl` — the agent logs a warning at bootstrap and forces `pure_algorithm` mode.
 
 The screenshot is compressed to JPEG quality 80, resized to 1000px longest edge, sent with the UI element list to SGLang, the tool call response is parsed, and Qwen3-VL [0,1000) coordinates are denormalized to device pixels.
 
@@ -1080,6 +1092,86 @@ The screenshot is compressed to JPEG quality 80, resized to 1000px longest edge,
 - **AND** the current screen has `visitCount = 1` (first visit)
 - **THEN** `shouldUseLlm()` SHALL return true for this iteration
 - **AND** on subsequent visits (`visitCount > 1`), `shouldUseLlm()` SHALL return false
+
+#### Scenario: ARRIVAL_FIRST fires on screen change
+- **WHEN** mode is `multimode`, strategy is `arrival_first`, current screen hash differs from previous iteration's hash
+- **THEN** `shouldUseLlm()` SHALL return true (subject to circuit breaker)
+- **AND** the new hash is recorded as the current screen hash for comparison in the next iteration
+
+#### Scenario: ARRIVAL_FIRST uses phase-2 probability on same screen
+- **WHEN** mode is `multimode`, strategy is `arrival_first`, current screen hash equals previous iteration's hash, `llm_new_screen_phase2_probability` is 0.30
+- **THEN** `shouldUseLlm()` SHALL return true with probability 0.30 and false with probability 0.70
+
+#### Scenario: LLM skipped when out of app
+- **WHEN** `outOfAppCount > 0` (agent is in out-of-app tolerance window), mode is `multimode` or `llm_only`
+- **THEN** `shouldUseLlm()` SHALL return false regardless of strategy or circuit breaker state
+- **AND** the iteration uses the algorithm path
+
+### Requirement: Prompt Builder
+
+`PromptBuilder` assembles the messages list for LLM exploration requests. It accepts a `PromptVersion` (V13 or V17) and a `PromptContext` object, and dispatches to the appropriate template (INV-RSM-LLM-03).
+
+`PromptContext` is a value object carrying all context fields for any prompt version. Base fields (required by V13 and V17): `base64Screenshot`, `uiElements`, `currentActivity`, `navigationHint` (nullable), `visitedActivities`, `iterationNumber`. V17-only fields (all nullable — graceful degradation per INV-RSM-LLM-04): `elementInteractionCounts`, `directMopElements`, `indirectMopElements`, `elementScores`, `recentActions`.
+
+**V13 template** ports RVAgent's v13 Python prompt. The system message instructs the model to check for blocking dialogs before any other action (permission dialogs, error dialogs, modal popups), describes interaction priority (MOP targets > navigation to new screens > untested elements), and lists available actions. The user message includes: screenshot image, current activity, numbered UI elements (class + text/desc + coordinates), navigation hint if non-null, iteration number.
+
+**V17 template** extends V13 with rich context. Each UI element is annotated with:
+- Test-status tag: `[UNTESTED]` (0 interactions), `[TESTED-Nx]` (N interactions, N < 5), `[WELL-TESTED]` (5+ interactions)
+- MOP marker: `[DM]` if the element's activity directly reaches a monitored operation per StaticMap; `[M]` if transitively reachable
+- Algorithm score: `[score:N]` reflecting the composite scorer value for that element
+
+The V17 user message additionally includes: last 5 actions (type + coordinates + activity), screen info line (`SCREEN: ActivityName | X% coverage (K/N actions) | visit #V`), and a `MOP NAVIGATION:` section when the navigation hint describes MOP-relevant targets.
+
+When V17 context fields are absent (null StaticMap, empty interaction counts, no recent actions), those sections are omitted without error — the output degrades to V13-equivalent for the missing sections (INV-RSM-LLM-04).
+
+Diagnostic logging: when enabled, the full assembled prompt text is written to logcat tag `RVSMART-PROMPT` at DEBUG level. Raw LLM response text from `ToolCallParser` is written to logcat tag `RVSMART-LLM-RESP` at DEBUG level.
+
+#### Scenario: V13 prompt structure
+- **WHEN** `PromptVersion.V13`, activity is `com.example.MainActivity`, 3 interactive elements, no navigation hint
+- **THEN** system message SHALL contain dialog handling instructions and priority rules
+- **AND** user message SHALL contain numbered element list with class, text, and coordinates
+- **AND** user message SHALL NOT contain test-status tags, MOP markers, or score annotations
+
+#### Scenario: V17 enriches elements with test-status and MOP markers
+- **WHEN** `PromptVersion.V17`, element A has 0 interactions (untested), element B has 2 interactions, element B's activity directly reaches a MOP per StaticMap
+- **THEN** element A SHALL be formatted as `[UNTESTED] Button "Submit" at position (500, 416) [score:260]`
+- **AND** element B SHALL be formatted as `[TESTED-2x] Button "Encrypt" at position (500, 600) [score:460] [DM]`
+
+#### Scenario: V17 includes action history
+- **WHEN** `PromptVersion.V17`, ring buffer contains last 3 actions
+- **THEN** user message SHALL contain a `Recent actions (3):` section listing each action's type, coordinates, and activity
+- **AND** the section SHALL appear before the MOP NAVIGATION section
+
+#### Scenario: V17 graceful degradation when context absent
+- **WHEN** `PromptVersion.V17`, StaticMap is null, interaction counts are empty
+- **THEN** elements SHALL be formatted without MOP markers and without test-status tags
+- **AND** no exception SHALL be thrown
+- **AND** output SHALL match V13 format for those elements
+
+#### Scenario: Diagnostic prompt logging
+- **WHEN** an LLM call is made with V13 or V17
+- **THEN** the full assembled prompt SHALL be written to logcat tag `RVSMART-PROMPT` at DEBUG level before the HTTP call
+
+### Requirement: Tool Variants (rvsmart-tool)
+
+The Python `RVSmartTool` variant registry SHALL include the following variants:
+
+- `default` (pure_algorithm, throttle_ms=50) — baseline algorithm-only
+- `fast` (pure_algorithm, throttle_ms=30) — faster algorithm-only for throughput tests
+- `llm_only` (mode=llm_only, llm_base_url=deployment-specific) — diagnostic; maximum LLM exposure
+- `arrival_first_v13` (mode=multimode, llm_multimode_strategy=arrival_first, llm_prompt_version=v13, llm_new_screen_phase2_probability=0.30) — default recommendation for LLM-enabled runs
+- `arrival_first_v17` (mode=multimode, llm_multimode_strategy=arrival_first, llm_prompt_version=v17, llm_new_screen_phase2_probability=0.30) — full rich-context variant
+
+The `hybrid` variant has been removed (P3: no backward-compatibility aliases). Its configuration is superseded by `arrival_first_v13`.
+
+#### Scenario: arrival_first_v17 passes correct config to Java
+- **WHEN** variant `arrival_first_v17` is configured
+- **THEN** the properties file pushed to the device SHALL contain `mode=multimode`, `llm_multimode_strategy=arrival_first`, `llm_prompt_version=v17`, `llm_new_screen_phase2_probability=0.30`
+
+#### Scenario: llm_only variant for diagnostics
+- **WHEN** variant `llm_only` is used and SGLang is reachable
+- **THEN** every iteration (except out-of-app) SHALL attempt an LLM call
+- **AND** the trace SHALL show `llm_actions` close to `total_actions` in the metrics report
 
 ### Requirement: Configurable Parameters via Properties
 

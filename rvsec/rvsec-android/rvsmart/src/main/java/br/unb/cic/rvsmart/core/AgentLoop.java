@@ -12,9 +12,11 @@ import br.unb.cic.rvsmart.device.LogcatReader;
 import br.unb.cic.rvsmart.device.SystemDialogDetector;
 import br.unb.cic.rvsmart.device.UiCapture;
 import br.unb.cic.rvsmart.graph.DynamicStateGraph;
+import br.unb.cic.rvsmart.core.Config.PromptVersion;
 import br.unb.cic.rvsmart.llm.CoordinateNormalizer;
 import br.unb.cic.rvsmart.llm.ImageProcessor;
 import br.unb.cic.rvsmart.llm.PromptBuilder;
+import br.unb.cic.rvsmart.llm.PromptContext;
 import br.unb.cic.rvsmart.llm.ScreenshotCapture;
 import br.unb.cic.rvsmart.llm.SglangClient;
 import br.unb.cic.rvsmart.llm.ToolCallParser;
@@ -30,6 +32,7 @@ import br.unb.cic.rvsmart.strategy.PlateauDetector;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 import br.unb.cic.rvsmart.strategy.scorers.ConfirmedCoverageScorer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -114,6 +117,9 @@ public class AgentLoop {
 
     // Tracks visited activities for LLM prompt context
     private final Set<String> visitedActivities = new HashSet<>();
+
+    // Ring buffer of the last 5 executed actions — used to populate V17 recent-actions context
+    private final List<Action> recentActionsBuffer = new ArrayList<>(5);
 
     // Cached post-action screen state, reused as next iteration's initial state
     // Invalidated on crash, out-of-app, or stuck recovery
@@ -417,7 +423,7 @@ public class AgentLoop {
 
         // 8. Routing: try LLM path if configured and no stuck recovery action
         if (action == null) {
-            action = tryLlmAction(screen, hash, activity, isNewScreen, isStuck);
+            action = tryLlmAction(screen, hash, activity);
         }
 
         if (action == null) {
@@ -437,6 +443,12 @@ public class AgentLoop {
         RvTrack.exec(iteration, action.getType().name(),
                 "(" + action.getX() + "," + action.getY() + ")",
                 action.getSource(), injectMs);
+
+        // 9a. Add to recent-actions ring buffer for V17 prompt context (last 5 actions)
+        recentActionsBuffer.add(0, action);
+        if (recentActionsBuffer.size() > 5) {
+            recentActionsBuffer.remove(recentActionsBuffer.size() - 1);
+        }
 
         // 9b. Record interaction for UI coverage tracking
         if (uiCoverageTracker != null && action.getType() != Action.Type.BACK
@@ -774,8 +786,7 @@ public class AgentLoop {
      * On success, recordLlmSuccess() is called and the converted Action is returned
      * with source="llm".
      */
-    private Action tryLlmAction(ScreenState screen, String hash, String activity,
-                                boolean isNewScreen, boolean isStuck) {
+    private Action tryLlmAction(ScreenState screen, String hash, String activity) {
         // LLM components not wired — always use algorithm
         if (routingManager == null || sglangClient == null || toolCallParser == null
                 || promptBuilder == null || imageProcessor == null || screenshotCapture == null) {
@@ -783,7 +794,9 @@ public class AgentLoop {
         }
 
         // Routing decision: algorithm or LLM for this iteration?
-        if (!routingManager.shouldUseLlm(screen, isNewScreen, isStuck)) {
+        // isOutOfApp is always false here — OOA detection at the top of runIteration()
+        // causes an early return before tryLlmAction is ever called.
+        if (!routingManager.shouldUseLlm(hash, false)) {
             return null;
         }
 
@@ -804,8 +817,66 @@ public class AgentLoop {
             }
 
             // Build prompt and call LLM
-            List<SglangClient.Message> messages = promptBuilder.buildExplorationPrompt(
-                    base64Image, screen.getItems(), activity, null, visitedActivities);
+            PromptVersion version = config.getLlmPromptVersion();
+
+            // V17 context: interaction counts from UICoverageTracker (screen-scoped)
+            Map<String, Integer> interactionCounts = uiCoverageTracker != null
+                    ? uiCoverageTracker.getCountsForScreen(hash) : null;
+
+            // V17 context: MOP element sets — approximated at activity level.
+            // StaticMap works at activity granularity; all elements on a MOP-reachable
+            // activity receive the marker (direct or transitive).
+            Set<String> directMopElements = null;
+            Set<String> indirectMopElements = null;
+            if (staticMap != null && staticMap.isLoaded()) {
+                boolean hasDirect = staticMap.activityHasDirectMop(activity);
+                boolean hasTransitive = staticMap.activityHasMop(activity);
+                if (hasDirect || hasTransitive) {
+                    Set<String> allIds = new HashSet<>();
+                    for (ScreenItem si : screen.getItems()) {
+                        allIds.add(UICoverageTracker.elementId(si));
+                    }
+                    if (hasDirect) directMopElements = allIds;
+                    else indirectMopElements = allIds;
+                }
+            }
+
+            // V17 context: navigation hint — nearest WTG successor with MOP reachability
+            String navigationHint = null;
+            if (staticMap != null && staticMap.isLoaded()) {
+                List<String> successors = staticMap.getTransitions(activity);
+                for (String successor : successors) {
+                    if (staticMap.activityHasDirectMop(successor)) {
+                        navigationHint = "Target: " + successor
+                                + " (has monitored operations, ~1 transition away)";
+                        break;
+                    }
+                }
+                if (navigationHint == null) {
+                    for (String successor : successors) {
+                        if (staticMap.activityHasMop(successor)) {
+                            navigationHint = "Target: " + successor
+                                    + " (reaches monitored operations, ~1 transition away)";
+                            break;
+                        }
+                    }
+                }
+            }
+
+            PromptContext ctx = PromptContext.builder()
+                    .base64Screenshot(base64Image)
+                    .uiElements(screen.getItems())
+                    .currentActivity(activity)
+                    .navigationHint(navigationHint)
+                    .visitedActivities(visitedActivities)
+                    .iterationNumber(iteration)
+                    .elementInteractionCounts(interactionCounts)
+                    .directMopElements(directMopElements)
+                    .indirectMopElements(indirectMopElements)
+                    .elementScores(actionSelector.getLastScoreBreakdown())
+                    .recentActions(new ArrayList<>(recentActionsBuffer))
+                    .build();
+            List<SglangClient.Message> messages = promptBuilder.build(version, ctx);
             SglangClient.ChatResponse response = sglangClient.chat(messages);
 
             // Parse tool call from response
@@ -830,6 +901,9 @@ public class AgentLoop {
 
             long llmMs = System.currentTimeMillis() - llmStart;
             routingManager.recordLlmSuccess();
+            metricsCollector.recordLlmCall(
+                    response.getPromptTokens(), response.getCompletionTokens(),
+                    llmMs / 1000.0);
             RvTrack.llm(iteration, response.getPromptTokens(), response.getCompletionTokens(),
                     llmMs, true);
             RvTrack.route(iteration, "llm", "llm", "routing_decision");
@@ -845,7 +919,12 @@ public class AgentLoop {
             if (actionType == Action.Type.BACK) {
                 return Action.back("llm");
             }
-            return new Action(actionType, px, py, parsed.getText(), "llm", "");
+            // Action.text serves dual purpose: SET_TEXT content or SCROLL direction.
+            // For SCROLL, prefer the direction field; for SET_TEXT, use text field.
+            String actionText = (actionType == Action.Type.SCROLL && parsed.getDirection() != null)
+                    ? parsed.getDirection()
+                    : parsed.getText();
+            return new Action(actionType, px, py, actionText, "llm", "");
 
         } catch (Exception e) {
             long llmMs = System.currentTimeMillis() - llmStart;

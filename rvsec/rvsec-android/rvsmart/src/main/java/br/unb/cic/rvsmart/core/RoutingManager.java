@@ -12,10 +12,14 @@ import java.util.Random;
  *   LLM_ONLY       — always attempt LLM (subject to circuit breaker)
  *   MULTIMODE      — blend LLM and algorithm using the configured strategy
  *
- * Three strategies apply within MULTIMODE:
- *   PROBABILISTIC  — route to LLM with probability llmRatio each iteration
- *   NEW_SCREEN_ONLY — route to LLM only on the first visit to an unseen screen
- *   STUCK_ONLY     — route to LLM only when the stuck detector signals blockage
+ * Four strategies apply within MULTIMODE:
+ *   PROBABILISTIC   — route to LLM with probability llmRatio each iteration
+ *   NEW_SCREEN_ONLY — route to LLM only when the current screen hash differs from the
+ *                     last seen hash (i.e., a screen transition just occurred)
+ *   STUCK_ONLY      — route to LLM whenever the circuit breaker permits (caller is
+ *                     responsible for only calling when stuck)
+ *   ARRIVAL_FIRST   — route to LLM unconditionally on screen arrival; fall back to
+ *                     probabilistic (llmRatio) on subsequent iterations at the same screen
  *
  * The circuit breaker is checked for all LLM attempts in LLM_ONLY and MULTIMODE.
  * PURE_ALGORITHM never touches the circuit breaker.
@@ -31,7 +35,8 @@ public class RoutingManager {
     public enum Strategy {
         PROBABILISTIC,
         NEW_SCREEN_ONLY,
-        STUCK_ONLY
+        STUCK_ONLY,
+        ARRIVAL_FIRST
     }
 
     private final Mode mode;
@@ -39,6 +44,10 @@ public class RoutingManager {
     private final double llmRatio;
     private final LlmCircuitBreaker circuitBreaker;
     private final Random random;
+
+    // Hash of the last screen seen by shouldUseLlm; used by NEW_SCREEN_ONLY and
+    // ARRIVAL_FIRST to detect screen transitions without requiring external state.
+    private String lastSeenHash = null;
 
     /**
      * @param mode           operating mode (PURE_ALGORITHM, MULTIMODE, LLM_ONLY)
@@ -59,12 +68,17 @@ public class RoutingManager {
     /**
      * Decide whether to use the LLM path for the current iteration.
      *
-     * @param currentScreen  the current screen state (unused in current strategies, reserved)
-     * @param isNewScreen    true when the current screen hash was never seen before
-     * @param isStuck        true when StuckDetector signals the agent is blocked
+     * @param currentHash  screen content hash for the current iteration; used by
+     *                     NEW_SCREEN_ONLY and ARRIVAL_FIRST to detect screen transitions
+     * @param isOutOfApp   true when the agent has navigated outside the target app;
+     *                     LLM is never invoked out-of-app regardless of mode or strategy
      * @return true when the LLM path should be attempted, false for algorithm path
      */
-    public boolean shouldUseLlm(ScreenState currentScreen, boolean isNewScreen, boolean isStuck) {
+    public boolean shouldUseLlm(String currentHash, boolean isOutOfApp) {
+        if (isOutOfApp) {
+            return false;
+        }
+
         switch (mode) {
             case PURE_ALGORITHM:
                 return false;
@@ -73,7 +87,7 @@ public class RoutingManager {
                 return circuitBreaker.shouldAttempt();
 
             case MULTIMODE:
-                return shouldUseLlmMultimode(isNewScreen, isStuck);
+                return shouldUseLlmMultimode(currentHash);
 
             default:
                 return false;
@@ -84,20 +98,44 @@ public class RoutingManager {
      * Apply the MULTIMODE strategy to decide whether to route to LLM.
      * Circuit breaker is always consulted before allowing an LLM attempt.
      */
-    private boolean shouldUseLlmMultimode(boolean isNewScreen, boolean isStuck) {
+    private boolean shouldUseLlmMultimode(String currentHash) {
         switch (strategy) {
             case PROBABILISTIC:
                 return random.nextDouble() < llmRatio && circuitBreaker.shouldAttempt();
 
-            case NEW_SCREEN_ONLY:
-                return isNewScreen && circuitBreaker.shouldAttempt();
+            case NEW_SCREEN_ONLY: {
+                // Route to LLM only when the screen hash changed since the last call.
+                boolean isArrival = !currentHash.equals(lastSeenHash);
+                lastSeenHash = currentHash;
+                return isArrival && circuitBreaker.shouldAttempt();
+            }
 
             case STUCK_ONLY:
-                return isStuck && circuitBreaker.shouldAttempt();
+                // Caller is responsible for only invoking shouldUseLlm when stuck;
+                // strategy simply defers to the circuit breaker.
+                return circuitBreaker.shouldAttempt();
+
+            case ARRIVAL_FIRST: {
+                // Use LLM unconditionally on the first iteration at a new screen, then
+                // fall back to probabilistic (llmRatio) on subsequent iterations there.
+                boolean isArrival = !currentHash.equals(lastSeenHash);
+                lastSeenHash = currentHash;
+                if (isArrival) return circuitBreaker.shouldAttempt();
+                return random.nextDouble() < llmRatio && circuitBreaker.shouldAttempt();
+            }
 
             default:
                 return false;
         }
+    }
+
+    /**
+     * Reset internal state accumulated across iterations.
+     * Call this when starting a new exploration session so that NEW_SCREEN_ONLY and
+     * ARRIVAL_FIRST do not carry over hash state from a previous run.
+     */
+    public void reset() {
+        lastSeenHash = null;
     }
 
     /**
@@ -125,5 +163,10 @@ public class RoutingManager {
     /** Expose strategy for testing and logging. */
     public Strategy getStrategy() {
         return strategy;
+    }
+
+    /** Number of times the circuit breaker has tripped to OPEN state. */
+    public int getCircuitBreakerTripCount() {
+        return circuitBreaker.getTripCount();
     }
 }

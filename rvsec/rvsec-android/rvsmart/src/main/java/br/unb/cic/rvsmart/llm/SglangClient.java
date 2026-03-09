@@ -104,12 +104,13 @@ public class SglangClient {
     }
 
     /**
-     * Send HTTP POST to /v1/chat/completions and return the raw response body.
+     * Send HTTP POST to {baseUrl}/chat/completions and return the raw response body.
+     * baseUrl already contains the /v1 prefix (e.g. "http://192.168.0.36:30000/v1").
      */
     private String sendRequest(String requestBody) {
         HttpURLConnection conn = null;
         try {
-            URL url = new URL(baseUrl + "/v1/chat/completions");
+            URL url = new URL(baseUrl + "/chat/completions");
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
@@ -218,28 +219,54 @@ public class SglangClient {
 
     /**
      * Convert a JsonObject of primitive values into a Map<String, Object>.
+     *
+     * Handles Qwen3-VL native tool-call format where coordinates may arrive as an array
+     * in the "x" field (e.g. "x": [540, 399]) instead of separate "x"/"y" primitives.
+     * This mirrors RVAgent's normalize_tool_args() array-expansion logic.
      */
     private Map<String, Object> parseArgsObject(JsonObject obj) {
         Map<String, Object> result = new java.util.LinkedHashMap<>();
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            JsonElement val = entry.getValue();
-            if (val.isJsonPrimitive()) {
-                com.google.gson.JsonPrimitive prim = val.getAsJsonPrimitive();
-                if (prim.isNumber()) {
-                    // Use double for all numbers — callers cast as needed
-                    result.put(entry.getKey(), prim.getAsDouble());
-                } else if (prim.isBoolean()) {
-                    result.put(entry.getKey(), prim.getAsBoolean());
-                } else {
-                    result.put(entry.getKey(), prim.getAsString());
+
+        // Expand "x": [x, y] array into separate "x" and "y" entries before normal parsing.
+        // Qwen3-VL occasionally emits coordinates as a two-element array under "x".
+        if (obj.has("x") && obj.get("x").isJsonArray()) {
+            com.google.gson.JsonArray arr = obj.getAsJsonArray("x");
+            if (arr.size() >= 2) {
+                result.put("x", arr.get(0).getAsDouble());
+                if (!obj.has("y")) {
+                    result.put("y", arr.get(1).getAsDouble());
                 }
-            } else if (val.isJsonNull()) {
-                result.put(entry.getKey(), null);
-            } else {
-                result.put(entry.getKey(), val.toString());
+                // Process remaining keys normally (skip "x" since we already handled it)
+                for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+                    if ("x".equals(entry.getKey())) continue;
+                    putPrimitive(result, entry.getKey(), entry.getValue());
+                }
+                return result;
             }
         }
+
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            putPrimitive(result, entry.getKey(), entry.getValue());
+        }
         return result;
+    }
+
+    private void putPrimitive(Map<String, Object> result, String key, JsonElement val) {
+        if (val.isJsonPrimitive()) {
+            com.google.gson.JsonPrimitive prim = val.getAsJsonPrimitive();
+            if (prim.isNumber()) {
+                // Use double for all numbers — callers cast as needed
+                result.put(key, prim.getAsDouble());
+            } else if (prim.isBoolean()) {
+                result.put(key, prim.getAsBoolean());
+            } else {
+                result.put(key, prim.getAsString());
+            }
+        } else if (val.isJsonNull()) {
+            result.put(key, null);
+        } else {
+            result.put(key, val.toString());
+        }
     }
 
     // --- Inner classes ---

@@ -55,9 +55,9 @@ class TestVariants:
         variants = RVSmartTool.get_variants()
         assert "fast" in variants
 
-    def test_variants_has_hybrid(self):
+    def test_variants_has_llm_variant(self):
         variants = RVSmartTool.get_variants()
-        assert "hybrid" in variants
+        assert "arrival_first_v17" in variants
 
     def test_variants_all_have_mode(self):
         variants = RVSmartTool.get_variants()
@@ -70,18 +70,48 @@ class TestVariants:
         variants = RVSmartTool.get_variants()
         assert variants["default"]["mode"] == "pure_algorithm"
 
-    def test_hybrid_variant_mode(self):
+    def test_llm_variant_mode(self):
         variants = RVSmartTool.get_variants()
-        assert variants["hybrid"]["mode"] == "multimode"
+        assert variants["arrival_first_v17"]["mode"] == "multimode"
 
-    def test_hybrid_variant_has_llm_url(self):
+    def test_llm_variant_has_llm_url(self):
         variants = RVSmartTool.get_variants()
-        assert "llm_base_url" in variants["hybrid"]
-        assert "10.0.2.2" in variants["hybrid"]["llm_base_url"]
+        assert "llm_base_url" in variants["arrival_first_v17"]
+        assert "192.168.0.36" in variants["arrival_first_v17"]["llm_base_url"]
 
     def test_fast_variant_throttle(self):
         variants = RVSmartTool.get_variants()
         assert variants["fast"]["throttle_ms"] == 30
+
+    def test_llm_only_variant(self):
+        variants = RVSmartTool.get_variants()
+        assert "llm_only" in variants
+        assert variants["llm_only"]["mode"] == "llm_only"
+        assert "192.168.0.36" in variants["llm_only"]["llm_base_url"]
+
+    def test_arrival_first_v13_variant(self):
+        variants = RVSmartTool.get_variants()
+        assert "arrival_first_v13" in variants
+        v = variants["arrival_first_v13"]
+        assert v["mode"] == "multimode"
+        assert v["llm_multimode_strategy"] == "arrival_first"
+        assert v["llm_prompt_version"] == "v13"
+        assert "llm_new_screen_phase2_probability" in v
+        assert "192.168.0.36" in v["llm_base_url"]
+
+    def test_arrival_first_v17_variant(self):
+        variants = RVSmartTool.get_variants()
+        assert "arrival_first_v17" in variants
+        v = variants["arrival_first_v17"]
+        assert v["mode"] == "multimode"
+        assert v["llm_multimode_strategy"] == "arrival_first"
+        assert v["llm_prompt_version"] == "v17"
+        assert "llm_new_screen_phase2_probability" in v
+        assert "192.168.0.36" in v["llm_base_url"]
+
+    def test_hybrid_variant_removed(self):
+        variants = RVSmartTool.get_variants()
+        assert "hybrid" not in variants
 
 
 class TestConfigure:

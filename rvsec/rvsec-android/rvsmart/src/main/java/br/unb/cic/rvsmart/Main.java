@@ -188,8 +188,14 @@ public class Main {
                         ? RoutingManager.Mode.LLM_ONLY
                         : RoutingManager.Mode.MULTIMODE;
                 long seed = config.getSeed() != null ? config.getSeed() : -1;
-                routingManager = new RoutingManager(routingMode,
-                        RoutingManager.Strategy.PROBABILISTIC,
+                RoutingManager.Strategy routingStrategy;
+                switch (config.getLlmMultimodeStrategy()) {
+                    case ARRIVAL_FIRST:   routingStrategy = RoutingManager.Strategy.ARRIVAL_FIRST; break;
+                    case NEW_SCREEN_ONLY: routingStrategy = RoutingManager.Strategy.NEW_SCREEN_ONLY; break;
+                    case STUCK_ONLY:      routingStrategy = RoutingManager.Strategy.STUCK_ONLY; break;
+                    default:              routingStrategy = RoutingManager.Strategy.PROBABILISTIC; break;
+                }
+                routingManager = new RoutingManager(routingMode, routingStrategy,
                         config.getLlmProbability(), circuitBreaker, seed);
             }
 
@@ -216,6 +222,9 @@ public class Main {
             metricsCollector.recordCoverageEvent(
                     learner.getConfirmedMethods().size(),
                     learner.getTotalCoverageEvents(), 0);
+            if (routingManager != null) {
+                metricsCollector.setCircuitBreakerTrips(routingManager.getCircuitBreakerTripCount());
+            }
             metricsCollector.writeFinalReport(loop.getStartTimeMs(), graph,
                     0, 0, learner.getUniqueActivities());
 

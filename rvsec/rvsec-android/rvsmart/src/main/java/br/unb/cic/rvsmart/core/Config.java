@@ -29,6 +29,17 @@ public class Config {
 
     // --- Routing (2) ---
     private static final float DEFAULT_LLM_PROBABILITY = 0.05f;
+    private static final float DEFAULT_LLM_NEW_SCREEN_PHASE2_PROBABILITY = 0.30f;
+
+    /**
+     * Prompt template versions matching RVAgent's versioning (v12–v17).
+     * V13 and V17 are fully implemented. V12/V14/V15/V16 fall back to V13 at runtime.
+     * Use V17 for MOP-aware exploration with test-status tags, scores, and action history.
+     */
+    public enum PromptVersion { V12, V13, V14, V15, V16, V17 }
+
+    /** Multimode routing strategies. */
+    public enum MultimodeStrategy { PROBABILISTIC, NEW_SCREEN_ONLY, STUCK_ONLY, ARRIVAL_FIRST }
 
     // --- Scorer weights (13) ---
     private static final float DEFAULT_MOP_DIRECT_SCORE = 500.0f;
@@ -78,7 +89,7 @@ public class Config {
     private static final int DEFAULT_CONFIRMED_COVERAGE_BASE = 150;
 
     // --- LLM inference (7) ---
-    private static final String DEFAULT_LLM_BASE_URL = "http://10.0.2.2:30000/v1";
+    private static final String DEFAULT_LLM_BASE_URL = "http://192.168.0.36:30000/v1";
     private static final String DEFAULT_LLM_MODEL = "Qwen/Qwen3-VL-4B-Instruct";
     private static final float DEFAULT_LLM_TEMPERATURE = 0.01f;
     private static final float DEFAULT_LLM_TOP_P = 0.6f;
@@ -134,6 +145,31 @@ public class Config {
 
     // --- Routing ---
     public float getLlmProbability() { return getFloat("llm_probability", DEFAULT_LLM_PROBABILITY); }
+    public float getLlmNewScreenPhase2Probability() { return getFloat("llm_new_screen_phase2_probability", DEFAULT_LLM_NEW_SCREEN_PHASE2_PROBABILITY); }
+
+    public PromptVersion getLlmPromptVersion() {
+        String val = props.getProperty("llm_prompt_version");
+        if (val == null) return PromptVersion.V13;
+        switch (val.trim().toLowerCase()) {
+            case "v12": return PromptVersion.V12;
+            case "v14": return PromptVersion.V14;
+            case "v15": return PromptVersion.V15;
+            case "v16": return PromptVersion.V16;
+            case "v17": return PromptVersion.V17;
+            default:    return PromptVersion.V13;
+        }
+    }
+
+    public MultimodeStrategy getLlmMultimodeStrategy() {
+        String val = props.getProperty("llm_multimode_strategy");
+        if (val == null) return MultimodeStrategy.PROBABILISTIC;
+        switch (val.trim().toLowerCase()) {
+            case "new_screen_only": return MultimodeStrategy.NEW_SCREEN_ONLY;
+            case "stuck_only":      return MultimodeStrategy.STUCK_ONLY;
+            case "arrival_first":   return MultimodeStrategy.ARRIVAL_FIRST;
+            default:                return MultimodeStrategy.PROBABILISTIC;
+        }
+    }
 
     // --- Scorer weights ---
     public float getMopDirectScore() { return getFloat("mop_direct_score", DEFAULT_MOP_DIRECT_SCORE); }

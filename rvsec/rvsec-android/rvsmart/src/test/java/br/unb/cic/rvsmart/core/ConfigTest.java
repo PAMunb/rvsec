@@ -35,7 +35,7 @@ class ConfigTest {
         assertEquals(6, config.getMultiValueSaturationThreshold());
         assertEquals(8, config.getMaxBacktrackHops());
         assertEquals(10, config.getStuckMaxBlocks());
-        assertEquals("http://10.0.2.2:30000/v1", config.getLlmBaseUrl());
+        assertEquals("http://192.168.0.36:30000/v1", config.getLlmBaseUrl());
         assertEquals("Qwen/Qwen3-VL-4B-Instruct", config.getLlmModel());
         assertEquals(10000, config.getLogcatBufferSize());
     }

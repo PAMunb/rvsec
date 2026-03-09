@@ -218,6 +218,49 @@ class ToolCallParserTest {
         assertNull(parser.parse(response));
     }
 
+    // --- Malformed JSON fixes (Qwen3-VL coordinate malformations) ---
+
+    @Test
+    void testFixMalformedJsonMissingYKey() {
+        // Most common Qwen3-VL malformation: "x": 540, 399 (missing "y" key)
+        String fixed = ToolCallParser.fixMalformedJson("{\"x\": 540, 399}");
+        assertEquals("{\"x\": 540, \"y\": 399}", fixed);
+    }
+
+    @Test
+    void testFixMalformedJsonArrayCoords() {
+        // Array format: "x": [352, 782]
+        String fixed = ToolCallParser.fixMalformedJson("{\"x\": [352, 782]}");
+        assertEquals("{\"x\": 352, \"y\": 782}", fixed);
+    }
+
+    @Test
+    void testFixMalformedJsonLeadingZero() {
+        // Missing leading zero: ": .91
+        String fixed = ToolCallParser.fixMalformedJson("{\"confidence\": .91}");
+        assertEquals("{\"confidence\": 0.91}", fixed);
+    }
+
+    @Test
+    void testFixMalformedJsonTruncated() {
+        // Truncated JSON missing closing brace
+        String fixed = ToolCallParser.fixMalformedJson("{\"x\": 100, \"y\": 200");
+        assertEquals("{\"x\": 100, \"y\": 200}", fixed);
+    }
+
+    @Test
+    void testInlineJsonMissingYKeyParsed() {
+        // End-to-end: content with Qwen3-VL malformed coords → parsed successfully
+        String content = "{\"name\": \"click\", \"arguments\": {\"x\": 540, 399}}";
+        SglangClient.ChatResponse response = new SglangClient.ChatResponse(
+                content, Collections.<SglangClient.ToolCall>emptyList(), 0, 0);
+        ToolCallParser.ParsedAction action = parser.parse(response);
+        assertNotNull(action, "Should parse malformed Qwen3-VL coords");
+        assertEquals("click", action.getActionType());
+        assertEquals(540, action.getX());
+        assertEquals(399, action.getY());
+    }
+
     // --- ParsedAction accessors ---
 
     @Test

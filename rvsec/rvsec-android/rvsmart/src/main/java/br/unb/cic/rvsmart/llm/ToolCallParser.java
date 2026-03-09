@@ -16,6 +16,12 @@ import java.util.regex.Pattern;
  *   2. XML     — model wraps the call in <tool_call>...</tool_call> tags in its text
  *   3. JSON    — model embeds {"name": "...", "arguments": {...}} in its text
  *
+ * Qwen3-VL commonly generates malformed JSON coordinates. A pre-parse fix step (ported
+ * from RVAgent's _fix_malformed_json) repairs these before Gson sees the string:
+ *   - {"x": 540, 399}      → {"x": 540, "y": 399}   (missing "y" key)
+ *   - {"x": [540, 399]}    → {"x": 540, "y": 399}   (array format)
+ *   - {"x": .91}           → {"x": 0.91}            (leading-zero float)
+ *
  * Action types produced ("click", "long_click", "scroll", "type_text", "back") map
  * directly to Action.Type via AgentLoop conventions.
  */
@@ -27,6 +33,17 @@ public class ToolCallParser {
     private static final Pattern XML_TAG_PATTERN = Pattern.compile(
             "<(?:tool_call|function_call)>(.*?)</(?:tool_call|function_call)>",
             Pattern.DOTALL);
+
+    // Malformed JSON fixes (ported from RVAgent tool_call_parser.py _fix_malformed_json)
+    // Pattern 1: "x": 352, 782  →  "x": 352, "y": 782  (Qwen3-VL missing "y" key — most common)
+    private static final Pattern FIX_MISSING_Y_KEY =
+            Pattern.compile("\"x\":\\s*(\\d+),\\s*(\\d+)");
+    // Pattern 2: "x": [352, 782]  →  "x": 352, "y": 782  (coordinate array format)
+    private static final Pattern FIX_ARRAY_COORDS =
+            Pattern.compile("\"x\":\\s*\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
+    // Pattern 3: ": .91  →  ": 0.91  (missing leading zero)
+    private static final Pattern FIX_LEADING_ZERO =
+            Pattern.compile(":\\s*\\.(\\d+)");
 
     // Matches a JSON object that has both "name" and "arguments" keys
     private static final Pattern JSON_INLINE_PATTERN = Pattern.compile(
@@ -42,6 +59,13 @@ public class ToolCallParser {
      */
     public ParsedAction parse(SglangClient.ChatResponse response) {
         if (response == null) return null;
+
+        // Log raw response content for diagnostic analysis
+        String rawContent = response.getContent();
+        if (rawContent != null && !rawContent.isEmpty()) {
+            // try/catch guards the Android Stub in JVM unit tests
+            try { android.util.Log.d("RVSMART-LLM-RESP", rawContent); } catch (RuntimeException ignored) {}
+        }
 
         // Level 1: native tool_calls list
         if (response.getToolCalls() != null && !response.getToolCalls().isEmpty()) {
@@ -107,11 +131,41 @@ public class ToolCallParser {
     }
 
     /**
+     * Fix common Qwen3-VL JSON malformations before passing to Gson.
+     * Ported from RVAgent tool_call_parser.py _fix_malformed_json().
+     *
+     * Returns the fixed string, or the original if no fix was needed.
+     */
+    static String fixMalformedJson(String json) {
+        // Fix missing leading zero: ": .91 → ": 0.91
+        String s = FIX_LEADING_ZERO.matcher(json).replaceAll(": 0.$1");
+        // Fix array coords: "x": [352, 782] → "x": 352, "y": 782
+        s = FIX_ARRAY_COORDS.matcher(s).replaceAll("\"x\": $1, \"y\": $2");
+        // Fix missing "y" key: "x": 352, 782 → "x": 352, "y": 782
+        s = FIX_MISSING_Y_KEY.matcher(s).replaceAll("\"x\": $1, \"y\": $2");
+        // Add missing closing braces (truncated JSON)
+        int open = 0;
+        for (char c : s.toCharArray()) {
+            if (c == '{') open++;
+            else if (c == '}') open--;
+        }
+        if (open > 0) {
+            StringBuilder sb = new StringBuilder(s);
+            for (int i = 0; i < open; i++) sb.append('}');
+            s = sb.toString();
+        }
+        return s;
+    }
+
+    /**
      * Parse a JSON string into a ParsedAction if it contains "name" and "arguments".
+     * Applies malformed-JSON fixes before parsing (handles Qwen3-VL coordinate malformations).
      */
     private ParsedAction parseJsonString(String json) {
         try {
-            JsonObject obj = GSON.fromJson(json, JsonObject.class);
+            // Apply fixes for common Qwen3-VL output malformations before Gson sees the string
+            String fixed = fixMalformedJson(json);
+            JsonObject obj = GSON.fromJson(fixed, JsonObject.class);
             if (obj == null || !obj.has("name")) return null;
 
             String name = obj.get("name").getAsString();

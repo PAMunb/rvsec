@@ -118,4 +118,21 @@ public class UICoverageTracker {
         }
         return total;
     }
+
+    /**
+     * Interaction counts for a specific screen, keyed by element ID (no screen prefix).
+     * Only elements that have been interacted with at least once appear in the result.
+     * Returns an empty map for unknown screens.
+     */
+    public Map<String, Integer> getCountsForScreen(String screenHash) {
+        Map<String, Integer> result = new HashMap<>();
+        String prefix = screenHash + "|";
+        for (Map.Entry<String, Integer> entry : interactionCounts.entrySet()) {
+            if (entry.getKey().startsWith(prefix)) {
+                String elementId = entry.getKey().substring(prefix.length());
+                result.put(elementId, entry.getValue());
+            }
+        }
+        return result;
+    }
 }

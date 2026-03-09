@@ -62,6 +62,15 @@ public class MetricsCollector {
         this.mopMethodsReached = mop;
         this.coverageEnabled = total > 0;
     }
+    public void recordLlmCall(int tokensIn, int tokensOut, double timeS) {
+        llmTotalCalls++;
+        llmTokensIn += tokensIn;
+        llmTokensOut += tokensOut;
+        llmTotalTimeS += timeS;
+    }
+    public void setCircuitBreakerTrips(int trips) {
+        this.circuitBreakerTrips = trips;
+    }
 
     /**
      * Write final metrics report to stdout with RVSMART_METRICS: prefix (INV-RSM-10).

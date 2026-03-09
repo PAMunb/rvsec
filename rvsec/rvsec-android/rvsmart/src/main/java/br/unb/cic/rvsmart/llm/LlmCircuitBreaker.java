@@ -28,6 +28,7 @@ public class LlmCircuitBreaker {
     private State state;
     private int failureCount;
     private long openedAtMs;
+    private int tripCount;
 
     /**
      * Default thresholds: 3 failures trip the breaker, 60 s recovery window.
@@ -74,6 +75,7 @@ public class LlmCircuitBreaker {
         if (state == State.HALF_OPEN || failureCount >= failureThreshold) {
             state = State.OPEN;
             openedAtMs = System.currentTimeMillis();
+            tripCount++;
         }
     }
 
@@ -110,5 +112,10 @@ public class LlmCircuitBreaker {
     /** For testing: expose the current failure count. */
     public synchronized int getFailureCount() {
         return failureCount;
+    }
+
+    /** Number of times the circuit breaker has tripped to OPEN state. */
+    public synchronized int getTripCount() {
+        return tripCount;
     }
 }

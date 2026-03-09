@@ -75,18 +75,6 @@ class RVSmartTool(AbstractTool):
         process_pattern="br.unb.cic.rvsmart",
     )
 
-    # JAR search paths in priority order:
-    # 1. os.path.dirname(__file__) — same directory as this module (JAR copied by mvn install)
-    # 2. $RVSEC_HOME/rvsec/rvsec-android/rvsmart/target/rvsmart.jar
-    # 3. $TOOLS_DIR/rvsmart/rvsmart.jar
-    JAR_SEARCH_PATHS = [
-        os.path.dirname(__file__),
-        os.path.join(
-            os.environ.get("RVSEC_HOME", ""), "rvsec", "rvsec-android", "rvsmart", "target"
-        ),
-        os.path.join(os.environ.get("TOOLS_DIR", ""), "rvsmart"),
-    ]
-
     def __init__(self):
         """
         Initialize RVSmart tool.
@@ -130,8 +118,9 @@ class RVSmartTool(AbstractTool):
         Get available RVSmart variants.
 
         Variants configure the exploration mode and throttle for different
-        testing scenarios. The 'hybrid' variant enables LLM guidance via
-        an API endpoint accessible from the emulator at 10.0.2.2.
+        testing scenarios. LLM variants connect to the SGLang server at
+        192.168.0.36:30000, which is reachable from inside the emulator via
+        the host's network stack.
 
         NOTE: timeout is ALWAYS controlled by Task.config, not by variants.
         The platform manages execution timeout uniformly across all tools.
@@ -152,9 +141,23 @@ class RVSmartTool(AbstractTool):
                 "mode": "pure_algorithm",
                 "throttle_ms": 30,
             },
-            "hybrid": {
+            "llm_only": {
+                "mode": "llm_only",
+                "llm_base_url": "http://192.168.0.36:30000/v1",
+            },
+            "arrival_first_v13": {
                 "mode": "multimode",
-                "llm_base_url": "http://10.0.2.2:30000/v1",
+                "llm_multimode_strategy": "arrival_first",
+                "llm_prompt_version": "v13",
+                "llm_new_screen_phase2_probability": "0.30",
+                "llm_base_url": "http://192.168.0.36:30000/v1",
+            },
+            "arrival_first_v17": {
+                "mode": "multimode",
+                "llm_multimode_strategy": "arrival_first",
+                "llm_prompt_version": "v17",
+                "llm_new_screen_phase2_probability": "0.30",
+                "llm_base_url": "http://192.168.0.36:30000/v1",
             },
         }
 
@@ -296,7 +299,9 @@ class RVSmartTool(AbstractTool):
         ]
         rvsec_home = os.environ.get("RVSEC_HOME", "")
         if rvsec_home:
-            paths.append(os.path.join(rvsec_home, "rvsec", "rvsec-android", "rvsmart", "target"))
+            paths.append(
+                os.path.join(rvsec_home, "rvsec", "rvsec-android", "rvsmart", "target")
+            )
         tools_dir = os.environ.get("TOOLS_DIR", "")
         if tools_dir:
             paths.append(os.path.join(tools_dir, "rvsmart"))
@@ -361,9 +366,7 @@ class RVSmartTool(AbstractTool):
         if not hasattr(task, "config") or not task.config:
             return None
 
-        json_path = os.path.join(
-            task.results_dir, f"{task.config.apk_name}.json"
-        )
+        json_path = os.path.join(task.results_dir, f"{task.config.apk_name}.json")
         if os.path.isfile(json_path):
             self.logger.info(f"Found static analysis file: {json_path}")
             return json_path
@@ -501,7 +504,10 @@ class RVSmartTool(AbstractTool):
         since the agent ran for the full timeout.
         """
         try:
-            if os.path.isfile(trace_file_path) and os.path.getsize(trace_file_path) == 0:
+            if (
+                os.path.isfile(trace_file_path)
+                and os.path.getsize(trace_file_path) == 0
+            ):
                 self.logger.warning(
                     "rvsmart produced empty trace file — possible silent hang or startup crash"
                 )
