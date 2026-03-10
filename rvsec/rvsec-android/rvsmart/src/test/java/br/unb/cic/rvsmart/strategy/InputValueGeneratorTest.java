@@ -2,9 +2,14 @@ package br.unb.cic.rvsmart.strategy;
 
 import br.unb.cic.rvsmart.core.ScreenItem;
 import br.unb.cic.rvsmart.output.RvTrack;
+import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -187,11 +192,92 @@ class InputValueGeneratorTest {
         assertEquals("number", generator.getCategory(item));
     }
 
+    // --- Static fallback tests ---
+
+    @Test
+    void testStaticInputTypeFallbackToPhone() throws Exception {
+        // Runtime inputType == 0, static data has inputType == 3 (phone)
+        File tempFile = createInputTypeJson("et_phone", 3);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+            generator.setStaticMap(staticMap);
+
+            // Item with runtime inputType 0 but resourceId matching static data
+            ScreenItem item = itemWithHint(null, "et_phone", 0);
+            assertEquals("phone", generator.getCategory(item),
+                    "Should fallback to static inputType 3 (phone) when runtime is 0");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testStaticInputTypeFallbackToNumber() throws Exception {
+        File tempFile = createInputTypeJson("et_amount", 2);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+            generator.setStaticMap(staticMap);
+
+            ScreenItem item = itemWithHint(null, "et_amount", 0);
+            assertEquals("number", generator.getCategory(item),
+                    "Should fallback to static inputType 2 (number) when runtime is 0");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testRuntimeInputTypeTakesPriorityOverStatic() throws Exception {
+        File tempFile = createInputTypeJson("et_input", 3);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+            generator.setStaticMap(staticMap);
+
+            // Runtime inputType 2 (number) should override static inputType 3 (phone)
+            ScreenItem item = itemWithHint(null, "et_input", 2);
+            assertEquals("number", generator.getCategory(item),
+                    "Runtime inputType should take priority over static");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testNoStaticFallbackWhenStaticMapIsNull() {
+        // No staticMap set -> generic category (resourceId must not match any pattern keyword)
+        ScreenItem item = itemWithHint(null, "et_widget", 0);
+        assertEquals("generic", generator.getCategory(item),
+                "Without static map, should return generic");
+    }
+
     // --- Helpers ---
 
     private ScreenItem itemWithHint(String hint, String resourceId, int inputType) {
         return new ScreenItem("EditText", resourceId, null, null, null,
                 "com.example", false, false, false, true, false, true,
                 0, hint, inputType);
+    }
+
+    private File createInputTypeJson(String widgetId, int inputType) throws Exception {
+        File tempFile = Files.createTempFile("input_gen_test", ".json").toFile();
+        String json = "{"
+                + "\"reachability\":[],"
+                + "\"windows\":[{"
+                + "\"id\":1,\"name\":\"com.example.FormActivity\","
+                + "\"widgets\":[{"
+                + "\"idName\":\"" + widgetId + "\","
+                + "\"type\":\"EditText\","
+                + "\"inputType\":" + inputType
+                + "}]"
+                + "}],"
+                + "\"transitions\":[]"
+                + "}";
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
     }
 }

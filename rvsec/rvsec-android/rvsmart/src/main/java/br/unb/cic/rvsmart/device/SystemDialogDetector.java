@@ -26,7 +26,13 @@ public class SystemDialogDetector {
             "android",
             "com.android.packageinstaller",
             "com.google.android.packageinstaller",
-            "com.android.settings"
+            "com.android.settings",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.android.systemui",
+            "com.samsung.android.packageinstaller",
+            "com.android.providers.downloads.ui",
+            "com.google.android.gms"
     ));
 
     /** Button labels to click for dismissal (case-insensitive matching). */

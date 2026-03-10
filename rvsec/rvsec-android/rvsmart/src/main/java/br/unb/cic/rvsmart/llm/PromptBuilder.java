@@ -2,6 +2,7 @@ package br.unb.cic.rvsmart.llm;
 
 import br.unb.cic.rvsmart.core.Config.PromptVersion;
 import br.unb.cic.rvsmart.core.ScreenItem;
+import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,12 @@ import java.util.List;
  * The LLM is instructed to respond with a single tool call in JSON format.
  */
 public class PromptBuilder {
+
+    private StaticMap staticMap;
+
+    public void setStaticMap(StaticMap staticMap) {
+        this.staticMap = staticMap;
+    }
 
     /**
      * Build the messages list for an exploration step.
@@ -217,6 +224,14 @@ public class PromptBuilder {
                 }
                 sb.append(" ").append(statusTag);
                 if (!mopMarker.isEmpty()) sb.append(" ").append(mopMarker);
+                // Append handler info from static analysis when available
+                if (staticMap != null && staticMap.isLoaded() && item.getResourceId() != null) {
+                    StaticMap.WidgetStaticData widgetData = staticMap.getWidgetData(
+                            ctx.getCurrentActivity(), item.getResourceId());
+                    if (widgetData != null && widgetData.directMop) {
+                        sb.append(" [triggers MOP handler]");
+                    }
+                }
                 sb.append("\n");
             }
         }

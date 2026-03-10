@@ -1,6 +1,7 @@
 package br.unb.cic.rvsmart.core;
 
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import br.unb.cic.rvsmart.device.AppController;
@@ -28,6 +29,7 @@ import br.unb.cic.rvsmart.llm.ToolCallParser;
 import br.unb.cic.rvsmart.output.MetricsCollector;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.output.TraceWriter;
+import br.unb.cic.rvsmart.recovery.CycleDetector;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.ActionSelector;
@@ -118,6 +120,12 @@ public class AgentLoop {
             "com.android.launcher"
     };
     private static final int MAX_CONSECUTIVE_OOA_AFTER_RESTART = 3;
+
+    // BUG-02: Cycle detection for ping-pong recovery
+    private final CycleDetector cycleDetector;
+
+    // CAP-6: Periodic restart when exploration has plateaued
+    private int iterationsSinceNewState;
 
     // State
     private int iteration;
@@ -214,6 +222,7 @@ public class AgentLoop {
                 ? plateauDetector : new PlateauDetector();
         this.phaseController = new PhaseController(graph, uiCoverageTracker, effectivePlateauDetector);
         this.backtrackStrategy = new BacktrackStrategy(navigationMap, structuralGraph);
+        this.cycleDetector = new CycleDetector();
     }
 
     /**
@@ -384,6 +393,24 @@ public class AgentLoop {
             }
         }
 
+        // CAP-4: Retry capture when too few interactive elements (splash/loading screens)
+        int interactiveCount = countInteractive(items);
+        for (int retry = 0; retry < config.getCaptureRetryMax() && interactiveCount < config.getCaptureRetryMinElements(); retry++) {
+            sleep(config.getCaptureRetryDelayMs());
+            AccessibilityNodeInfo retryRoot2 = devController.getUiAutomation().getRootInActiveWindow();
+            if (retryRoot2 != null) {
+                List<ScreenItem> retryItems2 = uiCapture.capture(retryRoot2);
+                retryRoot2.recycle();
+                int retryInteractive = countInteractive(retryItems2);
+                if (retryInteractive > interactiveCount) {
+                    items = retryItems2;
+                    interactiveCount = retryInteractive;
+                    screen = new ScreenState(items, appController.getCurrentActivityName());
+                    RvTrack.parse(iteration, appController.getCurrentActivityName(), items.size(), "retry_" + (retry + 1), 0);
+                }
+            }
+        }
+
         String hash = screen.getContentHash();
         String structHash = screen.getStructHash();
         String activity = screen.getActivity();
@@ -408,15 +435,15 @@ public class AgentLoop {
         // transient first visit with 0 elements doesn't permanently lock saturation at 1.0.
         br.unb.cic.rvsmart.graph.ContentNode screenNode = graph.get(hash);
         if (screenNode != null) {
-            int interactiveCount = 0;
+            int nodeInteractiveCount = 0;
             for (ScreenItem item : items) {
                 if (item.isEnabled() && item.getBounds() != null) {
                     if (item.isClickable() || item.isLongClickable() || item.isEditable() || item.isScrollable()) {
-                        interactiveCount++;
+                        nodeInteractiveCount++;
                     }
                 }
             }
-            screenNode.setTotalActions(interactiveCount);
+            screenNode.setTotalActions(nodeInteractiveCount);
         }
 
         // 5c. Register screen elements for UI coverage tracking
@@ -424,9 +451,16 @@ public class AgentLoop {
             uiCoverageTracker.registerScreenElements(hash, items);
         }
 
+        // BUG-02: Cycle detection — record hash for ping-pong pattern detection
+        cycleDetector.recordHash(structHash);
+        boolean isCycleDetected = cycleDetector.isCycleDetected();
+
         // 5d. PhaseController: notify of new content state discovery and Phase 1 cluster entry.
         if (isNewScreen) {
-            phaseController.onNewContentState(hash);
+            phaseController.onNewContentState(hash, activity, structHash, isCycleDetected);
+            iterationsSinceNewState = 0;
+        } else {
+            iterationsSinceNewState++;
         }
         Phase phase = phaseController.currentPhase();
         if (phase == Phase.PHASE_1) {
@@ -461,6 +495,20 @@ public class AgentLoop {
             RvTrack.route(iteration, "algorithm", "algorithm", "stuck_recovery");
         }
 
+        // BUG-02: Cycle detection — force RESTART when ping-pong detected
+        if (isCycleDetected && action == null) {
+            action = Action.restart("algorithm");
+            cycleDetector.reset();
+            RvTrack.route(iteration, "algorithm", "algorithm", "cycle_recovery");
+        }
+
+        // CAP-6: Periodic restart when exploration has plateaued
+        if (iterationsSinceNewState >= config.getPeriodicRestartThreshold() && action == null) {
+            action = Action.restart("algorithm");
+            iterationsSinceNewState = 0;
+            RvTrack.route(iteration, "algorithm", "algorithm", "periodic_restart");
+        }
+
         // 8. Routing: try LLM path if configured and no stuck recovery action
         if (action == null) {
             action = tryLlmAction(screen, hash, activity);
@@ -473,12 +521,24 @@ public class AgentLoop {
             RvTrack.route(iteration, "algorithm", "algorithm", "llm_unavailable_or_disabled");
         }
 
-        // 8. Pre-record action in graph for crash safety
-        graph.recordAction(hash, action.signature(), action.getWidgetClass());
+        // CAP-1: With menuFuzzRate probability, inject KEYCODE_MENU
+        if (Math.random() < config.getMenuFuzzRate()
+                && action != null && action.getType() != Action.Type.RESTART) {
+            inputInjector.pressKey(KeyEvent.KEYCODE_MENU);
+            RvTrack.exec(iteration, "KEY_EVENT", "(menu)", "algorithm", 0);
+            sleep(config.getThrottleMs());
+            // Continue with normal flow — next iteration will see menu items
+        }
 
-        // 9. Execute action
+        // 9. Execute action (SAT-1: record after execution to avoid counting failed injections)
         long injectStart = System.currentTimeMillis();
-        executeAction(action);
+        try {
+            executeAction(action);
+        } finally {
+            // Record action in graph after execution. In finally block for crash safety —
+            // if the app crashes, we still record the attempt.
+            graph.recordAction(hash, action.signature(), action.getWidgetClass());
+        }
         long injectMs = System.currentTimeMillis() - injectStart;
 
         RvTrack.exec(iteration, action.getType().name(),
@@ -597,8 +657,11 @@ public class AgentLoop {
             if (nextAction == null) break;
 
             action = nextAction;
-            graph.recordAction(hash, action.signature(), action.getWidgetClass());
-            executeAction(action);
+            try {
+                executeAction(action);
+            } finally {
+                graph.recordAction(hash, action.signature(), action.getWidgetClass());
+            }
             sleep(config.getThrottleMs());
 
             rootAfter = devController.getUiAutomation().getRootInActiveWindow();
@@ -799,23 +862,25 @@ public class AgentLoop {
                         action.getText() != null ? action.getText() : "test");
                 break;
             case SCROLL:
+                // CAP-8: half-screen displacement for effective scrolling
+                int scrollDisplacement = DEVICE_WIDTH / 2;
                 String scrollDir = action.getText();
                 if ("up".equals(scrollDir)) {
-                    inputInjector.scroll(action.getX(), action.getY(), 300);
+                    inputInjector.scroll(action.getX(), action.getY(), scrollDisplacement);
                 } else if ("left".equals(scrollDir)) {
                     inputInjector.swipe(action.getX(), action.getY(),
-                            action.getX() - 300, action.getY());
+                            action.getX() - scrollDisplacement, action.getY());
                 } else if ("right".equals(scrollDir)) {
                     inputInjector.swipe(action.getX(), action.getY(),
-                            action.getX() + 300, action.getY());
+                            action.getX() + scrollDisplacement, action.getY());
                 } else {
                     // Default: scroll down
-                    inputInjector.scroll(action.getX(), action.getY(), -300);
+                    inputInjector.scroll(action.getX(), action.getY(), -scrollDisplacement);
                 }
                 break;
             case SWIPE:
                 inputInjector.swipe(action.getX(), action.getY(),
-                        action.getX(), action.getY() - 300);
+                        action.getX(), action.getY() - DEVICE_WIDTH / 2);
                 break;
             case KEY_EVENT:
                 // No-op for now — key events require a keycode not carried by Action
@@ -1004,6 +1069,18 @@ public class AgentLoop {
             case "back":        return Action.Type.BACK;
             default:            return null;
         }
+    }
+
+    /**
+     * Count interactive (enabled + clickable/scrollable/editable/checkable/longClickable) items.
+     * Used by CAP-4 state refresh retry.
+     */
+    private int countInteractive(List<ScreenItem> items) {
+        int count = 0;
+        for (ScreenItem item : items) {
+            if (item.isEnabled() && item.isInteractive()) count++;
+        }
+        return count;
     }
 
     private void sleep(long ms) {

@@ -163,7 +163,121 @@ class StaticMapTest {
         }
     }
 
+    // --- Widget-level parsing tests ---
+
+    @Test
+    void testWidgetLevelParsing() throws Exception {
+        String json = "{"
+                + "\"reachability\":[{"
+                + "\"className\":\"com.example.TestActivity\","
+                + "\"isActivity\":true,"
+                + "\"methods\":[{"
+                + "\"name\":\"onClick\","
+                + "\"signature\":\"<com.example.TestActivity: void onClick()>\","
+                + "\"reachable\":true,"
+                + "\"reachesMop\":true,"
+                + "\"directlyReachesMop\":true"
+                + "}]"
+                + "}],"
+                + "\"windows\":[{"
+                + "\"id\":1,"
+                + "\"name\":\"com.example.TestActivity\","
+                + "\"type\":\"activity\","
+                + "\"widgets\":[{"
+                + "\"idName\":\"btn_encrypt\","
+                + "\"type\":\"Button\","
+                + "\"inputType\":0,"
+                + "\"listeners\":[{"
+                + "\"eventType\":\"click\","
+                + "\"handler\":\"onClick\""
+                + "}]"
+                + "}]"
+                + "}],"
+                + "\"transitions\":[]"
+                + "}";
+        File tempFile = writeTempJson(json);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+            StaticMap.WidgetStaticData widget = staticMap.getWidgetData("TestActivity", "btn_encrypt");
+            assertNotNull(widget, "Widget data should be parsed");
+            assertEquals("btn_encrypt", widget.resourceId);
+            assertEquals("Button", widget.type);
+            assertTrue(widget.directMop, "Widget handler onClick reaches MOP directly");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWidgetTransitionParsing() throws Exception {
+        String json = "{"
+                + "\"reachability\":[],"
+                + "\"windows\":[{"
+                + "\"id\":1,\"name\":\"com.example.MainActivity\""
+                + "},{"
+                + "\"id\":2,\"name\":\"com.example.DetailActivity\""
+                + "}],"
+                + "\"transitions\":[{"
+                + "\"sourceId\":1,\"targetId\":2,"
+                + "\"events\":[{\"widgetId\":\"btn_detail\",\"widgetClass\":\"Button\"}]"
+                + "}]"
+                + "}";
+        File tempFile = writeTempJson(json);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+            String target = staticMap.getWidgetTransitionTarget("MainActivity", "btn_detail");
+            assertEquals("DetailActivity", target, "Widget transition should map to target activity");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWidgetInputType() throws Exception {
+        String json = "{"
+                + "\"reachability\":[],"
+                + "\"windows\":[{"
+                + "\"id\":1,\"name\":\"com.example.FormActivity\","
+                + "\"widgets\":[{"
+                + "\"idName\":\"et_phone\","
+                + "\"type\":\"EditText\","
+                + "\"inputType\":3,"
+                + "\"hint\":\"Enter phone\""
+                + "}]"
+                + "}],"
+                + "\"transitions\":[]"
+                + "}";
+        File tempFile = writeTempJson(json);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+            assertEquals(3, staticMap.getWidgetInputType("et_phone"),
+                    "Should return static inputType for matching resourceId");
+            assertEquals(0, staticMap.getWidgetInputType("unknown_widget"),
+                    "Should return 0 for unknown widget");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWidgetDataReturnsNullWhenNoData() {
+        StaticMap staticMap = new StaticMap(null);
+        assertNull(staticMap.getWidgetData("Activity", "btn"),
+                "Should return null when not loaded");
+    }
+
     // --- Helpers ---
+
+    private File writeTempJson(String json) throws Exception {
+        File tempFile = Files.createTempFile("static_map_test", ".json").toFile();
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
+    }
 
     private File createJsonWithReachability(String className, boolean directMop, boolean transitiveMop)
             throws Exception {

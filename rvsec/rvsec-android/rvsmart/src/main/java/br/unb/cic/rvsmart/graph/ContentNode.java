@@ -114,6 +114,10 @@ public class ContentNode {
         return executionCounts.getOrDefault(signature, 0);
     }
 
+    public int getSuccessCount(String signature) {
+        return successCounts.getOrDefault(signature, 0);
+    }
+
     public boolean isActionExecuted(String signature) {
         return executionCounts.containsKey(signature);
     }
@@ -146,10 +150,21 @@ public class ContentNode {
 
     private int getEffectiveThreshold(String signature) {
         String wc = widgetClasses.getOrDefault(signature, "");
-        if (MULTI_VALUE_WIDGETS.contains(wc)) {
-            return multiValueThreshold;
+        int baseThreshold = MULTI_VALUE_WIDGETS.contains(wc)
+                ? multiValueThreshold : DEFAULT_SATURATION_THRESHOLD;
+
+        int executions = getExecutionCount(signature);
+        if (executions == 0) return baseThreshold;
+
+        int successes = successCounts.getOrDefault(signature, 0);
+        if (successes == 0) {
+            return Math.max(1, baseThreshold / 2);
         }
-        return DEFAULT_SATURATION_THRESHOLD;
+        float successRate = (float) successes / executions;
+        if (successRate > 0.5f) {
+            return (int) (baseThreshold * 1.5f);
+        }
+        return baseThreshold;
     }
 
     /**
@@ -157,7 +172,7 @@ public class ContentNode {
      * System actions (BACK, RESTART) are excluded from the numerator.
      */
     public float getSaturationRate() {
-        if (totalActions == 0) return 1.0f;
+        if (totalActions == 0) return 0.0f;
         int saturated = 0;
         for (Map.Entry<String, Integer> entry : executionCounts.entrySet()) {
             String sig = entry.getKey();

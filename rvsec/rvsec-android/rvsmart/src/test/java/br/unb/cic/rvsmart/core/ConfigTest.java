@@ -130,6 +130,68 @@ class ConfigTest {
                 "Out-of-app tolerance should be overridable via properties");
     }
 
+    // --- Menu fuzz tests ---
+
+    @Test
+    void testMenuFuzzRateDefaultIs0_02() {
+        Config config = Config.defaults();
+        assertEquals(0.02f, config.getMenuFuzzRate(), 0.001f,
+                "Menu fuzz rate should default to 2%");
+    }
+
+    // --- Periodic restart tests ---
+
+    @Test
+    void testPeriodicRestartThresholdDefaultIs200() {
+        Config config = Config.defaults();
+        assertEquals(200, config.getPeriodicRestartThreshold(),
+                "Periodic restart threshold should default to 200 iterations");
+    }
+
+    // --- State refresh tests ---
+
+    @Test
+    void testCaptureRetryMinElementsDefaultIs3() {
+        Config config = Config.defaults();
+        assertEquals(3, config.getCaptureRetryMinElements(),
+                "Capture retry min elements should default to 3");
+    }
+
+    @Test
+    void testCaptureRetryMaxDefaultIs3() {
+        Config config = Config.defaults();
+        assertEquals(3, config.getCaptureRetryMax(),
+                "Capture retry max should default to 3");
+    }
+
+    @Test
+    void testCaptureRetryDelayMsDefaultIs1000() {
+        Config config = Config.defaults();
+        assertEquals(1000L, config.getCaptureRetryDelayMs(),
+                "Capture retry delay should default to 1000ms");
+    }
+
+    @Test
+    void testNewConfigOverridesFromPropertiesFile(@TempDir Path tempDir) throws IOException {
+        File propsFile = tempDir.resolve("test.properties").toFile();
+        Properties props = new Properties();
+        props.setProperty("menu_fuzz_rate", "0.05");
+        props.setProperty("periodic_restart_threshold", "100");
+        props.setProperty("capture_retry_min_elements", "5");
+        props.setProperty("capture_retry_max", "2");
+        props.setProperty("capture_retry_delay_ms", "500");
+        try (FileOutputStream fos = new FileOutputStream(propsFile)) {
+            props.store(fos, null);
+        }
+
+        Config config = Config.fromFile(propsFile);
+        assertEquals(0.05f, config.getMenuFuzzRate(), 0.001f);
+        assertEquals(100, config.getPeriodicRestartThreshold());
+        assertEquals(5, config.getCaptureRetryMinElements());
+        assertEquals(2, config.getCaptureRetryMax());
+        assertEquals(500L, config.getCaptureRetryDelayMs());
+    }
+
     @Test
     void testAdaptiveWaitCanBeDisabledViaProperties(@TempDir Path tempDir) throws IOException {
         File propsFile = tempDir.resolve("test.properties").toFile();

@@ -27,6 +27,7 @@ import br.unb.cic.rvsmart.strategy.scorers.WtgScorer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -81,6 +82,24 @@ public class ActionSelector {
     /** Stochastic probability override for Phase 3 (escape saturation). */
     private static final float PHASE3_STOCHASTIC_PROBABILITY = 0.5f;
 
+    /** CAP-12: Widget types that may report clickable=false in UIAutomator but are inherently interactive.
+     *  Aligned with rv-screen-parser's ALWAYS_CLICKABLE_TYPES and Spinner special case. */
+    private static final Set<String> ALWAYS_CLICKABLE_WIDGETS = new HashSet<>();
+    static {
+        // Spinner — explicitly documented as clickable=false in UIAutomator dumps
+        ALWAYS_CLICKABLE_WIDGETS.add("Spinner");
+        ALWAYS_CLICKABLE_WIDGETS.add("AppCompatSpinner");
+        // Tab navigation
+        ALWAYS_CLICKABLE_WIDGETS.add("TabLayout");
+        ALWAYS_CLICKABLE_WIDGETS.add("TabView");
+        // Bottom/rail navigation
+        ALWAYS_CLICKABLE_WIDGETS.add("BottomNavigationItemView");
+        ALWAYS_CLICKABLE_WIDGETS.add("NavigationBarItemView");
+        // Material components
+        ALWAYS_CLICKABLE_WIDGETS.add("Chip");
+        ALWAYS_CLICKABLE_WIDGETS.add("FloatingActionButton");
+    }
+
     private final List<Scorer> scorers;
     private final float backBaseScore;
     private final float backDecayPerRepeat;
@@ -100,18 +119,28 @@ public class ActionSelector {
     private Map<String, Object> lastScoreBreakdown;
 
     private final SuccessorTracker successorTracker;
+    private final NavigationMap navigationMap;
+    private final PhaseController phaseController;
 
     public ActionSelector(Config config) {
-        this(config, null, null, null, null);
+        this(config, null, null, null, null, null, null);
     }
 
     public ActionSelector(Config config, SuccessorTracker successorTracker) {
-        this(config, successorTracker, null, null, null);
+        this(config, successorTracker, null, null, null, null, null);
     }
 
     public ActionSelector(Config config, SuccessorTracker successorTracker,
                           ConfirmedCoverageScorer confirmedCoverageScorer) {
-        this(config, successorTracker, confirmedCoverageScorer, null, null);
+        this(config, successorTracker, confirmedCoverageScorer, null, null, null, null);
+    }
+
+    public ActionSelector(Config config, SuccessorTracker successorTracker,
+                          ConfirmedCoverageScorer confirmedCoverageScorer,
+                          InputValueGenerator inputValueGenerator,
+                          UICoverageTracker uiCoverageTracker) {
+        this(config, successorTracker, confirmedCoverageScorer, inputValueGenerator,
+                uiCoverageTracker, null, null);
     }
 
     /**
@@ -123,11 +152,17 @@ public class ActionSelector {
      *                             null to use default "test" string
      * @param uiCoverageTracker shared instance for coverage-density scoring;
      *                           null to disable CoverageDensityScorer
+     * @param navigationMap structural transition map for Phase 3 random exploration;
+     *                       null to disable NavigationMap random edges
+     * @param phaseController phase controller for cluster forcing checks;
+     *                         null to skip cluster forcing
      */
     public ActionSelector(Config config, SuccessorTracker successorTracker,
                           ConfirmedCoverageScorer confirmedCoverageScorer,
                           InputValueGenerator inputValueGenerator,
-                          UICoverageTracker uiCoverageTracker) {
+                          UICoverageTracker uiCoverageTracker,
+                          NavigationMap navigationMap,
+                          PhaseController phaseController) {
         this.scorers = new ArrayList<>();
         this.scorers.add(new MopScorer(
                 (int) config.getMopDirectScore(),
@@ -156,6 +191,8 @@ public class ActionSelector {
         this.backDecayCountPerHash = new HashMap<>();
         this.successorTracker = successorTracker;
         this.inputValueGenerator = inputValueGenerator;
+        this.navigationMap = navigationMap;
+        this.phaseController = phaseController;
     }
 
     /**
@@ -198,7 +235,7 @@ public class ActionSelector {
                 return selectPhase2(screen, structHash, contentGraph,
                         structuralGraph, navigationMap, uiCoverageTracker, staticMap);
             case PHASE_3:
-                return selectPhase3(screen, contentGraph, staticMap);
+                return selectPhase3(screen, structHash, contentGraph, staticMap);
             default:
                 return selectPhase1(screen, structHash, contentGraph,
                         structuralGraph, navigationMap, staticMap);
@@ -216,16 +253,21 @@ public class ActionSelector {
                                  StructuralGraph structuralGraph,
                                  NavigationMap navigationMap,
                                  StaticMap staticMap) {
+        // GAP-1: Skip Phase 1 for force-exhausted clusters
+        if (phaseController != null && phaseController.isClusterForced(structHash)) {
+            return selectPhase3(screen, structHash, contentGraph, staticMap);
+        }
+
         String hash = screen.getContentHash();
         ContentNode node = contentGraph.get(hash);
 
         List<Action> candidates = generateCandidateActions(screen);
 
-        // Filter out actions with 3+ failures (safety net: keep all if filter empties the list)
+        // GAP-3: Adaptive failure threshold (safety net: keep all if filter empties the list)
         if (node != null) {
             final ContentNode nodeRef = node;
             List<Action> filtered = candidates.stream()
-                    .filter(a -> getFailureCount(nodeRef, a.signature()) < 3)
+                    .filter(a -> getFailureCount(nodeRef, a.signature()) < getFailureThreshold(nodeRef, a.signature()))
                     .collect(Collectors.toList());
             if (!filtered.isEmpty()) {
                 candidates = filtered;
@@ -256,7 +298,7 @@ public class ActionSelector {
         }
 
         // No path to untested cluster — fall back to Phase 3
-        return selectPhase3(screen, contentGraph, staticMap);
+        return selectPhase3(screen, structHash, contentGraph, staticMap);
     }
 
     /**
@@ -294,16 +336,31 @@ public class ActionSelector {
      * Phase 3: Stochastic exploration with boosted randomness.
      * Uses the unified priority queue (all widgets + BACK + RESTART) with stochastic
      * probability boosted to 0.5, escaping local optima.
+     * GAP-2: With 10% probability, tries a random NavigationMap outgoing edge.
      */
-    private Action selectPhase3(ScreenState screen, ContentGraph contentGraph,
-                                 StaticMap staticMap) {
+    private Action selectPhase3(ScreenState screen, String structHash,
+                                 ContentGraph contentGraph, StaticMap staticMap) {
         lastSelectedPhase = Phase.PHASE_3;
         String hash = screen.getContentHash();
         ContentNode node = contentGraph.get(hash);
         double saturation = node != null ? node.getSaturationRate() : 0.0;
         RvTrack.strategy(0, 3, "p3_stochastic", 0, saturation);
+
+        // GAP-2: With 10% probability, try NavigationMap random edge
+        if (this.navigationMap != null && random.nextDouble() < 0.10) {
+            List<String> edges = this.navigationMap.getOutgoingActions(structHash);
+            if (edges != null && !edges.isEmpty()) {
+                String randomEdge = edges.get(random.nextInt(edges.size()));
+                Action navAction = actionFromSignature(randomEdge);
+                if (navAction.getType() != Action.Type.RESTART) {
+                    RvTrack.strategy(0, 3, "p3_nav_random", edges.size(), saturation);
+                    return navAction;
+                }
+            }
+        }
+
         return selectFromUnifiedQueue(
-                generateCandidateActions(screen), screen, contentGraph, staticMap, hash,
+                generateCandidateActions(screen), screen, contentGraph, staticMap, hash, structHash,
                 PHASE3_STOCHASTIC_PROBABILITY);
     }
 
@@ -317,13 +374,14 @@ public class ActionSelector {
     public Action selectNextBest(ScreenState screen, Set<String> excludeSignatures,
                                  ContentGraph graph, StaticMap staticMap) {
         String hash = screen.getContentHash();
+        String structHash = screen.getStructHash();
         ContentNode node = graph.get(hash);
 
         List<Action> candidates = generateCandidateActions(screen);
 
-        // Only add BACK when not on root screen (same check as unified queue)
+        // BUG-01: Use structHash for parent check (SuccessorTracker records at structural level)
         boolean isRootScreen = successorTracker == null
-                || successorTracker.getParents(hash).isEmpty();
+                || successorTracker.getParents(structHash).isEmpty();
         if (!isRootScreen) {
             candidates.add(Action.back(ALGORITHM_SOURCE));
         }
@@ -337,7 +395,7 @@ public class ActionSelector {
 
         if (candidates.isEmpty()) return null;
 
-        // Score and sort
+        // Score and sort (BACK decay uses contentHash for per-visit granularity)
         Map<Action, Integer> scores = new HashMap<>();
         for (Action action : candidates) {
             if (action.getType() == Action.Type.BACK) {
@@ -549,6 +607,33 @@ public class ActionSelector {
                 actions.add(new Action(Action.Type.SCROLL, centerX, centerY,
                         "right", ALGORITHM_SOURCE, widgetClass, pkg));
             }
+
+            // CAP-9/10/11: Generate actions for special non-clickable/non-scrollable widgets
+            if (!item.isClickable() && !item.isScrollable()) {
+                String simpleCls = simpleName(item.getClassName());
+                // CAP-9: SeekBar/RatingBar — generate CLICK at center
+                if ("SeekBar".equals(simpleCls) || "AppCompatSeekBar".equals(simpleCls)
+                        || "RatingBar".equals(simpleCls) || "AppCompatRatingBar".equals(simpleCls)) {
+                    actions.add(new Action(Action.Type.CLICK, centerX, centerY,
+                            null, ALGORITHM_SOURCE, widgetClass, pkg));
+                }
+                // CAP-10: SwipeRefreshLayout — generate swipe-down for pull-to-refresh
+                if ("SwipeRefreshLayout".equals(simpleCls)) {
+                    int topY = bounds.top + 10;
+                    actions.add(new Action(Action.Type.SCROLL, centerX, topY,
+                            "down", ALGORITHM_SOURCE, widgetClass, pkg));
+                }
+                // CAP-11: DrawerLayout — generate edge swipe from left
+                if ("DrawerLayout".equals(simpleCls)) {
+                    actions.add(new Action(Action.Type.SCROLL, 10, centerY,
+                            "right", ALGORITHM_SOURCE, widgetClass, pkg));
+                }
+                // CAP-12: Always-clickable widgets (Spinner, TabView, BottomNav, Chip, FAB)
+                if (ALWAYS_CLICKABLE_WIDGETS.contains(simpleCls)) {
+                    actions.add(new Action(Action.Type.CLICK, centerX, centerY,
+                            null, ALGORITHM_SOURCE, widgetClass, pkg));
+                }
+            }
         }
 
         return actions;
@@ -604,11 +689,13 @@ public class ActionSelector {
      * RESTART has a fixed low score, acting as the last resort.
      * Guarantees non-null return (INV-RSM-12).
      *
+     * @param hash       contentHash for BACK decay tracking (per-content-hash granularity)
+     * @param structHash structural hash for parent check (SuccessorTracker records at structural level)
      * @param effectiveStochasticProbability stochastic probability override (e.g., 0.5 for Phase 3)
      */
     private Action selectFromUnifiedQueue(List<Action> widgetActions, ScreenState screen,
                                           ContentGraph graph, StaticMap staticMap,
-                                          String hash,
+                                          String hash, String structHash,
                                           float effectiveStochasticProbability) {
         Map<Action, Integer> scores = new HashMap<>();
 
@@ -621,11 +708,10 @@ public class ActionSelector {
             scores.put(action, score);
         }
 
-        // Only add BACK when the current screen has known parents (i.e., the agent
-        // navigated here from another screen). On root screens (no parents recorded),
-        // BACK would exit the app entirely, so it is excluded.
+        // BUG-01: Use structHash for parent check (SuccessorTracker records at structural level).
+        // BACK is only added when the current structural cluster has known parents.
         boolean isRootScreen = successorTracker == null
-                || successorTracker.getParents(hash).isEmpty();
+                || successorTracker.getParents(structHash).isEmpty();
 
         List<Action> allActions = new ArrayList<>(widgetActions);
 
@@ -683,6 +769,17 @@ public class ActionSelector {
         if (executions == 0) return 0;
         int successes = Math.round(strength * executions);
         return executions - successes;
+    }
+
+    /**
+     * Adaptive failure threshold: actions with high failure counts should be
+     * filtered, but the threshold adapts based on execution count to avoid
+     * premature filtering. Minimum threshold is 3.
+     */
+    private int getFailureThreshold(ContentNode node, String signature) {
+        int executions = node.getExecutionCount(signature);
+        if (executions <= 3) return 3; // Never filter with fewer than 3 executions
+        return Math.max(3, executions / 2); // Allow up to half-failure rate
     }
 
     /**

@@ -89,6 +89,16 @@ public class NavigationMap {
     }
 
     /**
+     * Returns the list of action signatures for all outgoing edges from a structural hash.
+     * Returns null if no edges exist for the given hash.
+     */
+    public List<String> getOutgoingActions(String structHash) {
+        Map<String, String> outgoing = transitions.get(structHash);
+        if (outgoing == null || outgoing.isEmpty()) return null;
+        return new ArrayList<>(outgoing.keySet());
+    }
+
+    /**
      * Total number of recorded transitions (edges in the structural graph).
      */
     public int size() {

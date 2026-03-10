@@ -50,6 +50,14 @@ public class StaticMap {
     private Map<String, List<String>> activityTransitions;
     // Window ID -> simple class name (for transition cross-reference)
     private Map<Integer, String> windowIdToActivity;
+    // Activity -> resourceId -> WidgetStaticData
+    private Map<String, Map<String, WidgetStaticData>> activityWidgets;
+    // Activity -> widgetResourceId -> target activity (from WTG transitions)
+    private Map<String, Map<String, String>> widgetTransitions;
+    // Method signature -> directlyReachesMop
+    private Map<String, Boolean> methodDirectMop;
+    // Method signature -> reachesMop
+    private Map<String, Boolean> methodTransitiveMop;
 
     private String codePackage;
 
@@ -64,9 +72,15 @@ public class StaticMap {
             activityTransitiveMop = new HashMap<>();
             activityTransitions = new HashMap<>();
             windowIdToActivity = new HashMap<>();
+            activityWidgets = new HashMap<>();
+            widgetTransitions = new HashMap<>();
+            methodDirectMop = new HashMap<>();
+            methodTransitiveMop = new HashMap<>();
             parseReachability(json);
             parseWindows(json);
             parseTransitions(json);
+            parseWidgets(json);
+            parseWidgetTransitions(json);
             this.isLoaded = true;
         } catch (Exception e) {
             this.isLoaded = false;
@@ -99,6 +113,19 @@ public class StaticMap {
                 if (method.has("reachesMop")
                         && method.get("reachesMop").getAsBoolean()) {
                     activityTransitiveMop.put(simpleName, true);
+                }
+                // Store per-method MOP data for widget-level cross-referencing
+                String methodSig = method.has("signature")
+                        ? method.get("signature").getAsString() : "";
+                if (!methodSig.isEmpty()) {
+                    if (method.has("directlyReachesMop")
+                            && method.get("directlyReachesMop").getAsBoolean()) {
+                        methodDirectMop.put(methodSig, true);
+                    }
+                    if (method.has("reachesMop")
+                            && method.get("reachesMop").getAsBoolean()) {
+                        methodTransitiveMop.put(methodSig, true);
+                    }
                 }
             }
         }
@@ -213,5 +240,172 @@ public class StaticMap {
         }
 
         return name;
+    }
+
+    // -------------------------------------------------------------------------
+    // Widget-level static analysis parsing and queries
+    // -------------------------------------------------------------------------
+
+    /**
+     * Per-widget static analysis data extracted from the JSON.
+     */
+    public static class WidgetStaticData {
+        public final String resourceId;
+        public final String type;
+        public final boolean directMop;
+        public final boolean transitiveMop;
+        public final int inputType;
+        public final String hint;
+        public final String targetActivity;  // from transitions
+
+        public WidgetStaticData(String resourceId, String type, boolean directMop,
+                                boolean transitiveMop, int inputType, String hint,
+                                String targetActivity) {
+            this.resourceId = resourceId;
+            this.type = type;
+            this.directMop = directMop;
+            this.transitiveMop = transitiveMop;
+            this.inputType = inputType;
+            this.hint = hint;
+            this.targetActivity = targetActivity;
+        }
+    }
+
+    /**
+     * Parse widget-level data from windows[].widgets[].
+     * Cross-references widget listeners with reachability data to determine per-widget MOP flags.
+     */
+    private void parseWidgets(JsonObject json) {
+        JsonArray windows = json.getAsJsonArray("windows");
+        if (windows == null) return;
+
+        for (JsonElement winElem : windows) {
+            JsonObject window = winElem.getAsJsonObject();
+            String windowName = window.has("name") ? window.get("name").getAsString() : "";
+            String activityName = extractSimpleClassName(windowName);
+
+            JsonArray widgets = window.getAsJsonArray("widgets");
+            if (widgets == null) continue;
+
+            Map<String, WidgetStaticData> widgetMap = activityWidgets
+                    .computeIfAbsent(activityName, k -> new HashMap<>());
+
+            for (JsonElement wElem : widgets) {
+                JsonObject widget = wElem.getAsJsonObject();
+                String idName = widget.has("idName") ? widget.get("idName").getAsString() : null;
+                if (idName == null || idName.isEmpty()) continue;
+
+                String type = widget.has("type") ? widget.get("type").getAsString() : "";
+                int inputType = widget.has("inputType") ? widget.get("inputType").getAsInt() : 0;
+                String hint = widget.has("hint") ? widget.get("hint").getAsString() : null;
+
+                boolean directMop = false;
+                boolean transitiveMop = false;
+
+                JsonArray listeners = widget.getAsJsonArray("listeners");
+                if (listeners != null) {
+                    for (JsonElement lElem : listeners) {
+                        JsonObject listener = lElem.getAsJsonObject();
+                        String handler = listener.has("handler")
+                                ? listener.get("handler").getAsString() : "";
+                        if (!handler.isEmpty()) {
+                            if (isMethodDirectMop(handler)) directMop = true;
+                            if (isMethodTransitiveMop(handler)) transitiveMop = true;
+                        }
+                    }
+                }
+
+                widgetMap.put(idName, new WidgetStaticData(
+                        idName, type, directMop, transitiveMop, inputType, hint, null));
+            }
+        }
+    }
+
+    /**
+     * Parse widget-level transition data from transitions[].events[].
+     * Maps widgetId to target activity for widget-specific WTG targeting.
+     */
+    private void parseWidgetTransitions(JsonObject json) {
+        JsonArray trans = json.getAsJsonArray("transitions");
+        if (trans == null) return;
+
+        for (JsonElement elem : trans) {
+            JsonObject transition = elem.getAsJsonObject();
+            int sourceId = transition.get("sourceId").getAsInt();
+            int targetId = transition.get("targetId").getAsInt();
+            if (sourceId == targetId) continue;
+
+            String sourceActivity = windowIdToActivity.get(sourceId);
+            String targetActivity = windowIdToActivity.get(targetId);
+            if (sourceActivity == null || targetActivity == null) continue;
+
+            JsonArray events = transition.getAsJsonArray("events");
+            if (events == null) continue;
+
+            Map<String, String> transMap = widgetTransitions
+                    .computeIfAbsent(sourceActivity, k -> new HashMap<>());
+
+            for (JsonElement evElem : events) {
+                JsonObject event = evElem.getAsJsonObject();
+                String widgetId = event.has("widgetId")
+                        ? event.get("widgetId").getAsString() : null;
+                if (widgetId != null && !widgetId.isEmpty()) {
+                    transMap.put(widgetId, targetActivity);
+                }
+            }
+        }
+    }
+
+    private boolean isMethodDirectMop(String handler) {
+        if (methodDirectMop == null) return false;
+        for (Map.Entry<String, Boolean> entry : methodDirectMop.entrySet()) {
+            if (entry.getKey().contains(handler) && entry.getValue()) return true;
+        }
+        return false;
+    }
+
+    private boolean isMethodTransitiveMop(String handler) {
+        if (methodTransitiveMop == null) return false;
+        for (Map.Entry<String, Boolean> entry : methodTransitiveMop.entrySet()) {
+            if (entry.getKey().contains(handler) && entry.getValue()) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get widget-level static data for a specific widget on a given activity.
+     * Returns null if no data available.
+     */
+    public WidgetStaticData getWidgetData(String activityName, String resourceId) {
+        if (!isLoaded || activityWidgets == null) return null;
+        Map<String, WidgetStaticData> widgets = activityWidgets.get(
+                extractSimpleClassName(activityName));
+        if (widgets == null) return null;
+        return widgets.get(resourceId);
+    }
+
+    /**
+     * Get the target activity for a widget-level WTG transition.
+     * Returns null if no transition data available.
+     */
+    public String getWidgetTransitionTarget(String activityName, String widgetResourceId) {
+        if (!isLoaded || widgetTransitions == null) return null;
+        Map<String, String> transMap = widgetTransitions.get(
+                extractSimpleClassName(activityName));
+        if (transMap == null) return null;
+        return transMap.get(widgetResourceId);
+    }
+
+    /**
+     * Look up static inputType for a widget by resourceId across all activities.
+     * Returns 0 if not found.
+     */
+    public int getWidgetInputType(String resourceId) {
+        if (!isLoaded || activityWidgets == null || resourceId == null) return 0;
+        for (Map<String, WidgetStaticData> widgets : activityWidgets.values()) {
+            WidgetStaticData data = widgets.get(resourceId);
+            if (data != null && data.inputType != 0) return data.inputType;
+        }
+        return 0;
     }
 }

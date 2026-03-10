@@ -1,6 +1,7 @@
 package br.unb.cic.rvsmart.strategy;
 
 import br.unb.cic.rvsmart.core.ScreenItem;
+import br.unb.cic.rvsmart.staticdata.StaticMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +32,12 @@ public class InputValueGenerator {
     // Tracks rotation index per element ID
     private final Map<String, Integer> rotationIndex = new HashMap<>();
 
+    private StaticMap staticMap;
+
+    public void setStaticMap(StaticMap staticMap) {
+        this.staticMap = staticMap;
+    }
+
     /**
      * Generate a context-appropriate input value for the given screen item.
      * Rotates through values on repeated calls for the same element.
@@ -57,6 +64,14 @@ public class InputValueGenerator {
         String hint = item.getHint() != null ? item.getHint().toLowerCase() : "";
         String resourceId = item.getResourceId() != null ? item.getResourceId().toLowerCase() : "";
         int inputType = item.getInputType();
+
+        // Fallback to static inputType when runtime value is unset
+        if (inputType == 0 && staticMap != null && staticMap.isLoaded() && item.getResourceId() != null) {
+            int staticInputType = staticMap.getWidgetInputType(item.getResourceId());
+            if (staticInputType != 0) {
+                inputType = staticInputType;
+            }
+        }
 
         // Check inputType-based categories first (most reliable signal)
         if (inputType == TYPE_CLASS_NUMBER) return "number";

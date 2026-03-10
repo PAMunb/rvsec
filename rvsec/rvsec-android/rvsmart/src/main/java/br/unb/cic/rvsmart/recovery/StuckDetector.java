@@ -2,6 +2,7 @@ package br.unb.cic.rvsmart.recovery;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.NavigationMap;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
 import java.util.List;
@@ -34,13 +35,24 @@ public class StuckDetector {
     // Level 2 dependencies (optional — null means Level 2 is disabled)
     private final BacktrackBfs backtrackBfs;
 
+    // BUG-04: NavigationMap for replay-based recovery and RESTART landing tracking
+    private final NavigationMap navigationMap;
+    private String lastRestartLandingHash;
+    private int consecutiveRestartsSameScreen;
+    private static final int MAX_RESTARTS_SAME_SCREEN = 3;
+
     public StuckDetector(int stuckMaxBlocks) {
-        this(stuckMaxBlocks, null);
+        this(stuckMaxBlocks, null, null);
     }
 
     public StuckDetector(int stuckMaxBlocks, BacktrackBfs backtrackBfs) {
+        this(stuckMaxBlocks, backtrackBfs, null);
+    }
+
+    public StuckDetector(int stuckMaxBlocks, BacktrackBfs backtrackBfs, NavigationMap navigationMap) {
         this.stuckMaxBlocks = stuckMaxBlocks;
         this.backtrackBfs = backtrackBfs;
+        this.navigationMap = navigationMap;
     }
 
     /**
@@ -78,7 +90,7 @@ public class StuckDetector {
      */
     public Action recover(String currentHash, SuccessorTracker tracker, ContentGraph graph) {
         if (backtrackBfs == null) {
-            return Action.restart("algorithm");
+            return handleNoBacktrackPath(currentHash);
         }
 
         List<String> path = backtrackBfs.findPathToUnsaturated(
@@ -88,7 +100,37 @@ public class StuckDetector {
             return Action.back("algorithm");
         }
 
+        // BUG-04: Try NavigationMap replay before RESTART
+        if (navigationMap != null) {
+            List<String> outgoing = navigationMap.getOutgoingActions(currentHash);
+            if (outgoing != null && !outgoing.isEmpty()) {
+                return Action.back("algorithm");
+            }
+        }
+
+        return handleNoBacktrackPath(currentHash);
+    }
+
+    /**
+     * Track RESTART landings. After 3 consecutive RESTARTs to the same screen,
+     * signal exhaustive mode.
+     */
+    private Action handleNoBacktrackPath(String currentHash) {
+        if (currentHash != null && currentHash.equals(lastRestartLandingHash)) {
+            consecutiveRestartsSameScreen++;
+        } else {
+            lastRestartLandingHash = currentHash;
+            consecutiveRestartsSameScreen = 1;
+        }
         return Action.restart("algorithm");
+    }
+
+    /**
+     * Returns true when the agent has restarted to the same screen 3+ times.
+     * AgentLoop should switch to exhaustive interaction mode.
+     */
+    public boolean isExhaustiveMode() {
+        return consecutiveRestartsSameScreen >= MAX_RESTARTS_SAME_SCREEN;
     }
 
     /**

@@ -114,7 +114,94 @@ class MopScorerTest {
         }
     }
 
+    // --- Widget-level scoring tests ---
+    // Note: full widget-level scoring (findResourceIdForAction matching) requires
+    // android.graphics.Rect which is a stub in unit tests. These tests verify the
+    // fallback to activity-level scoring when widget data cannot be matched.
+
+    @Test
+    void testFallsBackToActivityLevelWhenNoWidgetMatch() throws Exception {
+        // Action with widgetClass but no bounds match -> falls back to activity-level
+        File tempFile = createWidgetJson("com.example.TestActivity", true, false);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+
+            // Action has widgetClass but bounds can't be matched (null bounds in test)
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+            assertEquals(500, scorer.score(action, screen, graph, staticMap),
+                    "Should fallback to activity directMop score");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWidgetOnNonMopActivityGetsZero() throws Exception {
+        // Activity not in reachability -> 0 for both widget and activity level
+        File tempFile = createWidgetJson("com.example.OtherActivity", true, false);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+            assertEquals(0, scorer.score(action, screen, graph, staticMap),
+                    "Action on non-MOP activity should get 0");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWidgetWithNullWidgetClassFallsBackToActivity() throws Exception {
+        // Action without widgetClass -> goes straight to activity-level
+        File tempFile = createReachabilityJson("com.example.TestActivity", true, false);
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+
+            // widgetClass is null -> skip widget-level, use activity-level
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", null);
+            assertEquals(500, scorer.score(action, screen, graph, staticMap));
+        } finally {
+            tempFile.delete();
+        }
+    }
+
     // --- Helper ---
+
+    private File createWidgetJson(String className, boolean directMop, boolean transitiveMop)
+            throws Exception {
+        File tempFile = Files.createTempFile("mop_scorer_test", ".json").toFile();
+        String simpleName = className.substring(className.lastIndexOf('.') + 1);
+        String json = "{"
+                + "\"reachability\":[{"
+                + "\"className\":\"" + className + "\","
+                + "\"isActivity\":true,"
+                + "\"methods\":[{"
+                + "\"name\":\"onClick\","
+                + "\"signature\":\"<" + className + ": void onClick()>\","
+                + "\"reachable\":true,"
+                + "\"reachesMop\":" + transitiveMop + ","
+                + "\"directlyReachesMop\":" + directMop
+                + "}]"
+                + "}],"
+                + "\"windows\":[{"
+                + "\"id\":1,\"name\":\"" + className + "\","
+                + "\"widgets\":[{"
+                + "\"idName\":\"btn_encrypt\","
+                + "\"type\":\"Button\","
+                + "\"inputType\":0,"
+                + "\"listeners\":[{\"eventType\":\"click\",\"handler\":\"onClick\"}]"
+                + "}]"
+                + "}],"
+                + "\"transitions\":[]"
+                + "}";
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
+    }
 
     private File createReachabilityJson(String className, boolean directMop, boolean transitiveMop)
             throws Exception {

@@ -2,6 +2,7 @@ package br.unb.cic.rvsmart.recovery;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.NavigationMap;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
@@ -226,5 +227,89 @@ class StuckDetectorTest {
         Action action = detector.recover("hash_A", tracker, graph);
         assertNotNull(action);
         assertEquals(Action.Type.RESTART, action.getType());
+    }
+
+    // --- BUG-04: NavigationMap recovery and exhaustive mode ---
+
+    @Test
+    void testRecoverTriesNavigationMapBeforeRestart() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        NavigationMap navMap = new NavigationMap();
+        StuckDetector detector = new StuckDetector(3, bfs, navMap);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // No BFS path, but NavigationMap has an outgoing edge from hash_A
+        navMap.record("hash_A", "click_button", "hash_B");
+
+        Action action = detector.recover("hash_A", tracker, graph);
+        assertNotNull(action);
+        // NavigationMap has an outgoing edge, so should return BACK instead of RESTART
+        assertEquals(Action.Type.BACK, action.getType());
+    }
+
+    @Test
+    void testRecoverReturnsRestartWhenNavigationMapEmpty() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        NavigationMap navMap = new NavigationMap();
+        StuckDetector detector = new StuckDetector(3, bfs, navMap);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // No BFS path, no NavigationMap edges
+        Action action = detector.recover("hash_A", tracker, graph);
+        assertNotNull(action);
+        assertEquals(Action.Type.RESTART, action.getType());
+    }
+
+    @Test
+    void testExhaustiveModeAfterConsecutiveRestartsToSameScreen() {
+        StuckDetector detector = new StuckDetector(3);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // Simulate 3 consecutive RESTARTs landing on the same screen (hash_A)
+        assertFalse(detector.isExhaustiveMode());
+
+        detector.recover("hash_A", tracker, graph); // first RESTART to hash_A
+        assertFalse(detector.isExhaustiveMode());
+
+        detector.recover("hash_A", tracker, graph); // second RESTART to hash_A
+        assertFalse(detector.isExhaustiveMode());
+
+        detector.recover("hash_A", tracker, graph); // third RESTART to hash_A
+        assertTrue(detector.isExhaustiveMode(),
+                "Should enter exhaustive mode after 3 RESTARTs to same screen");
+    }
+
+    @Test
+    void testExhaustiveModeResetsOnDifferentScreen() {
+        StuckDetector detector = new StuckDetector(3);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        detector.recover("hash_A", tracker, graph); // first
+        detector.recover("hash_A", tracker, graph); // second
+
+        // Land on different screen — resets counter
+        detector.recover("hash_B", tracker, graph);
+        assertFalse(detector.isExhaustiveMode(),
+                "Landing on a different screen should reset exhaustive counter");
+    }
+
+    @Test
+    void test3ParamConstructorChainsThroughCorrectly() {
+        NavigationMap navMap = new NavigationMap();
+        BacktrackBfs bfs = new BacktrackBfs();
+        StuckDetector detector = new StuckDetector(5, bfs, navMap);
+
+        // Basic stuck detection should still work
+        detector.update("hash_A");
+        assertFalse(detector.update("hash_A")); // consecutive=1
+        assertEquals(1, detector.getConsecutiveUnchanged());
     }
 }

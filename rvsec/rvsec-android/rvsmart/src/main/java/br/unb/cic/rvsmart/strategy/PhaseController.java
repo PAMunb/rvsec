@@ -40,6 +40,9 @@ public class PhaseController {
     /** Threshold for forcing a structural cluster to be treated as Phase 2. */
     static final int CLUSTER_FORCE_THRESHOLD = 20;
 
+    /** Threshold for preference activities (lower than normal cluster forcing). */
+    static final int PREFERENCE_FORCE_THRESHOLD = 5;
+
     private Phase currentPhase = Phase.PHASE_1;
 
     private final ContentGraph contentGraph;
@@ -75,13 +78,36 @@ public class PhaseController {
 
     /**
      * Call when a content state is first discovered (i.e. a genuinely new
-     * contentHash appears). Resets to PHASE_1 from any phase.
+     * contentHash appears). Resets to PHASE_1 from any phase, unless:
+     * - BUG-02: cycle detected on same cluster (skip reset to avoid looping)
+     * - BUG-05: preference/settings activity has exceeded re-entry threshold
      *
-     * @param contentHash the newly discovered content hash (unused internally
-     *                    but kept as an explicit parameter for future tracing)
+     * @param contentHash    the newly discovered content hash
+     * @param activityName   current activity name (for preference detection)
+     * @param structHash     structural hash of the current cluster
+     * @param isCycleDetected true if the transition is a cycle back to a known state
+     */
+    public void onNewContentState(String contentHash, String activityName,
+                                   String structHash, boolean isCycleDetected) {
+        // BUG-02: Don't reset to Phase 1 if cycle detected on same cluster
+        if (isCycleDetected) {
+            return;
+        }
+        // BUG-05: Detect preference/settings activities and limit re-entries
+        if (isPreferenceActivity(activityName)) {
+            int reentries = phase1ReentriesByCluster.getOrDefault(structHash, 0);
+            if (reentries >= PREFERENCE_FORCE_THRESHOLD) {
+                return;
+            }
+        }
+        currentPhase = Phase.PHASE_1;
+    }
+
+    /**
+     * Backward-compatible overload for callers that don't have activity/cycle context.
      */
     public void onNewContentState(String contentHash) {
-        currentPhase = Phase.PHASE_1;
+        onNewContentState(contentHash, null, null, false);
     }
 
     /**
@@ -167,5 +193,16 @@ public class PhaseController {
      */
     public boolean isClusterForced(String structHash) {
         return phase1ReentriesByCluster.getOrDefault(structHash, 0) >= CLUSTER_FORCE_THRESHOLD;
+    }
+
+    /**
+     * Detects preference/settings activities by activity name heuristic.
+     * These activities tend to trap the agent in deep configuration trees.
+     */
+    private boolean isPreferenceActivity(String activityName) {
+        if (activityName == null) return false;
+        String lower = activityName.toLowerCase();
+        return lower.contains("preference") || lower.contains("setting")
+                || lower.contains("config") || lower.contains("about");
     }
 }

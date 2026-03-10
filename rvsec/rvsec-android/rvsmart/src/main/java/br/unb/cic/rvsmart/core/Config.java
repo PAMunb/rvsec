@@ -60,6 +60,17 @@ public class Config {
     private static final float DEFAULT_RESTART_BASE_SCORE = -500.0f;
     private static final float DEFAULT_BACK_DECAY_PER_REPEAT = 100.0f;
 
+    // --- Menu fuzz (1) ---
+    private static final float DEFAULT_MENU_FUZZ_RATE = 0.02f;
+
+    // --- Periodic restart (1) ---
+    private static final int DEFAULT_PERIODIC_RESTART_THRESHOLD = 200;
+
+    // --- State refresh (1) ---
+    private static final int DEFAULT_CAPTURE_RETRY_MIN_ELEMENTS = 3;
+    private static final int DEFAULT_CAPTURE_RETRY_MAX = 3;
+    private static final long DEFAULT_CAPTURE_RETRY_DELAY_MS = 1000;
+
     // --- Stochastic selection (1) ---
     private static final float DEFAULT_STOCHASTIC_PROBABILITY = 0.15f;
 
@@ -223,6 +234,17 @@ public class Config {
     // --- Logcat ---
     public int getLogcatBufferSize() { return getInt("logcat_buffer_size", DEFAULT_LOGCAT_BUFFER_SIZE); }
 
+    // --- Menu fuzz ---
+    public float getMenuFuzzRate() { return getFloat("menu_fuzz_rate", DEFAULT_MENU_FUZZ_RATE); }
+
+    // --- Periodic restart ---
+    public int getPeriodicRestartThreshold() { return getInt("periodic_restart_threshold", DEFAULT_PERIODIC_RESTART_THRESHOLD); }
+
+    // --- State refresh ---
+    public int getCaptureRetryMinElements() { return getInt("capture_retry_min_elements", DEFAULT_CAPTURE_RETRY_MIN_ELEMENTS); }
+    public int getCaptureRetryMax() { return getInt("capture_retry_max", DEFAULT_CAPTURE_RETRY_MAX); }
+    public long getCaptureRetryDelayMs() { return getLong("capture_retry_delay_ms", DEFAULT_CAPTURE_RETRY_DELAY_MS); }
+
     // --- Typed property accessors ---
 
     private int getInt(String key, int defaultValue) {
@@ -233,6 +255,11 @@ public class Config {
     private float getFloat(String key, float defaultValue) {
         String val = props.getProperty(key);
         return val != null ? Float.parseFloat(val.trim()) : defaultValue;
+    }
+
+    private long getLong(String key, long defaultValue) {
+        String val = props.getProperty(key);
+        return val != null ? Long.parseLong(val.trim()) : defaultValue;
     }
 
     private String getString(String key, String defaultValue) {

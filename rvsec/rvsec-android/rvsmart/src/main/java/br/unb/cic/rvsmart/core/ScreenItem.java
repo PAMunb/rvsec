@@ -78,9 +78,9 @@ public class ScreenItem {
 
     /**
      * Whether this item represents an interactive widget.
-     * Interactive = clickable OR scrollable OR checkable OR editable.
+     * Interactive = clickable OR scrollable OR checkable OR editable OR longClickable.
      */
     public boolean isInteractive() {
-        return clickable || scrollable || checkable || editable;
+        return clickable || scrollable || checkable || editable || longClickable;
     }
 }

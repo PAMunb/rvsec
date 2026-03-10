@@ -19,7 +19,13 @@ class SystemDialogDetectorTest {
             "android",
             "com.android.packageinstaller",
             "com.google.android.packageinstaller",
-            "com.android.settings"
+            "com.android.settings",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.android.systemui",
+            "com.samsung.android.packageinstaller",
+            "com.android.providers.downloads.ui",
+            "com.google.android.gms"
     ));
 
     @Test
@@ -38,9 +44,25 @@ class SystemDialogDetectorTest {
     }
 
     @Test
-    void testSystemUiNotDetected() {
-        // com.android.systemui is NOT a system dialog — it's status/nav bar
-        assertFalse(SYSTEM_PACKAGES.contains("com.android.systemui"));
+    void testSystemUiDetectedAsDialog() {
+        // com.android.systemui is now detected — for dialog-type overlays
+        assertTrue(SYSTEM_PACKAGES.contains("com.android.systemui"));
+    }
+
+    @Test
+    void testNewSystemPackagesDetected() {
+        assertTrue(SYSTEM_PACKAGES.contains("com.android.permissioncontroller"),
+                "Permission controller must be detected");
+        assertTrue(SYSTEM_PACKAGES.contains("com.google.android.permissioncontroller"),
+                "Google permission controller must be detected");
+        assertTrue(SYSTEM_PACKAGES.contains("com.android.systemui"),
+                "SystemUI dialogs must be detected");
+        assertTrue(SYSTEM_PACKAGES.contains("com.samsung.android.packageinstaller"),
+                "Samsung package installer must be detected");
+        assertTrue(SYSTEM_PACKAGES.contains("com.android.providers.downloads.ui"),
+                "Downloads UI must be detected");
+        assertTrue(SYSTEM_PACKAGES.contains("com.google.android.gms"),
+                "Google Play Services dialogs must be detected");
     }
 
     @Test

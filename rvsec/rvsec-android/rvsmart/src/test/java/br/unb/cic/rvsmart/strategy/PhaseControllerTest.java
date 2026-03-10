@@ -177,4 +177,84 @@ class PhaseControllerTest {
         assertTrue(controller.isClusterForced(clusterA));
         assertFalse(controller.isClusterForced(clusterB));
     }
+
+    // -------------------------------------------------------------------------
+    // BUG-05 — Preference activity detection and re-entry limit
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testPreferenceActivityDetected() {
+        // BUG-05: Activities with "Preference", "Setting", "Config", or "About"
+        // in the name are detected as preference activities. When re-entries
+        // exceed PREFERENCE_FORCE_THRESHOLD, onNewContentState skips Phase 1 reset.
+
+        // Advance to Phase 2 to test reset behavior.
+        controller.onIteration(0);
+        assertEquals(Phase.PHASE_2, controller.currentPhase());
+
+        // Simulate PREFERENCE_FORCE_THRESHOLD re-entries for a preference cluster.
+        String structHash = "pref_cluster";
+        for (int i = 0; i < PhaseController.PREFERENCE_FORCE_THRESHOLD; i++) {
+            controller.onPhase1Entry(structHash);
+        }
+
+        // Now onNewContentState with a preference activity should NOT reset to Phase 1.
+        controller.onNewContentState("new_content_hash", "PreferenceActivity", structHash, false);
+        assertEquals(Phase.PHASE_2, controller.currentPhase(),
+                "Phase should not reset to PHASE_1 for preference activity exceeding threshold");
+    }
+
+    @Test
+    void testPreferenceActivityReentryLimitIs5() {
+        // BUG-05: Threshold for preference activities is 5 (PREFERENCE_FORCE_THRESHOLD).
+        assertEquals(5, PhaseController.PREFERENCE_FORCE_THRESHOLD,
+                "Preference force threshold should be 5");
+
+        // Advance to Phase 2.
+        controller.onIteration(0);
+        assertEquals(Phase.PHASE_2, controller.currentPhase());
+
+        // With only 4 re-entries (below threshold), reset still happens.
+        String structHash = "pref_cluster_2";
+        for (int i = 0; i < PhaseController.PREFERENCE_FORCE_THRESHOLD - 1; i++) {
+            controller.onPhase1Entry(structHash);
+        }
+
+        controller.onNewContentState("hash_a", "SettingsActivity", structHash, false);
+        assertEquals(Phase.PHASE_1, controller.currentPhase(),
+                "Phase should reset to PHASE_1 when below preference threshold");
+    }
+
+    // -------------------------------------------------------------------------
+    // BUG-02 — Cycle detection skips Phase 1 reset
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testCycleDetectionSkipsPhase1Reset() {
+        // BUG-02: When isCycleDetected=true, onNewContentState must NOT reset
+        // to Phase 1 — the agent would just re-enter the same loop.
+
+        // Advance to Phase 2.
+        controller.onIteration(0);
+        assertEquals(Phase.PHASE_2, controller.currentPhase());
+
+        // Cycle detected: should NOT reset to Phase 1.
+        controller.onNewContentState("cycle_hash", "MainActivity", "cluster_x", true);
+        assertEquals(Phase.PHASE_2, controller.currentPhase(),
+                "Cycle detection should prevent Phase 1 reset");
+    }
+
+    @Test
+    void testNormalPhase1ResetWhenNoCycleAndNoPreference() {
+        // When there is no cycle and no preference activity, normal Phase 1 reset occurs.
+
+        // Advance to Phase 2.
+        controller.onIteration(0);
+        assertEquals(Phase.PHASE_2, controller.currentPhase());
+
+        // Normal new content state: should reset to Phase 1.
+        controller.onNewContentState("new_hash", "MainActivity", "normal_cluster", false);
+        assertEquals(Phase.PHASE_1, controller.currentPhase(),
+                "Normal new content state should reset to Phase 1");
+    }
 }

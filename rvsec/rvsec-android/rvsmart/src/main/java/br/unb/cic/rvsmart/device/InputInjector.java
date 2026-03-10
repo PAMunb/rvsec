@@ -33,7 +33,7 @@ public class InputInjector {
     private static final int INJECT_INPUT_EVENT_MODE_ASYNC = 0;
     private static final long LONG_CLICK_DURATION_MS = 1000;
     private static final int SWIPE_STEPS = 10;
-    private static final long SWIPE_STEP_DELAY_MS = 5;
+    private static final long SWIPE_STEP_DELAY_MS = 20;
 
     private final InputManager inputManager;
     private final Method injectMethod;

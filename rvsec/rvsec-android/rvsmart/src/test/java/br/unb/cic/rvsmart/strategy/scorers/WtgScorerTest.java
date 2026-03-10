@@ -150,7 +150,72 @@ class WtgScorerTest {
         }
     }
 
-    // --- Helper ---
+    // --- Widget-level targeting tests ---
+    // Note: full widget-level targeting (findResourceIdForAction matching) requires
+    // android.graphics.Rect which is a stub in unit tests. These tests verify fallback
+    // to activity-level BFS when widget data cannot be matched.
+
+    @Test
+    void testFallsBackToBfsWhenNoWidgetMatch() throws Exception {
+        // Action with no bounds match -> falls back to activity-level BFS
+        File tempFile = createWidgetTransitionsJson();
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+
+            ScreenState mainScreen = new ScreenState(
+                    Collections.<ScreenItem>emptyList(), "MainActivity");
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+            int score = scorer.score(action, mainScreen, graph, staticMap);
+            // No bounds match -> fallback to BFS. BFS finds SettingsActivity (unvisited, 1-hop) -> 200
+            assertEquals(200, score, "Should fallback to activity-level BFS boost");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    @Test
+    void testWidgetWithoutTransitionGetsReducedScore() throws Exception {
+        // When findResourceIdForAction returns null (no bounds), falls to BFS
+        // This test verifies the behavior of the BFS fallback path
+        File tempFile = createTransitionsJson();
+        try {
+            StaticMap staticMap = new StaticMap(tempFile.getAbsolutePath());
+            assertTrue(staticMap.isLoaded());
+
+            // Mark target as visited -> BFS gives 0
+            graph.getOrCreate("hash1", "SettingsActivity");
+            graph.recordVisit("hash1", "SettingsActivity");
+
+            ScreenState mainScreen = new ScreenState(
+                    Collections.<ScreenItem>emptyList(), "MainActivity");
+            Action action = new Action(Action.Type.CLICK, 100, 200, "algorithm", "Button");
+            int score = scorer.score(action, mainScreen, graph, staticMap);
+            assertEquals(0, score, "BFS fallback with all visited targets should give 0");
+        } finally {
+            tempFile.delete();
+        }
+    }
+
+    // --- Helpers ---
+
+    private File createWidgetTransitionsJson() throws Exception {
+        File tempFile = Files.createTempFile("wtg_scorer_test", ".json").toFile();
+        String json = "{"
+                + "\"reachability\":[],"
+                + "\"windows\":["
+                + "{\"id\":1,\"name\":\"com.example.app.MainActivity\",\"type\":\"ACTIVITY\",\"isMain\":true},"
+                + "{\"id\":2,\"name\":\"com.example.app.SettingsActivity\",\"type\":\"ACTIVITY\",\"isMain\":false}"
+                + "],"
+                + "\"transitions\":["
+                + "{\"sourceId\":1,\"targetId\":2,\"events\":[{\"widgetId\":\"btn_settings\",\"widgetClass\":\"Button\"}]}"
+                + "]"
+                + "}";
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(json);
+        }
+        return tempFile;
+    }
 
     private File createTransitionsJson() throws Exception {
         File tempFile = Files.createTempFile("wtg_scorer_test", ".json").toFile();
