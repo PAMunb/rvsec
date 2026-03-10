@@ -545,6 +545,11 @@ public class AgentLoop {
                 "(" + action.getX() + "," + action.getY() + ")",
                 action.getSource(), injectMs);
 
+        // BUG-01c: Track BACK executions in metrics for trace analysis
+        if (action.getType() == Action.Type.BACK) {
+            metricsCollector.recordForcedBack();
+        }
+
         // 9a. Add to recent-actions ring buffer for V17 prompt context (last 5 actions)
         recentActionsBuffer.add(0, action);
         if (recentActionsBuffer.size() > 5) {
@@ -661,6 +666,9 @@ public class AgentLoop {
                 executeAction(action);
             } finally {
                 graph.recordAction(hash, action.signature(), action.getWidgetClass());
+            }
+            if (action.getType() == Action.Type.BACK) {
+                metricsCollector.recordForcedBack();
             }
             sleep(config.getThrottleMs());
 

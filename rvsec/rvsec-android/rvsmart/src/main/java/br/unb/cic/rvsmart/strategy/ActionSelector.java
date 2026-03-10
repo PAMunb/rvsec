@@ -264,10 +264,14 @@ public class ActionSelector {
         List<Action> candidates = generateCandidateActions(screen);
 
         // GAP-3: Adaptive failure threshold (safety net: keep all if filter empties the list)
+        // BUG-01b: BACK and RESTART are exempt — system actions must always remain available.
+        // BACK over-use is already controlled by score decay (backDecayCountPerHash).
         if (node != null) {
             final ContentNode nodeRef = node;
             List<Action> filtered = candidates.stream()
-                    .filter(a -> getFailureCount(nodeRef, a.signature()) < getFailureThreshold(nodeRef, a.signature()))
+                    .filter(a -> a.getType() == Action.Type.BACK
+                            || a.getType() == Action.Type.RESTART
+                            || getFailureCount(nodeRef, a.signature()) < getFailureThreshold(nodeRef, a.signature()))
                     .collect(Collectors.toList());
             if (!filtered.isEmpty()) {
                 candidates = filtered;
@@ -387,10 +391,14 @@ public class ActionSelector {
         }
         candidates.add(Action.restart(ALGORITHM_SOURCE));
 
-        // Filter out excluded signatures and actions with >= 3 consecutive failures
+        // Filter out excluded signatures and actions with high failure counts.
+        // BUG-01b: BACK and RESTART are exempt — system actions must always remain available.
         candidates = candidates.stream()
                 .filter(a -> !excludeSignatures.contains(a.signature()))
-                .filter(a -> node == null || getFailureCount(node, a.signature()) < 3)
+                .filter(a -> a.getType() == Action.Type.BACK
+                        || a.getType() == Action.Type.RESTART
+                        || node == null
+                        || getFailureCount(node, a.signature()) < getFailureThreshold(node, a.signature()))
                 .collect(Collectors.toList());
 
         if (candidates.isEmpty()) return null;

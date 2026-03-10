@@ -752,6 +752,96 @@ class ActionSelectorTest {
                 "At failure_count=2, normal filter keeps the candidate without safety net");
     }
 
+    // --- BUG-01b: BACK and RESTART exempt from failure filter ---
+
+    @Test
+    void testBackNotFilteredByFailureThreshold_SelectNextBest() {
+        // BUG-01b: BACK must remain as candidate even with high failure count.
+        // BACK on stuck screens counts as "failure" even though it's a valid recovery action.
+        // Score decay (backDecayCountPerHash) already handles over-BACK, not filtering.
+        SuccessorTracker tracker = new SuccessorTracker();
+        ScreenState parentScreen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "ParentActivity");
+        ScreenState childScreen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "ChildActivity");
+        tracker.record(parentScreen.getStructHash(), childScreen.getStructHash());
+
+        ActionSelector sel = new ActionSelector(config, tracker);
+        Set<String> excluded = new HashSet<>();
+
+        // Register BACK signature with 5 failures on the node
+        graph.getOrCreate(childScreen.getContentHash(), "ChildActivity");
+        ContentNode node = graph.get(childScreen.getContentHash());
+        Action backAction = Action.back("algorithm");
+        for (int i = 0; i < 5; i++) {
+            node.recordAction(backAction.signature(), null);
+            // No recordActionSuccess -> failures = executions = 5
+        }
+
+        Action selected = sel.selectNextBest(childScreen, excluded, graph, staticMap);
+        assertNotNull(selected);
+        // BACK or RESTART must be available (both exempt from filter)
+        assertTrue(selected.getType() == Action.Type.BACK || selected.getType() == Action.Type.RESTART,
+                "BACK must not be filtered out by failure threshold");
+    }
+
+    @Test
+    void testRestartNotFilteredByFailureThreshold_SelectNextBest() {
+        // BUG-01b: RESTART must remain as candidate even with high failure count.
+        ActionSelector sel = new ActionSelector(config);
+        Set<String> excluded = new HashSet<>();
+
+        // Screen with no parent -> no BACK, only RESTART
+        ScreenState screen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "TestActivity");
+
+        // Register RESTART signature with 10 failures
+        graph.getOrCreate(screen.getContentHash(), "TestActivity");
+        ContentNode node = graph.get(screen.getContentHash());
+        Action restartAction = Action.restart("algorithm");
+        for (int i = 0; i < 10; i++) {
+            node.recordAction(restartAction.signature(), null);
+        }
+
+        Action selected = sel.selectNextBest(screen, excluded, graph, staticMap);
+        assertNotNull(selected, "RESTART must not be filtered out by failure threshold");
+        assertEquals(Action.Type.RESTART, selected.getType());
+    }
+
+    @Test
+    void testWidgetActionFilteredByFailureThreshold_SelectNextBest() {
+        // BUG-01b counterpart: regular widget actions ARE still filtered.
+        Action widgetA = new Action(Action.Type.CLICK, 100, 200, null, "algorithm", "Button", null);
+        List<Action> fakeWidgets = new java.util.ArrayList<>(Collections.singletonList(widgetA));
+
+        SuccessorTracker tracker = new SuccessorTracker();
+        ScreenState parentScreen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "ParentActivity");
+        ScreenState childScreen = new ScreenState(
+                Collections.<ScreenItem>emptyList(), "ChildActivity");
+        tracker.record(parentScreen.getStructHash(), childScreen.getStructHash());
+
+        ActionSelector spy = Mockito.spy(new ActionSelector(config, tracker));
+        Mockito.doReturn(fakeWidgets).when(spy).generateCandidateActions(childScreen);
+
+        Set<String> excluded = new HashSet<>();
+
+        // Register widgetA with 5 failures (exceeds threshold=3)
+        graph.getOrCreate(childScreen.getContentHash(), "ChildActivity");
+        ContentNode node = graph.get(childScreen.getContentHash());
+        for (int i = 0; i < 5; i++) {
+            node.recordAction(widgetA.signature(), "Button");
+        }
+
+        Action selected = spy.selectNextBest(childScreen, excluded, graph, staticMap);
+        assertNotNull(selected);
+        // widgetA should be filtered; only BACK and RESTART remain
+        assertNotEquals(widgetA.signature(), selected.signature(),
+                "Widget action with 5 failures must be filtered out");
+        assertTrue(selected.getType() == Action.Type.BACK || selected.getType() == Action.Type.RESTART,
+                "Only system actions should remain after filtering widget with high failures");
+    }
+
     // --- BUG-01: selectNextBest uses structHash for BACK parent check ---
 
     @Test

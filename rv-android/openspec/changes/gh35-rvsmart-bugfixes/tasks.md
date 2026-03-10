@@ -279,12 +279,32 @@
   - Verify no duplicate CLICK when widget already reports `clickable=true` (~1 test)
 - [x] 6b.3 Run `source /etc/profile && cd $RVSEC_HOME/rvsec/rvsec-android/rvsmart && mvn test`
 
+### 6c. BACK Execution Fixes — post-experiment validation
+
+<!-- Discovered in gh35 experiment: BACK actions are generated and ranked (BUG-01 fix works)
+     but never executed due to two issues found in trace analysis (forced_backs=0 in all 16 APKs). -->
+
+- [x] 6c.1 **BUG-01b**: Exempt BACK and RESTART from failure filter — `strategy/ActionSelector.java`
+  - Line ~391-394: The filter `getFailureCount(node, a.signature()) < getFailureThreshold(...)` removes BACK after 3 executions without screen change
+  - BACK on stuck screens (modals, overlays) counts as "failure" even though it's a valid recovery action
+  - Fix: exempt `Action.Type.BACK` and `Action.Type.RESTART` from the failure filter — these system actions must always remain available as candidates
+  - BACK score already decays via `backDecayCountPerHash` (line ~401-403), so over-BACK is already handled by scoring, not filtering
+- [x] 6c.2 **BUG-01c**: Wire `recordForcedBack()` — `core/AgentLoop.java` + `output/MetricsCollector.java`
+  - `MetricsCollector.recordForcedBack()` exists but is never called anywhere (dead code)
+  - Wire it in `AgentLoop.java`: call `metricsCollector.recordForcedBack()` when a BACK action is executed (inside `executeAction()` switch case for BACK, or after execution when `action.getType() == BACK`)
+  - This enables trace analysis to verify BACK is actually firing
+- [x] 6c.3 **Tests**: Add to existing test files (~3 tests):
+  - `strategy/ActionSelectorTest.java`: verify BACK not filtered by failure threshold — create node with BACK at 5 failures, confirm BACK still in candidates from `selectNextBest()` (~1 test)
+  - `strategy/ActionSelectorTest.java`: verify RESTART not filtered by failure threshold (~1 test)
+  - `strategy/ActionSelectorTest.java`: verify regular widget action IS filtered at failure threshold (~1 test)
+- [x] 6c.4 Run `source /etc/profile && cd $RVSEC_HOME/rvsec/rvsec-android/rvsmart && mvn test`
+
 ## 7. Verification (Group G) — Wave 3, after all groups
 
 <!-- DISPATCH: orchestrator runs directly (sequential, after all groups complete) -->
 <!-- SKILL: superpowers:verification-before-completion -->
 
-- [ ] 7.1 Build and deploy JAR:
+- [x] 7.1 Build and deploy JAR:
   ```
   source /etc/profile
   cd $RVSEC_HOME/rvsec/rvsec-android/rvsmart
