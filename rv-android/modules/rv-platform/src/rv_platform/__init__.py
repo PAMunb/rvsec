@@ -35,5 +35,15 @@ def _register_external_tools():
         except Exception as e:
             logging.getLogger(__name__).error(f"Failed to register rvsmart tool: {e}")
 
+    # Register ApeRV tool if available and not already registered
+    if not registry.is_tool_registered("aperv"):
+        try:
+            from aperv_tool.tools.aperv.tool import ApeRVTool
+            registry.register_tool_class(ApeRVTool)
+        except ImportError as e:
+            logging.getLogger(__name__).warning(f"aperv tool not available: {e}")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to register aperv tool: {e}")
+
 
 _register_external_tools()

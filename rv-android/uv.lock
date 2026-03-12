@@ -12,6 +12,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "aperv-tool",
     "rv-agent",
     "rv-agent-validation",
     "rv-android",
@@ -122,6 +123,39 @@ wheels = [
 ]
 
 [[package]]
+name = "aperv-tool"
+version = "0.1.0"
+source = { editable = "modules/aperv-tool" }
+dependencies = [
+    { name = "rv-android-core" },
+    { name = "rv-tools" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "autoflake" },
+    { name = "black" },
+    { name = "isort" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "rv-android-core", editable = "modules/rv-android-core" },
+    { name = "rv-tools", editable = "modules/rv-tools" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "autoflake", specifier = ">=2.3.3" },
+    { name = "black", specifier = ">=26.1.0" },
+    { name = "isort", specifier = ">=7.0.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+]
+
+[[package]]
 name = "asn1crypto"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -158,6 +192,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6b/6c/c88eac87468c607f88bc24df1f3b31445ee6fc9ba123b09e666adf687cd9/authlib-1.6.8.tar.gz", hash = "sha256:41ae180a17cf672bc784e4a518e5c82687f1fe1e98b0cafaeda80c8e4ab2d1cb", size = 165074, upload-time = "2026-02-14T04:02:17.941Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/73/f7084bf12755113cd535ae586782ff3a6e710bfbe6a0d13d1c2f81ffbbfa/authlib-1.6.8-py2.py3-none-any.whl", hash = "sha256:97286fd7a15e6cfefc32771c8ef9c54f0ed58028f1322de6a2a7c969c3817888", size = 244116, upload-time = "2026-02-14T04:02:15.579Z" },
+]
+
+[[package]]
+name = "autoflake"
+version = "2.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyflakes" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/0b/70c277eef225133763bf05c02c88df182e57d5c5c0730d3998958096a82e/autoflake-2.3.3.tar.gz", hash = "sha256:c24809541e23999f7a7b0d2faadf15deb0bc04cdde49728a2fd943a0c8055504", size = 16515, upload-time = "2026-02-20T05:01:43.448Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/21/26f1680ec3a598ea31768f9ebcd427e42986d077a005416094b580635532/autoflake-2.3.3-py3-none-any.whl", hash = "sha256:a51a3412aff16135ee5b3ec25922459fef10c1f23ce6d6c4977188df859e8b53", size = 17715, upload-time = "2026-02-20T05:01:42.137Z" },
 ]
 
 [[package]]
@@ -2633,6 +2679,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "androguard" },
+    { name = "aperv-tool" },
     { name = "faker" },
     { name = "langchain-openai" },
     { name = "matplotlib" },
@@ -2675,6 +2722,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "androguard", specifier = "==3.4.0a1" },
+    { name = "aperv-tool", editable = "modules/aperv-tool" },
     { name = "faker", specifier = ">=29.0.0" },
     { name = "langchain-openai", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.5" },
