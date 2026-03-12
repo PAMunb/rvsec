@@ -173,7 +173,7 @@ class ApeRVTool(AbstractTool):
             "sata_mop": {
                 "strategy": "sata",
                 "throttle_ms": 200,
-                "mop_data": None,
+                "mop_data": "static_analysis",
             },
             "bfs": {
                 "strategy": "bfs",
@@ -284,20 +284,48 @@ class ApeRVTool(AbstractTool):
                 self.logger.error(error_msg)
                 raise RVToolExecutionError(error_msg, tool_name=self.name, cause=None)
 
-    def _push_properties(self, device_serial: str, trace_file_path: str) -> None:
+    def _find_static_analysis_file(self, task: Task) -> str | None:
+        """
+        Locate the static analysis JSON file for the current task's APK.
+
+        Looks for <task.results_dir>/<apk_name>.json, matching the file produced
+        by rv-android static analysis for the instrumented APK.
+
+        Args:
+            task: Task with results_dir and config.apk_name
+
+        Returns:
+            Absolute path string if found, None otherwise
+        """
+        if not hasattr(task, "results_dir") or not task.results_dir:
+            return None
+        if not hasattr(task, "config") or not task.config:
+            return None
+        json_path = os.path.join(task.results_dir, f"{task.config.apk_name}.json")
+        if os.path.isfile(json_path):
+            self.logger.info(f"Found static analysis file: {json_path}")
+            return json_path
+        return None
+
+    def _push_properties(
+        self, device_serial: str, trace_file_path: str, mop_json_pushed: bool = False
+    ) -> None:
         """
         Generate ape.properties from tool config and push to device.
 
-        Writes ape.defaultGUIThrottle=<throttle_ms> to a temporary file and
-        pushes it to APERV_DEVICE_PROPERTIES_PATH. Cleans up the temporary
-        file in the finally block.
+        Writes ape.defaultGUIThrottle=<throttle_ms> to a temporary file. When
+        mop_json_pushed is True, also appends ape.mopDataPath pointing to the
+        previously pushed static analysis JSON.
 
         Args:
             device_serial: Device serial number
             trace_file_path: Trace file for logging
+            mop_json_pushed: If True, include ape.mopDataPath in properties
         """
         throttle_ms = self._tool_config.get("throttle_ms", 200)
         properties_content = f"ape.defaultGUIThrottle={throttle_ms}\n"
+        if mop_json_pushed:
+            properties_content += "ape.mopDataPath=/data/local/tmp/static_analysis.json\n"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".properties", delete=False
@@ -413,9 +441,27 @@ class ApeRVTool(AbstractTool):
             jar_path, APERV_DEVICE_JAR_PATH, device_serial, task.result.trace_file
         )
 
+        # Step 1b: Optionally push static analysis JSON for sata_mop variant
+        mop_json_pushed = False
+        if self._tool_config.get("mop_data") == "static_analysis":
+            static_json = self._find_static_analysis_file(task)
+            if static_json:
+                self._push_file_to_device(
+                    static_json,
+                    "/data/local/tmp/static_analysis.json",
+                    device_serial,
+                    task.result.trace_file,
+                )
+                mop_json_pushed = True
+            else:
+                self.logger.warning(
+                    "sata_mop: static analysis file not found in results_dir, "
+                    "running without MOP data"
+                )
+
         # Step 2: Optionally push ape.properties (when tool is configured)
         if self._tool_config:
-            self._push_properties(device_serial, task.result.trace_file)
+            self._push_properties(device_serial, task.result.trace_file, mop_json_pushed)
 
         # Step 3: Build and execute main command
         main_cmd = self._build_main_command(app, device_serial, timeout_seconds)
