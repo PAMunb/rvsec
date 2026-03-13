@@ -1,5 +1,10 @@
 # RV-Android: Runtime Verification for Android Applications
 
+[![CI Pipeline](https://github.com/PAMunb/rvsec/actions/workflows/ci.yml/badge.svg?branch=modules)](https://github.com/PAMunb/rvsec/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/PAMunb/rvsec/branch/modules/graph/badge.svg)](https://codecov.io/gh/PAMunb/rvsec)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+
 A modular platform for Android application testing that integrates runtime verification (JavaMOP/RV-Monitor), static analysis, automated test generation, and LLM-guided exploration. Supports detection of both JCA (Java Cryptography Architecture) API misuses and general programming pattern violations through 168+ MOP specifications.
 
 ## Architecture Overview

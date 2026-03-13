@@ -59,16 +59,39 @@ jobs:
         run: uv sync
         working-directory: rv-android
 
-      - name: Run tests (per-module to isolate conftest)
+      - name: Run tests with coverage (per-module to isolate conftest)
         working-directory: rv-android
         run: |
           failed=0
+          mkdir -p .cov-parts
           for module in modules/*/; do
             if [ -d "$module/tests" ] && [ "$(basename $module)" != "rv-agent-validation" ]; then
-              echo "=== Testing $(basename $module) ==="
+              module_name=$(basename $module)
+              echo "=== Testing $module_name ==="
               uv run pytest "$module/tests" \
                 -m "not (slow or online or sglang or performance or dataset)" \
-                --import-mode=importlib --tb=short -q || failed=1
+                --import-mode=importlib --tb=short -q \
+                -o "addopts=" \
+                --cov="$module/src" --cov-report= || failed=1
+              if [ -f .coverage ]; then
+                mv .coverage ".cov-parts/.coverage.$module_name"
+              fi
             fi
           done
           exit $failed
+
+      - name: Combine coverage reports
+        if: always()
+        working-directory: rv-android
+        run: |
+          uv run coverage combine --data-file=.coverage .cov-parts/.coverage.*
+          uv run coverage xml -o coverage.xml
+          uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: rv-android/coverage.xml
+          flags: python
+          fail_ci_if_error: false
