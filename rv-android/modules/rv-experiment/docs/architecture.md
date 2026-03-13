@@ -2,204 +2,185 @@
 
 ## Overview
 
-rv-experiment is the experiment orchestration module for the RV-Android framework. It provides the primary CLI interface and implements a three-phase workflow for executing Android testing experiments with runtime verification monitors. The module coordinates but does not duplicate functionality from rv-platform, maintaining clean separation between orchestration (rv-experiment) and execution (rv-platform).
+rv-experiment is the top-level experiment orchestration module (Layer 5) for the RV-Android framework. It provides the primary CLI interface (`rv-experiment` command) and implements a three-phase sequential workflow: pre-processing (monitor generation, APK instrumentation, static analysis), execution (delegation to rv-platform), and post-processing (instrumentation error tracking and completion diagnostics). The module acts as a thin coordination layer -- all task execution, emulator lifecycle management, and result processing are delegated to rv-platform.
 
 ## Key Architectural Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Application Type | CLI tool with orchestration | Primary entry point for experiment execution |
-| Structuring | Layered/Modular | Clear separation between CLI, configuration, and workflow phases |
-| Primary Pattern | Three-Phase Workflow | Sequential processing with distinct pre-processing, execution, and post-processing phases |
-| Control Strategy | Direct method calls | Explicit coordination between workflow phases |
-| Configuration | Just-in-Time (JIT) | Sub-module configs created only when needed |
-| Data Transfer | None | rv-platform handles all results; rv-experiment provides coordination only |
+| Application Type | CLI tool with Click framework | Primary user interaction through command-line for experiment automation and Docker integration |
+| Structuring | Three-phase sequential pipeline | Experiment workflow has natural ordering: prepare artifacts, execute tasks, generate diagnostics |
+| Primary Pattern | Facade | ExperimentController facades the three workflow phases behind a single `run()` method |
+| Control Strategy | Call-based, sequential | Each phase completes before the next begins; no concurrency within rv-experiment |
+| Configuration | Pydantic model with JIT sub-configs | Type-safe validation at boundaries; sub-module configs created only when needed to reduce coupling |
+| Data Ownership | No data transfer from rv-platform | rv-experiment coordinates; rv-platform owns all task execution data and result processing |
+| Distribution | Single-process, delegates to rv-platform | Orchestration is lightweight; heavy lifting happens in rv-platform and external Java tools |
+| Module Coordination | Lazy imports with ImportError fallback | Pre-processing modules (rv-monitor-generator, rv-instrumentation, rv-static-analysis) imported only when needed; graceful degradation if unavailable |
 
 ## Architectural Patterns
 
-### Pattern: Three-Phase Workflow
+### Pattern: Facade
 
-**Description**: Organizes experiment execution into three distinct sequential phases with clear boundaries and responsibilities.
+**Description**: ExperimentController provides a single `run()` method that orchestrates three workflow phases (PreProcessor, ExecutionController, PostProcessor), hiding the complexity of multi-phase experiment execution from callers.
 
-**Application**: ExperimentController orchestrates PreProcessor, ExecutionController, and PostProcessor in sequence.
+**Application**: The CLI's `run` command calls `execute_with_config(config)`, which creates an ExperimentController and calls `run()`. The caller does not need to know about the three phases or their ordering.
 
-**When Used**: Multi-step processes with clear stage boundaries where each phase has distinct inputs and outputs.
-
-**Advantages**:
-- Clear separation of concerns
-- Easier testing of individual phases
-- Predictable execution flow
-- Graceful error handling per phase
-
-**Disadvantages**:
-- Sequential execution limits parallelism
-- Phase transitions add coordination overhead
-
-### Pattern: Factory (Just-in-Time Configuration)
-
-**Description**: Sub-module configurations are created only when accessed, not at initialization time.
-
-**Application**: ExperimentConfig creates RVGeneratorConfig, RVInstrumentationConfig, and RVStaticAnalysisConfig through JIT factory methods.
-
-**When Used**: Configuration objects are expensive to create or may not be needed in all execution paths.
+**When Used**: Experiment execution always follows the same three-phase sequence, making a facade the natural simplification.
 
 **Advantages**:
-- Reduces initialization time
-- Avoids creating unused configurations
-- Enables lazy validation
+- Callers interact with a single method regardless of workflow complexity
+- Phase ordering is encapsulated and cannot be violated
 
 **Disadvantages**:
-- Configuration errors discovered late
-- Harder to validate complete configuration upfront
+- Limited flexibility for callers that need only specific phases (mitigated by `--skip-*` CLI flags that disable individual phases)
+
+---
+
+### Pattern: Adapter
+
+**Description**: ExecutionController translates ExperimentConfig into PlatformConfig, adapting the experiment-layer configuration vocabulary to the platform-layer vocabulary.
+
+**Application**: `_create_platform_config()` maps experiment parameters (tool_configs, repetitions, timeouts, apks) into a PlatformConfig instance, injecting device_port into tool parameters for parallel execution support.
+
+**When Used**: rv-experiment and rv-platform use different configuration models. The adapter bridges them without coupling either module to the other's internal format.
+
+**Advantages**:
+- Each module maintains its own configuration model independently
+- Configuration translation logic is localized in one method
+
+**Disadvantages**:
+- Changes to PlatformConfig require updating the adapter method
+
+---
+
+### Pattern: Factory
+
+**Description**: ConfigurationFactory provides factory methods for creating ExperimentConfig instances from different sources (CLI arguments, dictionaries, templates).
+
+**Application**: The CLI uses ConfigurationFactory to parse tool specification DSL strings (`tool:variant@param=value`) and create properly configured ExperimentConfig instances. Template methods (`create_basic_template`, `create_advanced_template`, `create_llm_template`) generate pre-configured templates for different experiment scenarios.
+
+**When Used**: Configuration creation involves parsing, validation, and default-value resolution that should be centralized rather than spread across CLI handlers.
+
+**Advantages**:
+- Consistent configuration creation regardless of source
+- Template methods provide documented starting points for experiments
+
+**Disadvantages**:
+- Factory methods may drift from ExperimentConfig's evolving field set
 
 ---
 
 ## Logical View
 
-Shows key domain entities and their relationships.
-
 ### Domain Entities
 
 | Entity | Responsibility |
 |--------|----------------|
-| ExperimentConfig | Central configuration holder with JIT sub-module config creation |
-| ExperimentController | Main orchestrator for three-phase workflow execution |
-| PreProcessor | Pre-processing phase: monitor generation, APK instrumentation, static analysis |
-| ExecutionController | Execution phase: rv-platform coordination for task execution |
-| PostProcessor | Post-processing phase: basic completion diagnostics |
-| ToolConfig | Individual tool configuration (name, variants, parameters) |
-| ConfigurationFactory | Factory for creating experiment configurations |
+| ExperimentConfig | Pydantic model holding all experiment parameters; provides JIT sub-module configuration methods |
+| ExperimentController | Orchestrates the three-phase workflow: pre-processing, execution, post-processing |
+| PreProcessor | Coordinates monitor generation, APK instrumentation, and static analysis |
+| ExecutionController | Translates experiment config to platform config and delegates execution to rv-platform |
+| PostProcessor | Generates instrumentation error reports and completion diagnostics |
+| ResultManager | Reads completed tasks from TaskStorage and generates instrumentation errors JSON |
+| ConfigurationFactory | Creates ExperimentConfig instances from CLI arguments, dictionaries, and templates |
+| CLIContext | Manages CLI state (logging, error handling, tool registry access) across Click commands |
 
 ### Component Architecture
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    subgraph rv_experiment["rv-experiment Module"]
-        direction TB
-
-        subgraph CLI_Layer["CLI Layer"]
-            direction LR
-            CLI["__main__.py<br/>Click CLI"]
-            CLIContext["CLIContext<br/>Tool Spec Parsing"]
-        end
-
-        subgraph Config_Layer["Configuration Layer"]
-            direction LR
-            ExpConfig["ExperimentConfig<br/>JIT Configuration"]
-            ConfigFactory["ConfigurationFactory<br/>Template Generation"]
-            ToolCfg["ToolConfig<br/>Tool Settings"]
-        end
-
-        subgraph Orchestration_Layer["Orchestration Layer"]
-            direction LR
-            ExpController["ExperimentController<br/>Main Orchestrator"]
-        end
-
-        subgraph Workflow_Layer["Workflow Layer"]
-            direction LR
-            PreProc["PreProcessor<br/>Pre-processing"]
-            ExecCtrl["ExecutionController<br/>Platform Coordination"]
-            PostProc["PostProcessor<br/>Diagnostics"]
-        end
+    subgraph CLI["CLI Layer"]
+        direction LR
+        MainCLI["__main__.py<br/>(Click commands)"]
+        CLICtx["CLIContext"]
+        ConfFactory["ConfigurationFactory"]
     end
 
-    CLI --> CLIContext
-    CLIContext --> ConfigFactory
-    ConfigFactory --> ExpConfig
-    ExpConfig --> ExpController
-    ExpController --> PreProc
-    ExpController --> ExecCtrl
-    ExpController --> PostProc
-    ExpConfig --> ToolCfg
-```
+    subgraph Orchestration["Orchestration Layer"]
+        direction LR
+        ExpCtrl["ExperimentController"]
+    end
 
-### Entity Relationships
+    subgraph Workflow["Workflow Layer"]
+        direction LR
+        PreProc["PreProcessor"]
+        ExecCtrl["ExecutionController"]
+        PostProc["PostProcessor"]
+        ResMgr["ResultManager"]
+    end
 
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-classDiagram
-    class ExperimentConfig {
-        +name: str
-        +tool_configs: List~ToolConfig~
-        +specification_set: str
-        +results_dir: Optional~str~
-        +resume_mode: bool
-        +status_file: Optional~str~
-        +get_monitored_operations_config()
-        +get_rv_instrumentation_config()
-        +get_static_analysis_config()
-    }
+    subgraph ConfigLayer["Configuration"]
+        direction LR
+        ExpConfig["ExperimentConfig"]
+        ConstantsNode["constants.py"]
+    end
 
-    class ExperimentController {
-        +config: ExperimentConfig
-        +pre_processor: PreProcessor
-        +execution_controller: ExecutionController
-        +post_processor: PostProcessor
-        +run() bool
-    }
+    subgraph ExternalDeps["External Modules"]
+        direction LR
+        PlatformNode["rv-platform<br/>(Platform)"]
+        MonGen["rv-monitor-generator"]
+        InstrNode["rv-instrumentation"]
+        StaticA["rv-static-analysis"]
+        ToolsNode["rv-tools<br/>(ToolRegistry)"]
+        CoreNode["rv-android-core"]
+    end
 
-    class PreProcessor {
-        +process()
-        +get_instrumented_apks()
-    }
+    MainCLI --> CLICtx
+    MainCLI --> ConfFactory
+    MainCLI --> ExpCtrl
+    ConfFactory --> ExpConfig
 
-    class ExecutionController {
-        +platform: Platform
-        +setup()
-        +run() bool
-    }
+    ExpCtrl --> PreProc
+    ExpCtrl --> ExecCtrl
+    ExpCtrl --> PostProc
+    PostProc --> ResMgr
 
-    class PostProcessor {
-        +process()
-    }
+    PreProc --> MonGen
+    PreProc --> InstrNode
+    PreProc --> StaticA
+    ExecCtrl --> PlatformNode
+    MainCLI --> ToolsNode
 
-    class ToolConfig {
-        +name: str
-        +variants: List~str~
-        +parameters: Dict
-    }
-
-    ExperimentController --> ExperimentConfig : uses
-    ExperimentController --> PreProcessor : contains
-    ExperimentController --> ExecutionController : contains
-    ExperimentController --> PostProcessor : contains
-    ExperimentConfig --> ToolConfig : contains
+    ExpConfig --> ConstantsNode
+    ExpCtrl --> ExpConfig
+    ExpCtrl --> CoreNode
 ```
 
 ---
 
 ## Development View
 
-Shows code organization for developers.
-
 ### Module Structure
 
 ```
 modules/rv-experiment/
-├── src/
-│   └── rv_experiment/
+├── src/rv_experiment/
+│   ├── __init__.py
+│   ├── __main__.py                          # CLI entry point (Click commands: run, config, list-tools, validate)
+│   ├── config.py                            # ExperimentConfig Pydantic model with JIT sub-configs
+│   ├── constants.py                         # Directory paths, defaults, specification sets
+│   ├── experiment/
+│   │   ├── __init__.py
+│   │   ├── experiment_controller.py         # Facade: 3-phase orchestration
+│   │   └── workflow/
+│   │       ├── __init__.py
+│   │       ├── pre_processor.py             # Phase 1: monitors, instrumentation, static analysis
+│   │       ├── execution_controller.py      # Phase 2: rv-platform coordination (adapter)
+│   │       ├── post_processor.py            # Phase 3: diagnostics and error tracking
+│   │       ├── result_manager.py            # Instrumentation error JSON generation
+│   │       └── workflow_factory.py          # (unused)
+│   └── factories/
 │       ├── __init__.py
-│       ├── __main__.py              # CLI entry point (Click commands)
-│       ├── config.py                # ExperimentConfig Pydantic model
-│       ├── constants.py             # Directory paths and defaults
-│       ├── experiment/
-│       │   ├── __init__.py
-│       │   ├── experiment_controller.py    # Main orchestrator
-│       │   └── workflow/
-│       │       ├── __init__.py
-│       │       ├── pre_processor.py        # Phase 1: Pre-processing
-│       │       ├── execution_controller.py # Phase 2: Execution
-│       │       ├── post_processor.py       # Phase 3: Post-processing
-│       │       ├── result_manager.py       # Instrumentation error tracking
-│       │       └── workflow_factory.py     # Workflow component factory
-│       └── factories/
-│           ├── __init__.py
-│           └── configuration_factory.py    # Configuration factory
+│       └── configuration_factory.py         # Config templates and creation from CLI/dict
 ├── tests/
-│   └── experiment/
-│       └── test_experiment_controller.py
-└── pyproject.toml
+│   ├── experiment/
+│   │   └── test_experiment_controller.py
+│   └── test_resume_cli.py
+├── pyproject.toml
+├── CLAUDE.md
+└── docs/
+    └── architecture.md                      # This document
 ```
 
 ### Package Dependencies
@@ -207,125 +188,119 @@ modules/rv-experiment/
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    subgraph Presentation["CLI / Presentation"]
-        MainCLI["__main__.py"]
+    subgraph CLILayer["CLI"]
+        MainModule["__main__.py"]
+        FactoriesModule["factories/"]
     end
 
-    subgraph Application["Application / Orchestration"]
-        ExpCtrl["experiment_controller.py"]
-        ConfigFactory["configuration_factory.py"]
+    subgraph OrchLayer["Orchestration"]
+        ExpController["experiment_controller"]
+        ConfigModule["config"]
+        ConstModule["constants"]
     end
 
-    subgraph Workflow["Workflow Components"]
-        PreProc["pre_processor.py"]
-        ExecCtrl["execution_controller.py"]
-        PostProc["post_processor.py"]
+    subgraph WorkflowLayer["Workflow"]
+        PreProcModule["pre_processor"]
+        ExecCtrlModule["execution_controller"]
+        PostProcModule["post_processor"]
+        ResultMgrModule["result_manager"]
     end
 
-    subgraph Configuration["Configuration"]
-        Config["config.py"]
-        Constants["constants.py"]
-    end
+    MainModule --> ExpController
+    MainModule --> FactoriesModule
+    FactoriesModule --> ConfigModule
 
-    MainCLI --> ExpCtrl
-    MainCLI --> ConfigFactory
-    ConfigFactory --> Config
-    ExpCtrl --> PreProc
-    ExpCtrl --> ExecCtrl
-    ExpCtrl --> PostProc
-    ExpCtrl --> Config
-    PreProc --> Constants
-    ExecCtrl --> Constants
-    ExpTools --> Config
+    ExpController --> PreProcModule
+    ExpController --> ExecCtrlModule
+    ExpController --> PostProcModule
+    PostProcModule --> ResultMgrModule
+
+    PreProcModule --> ConfigModule
+    ExecCtrlModule --> ConfigModule
+    ConfigModule --> ConstModule
 ```
 
 ### Build Dependencies
 
-| Module | Depends On | Type |
-|--------|------------|------|
-| rv-experiment | rv-android-core | Internal |
-| rv-experiment | rv-platform | Internal |
-| rv-experiment | rv-monitor-generator | Internal |
-| rv-experiment | rv-instrumentation | Internal |
-| rv-experiment | rv-static-analysis | Internal |
-| rv-experiment | rv-tools | Internal |
-| rv-experiment | pydantic | External |
-| rv-experiment | click | External |
+| Module | Depends On | Type | Purpose |
+|--------|------------|------|---------|
+| rv-experiment | rv-android-core | Internal | Domain models (App, ToolConfig, TaskState), ErrorHandler, LoggingManager |
+| rv-experiment | rv-platform | Internal | Execution engine (Platform, PlatformConfig), result storage (TaskStorage) |
+| rv-experiment | rv-tools | Internal | Tool registry (ToolRegistry) and factory (ToolFactory) |
+| rv-experiment | rv-monitor-generator | Internal | Pre-processing: monitor generation from .mop specs |
+| rv-experiment | rv-instrumentation | Internal | Pre-processing: APK instrumentation with monitors |
+| rv-experiment | rv-static-analysis | Internal | Pre-processing: GATOR-based static analysis |
+| rv-experiment | pydantic | External | Configuration model validation and serialization |
+| rv-experiment | click | External | CLI framework (via rv-android-core) |
 
 ---
 
 ## Process View
 
-Shows run-time behavior and execution flow.
+rv-experiment is a single-threaded, sequential pipeline. There is no concurrency within the module itself. The execution phase delegates to rv-platform, which manages its own concurrency (emulator lifecycle, tool execution).
 
-### Three-Phase Execution Flow
+### Execution Flow
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
-    participant User
-    participant CLI as CLI (__main__.py)
+    actor User
+    participant CLI as __main__.py
     participant EC as ExperimentController
-    participant Pre as PreProcessor
-    participant Exec as ExecutionController
-    participant Post as PostProcessor
-    participant Platform as rv-platform
+    participant PP as PreProcessor
+    participant XC as ExecutionController
+    participant PO as PostProcessor
+    participant PL as Platform (rv-platform)
 
     User->>CLI: rv-experiment run --tools monkey
-    CLI->>EC: ExperimentController(config)
+    CLI->>CLI: Parse CLI args, create ExperimentConfig
+    CLI->>EC: execute_with_config(config)
+    EC->>EC: save_experiment_config()
 
-    Note over EC,Post: Phase 1: Pre-processing
-    EC->>Pre: process(generate, instrument, analyze)
-    Pre->>Pre: _generate_monitors()
-    Pre->>Pre: _instrument_apks()
-    Pre->>Pre: _run_static_analysis()
-    Pre-->>EC: return
+    Note over EC,PP: Phase 1: Pre-processing
+    EC->>PP: process(gen_monitors, instrument, static_analysis)
+    PP->>PP: _generate_monitors() [lazy import rv-monitor-generator]
+    PP->>PP: _instrument_apks() [lazy import rv-instrumentation]
+    PP->>PP: _run_static_analysis() [lazy import rv-static-analysis]
+    PP-->>EC: done
 
-    Note over EC,Platform: Phase 2: Execution
-    EC->>Exec: setup(apks, tools, timeouts)
-    Exec->>Exec: _create_platform_config()
-    Exec->>Platform: Platform(config)
-    EC->>Exec: run()
-    Exec->>Platform: run()
-    Platform-->>Exec: results
-    Exec-->>EC: success/failure
+    Note over EC,PL: Phase 2: Execution
+    EC->>XC: setup(apks, tools, timeouts, ...)
+    XC->>XC: _create_platform_config() [adapter]
+    XC->>PL: Platform(platform_config)
+    EC->>XC: run()
+    XC->>PL: platform.run()
+    PL-->>XC: results dict
+    XC-->>EC: success boolean
 
-    Note over EC,Post: Phase 3: Post-processing
-    EC->>Post: process()
-    Post->>Post: _generate_instrumentation_errors()
-    Post->>Post: _generate_completion_diagnostics()
-    Post-->>EC: return
+    Note over EC,PO: Phase 3: Post-processing
+    EC->>PO: process()
+    PO->>PO: _generate_instrumentation_errors()
+    PO->>PO: _generate_completion_diagnostics()
+    PO-->>EC: done
 
-    EC-->>CLI: success/failure
-    CLI-->>User: Exit code
+    EC-->>CLI: success boolean
+    CLI-->>User: exit code
 ```
-
-### Resume Execution Path
-
-When an experiment is resumed (via `--name` with existing `tasks.json` or via `--resume-dir`), the execution flow diverges from the standard three-phase workflow. The CLI sets `resume_mode=True` on ExperimentConfig, which causes all pre-processing flags (`generate_monitors`, `instrument_apks`, `run_static_analysis`) to be auto-set to `False` regardless of their CLI values, disabling all pre-processing phases. This ensures that no redundant monitor generation, instrumentation, or static analysis occurs during resume. ExperimentController uses `config.results_dir` directly as the output location (flat directory structure, no subdirectory nesting), and rv-platform loads completed tasks from `tasks.json`, skipping them and executing only the remaining pending tasks. ResultProcessorComponent consolidates results from all sessions, reconstructing MOP violation data from persisted logcat files for resumed tasks.
 
 ### State Transitions
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 stateDiagram-v2
-    [*] --> NotStarted
-    NotStarted --> PreProcessing : run()
+    [*] --> Configured
+    Configured --> PreProcessing : run()
 
     PreProcessing --> MonitorGeneration : generate_monitors=true
-    PreProcessing --> APKInstrumentation : generate_monitors=false
+    PreProcessing --> Executing : all pre-processing skipped
     MonitorGeneration --> APKInstrumentation
     APKInstrumentation --> StaticAnalysis
     StaticAnalysis --> Executing
 
-    PreProcessing --> Failed : error
+    Executing --> PostProcessing : platform.run() returns
+    Executing --> Failed : RVExperimentExecutionError
 
-    Executing --> PostProcessing : success
-    Executing --> Failed : error
-
-    PostProcessing --> Completed : success
-    PostProcessing --> Completed : warning
-
+    PostProcessing --> Completed
     Failed --> [*]
     Completed --> [*]
 ```
@@ -336,372 +311,224 @@ stateDiagram-v2
 
 ### ExperimentConfig
 
-**Purpose**: Central configuration holder with just-in-time sub-module configuration creation.
+**Purpose**: Central configuration model for all experiment parameters. Provides type-safe field definitions with Pydantic validation and JIT (just-in-time) methods that create sub-module configurations on demand.
 
 **Location**: `src/rv_experiment/config.py`
 
 **Key Classes**:
-- `ExperimentConfig`: Main Pydantic model for experiment configuration
-
-**Key Methods**:
-- `get_monitored_operations_config()`: Creates RVGeneratorConfig for monitor generation
-- `get_rv_instrumentation_config()`: Creates RVInstrumentationConfig for APK instrumentation
-- `get_static_analysis_config()`: Creates RVStaticAnalysisConfig for static analysis
-- `validate()`: Comprehensive configuration validation
+- `ExperimentConfig(BaseValidatedModel)`: 20+ fields covering experiment metadata, tool configs, execution params, pre-processing flags, specification set, APK sources, and results directory. JIT methods: `get_monitored_operations_config()`, `get_instrumentation_config()`, `get_static_analysis_config()`.
 
 **Dependencies**:
-- Internal: rv-android-core (BaseValidatedModel), rv-platform (ToolConfig)
+- Internal: rv-android-core (BaseValidatedModel, ToolConfig, ErrorHandler), rv-monitor-generator (RVGeneratorConfig), rv-instrumentation (RVInstrumentationConfig), rv-static-analysis (RVStaticAnalysisConfig)
 - External: pydantic
 
 ### ExperimentController
 
-**Purpose**: Main orchestrator for three-phase experiment workflow.
+**Purpose**: Facade orchestrating the three-phase experiment workflow. Initializes PreProcessor, ExecutionController, and PostProcessor, then runs them in sequence.
 
 **Location**: `src/rv_experiment/experiment/experiment_controller.py`
 
 **Key Classes**:
-- `ExperimentController`: Orchestrates PreProcessor, ExecutionController, PostProcessor
-
-**Key Methods**:
-- `run()`: Execute complete experiment workflow
-- `_run_pre_processing()`: Delegate to PreProcessor
-- `_run_execution()`: Delegate to ExecutionController
-- `_get_configured_tools()`: Create tool instances from configuration
+- `ExperimentController`: `run()` executes pre-processing, execution, post-processing. `_get_configured_tools()` creates tool instances via ToolFactory.
+- `execute_with_config(config)`: Module-level convenience function that creates controller and runs it.
 
 **Dependencies**:
-- Internal: rv-android-core (ErrorHandler, LoggingManager), rv-tools (ToolFactory)
-- Workflow: PreProcessor, ExecutionController, PostProcessor
+- Internal: PreProcessor, ExecutionController, PostProcessor, ExperimentConfig, rv-tools (ToolFactory)
 
 ### PreProcessor
 
-**Purpose**: Phase 1 - Monitor generation, APK instrumentation, and static analysis.
+**Purpose**: Coordinates the three pre-processing sub-phases: monitor generation (JavaMOP/RV-Monitor), APK instrumentation (monitor weaving), and static analysis (GATOR). Each sub-phase uses lazy imports and degrades gracefully if the module is unavailable.
 
 **Location**: `src/rv_experiment/experiment/workflow/pre_processor.py`
 
-**Key Methods**:
-- `process()`: Execute pre-processing phase
-- `_generate_monitors()`: Generate JavaMOP/RV-Monitor monitors
-- `_instrument_apks()`: Instrument APKs with monitors
-- `_run_static_analysis()`: Run GATOR, GESDA, REACH analysis
-- `get_instrumented_apks()`: Return list of instrumented APKs
+**Key Classes**:
+- `PreProcessor`: `process(generate_monitors, instrument, static_analysis)` runs enabled sub-phases. `get_instrumented_apks()` returns App objects from the instrumented directory (or falls back to originals). `_copy_original_apks()` provides fallback when instrumentation fails or the module is unavailable.
 
 **Dependencies**:
-- Internal: rv-monitor-generator, rv-instrumentation, rv-static-analysis, rv-android-core
+- Internal: rv-monitor-generator, rv-instrumentation, rv-static-analysis (all lazy-imported), rv-android-core (App, ErrorHandler)
+
+**Important constraint**: Static analysis always runs on original APKs, not instrumented ones, because GATOR/Soot cannot process AspectJ-woven bytecode (TypeResolver errors). The output goes to `out/instrumented_apks/` so rv-platform finds the JSON alongside the instrumented APK.
 
 ### ExecutionController
 
-**Purpose**: Phase 2 - Coordinate execution through rv-platform.
+**Purpose**: Adapter between rv-experiment and rv-platform. Translates ExperimentConfig parameters into PlatformConfig and delegates execution to Platform.
 
 **Location**: `src/rv_experiment/experiment/workflow/execution_controller.py`
 
-**Key Methods**:
-- `setup()`: Configure rv-platform with experiment parameters
-- `run()`: Delegate execution to rv-platform
-- `_create_platform_config()`: Translate experiment config to platform config
-
-**Architectural Role**:
-- Bridge between rv-experiment orchestration and rv-platform execution
-- No data transfer back from rv-platform
-- Only coordination and status tracking
+**Key Classes**:
+- `ExecutionController`: `setup()` creates PlatformConfig and Platform instance. `run()` calls `platform.run()` and reports success/failure. `_create_platform_config()` performs the configuration translation, including device_port injection for parallel execution.
 
 **Dependencies**:
-- Internal: rv-platform (Platform, PlatformConfig), rv-android-core
+- Internal: rv-platform (Platform, PlatformConfig), rv-android-core (App, AbstractTool, ToolConfig)
 
 ### PostProcessor
 
-**Purpose**: Phase 3 - Basic completion diagnostics.
+**Purpose**: Generates post-experiment artifacts: instrumentation errors JSON (via ResultManager) and completion diagnostics JSON.
 
 **Location**: `src/rv_experiment/experiment/workflow/post_processor.py`
 
-**Key Methods**:
-- `process()`: Generate completion diagnostics
-- `_generate_instrumentation_errors()`: Create instrumentation errors JSON
-- `_generate_completion_diagnostics()`: Create experiment_completion.json
-
-**Architectural Role**:
-- Provides basic diagnostics only
-- All CSV/JSON result processing handled by rv-platform
-- No data access from tasks or storage (except for instrumentation errors)
+**Key Classes**:
+- `PostProcessor`: `process()` calls `_generate_instrumentation_errors()` and `_generate_completion_diagnostics()`. Uses TaskStorage to load completed tasks for ResultManager.
 
 **Dependencies**:
-- Internal: rv-android-core, rv-platform (TaskStorage)
+- Internal: rv-platform (TaskStorage), ResultManager
+
+### ResultManager
+
+**Purpose**: Reads completed tasks from TaskStorage and generates `instrument_errors.json` with any instrumentation errors found across tasks.
+
+**Location**: `src/rv_experiment/experiment/workflow/result_manager.py`
+
+**Key Classes**:
+- `ResultManager`: `generate_reports()` loads completed tasks, collects instrumentation errors per APK, writes JSON file.
+
+**Dependencies**:
+- Internal: rv-platform (TaskStorage), rv-android-core (TaskState)
 
 ---
 
 ## NFR Support
 
-How the architecture supports non-functional requirements.
-
 | NFR | Priority | Architectural Support |
 |-----|----------|----------------------|
-| Maintainability | P0 | Clean separation between orchestration and execution; modular workflow components |
-| Extensibility | P1 | Tool plugin system via rv-tools; configurable pre-processing phases |
-| Testability | P1 | Isolated workflow phases; dependency injection ready configuration |
-| Usability | P1 | CLI with tool specification DSL; configuration templates |
-| Reliability | P2 | Error handling decorators; event-based coordination; fallback mechanisms |
-
-### NFR: Maintainability
-
-**Priority**: P0
-
-**Metric**: Number of lines changed for adding new tool type
-
-**Target**: < 50 lines for new tool integration
-
-**Architectural Support**:
-- Three-phase workflow isolates concerns
-- No data transfer between rv-experiment and rv-platform
-- JIT configuration reduces coupling
-- Direct coordination between workflow phases
-
-**Trade-offs**:
-- Sequential phase execution limits optimization opportunities
-
-### NFR: Extensibility
-
-**Priority**: P1
-
-**Metric**: Steps to add new tool or analysis phase
-
-**Target**: < 5 steps for new tool integration
-
-**Architectural Support**:
-- Tool registry pattern via rv-tools
-- Factory pattern for configuration creation
-- Configurable pre-processing phases (generate_monitors, instrument_apks, run_static_analysis)
-
-**Verification**:
-- Unit tests for tool registration
-- Integration tests for new tool execution
+| Maintainability | P0 | Fine-grained workflow components (PreProcessor, ExecutionController, PostProcessor) with single responsibilities. Lazy imports isolate pre-processing modules. JIT configuration avoids unnecessary coupling. |
+| Extensibility | P1 | Tool plugin system via rv-tools ToolRegistry allows adding tools without modifying rv-experiment. Specification sets (jca, generic, custom) support different monitoring configurations. |
+| Reliability | P1 | ErrorHandler decorators on all public methods with context-aware logging. Pre-processing failures do not block execution (fallback to original APKs). Post-processing failures are logged but swallowed. Resume mode re-executes only pending tasks after interruption. |
+| Reproducibility | P1 | ExperimentConfig saved as `experiment_config.json` in results directory. `from_file()`/`save_to_file()` enable experiment recreation. Deterministic workflow ordering (pre -> execute -> post). |
+| Performance | P2 | Pre-processing is the bottleneck (monitor generation, instrumentation, static analysis involve external Java tools). rv-experiment itself adds minimal overhead as a thin orchestration layer. Docker-based parallel execution supported via `--device-port`. |
 
 ---
 
 ## Key Interfaces
 
-### ExperimentConfig (Configuration Protocol)
+### ExperimentConfig JIT Configuration
+
+ExperimentConfig provides JIT methods that create typed sub-module configurations on demand. This avoids importing and validating sub-module configs until they are needed.
 
 ```python
 class ExperimentConfig(BaseValidatedModel):
-    """Central experiment configuration with JIT sub-module config creation."""
-
-    # Core fields
-    name: str
-    tool_configs: List[ToolConfig]
-    specification_set: str  # "jca", "generic", "custom"
-
-    # Execution parameters
-    repetitions: int
-    timeouts: List[int]
-
-    # Pre-processing flags
-    generate_monitors: bool
-    instrument_apks: bool
-    run_static_analysis: bool
-
-    # Directories
-    results_dir: Optional[str]  # Flat results directory (no subdirectory nesting)
-
-    # Resume
-    resume_mode: bool  # Auto-set when --name detects existing tasks.json
-    status_file: Optional[str]  # Path to tasks.json for continuation
-
-    # JIT configuration methods
-    def get_monitored_operations_config(self) -> RVGeneratorConfig:
-        """Create monitor generator configuration on demand."""
-        ...
-
-    def get_rv_instrumentation_config(self) -> RVInstrumentationConfig:
-        """Create instrumentation configuration on demand."""
-        ...
-
-    def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
-        """Create static analysis configuration on demand."""
-        ...
+    def get_monitored_operations_config(self) -> RVGeneratorConfig: ...
+    def get_instrumentation_config(self) -> RVInstrumentationConfig: ...
+    def get_static_analysis_config(self) -> RVStaticAnalysisConfig: ...
+    def get_effective_rvsec_root(self) -> str: ...
 ```
 
-### Tool Specification DSL
+### Workflow Component Interface
 
-Format: `tool_name[:variant1][:variant2][@param1=value1,param2=value2]`
+Each workflow phase component follows the same implicit interface: initialization with configuration, then a `process()` or `run()` method.
 
-```
-# Examples
-monkey                           # Basic tool usage
-droidbot:dfs_greedy              # Tool with variant
-rvagent:multimode                # Tool with variant
-rvagent:multimode@temperature=0.3  # Tool with parameters
-monkey,droidbot:dfs_greedy,ape   # Multiple tools (comma-separated)
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+classDiagram
+    class PreProcessor {
+        +process(generate_monitors, instrument, static_analysis)
+        +get_instrumented_apks() List~App~
+    }
+
+    class ExecutionController {
+        +setup(apks, repetitions, timeouts, tools, ...)
+        +run() bool
+    }
+
+    class PostProcessor {
+        +process()
+    }
+
+    class ExperimentController {
+        +run() bool
+    }
+
+    ExperimentController --> PreProcessor : phase 1
+    ExperimentController --> ExecutionController : phase 2
+    ExperimentController --> PostProcessor : phase 3
 ```
 
 ---
 
 ## Scenarios
 
-Key use cases that validate the architecture.
+### Scenario 1: Run Experiment with Instrumentation
 
-### Scenario 1: Execute Experiment with Multiple Tools
-
-**Description**: User executes experiment with monkey and droidbot tools on a set of APKs.
+**Description**: User executes a full experiment with monitor generation, APK instrumentation, static analysis, and tool execution.
 
 **Flow**:
-1. User invokes CLI: `rv-experiment run --tools monkey,droidbot:dfs_greedy --apks-dir ./apks/`
-2. CLI parses tool specifications via CLIContext
-3. ConfigurationFactory creates ExperimentConfig with tool configurations
-4. ExperimentController receives config and initializes workflow components
-5. PreProcessor instruments APKs and runs static analysis
-6. ExecutionController creates PlatformConfig and delegates to rv-platform
-7. rv-platform executes tasks and processes results (internal)
-8. PostProcessor generates completion diagnostics
-9. ExperimentController publishes EXPERIMENT_COMPLETED event
-10. CLI returns exit code to user
+1. User runs `rv-experiment run --tools monkey --specification-set jca --apks-dir ./apks/`
+2. CLI parses tool specifications, creates ExperimentConfig with all pre-processing flags enabled
+3. ExperimentController saves config to `results/<name>/experiment_config.json`
+4. PreProcessor generates monitors from JCA `.mop` specs via rv-monitor-generator
+5. PreProcessor instruments APKs with generated monitors via rv-instrumentation
+6. PreProcessor runs GATOR static analysis on original APKs (instrumented bytecode crashes Soot); output goes to `out/instrumented_apks/` alongside APKs
+7. ExecutionController creates PlatformConfig from ExperimentConfig and instantiates Platform
+8. Platform executes tasks (emulator lifecycle, tool execution, result CSV/JSON generation)
+9. PostProcessor reads completed tasks, generates `instrument_errors.json` and `experiment_completion.json`
+10. CLI returns exit code 0 on success
 
 ### Scenario 2: Resume Interrupted Experiment
 
-**Description**: User resumes an experiment that was interrupted during execution.
+**Description**: An experiment was interrupted (crash, timeout, manual stop). User resumes it.
 
 **Flow**:
-1. User invokes CLI with `--name` matching existing `results/<name>/tasks.json`, or with `--resume-dir` pointing to a specific results directory
-2. CLI detects existing results and sets `resume_mode=True`; all pre-processing flags are forced to `False` (disabled) regardless of their CLI values
-3. ExperimentController initializes with `resume_mode=True` and uses `config.results_dir` directly as the output location (flat directory, no subdirectory nesting)
-4. PreProcessor skips all phases (monitors, instrumentation, static analysis)
-5. ExecutionController creates PlatformConfig and delegates to rv-platform
-6. rv-platform loads completed tasks from `tasks.json`, skips them, executes remaining
-7. ResultProcessorComponent consolidates results from all sessions, reconstructing MOP violation data from logcat for resumed tasks
-8. PostProcessor generates completion diagnostics
-9. CLI reports total tasks including skipped count
+1. User runs `rv-experiment run --tools monkey --name my_exp` (same command as original)
+2. CLI detects `results/my_exp/tasks.json` exists, sets `resume_mode=True`
+3. All pre-processing flags are forced to `False` (artifacts already exist from first run)
+4. PreProcessor phase effectively no-ops
+5. ExecutionController delegates to Platform, which loads `tasks.json` and skips completed tasks
+6. Only pending/failed tasks are executed
+7. Results are consolidated across sessions
 
-### Scenario 3: Generate Configuration Template
+### Scenario 3: Skip Pre-processing (Use Pre-instrumented APKs)
 
-**Description**: User generates a configuration template for a research experiment.
+**Description**: User has pre-instrumented APKs from a previous run and wants to execute only the testing phase.
 
 **Flow**:
-1. User invokes: `rv-experiment config --template-type research --output research.json`
-2. CLI calls ConfigurationFactory.create_research_template()
-3. Factory creates ExperimentConfig with research-appropriate defaults
-4. Config serialized to JSON and saved to output file
-5. User can modify template and use with `--config` option
-
-### End-to-End Flow Diagram
-
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-flowchart LR
-    subgraph Input
-        APKs[(APK Files)]
-        Config[(Config File)]
-        CLIArgs[CLI Arguments]
-    end
-
-    subgraph rv_experiment["rv-experiment"]
-        CLI[CLI Parser]
-        EC[ExperimentController]
-        Pre[PreProcessor]
-        Exec[ExecutionController]
-        Post[PostProcessor]
-    end
-
-    subgraph External["External Modules"]
-        MonGen[rv-monitor-generator]
-        Instr[rv-instrumentation]
-        Static[rv-static-analysis]
-        Platform[rv-platform]
-    end
-
-    subgraph Output
-        InstrAPKs[(Instrumented APKs)]
-        Monitors[(Monitors)]
-        Results[(Results)]
-        Diagnostics[(Diagnostics)]
-    end
-
-    CLIArgs --> CLI
-    Config --> CLI
-    CLI --> EC
-    APKs --> Pre
-    EC --> Pre
-    Pre --> MonGen
-    Pre --> Instr
-    Pre --> Static
-    MonGen --> Monitors
-    Instr --> InstrAPKs
-    EC --> Exec
-    InstrAPKs --> Exec
-    Exec --> Platform
-    Platform --> Results
-    EC --> Post
-    Post --> Diagnostics
-```
-
----
-
-## Docker Execution Mode
-
-rv-experiment supports execution inside Docker containers through `docker/rvandroid/docker-entrypoint.sh`. The entrypoint script translates environment variables into CLI arguments, enabling fully declarative experiment configuration via Docker Compose or `docker run` without modifying the container image.
-
-The entrypoint builds a `uv run rv-experiment run` command from the following environment variables:
-
-| Environment Variable | CLI Argument | Description |
-|---------------------|--------------|-------------|
-| `RV_TOOLS` | `--tools` | Tool specification (same DSL as CLI) |
-| `RV_TIMEOUTS` | `--timeout` | Execution timeout in seconds |
-| `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
-| `RV_APKS_DIR` | `--apks-dir` | APK directory path |
-| `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode (`true`/`false`) |
-| `RV_SPEC_SET` | `--specification-set` | Specification set name |
-| `RV_JCA_SPEC` | `--specification-set` | Legacy boolean: `true` maps to `jca`, `false` to `generic` |
-| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
-| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
-| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
-| `RV_DEVICE_PORT` | `--device-port` | Emulator port for parallel execution |
-| `RV_APKS_FILTER` | `--apks-filter` | APK filter file path |
-| `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |
-| `RV_RESUME_DIR` | `--resume-dir` | Explicit resume directory |
-| `RV_DEBUG` | `--debug` | Enable debug logging |
-| `RV_DELAY` | (startup delay) | Seconds to wait before starting (for staggering parallel containers) |
-
-The entrypoint also supports interactive mode: passing `bash` or `shell` as the first argument drops into a shell instead of running the experiment.
+1. User runs `rv-experiment run --tools ape --skip-monitors --skip-instrument --skip-static --apks-dir results/prev_exp/instrumented_apks/`
+2. All pre-processing flags are `False`; `apks_dir` points to instrumented APKs
+3. PreProcessor phase is entirely skipped
+4. ExecutionController uses APKs from `apks_dir` directly (no instrumented directory fallback needed)
+5. Platform executes tasks with pre-instrumented APKs
 
 ---
 
 ## Extension Points
 
-- **New Tools**: Register via `_register_external_tools()` in `rv-platform/__init__.py`
-- **New Pre-processing Phases**: Add methods to PreProcessor with configuration flags
-- **Configuration Templates**: Add factory methods to ConfigurationFactory
+- **Adding a Tool**: Register a new tool class in rv-tools via rv-platform's `_register_external_tools()`. rv-experiment discovers it through ToolRegistry without modification.
+- **Adding a Specification Set**: Add a new directory under `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/`, then update the `specification_set` validation in ExperimentConfig to accept the new name.
+- **Adding a Pre-processing Phase**: Add a new method to PreProcessor, a new flag to ExperimentConfig, and wire it in ExperimentController's `_run_pre_processing()`.
+- **Configuration Templates**: Add a new `create_*_template()` method to ConfigurationFactory.
+
 ## Dependencies
 
 ### Internal (rv-android modules)
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Foundation services (ErrorHandler, logging, domain models) |
-| rv-platform | Central execution engine for task execution and result processing |
-| rv-monitor-generator | JavaMOP/RV-Monitor monitor generation |
-| rv-instrumentation | APK instrumentation with monitors |
-| rv-static-analysis | GATOR, GESDA, REACH static analysis tools |
-| rv-tools | Tool registry and factory patterns |
+| rv-android-core | Domain models (App, ToolConfig, TaskState), ErrorHandler, LoggingManager, BaseValidatedModel |
+| rv-platform | Task execution engine (Platform, PlatformConfig), result storage (TaskStorage) |
+| rv-tools | Tool registry (ToolRegistry) and factory (ToolFactory) for creating tool instances |
+| rv-monitor-generator | Pre-processing: generates JavaMOP/RV-Monitor monitors from `.mop` specification files |
+| rv-instrumentation | Pre-processing: instruments APKs by weaving generated monitors into bytecode |
+| rv-static-analysis | Pre-processing: runs GATOR-based static analysis producing reachability, windows, and transitions data |
 
 ### External
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| pydantic | ^2.0 | Configuration validation and serialization |
-| click | ^8.0 | CLI framework |
+| pydantic | >=2.9.0 | Configuration model validation and serialization |
+| click | (via rv-android-core) | CLI framework for command parsing |
+| matplotlib | >=3.9.0 | Declared dependency (result visualization) |
 
 ## Testing Strategy
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/experiment/ | Isolated component tests |
-| Integration | tests/ | Workflow phase interaction tests |
+| Unit | tests/experiment/test_experiment_controller.py | ExperimentController orchestration logic |
+| Integration | tests/test_resume_cli.py | Resume CLI behavior (implicit and explicit resume modes) |
 
-**Current Coverage**: Limited (3 test files). Recommended additions:
-- PreProcessor unit tests
-- ExecutionController unit tests
-- PostProcessor unit tests
-- ConfigurationFactory unit tests
-- CLI command tests
+---
 
 ## Related Documentation
 
-- [Module CLAUDE.md](../CLAUDE.md) - Quick reference for development
-- [Root CLAUDE.md](../../../CLAUDE.md) - Project-wide architecture and conventions
+- [CLAUDE.md](../CLAUDE.md) - Module-specific development guidance
+- [Root CLAUDE.md](../../../CLAUDE.md) - Project-wide architecture and development principles
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR15-FR17 cover rv-experiment)
+- [Experiment Spec](../../../openspec/specs/experiment/spec.md) - Domain specification for rv-experiment
