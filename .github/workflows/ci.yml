@@ -56,6 +56,14 @@ jobs:
         run: uv sync
         working-directory: rv-android
 
-      - name: Run tests
-        run: uv run pytest modules/ -m "not slow" --import-mode=importlib --tb=short -q
+      - name: Run tests (per-module to isolate conftest)
         working-directory: rv-android
+        run: |
+          failed=0
+          for module in modules/*/; do
+            if [ -d "$module/tests" ]; then
+              echo "=== Testing $(basename $module) ==="
+              uv run pytest "$module/tests" -m "not slow" --import-mode=importlib --tb=short -q || failed=1
+            fi
+          done
+          exit $failed
