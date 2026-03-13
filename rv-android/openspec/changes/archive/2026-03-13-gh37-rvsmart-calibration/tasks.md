@@ -62,4 +62,4 @@ Run in main context sequentially. Do NOT claim completion before evidence.
 - [x] 5.3 Grep UCBScorer registered: ActionSelector.java:178 `new UCBScorer(config.getUcbC())`
 - [x] 5.4 Grep first-visit logic: RoutingManager.java:93-96 `visitedScreens` in MULTIMODE branch only
 - [x] 5.5 Local smoke test with cryptoapp (300s): rvsmart executed successfully — 15.25% method cov, 75% activity cov, 3 MOP violations detected (partial run, interrupted after ~2min)
-- [ ] 5.6 Commit changes to rvsec repo (`$RVSEC_HOME/rvsec/rvsec-android/rvsmart/`) with `refs #37`
+- [x] 5.6 Commit changes to rvsec repo — `6a4746d0` (rvsmart Java) + `f412eaf1` (OpenSpec artifacts)
