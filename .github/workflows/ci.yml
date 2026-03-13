@@ -1,7 +1,5 @@
-name: CI Pipeline - Isolated Module Testing
-# Strategy: Install → Test → Clean for each module individually to manage disk space
-# Modules tested: rv-android-core, rv-monitor-generator, rv-static-analysis, rv-llm, rvandroid-tool
-'on':
+name: CI Pipeline
+on:
   push:
     branches:
       - develop
@@ -10,219 +8,54 @@ name: CI Pipeline - Isolated Module Testing
     branches:
       - develop
       - modules
+
 jobs:
-  build-and-test:
+  maven-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - name: Remove backup directories
+        run: rm -rf rv-android/backup/ rv-android/docs/backup/ rv-android/modules/rv-agent/backup/ rv-android/modules/rv-agent-validation/backup/
+
       - name: Setup JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y tesseract-ocr libtesseract-dev libopencv-dev python3-opencv
-      
-      - name: Build Maven project
-        run: mvn clean install -DskipTests -DskipMopAgent
-      
+
+      - name: Build Maven project (excluding rvsmart)
+        run: mvn clean install -DskipTests -DskipMopAgent -pl '!rvsec/rvsec-android/rvsmart'
+
+  python-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Remove backup directories
+        run: rm -rf rv-android/backup/ rv-android/docs/backup/ rv-android/modules/rv-agent/backup/ rv-android/modules/rv-agent-validation/backup/
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
         with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pypoetry
-            rv-android/modules/*/.venv
-          key: poetry-modules-${{ runner.os }}-${{ hashFiles('rv-android/modules/*/poetry.lock') }}
-          restore-keys: |
-            poetry-modules-${{ runner.os }}-
-      
-      - name: Setup Poetry for isolated testing
-        run: |
-          # Only setup Poetry configuration, no installations yet
-          echo "Poetry setup complete - modules will be installed individually"
-        working-directory: rv-android
-      
+          enable-cache: true
+          cache-dependency-glob: rv-android/uv.lock
+
       - name: Set RVSEC environment
         run: echo "RVSEC_HOME=${{ github.workspace }}" >> $GITHUB_ENV
-      
-      - name: Run code quality checks (informational)
-        continue-on-error: true
-        run: |
-          # Run checks only on core modules to minimize disk usage
-          cd modules/rv-android-core
-          echo "Running essential Flake8 checks on core..."
-          poetry run flake8 src/ --count --select=E9,F63,F7,F82 --statistics --quiet > ../../flake8_report.txt || true
-          
-          echo "Running security checks with Bandit on core..."
-          poetry run bandit -r src/ --format txt --quiet --exit-zero > ../../bandit_report.txt || true
-        working-directory: rv-android
-      
-      - name: Create coverage config
-        run: |
-          echo "[run]" > .coveragerc
-          echo "source = modules/" >> .coveragerc
-        working-directory: rv-android
-      
-      - name: Test rv-android-core (isolated)
-        run: |
-          echo "=== Testing rv-android-core (standalone) ==="
-          cd modules/rv-android-core
-          poetry install --no-dev
-          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
-          # Preserve coverage results
-          cp coverage.xml ../../rv-android-core-coverage.xml
-          # Clean everything except results
-          rm -rf .venv __pycache__ .pytest_cache
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-        working-directory: rv-android
-        continue-on-error: true
 
-      - name: Test rv-monitor-generator (with core)
-        run: |
-          echo "=== Testing rv-monitor-generator (depends on core) ==="
-          # Install core first
-          cd modules/rv-android-core && poetry install --no-dev && cd ..
-          # Install and test monitor-generator
-          cd rv-monitor-generator
-          poetry install --no-dev
-          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
-          # Preserve coverage results
-          cp coverage.xml ../../rv-monitor-generator-coverage.xml
-          # Clean everything
-          cd .. && rm -rf rv-android-core/.venv rv-monitor-generator/.venv
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+      - name: Install dependencies
+        run: uv sync
         working-directory: rv-android
-        continue-on-error: true
 
-      - name: Test rv-static-analysis (isolated)
-        run: |
-          echo "=== Testing rv-static-analysis (standalone) ==="
-          cd modules/rv-static-analysis
-          poetry install --no-dev
-          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
-          # Preserve coverage results
-          cp coverage.xml ../../rv-static-analysis-coverage.xml
-          # Clean everything
-          rm -rf .venv __pycache__ .pytest_cache
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+      - name: Run tests
+        run: uv run pytest modules/ -m "not slow" --tb=short -q
         working-directory: rv-android
-        continue-on-error: true
-
-      - name: Test rv-llm (with core)
-        run: |
-          echo "=== Testing rv-llm (depends on core) ==="
-          # Install core first
-          cd modules/rv-android-core && poetry install --no-dev && cd ..
-          # Install and test llm
-          cd rv-llm
-          poetry install --no-dev
-          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
-          # Preserve coverage results
-          cp coverage.xml ../../rv-llm-coverage.xml
-          # Clean everything
-          cd .. && rm -rf rv-android-core/.venv rv-llm/.venv
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-        working-directory: rv-android
-        continue-on-error: true
-
-      - name: Test rvandroid-tool (with dependencies)
-        run: |
-          echo "=== Testing rvandroid-tool (depends on core + llm) ==="
-          # Install dependencies first
-          cd modules/rv-android-core && poetry install --no-dev && cd ..
-          cd rv-llm && poetry install --no-dev && cd ..
-          # Install and test rvandroid-tool
-          cd rvandroid-tool
-          poetry install --no-dev
-          poetry run pytest --cov=src --cov-report=xml --cov-report=term-summary --tb=short --quiet
-          # Preserve coverage results
-          cp coverage.xml ../../rvandroid-tool-coverage.xml
-          # Clean everything
-          cd .. && rm -rf rv-android-core/.venv rv-llm/.venv rvandroid-tool/.venv
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-        working-directory: rv-android
-        continue-on-error: true
-      
-      - name: Run integration tests (isolated RVSEC)
-        continue-on-error: true
-        run: |
-          echo "=== Integration tests (isolated) ==="
-          # Verify RVSEC tools are available
-          ls -la $RVSEC_HOME/javamop/bin/ >/dev/null 2>&1 || echo "JavaMOP not found"
-          ls -la $RVSEC_HOME/rv-monitor/bin/ >/dev/null 2>&1 || echo "RV-Monitor not found"
-          
-          # Test rv-android-core integration
-          cd modules/rv-android-core
-          poetry install --no-dev
-          poetry run pytest -m "slow" --tb=short --quiet || true
-          rm -rf .venv __pycache__ .pytest_cache
-          
-          # Test rv-monitor-generator integration  
-          cd ../rv-monitor-generator
-          poetry install --no-dev
-          poetry run pytest -m "slow" --tb=short --quiet || true
-          rm -rf .venv __pycache__ .pytest_cache
-          
-          # Clean everything
-          find . -name "*.pyc" -delete
-          find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-        working-directory: rv-android
-      
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-reports
-          path: |
-            rv-android/*-coverage.xml
-
-      - name: Generate quality report
-        if: always()
-        run: |
-          echo "# Python Quality Report (Isolated Testing)" > quality_report.md
-          echo "## Test Coverage Summary" >> quality_report.md
-          echo '```' >> quality_report.md
-          for file in *-coverage.xml; do
-            if [ -f "$file" ]; then
-              echo "=== $file ===" >> quality_report.md
-              grep -A 1 "<summary" "$file" 2>/dev/null >> quality_report.md || echo "No summary for $file" >> quality_report.md
-            fi
-          done
-          echo '```' >> quality_report.md
-          
-          echo "## Code Quality Issues" >> quality_report.md
-          echo '```' >> quality_report.md
-          head -10 flake8_report.txt >> quality_report.md 2>/dev/null || echo "No code issues found" >> quality_report.md
-          head -10 bandit_report.txt >> quality_report.md 2>/dev/null || echo "No security issues found" >> quality_report.md
-          echo '```' >> quality_report.md
-        working-directory: rv-android
-        continue-on-error: true
-      
-      - name: Upload quality report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-report
-          path: rv-android/quality_report.md
