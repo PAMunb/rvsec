@@ -16,6 +16,7 @@ import br.unb.cic.rvsmart.strategy.scorers.GradualDecayScorer;
 import br.unb.cic.rvsmart.strategy.scorers.MopScorer;
 import br.unb.cic.rvsmart.strategy.scorers.Scorer;
 import br.unb.cic.rvsmart.strategy.scorers.SystemElementFilter;
+import br.unb.cic.rvsmart.strategy.scorers.UCBScorer;
 import br.unb.cic.rvsmart.strategy.scorers.VisitationPenaltyScorer;
 import br.unb.cic.rvsmart.strategy.scorers.WtgScorer;
 
@@ -253,17 +254,17 @@ class ActionSelectorTest {
     }
 
     @Test
-    void testBackBaseScoreIsNegative100() {
+    void testBackBaseScoreIs50() {
         Config defaultConfig = Config.defaults();
-        assertEquals(-100.0f, defaultConfig.getBackBaseScore(), 0.01f,
-                "BACK base score should be -100 (gh31: reduced from -500 to allow voluntary backtracking)");
+        assertEquals(50.0f, defaultConfig.getBackBaseScore(), 0.01f,
+                "BACK base score should be 50 (gh37: positive to encourage voluntary backtracking)");
     }
 
     @Test
-    void testBackDecayPerRepeatIs100() {
+    void testBackDecayPerRepeatIs30() {
         Config defaultConfig = Config.defaults();
-        assertEquals(100.0f, defaultConfig.getBackDecayPerRepeat(), 0.01f,
-                "BACK decay per repeat should be 100 (gentler since base is already -500)");
+        assertEquals(30.0f, defaultConfig.getBackDecayPerRepeat(), 0.01f,
+                "BACK decay per repeat should be 30 (gh37: gentler decay with positive base)");
     }
 
     // --- selectNextBest root screen BACK prevention tests (Group 19) ---
@@ -343,7 +344,7 @@ class ActionSelectorTest {
         List<Scorer> scorers = selectorWithConfirmed.getScorers();
         boolean found = scorers.stream().anyMatch(s -> s instanceof ConfirmedCoverageScorer);
         assertTrue(found, "ConfirmedCoverageScorer must be in the chain when provided");
-        assertEquals(6, scorers.size(), "Should have 6 scorers: Mop, GradualDecay, SystemElement, Component, Wtg, Confirmed");
+        assertEquals(7, scorers.size(), "Should have 7 scorers: Mop, GradualDecay, SystemElement, Component, Wtg, UCB, Confirmed");
     }
 
     @Test
@@ -351,7 +352,7 @@ class ActionSelectorTest {
         // When null is passed for ConfirmedCoverageScorer, chain has 5 scorers
         ActionSelector selectorNoConfirmed = new ActionSelector(config);
         List<Scorer> scorers = selectorNoConfirmed.getScorers();
-        assertEquals(5, scorers.size(), "Should have 5 scorers without ConfirmedCoverageScorer");
+        assertEquals(6, scorers.size(), "Should have 6 scorers without ConfirmedCoverageScorer");
         boolean found = scorers.stream().anyMatch(s -> s instanceof ConfirmedCoverageScorer);
         assertFalse(found, "ConfirmedCoverageScorer must not be in chain when null");
     }
@@ -382,14 +383,15 @@ class ActionSelectorTest {
 
     @Test
     void testScorerChainOrder() {
-        // Verify the scorer chain order: MopScorer, GradualDecay, SystemElement, ComponentPriority, Wtg
+        // Verify the scorer chain order: MopScorer, GradualDecay, SystemElement, ComponentPriority, Wtg, UCB
         List<Scorer> scorers = selector.getScorers();
-        assertEquals(5, scorers.size());
+        assertEquals(6, scorers.size());
         assertTrue(scorers.get(0) instanceof MopScorer, "First scorer should be MopScorer");
         assertTrue(scorers.get(1) instanceof GradualDecayScorer, "Second scorer should be GradualDecayScorer");
         assertTrue(scorers.get(2) instanceof SystemElementFilter, "Third scorer should be SystemElementFilter");
         assertTrue(scorers.get(3) instanceof ComponentPriorityScorer, "Fourth scorer should be ComponentPriorityScorer");
         assertTrue(scorers.get(4) instanceof WtgScorer, "Fifth scorer should be WtgScorer");
+        assertTrue(scorers.get(5) instanceof UCBScorer, "Sixth scorer should be UCBScorer");
     }
 
     @Test

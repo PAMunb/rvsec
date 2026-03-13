@@ -163,17 +163,21 @@ class RoutingManagerTest {
     }
 
     @Test
-    void multimodeProbabilistic_ratio0_alwaysFalse() {
+    void multimodeProbabilistic_ratio0_falseAfterFirstVisit() {
         LlmCircuitBreaker cb = new LlmCircuitBreaker(3, 60_000L);
         RoutingManager rm = new RoutingManager(
                 RoutingManager.Mode.MULTIMODE,
                 RoutingManager.Strategy.PROBABILISTIC,
                 0.0, cb, SEED);
 
-        // With ratio=0.0, every call should use algorithm (random < 0.0 is always false)
+        // First visit to HASH_A triggers first-visit path → true (regardless of ratio)
+        assertTrue(rm.shouldUseLlm(HASH_A, false),
+                "First visit must route to LLM even with ratio=0.0");
+
+        // Subsequent calls with same hash fall through to PROBABILISTIC with ratio=0.0 → false
         for (int i = 0; i < 5; i++) {
             assertFalse(rm.shouldUseLlm(HASH_A, false),
-                    "Call " + i + " with ratio=0.0 must return false");
+                    "Call " + (i + 1) + " with ratio=0.0 must return false after first visit");
         }
     }
 

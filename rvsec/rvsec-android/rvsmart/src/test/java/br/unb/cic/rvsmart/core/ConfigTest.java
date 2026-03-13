@@ -19,7 +19,7 @@ class ConfigTest {
     @Test
     void testDefaults() {
         Config config = Config.defaults();
-        assertEquals(100, config.getThrottleMs());
+        assertEquals(50, config.getThrottleMs());
         assertEquals(3, config.getMaxRetriesPerCycle());
         assertEquals(150, config.getAdaptiveWaitMs());
         assertEquals(0.05f, config.getLlmProbability(), 0.001f);
@@ -28,12 +28,12 @@ class ConfigTest {
         assertEquals(200.0f, config.getGradualDecayBase(), 0.01f);
         assertEquals(0.7f, config.getGradualDecayRate(), 0.01f);
         assertEquals(5, config.getGradualDecayMinVisits());
-        assertEquals(-100.0f, config.getBackBaseScore(), 0.01f);
+        assertEquals(50.0f, config.getBackBaseScore(), 0.01f);
         assertEquals(-500.0f, config.getRestartBaseScore(), 0.01f);
         assertEquals(0.15f, config.getStochasticProbability(), 0.01f);
         assertEquals(6, config.getMaxReEnables());
         assertEquals(6, config.getMultiValueSaturationThreshold());
-        assertEquals(10, config.getStuckMaxBlocks());
+        assertEquals(7, config.getStuckMaxBlocks());
         assertEquals("http://192.168.0.36:30000/v1", config.getLlmBaseUrl());
         assertEquals("Qwen/Qwen3-VL-4B-Instruct", config.getLlmModel());
         assertEquals(10000, config.getLogcatBufferSize());
@@ -70,10 +70,10 @@ class ConfigTest {
     // --- Timing/throttle tests (Group 18) ---
 
     @Test
-    void testThrottleDefaultIs100ms() {
+    void testThrottleDefaultIs50ms() {
         Config config = Config.defaults();
-        assertEquals(100, config.getThrottleMs(),
-                "Throttle reduced to 100ms for faster exploration; adaptive wait handles slow transitions");
+        assertEquals(50, config.getThrottleMs(),
+                "Throttle reduced to 50ms for faster exploration; adaptive wait handles slow transitions");
     }
 
     @Test

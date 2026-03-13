@@ -23,7 +23,7 @@ public class Config {
     private String codePackage;
 
     // --- Execution (4) ---
-    private static final int DEFAULT_THROTTLE_MS = 100;
+    private static final int DEFAULT_THROTTLE_MS = 50;
     private static final int DEFAULT_MAX_RETRIES_PER_CYCLE = 3;
     private static final int DEFAULT_ADAPTIVE_WAIT_MS = 150;
 
@@ -54,11 +54,12 @@ public class Config {
     private static final float DEFAULT_COMPONENT_MEDIUM_PRIORITY = 40.0f;
     private static final float DEFAULT_STRENGTH_WEIGHT = 50.0f;
     private static final float DEFAULT_VISITATION_PENALTY_FACTOR = 15.0f;
+    private static final float DEFAULT_UCB_C = 150.0f;
 
     // --- Synthetic actions (3) ---
-    private static final float DEFAULT_BACK_BASE_SCORE = -100.0f;
+    private static final float DEFAULT_BACK_BASE_SCORE = 50.0f;
     private static final float DEFAULT_RESTART_BASE_SCORE = -500.0f;
-    private static final float DEFAULT_BACK_DECAY_PER_REPEAT = 100.0f;
+    private static final float DEFAULT_BACK_DECAY_PER_REPEAT = 30.0f;
 
     // --- Menu fuzz (1) ---
     private static final float DEFAULT_MENU_FUZZ_RATE = 0.02f;
@@ -83,7 +84,7 @@ public class Config {
     private static final int DEFAULT_OUT_OF_APP_TOLERANCE = 3;
 
     // --- Stuck detection (3) ---
-    private static final int DEFAULT_STUCK_MAX_BLOCKS = 10;
+    private static final int DEFAULT_STUCK_MAX_BLOCKS = 7;
     private static final int DEFAULT_MAX_BACKTRACK_FAILURES = 5;
     private static final float DEFAULT_BACKTRACK_SATURATION_THRESHOLD = 0.8f;
 
@@ -189,6 +190,7 @@ public class Config {
     public float getComponentMediumPriority() { return getFloat("component_medium_priority", DEFAULT_COMPONENT_MEDIUM_PRIORITY); }
     public float getStrengthWeight() { return getFloat("strength_weight", DEFAULT_STRENGTH_WEIGHT); }
     public float getVisitationPenaltyFactor() { return getFloat("visitation_penalty_factor", DEFAULT_VISITATION_PENALTY_FACTOR); }
+    public float getUcbC() { return getFloat("ucb_c", DEFAULT_UCB_C); }
 
     // --- Synthetic actions ---
     public float getBackBaseScore() { return getFloat("back_base_score", DEFAULT_BACK_BASE_SCORE); }

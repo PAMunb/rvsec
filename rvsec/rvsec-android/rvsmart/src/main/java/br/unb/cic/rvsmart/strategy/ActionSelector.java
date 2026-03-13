@@ -22,6 +22,7 @@ import br.unb.cic.rvsmart.strategy.scorers.GradualDecayScorer;
 import br.unb.cic.rvsmart.strategy.scorers.MopScorer;
 
 import br.unb.cic.rvsmart.strategy.scorers.Scorer;
+import br.unb.cic.rvsmart.strategy.scorers.UCBScorer;
 import br.unb.cic.rvsmart.strategy.scorers.SystemElementFilter;
 import br.unb.cic.rvsmart.strategy.scorers.WtgScorer;
 
@@ -174,6 +175,7 @@ public class ActionSelector {
         this.scorers.add(new SystemElementFilter());
         this.scorers.add(new ComponentPriorityScorer());
         this.scorers.add(new WtgScorer());
+        this.scorers.add(new UCBScorer(config.getUcbC()));
         if (uiCoverageTracker != null) {
             this.scorers.add(new CoverageDensityScorer(100, uiCoverageTracker));
         }

@@ -2,7 +2,9 @@ package br.unb.cic.rvsmart.core;
 
 import br.unb.cic.rvsmart.llm.LlmCircuitBreaker;
 
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Decides whether an iteration should use the LLM path or the algorithm path.
@@ -48,6 +50,7 @@ public class RoutingManager {
     // Hash of the last screen seen by shouldUseLlm; used by NEW_SCREEN_ONLY and
     // ARRIVAL_FIRST to detect screen transitions without requiring external state.
     private String lastSeenHash = null;
+    private final Set<String> visitedScreens = new HashSet<>();
 
     /**
      * @param mode           operating mode (PURE_ALGORITHM, MULTIMODE, LLM_ONLY)
@@ -87,6 +90,11 @@ public class RoutingManager {
                 return circuitBreaker.shouldAttempt();
 
             case MULTIMODE:
+                if (!visitedScreens.contains(currentHash)) {
+                    visitedScreens.add(currentHash);
+                    lastSeenHash = currentHash;
+                    return circuitBreaker.shouldAttempt();
+                }
                 return shouldUseLlmMultimode(currentHash);
 
             default:
@@ -136,6 +144,7 @@ public class RoutingManager {
      */
     public void reset() {
         lastSeenHash = null;
+        visitedScreens.clear();
     }
 
     /**
