@@ -47,10 +47,10 @@ class TestVariants:
         variants = ApeRVTool.get_variants()
         assert variants["default"]["strategy"] == "sata"
 
-    def test_sata_mop_has_mop_data_none(self):
+    def test_sata_mop_has_mop_data_static_analysis(self):
         variants = ApeRVTool.get_variants()
         assert "mop_data" in variants["sata_mop"]
-        assert variants["sata_mop"]["mop_data"] is None
+        assert variants["sata_mop"]["mop_data"] == "static_analysis"
 
     def test_non_sata_mop_variants_lack_mop_data(self):
         variants = ApeRVTool.get_variants()

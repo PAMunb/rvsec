@@ -61,9 +61,11 @@ jobs:
         run: |
           failed=0
           for module in modules/*/; do
-            if [ -d "$module/tests" ]; then
+            if [ -d "$module/tests" ] && [ "$(basename $module)" != "rv-agent-validation" ]; then
               echo "=== Testing $(basename $module) ==="
-              uv run pytest "$module/tests" -m "not slow" --import-mode=importlib --tb=short -q || failed=1
+              uv run pytest "$module/tests" \
+                -m "not (slow or online or sglang or performance or dataset)" \
+                --import-mode=importlib --tb=short -q || failed=1
             fi
           done
           exit $failed

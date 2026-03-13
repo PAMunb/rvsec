@@ -34,6 +34,8 @@ def base_config():
     config.stochastic_probability = 0.3
     config.stochastic_temperature = 1.0
     config.multi_value_saturation_threshold = 4
+    config.max_short_term_iterations = 10
+    config.max_long_term_states = 1000
     return config
 
 
