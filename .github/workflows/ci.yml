@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Remove backup directories
         run: rm -rf rv-android/backup/ rv-android/docs/backup/ rv-android/modules/rv-agent/backup/ rv-android/modules/rv-agent-validation/backup/
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -33,18 +33,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Remove backup directories
         run: rm -rf rv-android/backup/ rv-android/docs/backup/ rv-android/modules/rv-agent/backup/ rv-android/modules/rv-agent-validation/backup/
 
+      - name: Install system dependencies
+        run: sudo apt install -y tesseract-ocr
+
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           cache-dependency-glob: rv-android/uv.lock
