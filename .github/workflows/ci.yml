@@ -57,5 +57,5 @@ jobs:
         working-directory: rv-android
 
       - name: Run tests
-        run: uv run pytest modules/ -m "not slow" --tb=short -q
+        run: uv run pytest modules/ -m "not slow" --import-mode=importlib --tb=short -q
         working-directory: rv-android
