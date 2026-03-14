@@ -31,6 +31,8 @@ import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.output.TraceWriter;
 import br.unb.cic.rvsmart.recovery.CycleDetector;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
+import br.unb.cic.rvsmart.recovery.TarpitDetector;
+import br.unb.cic.rvsmart.strategy.ActivityBudgetTracker;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.ActionSelector;
 import br.unb.cic.rvsmart.strategy.InputValueGenerator;
@@ -124,6 +126,12 @@ public class AgentLoop {
     // BUG-02: Cycle detection for ping-pong recovery
     private final CycleDetector cycleDetector;
 
+    // gh40: per-Activity iteration budget to distribute exploration time
+    private final ActivityBudgetTracker activityBudgetTracker;
+
+    // gh40: anti-tarpit detection for screens that waste iterations
+    private final TarpitDetector tarpitDetector;
+
     // CAP-6: Periodic restart when exploration has plateaued
     private int iterationsSinceNewState;
 
@@ -143,6 +151,10 @@ public class AgentLoop {
     // Cached post-action screen state, reused as next iteration's initial state
     // Invalidated on crash, out-of-app, or stuck recovery
     private ScreenState cachedScreenState;
+
+    // gh39: last known content hash from previous successful iteration.
+    // Used for sterile screen tracking when null root prevents hash computation.
+    private String lastKnownHash;
 
     /**
      * Primary constructor: required dependencies only (algorithm-only mode).
@@ -223,6 +235,9 @@ public class AgentLoop {
         this.phaseController = new PhaseController(graph, uiCoverageTracker, effectivePlateauDetector);
         this.backtrackStrategy = new BacktrackStrategy(navigationMap, structuralGraph);
         this.cycleDetector = new CycleDetector();
+        this.activityBudgetTracker = new ActivityBudgetTracker(
+                config.getActivityBaseBudget(), config.getBudgetPerWidget());
+        this.tarpitDetector = new TarpitDetector(config.getTarpitThreshold());
     }
 
     /**
@@ -268,6 +283,13 @@ public class AgentLoop {
         // 2. Capture UI root
         AccessibilityNodeInfo root = devController.getUiAutomation().getRootInActiveWindow();
         if (root == null) {
+            // gh39: sterile screen tracking — attribute failure to last known hash
+            if (lastKnownHash != null) {
+                graph.incrementSterileCounter(lastKnownHash);
+                if (graph.getSterileCounter(lastKnownHash) >= config.getSterileThreshold()) {
+                    graph.markSterile(lastKnownHash);
+                }
+            }
             long elapsed = System.currentTimeMillis() - startTimeMs;
             traceWriter.writeLine(iteration, elapsed, "", "", "SKIP", "null_root",
                     false, 0, graph.size(), elapsed / 1000.0, 0, 0, null,
@@ -415,6 +437,9 @@ public class AgentLoop {
         String structHash = screen.getStructHash();
         String activity = screen.getActivity();
 
+        // gh39: reset sterile counter on successful parse
+        graph.resetSterileCounter(hash);
+
         // 5b. Update graph
         boolean isNewScreen = graph.get(hash) == null;
         graph.getOrCreate(hash, activity);
@@ -444,6 +469,10 @@ public class AgentLoop {
                 }
             }
             screenNode.setTotalActions(nodeInteractiveCount);
+
+            // gh40: register Activity budget on first visit
+            activityBudgetTracker.registerActivity(activity, nodeInteractiveCount);
+            activityBudgetTracker.recordIteration(activity);
         }
 
         // 5c. Register screen elements for UI coverage tracking
@@ -519,6 +548,15 @@ public class AgentLoop {
             action = actionSelector.selectAction(phase, screen, structHash,
                     graph, structuralGraph, navigationMap, uiCoverageTracker, staticMap);
             RvTrack.route(iteration, "algorithm", "algorithm", "llm_unavailable_or_disabled");
+        }
+
+        // gh40: override widget actions when Activity budget is exhausted
+        if (activityBudgetTracker.isBudgetExhausted(activity)
+                && action != null
+                && action.getType() != Action.Type.BACK
+                && action.getType() != Action.Type.RESTART) {
+            action = Action.restart("algorithm");
+            RvTrack.route(iteration, "algorithm", "algorithm", "budget_exhausted");
         }
 
         // CAP-1: With menuFuzzRate probability, inject KEYCODE_MENU
@@ -654,9 +692,14 @@ public class AgentLoop {
         Action primaryAction = action;
 
         // 12. Multi-attempt retry (INV-RSM-07): try alternative actions if no effect
+        // INV-RSM-45: skip retries when screen saturation >= threshold
+        int maxRetries = config.getMaxRetriesPerCycle();
+        if (graph.getSaturation(hash) >= config.getRetrySaturationThreshold()) {
+            maxRetries = 0;
+        }
         int retries = 0;
         Set<String> excludeSignatures = new HashSet<>();
-        while (!hadEffect && retries < config.getMaxRetriesPerCycle()) {
+        while (!hadEffect && retries < maxRetries) {
             excludeSignatures.add(action.signature());
             Action nextAction = actionSelector.selectNextBest(screen, excludeSignatures, graph, staticMap);
             if (nextAction == null) break;
@@ -698,6 +741,12 @@ public class AgentLoop {
         double reward = learner.update(action, hadEffect, hash, hashAfter,
                 activity, activityAfter, coveredMethods,
                 iteration, retries);
+
+        // gh40: anti-tarpit detection — mark hash if stuck without progress
+        boolean hasNewMop = !coveredMethods.isEmpty();
+        if (tarpitDetector.recordIteration(hash, isNewScreen, hasNewMop, hadEffect)) {
+            graph.markTarpit(hash);
+        }
 
         // 14a. Update stuck detector with post-action hash and action type.
         // SET_TEXT is exempted from incrementing the counter (Anomaly 2/INV-RSM-34).
@@ -743,6 +792,9 @@ public class AgentLoop {
 
         // 18. Cache post-action state for next iteration (avoids redundant capture)
         cachedScreenState = postActionState;
+
+        // gh39: track last known hash for sterile screen attribution
+        lastKnownHash = hash;
     }
 
     /**

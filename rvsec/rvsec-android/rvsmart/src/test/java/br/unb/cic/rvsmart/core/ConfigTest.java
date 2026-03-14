@@ -20,7 +20,7 @@ class ConfigTest {
     void testDefaults() {
         Config config = Config.defaults();
         assertEquals(50, config.getThrottleMs());
-        assertEquals(3, config.getMaxRetriesPerCycle());
+        assertEquals(1, config.getMaxRetriesPerCycle());
         assertEquals(150, config.getAdaptiveWaitMs());
         assertEquals(0.05f, config.getLlmProbability(), 0.001f);
         assertEquals(500.0f, config.getMopDirectScore(), 0.01f);
@@ -77,10 +77,10 @@ class ConfigTest {
     }
 
     @Test
-    void testMaxRetriesDefaultIs3() {
+    void testMaxRetriesDefaultIs1() {
         Config config = Config.defaults();
-        assertEquals(3, config.getMaxRetriesPerCycle(),
-                "Max retries set to 3 for multi-attempt retry within a single cycle");
+        assertEquals(1, config.getMaxRetriesPerCycle(),
+                "Max retries set to 1; saturation gate skips retries on saturated screens");
     }
 
     @Test
@@ -190,6 +190,51 @@ class ConfigTest {
         assertEquals(5, config.getCaptureRetryMinElements());
         assertEquals(2, config.getCaptureRetryMax());
         assertEquals(500L, config.getCaptureRetryDelayMs());
+    }
+
+    // --- Track B config tests ---
+
+    @Test
+    void testRetrySaturationThresholdDefault() {
+        Config config = Config.defaults();
+        assertEquals(0.95f, config.getRetrySaturationThreshold(), 0.001f,
+                "Retry saturation threshold should default to 0.95 (95%)");
+    }
+
+    @Test
+    void testSterileThresholdDefaultIs3() {
+        Config config = Config.defaults();
+        assertEquals(3, config.getSterileThreshold(),
+                "Sterile threshold should default to 3 consecutive failures");
+    }
+
+    @Test
+    void testFrontierCoverageThresholdDefaultIs0_8() {
+        Config config = Config.defaults();
+        assertEquals(0.8f, config.getFrontierCoverageThreshold(), 0.001f,
+                "Frontier coverage threshold should default to 0.8 (80%)");
+    }
+
+    // --- Track B2: activity budget tests ---
+
+    @Test
+    void activityBaseBudgetDefault() {
+        Config config = Config.defaults();
+        assertEquals(999_999, config.getActivityBaseBudget());
+    }
+
+    @Test
+    void budgetPerWidgetDefault() {
+        Config config = Config.defaults();
+        assertEquals(3, config.getBudgetPerWidget());
+    }
+
+    // --- Track B2: tarpit detection tests ---
+
+    @Test
+    void tarpitThresholdDefault() {
+        Config config = Config.defaults();
+        assertEquals(50, config.getTarpitThreshold());
     }
 
     @Test

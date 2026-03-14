@@ -8,37 +8,35 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Controls the three-phase exploration strategy for the rvsmart agent.
+ * Controls the two-phase exploration strategy for the rvsmart agent.
  *
  * Phases:
  *   PHASE_1 — Broad exploration: prioritise untested content states and actions.
- *   PHASE_2 — Deep exploration: all reachable content states have had at least
- *             one action executed; agent focuses on under-explored areas.
+ *             CoverageDensityScorer and UCBScorer handle coverage-guided behavior
+ *             within Phase 1, making a separate coverage-guided phase unnecessary.
  *   PHASE_3 — Saturation: UI coverage has plateaued; agent shifts to
  *             targeted/random recovery strategies.
  *
  * Transitions:
- *   PHASE_1 → PHASE_2  when no reachable content state has an untested action.
- *   PHASE_2 → PHASE_3  when PlateauDetector signals plateau (WINDOW_SIZE
- *                       consecutive iterations with no coverage gain).
+ *   PHASE_1 → PHASE_3  when no reachable content state has an untested action
+ *                       AND PlateauDetector signals plateau.
  *   any     → PHASE_1  when a new content state is first discovered.
  *
  * Cluster forcing (4.2): tracks how many times Phase 1 was re-entered for each
- * structural cluster (structHash). After 20 re-entries for the same cluster,
+ * structural cluster (structHash). After 50 re-entries for the same cluster,
  * isClusterForced() returns true — ActionSelector should treat that cluster as
- * Phase 2 regardless of global phase, preventing infinite content-hash loops.
+ * Phase 3 regardless of global phase, preventing infinite content-hash loops.
  */
 public class PhaseController {
 
-    /** The three exploration phases. */
+    /** The two exploration phases. */
     public enum Phase {
         PHASE_1,
-        PHASE_2,
         PHASE_3
     }
 
-    /** Threshold for forcing a structural cluster to be treated as Phase 2. */
-    static final int CLUSTER_FORCE_THRESHOLD = 20;
+    /** Threshold for forcing a structural cluster to be treated as Phase 3. */
+    static final int CLUSTER_FORCE_THRESHOLD = 50;
 
     /** Threshold for preference activities (lower than normal cluster forcing). */
     static final int PREFERENCE_FORCE_THRESHOLD = 5;
@@ -113,32 +111,31 @@ public class PhaseController {
     /**
      * Call once per agent iteration with the coverage delta gained (0 if no
      * new coverage was observed). Drives plateau detection and the
-     * PHASE_2 → PHASE_3 transition.
+     * PHASE_1 → PHASE_3 transition.
      *
      * <p>The {@code coverageDelta} is translated to the PlateauDetector's
      * boolean API: progress = (coverageDelta > 0). isNewState is always false
      * here because new-state discovery is handled via onNewContentState().</p>
      *
-     * <p>When phase is PHASE_1 and all content states are now explored, this
-     * method also triggers the PHASE_1 → PHASE_2 transition.</p>
+     * <p>When phase is PHASE_1 and all content states are explored, checks
+     * the plateau detector. If plateau is detected, transitions to PHASE_3.
+     * If no plateau yet, stays in PHASE_1 (scorers handle coverage-guided behavior).</p>
      *
      * @param coverageDelta coverage gained in this iteration (≥ 0)
      */
     public void onIteration(int coverageDelta) {
         // Feed plateau detector regardless of current phase so it builds up
-        // accurate history before PHASE_2 begins.
+        // accurate history.
         plateauDetector.recordIteration(false, coverageDelta > 0);
 
         switch (currentPhase) {
             case PHASE_1:
                 if (!hasUntestedActionsInAnyReachableState()) {
-                    currentPhase = Phase.PHASE_2;
-                }
-                break;
-
-            case PHASE_2:
-                if (plateauDetector.isPlateauDetected()) {
-                    currentPhase = Phase.PHASE_3;
+                    // All states explored — check plateau immediately
+                    if (plateauDetector.isPlateauDetected()) {
+                        currentPhase = Phase.PHASE_3;
+                    }
+                    // If no plateau yet, stay in Phase 1 (scorers handle coverage-guided behavior)
                 }
                 break;
 
@@ -161,7 +158,13 @@ public class PhaseController {
                 // Actions not yet registered — state is unexplored.
                 return true;
             }
-            if (node.getExecutedActions().size() < node.getTotalActions()) {
+            // Count only widget actions — exclude system actions (BACK/RESTART)
+            // whose signatures are recorded via graph.recordAction() but are not
+            // part of totalActions (which counts only interactive widgets).
+            long widgetActions = node.getExecutedActions().stream()
+                    .filter(sig -> !sig.startsWith("back@") && !sig.startsWith("restart@"))
+                    .count();
+            if (widgetActions < node.getTotalActions()) {
                 return true;
             }
         }
@@ -187,7 +190,7 @@ public class PhaseController {
     /**
      * Returns true if Phase 1 has been re-entered {@value #CLUSTER_FORCE_THRESHOLD}
      * or more times for this structural cluster. ActionSelector should treat the
-     * cluster as if it is in PHASE_2 when this returns true.
+     * cluster as if it is in PHASE_3 when this returns true.
      *
      * @param structHash structural hash of the cluster to check
      */

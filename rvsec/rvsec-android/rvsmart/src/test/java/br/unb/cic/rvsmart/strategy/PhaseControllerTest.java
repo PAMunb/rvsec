@@ -29,7 +29,19 @@ class PhaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4.4.1 — Phase starts at PHASE_1
+    // Phase enum only has PHASE_1 and PHASE_3
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testPhaseEnumOnlyHasPhase1AndPhase3() {
+        Phase[] values = Phase.values();
+        assertEquals(2, values.length, "Phase enum should have exactly 2 values");
+        assertEquals(Phase.PHASE_1, values[0]);
+        assertEquals(Phase.PHASE_3, values[1]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase starts at PHASE_1
     // -------------------------------------------------------------------------
 
     @Test
@@ -38,22 +50,8 @@ class PhaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4.4.2 — PHASE_1 → PHASE_2 when no untested actions remain
+    // PHASE_1 stays when untested actions remain
     // -------------------------------------------------------------------------
-
-    @Test
-    void testPhase1TransitionsToPhase2WhenAllActionsExecuted() {
-        // Add a content node with 2 total actions, both executed.
-        ContentNode node = contentGraph.getOrCreate("hash-A", "MainActivity");
-        node.setTotalActions(2);
-        node.recordAction("click@100,200", "Button");
-        node.recordAction("click@300,400", "Button");
-
-        // With all actions executed, one iteration should advance to PHASE_2.
-        controller.onIteration(0);
-
-        assertEquals(PhaseController.Phase.PHASE_2, controller.currentPhase());
-    }
 
     @Test
     void testPhase1StaysWhenUntestedActionsRemain() {
@@ -68,24 +66,56 @@ class PhaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4.4.3 — New content state resets to PHASE_1 from any phase
+    // PHASE_1 stays when all actions executed but no plateau
     // -------------------------------------------------------------------------
 
     @Test
-    void testNewContentStateResetsToPhase1FromPhase2() {
-        // Advance to PHASE_2: empty graph means no untested actions.
-        controller.onIteration(0);
-        assertEquals(PhaseController.Phase.PHASE_2, controller.currentPhase());
+    void testPhase1StaysWhenAllActionsExecutedButNoPlateau() {
+        // Add a content node with 2 total actions, both executed.
+        ContentNode node = contentGraph.getOrCreate("hash-A", "MainActivity");
+        node.setTotalActions(2);
+        node.recordAction("click@100,200", "Button");
+        node.recordAction("click@300,400", "Button");
 
-        // Discovering a new content state must reset to PHASE_1.
-        controller.onNewContentState("abcd1234");
+        // One iteration with no plateau yet — should stay in PHASE_1
+        controller.onIteration(0);
+
         assertEquals(PhaseController.Phase.PHASE_1, controller.currentPhase());
     }
 
+    // -------------------------------------------------------------------------
+    // PHASE_1 → PHASE_3 when all states explored AND plateau detected
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testPhase1TransitionsToPhase3WhenAllExploredAndPlateau() {
+        // Empty graph means no untested actions in any reachable state.
+        // Feed enough zero-coverage iterations to trigger plateau.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
+            controller.onIteration(0);
+        }
+
+        assertEquals(PhaseController.Phase.PHASE_3, controller.currentPhase());
+    }
+
+    @Test
+    void testPhase1DoesNotTransitionToPhase3BeforePlateauWindowFull() {
+        // Empty graph (no untested actions), but not enough iterations for plateau.
+        // Feed fewer than WINDOW_SIZE iterations.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE - 1; i++) {
+            controller.onIteration(0);
+        }
+
+        assertEquals(PhaseController.Phase.PHASE_1, controller.currentPhase());
+    }
+
+    // -------------------------------------------------------------------------
+    // New content state resets to PHASE_1 from PHASE_3
+    // -------------------------------------------------------------------------
+
     @Test
     void testNewContentStateResetsToPhase1FromPhase3() {
-        // Drive PHASE_2 → PHASE_3 via plateau.
-        controller.onIteration(0); // PHASE_1 → PHASE_2 (empty graph)
+        // Drive PHASE_1 → PHASE_3 via plateau (empty graph).
         for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
             controller.onIteration(0);
         }
@@ -96,41 +126,7 @@ class PhaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4.4.4 — PHASE_2 → PHASE_3 after plateau
-    // -------------------------------------------------------------------------
-
-    @Test
-    void testPhase2TransitionsToPhase3AfterPlateau() {
-        // Start in PHASE_2: empty graph, trigger PHASE_1 → PHASE_2.
-        controller.onIteration(0);
-        assertEquals(PhaseController.Phase.PHASE_2, controller.currentPhase());
-
-        // Feed WINDOW_SIZE zero-coverage iterations to build plateau.
-        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
-            controller.onIteration(0);
-        }
-
-        assertEquals(PhaseController.Phase.PHASE_3, controller.currentPhase());
-    }
-
-    @Test
-    void testPhase2DoesNotTransitionBeforePlateauWindowFull() {
-        // Advance to PHASE_2 with one iteration (this also feeds the plateau detector).
-        controller.onIteration(0);
-        assertEquals(PhaseController.Phase.PHASE_2, controller.currentPhase());
-
-        // The first onIteration() call already fed 1 entry into the plateau detector.
-        // To avoid filling the WINDOW_SIZE-entry window, add only WINDOW_SIZE - 2 more.
-        // Total: 1 (PHASE_1 transition) + WINDOW_SIZE-2 (PHASE_2) = WINDOW_SIZE-1 < WINDOW_SIZE.
-        for (int i = 0; i < PlateauDetector.WINDOW_SIZE - 2; i++) {
-            controller.onIteration(0);
-        }
-
-        assertEquals(PhaseController.Phase.PHASE_2, controller.currentPhase());
-    }
-
-    // -------------------------------------------------------------------------
-    // 4.4.5 — Cluster forcing: after 20 re-entries, isClusterForced returns true
+    // Cluster forcing: after threshold re-entries, isClusterForced returns true
     // -------------------------------------------------------------------------
 
     @Test
@@ -158,7 +154,7 @@ class PhaseControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4.4.6 — Different clusters tracked independently
+    // Different clusters tracked independently
     // -------------------------------------------------------------------------
 
     @Test
@@ -188,9 +184,11 @@ class PhaseControllerTest {
         // in the name are detected as preference activities. When re-entries
         // exceed PREFERENCE_FORCE_THRESHOLD, onNewContentState skips Phase 1 reset.
 
-        // Advance to Phase 2 to test reset behavior.
-        controller.onIteration(0);
-        assertEquals(Phase.PHASE_2, controller.currentPhase());
+        // Advance to Phase 3 to test reset behavior.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
+            controller.onIteration(0);
+        }
+        assertEquals(Phase.PHASE_3, controller.currentPhase());
 
         // Simulate PREFERENCE_FORCE_THRESHOLD re-entries for a preference cluster.
         String structHash = "pref_cluster";
@@ -200,7 +198,7 @@ class PhaseControllerTest {
 
         // Now onNewContentState with a preference activity should NOT reset to Phase 1.
         controller.onNewContentState("new_content_hash", "PreferenceActivity", structHash, false);
-        assertEquals(Phase.PHASE_2, controller.currentPhase(),
+        assertEquals(Phase.PHASE_3, controller.currentPhase(),
                 "Phase should not reset to PHASE_1 for preference activity exceeding threshold");
     }
 
@@ -210,9 +208,11 @@ class PhaseControllerTest {
         assertEquals(5, PhaseController.PREFERENCE_FORCE_THRESHOLD,
                 "Preference force threshold should be 5");
 
-        // Advance to Phase 2.
-        controller.onIteration(0);
-        assertEquals(Phase.PHASE_2, controller.currentPhase());
+        // Advance to Phase 3.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
+            controller.onIteration(0);
+        }
+        assertEquals(Phase.PHASE_3, controller.currentPhase());
 
         // With only 4 re-entries (below threshold), reset still happens.
         String structHash = "pref_cluster_2";
@@ -234,23 +234,78 @@ class PhaseControllerTest {
         // BUG-02: When isCycleDetected=true, onNewContentState must NOT reset
         // to Phase 1 — the agent would just re-enter the same loop.
 
-        // Advance to Phase 2.
-        controller.onIteration(0);
-        assertEquals(Phase.PHASE_2, controller.currentPhase());
+        // Advance to Phase 3.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
+            controller.onIteration(0);
+        }
+        assertEquals(Phase.PHASE_3, controller.currentPhase());
 
         // Cycle detected: should NOT reset to Phase 1.
         controller.onNewContentState("cycle_hash", "MainActivity", "cluster_x", true);
-        assertEquals(Phase.PHASE_2, controller.currentPhase(),
+        assertEquals(Phase.PHASE_3, controller.currentPhase(),
                 "Cycle detection should prevent Phase 1 reset");
+    }
+
+    // -------------------------------------------------------------------------
+    // gh41 — System actions excluded from untested check
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testSystemActionsExcludedFromUntestedCheck() {
+        // A node with 5 widget totalActions and 3 widget executions + BACK + RESTART
+        // should still be considered as having untested actions (3 < 5).
+        ContentNode node = contentGraph.getOrCreate("hash-X", "MainActivity");
+        node.setTotalActions(5);
+        node.recordAction("click@100,200", "Button");
+        node.recordAction("click@300,400", "Button");
+        node.recordAction("click@500,600", "Button");
+        node.recordAction("back@0,0", "");
+        node.recordAction("restart@0,0", "");
+
+        // executedActions.size() == 5, but only 3 are widget actions
+        assertEquals(5, node.getExecutedActions().size());
+        assertTrue(controller.hasUntestedActionsInAnyReachableState(),
+                "Should return true: only 3 widget actions tested out of 5 totalActions");
+    }
+
+    @Test
+    void testAllWidgetActionsTestedWithSystemActionsPresent() {
+        // A node with 5 widget totalActions and all 5 tested + BACK + RESTART
+        ContentNode node = contentGraph.getOrCreate("hash-Y", "MainActivity");
+        node.setTotalActions(5);
+        node.recordAction("click@100,200", "Button");
+        node.recordAction("click@300,400", "Button");
+        node.recordAction("click@500,600", "Button");
+        node.recordAction("click@700,800", "Button");
+        node.recordAction("click@900,1000", "Button");
+        node.recordAction("back@0,0", "");
+        node.recordAction("restart@0,0", "");
+
+        // executedActions.size() == 7, but 5 widget actions match totalActions
+        assertEquals(7, node.getExecutedActions().size());
+        assertFalse(controller.hasUntestedActionsInAnyReachableState(),
+                "Should return false: all 5 widget actions tested");
+    }
+
+    // -------------------------------------------------------------------------
+    // gh41 — Cluster force threshold is 50
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testClusterForceThresholdIs50() {
+        assertEquals(50, PhaseController.CLUSTER_FORCE_THRESHOLD,
+                "Cluster force threshold should be 50");
     }
 
     @Test
     void testNormalPhase1ResetWhenNoCycleAndNoPreference() {
         // When there is no cycle and no preference activity, normal Phase 1 reset occurs.
 
-        // Advance to Phase 2.
-        controller.onIteration(0);
-        assertEquals(Phase.PHASE_2, controller.currentPhase());
+        // Advance to Phase 3.
+        for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
+            controller.onIteration(0);
+        }
+        assertEquals(Phase.PHASE_3, controller.currentPhase());
 
         // Normal new content state: should reset to Phase 1.
         controller.onNewContentState("new_hash", "MainActivity", "normal_cluster", false);

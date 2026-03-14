@@ -24,7 +24,7 @@ public class Config {
 
     // --- Execution (4) ---
     private static final int DEFAULT_THROTTLE_MS = 50;
-    private static final int DEFAULT_MAX_RETRIES_PER_CYCLE = 3;
+    private static final int DEFAULT_MAX_RETRIES_PER_CYCLE = 1;
     private static final int DEFAULT_ADAPTIVE_WAIT_MS = 150;
 
     // --- Routing (2) ---
@@ -87,6 +87,18 @@ public class Config {
     private static final int DEFAULT_STUCK_MAX_BLOCKS = 7;
     private static final int DEFAULT_MAX_BACKTRACK_FAILURES = 5;
     private static final float DEFAULT_BACKTRACK_SATURATION_THRESHOLD = 0.8f;
+
+    // --- Track B: retry gate, sterile, frontier (3) ---
+    private static final float DEFAULT_RETRY_SATURATION_THRESHOLD = 0.95f;
+    private static final int DEFAULT_STERILE_THRESHOLD = 3;
+    private static final float DEFAULT_FRONTIER_COVERAGE_THRESHOLD = 0.8f;
+
+    // --- Track B2: activity budget (2) ---
+    private static final int DEFAULT_ACTIVITY_BASE_BUDGET = 999_999;
+    private static final int DEFAULT_BUDGET_PER_WIDGET = 3;
+
+    // --- Track B2: tarpit detection (1) ---
+    private static final int DEFAULT_TARPIT_THRESHOLD = 50;
 
     // --- MOP navigation (3) ---
     private static final float DEFAULT_MOP_NAV_WEIGHT = 2.0f;
@@ -214,6 +226,18 @@ public class Config {
     public int getStuckMaxBlocks() { return getInt("stuck_max_blocks", DEFAULT_STUCK_MAX_BLOCKS); }
     public int getMaxBacktrackFailures() { return getInt("max_backtrack_failures", DEFAULT_MAX_BACKTRACK_FAILURES); }
     public float getBacktrackSaturationThreshold() { return getFloat("backtrack_saturation_threshold", DEFAULT_BACKTRACK_SATURATION_THRESHOLD); }
+
+    // --- Track B: retry gate, sterile, frontier ---
+    public float getRetrySaturationThreshold() { return getFloat("retry_saturation_threshold", DEFAULT_RETRY_SATURATION_THRESHOLD); }
+    public int getSterileThreshold() { return getInt("sterile_threshold", DEFAULT_STERILE_THRESHOLD); }
+    public float getFrontierCoverageThreshold() { return getFloat("frontier_coverage_threshold", DEFAULT_FRONTIER_COVERAGE_THRESHOLD); }
+
+    // --- Track B2: activity budget ---
+    public int getActivityBaseBudget() { return getInt("activity_base_budget", DEFAULT_ACTIVITY_BASE_BUDGET); }
+    public int getBudgetPerWidget() { return getInt("budget_per_widget", DEFAULT_BUDGET_PER_WIDGET); }
+
+    // --- Track B2: tarpit detection ---
+    public int getTarpitThreshold() { return getInt("tarpit_threshold", DEFAULT_TARPIT_THRESHOLD); }
 
     // --- MOP navigation ---
     public float getMopNavWeight() { return getFloat("mop_nav_weight", DEFAULT_MOP_NAV_WEIGHT); }
