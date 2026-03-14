@@ -307,4 +307,9 @@ Before finalizing architecture documentation:
 - [ ] Development View shows code organization
 - [ ] At least one scenario documented
 - [ ] Views are consistent with each other
-- [ ] Requirements traceable to architectural elements
+- [ ] Specification Alignment section present with FRs from domain spec
+- [ ] FRs (from `openspec/specs/<domain>/spec.md`) traceable to architectural components
+- [ ] NFRs use PRD IDs (NFR01-08 from `docs/PRD.md` Section 7)
+- [ ] Key invariants (INV-XX-NN) documented with enforcement mechanisms
+- [ ] At least 2 specification scenarios traced through architecture
+- [ ] Related Documentation includes domain spec and PRD links

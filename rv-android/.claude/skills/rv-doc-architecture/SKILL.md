@@ -22,6 +22,23 @@ Reference these checklists from this skill directory:
 - `checklists/design-decisions.md` - 9 key architectural questions to answer
 - `checklists/nfr-architecture-mapping.md` - How NFRs influence architecture
 - `checklists/pattern-documentation.md` - Format for documenting patterns
+- `checklists/spec-traceability.md` - SDD alignment: FRs, NFRs, invariants, scenarios
+
+## SDD Integration — Domain Spec Mapping
+
+This project follows Spec-Driven Development. Each module maps to a domain specification. The architecture document MUST reference the relevant spec.
+
+| Module(s) | Domain | Spec File | FRs |
+|-----------|--------|-----------|-----|
+| rv-android-core | core | `openspec/specs/core/spec.md` | FR33-FR37 |
+| rv-platform | platform | `openspec/specs/platform/spec.md` | FR07-FR11, FR14 |
+| rv-experiment | experiment | `openspec/specs/experiment/spec.md` | FR15-FR17 |
+| rv-agent | agent | `openspec/specs/agent/spec.md` | FR21-FR32 |
+| rv-monitor-generator, rv-instrumentation | instrumentation | `openspec/specs/instrumentation/spec.md` | FR01-FR03 |
+| rv-static-analysis, rv-coverage, rv-screen-parser | analysis | `openspec/specs/analysis/spec.md` | FR04-FR06, FR12-FR13 |
+| rv-tools, rv-uiautomator | tools | `openspec/specs/tools/spec.md` | FR18-FR20 |
+
+NFRs are defined in `docs/PRD.md` Section 7 (NFR01-NFR08).
 
 ## Documentation Guidelines
 
@@ -54,6 +71,9 @@ Reference these checklists from this skill directory:
 ## Workflow
 
 ```
+STEP 0: READ DOMAIN SPEC ──────────────────────────────────────────►
+    │  Identify and read the relevant domain spec for SDD traceability
+    ▼
 STEP 1: ANALYZE MODULE ──────────────────────────────────────────►
     │  Understand structure, components, patterns
     ▼
@@ -61,12 +81,25 @@ STEP 2: CREATE DOCS DIR ──────────────────�
     │  mkdir -p modules/$MODULE/docs
     ▼
 STEP 3: GENERATE DOC ────────────────────────────────────────────►
-    │  Write architecture.md from template
+    │  Write architecture.md from template (includes spec traceability)
     ▼
 VERIFY ──────────────────────────────────────────────────────────►
 ```
 
 ## Steps
+
+### 0. Read Domain Spec (SDD Alignment)
+
+Before analyzing the module, identify and read the relevant domain specification using the mapping table in "SDD Integration" above.
+
+1. Find the module in the mapping table to determine its domain and FRs
+2. Read the domain spec file (first 200 lines minimum) to extract:
+   - FRs this module satisfies and their descriptions
+   - Key invariants (INV-XX-NN format) and what they enforce
+   - Scenarios that exercise this module
+3. Read `docs/PRD.md` Section 7 (NFR01-NFR08) for NFR definitions
+
+This information feeds into the "Specification Alignment" and "NFR Support" sections of the generated document.
 
 ### 1. Analyze Module
 
@@ -110,6 +143,27 @@ Reference `checklists/architectural-views.md` for view definitions.
 ## Overview
 
 [One paragraph describing the module's purpose and role in rv-android]
+
+## Specification Alignment
+
+This module implements requirements from `openspec/specs/[DOMAIN]/spec.md`.
+
+### Functional Requirements
+
+| FR | Description | Architectural Support |
+|----|-------------|----------------------|
+| FR[XX] | [From spec/PRD] | [Which component/pattern implements it] |
+
+### Key Invariants
+
+| Invariant | Description | Enforcement Mechanism |
+|-----------|-------------|----------------------|
+| INV-[DOM]-[NN] | [From spec] | [How architecture ensures it] |
+
+### Specification Scenarios
+
+Scenarios from `openspec/specs/[DOMAIN]/spec.md` that validate this architecture:
+- **[Scenario name]**: [Brief description] — traces through [components]
 
 ## Key Architectural Decisions
 
@@ -253,15 +307,19 @@ sequenceDiagram
 
 ## NFR Support
 
-Reference: `checklists/nfr-architecture-mapping.md`
+Reference: `checklists/nfr-architecture-mapping.md` and `docs/PRD.md` Section 7.
 
-How the architecture supports non-functional requirements.
+How the architecture supports non-functional requirements from the PRD.
 
-| NFR | Priority | Architectural Support |
-|-----|----------|----------------------|
-| Performance | P1 | [How architecture enables] |
-| Maintainability | P0 | [How architecture enables] |
-| Extensibility | P1 | [How architecture enables] |
+| NFR | PRD ID | Priority | Architectural Support |
+|-----|--------|----------|----------------------|
+| Performance | NFR01 | P0 | [How architecture enables] |
+| Maintainability | NFR02 | P0 | [How architecture enables] |
+| Extensibility | NFR03 | P1 | [How architecture enables] |
+| Reliability | NFR04 | P1 | [How architecture enables] |
+| Testability | NFR07 | P1 | [How architecture enables] |
+
+Note: Include only NFRs relevant to this module. PRD defines NFR01-NFR08.
 
 ---
 
@@ -339,7 +397,9 @@ Key use cases that validate the architecture.
 
 ## Related Documentation
 
-- [CLAUDE.md](../CLAUDE.md) - Quick reference for Claude
+- [Domain Spec](../../openspec/specs/[DOMAIN]/spec.md) - Requirements and invariants for this module
+- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
+- [CLAUDE.md](../CLAUDE.md) - Quick reference for Claude Code
 - [ADR-001](./adr/ADR-001.md) - Relevant architectural decision
 ````
 
@@ -374,12 +434,19 @@ Report what was generated:
 
 ### Content
 - Overview: ✅
+- Specification Alignment: ✅ (FRs, invariants, spec scenarios)
 - Key Architectural Decisions: ✅
 - Architectural Patterns: ✅
 - Core Components: ✅
-- NFR Support: ✅
+- NFR Support: ✅ (with PRD NFR IDs)
 - Key Interfaces: ✅
 - Dependencies: ✅
+
+### SDD Traceability
+- Domain spec read: ✅/❌
+- FRs referenced: [list]
+- Invariants documented: [count]
+- NFR IDs from PRD: ✅/❌
 
 ### Next Steps
 - Review diagrams in VS Code with Mermaid extension
@@ -395,6 +462,8 @@ Report what was generated:
 3. **Avoid reserved words** - Don't use `graph`, `end`, `class`, `style` as node IDs
 4. **Document decisions** - Not just structure, but why
 5. **Include multiple views** - At minimum: Logical, Development, one Scenario
-6. **Map NFRs to architecture** - Explain how architecture supports quality attributes
+6. **Map NFRs to architecture** - Use PRD NFR IDs (NFR01-08), explain how architecture supports them
 7. **Document patterns** - Name patterns used and their trade-offs
-8. **Link to related docs** - Reference CLAUDE.md and ADRs
+8. **Link to related docs** - Reference domain spec, PRD, CLAUDE.md, and ADRs
+9. **Read domain spec first** - Step 0 is mandatory; extract FRs, invariants, and scenarios before writing
+10. **Include Specification Alignment section** - FRs satisfied, key invariants, and spec scenarios traced through architecture
