@@ -28,6 +28,7 @@ import br.unb.cic.rvsmart.llm.ToolCallParser;
 import br.unb.cic.rvsmart.output.MetricsCollector;
 import br.unb.cic.rvsmart.output.TraceWriter;
 import br.unb.cic.rvsmart.recovery.BacktrackBfs;
+import br.unb.cic.rvsmart.recovery.FrontierFinder;
 import br.unb.cic.rvsmart.recovery.StuckDetector;
 import br.unb.cic.rvsmart.staticdata.StaticMap;
 import br.unb.cic.rvsmart.strategy.ActionSelector;
@@ -145,6 +146,7 @@ public class Main {
             SuccessorTracker successorTracker = new SuccessorTracker(
                     config.getMaxReEnables(), config.getMultiValueSaturationThreshold());
             BacktrackBfs backtrackBfs = new BacktrackBfs();
+            FrontierFinder frontierFinder = new FrontierFinder();
             ConfirmedCoverageScorer confirmedCoverageScorer = new ConfirmedCoverageScorer(
                     config.getConfirmedCoverageBase());
             InputValueGenerator inputValueGenerator = new InputValueGenerator();
@@ -153,7 +155,8 @@ public class Main {
             ActionSelector actionSelector = new ActionSelector(config, successorTracker,
                     confirmedCoverageScorer, inputValueGenerator, uiCoverageTracker);
             StuckDetector stuckDetector = new StuckDetector(
-                    config.getStuckMaxBlocks(), backtrackBfs);
+                    config.getStuckMaxBlocks(), backtrackBfs, null,
+                    frontierFinder, config.getFrontierCoverageThreshold());
             Learner learner = new Learner(graph, stuckDetector);
 
             // 7. Output

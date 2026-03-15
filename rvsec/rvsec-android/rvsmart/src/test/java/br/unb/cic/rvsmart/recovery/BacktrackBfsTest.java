@@ -7,7 +7,10 @@ import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,7 +32,7 @@ class BacktrackBfsTest {
     void testReturnsNullWhenNoParentsExist() {
         // Start hash has no parents in tracker
         graph.getOrCreate("hash_A", "ActivityA");
-        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5);
+        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5, Collections.emptySet());
         assertNull(path);
     }
 
@@ -41,7 +44,7 @@ class BacktrackBfsTest {
 
         tracker.record("hash_B", "hash_A"); // hash_A -> parent is hash_B
 
-        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5);
+        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5, Collections.emptySet());
         assertNotNull(path);
         assertFalse(path.isEmpty());
         // The path should end at hash_B (the unsaturated ancestor)
@@ -63,7 +66,7 @@ class BacktrackBfsTest {
         tracker.record(grandparent, parent);
         tracker.record(parent, start);
 
-        List<String> path = bfs.findPathToUnsaturated(start, tracker, graph, 3);
+        List<String> path = bfs.findPathToUnsaturated(start, tracker, graph, 3, Collections.emptySet());
         assertNull(path);
     }
 
@@ -84,7 +87,7 @@ class BacktrackBfsTest {
         tracker.record(grandparent, parent);
         tracker.record(parent, start);
 
-        List<String> path = bfs.findPathToUnsaturated(start, tracker, graph, 5);
+        List<String> path = bfs.findPathToUnsaturated(start, tracker, graph, 5, Collections.emptySet());
         assertNotNull(path);
         // Path should contain the grandparent at the end
         assertTrue(path.contains(grandparent));
@@ -97,7 +100,7 @@ class BacktrackBfsTest {
 
         tracker.record("hash_B", "hash_A");
 
-        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5);
+        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5, Collections.emptySet());
         assertNotNull(path);
         // Path includes start hash as first element (for PathBuffer divergence check)
         assertTrue(path.contains("hash_A"));
@@ -110,8 +113,46 @@ class BacktrackBfsTest {
         tracker.record("hash_parent", "hash_child");
         // hash_parent not in graph at all
 
-        List<String> path = bfs.findPathToUnsaturated("hash_child", tracker, graph, 5);
+        List<String> path = bfs.findPathToUnsaturated("hash_child", tracker, graph, 5, Collections.emptySet());
         assertNotNull(path);
         assertTrue(path.contains("hash_parent"));
+    }
+
+    @Test
+    void testSterileHashExcludedFromBfsResult() {
+        // Chain: start <- parent (sterile, unsaturated) <- grandparent (unsaturated)
+        String start = "hash_start";
+        String parent = "hash_parent";
+        String grandparent = "hash_grandparent";
+
+        graph.recordVisit(parent, "ActivityP");       // 1 visit (below threshold 5)
+        graph.recordVisit(grandparent, "ActivityGP"); // 1 visit (below threshold 5)
+
+        tracker.record(grandparent, parent);
+        tracker.record(parent, start);
+
+        // Without sterile: parent is found (shortest path)
+        List<String> pathNoSterile = bfs.findPathToUnsaturated(start, tracker, graph, 5, Collections.emptySet());
+        assertNotNull(pathNoSterile);
+        assertTrue(pathNoSterile.contains(parent));
+
+        // With parent sterile: grandparent is found instead
+        Set<String> sterile = new HashSet<>();
+        sterile.add(parent);
+        List<String> pathSterile = bfs.findPathToUnsaturated(start, tracker, graph, 5, sterile);
+        assertNotNull(pathSterile);
+        assertTrue(pathSterile.contains(grandparent),
+                "BFS should skip sterile parent and find grandparent");
+    }
+
+    @Test
+    void testReturnsNullWhenOnlyUnsaturatedAncestorIsSterile() {
+        graph.recordVisit("hash_parent", "ActivityP"); // 1 visit (unsaturated)
+        tracker.record("hash_parent", "hash_A");
+
+        Set<String> sterile = new HashSet<>();
+        sterile.add("hash_parent");
+        List<String> path = bfs.findPathToUnsaturated("hash_A", tracker, graph, 5, sterile);
+        assertNull(path, "Should return null when only candidate is sterile");
     }
 }

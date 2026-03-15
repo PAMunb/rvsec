@@ -32,17 +32,28 @@ public class BacktrackBfs {
      * BFS from startHash through parent edges recorded in SuccessorTracker.
      * Returns the shortest path (list of hashes) to an ancestor with
      * visitCount < saturationThreshold. Returns null if no such ancestor exists.
+     */
+    public List<String> findPathToUnsaturated(String startHash, SuccessorTracker tracker,
+                                              ContentGraph graph, int saturationThreshold) {
+        return findPathToUnsaturated(startHash, tracker, graph, saturationThreshold, null);
+    }
+
+    /**
+     * BFS from startHash through parent edges recorded in SuccessorTracker.
+     * Returns the shortest path (list of hashes) to an ancestor with
+     * visitCount < saturationThreshold. Sterile hashes are excluded from
+     * candidates (INV-RSM-44). Returns null if no such ancestor exists.
      *
      * @param startHash            the current screen hash
      * @param tracker              parent-child edge store
      * @param graph                graph with visit counts
      * @param saturationThreshold  max visitCount to be considered unsaturated
-     * @return ordered list of hashes from startHash to the target (inclusive of start,
-     *         exclusive of start itself — i.e. the sequence of screens to navigate through),
-     *         or null if not found
+     * @param sterileHashes        hashes to exclude from candidates (may be null)
+     * @return ordered list of hashes from startHash to the target, or null if not found
      */
     public List<String> findPathToUnsaturated(String startHash, SuccessorTracker tracker,
-                                              ContentGraph graph, int saturationThreshold) {
+                                              ContentGraph graph, int saturationThreshold,
+                                              Set<String> sterileHashes) {
         Queue<String> queue = new ArrayDeque<>();
         Set<String> visited = new HashSet<>();
         Map<String, String> parentMap = new HashMap<>(); // child -> parent for path reconstruction
@@ -54,7 +65,9 @@ public class BacktrackBfs {
             String current = queue.poll();
 
             // Check if this node is unsaturated (and not the start node itself)
-            if (!current.equals(startHash)) {
+            // INV-RSM-44: sterile hashes are excluded from backtrack targets
+            if (!current.equals(startHash)
+                    && (sterileHashes == null || !sterileHashes.contains(current))) {
                 ContentNode node = graph.get(current);
                 int visitCount = node != null ? node.getVisitCount() : 0;
                 if (visitCount < saturationThreshold) {

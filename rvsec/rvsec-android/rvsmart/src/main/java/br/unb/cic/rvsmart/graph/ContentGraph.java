@@ -1,5 +1,8 @@
 package br.unb.cic.rvsmart.graph;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +22,9 @@ import java.util.Set;
 public class ContentGraph {
 
     private final LinkedHashMap<String, ContentNode> nodes = new LinkedHashMap<>();
+    private final Set<String> sterileHashes = new HashSet<>();
+    private final Map<String, Integer> sterileCounters = new HashMap<>();
+    private final Set<String> tarpitHashes = new HashSet<>();
 
     /**
      * Get or create a ContentNode for the given content hash.
@@ -119,9 +125,79 @@ public class ContentGraph {
     }
 
     /**
+     * Increment the sterile counter for a hash. Called when UIAutomator returns null root
+     * and the hash was the last known content hash from the previous successful iteration.
+     */
+    public void incrementSterileCounter(String hash) {
+        if (hash == null) return;
+        sterileCounters.put(hash, sterileCounters.getOrDefault(hash, 0) + 1);
+    }
+
+    /**
+     * Reset the sterile counter for a hash. Called when a successful parse occurs
+     * at this hash, preventing transient failures from blacklisting valid screens.
+     */
+    public void resetSterileCounter(String hash) {
+        if (hash == null) return;
+        sterileCounters.remove(hash);
+    }
+
+    /**
+     * Mark a hash as permanently sterile for this run.
+     * Once sterile, a hash remains sterile for the duration of the run.
+     */
+    public void markSterile(String hash) {
+        if (hash == null) return;
+        sterileHashes.add(hash);
+    }
+
+    /**
+     * Check if a hash is marked sterile.
+     */
+    public boolean isSterile(String hash) {
+        return hash != null && sterileHashes.contains(hash);
+    }
+
+    /**
+     * Get unmodifiable view of all sterile hashes (INV-RSM-44).
+     */
+    public Set<String> getSterileHashes() {
+        return Collections.unmodifiableSet(sterileHashes);
+    }
+
+    /**
+     * Get the current sterile counter for a hash.
+     */
+    public int getSterileCounter(String hash) {
+        return hash != null ? sterileCounters.getOrDefault(hash, 0) : 0;
+    }
+
+    /**
+     * Mark a hash as a tarpit screen. Unlike sterile screens (UIAutomator failure),
+     * tarpit screens parse fine but the agent makes no algorithmic progress.
+     */
+    public void markTarpit(String hash) {
+        if (hash != null) tarpitHashes.add(hash);
+    }
+
+    /**
+     * Check if a hash is marked as tarpit.
+     */
+    public boolean isTarpit(String hash) {
+        return hash != null && tarpitHashes.contains(hash);
+    }
+
+    /**
+     * Get unmodifiable view of all tarpit hashes.
+     */
+    public Set<String> getTarpitHashes() {
+        return Collections.unmodifiableSet(tarpitHashes);
+    }
+
+    /**
      * All nodes in insertion order (for BFS/iteration).
      */
     public Map<String, ContentNode> getNodes() {
-        return java.util.Collections.unmodifiableMap(nodes);
+        return Collections.unmodifiableMap(nodes);
     }
 }

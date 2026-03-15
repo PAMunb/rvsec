@@ -177,12 +177,12 @@ class AgentLoopTest {
         PlateauDetector plateauDetector = new PlateauDetector();
         PhaseController phaseController = new PhaseController(contentGraph, tracker, plateauDetector);
 
-        // Drive plateau — with empty ContentGraph, PHASE_1 → PHASE_2 immediately (no untested
-        // actions in any reachable state), then PHASE_2 → PHASE_3 after WINDOW_SIZE iterations.
+        // Drive plateau — with empty ContentGraph and no untested actions in any reachable state,
+        // PHASE_1 → PHASE_3 after WINDOW_SIZE iterations when plateau is detected.
         for (int i = 0; i < PlateauDetector.WINDOW_SIZE; i++) {
             phaseController.onIteration(0);
         }
-        // Phase is beyond PHASE_1 (either PHASE_2 or PHASE_3 depending on graph state)
+        // Phase is beyond PHASE_1 (PHASE_3 after plateau detected)
         assertNotEquals(PhaseController.Phase.PHASE_1, phaseController.currentPhase(),
                 "Phase should have advanced past PHASE_1 after sustained no-progress iterations");
 

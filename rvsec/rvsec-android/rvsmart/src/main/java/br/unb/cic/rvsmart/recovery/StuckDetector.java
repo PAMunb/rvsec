@@ -5,7 +5,9 @@ import br.unb.cic.rvsmart.graph.ContentGraph;
 import br.unb.cic.rvsmart.graph.NavigationMap;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Detects when the app is stuck on the same screen by tracking
@@ -41,6 +43,10 @@ public class StuckDetector {
     private int consecutiveRestartsSameScreen;
     private static final int MAX_RESTARTS_SAME_SCREEN = 3;
 
+    // Forward frontier search (optional — null means frontier search is disabled)
+    private final FrontierFinder frontierFinder;
+    private float frontierCoverageThreshold = 0.8f;
+
     public StuckDetector(int stuckMaxBlocks) {
         this(stuckMaxBlocks, null, null);
     }
@@ -50,9 +56,17 @@ public class StuckDetector {
     }
 
     public StuckDetector(int stuckMaxBlocks, BacktrackBfs backtrackBfs, NavigationMap navigationMap) {
+        this(stuckMaxBlocks, backtrackBfs, navigationMap, null, 0.8f);
+    }
+
+    public StuckDetector(int stuckMaxBlocks, BacktrackBfs backtrackBfs,
+                         NavigationMap navigationMap, FrontierFinder frontierFinder,
+                         float frontierCoverageThreshold) {
         this.stuckMaxBlocks = stuckMaxBlocks;
         this.backtrackBfs = backtrackBfs;
         this.navigationMap = navigationMap;
+        this.frontierFinder = frontierFinder;
+        this.frontierCoverageThreshold = frontierCoverageThreshold;
     }
 
     /**
@@ -90,17 +104,20 @@ public class StuckDetector {
      */
     public Action recover(String currentHash, SuccessorTracker tracker, ContentGraph graph) {
         if (backtrackBfs == null) {
-            return handleNoBacktrackPath(currentHash);
+            return tryFrontierOrRestart(currentHash, graph);
         }
 
+        // INV-RSM-44: pass sterile + tarpit hashes to BacktrackBfs
+        Set<String> excludedHashes = new HashSet<>(graph.getSterileHashes());
+        excludedHashes.addAll(graph.getTarpitHashes());
         List<String> path = backtrackBfs.findPathToUnsaturated(
-                currentHash, tracker, graph, DEFAULT_SATURATION_THRESHOLD);
+                currentHash, tracker, graph, DEFAULT_SATURATION_THRESHOLD, excludedHashes);
 
         if (path != null && !path.isEmpty()) {
             return Action.back("algorithm");
         }
 
-        // BUG-04: Try NavigationMap replay before RESTART
+        // BUG-04: Try NavigationMap replay before frontier search
         if (navigationMap != null) {
             List<String> outgoing = navigationMap.getOutgoingActions(currentHash);
             if (outgoing != null && !outgoing.isEmpty()) {
@@ -108,6 +125,21 @@ public class StuckDetector {
             }
         }
 
+        return tryFrontierOrRestart(currentHash, graph);
+    }
+
+    /**
+     * Try FrontierFinder forward search before falling back to RESTART.
+     * FrontierFinder is diagnostic: determines if unsaturated states exist forward.
+     * Whether found or not, recovery is RESTART (UCB bias guides toward frontier).
+     */
+    private Action tryFrontierOrRestart(String currentHash, ContentGraph graph) {
+        if (frontierFinder != null && graph != null) {
+            Set<String> excluded = new HashSet<>(graph.getSterileHashes());
+            excluded.addAll(graph.getTarpitHashes());
+            frontierFinder.findFrontier(
+                    currentHash, graph, frontierCoverageThreshold, excluded);
+        }
         return handleNoBacktrackPath(currentHash);
     }
 

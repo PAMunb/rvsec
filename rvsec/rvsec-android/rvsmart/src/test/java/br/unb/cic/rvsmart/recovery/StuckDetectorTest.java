@@ -2,12 +2,16 @@ package br.unb.cic.rvsmart.recovery;
 
 import br.unb.cic.rvsmart.core.Action;
 import br.unb.cic.rvsmart.graph.ContentGraph;
+import br.unb.cic.rvsmart.graph.ContentNode;
 import br.unb.cic.rvsmart.graph.NavigationMap;
 import br.unb.cic.rvsmart.output.RvTrack;
 import br.unb.cic.rvsmart.strategy.SuccessorTracker;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -311,5 +315,66 @@ class StuckDetectorTest {
         detector.update("hash_A");
         assertFalse(detector.update("hash_A")); // consecutive=1
         assertEquals(1, detector.getConsecutiveUnchanged());
+    }
+
+    // --- FrontierFinder integration (gh39 Track B) ---
+
+    @Test
+    void testRecoverReturnRestartWhenFrontierFoundButNoAncestor() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        FrontierFinder frontierFinder = new FrontierFinder();
+        StuckDetector detector = new StuckDetector(3, bfs, null, frontierFinder, 0.8f);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // H1 has no ancestors (BFS finds nothing), but has a forward frontier H2
+        ContentNode h1 = graph.getOrCreate("H1", "A");
+        h1.setTotalActions(10);
+        h1.addTransition("H2");
+        ContentNode h2 = graph.getOrCreate("H2", "A");
+        h2.setTotalActions(10); // 0% coverage — frontier
+
+        Action action = detector.recover("H1", tracker, graph);
+        assertNotNull(action);
+        assertEquals(Action.Type.RESTART, action.getType(),
+                "When frontier found but no ancestor, should RESTART (UCB bias guides to frontier)");
+    }
+
+    @Test
+    void testRecoverReturnsRestartWhenNoFrontierEither() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        FrontierFinder frontierFinder = new FrontierFinder();
+        StuckDetector detector = new StuckDetector(3, bfs, null, frontierFinder, 0.8f);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // H1 has no ancestors and no forward transitions
+        graph.getOrCreate("H1", "A");
+
+        Action action = detector.recover("H1", tracker, graph);
+        assertNotNull(action);
+        assertEquals(Action.Type.RESTART, action.getType());
+    }
+
+    @Test
+    void testSterileHashesPassedToBacktrackBfs() {
+        BacktrackBfs bfs = new BacktrackBfs();
+        StuckDetector detector = new StuckDetector(3, bfs);
+
+        ContentGraph graph = new ContentGraph();
+        SuccessorTracker tracker = new SuccessorTracker();
+
+        // hash_parent is unsaturated but sterile
+        graph.recordVisit("hash_parent", "ActivityP");
+        graph.markSterile("hash_parent");
+        tracker.record("hash_parent", "hash_A");
+
+        Action action = detector.recover("hash_A", tracker, graph);
+        assertNotNull(action);
+        // Sterile parent excluded → no path → RESTART
+        assertEquals(Action.Type.RESTART, action.getType(),
+                "Sterile ancestors should be excluded from BFS, resulting in RESTART");
     }
 }

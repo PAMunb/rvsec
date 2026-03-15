@@ -70,7 +70,7 @@ public class ScreenState {
      * excluding EditText), enabled, checkable per widget.
      *
      * Algorithm:
-     *   1. Build a signature per widget: "className|resourceID|text|enabled|checkable"
+     *   1. Build a signature per widget: "className|resourceID|text|contentDesc|enabled|checkable"
      *      (text omitted for EditText; text truncated to 50 chars for other widgets)
      *   2. Deduplicate identical signatures (Set)
      *   3. Sort signatures for determinism
@@ -126,7 +126,7 @@ public class ScreenState {
 
     /**
      * Build a content signature for a widget.
-     * Includes: className, resourceID, text (trimmed, ≤ 50 chars), enabled, checkable.
+     * Includes: className, resourceID, text (trimmed, ≤ 50 chars), contentDescription (trimmed, ≤ 50 chars), enabled, checkable.
      *
      * Text inclusion rules:
      * - EditText (user-typed content): always excluded — prevents agent input from creating
@@ -142,19 +142,27 @@ public class ScreenState {
         String resourceId = item.getResourceId() != null ? item.getResourceId() : "";
 
         String text = "";
+        String contentDesc = "";
         boolean isEditText = isEditTextClass(className);
-        // Include text only for interactive non-EditText widgets (e.g. Button, CheckBox).
-        // Output-only widgets (e.g. result TextViews) are excluded via isInteractive() check.
-        if (!isEditText && item.isInteractive() && item.getText() != null) {
-            String raw = item.getText().trim();
-            text = raw.length() > MAX_TEXT_LENGTH ? raw.substring(0, MAX_TEXT_LENGTH) : raw;
+        // Include text and contentDescription only for interactive non-EditText widgets
+        // (e.g. Button, CheckBox, ImageButton). Output-only widgets (e.g. result TextViews)
+        // are excluded via isInteractive() check. INV-RSM-47.
+        if (!isEditText && item.isInteractive()) {
+            if (item.getText() != null) {
+                String raw = item.getText().trim();
+                text = raw.length() > MAX_TEXT_LENGTH ? raw.substring(0, MAX_TEXT_LENGTH) : raw;
+            }
+            if (item.getContentDescription() != null) {
+                String raw = item.getContentDescription().trim();
+                contentDesc = raw.length() > MAX_TEXT_LENGTH ? raw.substring(0, MAX_TEXT_LENGTH) : raw;
+            }
         }
 
         boolean enabled = item.isEnabled();
         boolean checkable = item.isCheckable();
 
         return className + "|" + resourceId + "|" + text
-                + "|" + enabled + "|" + checkable;
+                + "|" + contentDesc + "|" + enabled + "|" + checkable;
     }
 
     /**

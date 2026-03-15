@@ -311,7 +311,7 @@
   mvn install -DskipTests
   ```
   The `install` phase triggers maven-resources-plugin which copies the fat JAR to `$RVSEC_HOME/rv-android/modules/rvsmart-tool/src/rvsmart_tool/tools/rvsmart/rvsmart.jar`. Verify file exists and is recent.
-- [ ] 7.2 Run all unit tests:
+- [x] 7.2 Run all unit tests (565 tests, 0 failures, 2026-03-13):
   ```
   source /etc/profile
   cd $RVSEC_HOME/rvsec/rvsec-android/rvsmart

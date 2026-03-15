@@ -223,7 +223,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **INV-RSM-31**: `StaticMap.parseTransitions()` MUST parse the `"transitions"` key as a `JsonArray`. Each array element contains `"sourceId"` (int), `"targetId"` (int), and `"events"` (JsonArray of {type, widgetClass} objects). The parser MUST build an adjacency map from window IDs to their transitions, cross-referencing window IDs with activity names from the `"windows"` section.
 
-- **INV-RSM-32**: The rvsmart scoring chain MUST consist of exactly 7 scorers: `MopScorer`, `WtgScorer`, `GradualDecayScorer`, `SystemElementFilter`, `ComponentPriorityScorer`, `ConfirmedCoverageScorer`, `CoverageDensityScorer`. The `RewardScorer` and `RewardPropagator` classes MUST NOT exist in the codebase — they are deleted per P3 (no backward compatibility). `CoverageDensityScorer` becomes functional once the `UICoverageTracker` ID mismatch is fixed (INV-RSM-39).
+- **INV-RSM-32**: The rvsmart scoring chain MUST consist of exactly 8 scorers: `MopScorer`, `WtgScorer`, `GradualDecayScorer`, `SystemElementFilter`, `ComponentPriorityScorer`, `ConfirmedCoverageScorer`, `CoverageDensityScorer`, `UCBScorer`. The `RewardScorer` and `RewardPropagator` classes MUST NOT exist in the codebase — they are deleted per P3 (no backward compatibility). `CoverageDensityScorer` becomes functional once the `UICoverageTracker` ID mismatch is fixed (INV-RSM-39).
 
 - **INV-RSM-33**: When out-of-app is detected with `consecutiveOoaAfterRestart >= MAX_CONSECUTIVE_OOA_AFTER_RESTART`, the recovery sequence MUST: (1) send `input keyevent BACK` via `adb shell`, (2) if still out-of-app, call `am force-stop <foregroundPackage>`, (3) then `forceStop(targetPackage)` and `startApp(targetPackage)`. The `foregroundPackage` MUST be obtained from `root.getPackageName()` at OOA detection time.
 
@@ -246,6 +246,20 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 - **INV-RSM-42**: `AgentLoop` MUST use the return value of `HeapMonitor.check()` as the actual sleep duration between iterations, instead of always sleeping `config.getThrottleMs()`. When heap pressure is normal, `check()` returns the configured throttle value (no behavior change). When heap pressure is high, `check()` returns a larger value that MUST actually delay the next iteration.
 
 - **INV-RSM-43**: When `SystemDialogDetector.dismiss()` fails to dismiss a system dialog, `AgentLoop` MUST: (a) sleep 500ms to prevent CPU spinning (prevents 646 it/s SKIP storms), (b) increment a `consecutiveSystemDialogs` counter. When `consecutiveSystemDialogs >= 3`, the agent MUST press BACK. When `consecutiveSystemDialogs >= 6`, the agent MUST force-stop the foreground app and restart the target. The counter MUST reset to 0 when any non-system-dialog iteration runs.
+
+- **INV-RSM-44**: Sterile hashes SHALL be excluded from both BacktrackBfs ancestor candidates and FrontierFinder forward candidates. A sterile hash SHALL never be returned as a navigation target.
+
+- **INV-RSM-45**: The retry loop SHALL execute 0 retries when `ContentNode.getSaturationRate() >= retry_saturation_threshold`, regardless of `max_retries_per_cycle`.
+
+- **INV-RSM-46**: `FrontierFinder.findFrontier()` SHALL return the nearest (shortest BFS path) frontier state, not an arbitrary one. BFS guarantees shortest-path property.
+
+- **INV-RSM-47**: The content signature for interactive non-EditText widgets SHALL include both `text` and `contentDescription`, each truncated to 50 chars independently.
+
+- **INV-RSM-48**: `ActivityBudgetTracker.isBudgetExhausted()` SHALL return true only after the iteration count reaches the computed budget. Budget computation MUST use `activity_base_budget + (widgetCount * budget_per_widget)`.
+
+- **INV-RSM-49**: `TarpitDetector` SHALL reset the per-hash counter when any progress event occurs (new state, new MOP, hash change). A tarpit SHALL only be declared after `tarpit_threshold` truly consecutive no-progress iterations.
+
+- **INV-RSM-50**: After PhaseController simplification, the `Phase` enum SHALL contain exactly 2 values: `PHASE_1` and `PHASE_3`. No code SHALL reference `PHASE_2`.
 
 - **INV-TOOL-TRACE-01**: The rvsmart trace file format (`RVTRACK:` lines) SHALL remain parseable by existing post-processing scripts. New trace line types MAY be added with distinct prefixes but existing prefixes SHALL preserve their format.
 
@@ -711,7 +725,7 @@ The parser MUST handle three aspects correctly:
 
 ### Requirement: Scoring Chain Composition (FR18, NFR01)
 
-The rvsmart scoring chain SHALL consist of exactly 7 additive scorers, each contributing an independent score component that is summed to produce the total action score:
+The rvsmart scoring chain SHALL consist of exactly 8 additive scorers, each contributing an independent score component that is summed to produce the total action score:
 
 | # | Scorer | Contribution | Status |
 |---|--------|-------------|--------|
@@ -722,6 +736,7 @@ The rvsmart scoring chain SHALL consist of exactly 7 additive scorers, each cont
 | 5 | `ComponentPriorityScorer` | SET_TEXT=200, CLICK=100, SCROLL=25 to prioritize high-value action types | Unchanged |
 | 6 | `ConfirmedCoverageScorer` | 150/(1+revisits) to boost screens with confirmed MOP coverage, decaying on revisits | Unchanged |
 | 7 | `CoverageDensityScorer` | coverageGap * weight (default 100) to direct exploration toward screens with untested elements | Functional (requires UICoverageTracker ID fix — INV-RSM-39) |
+| 8 | `UCBScorer` | UCB1 exploration bonus based on visit count — encourages visiting under-explored screens | Added by gh37 |
 
 The following are REMOVED (P3 — complete deletion, backed up to `backup/`):
 
@@ -738,7 +753,20 @@ The following are REMOVED (P3 — complete deletion, backed up to `backup/`):
 - **WHEN** no static analysis data is available (`StaticMap.isLoaded() == false`)
 - **THEN** `MopScorer` SHALL return 0 for all actions
 - **AND** `WtgScorer` SHALL return 0 for all actions
-- **AND** scoring falls back to the 5 non-static scorers (GradualDecay, SystemElement, ComponentPriority, ConfirmedCoverage, CoverageDensity)
+- **AND** scoring falls back to the 6 non-static scorers (GradualDecay, SystemElement, ComponentPriority, ConfirmedCoverage, CoverageDensity, UCB)
+
+The exploration uses a 2-phase system (INV-RSM-50):
+
+- **Phase 1** (Broad exploration): DFS with untested action preference, scorer chain, cluster navigation fallback
+- **Phase 3** (Stochastic escape): softmax-weighted stochastic selection with boosted probability (0.5)
+
+Phase 2 (coverage-guided navigation) was removed in gh40. Its behavior is redundant with `CoverageDensityScorer` and `UCBScorer`. The transition is: Phase 1 → Phase 3 when PlateauDetector signals plateau; Phase 3 → Phase 1 when a new content state is discovered.
+
+#### Scenario: Phase transition skips Phase 2
+- **WHEN** PlateauDetector signals plateau (10 consecutive no-progress iterations)
+- **AND** current phase is Phase 1
+- **THEN** PhaseController SHALL transition directly to Phase 3
+- **AND** Phase 2 SHALL NOT be entered
 
 ### Requirement: OOA Multi-Stage Recovery (FR19, NFR04)
 
@@ -965,7 +993,7 @@ Changes from gh29 defaults:
 | BACK base score | -500 | -100 | At -500, BACK is 13x less attractive than average CLICK (~100), preventing voluntary backtracking |
 | Proactive backtrack trigger | Score-based (`bestScore < 50`) | Saturation-based (`getSaturationRate() >= 0.8`) | Score-based threshold is fragile — adding/removing scorers shifts score range, requiring re-tuning. Saturation is self-calibrating: depends only on how many actions have been tried on the current screen |
 | Stochastic selection | Uniform random | Softmax-weighted (temperature=50) | Uniform ignores scores entirely; softmax prefers higher-scored actions while maintaining exploration |
-| maxRetriesPerCycle | 1 | 3 | Retry costs ~250ms vs ~500ms for a new cycle; more retries reduces wasted cycles |
+| maxRetriesPerCycle | 3 | 1 | gh39: reduced from 3 to 1 — retries on saturated screens waste iterations; saturation gate (INV-RSM-45) skips retries entirely when saturation >= 0.8 |
 
 The softmax-weighted stochastic selection computes `p(a) = exp(score(a) / temperature) / sum(exp(scores / temperature))` and samples from this distribution. Temperature=50 gives gentle preference to higher-scored actions. When all scores are equal, softmax degenerates to uniform random (same behavior as before).
 
@@ -1053,3 +1081,139 @@ When executing LLM-generated actions in hybrid/multimode, `AgentLoop` SHALL vali
 - **WHEN** `aperv-tool` raises `ImportError` during registration
 - **THEN** `"rvsmart"` SHALL still be registered and functional
 - **AND** `"aperv"` SHALL NOT appear in `ToolRegistry`
+
+### Requirement: Sterile Screen Blacklist (FR18)
+
+The rvsmart agent SHALL track consecutive UIAutomator parse failures (null or empty root) per content hash. When `getRootInActiveWindow()` returns null, the agent SHALL attribute the failure to the **last known content hash** (the hash from the previous successful iteration), since no ScreenState can be computed without a root. When the failure count for a hash reaches the configurable `sterile_threshold` (default 3), the hash SHALL be marked as "sterile" in ContentGraph. Sterile hashes SHALL be excluded from BacktrackBfs target candidates and FrontierFinder candidates. Once marked sterile, a hash SHALL remain sterile for the duration of the run (no un-marking).
+
+The sterile counter for a hash SHALL reset to zero when a successful parse occurs at that hash. This prevents transient failures (slow app startup, brief loading screens) from permanently blacklisting valid screens.
+
+#### Scenario: Screen becomes sterile after 3 consecutive failures
+- **WHEN** UIAutomator returns null root 3 consecutive times while the last known content hash is `a1b2c3d4`
+- **THEN** `ContentGraph.isSterile("a1b2c3d4")` SHALL return true
+- **AND** subsequent calls to `BacktrackBfs.findPathToUnsaturated()` SHALL skip `a1b2c3d4` as a candidate target
+
+#### Scenario: Sterile counter resets on successful parse
+- **WHEN** UIAutomator returns null root 2 times while last known hash is `a1b2c3d4`
+- **AND** UIAutomator returns a valid root on the 3rd visit at the same screen
+- **THEN** the sterile counter for `a1b2c3d4` SHALL reset to 0
+- **AND** `ContentGraph.isSterile("a1b2c3d4")` SHALL return false
+
+#### Scenario: No last known hash available
+- **WHEN** UIAutomator returns null root on the very first iteration (no previous hash)
+- **THEN** the sterile counter SHALL NOT be incremented
+- **AND** existing null root recovery (handleNullRoot) SHALL proceed normally
+
+### Requirement: Forward Navigation via Frontier Search (FR18)
+
+When StuckDetector fires Level 2 recovery and BacktrackBfs finds no unsaturated ancestor, the agent SHALL attempt forward navigation by searching for a **frontier state** — a reachable content state with `getCoverage() < frontier_coverage_threshold` (default 0.8) that is not sterile.
+
+`FrontierFinder` SHALL perform BFS forward through `ContentNode.getTransitions()` starting from the current hash, visiting all reachable states, and returning the hash of the nearest frontier node. If no frontier exists, the search SHALL return null and recovery SHALL fall back to RESTART.
+
+When a frontier is found but no direct navigation path is available (forward navigation requires action replay which is not yet implemented), StuckDetector SHALL return RESTART. After restart, the agent re-enters from the main activity and UCB+scorers naturally bias exploration toward the frontier (unsaturated states receive higher UCB bonus). This captures the benefit of frontier awareness without requiring explicit forward navigation.
+
+The recovery priority order SHALL be: (1) BacktrackBfs ancestor → BACK, (2) FrontierFinder forward found → RESTART (indirect navigation via scorer bias), (3) no frontier → RESTART.
+
+#### Scenario: Forward frontier found when all ancestors saturated
+- **WHEN** the agent is stuck at hash `H1` with all ancestors having visitCount >= 5
+- **AND** hash `H3` is reachable via transitions `H1 → H2 → H3`
+- **AND** `H3` has coverage 0.3 (below threshold 0.8)
+- **THEN** `FrontierFinder.findFrontier("H1", graph, 0.8f, sterileHashes)` SHALL return `"H3"`
+- **AND** StuckDetector.recover() SHALL return RESTART (UCB bias will guide toward `H3`)
+
+#### Scenario: No frontier available
+- **WHEN** the agent is stuck at hash `H1`
+- **AND** all reachable states (ancestors and forward) have coverage >= 0.8 or are sterile
+- **THEN** `FrontierFinder.findFrontier()` SHALL return null
+- **AND** StuckDetector.recover() SHALL return RESTART
+
+#### Scenario: Sterile states excluded from frontier search
+- **WHEN** hash `H2` is marked sterile in ContentGraph
+- **AND** `H2` is reachable from current hash via transitions
+- **THEN** `FrontierFinder.findFrontier()` SHALL NOT return `H2`
+- **AND** BFS SHALL continue past `H2` to search deeper nodes
+
+### Requirement: Retry Saturation Gate (FR18)
+
+The rvsmart retry loop (INV-RSM-07) SHALL use `max_retries_per_cycle` (default 1) as the maximum number of alternative actions tried when the primary action has no effect.
+
+When the current screen's saturation rate (`ContentNode.getSaturationRate()`) is greater than or equal to `retry_saturation_threshold` (default 0.8), retries SHALL be skipped entirely (effective retry count = 0). This prevents wasting iterations on screens where most widget actions have already been sufficiently explored.
+
+#### Scenario: Retries limited to 1 on unsaturated screen
+- **WHEN** the primary action on a screen with saturation 0.3 has no effect
+- **THEN** the agent SHALL try at most 1 alternative action
+- **AND** if the alternative also has no effect, the agent SHALL proceed to the next iteration
+
+#### Scenario: Retries skipped on saturated screen
+- **WHEN** the primary action on a screen with saturation 0.9 has no effect
+- **AND** `retry_saturation_threshold` is 0.8
+- **THEN** the agent SHALL NOT attempt any retry actions
+- **AND** the agent SHALL proceed directly to the next iteration
+
+### Requirement: Content Hash with Content-Description (FR18)
+
+The content hash computed by `ScreenState.computeContentHash()` SHALL include a truncated `contentDescription` (≤50 chars) for interactive non-EditText widgets, in addition to the existing fields (className, resourceID, text, enabled, checkable).
+
+The content signature format SHALL be: `className|resourceId|text|contentDesc|enabled|checkable`.
+
+Content-description inclusion follows the same rules as text inclusion: excluded for EditText widgets (user input) and excluded for non-interactive widgets (dynamic output). This ensures accessibility-described widgets (e.g., ImageButtons with content-description but no text) produce distinct content hashes.
+
+#### Scenario: ImageButton with content-description produces distinct hash
+- **WHEN** two ImageButton widgets have the same className, resourceId, no text
+- **AND** one has contentDescription "Settings" and the other has contentDescription "Profile"
+- **THEN** `computeContentHash()` SHALL produce different hashes for screens containing these widgets
+
+#### Scenario: Non-interactive widget content-description excluded
+- **WHEN** an output-only TextView has contentDescription "Current balance: $42.50"
+- **THEN** the contentDescription SHALL NOT be included in the content signature
+- **AND** changing the balance SHALL NOT produce a different content hash
+
+### Requirement: Per-Activity Iteration Budget (FR18)
+
+The rvsmart agent SHALL allocate an iteration budget to each Activity based on its interactive widget count. The budget formula SHALL be: `budget = activity_base_budget + (widgetCount * budget_per_widget)`, where `activity_base_budget` (default 10) and `budget_per_widget` (default 3) are configurable parameters.
+
+`ActivityBudgetTracker` SHALL register an Activity's budget on first visit using the count of interactive elements from the current ScreenState. On each iteration, the tracker SHALL increment the iteration counter for the current Activity. When the counter reaches the budget, `isBudgetExhausted()` SHALL return true.
+
+When the budget is exhausted and the selected action is a widget action (not BACK or RESTART), AgentLoop SHALL override the action with BACK (if parent exists) or RESTART. This prevents the agent from spending excessive time on Activities with few interactive widgets while under-exploring complex Activities.
+
+The budget is permanent per run — once exhausted, an Activity remains exhausted. This is intentional: the agent should distribute its limited time across Activities rather than revisiting exhausted ones.
+
+#### Scenario: Budget allocated proportional to widget count
+- **WHEN** the agent first visits an Activity with 20 interactive widgets
+- **AND** `activity_base_budget` is 10 and `budget_per_widget` is 3
+- **THEN** the Activity SHALL receive a budget of 70 iterations (10 + 20×3)
+
+#### Scenario: Budget exhaustion triggers backtrack
+- **WHEN** the agent has spent 70 iterations on an Activity with budget 70
+- **AND** the selected action is CLICK at (540, 960)
+- **THEN** the agent SHALL override the action with BACK or RESTART
+- **AND** subsequent visits to this Activity SHALL also be overridden
+
+#### Scenario: BACK and RESTART are not overridden
+- **WHEN** the budget for the current Activity is exhausted
+- **AND** the selected action is BACK
+- **THEN** the action SHALL NOT be overridden (BACK is already leaving the Activity)
+
+### Requirement: Anti-Tarpit Detection (FR18)
+
+The rvsmart agent SHALL detect "tarpit" screens — screens where the agent accumulates many iterations without making progress. A screen hash SHALL be declared a tarpit when it accumulates `tarpit_threshold` (default 15) consecutive iterations without: (a) discovering a new content state, (b) gaining new MOP coverage, or (c) the screen hash changing.
+
+`TarpitDetector` SHALL track per-screen-hash iteration counts since last progress event. When a tarpit is detected, the agent SHALL mark the hash in ContentGraph and force RESTART. Tarpit hashes SHALL be excluded from BacktrackBfs and FrontierFinder candidate targets alongside sterile hashes.
+
+The tarpit counter for a hash SHALL reset when progress is observed at that hash. A tarpit is a "soft" blacklist — unlike sterile hashes (which indicate UIAutomator failure), tarpit hashes indicate algorithmic futility. Both result in the same exclusion behavior.
+
+#### Scenario: Tarpit detected after 15 no-progress iterations
+- **WHEN** the agent spends 15 consecutive iterations on screen hash `abc123`
+- **AND** no new content state is discovered and no new MOP coverage is gained
+- **THEN** `TarpitDetector.isTarpit("abc123")` SHALL return true
+- **AND** the agent SHALL force RESTART on the next iteration
+
+#### Scenario: Tarpit counter resets on progress
+- **WHEN** the agent has spent 10 iterations on hash `abc123` without progress
+- **AND** on the 11th iteration, a new content state is discovered
+- **THEN** the tarpit counter for `abc123` SHALL reset to 0
+
+#### Scenario: Tarpit hashes excluded from navigation targets
+- **WHEN** hash `abc123` is marked as tarpit
+- **THEN** `BacktrackBfs.findPathToUnsaturated()` SHALL skip `abc123` as a candidate
+- **AND** `FrontierFinder.findFrontier()` SHALL skip `abc123` as a candidate

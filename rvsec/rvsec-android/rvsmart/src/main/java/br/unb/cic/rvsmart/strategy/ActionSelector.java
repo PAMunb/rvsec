@@ -42,10 +42,8 @@ import java.util.stream.Collectors;
  *   Uses the scoring chain to rank candidates. When the current content node is exhausted,
  *   navigates toward the nearest structural cluster with untested content states
  *   (via NavigationMap BFS). Falls back to Phase 3 if no path is available.
- *
- * Phase 2 (Coverage-Guided): targets UI coverage gaps. If uiCoverageTracker shows a gap
- *   above config.uiCoverageThreshold, finds the highest-gap screen reachable via
- *   NavigationMap and navigates there. Falls back to Phase 1 if no target or no path.
+ *   CoverageDensityScorer and UCBScorer handle coverage-guided behavior within Phase 1,
+ *   making a separate coverage-guided phase unnecessary.
  *
  * Phase 3 (Stochastic): softmax-selected action with stochastic probability boosted to 0.5,
  *   escaping local optima and saturated areas.
@@ -64,7 +62,6 @@ import java.util.stream.Collectors;
  *
  * Scorers NOT included (evaluated and excluded):
  *   - VisitationPenaltyScorer: redundant with GradualDecayScorer (both penalize revisits)
- *   - CoverageDensityScorer: redundant with MopScorer (hardcoded count=1 makes it a constant)
  *   - SaturationScorer: screen-level penalty — handled by phase transitions instead
  *   - StrengthScorer: master aggregator with weights — keeping chain simple and additive
  *
@@ -106,7 +103,6 @@ public class ActionSelector {
     private final float backDecayPerRepeat;
     private final float restartBaseScore;
     private final float stochasticProbability;
-    private final float uiCoverageThreshold;
     private final Random random;
     private final InputValueGenerator inputValueGenerator;
 
@@ -187,7 +183,6 @@ public class ActionSelector {
         this.backDecayPerRepeat = config.getBackDecayPerRepeat();
         this.restartBaseScore = config.getRestartBaseScore();
         this.stochasticProbability = config.getStochasticProbability();
-        this.uiCoverageThreshold = config.getUiCoverageThreshold();
         this.random = config.getSeed() != null ? new Random(config.getSeed()) : new Random();
 
         this.backDecayCountPerHash = new HashMap<>();
@@ -210,14 +205,13 @@ public class ActionSelector {
     }
 
     /**
-     * Phase-based action selection. Group 7 will call this full signature once AgentLoop
-     * is wired with PhaseController, StructuralGraph, NavigationMap, and UICoverageTracker.
+     * Phase-based action selection (Phase 1 or Phase 3).
      *
      * @param phase          current exploration phase from PhaseController
      * @param screen         current screen state
      * @param structHash     structural hash of the current screen (from ScreenState.getStructHash())
      * @param contentGraph   content-level state graph
-     * @param structuralGraph structural clusters (structHash → contentHashes); may be null
+     * @param structuralGraph structural clusters (structHash -> contentHashes); may be null
      * @param navigationMap  structural transition map for BFS navigation; may be null
      * @param uiCoverageTracker per-screen UI element coverage tracker; may be null
      * @param staticMap      static analysis data
@@ -233,9 +227,6 @@ public class ActionSelector {
             case PHASE_1:
                 return selectPhase1(screen, structHash, contentGraph,
                         structuralGraph, navigationMap, staticMap);
-            case PHASE_2:
-                return selectPhase2(screen, structHash, contentGraph,
-                        structuralGraph, navigationMap, uiCoverageTracker, staticMap);
             case PHASE_3:
                 return selectPhase3(screen, structHash, contentGraph, staticMap);
             default:
@@ -305,37 +296,6 @@ public class ActionSelector {
 
         // No path to untested cluster — fall back to Phase 3
         return selectPhase3(screen, structHash, contentGraph, staticMap);
-    }
-
-    /**
-     * Phase 2: Coverage-guided exploration.
-     * Finds the screen with the highest UI coverage gap reachable via NavigationMap
-     * and navigates toward it. Falls back to Phase 1 if no target or no path.
-     */
-    private Action selectPhase2(ScreenState screen, String structHash,
-                                 ContentGraph contentGraph,
-                                 StructuralGraph structuralGraph,
-                                 NavigationMap navigationMap,
-                                 UICoverageTracker uiCoverageTracker,
-                                 StaticMap staticMap) {
-        if (uiCoverageTracker != null && navigationMap != null) {
-            // Find the structural cluster with the highest average coverage gap
-            String targetStructHash = findHighestGapCluster(
-                    structHash, contentGraph, structuralGraph, navigationMap, uiCoverageTracker);
-
-            if (targetStructHash != null) {
-                List<String> path = navigationMap.findPath(structHash, targetStructHash);
-                if (!path.isEmpty()) {
-                    lastSelectedPhase = Phase.PHASE_2;
-                    RvTrack.strategy(0, 2, "p2_coverage_nav", path.size(), 0.0);
-                    // Execute the first step on the path toward the high-gap cluster
-                    return actionFromSignature(path.get(0));
-                }
-            }
-        }
-
-        // No coverage gap target or no path — fall back to Phase 1
-        return selectPhase1(screen, structHash, contentGraph, structuralGraph, navigationMap, staticMap);
     }
 
     /**
@@ -529,41 +489,6 @@ public class ActionSelector {
         if (shortestPath == null || shortestPath.isEmpty()) return null;
 
         return actionFromSignature(shortestPath.get(0));
-    }
-
-    /**
-     * Find the structural cluster with the highest average UI coverage gap that is
-     * reachable from the current structural hash via NavigationMap.
-     * Returns null if no suitable target exists.
-     */
-    private String findHighestGapCluster(String currentStructHash,
-                                          ContentGraph contentGraph,
-                                          StructuralGraph structuralGraph,
-                                          NavigationMap navigationMap,
-                                          UICoverageTracker uiCoverageTracker) {
-        if (structuralGraph == null || navigationMap == null || uiCoverageTracker == null) {
-            return null;
-        }
-
-        String bestCluster = null;
-        float bestGap = uiCoverageThreshold; // only consider clusters above threshold
-
-        for (Map.Entry<String, ContentNode> entry : contentGraph.getNodes().entrySet()) {
-            String contentHash = entry.getKey();
-            String clusterHash = structuralGraph.getStructHash(contentHash);
-            if (clusterHash == null || clusterHash.equals(currentStructHash)) continue;
-
-            float gap = uiCoverageTracker.getCoverageGap(contentHash);
-            if (gap <= bestGap) continue;
-
-            // Only consider reachable clusters
-            if (!navigationMap.hasPath(currentStructHash, clusterHash)) continue;
-
-            bestGap = gap;
-            bestCluster = clusterHash;
-        }
-
-        return bestCluster;
     }
 
     /**
