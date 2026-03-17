@@ -15,6 +15,7 @@ from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
     APERV_AVAILABLE_STRATEGIES,
+    APERV_PROPERTY_MAPPING,
     ApeRVTool,
 )
 from rv_android_core.util.error.exceptions import ConfigurationError
@@ -69,6 +70,15 @@ class TestVariants:
         variants = ApeRVTool.get_variants()
         assert "llm_url" in variants["sata_mop_llm"]
         assert variants["sata_mop_llm"]["mop_data"] == "static_analysis"
+
+    def test_llm_variants_have_all_llm_keys(self):
+        """LLM variants must include all 9 LLM config keys explicitly."""
+        variants = ApeRVTool.get_variants()
+        llm_keys = {"llm_url", "llm_on_new_state", "llm_on_stagnation", "llm_model",
+                     "llm_temperature", "llm_top_p", "llm_top_k", "llm_timeout_ms", "llm_max_calls"}
+        for name in ["sata_llm", "sata_mop_llm"]:
+            for key in llm_keys:
+                assert key in variants[name], f"{name} missing {key}"
 
     def test_llm_variants_use_sata_strategy(self):
         variants = ApeRVTool.get_variants()
@@ -305,12 +315,8 @@ class TestPushPropertiesLlm:
         self.tool = ApeRVTool()
 
     def test_llm_properties_present_when_llm_url_set(self, tmp_path):
-        """All 9 ape.llm* keys must appear when llm_url is in config."""
-        self.tool.configure({
-            "strategy": "sata",
-            "throttle_ms": 200,
-            "llm_url": "http://10.0.2.2:30000/v1",
-        })
+        """All 9 ape.llm* keys must appear when using full LLM variant config."""
+        self.tool.configure(ApeRVTool.get_variants()["sata_llm"])
 
         captured_content = {}
 
@@ -356,3 +362,84 @@ class TestPushPropertiesLlm:
 
         props = captured_content["properties"]
         assert "ape.llm" not in props
+
+
+class TestPushPropertiesCalibration:
+    """Verify _push_properties() writes calibration parameters via APERV_PROPERTY_MAPPING."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def _capture_properties(self, tmp_path, config, mop_json_pushed=False):
+        """Helper: configure tool, call _push_properties, return content."""
+        self.tool.configure(config)
+        captured = {}
+
+        def fake_push(local_path, device_path, device_serial, trace_file_path):
+            with open(local_path) as f:
+                captured["properties"] = f.read()
+
+        self.tool._push_file_to_device = fake_push
+        trace = str(tmp_path / "trace.bin")
+        open(trace, "w").close()
+        self.tool._push_properties("emulator-5554", trace, mop_json_pushed)
+        return captured["properties"]
+
+    def test_exploration_params_written(self, tmp_path):
+        props = self._capture_properties(tmp_path, {
+            "strategy": "sata",
+            "throttle_ms": 200,
+            "default_epsilon": 0.08,
+            "graph_stable_restart_threshold": 150,
+        })
+        assert "ape.defaultEpsilon=0.08" in props
+        assert "ape.graphStableRestartThreshold=150" in props
+
+    def test_mop_weight_params_written(self, tmp_path):
+        props = self._capture_properties(tmp_path, {
+            "strategy": "sata",
+            "throttle_ms": 200,
+            "mop_weight_direct": 400,
+            "mop_weight_transitive": 250,
+            "mop_weight_activity": 80,
+        })
+        assert "ape.mopWeightDirect=400" in props
+        assert "ape.mopWeightTransitive=250" in props
+        assert "ape.mopWeightActivity=80" in props
+
+    def test_minimal_config_only_throttle(self, tmp_path):
+        props = self._capture_properties(tmp_path, {
+            "strategy": "sata",
+            "throttle_ms": 200,
+        })
+        assert "ape.defaultGUIThrottle=200" in props
+        # Only throttle_ms is in the mapping; strategy is not
+        lines = [l for l in props.strip().split("\n") if l]
+        assert len(lines) == 1
+
+    def test_python_only_keys_not_written(self, tmp_path):
+        props = self._capture_properties(tmp_path, {
+            "strategy": "sata",
+            "throttle_ms": 200,
+            "mop_data": "static_analysis",
+        })
+        assert "strategy" not in props
+        assert "mop_data" not in props
+
+    def test_mixed_params_all_written(self, tmp_path):
+        props = self._capture_properties(tmp_path, {
+            "strategy": "sata",
+            "throttle_ms": 300,
+            "default_epsilon": 0.1,
+            "mop_weight_direct": 500,
+            "llm_url": "http://10.0.2.2:30000/v1",
+            "llm_temperature": 0.5,
+        })
+        assert "ape.defaultGUIThrottle=300" in props
+        assert "ape.defaultEpsilon=0.1" in props
+        assert "ape.mopWeightDirect=500" in props
+        assert "ape.llmUrl=http://10.0.2.2:30000/v1" in props
+        assert "ape.llmTemperature=0.5" in props
+        # Python-only keys absent
+        assert "strategy" not in props
+        assert "mop_data" not in props

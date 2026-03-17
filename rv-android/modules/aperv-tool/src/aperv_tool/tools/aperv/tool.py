@@ -68,6 +68,38 @@ APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"
 # (accessible via parameter override, e.g. aperv:default@strategy=dfs). See D6.
 APERV_AVAILABLE_STRATEGIES = ["sata", "random", "bfs", "dfs"]
 
+# Maps Python config key -> Java ape.properties key.
+# Keys in _tool_config that appear here are written to ape.properties.
+# Keys NOT here (strategy, mop_data) are Python-only and not written.
+APERV_PROPERTY_MAPPING = {
+    # Exploration parameters
+    "default_epsilon": "ape.defaultEpsilon",
+    "graph_stable_restart_threshold": "ape.graphStableRestartThreshold",
+    "state_stable_restart_threshold": "ape.stateStableRestartThreshold",
+    "fuzzing_rate": "ape.fuzzingRate",
+    "do_fuzzing": "ape.doFuzzing",
+    "throttle_for_activity_transition": "ape.throttleForActivityTransition",
+    "throttle_ms": "ape.defaultGUIThrottle",
+    "max_extra_priority_aliased_actions": "ape.maxExtraPriorityAliasedActions",
+    "max_states_per_activity": "ape.maxStatesPerActivity",
+    "trivial_activity_rank_threshold": "ape.trivialActivityRankThreshold",
+    "do_back_to_trivial_activity": "ape.doBackToTrivialActivity",
+    # MOP weight parameters
+    "mop_weight_direct": "ape.mopWeightDirect",
+    "mop_weight_transitive": "ape.mopWeightTransitive",
+    "mop_weight_activity": "ape.mopWeightActivity",
+    # LLM parameters
+    "llm_url": "ape.llmUrl",
+    "llm_on_new_state": "ape.llmOnNewState",
+    "llm_on_stagnation": "ape.llmOnStagnation",
+    "llm_model": "ape.llmModel",
+    "llm_temperature": "ape.llmTemperature",
+    "llm_top_p": "ape.llmTopP",
+    "llm_top_k": "ape.llmTopK",
+    "llm_timeout_ms": "ape.llmTimeoutMs",
+    "llm_max_calls": "ape.llmMaxCalls",
+}
+
 
 class ApeRVTool(AbstractTool):
     """
@@ -187,12 +219,28 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "throttle_ms": 200,
                 "llm_url": "http://10.0.2.2:30000/v1",
+                "llm_on_new_state": "true",
+                "llm_on_stagnation": "true",
+                "llm_model": "default",
+                "llm_temperature": 0.3,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_timeout_ms": 15000,
+                "llm_max_calls": 200,
             },
             "sata_mop_llm": {
                 "strategy": "sata",
                 "throttle_ms": 200,
                 "mop_data": "static_analysis",
                 "llm_url": "http://10.0.2.2:30000/v1",
+                "llm_on_new_state": "true",
+                "llm_on_stagnation": "true",
+                "llm_model": "default",
+                "llm_temperature": 0.3,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_timeout_ms": 15000,
+                "llm_max_calls": 200,
             },
         }
 
@@ -338,23 +386,13 @@ class ApeRVTool(AbstractTool):
             trace_file_path: Trace file for logging
             mop_json_pushed: If True, include ape.mopDataPath in properties
         """
-        throttle_ms = self._tool_config.get("throttle_ms", 200)
-        properties_content = f"ape.defaultGUIThrottle={throttle_ms}\n"
+        lines = []
         if mop_json_pushed:
-            properties_content += "ape.mopDataPath=/data/local/tmp/static_analysis.json\n"
-
-        # LLM configuration keys (gh6 APE-RV LLM integration)
-        llm_url = self._tool_config.get("llm_url")
-        if llm_url:
-            properties_content += f"ape.llmUrl={llm_url}\n"
-            properties_content += f"ape.llmOnNewState={self._tool_config.get('llm_on_new_state', 'true')}\n"
-            properties_content += f"ape.llmOnStagnation={self._tool_config.get('llm_on_stagnation', 'true')}\n"
-            properties_content += f"ape.llmModel={self._tool_config.get('llm_model', 'default')}\n"
-            properties_content += f"ape.llmTemperature={self._tool_config.get('llm_temperature', 0.3)}\n"
-            properties_content += f"ape.llmTopP={self._tool_config.get('llm_top_p', 0.6)}\n"
-            properties_content += f"ape.llmTopK={self._tool_config.get('llm_top_k', 50)}\n"
-            properties_content += f"ape.llmTimeoutMs={self._tool_config.get('llm_timeout_ms', 15000)}\n"
-            properties_content += f"ape.llmMaxCalls={self._tool_config.get('llm_max_calls', 200)}\n"
+            lines.append("ape.mopDataPath=/data/local/tmp/static_analysis.json")
+        for python_key, java_key in APERV_PROPERTY_MAPPING.items():
+            if python_key in self._tool_config:
+                lines.append(f"{java_key}={self._tool_config[python_key]}")
+        properties_content = "\n".join(lines) + "\n"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".properties", delete=False
