@@ -93,7 +93,7 @@ class ApeRVTool(AbstractTool):
       APE-RV output is captured only for diagnostics
 
     ### Key Features:
-    - Five named variants: default (=sata), sata, sata_mop, bfs, random
+    - Seven named variants: default, sata, sata_mop, bfs, random, sata_llm, sata_mop_llm
     - Eager strategy validation in configure() catches typos before device access
     - ape.properties injection configures GUI throttle without modifying the JAR
     - Timeout is treated as expected exit (exploration tools run until time limit)
@@ -153,10 +153,10 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants.
 
-        Returns 5 variants as specified in INV-APV-05. The "default" variant
-        maps to sata (INV-TOOL-02). The "sata_mop" variant is a placeholder
-        for Phase 3 MOP-guided scoring; until Phase 3, it behaves identically
-        to sata (INV-APV-06).
+        Returns 7 variants. The "default" variant maps to sata (INV-TOOL-02).
+        The "sata_mop" variant enables MOP-guided scoring via static analysis
+        data. The "sata_llm" and "sata_mop_llm" variants add LLM guidance
+        via an OpenAI-compatible endpoint (gh6 APE-RV LLM integration).
 
         Returns:
             Dictionary mapping variant names to configuration parameters
@@ -182,6 +182,17 @@ class ApeRVTool(AbstractTool):
             "random": {
                 "strategy": "random",
                 "throttle_ms": 200,
+            },
+            "sata_llm": {
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_url": "http://10.0.2.2:30000/v1",
+            },
+            "sata_mop_llm": {
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "mop_data": "static_analysis",
+                "llm_url": "http://10.0.2.2:30000/v1",
             },
         }
 
@@ -212,6 +223,11 @@ class ApeRVTool(AbstractTool):
                 f"Valid strategies: {APERV_AVAILABLE_STRATEGIES}"
             )
         self._tool_config = config.copy()
+
+        # Allow env var override for LLM URL (host execution uses different URL than Docker)
+        llm_url_override = os.environ.get("APERV_LLM_BASE_URL")
+        if llm_url_override and "llm_url" in self._tool_config:
+            self._tool_config["llm_url"] = llm_url_override
 
     def _resolve_jar_path(self) -> str:
         """
@@ -326,6 +342,19 @@ class ApeRVTool(AbstractTool):
         properties_content = f"ape.defaultGUIThrottle={throttle_ms}\n"
         if mop_json_pushed:
             properties_content += "ape.mopDataPath=/data/local/tmp/static_analysis.json\n"
+
+        # LLM configuration keys (gh6 APE-RV LLM integration)
+        llm_url = self._tool_config.get("llm_url")
+        if llm_url:
+            properties_content += f"ape.llmUrl={llm_url}\n"
+            properties_content += f"ape.llmOnNewState={self._tool_config.get('llm_on_new_state', 'true')}\n"
+            properties_content += f"ape.llmOnStagnation={self._tool_config.get('llm_on_stagnation', 'true')}\n"
+            properties_content += f"ape.llmModel={self._tool_config.get('llm_model', 'default')}\n"
+            properties_content += f"ape.llmTemperature={self._tool_config.get('llm_temperature', 0.3)}\n"
+            properties_content += f"ape.llmTopP={self._tool_config.get('llm_top_p', 0.6)}\n"
+            properties_content += f"ape.llmTopK={self._tool_config.get('llm_top_k', 50)}\n"
+            properties_content += f"ape.llmTimeoutMs={self._tool_config.get('llm_timeout_ms', 15000)}\n"
+            properties_content += f"ape.llmMaxCalls={self._tool_config.get('llm_max_calls', 200)}\n"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".properties", delete=False
