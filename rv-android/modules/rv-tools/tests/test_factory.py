@@ -14,9 +14,6 @@ from rv_android_core.domain.task import ToolConfig
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_tools.registry.factory import ToolFactory
 
-from conftest import FakeTool
-
-
 class TestCreateTool:
     """FR18: Factory creates configured tool instances from ToolConfig."""
 
@@ -25,7 +22,7 @@ class TestCreateTool:
         tool_config = ToolConfig(name="faketool", variant="default", parameters={})
         tool = factory.create_tool(tool_config)
 
-        assert isinstance(tool, FakeTool)
+        assert tool.name == "faketool"
         assert tool.config["param_a"] == 10
         assert tool.config["param_b"] == "hello"
 
@@ -34,7 +31,7 @@ class TestCreateTool:
         tool_config = ToolConfig(name="faketool", variant="fast", parameters={})
         tool = factory.create_tool(tool_config)
 
-        assert isinstance(tool, FakeTool)
+        assert tool.name == "faketool"
         assert tool.config["param_a"] == 5
         assert tool.config["param_b"] == "fast"
 

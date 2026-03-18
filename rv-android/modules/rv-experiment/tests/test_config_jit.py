@@ -12,8 +12,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from rv_experiment.config import ExperimentConfig
-
-from conftest import make_valid_config
+from helpers import make_config
 
 
 class TestRvsecRootHierarchy:
@@ -24,7 +23,7 @@ class TestRvsecRootHierarchy:
         rvsec_dir = tmp_path / "rvsec"
         rvsec_dir.mkdir()
 
-        config = make_valid_config(tmp_apk_dir, rvsec_root=str(rvsec_dir))
+        config = make_config(tmp_apk_dir, rvsec_root=str(rvsec_dir))
         result = config.get_effective_rvsec_root()
         assert result == str(rvsec_dir)
 
@@ -33,25 +32,23 @@ class TestRvsecRootHierarchy:
         rvsec_dir = tmp_path / "rvsec_env"
         rvsec_dir.mkdir()
 
-        config = make_valid_config(tmp_apk_dir, rvsec_root=None)
+        config = make_config(tmp_apk_dir, rvsec_root=None)
         with patch.dict(os.environ, {"RVSEC_HOME": str(rvsec_dir)}):
             result = config.get_effective_rvsec_root()
         assert result == str(rvsec_dir)
 
     def test_priority_3_returns_none_when_neither(self, tmp_apk_dir):
         """INV-EXP-05: returns None when neither defined (decorator absorbs error)."""
-        config = make_valid_config(tmp_apk_dir, rvsec_root=None)
+        config = make_config(tmp_apk_dir, rvsec_root=None)
         with patch.dict(os.environ, {}, clear=True):
             result = config.get_effective_rvsec_root()
             assert result is None
 
     def test_config_override_nonexistent_path_returns_none(self, tmp_apk_dir):
         """FR17 scenario: rvsec_root nonexistent path — decorator absorbs error."""
-        config = make_valid_config(tmp_apk_dir, rvsec_root="/nonexistent/rvsec")
+        config = make_config(tmp_apk_dir, rvsec_root="/nonexistent/rvsec")
         result = config.get_effective_rvsec_root()
         assert result is None
-
-
 class TestJitMonitorConfig:
     """FR17: get_monitored_operations_config creates RVGeneratorConfig.
 
@@ -65,7 +62,7 @@ class TestJitMonitorConfig:
         rvsec_dir = tmp_path / "rvsec"
         rvsec_dir.mkdir()
 
-        config = make_valid_config(
+        config = make_config(
             tmp_apk_dir,
             specification_set="jca",
             rvsec_root=str(rvsec_dir),
@@ -86,7 +83,7 @@ class TestJitMonitorConfig:
         rvsec_dir = tmp_path / "rvsec"
         rvsec_dir.mkdir()
 
-        config = make_valid_config(
+        config = make_config(
             tmp_apk_dir,
             specification_set="generic",
             rvsec_root=str(rvsec_dir),
@@ -108,7 +105,7 @@ class TestJitMonitorConfig:
         custom_dir.mkdir()
         (custom_dir / "MySpec.mop").write_text("spec")
 
-        config = make_valid_config(
+        config = make_config(
             tmp_apk_dir,
             specification_set="custom",
             custom_specs_dir=str(custom_dir),
@@ -129,7 +126,7 @@ class TestJitMonitorConfig:
         custom_aspects = tmp_path / "my_aspects"
         custom_aspects.mkdir()
 
-        config = make_valid_config(
+        config = make_config(
             tmp_apk_dir,
             specification_set="jca",
             custom_aspects_dir=str(custom_aspects),
@@ -148,7 +145,7 @@ class TestJitMonitorConfig:
         rvsec_dir = tmp_path / "rvsec"
         rvsec_dir.mkdir()
 
-        config = make_valid_config(
+        config = make_config(
             tmp_apk_dir,
             specification_set="unknown_set",
             rvsec_root=str(rvsec_dir),
@@ -162,20 +159,18 @@ class TestJitMonitorConfig:
             result = config.get_monitored_operations_config()
         except Exception:
             pass  # ConfigurationError expected for unsupported spec set
-
-
 class TestGetModuleConfig:
     """FR17: get_module_config dispatches to correct JIT method."""
 
     def test_unknown_module_returns_empty_dict(self, tmp_apk_dir):
         """FR17: unknown module name returns empty dict."""
-        config = make_valid_config(tmp_apk_dir)
+        config = make_config(tmp_apk_dir)
         result = config.get_module_config("unknown-module")
         assert result == {}
 
     def test_static_analysis_dispatches_to_correct_method(self, tmp_apk_dir):
         """FR17: 'rv-static-analysis' calls get_static_analysis_config internally."""
-        config = make_valid_config(tmp_apk_dir, rvsec_root=None)
+        config = make_config(tmp_apk_dir, rvsec_root=None)
         # Without RVSEC_HOME, the JIT method raises ConfigurationError
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(Exception):

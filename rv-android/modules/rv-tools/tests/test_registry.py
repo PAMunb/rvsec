@@ -17,8 +17,6 @@ from rv_android_core.util.error.exceptions import (
 )
 from rv_tools.registry.registry import ToolRegistry
 
-from conftest import FakeTool, FakeToolNoDefault
-
 
 class TestSingleton:
     """INV-TOOL-01: Singleton must return same instance across callers."""
@@ -40,17 +38,17 @@ class TestSingleton:
 class TestToolRegistration:
     """FR18: Tool registration and retrieval."""
 
-    def test_register_tool_class(self, fresh_registry):
+    def test_register_tool_class(self, fresh_registry, fake_tool_class):
         """FR18: register_tool_class stores class, spec, and variants."""
-        fresh_registry.register_tool_class(FakeTool)
+        fresh_registry.register_tool_class(fake_tool_class)
 
         assert fresh_registry.has_tool("faketool")
-        assert fresh_registry.get_tool_class("faketool") is FakeTool
+        assert fresh_registry.get_tool_class("faketool") is fake_tool_class
         assert fresh_registry.get_tool_spec("faketool").name == "faketool"
 
-    def test_register_tool_class_registers_variants(self, fresh_registry):
+    def test_register_tool_class_registers_variants(self, fresh_registry, fake_tool_class):
         """FR18/FR20: register_tool_class auto-registers all variants."""
-        fresh_registry.register_tool_class(FakeTool)
+        fresh_registry.register_tool_class(fake_tool_class)
 
         variant_names = fresh_registry.get_tool_variants("faketool")
         assert "default" in variant_names
@@ -89,12 +87,10 @@ class TestToolRegistration:
 class TestReRegistration:
     """INV-TOOL-03: Re-registering a tool replaces previous and logs warning."""
 
-    def test_re_registration_replaces(self, registry_with_fake):
+    def test_re_registration_replaces(self, registry_with_fake, fake_tool_class):
         """INV-TOOL-03: duplicate name replaces tool class."""
-        # Re-register with same class — should replace without error
-        registry_with_fake.register_tool_class(FakeTool)
-        assert registry_with_fake.get_tool_class("faketool") is FakeTool
-        # Still only one entry
+        registry_with_fake.register_tool_class(fake_tool_class)
+        assert registry_with_fake.get_tool_class("faketool") is fake_tool_class
         assert registry_with_fake.get_tool_names().count("faketool") == 1
 
 
@@ -163,7 +159,6 @@ class TestVariantConfigIsCopy:
         config["param_a"] = 99999
         config["injected"] = "hack"
 
-        # Re-fetch — must be unchanged
         original = registry_with_fake.get_variant_config("faketool", "fast")
         assert original["param_a"] == 5
         assert "injected" not in original
@@ -211,7 +206,7 @@ class TestClearAndInfo:
         """get_registry_info returns correct stats."""
         info = registry_with_fake.get_registry_info()
         assert info["total_tools"] == 1
-        assert info["total_variants"] == 3  # default, fast, stress
+        assert info["total_variants"] == 3
         assert "faketool" in info["tools"]
         assert set(info["variants_by_tool"]["faketool"]) == {"default", "fast", "stress"}
 

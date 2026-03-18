@@ -24,6 +24,7 @@ packages = ["src/rv_tools"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing --cov-config=pyproject.toml"
+pythonpath = ["tests"]
 
 [tool.coverage.run]
 source = ["src"]
