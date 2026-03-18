@@ -41,17 +41,56 @@ O exp3 mostrou que `aperv:sata_mop_llm` (27,60% method) não superou `aperv:sata
 
 ## 2. Arquitetura Atual do Mapeamento
 
-### 2.1 Fluxo de Coordenadas
+### 2.1 Fluxo de Coordenadas — Timing Gap Crítico
 
 ```
-Screenshot (1080×1920 px)
-  → ApePromptBuilder: widget centers px → normalize [0,1000)
-  → Qwen3-VL: retorna coordenada [0,1000)
-  → CoordinateNormalizer: [0,1000) → pixel
-  → LlmRouter.mapToModelAction(): pixel → widget match
+          ┌─── buildAndValidateNewState() ───────────────────────────────┐
+          │                                                               │
+          │  1. AccessibilityNodeInfo dump   ← HIERARQUIA CAPTURADA AQUI │
+          │  2. GUITree construída                                        │
+          │  3. State criado, actions[] extraídas com bounds              │
+          │                                                               │
+          └───────────────────────────────────────────────────────────────┘
+                                      │
+                              ΔTIME (gap temporal)
+                     validação, graph updates, saveGUI...
+                                      │
+          ┌─── selectNewActionNonnull() → LlmRouter.selectAction() ──────┐
+          │                                                               │
+          │  4. ScreenshotCapture.capture()  ← SCREENSHOT FRESCO AQUI    │
+          │  5. ApePromptBuilder.build()     ← usa bounds do passo 3     │
+          │  6. LLM vê screenshot (passo 4) + widget list (passo 3)      │
+          │  7. LLM retorna coordenada                                    │
+          │  8. mapToModelAction()           ← usa bounds do passo 3     │
+          │                                                               │
+          └───────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Prompt Format (ApePromptBuilder)
+**Problema fundamental**: O LLM vê um screenshot FRESCO (passo 4), mas o matching acontece contra bounds de um dump ANTERIOR (passo 1). Se entre os passos 1 e 4 o UI mudou (toast, dialog, animação, content dinâmico), o LLM pode clicar corretamente num elemento que existe visualmente mas **não existe na lista de ModelActions**.
+
+### 2.2 Fontes de Dados — O Que o LLM Vê vs O Que o Matching Usa
+
+| Dado | Fonte | Momento | Fresco? |
+|------|-------|---------|---------|
+| Screenshot para o LLM | `ScreenshotCapture.capture()` | No `selectAction()` | ✅ Sim |
+| Widget list no prompt | `state.getActions()` → `node.getBoundsInScreen()` | No `buildAndValidateNewState()` | ❌ Potencialmente stale |
+| Bounds para matching | Mesmos `state.getActions()` | Idem | ❌ Potencialmente stale |
+
+**O LLM vê a tela real. O matching usa o modelo.** Se discordam, o resultado é `no_match` — mesmo que o LLM tenha acertado.
+
+### 2.3 O Que NÃO Está na Lista de ModelActions
+
+Elementos visuais que o LLM pode ver no screenshot mas que **não existem como ModelActions**:
+
+1. **Elementos dinâmicos**: Toasts, snackbars, floating action buttons que apareceram depois do dump
+2. **Overlays do sistema**: Permission dialogs, "Application Not Responding", notifications
+3. **Widgets não-modelados**: O `GUITreeBuilder` faz filtragem/abstração — containers, layouts, decorações que o UIAutomator vê mas o APE ignora (android.view.View, Layout classes, etc.)
+4. **Custom Views**: Widgets desenhados via Canvas que não têm nós no accessibility tree
+5. **Elementos de transição**: Loading spinners, progress bars durante animação
+
+O LLM pode estar clicando corretamente num desses elementos — e o matching classifica como `no_match`.
+
+### 2.4 Prompt Format (ApePromptBuilder)
 
 **System message**: Instruções de exploração com regras de prioridade ([DM]/[M] > unvisited > visited).
 
@@ -66,7 +105,7 @@ Coordenadas normalizadas [0,1000). O LLM vê a lista E o screenshot.
 
 **Action history**: Últimas 5 ações com resultado.
 
-### 2.3 Matching Algorithm (LlmRouter.mapToModelAction, linhas 364-473)
+### 2.5 Matching Algorithm (LlmRouter.mapToModelAction, linhas 364-473)
 
 Estratégia em 5 passos, nesta ordem:
 
@@ -82,18 +121,18 @@ Estratégia em 5 passos, nesta ordem:
 
 Se nenhum step encontra match → `no_match`.
 
-### 2.4 Telemetria (por chamada LLM)
+### 2.6 Telemetria Atual (por chamada LLM)
 
 ```
 [APE-RV] LLM call=N mode=new-state action=click qwen=(x,y) pixel=(px,py)
          tokens_in=X tokens_out=Y time_ms=Z result=matched|no_match|null
 ```
 
-Sumário ao final:
-```
-[APE-RV] LLM Summary calls=9 matched=3 no_match=6 null=0
-[APE-RV] LLM Decision ratio: 33.3% (3/9)
-```
+**O que NÃO é logado** (gap de observabilidade):
+- Lista de widgets candidatos com bounds
+- Distância ao widget mais próximo em caso de no_match
+- Qual passo do matching falhou (boundary? containment? Euclidean?)
+- Se o UI mudou entre dump e screenshot
 
 ---
 
@@ -110,7 +149,21 @@ Cada trace contém, por step:
 
 Localização: `data/results/exp3_{00..07}/exp3_{00..07}/<apk>/<apk>__<rep>__600__aperv:sata_mop_llm.trace`
 
-### 3.2 Screenshots + UI Dumps (468 tuplas)
+### 3.2 Limitação CRÍTICA dos Traces para Replay Forense
+
+O trace contém os **ModelActions com bounds** (modelo APE) e as **coordenadas LLM com resultado**. Com isso é possível replayar o matching algorithm.
+
+**Porém**: O trace **NÃO contém**:
+- O screenshot que o LLM viu
+- O dump UIAutomator raw (XML completo com TODOS os nós)
+- Elementos visuais que existiam na tela mas não viraram ModelActions
+- O estado real do UI no momento da chamada LLM (só o estado do modelo)
+
+**Consequência para o replay forense**: Podemos classificar no_match por proximidade ao widget mais próximo do MODELO, mas **não podemos saber se o LLM acertou num elemento dinâmico/não-modelado**. A Fase A vai rotular como "gap" (coordenada longe de qualquer widget) casos que na verdade podem ser hits corretos em elementos invisíveis ao modelo.
+
+Isso cria uma **categoria fantasma**: no_match que parecem "erros do LLM" mas são na verdade "erros do modelo" (modelo incompleto ou stale). A Fase A' (re-run com logging enriquecido) é necessária para distinguir.
+
+### 3.3 Screenshots + UI Dumps (468 tuplas)
 
 **Localização**: `/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/`
 
@@ -119,7 +172,11 @@ Localização: `data/results/exp3_{00..07}/exp3_{00..07}/<apk>/<apk>__<rep>__600
 - `step-NNN.uiautomator` — XML dump (bounds, class, text, clickable, resource-id)
 - `step-NNN.state` — JSON com view tree, activity, screen_size
 
-### 3.3 rvsec-vision-llm (framework de avaliação)
+### 3.4 Per-step XML dumps (destruídos no exp3)
+
+O APE salva `step-N.xml` e `step-N.png` no device (`/sdcard/sata-<pkg>-ape-sata-running-minutes-10/`). No exp3, esses arquivos ficaram dentro do container Docker e foram destruídos no cleanup. **Não temos acesso** para os 507 tasks do exp3.
+
+### 3.5 rvsec-vision-llm (framework de avaliação)
 
 **Localização**: `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-vision-llm/`
 
@@ -133,11 +190,11 @@ Framework completo de avaliação visual com:
 
 ---
 
-## 4. Plano de Investigação — 3 Fases
+## 4. Plano de Investigação — 5 Fases
 
-### Fase A: Replay Forense dos Traces Exp3
+### Fase A: Replay Forense dos Traces Exp3 (dados existentes)
 
-**Objetivo**: Classificar quantitativamente cada no_match por causa raiz.
+**Objetivo**: Classificar cada no_match por causa raiz, usando os dados do MODELO (sabendo que há um ponto cego para elementos dinâmicos).
 
 **Script**: `scripts/analyze_llm_nomatch.py` (one-off exploratório)
 
@@ -158,36 +215,99 @@ Framework completo de avaliação visual com:
       - Euclidean: calcular distância ao centro de cada widget, verificar tolerância
    d. **Classificar**:
 
-| Categoria | Critério |
-|-----------|----------|
-| `boundary_rejection` | `py < 96` ou `py > 1804` |
-| `edge_miss` | Widget mais próximo a ≤20px do bound (quase acertou) |
-| `tolerance_miss` | Distância 50-100px do widget mais próximo |
-| `gap` | Distância >100px (coordenada em região sem widgets) |
-| `launcher` | Activity contém "Launcher" ou "com.google.android" |
-| `few_widgets` | Step tem ≤2 widgets clicáveis |
-| `type_mismatch` | Widget existe no ponto mas tipo errado (ex: `type_text` em Button) |
+| Categoria | Critério | Pode ser elemento dinâmico? |
+|-----------|----------|-----------------------------|
+| `boundary_rejection` | `py < 96` ou `py > 1804` | Possível (status bar notification) |
+| `edge_miss` | Widget mais próximo a ≤20px do bound (quase acertou) | Improvável |
+| `tolerance_miss` | Distância 50-100px do widget mais próximo | Possível |
+| `gap` | Distância >100px (coordenada em região sem widgets do modelo) | **Altamente provável** |
+| `launcher` | Activity contém "Launcher" ou "com.google.android" | N/A (app crashou) |
+| `few_widgets` | Step tem ≤2 widgets clicáveis | Possível (modelo incompleto) |
+| `type_mismatch` | Widget existe no ponto mas tipo errado (ex: `type_text` em Button) | Não |
 
-3. Para cada no_match, registrar:
-   - APK, rep, step, LLM call number
-   - `pixel=(px,py)`, `qwen=(qx,qy)`
-   - Categoria de falha
-   - Widget mais próximo: classe, bounds, distância (px), center
-   - Activity atual
-   - Quantidade de widgets no step
-
-4. **Outputs**:
+3. **Outputs**:
    - CSV detalhado: 1 linha por no_match (~3.554 linhas)
    - Relatório sumário: distribuição por categoria, top APKs por categoria
    - Heatmap de coordenadas no_match (onde na tela ocorrem mais falhas)
    - Distribuição de distância ao widget mais próximo (histograma)
+   - **Flag de suspeita de elemento dinâmico**: `gap` + activity não é launcher → candidato para Fase A'
 
-**Perguntas que a Fase A responde**:
-- Quantos no_match são "quase acertou" (edge_miss) vs "completamente errou" (gap)?
-- A boundary rejection está descartando coordenadas válidas?
-- Quantos no_match ocorrem em apps crashados / launcher?
-- O LLM tende a errar mais em alguma região da tela?
-- Qual é a distribuição de distância ao widget mais próximo?
+**Limitação explícita**: A Fase A classifica no_match contra o MODELO. Categorias `gap` e `tolerance_miss` podem incluir hits corretos em elementos dinâmicos. A Fase A' (re-run com observabilidade) é necessária para a ground truth.
+
+---
+
+### Fase A': Re-Run com Logging Enriquecido (ground truth)
+
+**Objetivo**: Obter a ground truth de cada no_match distinguindo "LLM errou" de "modelo incompleto/stale".
+
+**Ambas as opções serão implementadas**: logging enriquecido no Java + preservação de artefatos no Docker.
+
+#### A'.1: Enriquecer logging no LlmRouter (Java, repo `ape`)
+
+Modificar `LlmRouter.mapToModelAction()` para loggar em cada no_match:
+
+```java
+// Em caso de no_match, loggar diagnóstico completo:
+Logger.iformat("[APE-RV] LLM no_match_diag call=%d pixel=(%d,%d) " +
+    "nearest_widget=%s nearest_dist=%.1f nearest_bounds=[%d,%d,%d,%d] " +
+    "total_actions=%d boundary_rejected=%b " +
+    "containment_candidates=%d euclidean_within_tolerance=%b",
+    callNumber, pixelX, pixelY,
+    nearestWidget.getResolvedNodeResourceId(),
+    nearestDistance,
+    nearestBounds.left, nearestBounds.top, nearestBounds.right, nearestBounds.bottom,
+    actions.size(),
+    wasBoundaryRejected,
+    containmentCandidates,
+    euclideanWithinTolerance);
+```
+
+**Dados novos por no_match**:
+- Widget mais próximo: resource-id, classe, bounds, distância
+- Quantos widgets foram testados para containment
+- Se boundary rejection descartou antes de testar
+- Se Euclidean fallback tentou mas ultrapassou tolerância
+
+**Esforço**: ~20 linhas de logging no `mapToModelAction()`. Rebuild JAR.
+
+#### A'.2: Preservar screenshots + UIAutomator XML do device (Docker)
+
+Modificar o entrypoint Docker para copiar os artefatos per-step ANTES do cleanup:
+
+```bash
+# No docker-entrypoint.sh, APÓS rv-experiment terminar:
+SATA_DIR=$(find /sdcard -maxdepth 1 -name "sata-*" -type d | head -1)
+if [ -d "$SATA_DIR" ]; then
+    # Copiar screenshots e XMLs para o volume de resultados
+    cp -r "$SATA_DIR" /results/sata_artifacts/
+fi
+```
+
+**Artefatos preservados por task**:
+- `step-N.xml` — UIAutomator dump raw (TODOS os nós, não só ModelActions)
+- `step-N.png` — screenshot exato que o APE capturou naquele step
+
+Com estes artefatos + o log enriquecido, podemos:
+1. Comparar os nós do UIAutomator XML com os ModelActions do trace → quantificar over-abstraction
+2. Ver o screenshot de cada step → verificar se o LLM acertou num elemento visual real
+3. Calcular o timing gap entre dump e screenshot (se diferem visualmente)
+
+#### A'.3: Re-run de subset diagnóstico
+
+Rodar **15-20 APKs com maior no_match** × 1 rep × 600s com:
+- JAR rebuild com logging enriquecido (A'.1)
+- Docker entrypoint modificado (A'.2)
+- Mesma configuração do exp3 (`aperv:sata_mop_llm`, defaults LLM)
+
+**Outputs**:
+- Traces com `no_match_diag` detalhado
+- UIAutomator XMLs per-step (ground truth do UI real)
+- Screenshots per-step
+- **Classificação com ground truth**: para cada no_match, cruzar coordenada LLM com XML raw → determinar se havia um elemento no ponto que o modelo não capturou
+
+**Estimativa**: 15 APKs × 1 rep × 680s ÷ 5 containers paralelos ≈ 35 min de execução. ~1 sessão de desenvolvimento (logging + Docker mod + análise).
+
+---
 
 ### Fase B: Avaliação Offline com Prompt APE vs Prompt rvsec-vision-llm
 
@@ -220,9 +340,11 @@ Framework completo de avaliação visual com:
 - O formato da widget list `@(x,y)` confunde o LLM? (LLM pode "copiar" coordenadas ao invés de "olhar" o screenshot)
 - O action history ajuda ou atrapalha?
 
+---
+
 ### Fase C: Melhorias no Matching + Testes de Integração (Java, repo `ape`)
 
-**Objetivo**: Implementar melhorias no algorithm baseadas nos achados de A e B, com testes de integração robustos como rede de segurança.
+**Objetivo**: Implementar melhorias no algorithm baseadas nos achados de A, A' e B, com testes de integração robustos como rede de segurança.
 
 **C.1: Expandir fixtures de teste**
 
@@ -244,16 +366,36 @@ Atualmente o `CoordinateMapIntegrationTest.java` tem 5 fixtures do cryptoapp. Ex
 | `boundaryRejection_thresholds` | Coordenadas em boundary zones → rejection correto |
 | `realNoMatchCoords_fromExp3` | Pegar coordenadas reais do exp3 (top 20 no_match) + widgets do step → reproduzir e entender |
 
-**C.3: Melhorias potenciais no algorithm** (dependem dos achados de A e B)
+**C.3: Melhorias potenciais no algorithm** (dependem dos achados de A, A' e B)
 
 | Melhoria | Condição para implementar | Impacto esperado |
 |----------|--------------------------|------------------|
 | **Aumentar tolerância Euclidean** | Se Fase A mostra >30% `edge_miss` com dist < 80px | Recupera edge_miss sem false positives |
 | **Weighted fallback** | Se Fase A mostra padrão por tipo de widget | Tolerância adaptativa por tipo/tamanho |
+| **Fresh dump antes do LLM** | Se Fase A' mostra >15% dos `gap` são hits em elementos dinâmicos | Re-dump UI no momento da chamada LLM (custo: ~200ms) |
 | **Prompt refinement** | Se Fase B mostra prompt APE < prompt otimizado | Melhorar ApePromptBuilder |
 | **Skip launcher** | Se Fase A mostra >5% `launcher` | Detectar launcher no LlmRouter e skip LLM call |
-| **Coordinate logging enrichment** | Sempre | Log do widget mais próximo + distância em cada no_match |
+| **Coordinate logging enrichment** | Sempre (já na A'.1) | Log do widget mais próximo + distância em cada no_match |
 | **Adaptive threshold** | Se distribuição de distâncias é bimodal | Threshold dinâmico baseado em distribuição de widgets |
+| **UIAutomator cross-check** | Se A' mostra over-abstraction significativa | Matching contra UIAutomator raw além do modelo |
+
+**C.4: Melhoria potencial de maior impacto — Fresh Dump**
+
+Se a Fase A' confirmar que uma fração significativa dos no_match é causada pelo timing gap (modelo stale), a solução mais direta é **re-capturar o UIAutomator dump no momento da chamada LLM**, em vez de usar o dump do `buildAndValidateNewState()`:
+
+```java
+// Em LlmRouter.selectAction(), ANTES de chamar o LLM:
+// Opção 1: Fresh dump completo (~200-500ms overhead)
+AccessibilityNodeInfo freshRoot = uiAutomation.getRootInActiveWindow();
+List<Rect> freshBounds = extractAllBounds(freshRoot);
+// Matching contra freshBounds em vez de state.getActions()
+
+// Opção 2: Validação rápida (~50ms overhead)
+// Apenas verificar se os bounds dos ModelActions ainda são válidos
+// Se algum mudou → atualizar antes do matching
+```
+
+**Trade-off**: Fresh dump adiciona 200-500ms de latência por chamada LLM. Com ~18 chamadas/task, isso é +3.6-9s por task (~0.6-1.5% do timeout de 600s). Aceitável se eliminar >10% dos no_match.
 
 ---
 
@@ -327,37 +469,57 @@ for (ModelAction action : actions) {
 | Fase | Esforço | Dependências |
 |------|---------|-------------|
 | **A: Replay forense** | Script Python, ~1 sessão | Traces exp3 (disponíveis) |
+| **A'.1: Logging enriquecido** | ~20 linhas Java + rebuild | Repo `ape` |
+| **A'.2: Docker artifact preservation** | ~10 linhas shell | Docker entrypoint |
+| **A'.3: Re-run diagnóstico** | ~35 min execução + análise | A'.1 + A'.2 prontos |
 | **B: Comparação prompts** | Script Python + SGLang, ~1 sessão | SGLang server UP |
 | **C.1: Expandir fixtures** | Seleção + cópia, ~30min | Tuplas em teste_llm/screenshots |
 | **C.2: Testes integração** | Java, ~1-2 sessões | Fixtures prontas |
-| **C.3: Melhorias algorithm** | Java, ~1-2 sessões | Achados de A e B |
+| **C.3: Melhorias algorithm** | Java, ~1-2 sessões | Achados de A, A' e B |
 | **Validação** | Re-run exp subset, ~4-8h | Docker image rebuilt |
 
-**Total**: ~4-6 sessões de desenvolvimento + tempo de execução
+**Total**: ~5-7 sessões de desenvolvimento + tempo de execução
 
 ---
 
 ## 8. Sequência de Execução
 
 ```
-A (replay forense) ──→ Relatório de causas
-                            │
-                            ├── B (comparação prompts) ──→ Prompt é fator?
-                            │                                    │
-                            └────────────────────────────────────┤
-                                                                 │
-                                                        Decisões informadas
-                                                                 │
-                                                    C.1 (fixtures) + C.2 (testes)
-                                                                 │
-                                                    C.3 (melhorias no algorithm)
-                                                                 │
-                                                    Validação (re-run subset)
-                                                                 │
-                                                    Calibração MICRO (gh46 → rvape_calibracao)
+┌─────────────────────────────────────────────────────────────┐
+│ PARALELO 1                                                   │
+│                                                               │
+│  A (replay forense traces)  ──→ Relatório preliminar          │
+│                                  (classificação MODELO-only)  │
+│                                                               │
+│  A'.1 (logging Java)  ─┐                                     │
+│  A'.2 (Docker mod)     ─┤──→ A'.3 (re-run 15 APKs)          │
+│                          │    ──→ Relatório GROUND TRUTH      │
+│                          │        (elementos dinâmicos        │
+│                          │         vs erros reais do LLM)     │
+│                                                               │
+│ PARALELO 2 (se SGLang UP)                                    │
+│                                                               │
+│  B (comparação prompts)  ──→ Prompt é fator?                  │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                 Merge dos 3 relatórios
+                          │
+              ┌───────────┴───────────┐
+              │   Decisões informadas  │
+              │   (dados + evidência)  │
+              └───────────┬───────────┘
+                          │
+              C.1 (fixtures) + C.2 (testes)
+                          │
+              C.3 (melhorias no algorithm)
+                          │
+              Validação (re-run subset 30 APKs)
+                          │
+              Calibração MICRO (gh46 → rvape_calibracao)
 ```
 
-A Fase A é pré-requisito para todas as decisões. B pode rodar em paralelo se SGLang estiver UP. C depende dos achados de A+B.
+A e A' podem rodar em paralelo (A usa dados existentes, A' prepara re-run). B pode rodar em paralelo com ambas se SGLang estiver UP. C depende dos achados de A+A'+B.
 
 ---
 
@@ -414,7 +576,7 @@ A MACRO pode iniciar imediatamente. A MICRO deve aguardar os resultados de gh46 
 
 ### 11.1 Parsing dos traces
 
-O trace do APE contém informação suficiente para replay completo:
+O trace do APE contém informação suficiente para **replay parcial** (contra o modelo):
 
 **Actions disponíveis** (com bounds):
 ```
@@ -433,11 +595,13 @@ O trace do APE contém informação suficiente para replay completo:
 
 A correlação step↔LLM call é determinística: LLM call N aparece entre `begin step [X]` e `begin step [X+1]`.
 
+**NÃO contém**: dump UIAutomator raw, screenshot, elementos não-modelados.
+
 ### 11.2 Per-step XML dumps
 
-O APE salva `step-N.xml` e `step-N.png` no device (`/sdcard/sata-<pkg>-ape-sata-running-minutes-10/`). Esses arquivos ficam dentro do emulator Docker e são destruídos quando o container termina. Para os traces do exp3, **não temos acesso** aos XMLs — mas o trace contém os bounds necessários para replay.
+O APE salva `step-N.xml` e `step-N.png` no device (`/sdcard/sata-<pkg>-ape-sata-running-minutes-10/`). Esses arquivos ficam dentro do emulator Docker e são destruídos quando o container termina. Para os traces do exp3, **não temos acesso** aos XMLs.
 
-Para investigações futuras que precisem dos XMLs, o entrypoint Docker pode ser modificado para pull desses arquivos antes do cleanup.
+A Fase A'.2 resolve isso: modificar Docker entrypoint para preservar estes artefatos.
 
 ### 11.3 Diferença entre hit rate do rvsec-vision-llm e match rate do APE-RV
 
@@ -446,3 +610,21 @@ O rvsec-vision-llm mede hit rate com tolerância de 50px do **centro do widget-a
 - APE-RV: 62,1% match rate (coordenada dentro dos bounds OU Euclidean fallback)
 
 O APE-RV na verdade tem match rate **maior** que o hit rate do rvsec-vision-llm, provavelmente porque o Euclidean fallback aceita coordenadas próximas mas fora dos bounds.
+
+### 11.4 Categorias de causa raiz (taxonomia completa)
+
+Baseado na análise da arquitetura, as causas raiz possíveis de no_match são:
+
+| Categoria | Causa | Detectável na Fase A? | Detectável na Fase A'? |
+|-----------|-------|----------------------|------------------------|
+| **Timing gap** | UI mudou entre dump e screenshot (toast, dialog, animação) | ❌ Não (parece `gap`) | ✅ Sim (UIAutomator XML mostra) |
+| **Over-abstraction** | Widget existe no UIAutomator mas GUITreeBuilder não criou ModelAction | ❌ Não (parece `gap`) | ✅ Sim (comparar XML vs model) |
+| **Edge miss** | Coordenada 1-20px fora dos bounds do widget correto | ✅ Sim | ✅ Sim |
+| **Tolerance miss** | Coordenada 50-100px do widget (fora da tolerância Euclidean) | ✅ Sim | ✅ Sim |
+| **Boundary rejection** | Coordenada no status bar / nav bar (threshold muito agressivo) | ✅ Sim | ✅ Sim |
+| **Launcher/crash** | App crashou, LLM vê launcher | ✅ Sim | ✅ Sim |
+| **Type mismatch** | Widget certo mas tipo errado (type_text em Button) | ✅ Sim | ✅ Sim |
+| **LLM hallucination** | LLM clicou em coordenada sem nenhum elemento visual real | ❌ Não (parece `gap`) | ✅ Sim (screenshot confirma) |
+| **Custom View** | Elemento desenhado via Canvas, sem nó na accessibility tree | ❌ Não | ⚠️ Parcial (screenshot mostra, XML não) |
+
+**Conclusão**: A Fase A dá uma visão parcial (útil para edge_miss, boundary, launcher). A Fase A' é essencial para a ground truth (timing gap, over-abstraction, hallucination).
