@@ -65,16 +65,18 @@ _params_to_tool_spec = None
 _CalibrationPhase = None
 _compute_aperv_score = None
 _ObjectiveFunction = None
+_get_default_params = None
 
 
 def _load_tool_modules(tool: str) -> None:
     """Load parameter space and objective modules for the given tool family."""
     global _suggest_params, _params_to_tool_spec, _CalibrationPhase
-    global _compute_aperv_score, _ObjectiveFunction
+    global _compute_aperv_score, _ObjectiveFunction, _get_default_params
 
     if tool.startswith("aperv"):
         from aperv_parameter_space import (
             CalibrationPhase,
+            get_default_params,
             params_to_tool_spec,
             suggest_params,
         )
@@ -84,11 +86,13 @@ def _load_tool_modules(tool: str) -> None:
         _params_to_tool_spec = params_to_tool_spec
         _CalibrationPhase = CalibrationPhase
         _compute_aperv_score = compute_score
+        _get_default_params = get_default_params
         _ObjectiveFunction = None
     else:
         from rv_agent_validation.calibration.objective import ObjectiveFunction
         from rv_agent_validation.calibration.parameter_space import (
             CalibrationPhase,
+            get_default_params,
             params_to_tool_spec,
             suggest_params,
         )
@@ -97,6 +101,7 @@ def _load_tool_modules(tool: str) -> None:
         _params_to_tool_spec = params_to_tool_spec
         _CalibrationPhase = CalibrationPhase
         _compute_aperv_score = None
+        _get_default_params = get_default_params
         _ObjectiveFunction = ObjectiveFunction
 
 logger = logging.getLogger(__name__)
@@ -197,7 +202,7 @@ def generate_calibration_compose(
 def recover_orphaned_trials(
     study: optuna.Study,
     output_dir: str,
-    objective_fn: ObjectiveFunction,
+    objective_fn,
 ) -> int:
     """
     Recover trials left in RUNNING state from a previous interrupted session.
@@ -301,7 +306,7 @@ def compute_score_for_trial(
     Args:
         trial_num: Optuna trial number.
         output_dir: Base calibration output directory.
-        objective_fn: ObjectiveFunction instance (rvagent) or None (aperv).
+        objective_fn: Objective function instance (rvagent) or None (aperv).
 
     Returns:
         Objective score (0-100 scale).
@@ -488,6 +493,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="SGLang server URL reachable from containers (e.g. http://host.docker.internal:30000/v1). "
              "Injects llm_base_url into the tool spec for multimode agents.",
     )
+    parser.add_argument(
+        "--no-enqueue-defaults",
+        action="store_true",
+        help="Skip injecting default parameter values as the first trial (warm-starting).",
+    )
+    parser.add_argument(
+        "--convergence-rounds",
+        type=int,
+        default=5,
+        help="Stop early if best score hasn't improved for this many rounds (default: 5). "
+             "Set to 0 to disable convergence monitoring.",
+    )
     return parser
 
 
@@ -559,6 +576,17 @@ def main() -> None:
     )
     logger.info(f"Optuna study: {study_name} (storage: {storage_path})")
 
+    # --- Warm-starting: enqueue default params as first trial ---
+    # Only on fresh runs (not resume) with no completed trials yet.
+    # Gives the TPE a known baseline to learn from instead of pure random.
+    existing_trials = len(study.trials)
+    if not args.resume and not args.no_enqueue_defaults and existing_trials == 0:
+        default_params = _get_default_params(phase)
+        if fixed_params:
+            default_params = {**fixed_params, **default_params}
+        study.enqueue_trial(default_params)
+        logger.info(f"Enqueued default params as warm-start trial: {default_params}")
+
     # --- Resume: recover orphaned trials ---
     if args.resume:
         recovered = recover_orphaned_trials(study, str(output_dir), objective_fn)
@@ -588,6 +616,8 @@ def main() -> None:
 
     # --- Main optimization loop ---
     round_number = 0
+    rounds_without_improvement = 0
+    best_score_so_far = -float("inf")
     n_apks = count_filter_apks(args.filter_file)
     round_timeout = compute_round_timeout(args.timeout, n_apks)
     logger.info(f"Round timeout: {round_timeout}s ({round_timeout / 3600:.1f}h) for {n_apks} APKs")
@@ -681,6 +711,22 @@ def main() -> None:
         completed_count = len([t for t in study.trials if t.state == TrialState.COMPLETE])
         remaining = args.n_trials - completed_count
         logger.info(f"Progress: {completed_count}/{args.n_trials} trials complete")
+
+        # Convergence monitoring: stop if best score hasn't improved for N rounds
+        if args.convergence_rounds > 0 and completed_count > 0:
+            current_best = study.best_value
+            if current_best > best_score_so_far:
+                best_score_so_far = current_best
+                rounds_without_improvement = 0
+            else:
+                rounds_without_improvement += 1
+
+            if rounds_without_improvement >= args.convergence_rounds:
+                logger.info(
+                    f"Convergence: best score ({best_score_so_far:.2f}) unchanged for "
+                    f"{rounds_without_improvement} rounds. Stopping early."
+                )
+                break
 
     # --- Save results ---
     _save_results(study, args.phase, args.seed, args.n_trials, str(output_dir))

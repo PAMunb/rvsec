@@ -51,8 +51,8 @@ A calibração é dividida em duas fases com ferramentas diferentes:
 
 | Fase | Tool | Params | LLM | SGLang | Otimiza |
 |------|------|--------|-----|--------|---------|
-| **MACRO** | `aperv:sata_mop` | 14 (exploração + MOP) | Desligado | Não precisa | Engine de exploração pura |
-| **MICRO** | `aperv:sata_mop_llm` | 5 (LLM) | Ligado | Sim | Como o LLM integra na exploração otimizada |
+| **MACRO** | `aperv:sata_mop` | 13 efetivos (exploração + MOP) | Desligado | Não precisa | Engine de exploração pura |
+| **MICRO** | `aperv:sata_mop_llm` | 4 (LLM mode + sampling) | Ligado | Sim | Como o LLM integra na exploração otimizada |
 
 **Racional MACRO sem LLM**: A fase MACRO otimiza a engine de exploração (SATA + MOP weights) sem interferência do LLM. Os 600s de cada trial são 100% exploração algorítmica. O LLM adicionaria ruído (overhead de latência + ações no_match) que confundiria a otimização dos params de exploração. Além disso, não precisa de SGLang — libera GPU e remove um ponto de falha.
 
@@ -79,21 +79,22 @@ A calibração é dividida em duas fases com ferramentas diferentes:
 | 13 | `mop_weight_transitive` | `ape.mopWeightTransitive` | 300 | [50, 600] | int | Boost MOP transitivo |
 | 14 | `mop_weight_activity` | `ape.mopWeightActivity` | 100 | [10, 200] | int | Boost MOP activity-level |
 
-### 3.3 Fase MICRO — 5 parâmetros (LLM)
+### 3.3 Fase MICRO — 4 parâmetros (LLM)
 
 **Tool**: `aperv:sata_mop_llm` (com LLM, params MACRO fixados nos valores ótimos)
 
-| # | Python key | Java key | Default | Range | Tipo | Controla |
-|---|-----------|----------|---------|-------|------|----------|
-| 15 | `llm_on_new_state` | `ape.llmOnNewState` | true | {true, false} | bool | LLM na primeira visita a estado novo |
-| 16 | `llm_on_stagnation` | `ape.llmOnStagnation` | true | {true, false} | bool | LLM quando grafo estagna |
-| 17 | `llm_temperature` | `ape.llmTemperature` | 0.3 | [0.01, 0.5] | float | Criatividade/aleatoriedade LLM |
-| 18 | `llm_top_p` | `ape.llmTopP` | 0.6 | [0.3, 0.95] | float | Nucleus sampling threshold |
-| 19 | `llm_top_k` | `ape.llmTopK` | 50 | [10, 100] | int | Top-K tokens considerados |
+| # | Optuna key | Java keys | Default | Range | Tipo | Controla |
+|---|-----------|-----------|---------|-------|------|----------|
+| 15 | `llm_mode` | `ape.llmOnNewState` + `ape.llmOnStagnation` | both | {new_state_only, stagnation_only, both} | categorical | Quando chamar o LLM |
+| 16 | `llm_temperature` | `ape.llmTemperature` | 0.3 | [0.0, 0.7] | float | Criatividade/aleatoriedade LLM |
+| 17 | `llm_top_p` | `ape.llmTopP` | 0.6 | [0.3, 0.95] | float | Nucleus sampling threshold |
+| 18 | `llm_top_k` | `ape.llmTopK` | 50 | [10, 100] | int | Top-K tokens considerados |
+
+**Nota sobre `llm_mode`**: Substituiu 2 booleanos independentes (`llm_on_new_state`, `llm_on_stagnation`) para evitar o caso degenerado onde ambos=false (= sem LLM = idêntico ao MACRO). O `suggest_params` mapeia o categórico para as 2 propriedades Java.
 
 **Parâmetros fixos (não calibráveis)**:
 - `llm_timeout_ms` = 15000 (fixo — timeout de rede, não afeta qualidade de exploração)
-- `llm_max_calls` = 999999 (efetivamente sem limite — o routing natural via onNewState/onStagnation controla quantas chamadas ocorrem; o cap artificial foi removido)
+- `llm_max_calls` = 999999 (efetivamente sem limite — o routing natural via llm_mode controla quantas chamadas ocorrem; o cap artificial foi removido)
 
 ---
 
@@ -120,10 +121,13 @@ score = 0.50 × mop_coverage + 0.50 × method_coverage
 
 ```python
 def compute(results_dir: str) -> float:
-    """Compute calibration score from summary.csv."""
+    """Compute calibration score from summary.csv.
+
+    Uses trimmed mean (10% cut) for robustness against outlier APKs.
+    """
     summary = pd.read_csv(f"{results_dir}/summary.csv")
-    avg_method = summary["cov_method"].mean()
-    avg_mop = summary["cov_rv_method"].mean()
+    avg_method = trim_mean(summary["cov_method"].values, 0.1)
+    avg_mop = trim_mean(summary["cov_rv_method"].values, 0.1)
     return 0.50 * avg_mop + 0.50 * avg_method
 ```
 
@@ -234,10 +238,10 @@ Regra prática: `3-5× número de parâmetros` para boa convergência do TPE.
 
 | Fase | Params | Mínimo (3×) | Ideal (5×) | Escolhido | Containers | Startup | TPE efetivo |
 |------|--------|------------|-----------|-----------|-----------|---------|-------------|
-| MACRO | 14 | 42 | 70 | **130** | 10 | 20 (15%) | **110 (85%)** |
-| MICRO | 5 | 15 | 25 | **80** | 8 | 10 (13%) | **70 (88%)** |
+| MACRO | 13 efetivos | 39 | 65 | **130** | 10 | 20 (15%) | **110 (85%)** |
+| MICRO | 4 | 12 | 20 | **80** | 8 | 10 (13%) | **70 (88%)** |
 
-Para MACRO com 130 trials e 10 containers: 85% de eficiência (110 trials guiados pelo TPE, ~7.9× cobertura dos 14 params). Excelente convergência.
+Para MACRO com 130 trials e 10 containers: 85% de eficiência (110 trials guiados pelo TPE, ~8.5× cobertura dos 13 params efetivos). Excelente convergência.
 
 ---
 
@@ -294,10 +298,10 @@ nohup uv run python scripts/calibration_orchestrator.py \
 | Parâmetro | Valor |
 |-----------|-------|
 | Tool | `aperv:sata_mop_llm` (com LLM) |
-| Params calibrados | 5 (LLM routing + tuning) |
+| Params calibrados | 4 (LLM mode + sampling) |
 | Params fixos | 14 MACRO (de `optimal_params.json`) |
 | Trials | 80 |
-| n_startup_trials | 10 (5 params não precisam de 16 random) |
+| n_startup_trials | 10 (4 params não precisam de 16 random) |
 | TPE efetivo | 70 trials (88% eficiência) |
 | APKs | 30 (mesmo subset do MACRO) |
 | Timeout | 600s |
@@ -326,7 +330,7 @@ nohup uv run python scripts/calibration_orchestrator.py \
 
 ### 8.3 Nota sobre startup reduzido
 
-O MICRO usa `n_startup_trials=10` em vez do padrão `2 × containers = 16`. Com 5 params, 10 pontos random já cobrem bem o espaço. Com 8 containers, `ceil(10/8)=2` rounds random — o TPE começa a guiar a partir do round 2 (6 dos 8 trials do round 2 já são TPE-guided). Resultado: 70 trials TPE efetivos em 80 totais = 88% eficiência.
+O MICRO usa `n_startup_trials=10` em vez do padrão `2 × containers = 16`. Com 4 params, 10 pontos random já cobrem bem o espaço. Com 8 containers, `ceil(10/8)=2` rounds random — o TPE começa a guiar a partir do round 2 (6 dos 8 trials do round 2 já são TPE-guided). Resultado: 70 trials TPE efetivos em 80 totais = 88% eficiência.
 
 ---
 
@@ -552,3 +556,60 @@ Optuna.tell(trial, score)
 | Exp2 results | `data/results/exp2_consolidated.csv` | 5 tools merged |
 | Exp3 results | `data/results/exp3_00..07/` | aperv:sata_mop_llm baseline |
 | Docker compose exp3 | `docker/docker-compose.exp3-aperv-llm.yml` | Template compose |
+| Análises LLMs | `docs/analise_{claude,gemini,minimax,qwen}.md` | 4 análises independentes do plano |
+
+---
+
+## 16. Melhorias Pós-Análise (2026-03-18)
+
+O plano foi submetido a 4 LLMs (Claude, Gemini, Minimax, Qwen) para análise independente. Todas aprovaram o plano como executável. As seguintes melhorias foram aplicadas com base na síntese cruzada das sugestões:
+
+### 16.1 Espaço de Parâmetros (`aperv_parameter_space.py`)
+
+| # | Melhoria | Justificativa | Fonte |
+|---|---------|---------------|-------|
+| 1 | `step=10` para `mop_weight_direct`, `mop_weight_transitive`, `mop_weight_activity`, `graph_stable_restart_threshold` | Reduz espaço de busca efetivo ~10× por parâmetro sem perda semântica (500 vs 501 é idêntico) | Claude, Minimax |
+| 2 | `log=True` para `throttle_ms`, `throttle_for_activity_transition` | Amostragem log-uniforme — diferença 100→200ms é mais impactante que 900→1000ms | Gemini |
+| 3 | Fuzzing condicional: `fuzzing_rate` só sugerido quando `do_fuzzing=true` | Elimina dimensão desperdiçada quando fuzzing está desligado | Minimax |
+| 4 | `llm_mode` categórico (3 opções) substitui 2 booleanos independentes | Evita caso degenerado `llm_on_new_state=false` + `llm_on_stagnation=false` (= sem LLM = idêntico ao MACRO) | Claude, Minimax |
+| 5 | `llm_temperature` expandido de [0.01, 0.5] para [0.0, 0.7] | Range original era conservador para tarefas de geração de ações GUI | Minimax |
+
+**Parâmetros efetivos após melhorias**:
+- MACRO: 13 dimensões efetivas (14 declarados, mas `fuzzing_rate` é condicional)
+- MICRO: 4 parâmetros (`llm_mode`, `llm_temperature`, `llm_top_p`, `llm_top_k`)
+
+### 16.2 Função Objetivo (`aperv_objective.py`)
+
+| # | Melhoria | Justificativa | Fonte |
+|---|---------|---------------|-------|
+| 6 | Trimmed mean (corte 10%) em vez de média simples | Robustez contra outliers — 1 APK que crasha (coverage=0) distorce o score do trial inteiro | Claude, Minimax |
+
+### 16.3 Orchestrator (`calibration_orchestrator.py`)
+
+| # | Melhoria | Justificativa | Fonte |
+|---|---------|---------------|-------|
+| 7 | Warm-starting via `enqueue_trial` com defaults | Dá ao TPE um baseline conhecido desde o início em vez de random puro. ~10 linhas, custo zero | Claude, Gemini, Minimax |
+| 8 | Convergence monitoring (parada antecipada) | Se `best_score` não melhorar por 5 rounds consecutivos, para. Economiza horas se MACRO convergir cedo | Qwen, Minimax |
+
+Flags adicionadas ao orchestrator:
+- `--no-enqueue-defaults`: desabilita warm-starting (para testes controlados)
+- `--convergence-rounds N`: rounds sem melhoria antes de parar (default: 5, 0 = desabilitado)
+
+### 16.4 Smoke Test
+
+Rodar **5 trials** (1 round de 5 containers) antes da calibração real para validar end-to-end:
+- Docker, Optuna DB, scoring, resume
+- Testar `--resume` (matar processo e restartar)
+- ~5.7h (mesmo tempo de 1 round MACRO)
+
+### 16.5 Sugestões Descartadas
+
+| Sugestão | Por que não | Fonte |
+|---------|-----------|-------|
+| Holdout validation set | Validação já planejada como experimento separado (169 APKs, 3 reps, 10min) | Todas |
+| Adicionar params RVSmart do Config.java | Não se aplicam ao APE-RV SATA variants | Minimax |
+| Multi-objective (Pareto) | Overengineering para primeira calibração | Claude, Minimax |
+| SMAC3 / CMA-ES / BoTorch | Infraestrutura Optuna já existe e funciona | Gemini, Minimax |
+| Multi-fidelity (timeout curto como proxy) | Precisa validar correlação — para futuro | Claude |
+| WilcoxonPruner | Requer mudança arquitetural no orchestrator (score por APK) — para futuro | Claude |
+| Aumentar para 200 trials MACRO | 130 trials com 9.3× já é suficiente | Minimax |
