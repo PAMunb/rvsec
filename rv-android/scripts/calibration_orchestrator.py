@@ -576,6 +576,17 @@ def main() -> None:
     )
     logger.info(f"Optuna study: {study_name} (storage: {storage_path})")
 
+    # --- Map phase string to enum ---
+    phase = _CalibrationPhase.MACRO if args.phase == "macro" else _CalibrationPhase.MICRO
+
+    # --- Load fixed params for micro phase ---
+    fixed_params: Dict[str, Any] = {}
+    if args.best_macro:
+        with open(args.best_macro, "r", encoding="utf-8") as f:
+            macro_results = json.load(f)
+        fixed_params = macro_results["best_params"]
+        logger.info(f"Loaded {len(fixed_params)} fixed macro params from {args.best_macro}")
+
     # --- Warm-starting: enqueue default params as first trial ---
     # Only on fresh runs (not resume) with no completed trials yet.
     # Gives the TPE a known baseline to learn from instead of pure random.
@@ -591,17 +602,6 @@ def main() -> None:
     if args.resume:
         recovered = recover_orphaned_trials(study, str(output_dir), objective_fn)
         logger.info(f"Recovered {recovered} orphaned trial(s)")
-
-    # --- Load fixed params for micro phase ---
-    fixed_params: Dict[str, Any] = {}
-    if args.best_macro:
-        with open(args.best_macro, "r", encoding="utf-8") as f:
-            macro_results = json.load(f)
-        fixed_params = macro_results["best_params"]
-        logger.info(f"Loaded {len(fixed_params)} fixed macro params from {args.best_macro}")
-
-    # --- Map phase string to enum ---
-    phase = _CalibrationPhase.MACRO if args.phase == "macro" else _CalibrationPhase.MICRO
 
     # --- Count already-completed trials ---
     completed_count = len([t for t in study.trials if t.state == TrialState.COMPLETE])
