@@ -1,7 +1,7 @@
 # APE-RV: Plano de Calibração via Optuna
 
 **Data**: 2026-03-17 (planejamento), execução TBD
-**Status**: Consolidado — aguardando pré-requisitos (exp3 + fix no_match)
+**Status**: Consolidado — exp3 DONE, 30 APKs selecionados, aguardando implementação dos scripts
 **Dependências**: exp3 baseline (rodando), gh42 (concluída), gh9 infra (reutilizável)
 **Contexto**: `docs/20260316_aperv_llm.md` (ideação), `openspec/changes/gh9-docker-calibration/design.md` (referência)
 
@@ -32,7 +32,7 @@ Calibrar os 19 parâmetros configuráveis do APE-RV (exploração + MOP + LLM) e
 |---|--------------|--------|----------|
 | 1 | gh42 — all params in ape.properties | DONE | `APERV_PROPERTY_MAPPING` com 23 entries |
 | 2 | gh41 — LLM variants registrados | DONE | `aperv:sata_mop_llm` com 9 LLM keys |
-| 3 | Exp3 — baseline LLM (defaults) | RODANDO | 507 tasks, ~12h |
+| 3 | Exp3 — baseline LLM (defaults) | DONE | 507/507 tasks, 0 failures |
 | 4 | Exp1+Exp2 — baselines sem LLM | DONE | 5 ferramentas, 169 APKs |
 | 5 | calibration_orchestrator.py | DONE (gh9) | Precisa adaptação para aperv |
 | 6 | Docker image 0.8.0 | DONE | Inclui gh41+gh42 |
@@ -136,17 +136,50 @@ def compute(results_dir: str) -> float:
 | Dataset | # APKs | Path | Uso |
 |---------|--------|------|-----|
 | Completo | 169 | `data/apks/available_169.txt` | Experimentos finais (validação) |
-| Pre-cal (gh9) | 40 | `modules/rv-agent-validation/data/precal_set.txt` | Calibração |
+| Viáveis | 149 | `out/aperv_dataset_selection/all_valid_apks.txt` | Filtrados: method_coverage >= 5% em pelo menos uma tool |
+| **Pre-cal APE-RV** | **30** | **`data/apks/aperv_precal_30.txt`** | **Calibração MACRO + MICRO** |
+| Pre-cal rv-agent (gh9) | 40 | `modules/rv-agent-validation/data/precal_set.txt` | Referência (independente) |
 
-Os 40 APKs do `precal_set.txt` são 100% contidos nos 169 APKs. Podemos reutilizar.
+### 5.2 Pre-calibração: 30 APKs — DONE
 
-### 5.2 Pre-calibração: 30 APKs
+**Path**: `data/apks/aperv_precal_30.txt`
+**Artefatos de seleção**: `out/aperv_dataset_selection/` (CSVs, relatório, holdout)
 
-Selecionar 30 dos 169 APKs disponíveis, estratificados por tamanho, número de activities, e presença de MOP-reachable methods. Podemos partir do `precal_set.txt` (40 APKs) como base e ajustar. O subset será salvo em `data/apks/aperv_precal_30.txt`.
+**Processo de seleção** (2026-03-18):
 
-### 5.3 Validação: 169 APKs completo
+1. **Filtro de viabilidade**: dos 169 APKs, removidos 20 com method_coverage < 5% em todas as tools (apps crashando, stuck em loop, ou irresponsivos — não discriminam params bons vs ruins)
+2. **Estratificação `category × size_bucket`**: via `scripts/select_dataset.py` usando metadata de `apks_complete.csv` (253 APKs, 17 categorias, 5 faixas de tamanho por número de métodos). Resultado: 30 APKs proporcionalmente distribuídos em 25 estratos
+3. **Cross-validation com baseline**: cruzamento da cobertura dos 30 pré-selecionados com todas as 6 ferramentas do exp1+exp2+exp3 (ape, aperv:sata, aperv:sata_mop_v1/v2, aperv:sata_mop_llm, rvsmart:mvp)
+4. **Remoção de APKs problemáticos**: huewidgets (widget app, ALL_LOW), routerkeygen (ALL_LOW, max 7,2%), poul.bits (ALL_LOW, max 9,8%), superuser (app de root, precisa root)
+5. **Swap gap-based**: removidos 6 APKs com gap 0pp (todas as tools performam igual — não discriminam params) e incluídos 9 APKs com gap >= 10pp (onde outra tool performa melhor que `aperv:sata_mop_v2` — oportunidades de calibração)
 
-Comparação direta com exp1-3 usando o dataset inteiro.
+**Resultado final**:
+
+| Métrica | Subset (30) | Pop viável (149) |
+|---------|-------------|------------------|
+| Method mean (v2) | 28,8% | 30,8% |
+| Strata cobertos | 25 | 56 |
+| Big-gap (>=10pp) | 11/30 (37%) | 13/149 (9%) |
+| Gap médio vs best tool | 9,5pp | — |
+
+**Top oportunidades de calibração** (APKs com maior gap vs melhor ferramenta):
+
+| APK | sata_mop_v2 | max (best tool) | gap |
+|-----|------------|-----------------|-----|
+| sandwichroulette | 21,4% | 67,2% (sata_mop_v1) | +45,9pp |
+| potdroid | 5,6% | 39,3% (sata) | +33,7pp |
+| fas | 20,2% | 49,9% (rvsmart) | +29,6pp |
+| hashmypass | 33,6% | 52,5% (sata_mop_v1) | +18,9pp |
+| munch | 15,7% | 34,3% (rvsmart) | +18,7pp |
+
+**Fontes de dados usadas**:
+- Cobertura: `data/results/exp3_consolidated.csv` (6 tools, 169 APKs)
+- Metadata: `/home/pedro/.../ase-journal/dataset/results/apks/apks_complete.csv` (253 APKs, categorias, métodos, crashes)
+- Script: `scripts/select_dataset.py` (seleção estratificada)
+
+### 5.3 Validação: 149 APKs viáveis
+
+Comparação direta com exp1-3 usando os 149 APKs viáveis (excluindo os 20 com coverage < 5% em todas as tools).
 
 ---
 
@@ -396,13 +429,16 @@ def params_to_tool_spec(params: dict) -> str:
 
 ## 11. Ações ANTES da Calibração
 
-### 11.1 CRÍTICO: Investigar no_match rate (83%)
+### 11.1 CRÍTICO: Investigar no_match rate (37,3%)
 
-O exp3 mostra que **5 de cada 6 chamadas LLM** resultam em `no_match` — o LLM sugere coordenadas mas o APE-RV não encontra widget correspondente. Cada chamada no_match é **~1.5s de overhead puro** sem benefício.
+O exp3 (9.525 chamadas LLM em 507 tasks) mostra **37,3% no_match** (3.554 chamadas). 8 APKs com 100% no_match, 80 APKs (47%) na faixa 26-50%. Cada chamada no_match é **~1.5s de overhead puro** sem benefício.
 
-**Causa provável**: mapeamento de coordenadas Qwen [0,1000) → pixel → widget bounds no `LlmRouter.java`. O matching por bounds containment + Euclidean fallback pode estar com tolerância muito apertada, ou o LLM está apontando para áreas não-interativas.
+**Causas identificadas** (análise preliminar dos traces):
+1. App crashes → launcher aparece → LLM vê tela errada (100% no_match)
+2. State mismatch → coordenada válida visualmente mas cai em gap entre widgets
+3. Euclidean fallback conservador (tolerância `max(50, min(w,h)/2)` px)
 
-**Ação**: criar issue gh43 para investigar e corrigir **ANTES** da calibração. Calibrar com 83% no_match seria otimizar em cima de um bug — o fix pode mudar completamente o comportamento do LLM e invalidar qualquer calibração feita antes.
+**Ação**: gh46 — investigação completa em 3 fases (replay forense, comparação de prompts, melhorias + testes de integração). Ver `docs/20260318_aperv_coordenadas_gh46.md`. Meta: reduzir no_match para <20% ANTES da calibração MICRO.
 
 ### 11.2 Fix llmMaxCalls
 
@@ -412,15 +448,11 @@ O `LlmRouter.java` tem um cap de chamadas LLM (`Config.llmMaxCalls`, default 200
 
 Alternativamente, manter o cap mas com valor alto (ex: 1000) como safety net.
 
-### 11.3 Selecionar 30 APKs para pre-cal
+### 11.3 Selecionar 30 APKs para pre-cal — DONE
 
-Dos 169 APKs disponíveis em `available_169.txt`, selecionar 30 estratificados por:
-- Tamanho (pequeno/médio/grande)
-- Número de activities
-- Presença de MOP-reachable methods
-- Diversidade de domínio
+**CONCLUÍDO** em 2026-03-18. Ver Seção 5.2 para detalhes completos do processo de seleção.
 
-Salvar em `data/apks/aperv_precal_30.txt`.
+Path: `data/apks/aperv_precal_30.txt` (30 APKs, estratificados por `category × size_bucket`, com 11 big-gap APKs para maximizar potencial de calibração).
 
 ---
 

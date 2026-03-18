@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Calibration orchestrator for Docker-based RVAgent parameter optimization.
+Calibration orchestrator for Docker-based parameter optimization.
+
+Supports two tool families:
+- rvagent (default): RVAgent modes (pure_algorithm, multimode)
+- aperv: APE-RV variants (sata_mop, sata_mop_llm)
 
 Manages the Optuna study, generates docker-compose files per round of trials,
 launches containers via docker compose, and collects results. Runs on the host
@@ -11,6 +15,7 @@ file with N services, launches them in parallel, waits for completion, scores
 results, and tells Optuna. Repeats until n_trials is reached.
 
 Usage:
+    # RVAgent calibration (original):
     uv run python scripts/calibration_orchestrator.py \
         --phase macro --n-trials 80 --n-containers 6 \
         --data-dir /path/to/calibration_dataset_v2 \
@@ -18,6 +23,24 @@ Usage:
         --output-dir ./results/calibration_macro_v2 \
         --timeout 300 --agent-mode pure_algorithm --seed 42 \
         --baseline-dir ./results/baseline_v2
+
+    # APE-RV MACRO calibration (no LLM):
+    uv run python scripts/calibration_orchestrator.py \
+        --tool aperv:sata_mop --phase macro --n-trials 130 --n-containers 10 \
+        --data-dir data/apks \
+        --filter-file data/apks/aperv_precal_30.txt \
+        --output-dir ./results/aperv_precal_macro \
+        --timeout 600 --seed 42
+
+    # APE-RV MICRO calibration (with LLM):
+    uv run python scripts/calibration_orchestrator.py \
+        --tool aperv:sata_mop_llm --phase micro --n-trials 80 --n-containers 8 \
+        --data-dir data/apks \
+        --filter-file data/apks/aperv_precal_30.txt \
+        --output-dir ./results/aperv_precal_micro \
+        --timeout 600 --seed 42 \
+        --best-macro ./results/aperv_precal_macro/optimal_params.json \
+        --sglang-url http://host.docker.internal:30000/v1
 """
 
 import argparse
@@ -34,14 +57,47 @@ import optuna
 import yaml
 from optuna.trial import TrialState
 
-# Imports from the existing calibration module
-from rv_agent_validation.calibration.objective import ObjectiveFunction
-from rv_agent_validation.calibration.parameter_space import (
-    CalibrationPhase,
-    get_default_params,
-    params_to_tool_spec,
-    suggest_params,
-)
+# Tool-specific imports are loaded dynamically based on --tool flag.
+# For rvagent: rv_agent_validation.calibration.{parameter_space,objective}
+# For aperv:   scripts/aperv_{parameter_space,objective}.py
+_suggest_params = None
+_params_to_tool_spec = None
+_CalibrationPhase = None
+_compute_aperv_score = None
+_ObjectiveFunction = None
+
+
+def _load_tool_modules(tool: str) -> None:
+    """Load parameter space and objective modules for the given tool family."""
+    global _suggest_params, _params_to_tool_spec, _CalibrationPhase
+    global _compute_aperv_score, _ObjectiveFunction
+
+    if tool.startswith("aperv"):
+        from aperv_parameter_space import (
+            CalibrationPhase,
+            params_to_tool_spec,
+            suggest_params,
+        )
+        from aperv_objective import compute_score
+
+        _suggest_params = suggest_params
+        _params_to_tool_spec = params_to_tool_spec
+        _CalibrationPhase = CalibrationPhase
+        _compute_aperv_score = compute_score
+        _ObjectiveFunction = None
+    else:
+        from rv_agent_validation.calibration.objective import ObjectiveFunction
+        from rv_agent_validation.calibration.parameter_space import (
+            CalibrationPhase,
+            params_to_tool_spec,
+            suggest_params,
+        )
+
+        _suggest_params = suggest_params
+        _params_to_tool_spec = params_to_tool_spec
+        _CalibrationPhase = CalibrationPhase
+        _compute_aperv_score = None
+        _ObjectiveFunction = ObjectiveFunction
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +169,8 @@ def generate_calibration_compose(
                 "RV_SKIP_STATIC_ANALYSIS": "true",
                 "RV_APKS_FILTER": "/opt/rvsec/rv-android/filters/filter.txt",
                 "RV_DELAY": str(index * CONTAINER_STAGGER_SECONDS),
+                # Activate socat bridge for LLM variants (aperv:sata_mop_llm, etc.)
+                **({"RVSMART_LLM_MODE": "true"} if "llm" in tool_spec else {}),
             },
             "volumes": [
                 f"{data_dir}:/opt/rvsec/rv-android/apks:ro",
@@ -228,7 +286,7 @@ def preflight_checks(data_dir: str, filter_file: str, agent_mode: str) -> None:
 def compute_score_for_trial(
     trial_num: int,
     output_dir: str,
-    objective_fn: ObjectiveFunction,
+    objective_fn=None,
 ) -> float:
     """
     Compute the objective score for a single completed trial.
@@ -237,10 +295,13 @@ def compute_score_for_trial(
     ``{output_dir}/trial_{N}/trial_{N}/`` (the inner directory is created by
     rv-experiment using ``RV_EXPERIMENT_NAME``).
 
+    For aperv tools, uses the aperv_objective.compute_score function directly.
+    For rvagent tools, uses the ObjectiveFunction instance.
+
     Args:
         trial_num: Optuna trial number.
         output_dir: Base calibration output directory.
-        objective_fn: Objective function instance.
+        objective_fn: ObjectiveFunction instance (rvagent) or None (aperv).
 
     Returns:
         Objective score (0-100 scale).
@@ -249,6 +310,9 @@ def compute_score_for_trial(
     summary_csv = results_dir / "summary.csv"
     if not summary_csv.exists():
         raise FileNotFoundError(f"No summary.csv for trial {trial_num}: {summary_csv}")
+
+    if _compute_aperv_score is not None:
+        return _compute_aperv_score(str(results_dir))
     return objective_fn.compute(str(results_dir))
 
 
@@ -290,9 +354,9 @@ def _save_results(
     with open(out / "optimal_params.json", "w", encoding="utf-8") as f:
         json.dump(optimal, f, indent=2)
 
-    # param_string.txt -- ready to paste into --tools rvagent:<spec>
+    # param_string.txt -- ready to paste into --tools <tool>@<spec>
     with open(out / "param_string.txt", "w", encoding="utf-8") as f:
-        f.write(params_to_tool_spec(best_trial.params))
+        f.write(_params_to_tool_spec(best_trial.params))
         f.write("\n")
 
     # trial_history.json
@@ -324,10 +388,18 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=__doc__,
     )
     parser.add_argument(
+        "--tool",
+        type=str,
+        default="rvagent",
+        help="Tool family to calibrate. For rvagent: 'rvagent' (uses --agent-mode). "
+             "For APE-RV: 'aperv:sata_mop' (MACRO, no LLM) or 'aperv:sata_mop_llm' (MICRO, with LLM). "
+             "Default: rvagent.",
+    )
+    parser.add_argument(
         "--phase",
         choices=["macro", "micro"],
         required=True,
-        help="Calibration phase: macro tunes 8 high-impact params, micro tunes 16 fine-tuning params.",
+        help="Calibration phase: macro tunes high-impact params, micro tunes fine-tuning params.",
     )
     parser.add_argument(
         "--n-trials",
@@ -435,9 +507,13 @@ def main() -> None:
         ],
     )
 
+    # --- Load tool-specific modules ---
+    _load_tool_modules(args.tool)
+    is_aperv = args.tool.startswith("aperv")
+
     logger.info("=" * 60)
-    logger.info("RVAgent Calibration Orchestrator")
-    logger.info(f"Phase: {args.phase}, Trials: {args.n_trials}, Containers/round: {args.n_containers}")
+    logger.info("Calibration Orchestrator")
+    logger.info(f"Tool: {args.tool}, Phase: {args.phase}, Trials: {args.n_trials}, Containers/round: {args.n_containers}")
     logger.info(f"Data: {args.data_dir}, Output: {args.output_dir}")
     logger.info("=" * 60)
 
@@ -449,17 +525,19 @@ def main() -> None:
     preflight_checks(args.data_dir, args.filter_file, args.agent_mode)
 
     # --- Objective function ---
-    baseline_max_errors: Optional[float] = None
-    if args.baseline_dir:
-        baseline_max_errors = ObjectiveFunction.compute_baseline_max_errors(args.baseline_dir)
-        logger.info(f"Baseline max errors: {baseline_max_errors:.2f}")
+    objective_fn = None
+    if not is_aperv:
+        baseline_max_errors: Optional[float] = None
+        if args.baseline_dir:
+            baseline_max_errors = _ObjectiveFunction.compute_baseline_max_errors(args.baseline_dir)
+            logger.info(f"Baseline max errors: {baseline_max_errors:.2f}")
 
-    objective_fn = ObjectiveFunction(
-        coverage_weight=0.40,
-        errors_weight=0.40,
-        ui_coverage_weight=0.20,
-        baseline_max_errors=baseline_max_errors,
-    )
+        objective_fn = _ObjectiveFunction(
+            coverage_weight=0.40,
+            errors_weight=0.40,
+            ui_coverage_weight=0.20,
+            baseline_max_errors=baseline_max_errors,
+        )
 
     # --- Optuna study (SQLite for crash-resilient persistence) ---
     storage_path = output_dir / "optuna_study.db"
@@ -495,7 +573,7 @@ def main() -> None:
         logger.info(f"Loaded {len(fixed_params)} fixed macro params from {args.best_macro}")
 
     # --- Map phase string to enum ---
-    phase = CalibrationPhase.MACRO if args.phase == "macro" else CalibrationPhase.MICRO
+    phase = _CalibrationPhase.MACRO if args.phase == "macro" else _CalibrationPhase.MICRO
 
     # --- Count already-completed trials ---
     completed_count = len([t for t in study.trials if t.state == TrialState.COMPLETE])
@@ -528,7 +606,7 @@ def main() -> None:
             trials_this_round.append(trial)
 
             # Suggest parameters for this trial's phase
-            params = suggest_params(trial, phase)
+            params = _suggest_params(trial, phase)
 
             # For micro phase, merge fixed macro params underneath the tuned micro params
             if fixed_params:
@@ -536,15 +614,21 @@ def main() -> None:
             else:
                 merged = params
 
-            param_str = params_to_tool_spec(merged)
-            if args.sglang_url:
+            param_str = _params_to_tool_spec(merged)
+            if args.sglang_url and not is_aperv:
                 param_str += f",llm_base_url={args.sglang_url}"
-            tool_spec = f"rvagent:{args.agent_mode}@{param_str}"
+
+            # Build tool spec: aperv uses --tool directly, rvagent appends agent_mode
+            if is_aperv:
+                tool_spec = f"{args.tool}@{param_str}"
+            else:
+                tool_spec = f"rvagent:{args.agent_mode}@{param_str}"
             batch.append((trial.number, tool_spec))
             logger.info(f"  Trial {trial.number}: {tool_spec[:120]}...")
 
         # Generate docker-compose file for this round
-        extra_hosts = ["host.docker.internal:host-gateway"] if args.sglang_url else None
+        needs_sglang = args.sglang_url is not None
+        extra_hosts = ["host.docker.internal:host-gateway"] if needs_sglang else None
         compose_dict = generate_calibration_compose(
             batch=batch,
             data_dir=str(Path(args.data_dir).resolve()),
@@ -618,7 +702,7 @@ def _print_summary(study: optuna.Study) -> None:
         logger.info(f"  Best score:       {best.value:.2f}")
         logger.info(f"  Best trial:       #{best.number}")
         logger.info(f"  Best params:      {json.dumps(best.params, indent=4)}")
-        logger.info(f"  Tool spec:        {params_to_tool_spec(best.params)}")
+        logger.info(f"  Tool spec:        {_params_to_tool_spec(best.params)}")
 
     logger.info("=" * 60)
 
