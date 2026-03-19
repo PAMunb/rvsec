@@ -146,7 +146,7 @@ matching rvsec-vision-llm methodology.
 
 ## 1. Module Infrastructure (sequential)
 
-- [ ] 1.1 Create `modules/aperv-llm-validation/` directory structure:
+- [x] 1.1 Create `modules/aperv-llm-validation/` directory structure:
   ```
   src/aperv_llm_validation/{__init__,constants,cli}.py
   src/aperv_llm_validation/pipeline/__init__.py
@@ -159,11 +159,11 @@ matching rvsec-vision-llm methodology.
   tests/fixtures/cryptoapp/
   scripts/
   ```
-- [ ] 1.2 Create `pyproject.toml` with dependencies:
+- [x] 1.2 Create `pyproject.toml` with dependencies:
   - Runtime: openai, Pillow, pydantic, rich, defusedxml
   - Dev: pytest, pytest-asyncio
   - Entry point: `aperv-llm-validate = "aperv_llm_validation.cli:main"`
-- [ ] 1.3 Create `constants.py` with APE-RV constants:
+- [x] 1.3 Create `constants.py` with APE-RV constants:
   - `MAX_EDGE_PX = 1000`, `JPEG_QUALITY = 80`
   - `BOUNDARY_TOP_RATIO = 0.05`, `BOUNDARY_BOTTOM_RATIO = 0.94`
   - `MIN_EUCLIDEAN_TOLERANCE = 50.0`
@@ -188,7 +188,7 @@ matching rvsec-vision-llm methodology.
   - `SMART_RESIZE_FACTOR = 32`  # QWEN3_VL_PATCH_SIZE × QWEN3_VL_MERGE_SIZE
   - `SMART_RESIZE_MIN_PIXELS = 3136`  # 56 × 56
   - `SMART_RESIZE_MAX_PIXELS = 10035200`  # ~3169 × 3169
-- [ ] 1.4 Create `data/models.py` with dataclasses (see design.md Data Models):
+- [x] 1.4 Create `data/models.py` with dataclasses (see design.md Data Models):
   - `Widget` (frozen dataclass with center, area, width, height properties)
   - `MatchStep` (enum: back, bounds_match, long_click_retry, euclidean_match, no_match)
   - `NoMatchCategory` (enum: 7 categories including stale_model)
@@ -196,19 +196,19 @@ matching rvsec-vision-llm methodology.
   - `MatchResult` (frozen dataclass: matched, step, widget, pixel coords, distance, classification)
   - `EvaluationResult` (frozen dataclass: screenshot_id, app_name, prompt, rep, LLM data, match, quality)
   - `PromptConfig` (dataclass: name, description, build functions)
-- [ ] 1.5 Create `infrastructure/response_cache.py`:
+- [x] 1.5 Create `infrastructure/response_cache.py`:
   - SQLite-backed cache with table `llm_responses`
   - Key: `hash(screenshot_basename + prompt_name + rep_seed + temperature + resize_mode)`
   - Methods: `get()`, `put()`, `stats()` (hits, misses, size)
   - Thread-safe (SQLite WAL mode)
   - Auto-create DB on first access
-- [ ] 1.6 Write `tests/test_response_cache.py`:
+- [x] 1.6 Write `tests/test_response_cache.py`:
   - Test put/get round-trip
   - Test cache miss returns None
   - Test stats (hits, misses, total)
   - Test duplicate key overwrites
-- [ ] 1.7 Run `uv sync` to verify module resolves
-- [ ] 1.8 Run `/rv-test-run aperv-llm-validation` (verify cache tests pass)
+- [x] 1.7 Run `uv sync` to verify module resolves
+- [x] 1.8 Run `/rv-test-run aperv-llm-validation` (verify cache tests pass)
 
 ## 2A. Pipeline — Image Processing + Coordinates (parallel)
 

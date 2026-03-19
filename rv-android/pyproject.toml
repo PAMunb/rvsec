@@ -21,6 +21,7 @@ dependencies = [
     "rvsmart-tool",
     "aperv-tool",
     "rv-experiment",
+    "aperv-llm-validation",
     # Shared third-party
     "requests>=2.32.0",
     "pyyaml>=6.0",
@@ -70,3 +71,4 @@ rvagent-tool = { workspace = true }
 rvsmart-tool = { workspace = true }
 aperv-tool = { workspace = true }
 rv-experiment = { workspace = true }
+aperv-llm-validation = { workspace = true }
