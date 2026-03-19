@@ -1,19 +1,59 @@
 # gh43: APE-RV LLM Validation — Tasks
 
-<!-- Subagent dispatch hints:
-  Group 0: manual/sequential (Java fixture generation — requires APE Java repo access)
-  Group 0.5: sequential (pre-validation — requires SGLang, ~1-1.5h)
-  Group 1: sequential (foundation — models, constants, cache, pyproject)
-  Group 2: parallel (2A, 2B, 2C are independent — 3 subagents, ~6 files each)
-  Group 3: sequential (depends on Group 2C prompt_builder; includes action_list)
-  Group 3.5: sequential (som_overlay variant, depends on Group 2C)
-  Group 4: sequential (depends on Groups 2+3)
-  Group 5: sequential (depends on Group 4, requires SGLang for reasoning gate)
-  Group 6: sequential (final verification)
+<!-- ============================================================
+  EXECUTION PLAN (analyzed 2026-03-19, updated after dependency analysis)
+  ============================================================
 
-  Critical path: 0 → 1 → 2(parallel) → 3 → 3.5 → 4 → 5 → 6
-  Groups 0.5, 7-11 are execution/analysis phases (post-implementation)
-  Group 0.5 can run in parallel with Groups 1-6 (implementation) since it uses existing rvsec-vision-llm approach
+  THREE PARALLEL TRACKS:
+
+  TRACK A — Implementation (pure code, no external deps)
+  ──────────────────────────────────────────────────────
+  Phase 1: Foundation (Group 1) — sequential
+    12→13→14→15→16→17→18→19
+    Must be complete and correct before Phase 2 — models.py and constants.py
+    are shared by all subagents.
+
+  Phase 2: Pipeline (Groups 2A/2B/2C) — 3 parallel subagents
+    Subagent 2A: image_processor + coordinate_normalizer + tests (6 tasks)
+    Subagent 2B: tool_call_parser + action_mapper + tests (6 tasks)
+    Subagent 2C: uiautomator_parser + prompt_builder + sglang_client + tests (7 tasks)
+    Note: golden fidelity tests (2A.5, 2B.5, 2C.6) written as stubs with
+      pytest.mark.skipif — filled when Track B fixtures exist.
+    Note: action_mapper returns classification=None for no_match; the evaluator
+      (not the mapper) calls nomatch_classifier. Matches design.md sequence diagram.
+
+  Phase 3: Prompts (Group 3 + 3.5) — sequential
+    39→40→41→42→43→44→45→46→47→48
+    Depends on Group 2C (prompt_builder provides shared formatting functions).
+
+  Phase 4: Evaluation (Group 4) — sequential, REORDERED from tasks.md
+    50(classifier)→51(guardrails)→49(evaluator)→52(reporter)→53(cli)→54→55→56→57→58→59
+    Reason: evaluator depends on classifier+guardrails, not the other way around.
+
+  Phase 5: Integration + Verification (Groups 5+6) — sequential
+    60→61→62→(63,64 deferred until SGLang)→65→66→67→68
+
+  TRACK B — Golden Fixtures (Group 0, requires emulator)
+  ──────────────────────────────────────────────────────
+  Can run in parallel with any Track A phase.
+    1→2→3→4→5→6
+  When done: un-skip golden fidelity tests (2A.5, 2B.5, 2C.6, 5.2).
+
+  TRACK C — SGLang Execution (Groups 0.5, 7-11, requires SGLang server)
+  ──────────────────────────────────────────────────────
+  Requires: Track A complete (module ready) + SGLang at 192.168.0.36
+    Group 0.5: pre-validation, ~14k calls, ~7h
+    Groups 7-9: prompt evaluation, ~6.7k calls, ~3.7h
+    Groups 10-11: analysis + reports (post-execution)
+
+  DEPENDENCY GRAPH:
+    Group 0 ─────────────────────────────────────────────────→ golden fidelity tests
+    Group 1 ──→ Group 2A ─┐
+               Group 2B  ├─→ Group 3 ──→ Group 3.5 ──→ Group 4 ──→ Group 5 ──→ Group 6
+               Group 2C ─┘                                          │
+    Group 0.5 (independent) ────────────────────────────────────────┤
+                                                                    ↓
+                                                              Groups 7-11
 -->
 
 ## 0. Golden Fixture Preparation (prerequisite)
