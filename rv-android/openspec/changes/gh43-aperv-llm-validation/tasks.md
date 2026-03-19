@@ -212,15 +212,15 @@ matching rvsec-vision-llm methodology.
 
 ## 2A. Pipeline — Image Processing + Coordinates (parallel)
 
-- [ ] 2A.1 Implement `pipeline/image_processor.py`:
+- [x] 2A.1 Implement `pipeline/image_processor.py`:
   - `calculate_resized_dimensions(orig_w, orig_h, max_edge=1000)` -> (new_w, new_h)
   - `smart_resize(height, width, factor=32, min_pixels=3136, max_pixels=10035200)` -> (new_h, new_w) — Qwen3-VL optimized resize: dimensions divisible by factor, total pixels in [min, max], preserve aspect ratio
   - `process_screenshot(png_path, mode="max_edge")` -> str — read PNG, resize (Pillow LANCZOS), JPEG quality 80, base64 encode (no data URI prefix); mode: "max_edge" (APE legacy) or "smart_resize" (Qwen3-VL)
   - `process_screenshot_bytes(png_bytes) -> str` — same but from bytes
-- [ ] 2A.2 Implement `pipeline/coordinate_normalizer.py`:
+- [x] 2A.2 Implement `pipeline/coordinate_normalizer.py`:
   - `qwen_to_pixel(qwen_x, qwen_y, device_w=1080, device_h=1920) -> (pixel_x, pixel_y)` — `int((q / 1000.0) * dim)`, clamp [0, dim-1]
   - `pixel_to_qwen(pixel_x, pixel_y, device_w=1080, device_h=1920) -> (qwen_x, qwen_y)` — `int((p / dim) * 1000)`, clamp [0, 999]
-- [ ] 2A.3 Write `tests/test_image_processor.py`:
+- [x] 2A.3 Write `tests/test_image_processor.py`:
   - Test `calculate_resized_dimensions(1080, 1920, 1000)` -> (562, 1000) — matches Java
   - Test `calculate_resized_dimensions(1920, 1080, 1000)` -> (1000, 562)
   - Test `calculate_resized_dimensions(800, 600, 1000)` -> (800, 600) — no resize needed
@@ -230,20 +230,20 @@ matching rvsec-vision-llm methodology.
   - Test `smart_resize` output: both dimensions % 32 == 0, area within [min, max] pixels
   - Test `process_screenshot(path, mode="smart_resize")` produces valid base64
   - Test `process_screenshot` with real PNG from cryptoapp fixtures
-- [ ] 2A.4 Write `tests/test_coordinate_normalizer.py`:
+- [x] 2A.4 Write `tests/test_coordinate_normalizer.py`:
   - Test `qwen_to_pixel(500, 500, 1080, 1920)` -> (540, 960) — matches Java
   - Test `qwen_to_pixel(0, 0, 1080, 1920)` -> (0, 0)
   - Test `qwen_to_pixel(999, 999, 1080, 1920)` -> (1079, 1918) — clamp
   - Test `pixel_to_qwen(540, 960, 1080, 1920)` -> (500, 500) — round-trip
   - Test clamp: `qwen_to_pixel(1500, 1500, ...)` -> clamped to (dim-1)
-- [ ] 2A.5 Write `tests/test_golden_fidelity.py` (image + coords section):
+- [x] 2A.5 Write `tests/test_golden_fidelity.py` (image + coords section):
   - Load all golden fixture JSONs, verify `calculate_resized_dimensions` matches Java `resize` field
   - Verify JPEG SSIM >= 0.98 against golden `jpeg_base64_sha256`
-- [ ] 2A.6 Run `/rv-test-run aperv-llm-validation` (verify 2A tests pass)
+- [x] 2A.6 Run `/rv-test-run aperv-llm-validation` (verify 2A tests pass)
 
 ## 2B. Pipeline — Parser + Matching Algorithm (parallel)
 
-- [ ] 2B.1 Implement `pipeline/tool_call_parser.py`:
+- [x] 2B.1 Implement `pipeline/tool_call_parser.py`:
   - 3-level fallback: native tool_calls -> `<tool_call>` XML tags -> inline JSON with "name"+"arguments"
   - `fix_malformed_json(s)`:
     - Missing "y": `"x": 352, 782` -> `"x": 352, "y": 782`
@@ -253,7 +253,7 @@ matching rvsec-vision-llm methodology.
   - `parse(response_content, tool_calls=None) -> ParsedAction|None`
   - Extract `reasoning` field when present
   - Track `parse_level` (native, xml_tag, inline_json) for telemetry
-- [ ] 2B.2 Implement `pipeline/action_mapper.py`:
+- [x] 2B.2 Implement `pipeline/action_mapper.py`:
   - `map_to_action(pixel_x, pixel_y, action_type, text, widgets, device_w, device_h) -> MatchResult`
   - Exact 5-step replica of `LlmRouter.mapToModelAction()`:
     1. Back action -> return back result
@@ -263,7 +263,7 @@ matching rvsec-vision-llm methodology.
     4. Long-click retry: if long_click failed containment, retry without type filter
     5. Euclidean fallback: nearest center within `max(50, min(widget_w, widget_h) / 2)`
   - Return classification on no_match (delegate to NoMatchClassifier)
-- [ ] 2B.3 Write `tests/test_tool_call_parser.py`:
+- [x] 2B.3 Write `tests/test_tool_call_parser.py`:
   - Test native format: `{"name": "click", "arguments": {"x": 500, "y": 600}}`
   - Test XML: `<tool_call>{"name": "click", "arguments": {"x": 500, "y": 600}}</tool_call>`
   - Test inline JSON in text: `"I'll click here: {"name": "click", ...}"`
@@ -273,7 +273,7 @@ matching rvsec-vision-llm methodology.
   - Test reasoning extraction: `{"arguments": {"x": 500, "y": 600, "reasoning": "Login button"}}`
   - Test NO_TOOL: conversational response with no tool call -> returns None
   - Test negative: response that looks like JSON but is not a tool call -> returns None
-- [ ] 2B.4 Write `tests/test_action_mapper.py`:
+- [x] 2B.4 Write `tests/test_action_mapper.py`:
   - Test boundary rejection: pixel at (540, 50) -> rejected (top 5%)
   - Test boundary rejection: pixel at (540, 1850) -> rejected (bottom >94%)
   - Test boundary pass: pixel at (540, 100) -> not rejected
@@ -285,47 +285,47 @@ matching rvsec-vision-llm methodology.
   - Test type_text filter: pixel on Button with type_text -> no_match (type_mismatch)
   - Test type_text filter: pixel on EditText with type_text -> match
   - Test long_click retry: long_click on non-long-clickable -> retry -> match
-- [ ] 2B.5 Write golden fidelity tests (matching section):
+- [x] 2B.5 Write golden fidelity tests (matching section):
   - Load all golden fixture JSONs, verify `map_to_action` produces same widget + step as Java `match_result`
-- [ ] 2B.6 Run `/rv-test-run aperv-llm-validation` (verify 2B tests pass)
+- [x] 2B.6 Run `/rv-test-run aperv-llm-validation` (verify 2B tests pass)
 
 ## 2C. Pipeline — Data Parsing + Prompt Builder (parallel)
 
-- [ ] 2C.1 Implement `data/uiautomator_parser.py`:
+- [x] 2C.1 Implement `data/uiautomator_parser.py`:
   - `parse_uiautomator(xml_path) -> list[Widget]` — parse `.uiautomator` XML using defusedxml
   - Parse bounds `[left,top][right,bottom]` format
   - Filter: clickable=true, enabled=true, bounds area > 0, not system UI (by package or resource_id)
   - Extract: class_name, text, content_desc, resource_id, bounds, checkable, editable
   - Handle malformed XML gracefully (log warning, return empty list)
-- [ ] 2C.2 Implement `pipeline/prompt_builder.py`:
+- [x] 2C.2 Implement `pipeline/prompt_builder.py`:
   - `build_widget_list(widgets, device_w, device_h) -> str` — format as APE:
     `[i] ClassName "text" @(normX,normY) (v:0)` (v:0 since offline, no visit history)
   - `build_system_message(include_type_text, include_reasoning=False) -> str` — exact replica of `ApePromptBuilder.buildSystemMessage()`
   - `build_user_text(activity, widgets, device_w, device_h) -> str` — screen header + widget list + exploration context
   - `build_messages(screenshot_b64, widgets, activity, device_w, device_h, prompt_config) -> list[dict]` — assemble 2-message multimodal prompt
   - `build_tool_schema(include_type_text, include_reasoning=False) -> list[dict]` — OpenAI tools array
-- [ ] 2C.3 Implement `pipeline/sglang_client.py`:
+- [x] 2C.3 Implement `pipeline/sglang_client.py`:
   - `SglangClient` class wrapping OpenAI client
   - `call(messages, tools, temperature, model) -> dict` — raw OpenAI response
   - Health check: `GET /v1/models` with timeout
   - Retry: 3x with exponential backoff on timeout/connection error
   - Integrate with `ResponseCache` (check before call, store after)
-- [ ] 2C.4 Write `tests/test_uiautomator_parser.py`:
+- [x] 2C.4 Write `tests/test_uiautomator_parser.py`:
   - Test parsing cryptoapp `001.uiautomator` fixture:
     - Verify widget count, class names, bounds, text
     - Verify system UI elements filtered out
     - Verify zero-area elements filtered out
   - Test malformed XML -> returns empty list + logs warning
   - Test missing file -> raises FileNotFoundError
-- [ ] 2C.5 Write `tests/test_prompt_builder.py`:
+- [x] 2C.5 Write `tests/test_prompt_builder.py`:
   - Verify widget list format matches APE output for known widgets
   - Verify system message text matches `ApePromptBuilder.buildSystemMessage()`
   - Verify tool schema structure matches `LlmRouter.buildToolsSchema()`
   - Verify type_text is conditional (only when input fields present)
   - Verify reasoning parameter added when `include_reasoning=True`
-- [ ] 2C.6 Write golden fidelity tests (prompt section):
+- [x] 2C.6 Write golden fidelity tests (prompt section):
   - Load all golden fixture JSONs, verify prompt strings match Java `system_message` + `user_text` exactly
-- [ ] 2C.7 Run `/rv-test-run aperv-llm-validation` (verify 2C tests pass)
+- [x] 2C.7 Run `/rv-test-run aperv-llm-validation` (verify 2C tests pass)
 
 ## 3. Prompt Variants (sequential, depends on Group 2C)
 
