@@ -235,9 +235,12 @@ error distribution (boundary, edge_miss, gap), resized dimensions comparison.
 coordinates in prompt), improving to ~100% when widget coordinates were included. This pre-
 validation isolates the image processing variable before prompt variant investment.
 
-**Estimated time**: Depends on scope (see Q6 in Open Questions):
-- Per-screenshot (1 prompt per screenshot): 468 × 3 modes × 2 temps = 2,808 calls (~1.5h)
-- Per-widget (each text widget → separate call): ~5 widgets/screen × 468 × 6 conditions ≈ 14,040 calls (~7h)
+**Scope**: Per-widget — each widget with a text label gets a separate LLM call
+(`"Click on the element labeled [text]"`). This isolates coordinate precision from action
+choice, matching the rvsec-vision-llm benchmark methodology (57.7% hit rate).
+
+**Estimated time**: ~5 widgets/screen × 468 screenshots × 3 modes × 2 temperatures ≈
+14,040 calls (~7h).
 Execution window: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h available).
 
 **Output**: `results/000_prevalidation_report.md` — narrative report following P2
@@ -1261,4 +1264,4 @@ modules/aperv-llm-validation/
 | Q3 | Should `stale_model` detection use only reasoning text, or add visual diff analysis? If reasoning validation gate fails, `stale_model` cannot be detected via reasoning — fallback to 6 algorithmic categories only. | Medium — affects complexity | During Group 10 analysis |
 | Q4 | Is 0.3 the right temperature for all prompts, or should each variant use its own? Group 0.5 tests 0.01 vs 0.7 extremes; if 0.01 >> 0.7, use 0.01 for Groups 7-9. | Low — can test in Group 9 | After Group 0.5 |
 | Q5 | Should we include exp3 trace replay (Phase A) in this module or keep it separate? | Low — scope question | After Phase B completion |
-| Q6 | Group 0.5 scope: is grounding per-widget (each widget with text → separate LLM call) or per-screenshot (one prompt per screenshot)? Per-widget: ~14,040 calls (~7h). Per-screenshot: ~2,808 calls (~1.5h). | Medium — affects execution time | Before Group 0.5 |
+| Q6 | ~~Group 0.5 scope: per-widget or per-screenshot?~~ **RESOLVED**: Per-widget — each widget with text gets a separate `"Click on [text]"` prompt. Isolates coordinate precision from action choice. ~14,040 calls (~7h). Matches rvsec-vision-llm methodology. | — | — |

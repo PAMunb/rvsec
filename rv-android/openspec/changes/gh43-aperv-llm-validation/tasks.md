@@ -64,10 +64,10 @@ approach.
 ~100% with coordinates. This phase isolates the image processing variable.
 
 **Execution window**: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h SGLang available).
-**Estimated time**: Depends on scope (see Q6 in design.md Open Questions):
-- Per-screenshot (1 prompt per screenshot): 468 × 3 modes × 2 temps = 2,808 calls (~1.5h)
-- Per-widget (each text widget → separate call): ~14,040 calls (~7h)
-Resolve Q6 before execution.
+**Scope**: Per-widget — each widget with a text label gets a separate LLM call
+(`"Click on the element labeled [text]"`). Isolates coordinate precision from action choice,
+matching rvsec-vision-llm methodology.
+**Estimated time**: ~5 widgets/screen × 468 screenshots × 3 modes × 2 temps ≈ 14,040 calls (~7h).
 
 - [ ] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
   - Input: 468 screenshots + UIAutomator XML pairs

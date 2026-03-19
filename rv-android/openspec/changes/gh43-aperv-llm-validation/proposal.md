@@ -36,7 +36,7 @@ normalized → device pixels), introducing error accumulation.
   action matching) running against 468 screenshots with UIAutomator XML ground truth
 - **Pre-validation phase** (Group 0.5): pure grounding test comparing max-edge 1000px vs
   smart_resize(factor=32) image preprocessing — isolates VLM spatial accuracy before prompt
-  investment (~1-1.5h SGLang)
+  investment (~7h SGLang, per-widget grounding)
 - **smart_resize(factor=32)**: Qwen3-VL-optimized image preprocessing (patch_size=16 ×
   merge_size=2), replacing generic max-edge resize if pre-validation confirms improvement
 - **8 prompt variants** compared on match rate, action quality, token efficiency, and latency
@@ -70,6 +70,6 @@ _(none — standalone module with no changes to existing specs)_
 | **Dependencies** | openai, Pillow, pydantic, rich, defusedxml |
 | **External systems** | SGLang server (Qwen3-VL-4B at `http://192.168.0.36:30000/v1`) |
 | **Data** | 468 screenshots in `/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/` |
-| **Compute** | ~1-1.5h pre-validation (Group 0.5) + ~3.7h full evaluation (Groups 7-9) |
+| **Compute** | ~7h pre-validation (Group 0.5, per-widget grounding) + ~3.7h full evaluation (Groups 7-9) |
 | **Downstream** | Findings feed into calibration plan (D4) and APE Java prompt optimization |
 | **Related FRs** | Supports FR21-FR32 (rv-agent) indirectly via LLM pipeline understanding |
