@@ -613,3 +613,212 @@ Rodar **5 trials** (1 round de 5 containers) antes da calibração real para val
 | Multi-fidelity (timeout curto como proxy) | Precisa validar correlação — para futuro | Claude |
 | WilcoxonPruner | Requer mudança arquitetural no orchestrator (score por APK) — para futuro | Claude |
 | Aumentar para 200 trials MACRO | 130 trials com 9.3× já é suficiente | Minimax |
+
+---
+
+## 17. Checkpoint MACRO — 50/130 trials (2026-03-19)
+
+### 17.1 Estado da execução
+
+| Item | Valor |
+|------|-------|
+| Study | `calibration_macro_42` |
+| Progresso | 50/130 COMPLETE, 0 FAIL, round 6 em execução |
+| Início | 2026-03-18 |
+| Tempo por round | ~5-6h (30 APKs × 600s + overhead) |
+| Restante estimado | ~8 rounds × ~5.7h ≈ 46h |
+
+### 17.2 Resultados parciais
+
+**Top 5 trials** (score = 50% method + 50% MOP, trimmed mean 10%):
+
+| Trial | Score | Method% | MOP% | Activity% | Violations | APKs c/viol |
+|-------|-------|---------|------|-----------|------------|-------------|
+| #35 | 35.26 | 32.81 | 37.71 | 67.79 | 72 | 15/30 |
+| #38 | 35.20 | 33.41 | 37.00 | 65.85 | 67 | 13/30 |
+| #43 | 34.97 | 33.67 | 36.27 | 66.04 | 65 | 12/30 |
+| #28 | 34.97 | 32.09 | 37.85 | 63.62 | 69 | 13/30 |
+| #2 | 34.69 | 32.57 | 36.81 | 66.06 | 68 | 13/30 |
+
+**Score distribution** (n=50): best=35.26, median=32.91, worst=25.29, mean=32.36, std=2.22
+
+### 17.3 Comparação com baselines (mesmos 30 APKs, trimmed mean 10%)
+
+| Tool | Method% | MOP% | Activity% | Score | Violations | APKs c/viol | Reps |
+|------|---------|------|-----------|-------|------------|-------------|------|
+| `ape` (original) | 32.36 | 38.33 | 60.29 | 35.34 | 128 | 13/30 | 2 |
+| `aperv:sata_mop_v1` (500/300/100) | 33.57 | 37.18 | 66.12 | 35.38 | 134 | 14/30 | 2 |
+| `aperv:sata` (sem MOP) | 31.38 | 35.27 | 63.87 | 33.33 | 128 | 14/30 | 2 |
+| `aperv:sata_mop_llm` (LLM defaults) | 30.77 | 34.93 | 61.47 | 32.85 | 190 | 13/30 | 3 |
+| `aperv:sata_mop_v2` (100/60/20) | 28.42 | 33.34 | 60.27 | 30.88 | 185 | 14/30 | 3 |
+| `rvsmart:mvp` | 27.41 | 30.33 | 60.13 | 28.87 | 164 | 12/30 | 3 |
+| **CALIBRATED best (#35)** | **32.81** | **37.71** | **67.79** | **35.26** | **72** | **15/30** | **1** |
+| **CALIBRATED top-3 avg** | **33.30** | **36.99** | **66.56** | **35.14** | **68** | **13/30** | **1** |
+
+**Deltas do calibrated #35 vs baselines**:
+
+| Baseline | Δ Method | Δ MOP | Δ Score | Δ Violations |
+|----------|----------|-------|---------|--------------|
+| `ape` | +0.45pp | -0.62pp | -0.09 | -56 |
+| `aperv:sata_mop_v1` | -0.76pp | +0.52pp | -0.12 | -62 |
+| `aperv:sata` | +1.43pp | +2.43pp | +1.93 | -56 |
+| `aperv:sata_mop_llm` | +2.05pp | +2.77pp | +2.41 | -118 |
+| `aperv:sata_mop_v2` | +4.40pp | +4.37pp | +4.38 | -113 |
+| `rvsmart:mvp` | +5.40pp | +7.38pp | +6.39 | -92 |
+
+**Interpretação**:
+
+1. **Score**: O calibrado (35.26) está empatado com `ape` (35.34) e `sata_mop_v1` (35.38) —
+   diferença < 0.2pp. Supera `sata_mop_v2` em +4.4pp.
+
+2. **Violations**: O calibrado detecta **72 violations com 1 rep**. Normalizado por rep, isso é
+   ~72/rep vs `ape` ~64/rep (128/2) e `sata_mop_v1` ~67/rep (134/2). O calibrado detecta
+   **mais violations por execução** que todas as baselines, sugerindo que a otimização de
+   cobertura MOP se traduz efetivamente em mais detecção de misuse.
+
+3. **Activity coverage**: O calibrado lidera com **67.79%** — superior a todas as baselines
+   (melhor baseline: `sata_mop_v1` com 66.12%). Indica exploração mais ampla de activities.
+
+4. **APKs com violations**: 15/30 APKs detectaram pelo menos 1 violation, mesmo com 1 rep.
+   Baselines com 2-3 reps atingem 12-14 APKs. Isso indica que o calibrado tem melhor cobertura
+   de caminhos que levam a violations.
+
+5. Com 80 trials TPE-guided restantes, a tendência é convergir para valores iguais ou superiores
+   às baselines em score, mantendo a vantagem em violations/rep.
+
+### 17.4 Análise de ranges dos parâmetros
+
+**Parâmetros no teto** (top10 avg posição no range):
+
+| Parâmetro | Range | Best #35 | Pos% | Top10 avg | Top10 pos% | Status |
+|-----------|-------|----------|------|-----------|------------|--------|
+| `mop_weight_direct` | [100, 1000] | 990 | 99% | 752 | 72% | ⚠ best no teto |
+| `max_states_per_activity` | [5, 30] | 30 | 100% | 21.3 | 65% | OK (top10 avg centrado) |
+| `throttle_ms` | [100, 500] | 185 | 21% | 158 | 15% | Tendência ao chão |
+| `mop_weight_transitive` | [50, 600] | 210 | 29% | 125 | 14% | Tendência ao chão |
+
+**`mop_weight_direct`**: O best trial (#35) atingiu 990 (99% do teto de 1000). O Optuna fixa
+distributions no primeiro trial — NÃO é possível expandir o range num study existente. Opções
+avaliadas:
+
+- **Opção A**: Novo study com warm-start (top-5 como seed) e range expandido [100, 2000]
+- **Opção B**: Manter study atual (990 pode ser ótimo real ou truncado)
+- **Opção C**: Sequencial (completar 130, depois novo study focado)
+
+**Decisão**: Manter study atual (Opção B). O score 35.26 já está empatado com baselines. Mesmo
+que o ótimo real de `mop_weight_direct` seja >1000, o impacto marginal seria pequeno. Os 80
+trials restantes exploram combinações dos outros 13 parâmetros. Se após 130 trials o score não
+melhorar, considerar novo study com range expandido.
+
+### 17.5 Descobertas sobre parâmetros categóricos
+
+#### `do_fuzzing`: Fuzzing prejudica exploração
+
+**Todos os top-10 trials têm `do_fuzzing=false`**. Distribuição geral: 33/50 `false`, 17/50
+`true`. O Optuna convergiu fortemente para desligar fuzzing neste dataset.
+
+**Hipótese**: O fuzzing do APE injeta ações aleatórias (toques em coordenadas arbitrárias, textos
+aleatórios) que desperdiçam tempo do orçamento de 600s sem contribuir para cobertura MOP ou
+method. Em 600s de exploração, cada ação conta — ações de fuzzing que não levam a transições
+de estado úteis reduzem a eficiência da exploração SATA.
+
+**Implicação para fase MICRO**: Se o LLM também introduz ações semi-aleatórias (no_match = 37%),
+o efeito pode ser análogo ao fuzzing. Isso reforça a importância de reduzir o no_match rate
+(gh46) antes da calibração MICRO.
+
+O condicional `fuzzing_rate` no `suggest_params` funciona corretamente: quando `do_fuzzing=false`,
+o rate é fixado em 0.0 e não registrado no Optuna (verificado na DB).
+
+#### `do_back_to_trivial_activity`: Preferência por não voltar
+
+Top-10: 8 `false`, 2 `true`. Distribuição geral: 28/50 `false`, 22/50 `true`. Tendência menos
+forte que `do_fuzzing`, mas indica que backtrack para activities triviais geralmente atrapalha.
+Exceção: o trial #35 (best) tem `false`, mas o #43 (3º melhor) tem `true` — depende da
+combinação com outros params.
+
+#### Nota sobre armazenamento de categoricals no Optuna
+
+O Optuna armazena categoricals como **índice** (0=choices[0], 1=choices[1]), não como o valor
+string. Para `do_fuzzing` com choices=["true", "false"]: DB value 0.0 = "true", 1.0 = "false".
+Scripts de análise devem usar o `distribution_json` para decodificar corretamente. O script
+`scripts/analyze_calibration.py` já trata isso.
+
+### 17.6 Params do best trial (#35, score=35.26)
+
+```
+default_epsilon          = 0.0624   (28% do range)  ← epsilon baixo = mais greedy
+graph_stable_restart_threshold = 50 (7%)            ← restart rápido ao estagnar
+state_stable_restart_threshold = 71 (39%)
+do_fuzzing               = false                    ← sem fuzzing
+throttle_for_activity_transition = 877 (85%)        ← delay alto entre activities
+throttle_ms              = 185     (21%)            ← delay baixo entre ações
+max_extra_priority_aliased_actions = 4 (21%)
+max_states_per_activity  = 30      (100% ← TETO)   ← máximo de estados rastreados
+trivial_activity_rank_threshold = 4 (43%)
+do_back_to_trivial_activity = false
+mop_weight_direct        = 990     (99% ← TETO)    ← peso MOP direto altíssimo
+mop_weight_transitive    = 210     (29%)            ← peso MOP transitivo baixo
+mop_weight_activity      = 70      (32%)            ← peso MOP activity baixo
+```
+
+**Perfil do best trial**: Exploração greedy (epsilon baixo), sem fuzzing, com restart rápido ao
+estagnar no grafo. Delay alto entre transições de activity (espera a UI estabilizar) mas rápido
+entre ações na mesma activity. MOP direto domina fortemente (990) sobre transitivo (210) e
+activity (70) — o algoritmo prioriza ações que levam diretamente a operações monitoradas,
+não indiretamente via cadeia transitiva. Rastreia o máximo de estados por activity (30).
+
+### 17.7 Violations por APK (best trial #35)
+
+| APK | Method% | MOP% | Violations |
+|-----|---------|------|------------|
+| org.mosad.seil0.projectlaogai_6000 | 44.6 | 53.7 | 23 |
+| edu.cmu.cylab.starslinger.demo_17301504 | 35.9 | 33.3 | 8 |
+| com.reddyetwo.hashmypass.app_24 | 58.1 | 86.1 | 5 |
+| de.determapp.android_8 | 48.4 | 54.0 | 5 |
+| eu.bubu1.fdroidclassic_1110 | 48.9 | 62.2 | 5 |
+| com.mde.potdroid_82 | 35.2 | 26.0 | 4 |
+| com.blippex.app_5 | 35.4 | 64.3 | 3 |
+| com.gbeatty.arxiv_39 | 10.8 | 10.1 | 3 |
+| com.vwp.owmini_128 | 62.5 | 80.0 | 3 |
+| li.klass.fhem_141 | 31.1 | 55.6 | 3 |
+| *(+5 APKs com 2 violations cada)* | | | 10 |
+
+**15/30 APKs** detectaram violations (total: 72). `projectlaogai` sozinho contribui 32% das
+violations — app com uso intenso de criptografia (JCA).
+
+### 17.8 Convergência
+
+| Round | Trials | Best in round | Best overall | Melhora? |
+|-------|--------|---------------|-------------|----------|
+| 1 | 0-9 | 34.69 | 34.69 | ← NEW |
+| 2 | 10-19 | 34.21 | 34.69 | |
+| 3 | 20-29 | 34.97 | 34.97 | ← NEW |
+| 4 | 30-39 | 35.26 | 35.26 | ← NEW |
+| 5 | 40-49 | 34.97 | 35.26 | |
+
+Melhora contínua até o round 4. Round 5 sem melhora (1 round). O `--convergence-rounds=5`
+do orchestrator requer 5 rounds sem melhora para parar — longe de ser atingido.
+
+### 17.9 Script de análise
+
+Relatório padronizado gerado por `scripts/analyze_calibration.py`:
+
+```bash
+# Executar (stdout):
+uv run python scripts/analyze_calibration.py
+
+# Salvar em arquivo:
+uv run python scripts/analyze_calibration.py -o results/aperv_precal_macro/report.md
+
+# Custom:
+uv run python scripts/analyze_calibration.py \
+    --study-dir results/aperv_precal_macro \
+    --baseline-csv data/results/exp3_consolidated.csv \
+    --filter-file data/apks/aperv_precal_30.txt \
+    --top-n 10 --target-trials 130
+```
+
+O script gera 7 seções: estado Optuna, top-N trials (com violations), comparação com baselines
+(deltas em pp), violations per-APK, análise de ranges (warnings de teto/chão), params do best
+trial, e convergência por round. Usa a mesma metodologia do `aperv_objective.py` (trimmed mean
+10%, score = 50% MOP + 50% method).
