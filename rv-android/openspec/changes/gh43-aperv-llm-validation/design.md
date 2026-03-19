@@ -143,12 +143,23 @@ Both are reported. The `center_hit` metric enables direct comparison with the rv
 benchmark. The `bounds_hit` metric shows what APE-RV would actually accept.
 
 **Prompt and tool schema** (aligned with rvsec-vision-llm v2 strict for comparability):
-- System message includes device dimensions (`"Screen is {width}x{height} pixels"`)
+- System message includes **resized image dimensions** (`"Screen is {img_w}x{img_h} pixels"`),
+  NOT device dimensions. The model grounds coordinates on the image it actually sees.
+  For max_edge: 562×1000, for smart_resize: varies (e.g. 576×1024), for raw: 1080×1920.
 - Tool name: `android_click` (matches rvsec-vision-llm)
-- Tool description: `"Click at pixel coordinates. Screen is 1080x1920. x: 0-1080, y: 0-1920"`
-- Coordinates in tool schema described as pixel range, NOT [0, 1000) — the model returns
-  normalized [0, 1000) regardless of what the schema says (per Qwen3-VL architecture), but
-  telling it "pixels" improved tool call rate in rvsec-vision-llm from 60.7% to 85.7%
+- Tool description: `"Click at pixel coordinates. Screen is {img_w}x{img_h}. x: 0-{img_w}, y: 0-{img_h}"`
+- Coordinates in tool schema described as pixel range for the resized image — the model
+  returns normalized [0, 1000) regardless (per Qwen3-VL architecture), but telling it
+  "pixels" improved tool call rate in rvsec-vision-llm from 60.7% to 85.7%
+
+**Coordinate conversion** (2-step for pre-validation):
+1. Qwen [0, 1000) → resized image pixels: `img_px = int((qwen / 1000) * img_dim)`
+2. Resized image pixels → device pixels: `dev_px = int((img_px / img_dim) * dev_dim)`
+Then check hit against UIAutomator widget bounds (which are in device pixel space).
+This 2-step conversion is the correct approach — it accounts for the fact that the model
+grounds on the resized image, not the device resolution. APE-RV currently skips step 1
+(converts directly from Qwen to device pixels), which may be the root cause of the
+3-space coordinate problem identified in the SOTA analysis.
 
 **Three image processing conditions** (orthogonal to prompt variants):
 1. **max-edge 1000px** (current APE-RV) — baseline, expected ~57% (replicating rvsec-vision-llm)

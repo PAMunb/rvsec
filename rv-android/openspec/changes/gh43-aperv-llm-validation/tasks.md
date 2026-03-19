@@ -81,8 +81,9 @@ per screenshot. Only `click` actions.
 - [x] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
   - Input: 468 screenshots + UIAutomator XML pairs
   - Widget selection: visible, has text/content_desc, clickable=true OR class in ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips), cap 20 per screenshot
-  - For each selected widget: prompt includes device dimensions (`"Screen is 1080x1920 pixels. Click on the element labeled [text]"`)
-  - Tool: `android_click(x, y)` with description specifying pixel coordinate ranges (matches rvsec-vision-llm v2 strict for comparability). Qwen3-VL returns [0, 1000) normalized coords regardless.
+  - For each selected widget: prompt includes **resized image dimensions** (`"Screen is {img_w}x{img_h} pixels. Click on the element labeled [text]"`). Dimensions match the image the model sees (max_edge: 562×1000, smart_resize: varies, raw: 1080×1920).
+  - Tool: `android_click(x, y)` with description specifying pixel ranges for the resized image. Qwen3-VL returns [0, 1000) normalized coords regardless.
+  - Coordinate conversion: Qwen [0,1000) → resized image pixels → device pixels (2-step). Hit checked against UIAutomator bounds (device pixel space).
   - NO widget coordinates in prompt (pure visual grounding)
   - Two hit metrics: `bounds_hit` (pixel in widget bounds, strict) + `center_hit` (≤50px from center, matches rvsec-vision-llm 57.7% baseline)
   - Output: CSV with (screenshot, widget_text, widget_class, widget_bounds, mode, temperature, predicted_qwen_x/y, predicted_pixel_x/y, bounds_hit, center_hit, distance_to_center, tokens, latency)
