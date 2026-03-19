@@ -12,7 +12,7 @@ from pathlib import Path
 
 import defusedxml.ElementTree as ET
 
-from aperv_llm_validation.constants import INPUT_CLASS_NAMES
+from aperv_llm_validation.constants import ALWAYS_CLICKABLE_TYPES, INPUT_CLASS_NAMES
 from aperv_llm_validation.data.models import Widget
 
 logger = logging.getLogger(__name__)
@@ -48,10 +48,15 @@ def parse_uiautomator(xml_path: Path) -> list[Widget]:
     widgets: list[Widget] = []
 
     for node in root.iter("node"):
-        # Filter: must be clickable and enabled
-        if node.get("clickable") != "true":
-            continue
         if node.get("enabled") != "true":
+            continue
+
+        # Accept if clickable=true OR class is in ALWAYS_CLICKABLE_TYPES
+        class_name = node.get("class", "android.view.View")
+        simple_class = class_name.rsplit(".", 1)[-1] if "." in class_name else class_name
+        is_clickable = node.get("clickable") == "true"
+        is_always_clickable = class_name in ALWAYS_CLICKABLE_TYPES or simple_class in ALWAYS_CLICKABLE_TYPES
+        if not is_clickable and not is_always_clickable:
             continue
 
         # Exclude system UI
@@ -74,7 +79,6 @@ def parse_uiautomator(xml_path: Path) -> list[Widget]:
         if area <= 0:
             continue
 
-        class_name = node.get("class", "android.view.View")
         text = node.get("text", "")
         content_desc = node.get("content-desc", "")
         long_clickable = node.get("long-clickable") == "true"
@@ -87,7 +91,7 @@ def parse_uiautomator(xml_path: Path) -> list[Widget]:
             content_desc=content_desc,
             resource_id=resource_id,
             bounds=(left, top, right, bottom),
-            clickable=True,
+            clickable=is_clickable or is_always_clickable,
             long_clickable=long_clickable,
             editable=editable,
             checkable=checkable,
