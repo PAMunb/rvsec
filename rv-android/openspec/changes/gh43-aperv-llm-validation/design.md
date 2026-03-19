@@ -128,10 +128,27 @@ graph TB
 Before running prompt variants, a quick grounding-only test establishes the VLM's baseline
 coordinate accuracy and validates the image processing improvement.
 
-**Design**: For each widget with a text label in the 468 UIAutomator dumps, send a simple
-prompt: `"Click on the element labeled [text]"` with only the screenshot (NO coordinates in
-prompt). The LLM returns coordinates via `click(x, y)` tool. Hit = returned coordinates fall
-within the widget's bounds.
+**Design**: For each widget with a text label in the 468 UIAutomator dumps, send a prompt
+including device dimensions: `"The screen is 1080x1920 pixels. Click on the element labeled
+[text]"` with only the screenshot (NO widget coordinates in prompt). The LLM returns
+coordinates via `android_click(x, y)` tool with description specifying pixel ranges.
+
+**Hit definition** (two metrics reported):
+- **bounds_hit**: predicted pixel coordinates fall within the widget's bounds (strict,
+  matches APE-RV's `mapToModelAction` containment check)
+- **center_hit**: predicted pixel coordinates within 50px Euclidean distance of widget center
+  (matches rvsec-vision-llm benchmark — the 57.7% baseline used this criterion)
+
+Both are reported. The `center_hit` metric enables direct comparison with the rvsec-vision-llm
+benchmark. The `bounds_hit` metric shows what APE-RV would actually accept.
+
+**Prompt and tool schema** (aligned with rvsec-vision-llm v2 strict for comparability):
+- System message includes device dimensions (`"Screen is {width}x{height} pixels"`)
+- Tool name: `android_click` (matches rvsec-vision-llm)
+- Tool description: `"Click at pixel coordinates. Screen is 1080x1920. x: 0-1080, y: 0-1920"`
+- Coordinates in tool schema described as pixel range, NOT [0, 1000) — the model returns
+  normalized [0, 1000) regardless of what the schema says (per Qwen3-VL architecture), but
+  telling it "pixels" improved tool call rate in rvsec-vision-llm from 60.7% to 85.7%
 
 **Three image processing conditions** (orthogonal to prompt variants):
 1. **max-edge 1000px** (current APE-RV) — baseline, expected ~57% (replicating rvsec-vision-llm)
@@ -141,15 +158,16 @@ within the widget's bounds.
 **Two temperatures**: 0.01 (near-deterministic) and 0.7 (high variance) — two extremes to
 differentiate grounding stability from stochastic exploration.
 
-**Metrics**: Hit rate global, hit rate per app, mean distance to widget center for misses,
-error distribution (boundary, edge_miss, gap), resized dimensions comparison.
+**Metrics**: bounds_hit rate and center_hit rate (global + per app + per widget class), mean
+distance to widget center for misses, error distribution (boundary, edge_miss, gap), resized
+dimensions comparison, tool call success rate.
 
 **Decision gate**:
-- If smart_resize improves hit rate by >=5pp: use in all prompt variants
+- If smart_resize improves center_hit rate by >=5pp: use in all prompt variants
 - If raw (no resize) is best: consider eliminating the resize step entirely
 - If both <=50%: pure grounding is fundamentally limited; coordinates in prompt are essential
   (already known from rvsec-vision-llm: 57% without coords -> ~100% with coords)
-- If baseline ~57%: confirms faithful replication of rvsec-vision-llm results
+- If baseline center_hit ~57%: confirms faithful replication of rvsec-vision-llm results
 - If temperature 0.01 ~ 0.7: grounding is temperature-insensitive, use 0.01 for reproducibility
 - If 0.01 >> 0.7: low temperature is critical for coordinate accuracy
 

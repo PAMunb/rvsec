@@ -78,13 +78,16 @@ belongs to ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips). Cap
 per screenshot. Only `click` actions.
 **Estimated time**: avg ~8 widgets/screen (cap 20) × 468 screenshots × 3 modes × 2 temps ≈ 8k-22k calls (~4-11h).
 
-- [ ] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
+- [x] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
   - Input: 468 screenshots + UIAutomator XML pairs
   - Widget selection: visible, has text/content_desc, clickable=true OR class in ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips), cap 20 per screenshot
-  - For each selected widget: prompt `"Click on the element labeled [text]"` + screenshot
-  - Tool schema: `click(x: int, y: int)` with coordinates in [0, 1000) range
-  - NO coordinates in prompt (pure visual grounding)
-  - Output: CSV with (screenshot, widget_text, widget_bounds, mode, temperature, predicted_x, predicted_y, hit, distance_to_center)
+  - For each selected widget: prompt includes device dimensions (`"Screen is 1080x1920 pixels. Click on the element labeled [text]"`)
+  - Tool: `android_click(x, y)` with description specifying pixel coordinate ranges (matches rvsec-vision-llm v2 strict for comparability). Qwen3-VL returns [0, 1000) normalized coords regardless.
+  - NO widget coordinates in prompt (pure visual grounding)
+  - Two hit metrics: `bounds_hit` (pixel in widget bounds, strict) + `center_hit` (≤50px from center, matches rvsec-vision-llm 57.7% baseline)
+  - Output: CSV with (screenshot, widget_text, widget_class, widget_bounds, mode, temperature, predicted_qwen_x/y, predicted_pixel_x/y, bounds_hit, center_hit, distance_to_center, tokens, latency)
+  - Summary: hit rates per mode×temp, per widget class, per app
+  - Fallback parser: native tool_calls → JSON in content (handles Qwen malformed output)
 - [ ] 0.5.2 Implement three image processing modes:
   - Mode A: max-edge 1000px + JPEG quality 80 (current APE-RV)
   - Mode B: smart_resize(factor=32, min_pixels=3136, max_pixels=10035200) + JPEG quality 80
@@ -95,21 +98,23 @@ per screenshot. Only `click` actions.
   - Temperatures: 0.01 (near-deterministic) and 0.7 (high variance)
   - All 468 screenshots, widgets with text labels only
   - `--sglang-url http://192.168.0.36:30000/v1`
-  - Expected baseline (Mode A, temp 0.3): ~57% hit rate (matching rvsec-vision-llm)
+  - Expected baseline (Mode A, temp 0.01): center_hit ~57% (matching rvsec-vision-llm)
 - [ ] 0.5.4 Generate comparison report (`results/000_prevalidation_report.md`):
   - Narrative report following P2 (human-readable, self-contained, explains why not just what)
-  - Hit rate per mode × temperature (6 cells, global + per app)
+  - bounds_hit AND center_hit rate per mode × temperature (6 cells, global + per app)
+  - Per widget class breakdown (Button, EditText, CheckBox, Spinner, Tab, etc.)
   - McNemar test for pairwise mode comparison (within same temperature)
   - Mean distance to widget center for misses per condition
   - Error distribution by category per condition
   - Resized dimensions comparison: Mode A vs Mode B vs Mode C for representative screenshots
   - Token consumption and latency comparison across modes
   - Per-app breakdown: which apps benefit most from each mode
+  - Tool call success rate per condition
 - [ ] 0.5.5 Decision gate:
-  - If Mode B improves hit rate by ≥5pp over Mode A → use smart_resize in all prompt variants
+  - If Mode B improves center_hit rate by ≥5pp over Mode A → use smart_resize in all prompt variants
   - If Mode C (raw) is best → consider eliminating resize entirely
   - If both ≤50% → pure grounding is limited, coordinates in prompt are essential (confirmed)
-  - If Mode A ≈57% → confirms replication of rvsec-vision-llm results
+  - If Mode A center_hit ≈57% → confirms replication of rvsec-vision-llm results
   - If temperature 0.01 ≈ 0.7 → grounding is temperature-insensitive, use 0.01 for reproducibility
   - If 0.01 >> 0.7 → low temperature critical for coordinate accuracy
   - Document all decisions with rationale in `results/000_prevalidation_report.md`
