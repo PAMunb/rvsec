@@ -16,22 +16,42 @@
   Group 0.5 can run in parallel with Groups 1-6 (implementation) since it uses existing rvsec-vision-llm approach
 -->
 
-## 0. Golden Fixture Preparation (prerequisite, manual)
+## 0. Golden Fixture Preparation (prerequisite)
 
-- [ ] 0.1 Identify and pin Java commit hash from APE repo (record in `tests/fixtures/golden/README.md`)
-- [ ] 0.2 Select 20 screenshots for golden dataset:
-  - 10 from cryptoapp (diverse activities + widget types)
-  - 5 from 2 F-Droid apps with high no_match in exp3
-  - 5 from 2 apps with low no_match in exp3
-- [ ] 0.3 Run APE Java pipeline on each screenshot, capture intermediate outputs:
-  - Resize dimensions: `(orig_w, orig_h, new_w, new_h)`
-  - JPEG base64: first 100 chars + SHA256 hash
-  - System message: full string
-  - User text: full string with widget list
-  - Widget list: formatted string
-  - Matching result: step name, matched widget index, distance
-- [ ] 0.4 Export fixtures as JSON files in `tests/fixtures/golden/<app>/<screenshot_id>.json`
-- [ ] 0.5 Create `scripts/generate_golden_fixtures.sh` with generation instructions and Java commit hash
+APE Java commit: `b2852dd` (master, `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape`)
+
+- [ ] 0.1 Implement temporary `GoldenFixtureExporter` class in APE Java (local-only, NOT committed):
+  - Hook into `LlmRouter.selectAction()` — after each LLM call, export 3 files:
+    - `call_NNN.json` — all pipeline intermediaries (see schema in design.md)
+    - `call_NNN.png` — screenshot captured at moment of call (copy from device)
+    - `call_NNN.uiautomator` — UIAutomator XML dump at moment of call (copy from device)
+  - Write files to emulator filesystem: `/data/local/tmp/golden/<app>/`
+  - JSON fields: screenshot_file, uiautomator_file, app, activity, commit, device_w, device_h,
+    resize (orig/new dims), jpeg_base64_sha256, jpeg_base64_first100, system_message,
+    user_text, widget_list, tools_schema, llm_response_raw, parsed_action (type/x/y/text),
+    pixel_coords, match_result (step/widget_index/distance)
+  - Enable via flag (e.g., system property `ape.golden.export=true`)
+- [ ] 0.2 Select 10 APKs for golden dataset (including cryptoapp):
+  - cryptoapp (known activities + widget types)
+  - 4-5 F-Droid apps with high no_match in exp3 (diverse UI complexity)
+  - 4-5 apps with low no_match (successful matching baseline)
+- [ ] 0.3 Run `rv-experiment` with golden export enabled:
+  - `rv-experiment run --tools aperv --apks-dir <dir_with_10_apks> --timeout 150`
+  - 2-3 min timeout per APK — enough for multiple LLM calls per app
+  - All LLM calls during execution generate golden fixtures automatically
+- [ ] 0.4 Pull fixtures from emulator and organize:
+  - `adb pull /data/local/tmp/golden/ tests/fixtures/golden/`
+  - Verify JSON files reference correct companion PNG + XML files
+  - Count total fixtures (expect ~50-150 depending on LLM call frequency)
+- [ ] 0.5 Create `tests/fixtures/golden/README.md`:
+  - APE Java commit: `b2852dd`
+  - Date of generation
+  - List of 10 APKs used
+  - Total fixture count
+  - Instructions to re-generate (instrument LlmRouter, run rv-experiment, pull)
+- [ ] 0.6 Remove `GoldenFixtureExporter` instrumentation from APE Java (revert local changes):
+  - `cd /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape && git checkout .`
+  - Verify APE repo is clean: `git status` shows no modifications
 
 ## 0.5. Pre-Validation: Pure Grounding + smart_resize (requires SGLang)
 
@@ -177,8 +197,8 @@ Resolve Q6 before execution.
   - Test `pixel_to_qwen(540, 960, 1080, 1920)` -> (500, 500) — round-trip
   - Test clamp: `qwen_to_pixel(1500, 1500, ...)` -> clamped to (dim-1)
 - [ ] 2A.5 Write `tests/test_golden_fidelity.py` (image + coords section):
-  - Load golden fixtures, verify `calculate_resized_dimensions` matches Java for all 20
-  - Verify JPEG SSIM >= 0.98 against golden base64 hash (if available)
+  - Load all golden fixture JSONs, verify `calculate_resized_dimensions` matches Java `resize` field
+  - Verify JPEG SSIM >= 0.98 against golden `jpeg_base64_sha256`
 - [ ] 2A.6 Run `/rv-test-run aperv-llm-validation` (verify 2A tests pass)
 
 ## 2B. Pipeline — Parser + Matching Algorithm (parallel)
@@ -226,7 +246,7 @@ Resolve Q6 before execution.
   - Test type_text filter: pixel on EditText with type_text -> match
   - Test long_click retry: long_click on non-long-clickable -> retry -> match
 - [ ] 2B.5 Write golden fidelity tests (matching section):
-  - Load golden fixtures, verify `map_to_action` produces same widget + step for all 20
+  - Load all golden fixture JSONs, verify `map_to_action` produces same widget + step as Java `match_result`
 - [ ] 2B.6 Run `/rv-test-run aperv-llm-validation` (verify 2B tests pass)
 
 ## 2C. Pipeline — Data Parsing + Prompt Builder (parallel)
@@ -264,7 +284,7 @@ Resolve Q6 before execution.
   - Verify type_text is conditional (only when input fields present)
   - Verify reasoning parameter added when `include_reasoning=True`
 - [ ] 2C.6 Write golden fidelity tests (prompt section):
-  - Load golden fixtures, verify prompt strings match Java output exactly for all 20
+  - Load all golden fixture JSONs, verify prompt strings match Java `system_message` + `user_text` exactly
 - [ ] 2C.7 Run `/rv-test-run aperv-llm-validation` (verify 2C tests pass)
 
 ## 3. Prompt Variants (sequential, depends on Group 2C)

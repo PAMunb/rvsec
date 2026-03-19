@@ -379,21 +379,30 @@ All four LLM analyses flagged this as the #1 risk.
 
 ### Golden Dataset Approach
 
+**Strategy**: Temporarily instrument `LlmRouter.selectAction()` in the APE Java codebase
+with a `GoldenFixtureExporter` that writes one JSON per LLM call during a normal execution.
+Run `rv-experiment` on 10 APKs (including cryptoapp) with 2-3 min timeout each. All captured
+JSONs become golden fixtures. The instrumentation is local-only — NOT committed to the APE repo.
+
+**APE Java commit**: `b2852dd` (master branch, 2026-03-19)
+
 ```mermaid
 graph LR
-    subgraph "Java Side (one-time generation)"
-        J1[Select 20 screenshots<br/>from cryptoapp + 4 other apps]
-        J2[Run APE Java pipeline<br/>on each screenshot]
-        J3[Capture intermediate<br/>outputs at each step]
-        J4[Export as JSON<br/>fixtures]
+    subgraph "Java Side (one-time, local instrumentation)"
+        J1[Add GoldenFixtureExporter<br/>to LlmRouter.selectAction]
+        J2[Run rv-experiment with<br/>10 APKs × 2-3 min timeout]
+        J3[Each LLM call exports<br/>one JSON fixture]
+        J4[Remove instrumentation<br/>do NOT commit]
     end
 
-    subgraph "Golden Fixtures (per screenshot)"
-        F1[resize_dimensions:<br/>orig_w, orig_h, new_w, new_h]
-        F2[jpeg_base64:<br/>first 100 chars + hash]
-        F3[prompt_text:<br/>system + user messages]
+    subgraph "Golden Fixture JSON (per LLM call)"
+        F1[resize: orig_w, orig_h,<br/>new_w, new_h]
+        F2[jpeg_base64_sha256 +<br/>first 100 chars]
+        F3[system_message +<br/>user_text full strings]
         F4[widget_list:<br/>formatted string]
-        F5[match_result:<br/>step, widget, distance]
+        F5[parsed_action: type,<br/>x, y, text]
+        F6[pixel_coords: px, py]
+        F7[match_result: step,<br/>widget_index, distance]
     end
 
     subgraph "Python Validation"
@@ -405,12 +414,63 @@ graph LR
     end
 
     J1 --> J2 --> J3 --> J4
-    J4 --> F1 & F2 & F3 & F4 & F5
+    J3 --> F1 & F2 & F3 & F4 & F5 & F6 & F7
     F1 --> P1
     F2 --> P2
     F3 --> P3
     F4 --> P4
-    F5 --> P5
+    F7 --> P5
+```
+
+**Capture mechanism**: The APE Java code runs inside the Android emulator via `app_process`.
+The `GoldenFixtureExporter` writes files to the emulator filesystem (e.g., `/data/local/tmp/golden/`).
+After each APK execution, `rv-platform` pulls the files to the host via `adb pull`. A post-run
+script copies them to `tests/fixtures/golden/<app>/` in the module directory.
+
+Each LLM call produces 3 files: a JSON with all intermediaries, the PNG screenshot, and the
+UIAutomator XML dump — both captured at the moment of that specific LLM call. The JSON
+references the companion files by relative name.
+
+**Directory structure**:
+
+```
+tests/fixtures/golden/
+├── README.md                      # commit b2852dd, 10 APKs, generation instructions
+├── cryptoapp/
+│   ├── call_001.json              # all intermediaries for this LLM call
+│   ├── call_001.png               # screenshot at moment of call
+│   ├── call_001.uiautomator       # UIAutomator XML dump at moment of call
+│   ├── call_002.json
+│   ├── call_002.png
+│   ├── call_002.uiautomator
+│   └── ...
+├── app2/
+│   └── ...
+└── ...
+```
+
+**Golden Fixture JSON Schema** (one file per LLM call):
+
+```json
+{
+  "screenshot_file": "call_001.png",
+  "uiautomator_file": "call_001.uiautomator",
+  "app": "cryptoapp",
+  "activity": "br.unb.cic.cryptoapp.MainActivity",
+  "commit": "b2852dd",
+  "device_w": 1080, "device_h": 1920,
+  "resize": {"orig_w": 1080, "orig_h": 1920, "new_w": 562, "new_h": 1000},
+  "jpeg_base64_sha256": "a3f2...",
+  "jpeg_base64_first100": "...",
+  "system_message": "You are an Android testing agent...",
+  "user_text": "Screen \"ActivitySimple\":\n[0] Button \"CIPHER\"...",
+  "widget_list": "[0] Button \"CIPHER\" @(500,207) (v:0)\n...",
+  "tools_schema": [{"type": "function", "function": {"name": "click", ...}}],
+  "llm_response_raw": {"content": "...", "tool_calls": [...]},
+  "parsed_action": {"type": "click", "x": 500, "y": 207, "text": null},
+  "pixel_coords": [540, 399],
+  "match_result": {"step": "bounds_match", "widget_index": 0, "distance": 12.5}
+}
 ```
 
 ### Tolerance Table
@@ -1104,7 +1164,7 @@ Quantitative thresholds for interpreting gh43 results and deciding next steps:
 | **Unit** | PromptBuilder format | Compare against APE Java output | ~5 |
 | **Unit** | NoMatchClassifier categories | Synthetic positions + known classifications | ~8 |
 | **Unit** | QualityGuardrails metrics | Synthetic result sets | ~5 |
-| **Golden** | Per-component Java fidelity | Golden fixtures from 20 screenshots | ~20 |
+| **Golden** | Per-component Java fidelity | Golden fixtures from 10 APK runs (all LLM calls) | varies |
 | **Integration** | End-to-end pipeline (mocked LLM) | Cryptoapp: XML → match with known response | ~5 |
 | **Smoke** | Live SGLang round-trip | 3 screenshots × 1 prompt × 1 rep | ~3 |
 | **Total** | | | **~82** |
@@ -1170,8 +1230,10 @@ modules/aperv-llm-validation/
 ├── tests/
 │   ├── __init__.py
 │   ├── fixtures/                               # Golden dataset + test data
-│   │   ├── golden/                             # Java pipeline outputs (20 screenshots)
-│   │   │   └── README.md                       # Java commit hash + generation instructions
+│   │   ├── golden/                             # Java pipeline outputs (10 APKs × 2-3 min)
+│   │   │   ├── README.md                       # Java commit b2852dd + generation instructions
+│   │   │   ├── cryptoapp/                      # call_NNN.json + .png + .uiautomator per LLM call
+│   │   │   └── .../                            # 9 other apps
 │   │   └── cryptoapp/                          # Cryptoapp test fixtures
 │   ├── test_image_processor.py
 │   ├── test_coordinate_normalizer.py
@@ -1194,8 +1256,8 @@ modules/aperv-llm-validation/
 
 | # | Question | Impact | When to Resolve |
 |---|----------|--------|-----------------|
-| Q1 | Which Java commit to pin for golden fixtures? | High — determines baseline | Before Group 1 |
-| Q2 | Can we extract golden fixtures from APE Java programmatically or manually? | Medium — affects fixture generation effort | Before Group 2 |
+| Q1 | ~~Which Java commit to pin for golden fixtures?~~ **RESOLVED**: `b2852dd` (APE master, 2026-03-19) | — | — |
+| Q2 | ~~Extract golden fixtures programmatically or manually?~~ **RESOLVED**: Temporary `GoldenFixtureExporter` instrumentation in `LlmRouter.selectAction()`. Run `rv-experiment` on 10 APKs × 2-3 min timeout. All captured JSONs become fixtures. Instrumentation is local-only, NOT committed. | — | — |
 | Q3 | Should `stale_model` detection use only reasoning text, or add visual diff analysis? If reasoning validation gate fails, `stale_model` cannot be detected via reasoning — fallback to 6 algorithmic categories only. | Medium — affects complexity | During Group 10 analysis |
 | Q4 | Is 0.3 the right temperature for all prompts, or should each variant use its own? Group 0.5 tests 0.01 vs 0.7 extremes; if 0.01 >> 0.7, use 0.01 for Groups 7-9. | Low — can test in Group 9 | After Group 0.5 |
 | Q5 | Should we include exp3 trace replay (Phase A) in this module or keep it separate? | Low — scope question | After Phase B completion |
