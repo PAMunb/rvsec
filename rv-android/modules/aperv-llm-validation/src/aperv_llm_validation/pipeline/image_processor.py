@@ -96,6 +96,15 @@ def smart_resize(
     return (new_h, new_w)
 
 
+def process_screenshot_with_dims(
+    png_path: str | Path, mode: str = "max_edge"
+) -> tuple[str, int, int]:
+    """Read PNG, resize, JPEG quality 80, return (base64, resized_width, resized_height)."""
+    png_path = Path(png_path)
+    png_bytes = png_path.read_bytes()
+    return process_screenshot_bytes_with_dims(png_bytes, mode=mode)
+
+
 def process_screenshot(
     png_path: str | Path, mode: str = "max_edge"
 ) -> str:
@@ -159,3 +168,33 @@ def process_screenshot_bytes(
     jpeg_bytes = buf.getvalue()
 
     return base64.b64encode(jpeg_bytes).decode("ascii")
+
+
+def process_screenshot_bytes_with_dims(
+    png_bytes: bytes, mode: str = "max_edge"
+) -> tuple[str, int, int]:
+    """Resize, encode, and return (base64, resized_width, resized_height)."""
+    if not png_bytes:
+        raise ValueError("Input bytes must not be empty")
+
+    img = Image.open(io.BytesIO(png_bytes))
+    img = img.convert("RGB")
+
+    if mode == "max_edge":
+        new_w, new_h = calculate_resized_dimensions(img.width, img.height, MAX_EDGE_PX)
+        if (new_w, new_h) != (img.width, img.height):
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+    elif mode == "smart_resize":
+        new_h, new_w = smart_resize(img.height, img.width)
+        if (new_w, new_h) != (img.width, img.height):
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+    elif mode == "raw":
+        pass
+    else:
+        raise ValueError(f"Unknown resize mode: {mode!r}")
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
+    jpeg_bytes = buf.getvalue()
+
+    return base64.b64encode(jpeg_bytes).decode("ascii"), img.width, img.height

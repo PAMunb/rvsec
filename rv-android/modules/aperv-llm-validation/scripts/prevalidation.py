@@ -33,13 +33,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from aperv_llm_validation.constants import (
     ALWAYS_CLICKABLE_TYPES,
     DEFAULT_SGLANG_URL,
+    DEVICE_HEIGHT,
+    DEVICE_WIDTH,
     MAX_WIDGETS_PER_SCREENSHOT,
     QWEN_COORD_RANGE,
 )
 from aperv_llm_validation.data.uiautomator_parser import parse_uiautomator
 from aperv_llm_validation.data.models import Widget
 from aperv_llm_validation.infrastructure.response_cache import ResponseCache
-from aperv_llm_validation.pipeline.image_processor import process_screenshot
+from aperv_llm_validation.pipeline.image_processor import process_screenshot_with_dims
 from aperv_llm_validation.pipeline.coordinate_normalizer import qwen_to_pixel
 
 logging.basicConfig(
@@ -51,23 +53,37 @@ logger = logging.getLogger(__name__)
 RESIZE_MODES = ["max_edge", "smart_resize", "raw"]
 TEMPERATURES = [0.01, 0.7]
 
-TOOL_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": "click",
-            "description": "Click on the element at the given coordinates",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "x": {"type": "integer", "description": "X coordinate [0, 1000)"},
-                    "y": {"type": "integer", "description": "Y coordinate [0, 1000)"},
+CENTER_HIT_THRESHOLD = 50  # pixels — matches rvsec-vision-llm benchmark
+
+
+def build_tool_schema(img_w: int, img_h: int) -> list[dict]:
+    """Build tool schema with image-specific pixel ranges (matches rvsec-vision-llm v2 strict)."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "android_click",
+                "description": (
+                    f"Click on a UI element at the specified pixel coordinates. "
+                    f"Screen is {img_w}x{img_h} pixels."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "x": {
+                            "type": "integer",
+                            "description": f"X pixel coordinate (0-{img_w}, horizontal position from left edge)",
+                        },
+                        "y": {
+                            "type": "integer",
+                            "description": f"Y pixel coordinate (0-{img_h}, vertical position from top edge)",
+                        },
+                    },
+                    "required": ["x", "y"],
                 },
-                "required": ["x", "y"],
             },
-        },
-    }
-]
+        }
+    ]
 
 
 @dataclass
@@ -83,10 +99,13 @@ class GroundingResult:
     temperature: float
     predicted_qwen_x: int
     predicted_qwen_y: int
-    predicted_pixel_x: int
+    img_w: int  # resized image width used in prompt
+    img_h: int  # resized image height used in prompt
+    predicted_pixel_x: int  # device pixels (after 2-step conversion)
     predicted_pixel_y: int
-    hit: bool  # predicted pixel falls within widget bounds
-    distance_to_center: float  # Euclidean distance from prediction to widget center (pixels)
+    bounds_hit: bool  # predicted pixel falls within widget bounds (strict, APE check)
+    center_hit: bool  # predicted pixel within 50px of widget center (rvsec-vision-llm)
+    distance_to_center: float  # Euclidean distance from prediction to widget center (device pixels)
     tokens_in: int
     tokens_out: int
     latency_ms: int
@@ -105,13 +124,22 @@ def select_widgets(widgets: list[Widget], max_count: int = MAX_WIDGETS_PER_SCREE
     return selected
 
 
-def build_grounding_prompt(widget: Widget, screenshot_b64: str) -> list[dict]:
-    """Build a simple grounding prompt: 'Click on the element labeled [text]'."""
+def build_grounding_prompt(widget: Widget, screenshot_b64: str, img_w: int, img_h: int) -> list[dict]:
+    """Build grounding prompt with image dimensions (matches rvsec-vision-llm v2 strict)."""
     display_text = widget.text if widget.text else widget.content_desc
     return [
         {
             "role": "system",
-            "content": "Click on the specified element. Return coordinates in [0, 1000) range.",
+            "content": (
+                f"You are an Android UI automation agent. "
+                f"The screen image has dimensions {img_w}x{img_h} pixels.\n\n"
+                f"CRITICAL RULES:\n"
+                f"1. You MUST call the android_click tool for EVERY click request\n"
+                f"2. NEVER respond with text only - ALWAYS use the tool\n"
+                f"3. Provide EXACT coordinates by analyzing the image\n"
+                f"The x coordinate must be between 0 and {img_w}, "
+                f"y between 0 and {img_h}."
+            ),
         },
         {
             "role": "user",
@@ -173,10 +201,15 @@ def parse_click_response(response: dict) -> tuple[int, int] | None:
         return None
 
 
-def check_hit(pixel_x: int, pixel_y: int, widget: Widget) -> bool:
-    """Check if predicted pixel coordinates fall within widget bounds."""
+def check_bounds_hit(pixel_x: int, pixel_y: int, widget: Widget) -> bool:
+    """Check if predicted device pixel coordinates fall within widget bounds (strict)."""
     left, top, right, bottom = widget.bounds
     return left <= pixel_x <= right and top <= pixel_y <= bottom
+
+
+def check_center_hit(pixel_x: int, pixel_y: int, widget: Widget) -> bool:
+    """Check if predicted pixel is within 50px of widget center (rvsec-vision-llm criterion)."""
+    return distance_to_center(pixel_x, pixel_y, widget) <= CENTER_HIT_THRESHOLD
 
 
 def distance_to_center(pixel_x: int, pixel_y: int, widget: Widget) -> float:
@@ -249,12 +282,15 @@ def run_prevalidation(
             continue
 
         for mode in modes:
-            # Process screenshot once per mode
+            # Process screenshot once per mode — get base64 AND resized dimensions
             try:
-                b64 = process_screenshot(png_path, resize_mode=mode)
+                b64, img_w, img_h = process_screenshot_with_dims(png_path, mode=mode)
             except Exception as e:
                 logger.warning("Failed to process %s with mode %s: %s", png_path, mode, e)
                 continue
+
+            # Build tool schema with image-specific dimensions
+            tools = build_tool_schema(img_w, img_h)
 
             for temp in temperatures:
                 temp_client = SglangClient(
@@ -265,6 +301,20 @@ def run_prevalidation(
                 for widget in selected:
                     display_text = widget.text if widget.text else widget.content_desc
                     prompt_name = f"grounding_{display_text[:30]}"
+                    bounds_str = f"{widget.bounds[0]},{widget.bounds[1]},{widget.bounds[2]},{widget.bounds[3]}"
+
+                    def _error_result(error_msg: str, t_in: int = 0, t_out: int = 0, lat: int = 0) -> GroundingResult:
+                        return GroundingResult(
+                            screenshot_id=screenshot_id, app_name=app_name,
+                            widget_text=display_text, widget_class=widget.class_name,
+                            widget_bounds=bounds_str, resize_mode=mode, temperature=temp,
+                            img_w=img_w, img_h=img_h,
+                            predicted_qwen_x=0, predicted_qwen_y=0,
+                            predicted_pixel_x=0, predicted_pixel_y=0,
+                            bounds_hit=False, center_hit=False, distance_to_center=9999.0,
+                            tokens_in=t_in, tokens_out=t_out, latency_ms=lat,
+                            error=error_msg,
+                        )
 
                     # Check cache
                     cached = cache.get(
@@ -281,10 +331,10 @@ def run_prevalidation(
                         tokens_out = cached["tokens_out"]
                         latency_ms = cached["latency_ms"]
                     else:
-                        messages = build_grounding_prompt(widget, b64)
+                        messages = build_grounding_prompt(widget, b64, img_w, img_h)
                         start_ms = int(time.time() * 1000)
                         try:
-                            response = temp_client.call(messages, tools=TOOL_SCHEMA)
+                            response = temp_client.call(messages, tools=tools)
                             latency_ms = int(time.time() * 1000) - start_ms
                             usage = response.get("usage", {})
                             tokens_in = usage.get("prompt_tokens", 0)
@@ -292,64 +342,54 @@ def run_prevalidation(
 
                             cache.put(
                                 screenshot=f"{app_name}/{screenshot_id}",
-                                prompt=prompt_name,
-                                rep_seed=0,
-                                temperature=temp,
-                                resize_mode=mode,
-                                response=response,
-                                tokens_in=tokens_in,
-                                tokens_out=tokens_out,
-                                latency_ms=latency_ms,
+                                prompt=prompt_name, rep_seed=0,
+                                temperature=temp, resize_mode=mode,
+                                response=response, tokens_in=tokens_in,
+                                tokens_out=tokens_out, latency_ms=latency_ms,
                             )
                         except Exception as e:
-                            results.append(GroundingResult(
-                                screenshot_id=screenshot_id, app_name=app_name,
-                                widget_text=display_text, widget_class=widget.class_name,
-                                widget_bounds=f"{widget.bounds[0]},{widget.bounds[1]},{widget.bounds[2]},{widget.bounds[3]}",
-                                resize_mode=mode, temperature=temp,
-                                predicted_qwen_x=0, predicted_qwen_y=0,
-                                predicted_pixel_x=0, predicted_pixel_y=0,
-                                hit=False, distance_to_center=9999.0,
-                                tokens_in=0, tokens_out=0, latency_ms=0,
-                                error=str(e),
-                            ))
+                            results.append(_error_result(str(e)))
                             continue
 
                     # Parse response
                     coords = parse_click_response(response)
                     if coords is None:
-                        results.append(GroundingResult(
-                            screenshot_id=screenshot_id, app_name=app_name,
-                            widget_text=display_text, widget_class=widget.class_name,
-                            widget_bounds=f"{widget.bounds[0]},{widget.bounds[1]},{widget.bounds[2]},{widget.bounds[3]}",
-                            resize_mode=mode, temperature=temp,
-                            predicted_qwen_x=0, predicted_qwen_y=0,
-                            predicted_pixel_x=0, predicted_pixel_y=0,
-                            hit=False, distance_to_center=9999.0,
-                            tokens_in=tokens_in, tokens_out=tokens_out,
-                            latency_ms=latency_ms, error="no_tool_call",
-                        ))
+                        results.append(_error_result("no_tool_call", tokens_in, tokens_out, latency_ms))
                         total_calls += 1
                         continue
 
                     qwen_x, qwen_y = coords
-                    pixel_x, pixel_y = qwen_to_pixel(qwen_x, qwen_y)
 
-                    is_hit = check_hit(pixel_x, pixel_y, widget)
-                    dist = distance_to_center(pixel_x, pixel_y, widget)
+                    # 2-step coordinate conversion:
+                    # 1. Qwen [0, 1000) → resized image pixels
+                    img_px_x = int((qwen_x / QWEN_COORD_RANGE) * img_w)
+                    img_px_y = int((qwen_y / QWEN_COORD_RANGE) * img_h)
+                    # Clamp to image bounds
+                    img_px_x = max(0, min(img_px_x, img_w - 1))
+                    img_px_y = max(0, min(img_px_y, img_h - 1))
+                    # 2. Resized image pixels → device pixels (for UIAutomator bounds check)
+                    dev_px_x = int((img_px_x / img_w) * DEVICE_WIDTH)
+                    dev_px_y = int((img_px_y / img_h) * DEVICE_HEIGHT)
+                    dev_px_x = max(0, min(dev_px_x, DEVICE_WIDTH - 1))
+                    dev_px_y = max(0, min(dev_px_y, DEVICE_HEIGHT - 1))
+
+                    is_bounds_hit = check_bounds_hit(dev_px_x, dev_px_y, widget)
+                    is_center_hit = check_center_hit(dev_px_x, dev_px_y, widget)
+                    dist = distance_to_center(dev_px_x, dev_px_y, widget)
 
                     total_calls += 1
-                    if is_hit:
+                    if is_center_hit:
                         total_hits += 1
 
                     results.append(GroundingResult(
                         screenshot_id=screenshot_id, app_name=app_name,
                         widget_text=display_text, widget_class=widget.class_name,
-                        widget_bounds=f"{widget.bounds[0]},{widget.bounds[1]},{widget.bounds[2]},{widget.bounds[3]}",
-                        resize_mode=mode, temperature=temp,
+                        widget_bounds=bounds_str, resize_mode=mode, temperature=temp,
+                        img_w=img_w, img_h=img_h,
                         predicted_qwen_x=qwen_x, predicted_qwen_y=qwen_y,
-                        predicted_pixel_x=pixel_x, predicted_pixel_y=pixel_y,
-                        hit=is_hit, distance_to_center=round(dist, 1),
+                        predicted_pixel_x=dev_px_x, predicted_pixel_y=dev_px_y,
+                        bounds_hit=is_bounds_hit, center_hit=is_center_hit,
+                        distance_to_center=round(dist, 1),
                         tokens_in=tokens_in, tokens_out=tokens_out,
                         latency_ms=latency_ms, error="",
                     ))
@@ -390,20 +430,26 @@ def print_summary(results: list[GroundingResult]) -> None:
         key = (r.resize_mode, r.temperature)
         groups.setdefault(key, []).append(r)
 
-    print(f"\n{'Mode':<15} {'Temp':<8} {'Calls':<8} {'Hits':<8} {'Hit Rate':<10} {'Avg Dist':<10}")
-    print("-" * 60)
+    print(f"\n{'Mode':<15} {'Temp':<6} {'Calls':<7} {'Bounds':<8} {'B.Rate':<8} {'Center':<8} {'C.Rate':<8} {'Avg Dist':<10}")
+    print("-" * 78)
 
     for (mode, temp), group in sorted(groups.items()):
         valid = [r for r in group if not r.error]
-        hits = sum(1 for r in valid if r.hit)
+        bounds_hits = sum(1 for r in valid if r.bounds_hit)
+        center_hits = sum(1 for r in valid if r.center_hit)
         total = len(valid)
-        hit_rate = hits / total * 100 if total else 0
+        bounds_rate = bounds_hits / total * 100 if total else 0
+        center_rate = center_hits / total * 100 if total else 0
         avg_dist = sum(r.distance_to_center for r in valid) / total if total else 0
-        print(f"{mode:<15} {temp:<8.2f} {total:<8} {hits:<8} {hit_rate:<10.1f}% {avg_dist:<10.1f}px")
+        print(f"{mode:<15} {temp:<6.2f} {total:<7} {bounds_hits:<8} {bounds_rate:<7.1f}% {center_hits:<8} {center_rate:<7.1f}% {avg_dist:<10.1f}px")
+
+    if not groups:
+        print("\nNo valid results to analyze.")
+        return
 
     # Per widget class breakdown
-    print(f"\n{'Widget Class':<40} {'Calls':<8} {'Hits':<8} {'Hit Rate':<10}")
-    print("-" * 66)
+    print(f"\n{'Widget Class':<30} {'Calls':<7} {'Bounds':<8} {'B.Rate':<8} {'Center':<8} {'C.Rate':<8}")
+    print("-" * 70)
     class_groups: dict[str, list[GroundingResult]] = {}
     for r in results:
         if r.error:
@@ -411,29 +457,31 @@ def print_summary(results: list[GroundingResult]) -> None:
         simple = r.widget_class.rsplit(".", 1)[-1] if "." in r.widget_class else r.widget_class
         class_groups.setdefault(simple, []).append(r)
     for cls_name, group in sorted(class_groups.items(), key=lambda x: -len(x[1])):
-        hits = sum(1 for r in group if r.hit)
+        bounds_hits = sum(1 for r in group if r.bounds_hit)
+        center_hits = sum(1 for r in group if r.center_hit)
         total = len(group)
-        hit_rate = hits / total * 100 if total else 0
-        print(f"{cls_name:<40} {total:<8} {hits:<8} {hit_rate:<10.1f}%")
+        bounds_rate = bounds_hits / total * 100 if total else 0
+        center_rate = center_hits / total * 100 if total else 0
+        print(f"{cls_name:<30} {total:<7} {bounds_hits:<8} {bounds_rate:<7.1f}% {center_hits:<8} {center_rate:<7.1f}%")
 
-    # Per app breakdown (best mode only — mode with highest global hit rate)
+    # Per app breakdown (best mode by center_hit rate)
     best_mode = max(
         ((mode, temp) for (mode, temp) in groups),
-        key=lambda k: sum(1 for r in groups[k] if r.hit and not r.error) / max(1, len([r for r in groups[k] if not r.error])),
+        key=lambda k: sum(1 for r in groups[k] if r.center_hit and not r.error) / max(1, len([r for r in groups[k] if not r.error])),
     )
-    print(f"\nPer-app hit rate (best condition: {best_mode[0]} temp={best_mode[1]}):")
-    print(f"{'App':<30} {'Calls':<8} {'Hits':<8} {'Hit Rate':<10}")
-    print("-" * 56)
+    print(f"\nPer-app center_hit rate (best condition: {best_mode[0]} temp={best_mode[1]}):")
+    print(f"{'App':<35} {'Calls':<7} {'Center':<8} {'C.Rate':<8}")
+    print("-" * 58)
     app_groups: dict[str, list[GroundingResult]] = {}
     for r in groups[best_mode]:
         if r.error:
             continue
         app_groups.setdefault(r.app_name, []).append(r)
     for app_name, group in sorted(app_groups.items()):
-        hits = sum(1 for r in group if r.hit)
+        center_hits = sum(1 for r in group if r.center_hit)
         total = len(group)
-        hit_rate = hits / total * 100 if total else 0
-        print(f"{app_name:<30} {total:<8} {hits:<8} {hit_rate:<10.1f}%")
+        center_rate = center_hits / total * 100 if total else 0
+        print(f"{app_name:<35} {total:<7} {center_hits:<8} {center_rate:<7.1f}%")
 
     errors = sum(1 for r in results if r.error)
     if errors:
