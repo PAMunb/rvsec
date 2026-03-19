@@ -76,7 +76,7 @@ not a pipeline replica.
 
 An analysis toolkit with three responsibilities:
 
-1. **Pre-validation** (Group 0.5): smart_resize grounding test on 468 screenshots via SGLang
+1. **Pre-validation** (Group 0.5): grounding test on 468 screenshots via SGLang (Qwen3.5-4B, raw mode)
 2. **Results parsing**: parse rv-experiment output directories to extract per-APK coverage
 3. **Statistical analysis + reports**: McNemar tests, Bonferroni correction, quality guardrails,
    visualizations
@@ -127,7 +127,7 @@ and match rate, reasoning texts are safe to use for no-match analysis.
 
 ### Evaluation Methodology
 
-1. **Pre-validation** (Python, offline): smart_resize vs max-edge on 468 screenshots via SGLang
+1. **Pre-validation** (Python, offline): raw grounding test on 468 screenshots via SGLang (Qwen3.5-4B)
 2. **Prompt comparison** (Java, online): rv-experiment runs each variant on 10 instrumented
    APKs × 2.5 min timeout × 3 reps. rv-experiment produces standard results directories with
    method/activity/MOP coverage per APK.
@@ -148,7 +148,7 @@ and match rate, reasoning texts are safe to use for no-match analysis.
 | type_text usage | Java telemetry logs | Guardrail |
 | Token consumption | Java telemetry logs | Efficiency |
 | Latency | Java telemetry logs | Efficiency |
-| smart_resize hit rate | Pre-validation | Pre-validation |
+| raw grounding hit rate | Pre-validation | Pre-validation |
 
 ### No-match Classification (7-category taxonomy)
 
@@ -216,9 +216,9 @@ Group 0: APE Java (temporary branch gh43-prompt-variants)
 === Track B: Python Pre-validation (Group 0.5, independent) ===
 
 Group 0.5: Pre-validation
-  smart_resize vs max-edge on 468 screenshots via SGLang (~4-11h).
-  Isolates image preprocessing impact before prompt comparison.
-  If smart_resize ≥ +5pp hit rate → apply in Java (Track A) before Track D.
+  Raw grounding test on 468 screenshots via SGLang with Qwen3.5-4B (~2-5h).
+  Establishes baseline coordinate accuracy before prompt comparison.
+  3-mode comparison already done: raw > smart_resize > max_edge (see exploration doc).
 
 === Track C: Python Analysis Module (Group 1, parallel with A) ===
 
@@ -254,7 +254,7 @@ Group 4: Reports + Conclusions
 
 | Phase | Computation | Time |
 |-------|-------------|------|
-| Pre-validation (Group 0.5) | 468 screenshots × all visible text widgets × 3 modes × 2 temps × ~2s | ~4-11h |
+| Pre-validation (Group 0.5) | 468 screenshots × all visible text widgets × raw mode × temp 0.7 × ~2s | ~2-5h |
 | rv-experiment (Group 2) | 6 variants × 10 APKs × 3 reps × 2.5 min | ~9h (7.5h + overhead) |
 | Analysis (Groups 3-4) | Offline parsing + statistics | ~1h |
 | **Total** | | **~14-21h** |
@@ -270,7 +270,7 @@ Quantitative thresholds for interpreting results (based on real coverage, not ma
 | Best variant ≥ +3pp method coverage over baseline | Prompt improvement viable | Port best prompt to APE master |
 | Best variant +1-3pp method coverage | Marginal improvement | Prioritize gh46 (timing gap) |
 | Best variant ≤ baseline method coverage | Prompt is not the issue | Focus on timing gap and architecture |
-| smart_resize ≥ +5pp hit rate in pre-validation | Image processing bottleneck | Apply smart_resize in Java |
+| raw mode ≥ +5pp over max_edge in pre-validation | Image resize is hurting accuracy | Eliminate resize in Java |
 | `stale_model` > 30% of no_match (from telemetry) | Timing gap is primary cause | Confirms gh46 priority |
 
 ---
@@ -287,9 +287,12 @@ Quantitative thresholds for interpreting results (based on real coverage, not ma
 
 ### Track B: Pre-validation (Group 0.5)
 
-- [ ] smart_resize vs max-edge comparison on 468 screenshots
+- [x] Model validated: Qwen3.5-4B (no thinking) on SGLang v0.5.9 with raw mode
+- [x] 3-mode comparison completed: raw > smart_resize > max_edge
+- [x] Smoke tests: 66.2% center hit (100 screenshots), 51.8% (cryptoapp with tabs/spinners)
+- [ ] Full 468-screenshot pre-validation with raw mode
 - [ ] Results cached in SQLite for reproducibility
-- [ ] Hit rate comparison report generated
+- [ ] Hit rate report generated
 
 ### Track C: Python Analysis Module (Group 1)
 

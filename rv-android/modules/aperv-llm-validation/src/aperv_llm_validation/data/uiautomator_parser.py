@@ -81,6 +81,17 @@ def parse_uiautomator(xml_path: Path) -> list[Widget]:
 
         text = node.get("text", "")
         content_desc = node.get("content-desc", "")
+
+        # Spinners and similar container widgets often have empty text,
+        # with the displayed value in a child TextView (e.g. Spinner shows "AES"
+        # but text="" on the Spinner node, with a child TextView text="AES").
+        if not text and not content_desc and is_always_clickable:
+            for child in node:
+                child_text = child.get("text", "")
+                if child_text:
+                    text = child_text
+                    break
+
         long_clickable = node.get("long-clickable") == "true"
         checkable = node.get("checkable") == "true"
         editable = class_name in INPUT_CLASS_NAMES

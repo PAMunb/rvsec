@@ -157,6 +157,40 @@ def build_grounding_prompt(widget: Widget, screenshot_b64: str, img_w: int, img_
     ]
 
 
+def _parse_coord_value(val) -> int | None:
+    """Parse a coordinate value that may be int, float, or comma-separated string."""
+    if isinstance(val, (int, float)):
+        return int(val)
+    if isinstance(val, str):
+        val = val.strip()
+        # Handle "498, 549" — take the first number
+        if "," in val:
+            return int(val.split(",")[0].strip())
+        return int(val)
+    return None
+
+
+def _extract_xy(args: dict) -> tuple[int, int] | None:
+    """Extract (x, y) from tool args, handling Qwen's quirky comma-separated format."""
+    raw_x = args.get("x")
+    raw_y = args.get("y")
+
+    # Qwen3.5 sometimes puts both coords in x as "498, 549"
+    if isinstance(raw_x, str) and "," in raw_x:
+        parts = raw_x.split(",")
+        if len(parts) >= 2:
+            try:
+                return int(parts[0].strip()), int(parts[1].strip())
+            except ValueError:
+                pass
+
+    x = _parse_coord_value(raw_x)
+    y = _parse_coord_value(raw_y)
+    if x is not None and y is not None:
+        return x, y
+    return None
+
+
 def parse_click_response(response: dict) -> tuple[int, int] | None:
     """Extract (x, y) coordinates from LLM response. Returns None on failure."""
     try:
@@ -168,7 +202,7 @@ def parse_click_response(response: dict) -> tuple[int, int] | None:
             args = tool_calls[0]["function"]["arguments"]
             if isinstance(args, str):
                 args = json.loads(args)
-            return int(args["x"]), int(args["y"])
+            return _extract_xy(args)
 
         # Try parsing from content text
         content = choice.get("content", "")
@@ -192,7 +226,7 @@ def parse_click_response(response: dict) -> tuple[int, int] | None:
                                 if "arguments" in obj:
                                     obj = obj["arguments"]
                                 if "x" in obj and "y" in obj:
-                                    return int(obj["x"]), int(obj["y"])
+                                    return _extract_xy(obj)
                             except (json.JSONDecodeError, KeyError, ValueError):
                                 pass
                             break
@@ -241,6 +275,8 @@ def run_prevalidation(
     max_screenshots: int | None = None,
     modes: list[str] | None = None,
     temperatures: list[float] | None = None,
+    extra_body: dict | None = None,
+    model: str | None = None,
 ) -> list[GroundingResult]:
     """Run the full pre-validation: all widgets × modes × temperatures."""
 
@@ -251,11 +287,14 @@ def run_prevalidation(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Health check
-    client = SglangClient(base_url=sglang_url)
+    client_kwargs = {"base_url": sglang_url}
+    if model:
+        client_kwargs["model"] = model
+    client = SglangClient(**client_kwargs)
     if not client.health_check():
         logger.error("SGLang server not reachable at %s", sglang_url)
         sys.exit(1)
-    logger.info("SGLang server OK at %s", sglang_url)
+    logger.info("SGLang server OK at %s (model=%s)", sglang_url, model or "default")
 
     # Discover screenshots
     pairs = discover_screenshots(screenshots_dir)
@@ -293,10 +332,13 @@ def run_prevalidation(
             tools = build_tool_schema(img_w, img_h)
 
             for temp in temperatures:
-                temp_client = SglangClient(
-                    base_url=sglang_url,
-                    temperature=temp,
-                )
+                temp_client_kwargs = {
+                    "base_url": sglang_url,
+                    "temperature": temp,
+                }
+                if model:
+                    temp_client_kwargs["model"] = model
+                temp_client = SglangClient(**temp_client_kwargs)
 
                 for widget in selected:
                     display_text = widget.text if widget.text else widget.content_desc
@@ -334,7 +376,7 @@ def run_prevalidation(
                         messages = build_grounding_prompt(widget, b64, img_w, img_h)
                         start_ms = int(time.time() * 1000)
                         try:
-                            response = temp_client.call(messages, tools=tools)
+                            response = temp_client.call(messages, tools=tools, extra_body=extra_body)
                             latency_ms = int(time.time() * 1000) - start_ms
                             usage = response.get("usage", {})
                             tokens_in = usage.get("prompt_tokens", 0)
@@ -506,7 +548,15 @@ def main():
                         help="Image processing modes to test (default: all 3)")
     parser.add_argument("--temperatures", nargs="+", type=float, default=None,
                         help="Temperatures to test (default: 0.01, 0.7)")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Model name to use (default: 'default')")
+    parser.add_argument("--disable-thinking", action="store_true",
+                        help="Disable thinking mode (Qwen3.5+ models)")
     args = parser.parse_args()
+
+    extra_body = None
+    if args.disable_thinking:
+        extra_body = {"chat_template_kwargs": {"enable_thinking": False}}
 
     run_prevalidation(
         screenshots_dir=args.screenshots_dir,
@@ -516,6 +566,8 @@ def main():
         max_screenshots=args.max_screenshots,
         modes=args.modes,
         temperatures=args.temperatures,
+        extra_body=extra_body,
+        model=args.model,
     )
 
 

@@ -125,13 +125,26 @@ graph TB
 
 ### Pre-Validation Phase (Group 0.5)
 
-Before running prompt variants, a quick grounding-only test establishes the VLM's baseline
-coordinate accuracy and validates the image processing improvement.
+Before running prompt variants, a grounding-only test establishes the VLM's baseline
+coordinate accuracy on raw screenshots.
 
-**Design**: For each widget with a text label in the 468 UIAutomator dumps, send a prompt
-including device dimensions: `"The screen is 1080x1920 pixels. Click on the element labeled
-[text]"` with only the screenshot (NO widget coordinates in prompt). The LLM returns
-coordinates via `android_click(x, y)` tool with description specifying pixel ranges.
+**Model change (2026-03-19)**: SGLang v0.5.9 has a regression that breaks multimodal
+processing for Qwen3-VL-4B-Instruct (images arrive corrupted to the model). The replacement
+model is **Qwen3.5-4B** (unified multimodal, no "-VL" suffix) with thinking mode disabled
+via `chat_template_kwargs: {"enable_thinking": false}`. Exploratory testing validated
+66.2% center hit rate on 100 screenshots (vs 57.7% for Qwen3-VL in December). See
+`exploration-sglang-qwen35.md` for the full investigation and smoke test results.
+
+**Image mode decision (2026-03-19)**: A 3-mode comparison on the cryptoapp dataset showed
+raw mode (no resize) outperforms both max_edge (+12.8pp) and smart_resize (+4pp). Raw mode
+also simplifies the pipeline: no image preprocessing, single-step coordinate conversion
+(`pixel = int((qwen / 1000) * device_dim)`). The 3-space coordinate problem identified in
+the SOTA analysis is eliminated because there is no resized-image space.
+
+**Design**: For each widget with a text label in the 468 UIAutomator dumps, send the raw
+screenshot (1080x1920, JPEG quality 80) with a prompt: `"The screen is 1080x1920 pixels.
+Click on the element labeled [text]"` (NO widget coordinates in prompt). The LLM returns
+coordinates via `android_click(x, y)` tool.
 
 **Hit definition** (two metrics reported):
 - **bounds_hit**: predicted pixel coordinates fall within the widget's bounds (strict,
@@ -139,75 +152,47 @@ coordinates via `android_click(x, y)` tool with description specifying pixel ran
 - **center_hit**: predicted pixel coordinates within 50px Euclidean distance of widget center
   (matches rvsec-vision-llm benchmark — the 57.7% baseline used this criterion)
 
-Both are reported. The `center_hit` metric enables direct comparison with the rvsec-vision-llm
-benchmark. The `bounds_hit` metric shows what APE-RV would actually accept.
+**Prompt and tool schema**:
+- System message includes device dimensions: `"Screen is 1080x1920 pixels"`
+- Tool name: `android_click`
+- Tool description: `"Click at pixel coordinates. Screen is 1080x1920. x: 0-1080, y: 0-1920"`
+- Qwen3.5-4B returns normalized [0, 1000) coordinates (same as Qwen3-VL, confirmed empirically)
+- `chat_template_kwargs: {"enable_thinking": false}` sent via OpenAI SDK `extra_body`
 
-**Prompt and tool schema** (aligned with rvsec-vision-llm v2 strict for comparability):
-- System message includes **resized image dimensions** (`"Screen is {img_w}x{img_h} pixels"`),
-  NOT device dimensions. The model grounds coordinates on the image it actually sees.
-  For max_edge: 562×1000, for smart_resize: varies (e.g. 576×1024), for raw: 1080×1920.
-- Tool name: `android_click` (matches rvsec-vision-llm)
-- Tool description: `"Click at pixel coordinates. Screen is {img_w}x{img_h}. x: 0-{img_w}, y: 0-{img_h}"`
-- Coordinates in tool schema described as pixel range for the resized image — the model
-  returns normalized [0, 1000) regardless (per Qwen3-VL architecture), but telling it
-  "pixels" improved tool call rate in rvsec-vision-llm from 60.7% to 85.7%
+**Coordinate conversion** (single-step):
+`pixel = int((qwen / 1000) * device_dim)` — identical to rv-agent's `ActionNormalizer`.
+No 2-step conversion needed because there is no resized-image space.
 
-**Coordinate conversion** (2-step for pre-validation):
-1. Qwen [0, 1000) → resized image pixels: `img_px = int((qwen / 1000) * img_dim)`
-2. Resized image pixels → device pixels: `dev_px = int((img_px / img_dim) * dev_dim)`
-Then check hit against UIAutomator widget bounds (which are in device pixel space).
-This 2-step conversion is the correct approach — it accounts for the fact that the model
-grounds on the resized image, not the device resolution. APE-RV currently skips step 1
-(converts directly from Qwen to device pixels), which may be the root cause of the
-3-space coordinate problem identified in the SOTA analysis.
+**Parser quirk**: Qwen3.5-4B sometimes returns coordinates as `"x": "498, 549"` (both
+values comma-separated in the x field). The `_extract_xy` helper handles this format.
+Without this fix, tool call rate drops from 85% to 30%.
 
-**Three image processing conditions** (orthogonal to prompt variants):
-1. **max-edge 1000px** (current APE-RV) — baseline, expected ~57% (replicating rvsec-vision-llm)
-2. **smart_resize(factor=32)** — Qwen3-VL-optimized image preprocessing
-3. **raw (no resize)** — device-native resolution (1080x1920), as AppAgent does
-
-**Two temperatures**: 0.01 (near-deterministic) and 0.7 (high variance) — two extremes to
-differentiate grounding stability from stochastic exploration.
+**Temperature**: 0.7 (Qwen-recommended for non-thinking mode). The December benchmark
+showed configuration has minimal impact (~0.5% variance) for Qwen3-VL. For Qwen3.5-4B,
+Qwen recommends temp=0.7, top_p=0.8, top_k=20 in non-thinking mode.
 
 **Metrics**: bounds_hit rate and center_hit rate (global + per app + per widget class), mean
-distance to widget center for misses, error distribution (boundary, edge_miss, gap), resized
-dimensions comparison, tool call success rate.
-
-**Decision gate**:
-- If smart_resize improves center_hit rate by >=5pp: use in all prompt variants
-- If raw (no resize) is best: consider eliminating the resize step entirely
-- If both <=50%: pure grounding is fundamentally limited; coordinates in prompt are essential
-  (already known from rvsec-vision-llm: 57% without coords -> ~100% with coords)
-- If baseline center_hit ~57%: confirms faithful replication of rvsec-vision-llm results
-- If temperature 0.01 ~ 0.7: grounding is temperature-insensitive, use 0.01 for reproducibility
-- If 0.01 >> 0.7: low temperature is critical for coordinate accuracy
-
-**Prior art**: rvsec-vision-llm validation showed 57.7% hit rate with pure grounding (no
-coordinates in prompt), improving to ~100% when widget coordinates were included. This pre-
-validation isolates the image processing variable before prompt variant investment.
+distance to widget center for misses, tool call success rate, latency.
 
 **Scope**: Per-widget — each visible widget with `text` or `content_desc` gets a separate
-LLM call (`"Click on the element labeled [text]"`). This isolates coordinate precision from
-action choice, matching the rvsec-vision-llm benchmark methodology (57.7% hit rate).
+LLM call. This isolates coordinate precision from action choice.
 
 **Widget selection**: All visible widgets with `text` or `content_desc` that are either
-`clickable=true` OR belong to `ALWAYS_CLICKABLE_TYPES` (tabs, spinners, navigation items,
-FABs, chips — widgets that UIAutomator reports as non-clickable but are inherently
-interactive). Capped at 20 widgets per screenshot to avoid excessive calls on complex screens.
-Only `click` actions (type_text uses same coordinates).
+`clickable=true` OR belong to `ALWAYS_CLICKABLE_TYPES`. For `ALWAYS_CLICKABLE_TYPES` widgets
+without text (e.g. Spinners), text is inherited from the first child `TextView` node.
+Capped at 20 widgets per screenshot. Only `click` actions.
 
-`ALWAYS_CLICKABLE_TYPES` (unified from rv-screen-parser + rvsmart): Spinner, AppCompatSpinner,
-TabLayout, TabView, BottomNavigationItemView, NavigationBarItemView, Chip,
-FloatingActionButton, ActionMenuItemView, MenuItemView, OverflowMenuButton, and their
-fully-qualified variants.
+**Estimated time**: ~2-20 widgets/screen (avg ~8, cap 20) × 468 screenshots × ~2s/call
+≈ ~4,000-9,000 calls (~2-5h).
 
-**Estimated time**: ~2-20 widgets/screen (avg ~8, cap 20) × 468 screenshots × 3 modes ×
-2 temperatures ≈ 8,000-22,000 calls (~4-11h).
-Execution window: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h available).
+**Output**: `results/000_prevalidation_report.md` + CSV data.
 
-**Output**: `results/000_prevalidation_report.md` — narrative report following P2
-(human-readable, self-contained, explains why not just what). CSV data in
-`results/data/000_prevalidation_results.csv`.
+**SGLang configuration for Qwen3.5-4B**:
+```bash
+MODEL_PATH=Qwen/Qwen3.5-4B TOOL_CALL_PARSER=qwen3_coder \
+REASONING_PARSER=qwen3 ATTENTION_BACKEND=triton CONTEXT_LENGTH=8192 \
+docker compose -f docker-compose.sglang.yml up -d
+```
 
 ### Coordinate Space Analysis
 

@@ -16,7 +16,7 @@
   TRACK B — Pre-Validation (Group 0.5, requires SGLang)
   ──────────────────────────────────────────────────────
   Independent of all other tracks.
-  Per-widget grounding test, 3 image processing modes, 2 temperatures, ~14k calls.
+  Per-widget grounding test, raw mode (no resize), Qwen3.5-4B (no thinking), ~4-9k calls.
 
   TRACK C — Python Analysis Module (Group 1)
   ──────────────────────────────────────────────
@@ -62,63 +62,60 @@ APE Java commit: `b2852dd` (master)
   - Verify telemetry logs contain variant name
 - [ ] 0.8 Note: Do NOT commit to APE master. Branch is temporary for this experiment.
 
-## 0.5. Pre-Validation: Pure Grounding + smart_resize (requires SGLang)
+## 0.5. Pre-Validation: Pure Grounding (requires SGLang)
 
 This phase tests the VLM's baseline coordinate grounding accuracy WITHOUT coordinates in the
-prompt, comparing three image processing approaches at two temperatures. It can run before or
-in parallel with module implementation (Groups 1-6) since it reuses the rvsec-vision-llm
-approach.
+prompt, using raw screenshots (no resize) and the Qwen3.5-4B model.
 
-**Prior art**: rvsec-vision-llm showed 57.7% hit rate with pure grounding (no coords in prompt),
-~100% with coordinates. This phase isolates the image processing variable.
+**Model**: Qwen3.5-4B (without thinking). Replaces Qwen3-VL-4B-Instruct which broke on SGLang
+v0.5.9. See `exploration-sglang-qwen35.md` for investigation and validation.
+**Image mode**: raw (1080x1920, no resize). Outperformed max_edge by +12.8pp and smart_resize
+by +4pp on cryptoapp. Eliminates the 3-space coordinate problem.
+**Temperature**: 0.7 (Qwen-recommended for non-thinking mode).
+**Scope**: Per-widget with text/content_desc, clickable=true OR ALWAYS_CLICKABLE_TYPES.
+Cap: 20 widgets per screenshot. Only `click` actions.
+**Estimated time**: avg ~8 widgets/screen × 468 screenshots × ~2s/call ≈ ~4k-9k calls (~2-5h).
 
-**Execution window**: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h SGLang available).
-**Scope**: Per-widget — each visible widget with text/content_desc that is `clickable=true` OR
-belongs to ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips). Cap: 20 widgets
-per screenshot. Only `click` actions.
-**Estimated time**: avg ~8 widgets/screen (cap 20) × 468 screenshots × 3 modes × 2 temps ≈ 8k-22k calls (~4-11h).
-
-- [x] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
+- [x] 0.5.1 Implement lightweight pre-validation script (`scripts/prevalidation.py`):
   - Input: 468 screenshots + UIAutomator XML pairs
-  - Widget selection: visible, has text/content_desc, clickable=true OR class in ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips), cap 20 per screenshot
-  - For each selected widget: prompt includes **resized image dimensions** (`"Screen is {img_w}x{img_h} pixels. Click on the element labeled [text]"`). Dimensions match the image the model sees (max_edge: 562×1000, smart_resize: varies, raw: 1080×1920).
-  - Tool: `android_click(x, y)` with description specifying pixel ranges for the resized image. Qwen3-VL returns [0, 1000) normalized coords regardless.
-  - Coordinate conversion: Qwen [0,1000) → resized image pixels → device pixels (2-step). Hit checked against UIAutomator bounds (device pixel space).
-  - NO widget coordinates in prompt (pure visual grounding)
-  - Two hit metrics: `bounds_hit` (pixel in widget bounds, strict) + `center_hit` (≤50px from center, matches rvsec-vision-llm 57.7% baseline)
-  - Output: CSV with (screenshot, widget_text, widget_class, widget_bounds, mode, temperature, predicted_qwen_x/y, predicted_pixel_x/y, bounds_hit, center_hit, distance_to_center, tokens, latency)
-  - Summary: hit rates per mode×temp, per widget class, per app
-  - Fallback parser: native tool_calls → JSON in content (handles Qwen malformed output)
-- [ ] 0.5.2 Implement three image processing modes:
-  - Mode A: max-edge 1000px + JPEG quality 80 (current APE-RV)
-  - Mode B: smart_resize(factor=32, min_pixels=3136, max_pixels=10035200) + JPEG quality 80
-    - factor=32 for Qwen3-VL (patch_size=16 × merge_size=2)
-    - smart_resize algorithm: dimensions divisible by factor, total pixels in [min, max], preserve aspect ratio
-  - Mode C: raw (no resize) + JPEG quality 80 — device-native resolution (1080×1920), as AppAgent does
-- [ ] 0.5.3 Run all 6 conditions (3 modes × 2 temperatures):
-  - Temperatures: 0.01 (near-deterministic) and 0.7 (high variance)
-  - All 468 screenshots, widgets with text labels only
-  - `--sglang-url http://192.168.0.36:30000/v1`
-  - Expected baseline (Mode A, temp 0.01): center_hit ~57% (matching rvsec-vision-llm)
-- [ ] 0.5.4 Generate comparison report (`results/000_prevalidation_report.md`):
-  - Narrative report following P2 (human-readable, self-contained, explains why not just what)
-  - bounds_hit AND center_hit rate per mode × temperature (6 cells, global + per app)
-  - Per widget class breakdown (Button, EditText, CheckBox, Spinner, Tab, etc.)
-  - McNemar test for pairwise mode comparison (within same temperature)
-  - Mean distance to widget center for misses per condition
-  - Error distribution by category per condition
-  - Resized dimensions comparison: Mode A vs Mode B vs Mode C for representative screenshots
-  - Token consumption and latency comparison across modes
-  - Per-app breakdown: which apps benefit most from each mode
-  - Tool call success rate per condition
-- [ ] 0.5.5 Decision gate:
-  - If Mode B improves center_hit rate by ≥5pp over Mode A → use smart_resize in all prompt variants
-  - If Mode C (raw) is best → consider eliminating resize entirely
-  - If both ≤50% → pure grounding is limited, coordinates in prompt are essential (confirmed)
-  - If Mode A center_hit ≈57% → confirms replication of rvsec-vision-llm results
-  - If temperature 0.01 ≈ 0.7 → grounding is temperature-insensitive, use 0.01 for reproducibility
-  - If 0.01 >> 0.7 → low temperature critical for coordinate accuracy
-  - Document all decisions with rationale in `results/000_prevalidation_report.md`
+  - Widget selection: visible, has text/content_desc, clickable=true OR ALWAYS_CLICKABLE_TYPES
+  - For Spinners/tabs with empty text: inherit text from first child TextView
+  - Prompt: `"Screen is 1080x1920 pixels. Click on the element labeled [text]"` (NO coords)
+  - Tool: `android_click(x, y)` with pixel ranges 0-1080, 0-1920
+  - Coordinate conversion: single-step `pixel = int((qwen / 1000) * device_dim)`
+  - `chat_template_kwargs: {"enable_thinking": false}` via OpenAI SDK `extra_body`
+  - Parser handles Qwen3.5 `"x": "498, 549"` format via `_extract_xy` helper
+  - Two hit metrics: `bounds_hit` (pixel in widget bounds) + `center_hit` (≤50px from center)
+  - Output: CSV + summary per widget class and per app
+  - Responses cached in SQLite for reproducibility (full response JSON)
+- [x] 0.5.2 Image processing modes implemented (all 3 modes exist in code):
+  - Mode A: max-edge 1000px + JPEG quality 80
+  - Mode B: smart_resize(factor=32)
+  - Mode C: raw (no resize) + JPEG quality 80
+- [x] 0.5.3 Exploratory 3-mode comparison on cryptoapp (25 screenshots):
+  - raw: 51.8% center hit | smart_resize: 47.8% | max_edge: 39.0%
+  - **Decision: use raw mode only** — simplest and most accurate
+- [x] 0.5.4 Smoke tests completed (see `exploration-sglang-qwen35.md`):
+  - 100 screenshots (8 apps): 66.2% center hit, 84.3% bounds hit, 85.5% tool call rate
+  - Cryptoapp (25 screenshots): tabs 93.8%, RadioButton 77.8%, Spinner 7.7% center hit
+  - Latency: ~1.9s average
+- [ ] 0.5.5 Run full pre-validation (468 screenshots, raw mode, temp=0.7):
+  ```bash
+  uv run python modules/aperv-llm-validation/scripts/prevalidation.py \
+    --screenshots-dir /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots \
+    --model "Qwen/Qwen3.5-4B" --disable-thinking \
+    --modes raw --temperatures 0.7 \
+    --output-dir results/prevalidation --cache-dir .cache/prevalidation
+  ```
+- [ ] 0.5.6 Generate pre-validation report (`results/000_prevalidation_report.md`):
+  - Narrative report following P2
+  - center_hit and bounds_hit rate (global + per app + per widget class)
+  - Per widget class breakdown (Button, EditText, CheckBox, Spinner, Tab, RadioButton, etc.)
+  - Distance distribution histogram
+  - Token consumption and latency statistics
+  - Per-app breakdown: which apps have best/worst grounding
+  - Tool call success rate and error analysis
+  - Comparison with Qwen3-VL December baseline (57.7%)
 
 ## 1. Python Analysis Module
 

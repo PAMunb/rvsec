@@ -53,7 +53,12 @@ class SglangClient:
             timeout=float(timeout_seconds),
         )
 
-    def call(self, messages: list[dict], tools: list[dict] | None = None) -> dict:
+    def call(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        extra_body: dict | None = None,
+    ) -> dict:
         """Send a chat completion request and return the raw response as a dict.
 
         Retries up to self.retries times with exponential backoff on
@@ -71,6 +76,8 @@ class SglangClient:
                 }
                 if tools:
                     kwargs["tools"] = tools
+                if extra_body:
+                    kwargs["extra_body"] = extra_body
 
                 response = self._client.chat.completions.create(**kwargs)
                 return response.model_dump()
