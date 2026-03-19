@@ -52,7 +52,9 @@ adapted to match APE's exact behavior.
 
 ### Consolidated Findings from Four Independent Analyses
 
-Four LLMs (Claude, Codex, Gemini, Qwen) analyzed the original plan. Key consensus:
+Four LLMs (Claude, Codex, Gemini, Qwen) analyzed the original plan, followed by a second
+round of five analyses (Claude, Codex, Gemini, MiniMax, Qwen) on the full artifact set
+(proposal, design, plan, tasks, sota). Key consensus:
 
 | Finding | Claude | Codex | Gemini | Qwen | Resolution |
 |---------|--------|-------|--------|------|------------|
@@ -66,6 +68,13 @@ Four LLMs (Claude, Codex, Gemini, Qwen) analyzed the original plan. Key consensu
 | LLM response visualization | — | — | Yes | — | Added: annotated screenshot output |
 | Holdout set | Yes | — | Yes | Yes | Decided: no holdout; report per-app variance |
 | Dataset has 469 PNGs vs 468 XMLs | — | Yes | — | — | Added: orphan PNG handling |
+| **Second round (5 LLMs)**: | | | | | |
+| Add action-list variant (SOTA Approach A) | All 5 | All 5 | All 5 | All 5 | Added: `action_list` variant (Group 3.8, 8.5) |
+| Harmonize Bonferroni (6 vs 7 vs 21 vs 15) | All 5 | All 5 | All 5 | All 5 | Fixed: 6 coord-based → 15 pairs, 0.0033; SoM+action_list separate |
+| SoM incomparable with coordinate variants | All 5 | All 5 | All 5 | All 5 | Fixed: separate analysis, not in McNemar |
+| Add quantitative success criteria | 4/5 | 4/5 | 4/5 | 4/5 | Added: Success Criteria section |
+| Include temperature in cache key | 4/5 | 4/5 | 4/5 | 4/5 | Fixed: cache key includes temperature + resize_mode |
+| Document offline limitations | 4/5 | 4/5 | 4/5 | 4/5 | Added: Limitations section in design.md |
 
 ---
 
@@ -115,9 +124,16 @@ The evaluator skips PNGs without a matching `.uiautomator` file and logs a warni
 | `rvsmart_v13` | RVSmart V13 | Dialog handling, JSON response format | `PromptBuilder.java` SYSTEM_V13 | Cross-tool transfer |
 | `rvsmart_v17` | RVSmart V17 | 6-step reasoning, MOP-aware, test-status tags | `PromptBuilder.java` SYSTEM_V17 | MOP prompting |
 | `visual_only` | Visual Only | No widget list — LLM uses only screenshot | `rvsec-vision-llm` | Widget list value |
+| `som_overlay` | SoM Overlay | Numbered labels on screenshot, LLM returns element_id | SOTA Approach B (sota.md §8.1) | SoM grounding accuracy |
+| `action_list` | Action-List | Numbered widget list, LLM returns action_id (no coordinates) | SOTA Approach A (sota.md §8.1) | Upper bound: 100% match by construction |
 
 Variants are designed to test **orthogonal dimensions**: prompt text (verbose vs minimal vs
-structured), widget list format (APE vs RVSmart vs none), and schema (with/without reasoning).
+structured), widget list format (APE vs RVSmart vs none vs numbered list), and schema
+(with/without reasoning, coordinate vs element selection).
+
+**Statistical comparison**: The 6 coordinate-based variants (ape_current through visual_only)
+form the main comparison set (15 pairwise McNemar tests). `som_overlay` and `action_list` use
+different action spaces (element_id/action_id vs x,y) and are analyzed separately.
 See `design.md` Section "Prompt Variant Architecture" for full analysis.
 
 ### Tool Schema with Reasoning
@@ -190,7 +206,7 @@ Note: `tolerance_miss` uses 50-100px range (matching Euclidean fallback minimum 
 ### LLM Response Cache
 
 SQLite-backed persistent cache (see `design.md` D2):
-- **Key**: `hash(screenshot_basename + prompt_name + rep_seed)`
+- **Key**: `hash(screenshot_basename + prompt_name + rep_seed + temperature + resize_mode)`
 - **Value**: Full OpenAI response + tokens + latency
 - **Benefits**: Reproducibility (re-generate reports without LLM), resilience (SGLang restart),
   speed (skip cached calls on re-run)
@@ -199,7 +215,9 @@ SQLite-backed persistent cache (see `design.md` D2):
 ### Statistical Methodology
 
 - **Primary test**: McNemar test for pairwise prompt comparison (binary paired data)
-- **Multiple comparisons**: Bonferroni correction (15 pairs, threshold = 0.05/15 = 0.0033)
+- **Multiple comparisons**: Bonferroni correction for 6 coordinate-based variants (C(6,2) = 15
+  pairs, threshold = 0.05/15 = 0.0033). `som_overlay` and `action_list` use different action
+  spaces and are analyzed separately (not included in pairwise McNemar)
 - **Confidence intervals**: Bootstrap 95% CI, stratified by app (10,000 resamples)
 - **Repetition analysis**: Mean ± std across reps; Wilcoxon signed-rank on per-screenshot means
 - See `design.md` Section "Statistical Methodology" for full rationale
@@ -263,7 +281,8 @@ Group 2: Pipeline Components (parallel — 3 subagents)
   2C: uiautomator_parser + prompt_builder + tests + golden fidelity
 
 Group 3: Prompt Variants (sequential)
-  Define 6 prompt variants + registry, verify format matches APE
+  Define 7 prompt variants + registry, verify format matches APE
+  (6 coordinate-based + action_list; som_overlay in Group 3.5)
 
 Group 4: Evaluation Engine (sequential, depends on 2+3)
   evaluator + nomatch_classifier + quality_guardrails + reporter + CLI + cache integration
@@ -282,7 +301,7 @@ Group 7: Baseline Run (SGLang health check first)
   ape_reasoning (468 × 1 rep) → same baseline + reasoning texts for analysis
 
 Group 8: Prompt Comparison
-  compact_v1, rvsmart_v13, rvsmart_v17, visual_only (468 × 1 rep each)
+  compact_v1, rvsmart_v13, rvsmart_v17, visual_only, som_overlay, action_list (468 × 1 rep each)
 
 Group 9: Deep Evaluation
   Top-2 prompts × 468 screenshots × 3 reps (statistical significance)
@@ -309,10 +328,24 @@ re-runs to near-zero.
 | Run | Calls | Time |
 |-----|-------|------|
 | Group 7: 2 prompts × 468 × 1 rep | 936 | ~31 min |
-| Group 8: 4 prompts × 468 × 1 rep | 1,872 | ~62 min |
+| Group 8: 6 prompts × 468 × 1 rep | 2,808 | ~94 min |
 | Group 9: 2 prompts × 468 × 3 reps | 2,808 | ~94 min |
 | Group 9: 2 prompts × 30 × 3 reps | 180 | ~6 min |
-| **Total** | **5,796** | **~3.2 hours** |
+| **Total** | **6,732** | **~3.7 hours** |
+
+---
+
+## Success Criteria
+
+Quantitative thresholds for interpreting results:
+
+| Result | Interpretation | Action |
+|--------|---------------|--------|
+| Best coordinate variant ≥ 75% match + quality ≥ 0.70 | Prompt improvement viable | Port best prompt to APE Java |
+| Best coordinate variant 65-75% | Marginal; timing gap likely dominates | Prioritize gh46 |
+| Best coordinate variant < 65% | Coordinate prediction fundamentally limited | Recommend action-list/SoM |
+| smart_resize ≥ +5pp hit rate | Image processing bottleneck | Apply smart_resize in Java |
+| `stale_model` > 30% of no_match | Timing gap is primary cause | Confirms gh46 priority |
 
 ---
 
@@ -329,7 +362,7 @@ re-runs to near-zero.
 - [ ] `ToolCallParser`: 3-level fallback handles native, XML, inline JSON; malformed fixes match APE
 - [ ] Response cache: put/get round-trip, stats, concurrent access
 - [ ] Quality guardrails: container rate, semantic rate, back rate, diversity computed correctly
-- [ ] 6 prompt variants defined, registered, and tested
+- [ ] 7 prompt variants defined, registered, and tested (6 coordinate-based + action_list; som_overlay in Group 3.5)
 - [ ] Reasoning validation gate: `ape_reasoning` within ±2pp of `ape_current` on 50 screenshots
 - [ ] No-match classifier: 7 categories with correct distance thresholds
 - [ ] All tests pass (~82 tests), lint clean
@@ -338,7 +371,7 @@ re-runs to near-zero.
 
 - [ ] SGLang health check passes before each group
 - [ ] Baseline run completed: ape_current match rate measured (expected ~62%)
-- [ ] All 6 prompt variants evaluated on full 468-screenshot dataset
+- [ ] All 8 prompt variants evaluated on full 468-screenshot dataset (6 coordinate + SoM + action_list)
 - [ ] Top-2 prompts selected using formal criteria (match rate + tiebreakers)
 - [ ] Top-2 prompts evaluated with 3 repetitions for statistical significance
 - [ ] Hard-screenshot subset (30) evaluated with top-2 prompts

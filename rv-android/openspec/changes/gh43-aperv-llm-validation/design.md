@@ -43,7 +43,7 @@ quality guardrails beyond match rate, and reasoning field validation.
 ### Goals
 
 1. **Replicate** the APE-RV Java LLM pipeline in Python with verified fidelity (golden dataset)
-2. **Compare** 7 prompt variants on match rate, action quality, token efficiency, and latency
+2. **Compare** 8 prompt variants on match rate, action quality, token efficiency, and latency
 3. **Classify** no_match causes with a 7-category taxonomy (including `stale_model`)
 4. **Identify** the best prompt for APE Java implementation with statistical rigor (McNemar)
 5. **Provide** quality guardrails that prevent optimizing match rate at the cost of exploration
@@ -92,6 +92,8 @@ graph TB
             P4[rvsmart_v13]
             P5[rvsmart_v17]
             P6[visual_only]
+            P7[som_overlay]
+            P8[action_list]
         end
 
         subgraph "Evaluation Layer"
@@ -128,7 +130,7 @@ graph TB
     MOD --> AM
     IP --> PB
     PB --> SC
-    P1 & P2 & P3 & P4 & P5 & P6 --> PB
+    P1 & P2 & P3 & P4 & P5 & P6 & P7 & P8 --> PB
 
     SC <--> CA
     SC <--> SG
@@ -233,7 +235,9 @@ error distribution (boundary, edge_miss, gap), resized dimensions comparison.
 coordinates in prompt), improving to ~100% when widget coordinates were included. This pre-
 validation isolates the image processing variable before prompt variant investment.
 
-**Estimated time**: ~3-4h SGLang (468 screenshots × 3 modes × 2 temperatures ≈ 2,808 calls).
+**Estimated time**: Depends on scope (see Q6 in Open Questions):
+- Per-screenshot (1 prompt per screenshot): 468 × 3 modes × 2 temps = 2,808 calls (~1.5h)
+- Per-widget (each text widget → separate call): ~5 widgets/screen × 468 × 6 conditions ≈ 14,040 calls (~7h)
 Execution window: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h available).
 
 **Output**: `results/000_prevalidation_report.md` — narrative report following P2
@@ -547,13 +551,15 @@ class PromptConfig:
 
 ```python
 # SQLite table: llm_responses
-# Primary key: hash(screenshot_path + prompt_name + repetition_seed)
+# Primary key: hash(screenshot_path + prompt_name + repetition_seed + temperature + resize_mode)
 #
 # Columns:
 #   cache_key     TEXT PRIMARY KEY
 #   screenshot    TEXT  -- path
 #   prompt_name   TEXT
 #   rep_seed      INT
+#   temperature   REAL  -- LLM temperature used
+#   resize_mode   TEXT  -- max_edge | smart_resize | raw
 #   request_hash  TEXT  -- hash of full request payload
 #   response_json TEXT  -- full OpenAI response as JSON
 #   tokens_in     INT
@@ -733,13 +739,15 @@ def quality_score(results: list[EvaluationResult]) -> float:
 ```python
 class ResponseCache:
     """SQLite-backed cache for LLM responses. Thread-safe.
-    Key: hash(screenshot_basename + prompt_name + rep_seed).
+    Key: hash(screenshot_basename + prompt_name + rep_seed + temperature + resize_mode).
     Provides reproducibility (re-run reports without LLM) and resilience (SGLang restart).
     """
 
     def __init__(self, cache_dir: Path): ...
-    def get(self, screenshot: str, prompt: str, rep_seed: int) -> dict | None: ...
+    def get(self, screenshot: str, prompt: str, rep_seed: int,
+            temperature: float, resize_mode: str) -> dict | None: ...
     def put(self, screenshot: str, prompt: str, rep_seed: int,
+            temperature: float, resize_mode: str,
             response: dict, tokens_in: int, tokens_out: int, latency_ms: int) -> None: ...
     def stats(self) -> dict: ...  # hits, misses, size
 ```
@@ -750,7 +758,7 @@ class ResponseCache:
 
 ### Design Rationale
 
-The 7 variants test orthogonal dimensions:
+The 8 variants test orthogonal dimensions:
 
 ```mermaid
 graph LR
@@ -765,6 +773,7 @@ graph LR
         B2["RVSmart format<br/>1. Class 'text' @(x,y)"]
         B3["None<br/>visual_only"]
         B4["SoM labels on screenshot<br/>numbered elements"]
+        B5["Numbered action list<br/>action_list"]
     end
 
     subgraph "Axis C: Schema"
@@ -782,6 +791,7 @@ graph LR
 | `rvsmart_v17` | Structured (6-step reasoning) | RVSmart | + reasoning | MOP-aware prompting |
 | `visual_only` | Minimal | None | + reasoning | Widget list value |
 | `som_overlay` | Minimal | SoM labels | + reasoning + element_id | SoM grounding accuracy |
+| `action_list` | Minimal | Numbered list | + reasoning + action_id | SOTA upper bound (100% match by construction) |
 
 ### Reasoning Field Validation Gate
 
@@ -792,13 +802,28 @@ Before using `reasoning` in analysis, validate it does not alter LLM behavior:
 3. Compare match rate: `ape_reasoning` within ± 2pp of `ape_current`
 4. If validation fails: report as finding, proceed with `ape_current` as baseline
 
-**Variant 7: `som_overlay`** — Fallback variant that tests whether eliminating coordinate
+**Variant 7: `som_overlay`** — Comparison variant that tests whether eliminating coordinate
 prediction improves match rate while preserving visual context. Numbered labels are drawn on
 the screenshot at each widget's center using Pillow (semi-transparent background, dedup at
 30px). The tool schema changes: instead of `click(x, y)`, tools receive `click(element_id)`.
 This is NOT the primary approach (APE-RV is agentic and uses coordinate-based tools for
 dynamic elements not in UIAutomator dump), but serves as a comparison point to isolate
 coordinate prediction quality from action selection quality.
+
+**Variant 8: `action_list`** — SOTA upper-bound variant that tests action-list selection,
+the dominant approach in mature tools (DroidBot-GPT, LLMDroid, VisionDroid — see sota.md
+Section 8.1). The LLM receives a screenshot + numbered list of clickable widgets and returns
+`select_action(action_id: int)`. Match is 100% by construction (any valid ID maps to a widget),
+so the metric shifts from match rate to **action quality**: does the LLM select the most
+exploration-productive widget? This variant establishes the ceiling for what element selection
+can achieve without coordinate prediction, informing the architectural decision of whether to
+invest in coordinate accuracy or switch to action-list selection.
+
+**Statistical comparison**: The 6 coordinate-based variants (ape_current through visual_only)
+form the **main comparison set** (15 pairwise McNemar tests with Bonferroni correction).
+`som_overlay` and `action_list` use different action spaces (element_id/action_id vs x,y)
+and are analyzed **separately** — their "match" has a different meaning, making McNemar
+comparison with coordinate variants invalid.
 
 ---
 
@@ -854,8 +879,15 @@ Bootstrap 95% CI for match rate per prompt (10,000 resamples, stratified by app)
 
 ### Multiple Comparisons
 
-With 7 prompts, there are 21 pairwise comparisons. Apply Bonferroni correction:
-significance threshold = 0.05 / 21 = 0.0024.
+The **main comparison set** includes the 6 coordinate-based variants (ape_current,
+ape_reasoning, compact_v1, rvsmart_v13, rvsmart_v17, visual_only). With 6 prompts, there
+are C(6,2) = 15 pairwise comparisons. Apply Bonferroni correction: significance threshold =
+0.05 / 15 = 0.0033.
+
+`som_overlay` and `action_list` use different action spaces (element_id/action_id vs x,y
+coordinates) and are analyzed **separately** — not included in the pairwise McNemar
+comparisons. Their metrics (action quality, semantic coverage) are reported alongside the
+main comparison but without statistical pairing.
 
 ### Repetition Analysis (Group 9)
 
@@ -930,7 +962,7 @@ appear in the widget list. Manual inspection of top-N gap cases in the reasoning
 **Decision**: Use all 468 screenshots for evaluation. No holdout.
 
 **Rationale**: Phase B is exploratory (identifying best prompt), not predictive (deploying a
-model). Overfitting risk is low because: (a) we compare 7 fixed prompts, not tuning parameters;
+model). Overfitting risk is low because: (a) we compare 8 fixed prompts, not tuning parameters;
 (b) the true validation is Phase A' (re-run on live APKs). Instead of holdout, report per-app
 match rate to detect prompts that overfit to specific apps.
 
@@ -967,24 +999,33 @@ processing conditions before the full prompt variant evaluation.
 
 **Rationale**: rvsec-vision-llm showed 57.7% hit rate with pure grounding, 100% with
 coordinates in prompt. Testing smart_resize vs max-edge on pure grounding isolates the image
-processing variable and avoids wasting 3.2h of SGLang if the improvement is marginal.
+processing variable and avoids wasting 3.7h of SGLang if the improvement is marginal.
 
 **Alternative considered**: Skip pre-validation, go directly to prompt variants. Rejected
 because a ~1h test can validate a variable that affects ALL prompt variants.
 
-### D9: SoM Overlay as Fallback Variant (Not Primary)
+### D9: SoM and Action-List as Comparison Variants (Not Primary)
 
-**Decision**: Include `som_overlay` as variant 7 for comparison only. APE-RV's primary approach
-remains coordinate-based tool calling.
+**Decision**: Include `som_overlay` (variant 7) and `action_list` (variant 8) as comparison
+variants. APE-RV's primary approach remains coordinate-based tool calling.
 
 **Rationale**: APE-RV is designed to be agentic — the LLM receives tools and decides which to
 use. The multimodal VLM is specifically used for dynamic elements not in UIAutomator dumps.
-Simple action-list selection was the project's first approach (rvandroid tool, now in backup/)
-and was abandoned. SoM overlay serves as a comparison point to quantify the cost of coordinate
-prediction vs element selection, not as a replacement.
+However, the SOTA survey (sota.md Section 8.1) is unambiguous: action-list selection achieves
+100% match rate by construction and is the dominant approach in mature tools (DroidBot-GPT,
+LLMDroid, VisionDroid). Not testing this empirically would be a significant gap.
 
-**Alternative considered**: Action-list selection (DroidBot-GPT style). Rejected — already
-tried and abandoned in the rvandroid tool. Does not leverage multimodal capabilities.
+Action-list selection was the project's first approach (rvandroid tool, now in backup/), but
+was abandoned because it did not leverage multimodal capabilities and produced lower-quality
+exploration than the agentic approach. The conditions have changed since then (different model,
+different prompts, different evaluation criteria), so re-testing with current infrastructure is
+warranted as a comparison point. Both SoM and action-list serve to quantify the cost of
+coordinate prediction vs element selection, establishing upper bounds that inform whether the
+coordinate approach is worth optimizing or should be replaced.
+
+**Statistical note**: SoM and action-list use different action spaces (element_id/action_id vs
+x,y coordinates). They are analyzed **separately** from the 6 coordinate-based variants and do
+not participate in the pairwise McNemar comparison.
 
 ---
 
@@ -994,12 +1035,60 @@ tried and abandoned in the rvandroid tool. Does not leverage multimodal capabili
 |------|-------------|--------|------------|
 | **Python/Java drift** — replica diverges from Java pipeline | High (70%) | High | Golden dataset with per-component tolerance checks (see Replication Fidelity) |
 | **Match rate ≠ exploration quality** — optimizing wrong metric | Medium (40%) | High | Quality guardrails (container rate, semantic rate, diversity) |
-| **SGLang downtime** — 3.2h run interrupted | Medium (30%) | Medium | Response cache + resume capability + health check before each group |
+| **SGLang downtime** — 3.7h run interrupted | Medium (30%) | Medium | Response cache + resume capability + health check before each group |
 | **`reasoning` alters behavior** — changes match rate | Medium (30%) | Medium | Validation gate: 50-screenshot comparison before full run |
 | **Dataset bias** — 468 screenshots not representative of production | Medium (40%) | Medium | Report per-app match rate; Phase A' validates on live APKs |
 | **Stale golden fixtures** — Java code changes after fixture generation | Low (10%) | High | Pin Java commit hash in golden fixtures metadata |
 | **468 vs 469 file mismatch** — orphan PNG causes errors | Certain | Low | Skip PNGs without matching `.uiautomator`, log warning |
 | **Coordinate space mismatch** — VLM grounds on resized image but coords mapped to device pixels | Medium (50%) | High | Pre-validation + coordinate space analysis in Group 10 |
+
+---
+
+## Limitations
+
+This module is an **offline investigation** with known limitations relative to the online
+APE-RV pipeline:
+
+1. **No timing gap**: In exp3, UIAutomator dumps and screenshots are captured at different
+   moments, creating temporal mismatch (`stale_model` category). Offline, both come from the
+   same static capture — the `stale_model` category effectively disappears, and overall match
+   rate will be systematically **higher** than online. The difference between offline and online
+   match rate is itself a useful metric: it estimates the timing gap contribution.
+
+2. **Static screenshots**: In the real pipeline, LLM decisions affect exploration, which
+   generates subsequent screenshots (feedback loop). Offline evaluation breaks this loop — a
+   prompt that appears worse offline (e.g., more backtrack) might be better online (discovers
+   new states). Prompt comparison remains valid in relative terms (same dataset), but absolute
+   match rate does not transfer directly.
+
+3. **Partial app coverage**: 468 screenshots from 28 F-Droid apps represent ~16.5% of the
+   169 apps in exp3. Apps with unusual UI patterns (games, media players) may be
+   under-represented. Per-app analysis mitigates but does not eliminate this bias.
+
+4. **Visit count always v:0**: In APE-RV, widgets carry visit counts (`v:N`) that influence
+   prompt priority. Offline, all widgets have `v:0` since there is no exploration history.
+   Prompts that rely on visit counts for decision-making (e.g., rvsmart_v17) may behave
+   differently offline.
+
+5. **No coverage correlation**: This module measures match rate and action quality, but not
+   the downstream effect on method/activity/MOP coverage. Phase A' (live APK validation) is
+   required to confirm that prompt improvements translate to better exploration outcomes.
+
+---
+
+## Success Criteria
+
+Quantitative thresholds for interpreting gh43 results and deciding next steps:
+
+| Result | Interpretation | Action |
+|--------|---------------|--------|
+| Best coordinate variant ≥ 75% match rate AND quality score ≥ 0.70 | Prompt improvement viable | Port best prompt to APE Java |
+| Best coordinate variant 65-75% match rate | Marginal gain; timing gap likely dominates | Prioritize gh46 (timing gap fix) before prompt changes |
+| Best coordinate variant < 65% match rate | Coordinate prediction fundamentally limited with Qwen3-VL-4B | Recommend architectural change to action-list/SoM |
+| smart_resize improves hit rate by ≥ 5pp | Image processing is a bottleneck | Apply smart_resize in APE Java |
+| `stale_model` accounts for > 30% of no_match | Timing gap is primary cause | Confirms gh46 priority |
+| `action_list` action quality ≥ coordinate-based quality | Action-list viable as replacement | Plan migration from coordinate prediction |
+| Container rate > 40% for best variant | Optimizing wrong metric | Reassess quality guardrail weights |
 
 ---
 
@@ -1052,7 +1141,8 @@ modules/aperv-llm-validation/
 │       │   ├── rvsmart_v13.py                  # RVSmart V13 format
 │       │   ├── rvsmart_v17.py                  # RVSmart V17 format
 │       │   ├── visual_only.py                  # No widget list baseline
-│       │   └── som_overlay.py                  # SoM numbered labels fallback
+│       │   ├── som_overlay.py                  # SoM numbered labels (comparison)
+│       │   └── action_list.py                 # Action-list selection (SOTA upper bound)
 │       ├── evaluation/
 │       │   ├── __init__.py
 │       │   ├── evaluator.py                    # Main evaluation loop
@@ -1066,7 +1156,7 @@ modules/aperv-llm-validation/
 ├── results/                                    # All reports, data, and visualizations
 │   ├── 000_prevalidation_report.md             # Group 0.5: pure grounding + smart_resize
 │   ├── 001_baseline_report.md                  # Group 7: ape_current + ape_reasoning baseline
-│   ├── 002_prompt_comparison_report.md         # Group 8: all 7 prompt variants
+│   ├── 002_prompt_comparison_report.md         # Group 8: all 8 prompt variants
 │   ├── 003_deep_evaluation_report.md           # Group 9: top-2 prompts × 3 reps
 │   ├── 004_nomatch_analysis_report.md          # Group 10: classification + reasoning
 │   ├── 005_final_report.md                     # Group 10: executive summary + recommendations
@@ -1106,6 +1196,7 @@ modules/aperv-llm-validation/
 |---|----------|--------|-----------------|
 | Q1 | Which Java commit to pin for golden fixtures? | High — determines baseline | Before Group 1 |
 | Q2 | Can we extract golden fixtures from APE Java programmatically or manually? | Medium — affects fixture generation effort | Before Group 2 |
-| Q3 | Should `stale_model` detection use only reasoning text, or add visual diff analysis? | Medium — affects complexity | During Group 10 analysis |
-| Q4 | Is 0.3 the right temperature for all prompts, or should each variant use its own? | Low — can test in Group 9 | During Group 8 analysis |
+| Q3 | Should `stale_model` detection use only reasoning text, or add visual diff analysis? If reasoning validation gate fails, `stale_model` cannot be detected via reasoning — fallback to 6 algorithmic categories only. | Medium — affects complexity | During Group 10 analysis |
+| Q4 | Is 0.3 the right temperature for all prompts, or should each variant use its own? Group 0.5 tests 0.01 vs 0.7 extremes; if 0.01 >> 0.7, use 0.01 for Groups 7-9. | Low — can test in Group 9 | After Group 0.5 |
 | Q5 | Should we include exp3 trace replay (Phase A) in this module or keep it separate? | Low — scope question | After Phase B completion |
+| Q6 | Group 0.5 scope: is grounding per-widget (each widget with text → separate LLM call) or per-screenshot (one prompt per screenshot)? Per-widget: ~14,040 calls (~7h). Per-screenshot: ~2,808 calls (~1.5h). | Medium — affects execution time | Before Group 0.5 |

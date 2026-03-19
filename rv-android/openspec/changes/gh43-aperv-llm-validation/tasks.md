@@ -5,7 +5,7 @@
   Group 0.5: sequential (pre-validation — requires SGLang, ~1-1.5h)
   Group 1: sequential (foundation — models, constants, cache, pyproject)
   Group 2: parallel (2A, 2B, 2C are independent — 3 subagents, ~6 files each)
-  Group 3: sequential (depends on Group 2C prompt_builder)
+  Group 3: sequential (depends on Group 2C prompt_builder; includes action_list)
   Group 3.5: sequential (som_overlay variant, depends on Group 2C)
   Group 4: sequential (depends on Groups 2+3)
   Group 5: sequential (depends on Group 4, requires SGLang for reasoning gate)
@@ -44,7 +44,10 @@ approach.
 ~100% with coordinates. This phase isolates the image processing variable.
 
 **Execution window**: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h SGLang available).
-**Estimated time**: ~3-4h (468 screenshots × 3 modes × 2 temperatures ≈ 2,808 calls).
+**Estimated time**: Depends on scope (see Q6 in design.md Open Questions):
+- Per-screenshot (1 prompt per screenshot): 468 × 3 modes × 2 temps = 2,808 calls (~1.5h)
+- Per-widget (each text widget → separate call): ~14,040 calls (~7h)
+Resolve Q6 before execution.
 
 - [ ] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
   - Input: 468 screenshots + UIAutomator XML pairs
@@ -135,7 +138,7 @@ approach.
   - `PromptConfig` (dataclass: name, description, build functions)
 - [ ] 1.5 Create `infrastructure/response_cache.py`:
   - SQLite-backed cache with table `llm_responses`
-  - Key: `hash(screenshot_basename + prompt_name + rep_seed)`
+  - Key: `hash(screenshot_basename + prompt_name + rep_seed + temperature + resize_mode)`
   - Methods: `get()`, `put()`, `stats()` (hits, misses, size)
   - Thread-safe (SQLite WAL mode)
   - Auto-create DB on first access
@@ -296,6 +299,16 @@ approach.
   - Minimal system message: "Click the most promising interactive element. Coordinates [0,1000)."
   - Tool schema with reasoning
   - Baseline for measuring how much the widget list helps coordinate accuracy
+- [ ] 3.8 Implement `prompts/action_list.py`:
+  - SOTA upper-bound variant: action-list selection (DroidBot-GPT, LLMDroid style — sota.md §8.1)
+  - Numbered widget list: `"Available actions: 1. Click Button 'Login' 2. Click EditText 'Email' ..."`
+  - Tool schema: `select_action(action_id: int, reasoning: str)` — no coordinates
+  - Match is 100% by construction (any valid ID maps to a widget)
+  - Metric: action quality (semantic widget rate, diversity, type_text coverage) — not match rate
+  - Minimal system message: "Select the most promising action by number to explore the app."
+  - Include back action: `"0. Go back"`
+  - Note: This is a COMPARISON variant to establish the ceiling for element selection.
+    It informs whether coordinate prediction is worth optimizing or should be replaced.
 
 ## 3.5. SoM Overlay Variant (sequential, depends on Group 2C)
 
@@ -437,6 +450,11 @@ approach.
 - [ ] 8.2 Run `rvsmart_v13` prompt: 468 screenshots × 1 rep
 - [ ] 8.3 Run `rvsmart_v17` prompt: 468 screenshots × 1 rep
 - [ ] 8.4 Run `visual_only` prompt: 468 screenshots × 1 rep
+- [ ] 8.5 Run `som_overlay` prompt: 468 screenshots × 1 rep
+  - Note: uses element_id instead of coordinates; analyzed separately from coordinate variants
+- [ ] 8.6 Run `action_list` prompt: 468 screenshots × 1 rep
+  - Note: match rate is 100% by construction; focus on action quality metrics
+  - Compare action selection quality with coordinate-based variants (same widget chosen?)
 
 ## 9. Execution — Best Prompt Deep Evaluation (sequential, depends on 7+8 analysis)
 
@@ -459,7 +477,9 @@ approach.
 
 - [ ] 10.1 Generate per-prompt comparison report:
   - Match rate, no_match rate, tool call rate, quality score per prompt variant
-  - **McNemar test** for pairwise comparison (15 pairs, Bonferroni threshold = 0.0033)
+  - **McNemar test** for pairwise comparison of 6 coordinate-based variants (C(6,2) = 15 pairs,
+    Bonferroni threshold = 0.05/15 = 0.0033). `som_overlay` and `action_list` analyzed separately
+    (different action spaces — not included in pairwise McNemar)
   - Bootstrap 95% CI for each prompt's match rate (10,000 resamples, stratified by app)
   - Action diversity: distribution of click/long_click/type_text/back per prompt
   - type_text usage: % of calls using type_text when EditText present
@@ -482,17 +502,24 @@ approach.
   - Assign `stale_model` category: cases where reasoning mentions visible element not in XML
   - Examples of each category with reasoning text (top-5 per category)
   - Quantify: what % of `gap` cases are actually `stale_model` (timing gap)?
-- [ ] 10.5 Generate per-screenshot difficulty report:
+- [ ] 10.5 Generate action_list and som_overlay comparison report (separate from McNemar):
+  - action_list: action quality (semantic rate, diversity, type_text coverage), widget selection overlap with best coordinate variant
+  - som_overlay: element selection accuracy, overlap with coordinate variants
+  - Key question: does action_list select the **same widgets** as the best coordinate variant?
+    If yes + better quality metrics → action-list is strictly superior
+  - Key question: does action_list achieve higher semantic_widget_rate and type_text coverage?
+    If yes → coordinate prediction introduces noise that degrades action selection
+- [ ] 10.6 Generate per-screenshot difficulty report:
   - Rank screenshots by no_match rate across all prompts
   - Identify "hard" screenshots: high no_match across all prompts (structural issues)
   - Identify "prompt-sensitive" screenshots: high variance across prompts (improvement opportunity)
   - Per-element type analysis: match rate by widget class (Button, ImageButton, EditText, etc.)
   - Per-activity analysis: match rate by activity name
-- [ ] 10.6 Generate visualizations:
+- [ ] 10.7 Generate visualizations:
   - Top-10 no_match cases: annotated screenshots with click point, nearest widget bounds, classification label
   - Heatmap of no_match coordinates overlaid on generic 1080×1920 screen template
   - Bar charts: per-prompt match rate with 95% CI error bars
-- [ ] 10.7 Generate final summary report (`results/005_final_report.md`):
+- [ ] 10.8 Generate final summary report (`results/005_final_report.md`):
   - Executive summary: best prompt, expected no_match reduction, quality score
   - Recommendation for APE Java prompt update (ready-to-port prompt text)
   - Data-driven input for Phase A' (which APKs to re-run, what logging to add)
@@ -504,10 +531,9 @@ approach.
 
 - [ ] 11.1 Update `docs/20260318_aperv_coordenadas_gh46.md` with Phase B results
 - [ ] 11.2 Create optimized prompt file for APE Java implementation (ready to port):
-  - System message text
-  - Tool schema
-  - Widget list format
-  - Recommended temperature
+  - If best coordinate variant ≥ 75% match + quality ≥ 0.70: port prompt (system message, tool schema, widget list format, temperature)
+  - If best coordinate variant < 65%: create architecture change recommendation (action-list/SoM) instead of prompt file
+  - If 65-75%: port prompt but flag that timing gap (gh46) should be prioritized
 - [ ] 11.3 Document lessons learned and parameter recommendations
 - [ ] 11.4 Plan Phase A'/C adjustments based on Phase B findings:
   - If `stale_model` is dominant no_match cause: prioritize timing gap fix

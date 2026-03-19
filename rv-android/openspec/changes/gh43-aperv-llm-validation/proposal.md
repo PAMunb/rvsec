@@ -39,8 +39,10 @@ normalized → device pixels), introducing error accumulation.
   investment (~1-1.5h SGLang)
 - **smart_resize(factor=32)**: Qwen3-VL-optimized image preprocessing (patch_size=16 ×
   merge_size=2), replacing generic max-edge resize if pre-validation confirms improvement
-- **7 prompt variants** compared on match rate, action quality, token efficiency, and latency
-  (6 coordinate-based + 1 SoM fallback for comparison)
+- **8 prompt variants** compared on match rate, action quality, token efficiency, and latency
+  (6 coordinate-based in main statistical comparison + 1 SoM + 1 action-list as separate analyses;
+  SoM and action-list use different action spaces — element_id vs x,y — and are not directly
+  comparable via McNemar with coordinate-based variants)
 - **No-match taxonomy** with 7 classification categories (adds `stale_model` for timing gap)
 - **Coordinate space analysis**: documents APE-RV's unique 3-space pipeline and 999 vs 1000
   normalization asymmetry
@@ -68,6 +70,6 @@ _(none — standalone module with no changes to existing specs)_
 | **Dependencies** | openai, Pillow, pydantic, rich, defusedxml |
 | **External systems** | SGLang server (Qwen3-VL-4B at `http://192.168.0.36:30000/v1`) |
 | **Data** | 468 screenshots in `/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/` |
-| **Compute** | ~1-1.5h pre-validation (Group 0.5) + ~3.2h full evaluation (Groups 7-9) |
+| **Compute** | ~1-1.5h pre-validation (Group 0.5) + ~3.7h full evaluation (Groups 7-9) |
 | **Downstream** | Findings feed into calibration plan (D4) and APE Java prompt optimization |
 | **Related FRs** | Supports FR21-FR32 (rv-agent) indirectly via LLM pipeline understanding |
