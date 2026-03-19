@@ -87,7 +87,7 @@ coordinate normalization, action matching). Those run in the real APE Java code.
 ### APE Java: Temporary branch `gh43-prompt-variants`
 
 6 coordinate-based prompt variants implemented as Java string constants in `ApePromptBuilder`.
-The variant is selected via a configuration parameter (e.g., `ape.prompt.variant=compact_v1`).
+The variant is selected via a configuration parameter (e.g., `ape.llm.prompt_variant=compact_v1`).
 Enhanced telemetry in `LlmRouter` logs no-match details for post-hoc analysis.
 
 This branch is NOT merged to APE master. Only the winning variant is ported after validation.
@@ -120,8 +120,10 @@ This branch is NOT merged to APE master. Only the winning variant is ported afte
 }
 ```
 
-The `reasoning` field is optional. **Validation gate**: before using reasoning in analysis,
-confirm `ape_reasoning` match rate is within ±2pp of `ape_current` on 50 screenshots.
+The `reasoning` field is optional. **Validation gate**: since both `ape_current` and
+`ape_reasoning` run as full rv-experiment variants, validation happens by comparing their
+coverage results. If `ape_reasoning` is within ±2pp of `ape_current` on method coverage
+and match rate, reasoning texts are safe to use for no-match analysis.
 
 ### Evaluation Methodology
 

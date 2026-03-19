@@ -79,6 +79,6 @@ _(none — standalone analysis module with no changes to existing specs)_
 | **Dependencies** | openai, Pillow, pydantic, rich (Python); APE Java repo (temporary branch) |
 | **External systems** | SGLang server (pre-validation), rv-experiment + emulator (prompt comparison) |
 | **Data** | 468 screenshots for pre-validation; 10 instrumented APKs for rv-experiment |
-| **Compute** | ~7h pre-validation (Group 0.5, per-widget grounding) + ~9h rv-experiment (6 variants × 10 APKs × 3 reps × 2.5 min) |
+| **Compute** | ~4-11h pre-validation (Group 0.5, per-widget grounding) + ~9h rv-experiment (6 variants × 10 APKs × 3 reps × 2.5 min) |
 | **Downstream** | Findings feed into calibration plan (D4) and APE Java prompt optimization |
 | **Related FRs** | Supports FR21-FR32 (rv-agent) indirectly via LLM pipeline understanding |

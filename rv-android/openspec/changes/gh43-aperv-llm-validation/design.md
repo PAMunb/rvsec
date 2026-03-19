@@ -22,7 +22,8 @@ validation.
 variants offline against static screenshots. This approach was abandoned because offline match rate
 does not capture what matters — real exploration coverage. Instead, prompt variants are implemented
 directly in the APE Java codebase (temporary branch `gh43-prompt-variants`, NOT merged to master),
-and tested via `rv-experiment` on 10 real instrumented APKs with 2-3 min timeout each. The Python
+and tested via `rv-experiment` on 10 real instrumented APKs with 2-3 min timeout each. APE Java
+commit: `b2852dd` (master). The Python
 module becomes an **analysis toolkit** that parses rv-experiment output (coverage CSVs, telemetry
 logs) and produces statistical reports. Pre-validation (pure grounding accuracy) remains in Python
 as a separate track using SGLang directly.
@@ -640,12 +641,16 @@ graph LR
 
 ### Reasoning Field Validation Gate
 
-Before using `reasoning` in analysis, validate it does not alter LLM behavior:
+Before using `reasoning` texts for no-match analysis, validate that adding the reasoning
+field to the tool schema does not alter LLM behavior. Since both `ape_current` and
+`ape_reasoning` are tested as full rv-experiment variants (Group 2), validation happens
+naturally by comparing their coverage results:
 
-1. Run 50 screenshots x `ape_current` (no reasoning) and `ape_reasoning` (with reasoning)
-2. Compare coordinates: must be identical in >= 95% of cases
-3. Compare match rate: `ape_reasoning` within +/- 2pp of `ape_current`
-4. If validation fails: report as finding, proceed with `ape_current` as baseline
+1. Compare method coverage: `ape_reasoning` within ±2pp of `ape_current` across 10 APKs
+2. Compare match rate (from telemetry): within ±2pp
+3. If validation passes: use reasoning texts from `ape_reasoning` runs for no-match analysis
+4. If validation fails: report as finding, use only `ape_current` as baseline, do not use
+   reasoning texts for classification
 
 ### APE Java Changes (branch gh43-prompt-variants)
 

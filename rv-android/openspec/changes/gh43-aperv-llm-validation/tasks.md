@@ -52,7 +52,7 @@ APE Java commit: `b2852dd` (master)
   - Variants: ape_current (existing), ape_reasoning (same + reasoning in schema), compact_v1 (minimal ~100 tokens), rvsmart_v13 (dialog handling, RVSmart format), rvsmart_v17 (6-step reasoning, MOP tags), visual_only (no widget list)
 - [ ] 0.3 Add enhanced telemetry to `LlmRouter.java`:
   - Log per-call: variant name, qwen coords, pixel coords, matched/no_match, nearest widget class, distance to nearest, widget count, activity name
-  - Format: `[APE-RV-TELEMETRY] variant=X call=N qwen=(x,y) pixel=(px,py) result=matched|no_match nearest_class=Button nearest_dist=12.5 widgets=8 activity=MainActivity`
+  - Format: `[APE-LLM-TEL] variant=X call=N qwen=(x,y) pixel=(px,py) result=matched|no_match nearest_class=Button nearest_dist=12.5 widgets=8 activity=MainActivity`
   - This structured log line enables Python analysis of no-match causes
 - [ ] 0.4 For ape_reasoning variant: add optional `reasoning` string parameter to tool schema
 - [ ] 0.5 For visual_only variant: skip widget list in user text (send only screenshot)
@@ -126,7 +126,7 @@ uiautomator_parser.py, sglang_client.py (all [x] from old Groups 1, 2A, 2B, 2C).
 - [ ] 1.5 Restructure module: delete `pipeline/prompt_builder.py`, `pipeline/tool_call_parser.py`, `pipeline/action_mapper.py`; delete `prompts/` directory contents (keep `__init__.py`); delete `evaluation/` directory contents (keep `__init__.py`); delete obsolete tests for deleted modules
 - [ ] 1.6 Create `analysis/__init__.py`
 - [ ] 1.7 Create `analysis/telemetry_parser.py`:
-  - Parse `[APE-RV-TELEMETRY]` lines from logcat files
+  - Parse `[APE-LLM-TEL]` lines from logcat files
   - Extract: variant, call number, qwen coords, pixel coords, result, nearest widget class, distance, widget count, activity
   - Return list of `TelemetryEntry` dataclasses
 - [ ] 1.8 Create `analysis/results_parser.py`:
