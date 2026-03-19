@@ -161,12 +161,19 @@ validation isolates the image processing variable before prompt variant investme
 LLM call (`"Click on the element labeled [text]"`). This isolates coordinate precision from
 action choice, matching the rvsec-vision-llm benchmark methodology (57.7% hit rate).
 
-**Widget selection**: All visible clickable widgets with text/content_desc — no artificial cap.
-Quantity varies naturally per screen (2-20 widgets). Screens with few widgets produce fewer
-calls; complex screens produce more. Only `click` actions (type_text uses same coordinates).
+**Widget selection**: All visible widgets with `text` or `content_desc` that are either
+`clickable=true` OR belong to `ALWAYS_CLICKABLE_TYPES` (tabs, spinners, navigation items,
+FABs, chips — widgets that UIAutomator reports as non-clickable but are inherently
+interactive). Capped at 20 widgets per screenshot to avoid excessive calls on complex screens.
+Only `click` actions (type_text uses same coordinates).
 
-**Estimated time**: ~2-20 widgets/screen (avg ~8) × 468 screenshots × 3 modes × 2 temperatures
-≈ 8,000-22,000 calls (~4-11h, estimate ~7h for avg 5 widgets/screen).
+`ALWAYS_CLICKABLE_TYPES` (unified from rv-screen-parser + rvsmart): Spinner, AppCompatSpinner,
+TabLayout, TabView, BottomNavigationItemView, NavigationBarItemView, Chip,
+FloatingActionButton, ActionMenuItemView, MenuItemView, OverflowMenuButton, and their
+fully-qualified variants.
+
+**Estimated time**: ~2-20 widgets/screen (avg ~8, cap 20) × 468 screenshots × 3 modes ×
+2 temperatures ≈ 8,000-22,000 calls (~4-11h).
 Execution window: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h available).
 
 **Output**: `results/000_prevalidation_report.md` — narrative report following P2

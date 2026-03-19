@@ -40,6 +40,33 @@ INPUT_CLASS_NAMES = frozenset({
     "androidx.appcompat.widget.SearchView",
 })
 
+# Widgets that report clickable=false in UIAutomator but are inherently interactive.
+# Unified from rv-screen-parser ALWAYS_CLICKABLE_TYPES + rvsmart ALWAYS_CLICKABLE_WIDGETS.
+ALWAYS_CLICKABLE_TYPES = frozenset({
+    # Tabs
+    "ActionBar$Tab", "Tab", "TabLayout", "TabView",
+    "com.google.android.material.tabs.TabItem",
+    "com.google.android.material.tabs.TabLayout$TabView",
+    # Navigation
+    "NavigationBarView", "BottomNavigationItemView", "NavigationRailView",
+    "com.google.android.material.bottomnavigation.BottomNavigationItemView",
+    "com.google.android.material.navigation.NavigationBarItemView",
+    # Menu
+    "ActionMenuItemView", "MenuItemView", "OverflowMenuButton",
+    "androidx.appcompat.widget.ActionMenuView",
+    "androidx.appcompat.view.menu.ActionMenuItemView",
+    # Material
+    "Chip", "com.google.android.material.chip.Chip",
+    "FloatingActionButton",
+    "com.google.android.material.floatingactionbutton.FloatingActionButton",
+    # Spinner (explicitly clickable=false in UIAutomator — from rvsmart)
+    "Spinner", "AppCompatSpinner",
+    "android.widget.Spinner", "androidx.appcompat.widget.AppCompatSpinner",
+})
+
+# --- Pre-validation ---
+MAX_WIDGETS_PER_SCREENSHOT = 20  # cap for pre-validation to avoid excessive calls on complex screens
+
 CONTAINER_CLASS_NAMES = frozenset({
     "android.widget.FrameLayout",
     "android.widget.LinearLayout",

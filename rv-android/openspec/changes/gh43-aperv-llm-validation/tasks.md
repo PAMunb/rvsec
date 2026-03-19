@@ -73,14 +73,15 @@ approach.
 ~100% with coordinates. This phase isolates the image processing variable.
 
 **Execution window**: 2026-03-19 13:30 to 2026-03-20 09:00 (~20h SGLang available).
-**Scope**: Per-widget — each visible clickable widget with text/content_desc gets a separate
-LLM call (`"Click on the element labeled [text]"`). No artificial cap — quantity varies
-naturally per screen (2-20 widgets). Only `click` actions.
-**Estimated time**: avg ~8 widgets/screen × 468 screenshots × 3 modes × 2 temps ≈ 8k-22k calls (~4-11h).
+**Scope**: Per-widget — each visible widget with text/content_desc that is `clickable=true` OR
+belongs to ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips). Cap: 20 widgets
+per screenshot. Only `click` actions.
+**Estimated time**: avg ~8 widgets/screen (cap 20) × 468 screenshots × 3 modes × 2 temps ≈ 8k-22k calls (~4-11h).
 
 - [ ] 0.5.1 Implement lightweight pre-validation script (standalone, not part of the module):
   - Input: 468 screenshots + UIAutomator XML pairs
-  - For each widget with text label: prompt `"Click on the element labeled [text]"` + screenshot
+  - Widget selection: visible, has text/content_desc, clickable=true OR class in ALWAYS_CLICKABLE_TYPES (tabs, spinners, navigation, FABs, chips), cap 20 per screenshot
+  - For each selected widget: prompt `"Click on the element labeled [text]"` + screenshot
   - Tool schema: `click(x: int, y: int)` with coordinates in [0, 1000) range
   - NO coordinates in prompt (pure visual grounding)
   - Output: CSV with (screenshot, widget_text, widget_bounds, mode, temperature, predicted_x, predicted_y, hit, distance_to_center)
