@@ -205,13 +205,17 @@ See `design.md` Section "File Inventory" for full directory tree. Key files:
 ## Execution Order
 
 ```
-=== Track A: APE Java Prompt Variants (Group 0) ===
+=== Track A: APE Java (Group 0, two phases) ===
 
-Group 0: APE Java (temporary branch gh43-prompt-variants)
-  Create branch from APE master. Add 6 prompt variant string constants in
-  ApePromptBuilder. Add variant selection via config parameter. Add enhanced
-  telemetry in LlmRouter (no-match details). Verify each variant produces
-  valid prompts via unit test.
+Group 0A: Qwen3.5-4B Migration (master)
+  Adapt SglangClient, ToolCallParser, ImageProcessor, ApePromptBuilder
+  for Qwen3.5-4B (no thinking, raw mode, qwen3_coder parser quirks).
+  Commit to master. Rebuild Docker image.
+
+Group 0B: Prompt Variants (branch gh43-prompt-variants, from 0A commit)
+  Add 6 prompt variant string constants in ApePromptBuilder. Add variant
+  selection via config parameter. Add enhanced telemetry in LlmRouter.
+  NOT merged to master — exploratory only.
 
 === Track B: Python Pre-validation (Group 0.5, independent) ===
 
@@ -277,13 +281,23 @@ Quantitative thresholds for interpreting results (based on real coverage, not ma
 
 ## Acceptance Criteria
 
-### Track A: APE Java (Group 0)
+### Track A Phase 1: Qwen3.5-4B Migration (Group 0A, master)
 
-- [ ] Temporary branch `gh43-prompt-variants` created from APE master
+- [ ] SglangClient sends `enable_thinking: false` via chat_template_kwargs
+- [ ] ToolCallParser handles Qwen3.5 `"x": "498, 549"` format
+- [ ] ImageProcessor supports raw mode (no resize)
+- [ ] ApePromptBuilder uses raw image dimensions in system prompt
+- [ ] aperv-tool config updated for Qwen3.5
+- [ ] Smoke test with cryptoapp passes
+- [x] docker-compose.sglang.yml pinned to v0.5.9
+
+### Track A Phase 2: Prompt Variants (Group 0B, branch)
+
+- [ ] Branch `gh43-prompt-variants` created from 0A commit
 - [ ] 6 prompt variants as string constants in `ApePromptBuilder`
 - [ ] Variant selectable via configuration parameter
-- [ ] Enhanced telemetry in `LlmRouter` (no-match coordinates, distance, classification)
-- [ ] Each variant produces valid prompts (verified by unit test)
+- [ ] Enhanced telemetry in `LlmRouter`
+- [ ] Smoke test with cryptoapp for each variant
 
 ### Track B: Pre-validation (Group 0.5)
 

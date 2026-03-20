@@ -6,12 +6,15 @@
 
   FOUR PARALLEL TRACKS:
 
-  TRACK A — APE Java Prompt Variants (Group 0)
+  TRACK A — APE Java (Group 0, two phases)
   ──────────────────────────────────────────────
-  Create branch gh43-prompt-variants in APE repo.
-  Implement 6 prompt variants as Java string constants in ApePromptBuilder.
-  Add structured telemetry to LlmRouter.
-  Build + smoke test with cryptoapp.
+  Phase A1: Change on master — migrate from Qwen3-VL to Qwen3.5-4B.
+    Adapt SglangClient, ToolCallParser, ApePromptBuilder for Qwen3.5.
+    Add enable_thinking=false, update tool-call-parser config.
+    This is a real fix (SGLang v0.5.9 broke Qwen3-VL).
+  Phase A2: Exploratory branch gh43-prompt-variants (from A1 commit).
+    6 prompt variants + enhanced telemetry. NOT merged to master.
+    Only the winning prompt gets ported via a separate change.
 
   TRACK B — Pre-Validation (Group 0.5, requires SGLang)
   ──────────────────────────────────────────────────────
@@ -40,27 +43,53 @@
     Group 3 ───────────────────────────────────→ Group 4 (conclusions)
 -->
 
-## 0. APE Java Prompt Variants (branch gh43-prompt-variants)
+## 0A. APE Java — Qwen3.5-4B Migration (master)
 
-APE repo: `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape`
-APE Java commit: `b2852dd` (master)
+APE repo: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape`
+APE Java commit: `a4454c6` (master, includes docker-compose.sglang.yml)
 
-- [ ] 0.1 Create branch `gh43-prompt-variants` from master (commit b2852dd) in APE repo
-- [ ] 0.2 Add prompt variant selection to `ApePromptBuilder.java`:
+SGLang v0.5.9 broke multimodal for Qwen3-VL-4B-Instruct. This phase migrates APE to
+Qwen3.5-4B. The exp3 results (37.3% no_match, LLM worse than baseline) are likely
+contaminated by this regression — the model was receiving corrupted images.
+
+- [ ] 0A.1 Adapt `SglangClient.java` for Qwen3.5-4B:
+  - Add `chat_template_kwargs: {"enable_thinking": false}` to request body
+  - Add config key `ape.llmEnableThinking` (default: false)
+  - Update default model reference in comments/docs
+- [ ] 0A.2 Adapt `ToolCallParser.java` for Qwen3.5 coordinate format:
+  - Handle `"x": "498, 549"` (comma-separated string in x field)
+  - The `qwen3_coder` tool-call-parser in SGLang produces different JSON than `qwen`
+- [ ] 0A.3 Update `ImageProcessor.java`:
+  - Raw mode (no resize) outperformed max_edge by +12.8pp in pre-validation
+  - Add config key `ape.llmImageResize` (default: false for raw mode)
+  - When false, skip resize — send 1080x1920 JPEG directly
+- [ ] 0A.4 Update `ApePromptBuilder.java`:
+  - System prompt dimensions should match image: if raw, say "1080x1920"
+  - Coordinate conversion remains [0, 1000) normalized (same as Qwen3-VL)
+- [ ] 0A.5 Update `aperv-tool` Python variant config:
+  - New config keys for Qwen3.5: `ape.llmEnableThinking=false`, `ape.llmImageResize=false`
+  - SGLang connection: same URL, different model loaded via compose
+- [ ] 0A.6 Build APE: compile new ape-rv.jar
+- [ ] 0A.7 Smoke test: run 1 APK (cryptoapp) with new model, verify tool calls work
+- [ ] 0A.8 Commit to master, push, rebuild Docker image
+
+## 0B. APE Java — Prompt Variants (branch gh43-prompt-variants)
+
+Create branch from 0A.8 commit (Qwen3.5-4B already working on master).
+This branch is exploratory — NOT merged to master.
+
+- [ ] 0B.1 Create branch `gh43-prompt-variants` from master
+- [ ] 0B.2 Add prompt variant selection to `ApePromptBuilder.java`:
   - Read system property `ape.llm.prompt_variant` (default: "ape_current")
   - Add 6 system message constants (keep `buildSystemMessage()` as ape_current baseline)
-  - Variants: ape_current (existing), ape_reasoning (same + reasoning in schema), compact_v1 (minimal ~100 tokens), rvsmart_v13 (dialog handling, RVSmart format), rvsmart_v17 (6-step reasoning, MOP tags), visual_only (no widget list)
-- [ ] 0.3 Add enhanced telemetry to `LlmRouter.java`:
+  - Variants: ape_current, ape_reasoning, compact_v1, rvsmart_v13, rvsmart_v17, visual_only
+- [ ] 0B.3 Add enhanced telemetry to `LlmRouter.java`:
   - Log per-call: variant name, qwen coords, pixel coords, matched/no_match, nearest widget class, distance to nearest, widget count, activity name
   - Format: `[APE-LLM-TEL] variant=X call=N qwen=(x,y) pixel=(px,py) result=matched|no_match nearest_class=Button nearest_dist=12.5 widgets=8 activity=MainActivity`
-  - This structured log line enables Python analysis of no-match causes
-- [ ] 0.4 For ape_reasoning variant: add optional `reasoning` string parameter to tool schema
-- [ ] 0.5 For visual_only variant: skip widget list in user text (send only screenshot)
-- [ ] 0.6 Build APE: `./gradlew assembleDebug` or equivalent
-- [ ] 0.7 Test with 1 APK (cryptoapp) to verify variant selection works:
-  - `rv-experiment run --tools aperv --apks-dir apks_examples --timeout 60 --tool-args "prompt_variant=compact_v1"`
-  - Verify telemetry logs contain variant name
-- [ ] 0.8 Note: Do NOT commit to APE master. Branch is temporary for this experiment.
+- [ ] 0B.4 For ape_reasoning variant: add optional `reasoning` string parameter to tool schema
+- [ ] 0B.5 For visual_only variant: skip widget list in user text (send only screenshot)
+- [ ] 0B.6 Build APE + smoke test with cryptoapp
+- [ ] 0B.7 Note: Do NOT merge to master. Only the winning prompt gets ported via a separate change.
 
 ## 0.5. Pre-Validation: Pure Grounding (requires SGLang)
 
@@ -99,7 +128,7 @@ Cap: 20 widgets per screenshot. Only `click` actions.
   - 100 screenshots (8 apps): 66.2% center hit, 84.3% bounds hit, 85.5% tool call rate
   - Cryptoapp (25 screenshots): tabs 93.8%, RadioButton 77.8%, Spinner 7.7% center hit
   - Latency: ~1.9s average
-- [ ] 0.5.5 Run full pre-validation (468 screenshots, raw mode, temp=0.7):
+- [x] 0.5.5 Run full pre-validation (468 screenshots, raw mode, temp=0.7):
   ```bash
   uv run python modules/aperv-llm-validation/scripts/prevalidation.py \
     --screenshots-dir /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots \
@@ -107,7 +136,7 @@ Cap: 20 widgets per screenshot. Only `click` actions.
     --modes raw --temperatures 0.7 \
     --output-dir results/prevalidation --cache-dir .cache/prevalidation
   ```
-- [ ] 0.5.6 Generate pre-validation report (`results/000_prevalidation_report.md`):
+- [x] 0.5.6 Generate pre-validation report (`000_prevalidation_report.md`):
   - Narrative report following P2
   - center_hit and bounds_hit rate (global + per app + per widget class)
   - Per widget class breakdown (Button, EditText, CheckBox, Spinner, Tab, RadioButton, etc.)
