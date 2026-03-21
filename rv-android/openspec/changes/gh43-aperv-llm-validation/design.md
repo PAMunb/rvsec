@@ -128,23 +128,27 @@ graph TB
 Before running prompt variants, a grounding-only test establishes the VLM's baseline
 coordinate accuracy on raw screenshots.
 
-**Model change (2026-03-19)**: SGLang v0.5.9 has a regression that breaks multimodal
-processing for Qwen3-VL-4B-Instruct (images arrive corrupted to the model). The replacement
-model is **Qwen3.5-4B** (unified multimodal, no "-VL" suffix) with thinking mode disabled
-via `chat_template_kwargs: {"enable_thinking": false}`. Exploratory testing validated
-66.2% center hit rate on 100 screenshots (vs 57.7% for Qwen3-VL in December). See
-`exploration-sglang-qwen35.md` for the full investigation and smoke test results.
+**Model pivot (2026-03-20)**: SGLang v0.5.7-v0.5.9 broke Qwen3-VL multimodal
+(sgl-project/sglang#19513). Qwen3.5-4B was attempted as replacement but abandoned due to
+unacceptable latency (~4.7s/call vs ~1.7s — raw mode images produce 2.7x more visual
+tokens). Solution: pin SGLang to **v0.5.6.post2** (last working release for Qwen3-VL).
+See `exploration-sglang-qwen35.md` Sections 10-11 for full investigation.
 
-**Image mode decision (2026-03-19)**: A 3-mode comparison on the cryptoapp dataset showed
-raw mode (no resize) outperforms both max_edge (+12.8pp) and smart_resize (+4pp). Raw mode
-also simplifies the pipeline: no image preprocessing, single-step coordinate conversion
-(`pixel = int((qwen / 1000) * device_dim)`). The 3-space coordinate problem identified in
-the SOTA analysis is eliminated because there is no resized-image space.
+**Coordinate space finding (2026-03-20)**: Qwen3-VL **always returns [0, 1000) normalized
+coordinates** regardless of prompt description or image size. Five configurations tested
+(raw vs resized × pixel vs normalized vs bare tool description) — all returned identical
+coordinates. The "3-space coordinate problem" from the SOTA analysis does not exist in
+practice. The 2-step conversion `qwen→resized→device` is mathematically equivalent to
+1-step `qwen→device`.
 
-**Design**: For each widget with a text label in the 468 UIAutomator dumps, send the raw
-screenshot (1080x1920, JPEG quality 80) with a prompt: `"The screen is 1080x1920 pixels.
-Click on the element labeled [text]"` (NO widget coordinates in prompt). The LLM returns
-coordinates via `android_click(x, y)` tool.
+**Image mode**: max_edge (562x1000) — the APE-RV default for Qwen3-VL. Raw mode was
+better for Qwen3.5-4B but is unnecessary for Qwen3-VL since the model ignores image
+dimensions in coordinate output, and max_edge has 2.7x fewer visual tokens → faster.
+
+**Design**: For each widget with a text label in the 468 UIAutomator dumps, send the
+resized screenshot (max_edge 1000px, JPEG quality 80) with a prompt: `"Click on the
+element labeled [text]"` (NO widget coordinates in prompt). The LLM returns coordinates
+via `android_click(x, y)` tool.
 
 **Hit definition** (two metrics reported):
 - **bounds_hit**: predicted pixel coordinates fall within the widget's bounds (strict,
@@ -152,24 +156,17 @@ coordinates via `android_click(x, y)` tool.
 - **center_hit**: predicted pixel coordinates within 50px Euclidean distance of widget center
   (matches rvsec-vision-llm benchmark — the 57.7% baseline used this criterion)
 
-**Prompt and tool schema**:
-- System message includes device dimensions: `"Screen is 1080x1920 pixels"`
-- Tool name: `android_click`
-- Tool description: `"Click at pixel coordinates. Screen is 1080x1920. x: 0-1080, y: 0-1920"`
-- Qwen3.5-4B returns normalized [0, 1000) coordinates (same as Qwen3-VL, confirmed empirically)
-- `chat_template_kwargs: {"enable_thinking": false}` sent via OpenAI SDK `extra_body`
+**Coordinate conversion** (2-step, equivalent to 1-step):
+`img_px = int((qwen / 1000) * img_dim)` then `dev_px = int((img_px / img_dim) * device_dim)`.
+Mathematically collapses to `dev_px = int((qwen / 1000) * device_dim)` (≤1px rounding error).
 
-**Coordinate conversion** (single-step):
-`pixel = int((qwen / 1000) * device_dim)` — identical to rv-agent's `ActionNormalizer`.
-No 2-step conversion needed because there is no resized-image space.
+**Parser**: Qwen3-VL produces multiple malformed JSON formats in `<tool_call>` XML tags:
+`"x": [N, M]` (array), `"x": N, M` (missing y key), `"x":": N, M` (stray `:`),
+`"x": = N, M` (stray `=`), truncated JSON (missing `}`). The `_fix_malformed_json` helper
+handles all formats. Without it, tool call rate drops from ~97% to ~7%.
 
-**Parser quirk**: Qwen3.5-4B sometimes returns coordinates as `"x": "498, 549"` (both
-values comma-separated in the x field). The `_extract_xy` helper handles this format.
-Without this fix, tool call rate drops from 85% to 30%.
-
-**Temperature**: 0.7 (Qwen-recommended for non-thinking mode). The December benchmark
-showed configuration has minimal impact (~0.5% variance) for Qwen3-VL. For Qwen3.5-4B,
-Qwen recommends temp=0.7, top_p=0.8, top_k=20 in non-thinking mode.
+**Temperature**: 0.3 (APE default). Pre-validation showed 69.3% center hit at temp=0.3
+vs 57.7% at temp=0.01 (December baseline). Higher temperature improves grounding accuracy.
 
 **Metrics**: bounds_hit rate and center_hit rate (global + per app + per widget class), mean
 distance to widget center for misses, tool call success rate, latency.

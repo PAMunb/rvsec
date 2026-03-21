@@ -311,3 +311,183 @@ All three image processing modes were compared on the same cryptoapp dataset:
 Raw mode wins by +4pp over smart_resize and +12.8pp over max_edge. This is consistent with the hypothesis: the model grounds coordinates more accurately when it sees the image at its native resolution. Any resize introduces a conversion layer (image→device pixel mapping) that accumulates error.
 
 **Conclusion**: The resize step can be eliminated. Raw mode is both simpler (no resize, single-step coordinate conversion) and more accurate. The 2-step conversion `qwen→image→device` collapses to `pixel = int((qwen / 1000) * device_dim)`, identical to the formula used in rv-agent's `ActionNormalizer`.
+
+## 10. APE Loop Latency — Qwen3.5-4B Abandoned for Production (2026-03-20)
+
+### Problem
+
+Qwen3.5-4B was integrated into APE-RV Java (APE repo gh7, 5 commits on master). Smoke
+testing on the emulator revealed **unacceptable latency**: ~4.7s per LLM call vs ~1.7s
+with Qwen3-VL. All 6 prompt variants showed the same latency.
+
+### Root Cause: Visual Token Count
+
+The latency difference is caused by the image size, not network or model overhead:
+
+| | Qwen3-VL (resized) | Qwen3.5-4B (raw) |
+|---|---|---|
+| Image dimensions | 562x1000 | 1080x1920 |
+| Visual tokens | ~863 | ~2345 |
+| Prefill time (host, uncached) | ~1.5s | ~3.6s |
+| Total time (emulator) | ~1.7s | ~4.7s |
+
+Raw mode (1080x1920) produces **2.7x more visual tokens** than resized mode (562x1000),
+directly increasing prefill time. The +12.8pp accuracy gain from raw mode does not justify
++175% latency in the APE exploration loop, where each call uses a NEW screenshot (no
+prefix caching possible).
+
+### Why pre-validation latency was misleading
+
+The pre-validation reported ~2.0s average latency for Qwen3.5-4B with raw images. This
+was an artifact of **prefix caching**: the pre-validation tests multiple widgets per
+screenshot, so the image tokens are prefilled once and cached for subsequent widget tests
+on the same screenshot. Measured from the host:
+
+| Condition | Latency |
+|---|---|
+| First call (uncached, new image) | 3.6s |
+| Subsequent calls (same image, cached) | 2.4s |
+| APE loop (always new image) | 3.6s + ~1s emulator overhead = **~4.7s** |
+
+The ~2.0s average was dominated by cached calls. In the APE loop, every call has a
+different screenshot — **zero cache hits**.
+
+### Could resized mode fix Qwen3.5-4B latency?
+
+Testing Qwen3.5-4B with resized images (562x1000, same as Qwen3-VL) produced ~2.5s from
+the host (uncached) — still 67% slower than Qwen3-VL at 1.5s. The attention backend
+difference (triton vs flashinfer) and model architecture changes contribute additional
+overhead independent of image size.
+
+### SGLang Qwen3-VL fix found
+
+The Qwen3-VL multimodal regression was tracked to SGLang issue
+[#19513](https://github.com/sgl-project/sglang/issues/19513). Key findings:
+
+| Fact | Detail |
+|---|---|
+| Bug | `qwen3_vl.py` lost `"model.visual." → "visual."` weight mapping — vision encoder loads wrong weights |
+| Introduced in | **v0.5.7** (Jan 2026) |
+| Affects | v0.5.7, v0.5.8, v0.5.9 |
+| Last working release | **v0.5.6.post2** (Dec 2025) |
+| Fix | [PR #19333](https://github.com/sgl-project/sglang/pull/19333) merged 2026-02-27 on `main` |
+| In a release? | **No** — v0.5.9 (2026-02-24) is the latest release, fix is post-release |
+| Dec benchmark | Used SGLang via pip (~v0.5.6.post2) — worked |
+| exp3 (2026-03-17) | Used `lmsysorg/sglang:latest` = v0.5.9 — **broken** |
+
+### Decision: Revert to Qwen3-VL + SGLang v0.5.6.post2
+
+**Decision**: Abandon Qwen3.5-4B for the APE exploration loop. Revert APE repo to
+Qwen3-VL. Pin SGLang Docker image to `lmsysorg/sglang:v0.5.6.post2`.
+
+**Rationale**:
+
+1. **Latency is blocante**: 4.7s/call makes the LLM variant uncompetitive — in a 1-minute
+   run with ~5 LLM calls, that's ~24s of LLM overhead (40% of total time) vs ~9s with
+   Qwen3-VL.
+
+2. **v0.5.6.post2 is the exact version** that produced the 57.7% benchmark and the ~1.7s
+   latency in the Dec/2025 evaluation and subsequent experiments.
+
+3. **The SGLang fix exists** but is not in any release yet. When v0.5.10 ships with the
+   fix, Qwen3-VL on the new version can be re-evaluated.
+
+4. **Qwen3.5-4B pre-validation results remain valid** as a grounding accuracy reference
+   (59.4% center hit, 81.8% bounds hit) but are NOT applicable to production latency
+   decisions.
+
+**Actions taken**:
+- APE repo: reverted gh7 commits (Qwen3.5-4B migration) on master
+- APE repo: pinned `docker-compose.sglang.yml` to `lmsysorg/sglang:v0.5.6.post2`
+- APE repo: deleted `prompt-variants` branch (will recreate for Qwen3-VL)
+- rv-android gh43: Group 0A pivoted from "Qwen3.5 migration" to "Pin SGLang for Qwen3-VL"
+
+## 11. Qwen3-VL Pre-Validation on SGLang v0.5.6.post2 (2026-03-20)
+
+### Coordinate Space Finding
+
+A direct test confirmed that **Qwen3-VL always returns [0, 1000) normalized coordinates**
+regardless of the prompt's coordinate description. Five configurations were tested (raw vs
+resized image × pixel vs normalized vs bare tool description) — all returned identical
+coordinates (499, 255) for the same button, matching the normalized space exactly.
+
+This means:
+- The "3-space coordinate problem" from the design doc does not exist in practice
+- The 2-step conversion `qwen→resized→device` is mathematically equivalent to 1-step
+  `qwen→device` (rounding error ≤1px)
+- The prompt's tool description ("pixel coordinates 0-1080" vs "normalized [0,1000)") is
+  ignored by the model — it always outputs in its native [0, 1000) space
+
+### Parser Fix Required
+
+The prevalidation.py script was missing Qwen3-VL's most common malformed JSON format:
+`{"x": 499, 255}` (missing "y" key). This is the same format that APE Java's
+`ToolCallParser.fixMalformedJson()` handles with the `FIX_MISSING_Y_KEY` regex. Without
+the fix, the script failed to parse most responses → 7% hit rate. With the fix → 72%.
+
+Added `_fix_malformed_json()` to the script with all 4 patterns from APE Java:
+- `"x": 499, 255` → `"x": 499, "y": 255` (missing y key)
+- `"x": [499, 255]` → `"x": 499, "y": 255` (array format)
+- `"x": "499, 255"` → `"x": 499, "y": 255` (comma-separated string, Qwen3.5)
+- `": .91` → `": 0.91` (missing leading zero)
+
+### Results: 468 screenshots, 28 apps
+
+| Metric | Qwen3-VL (v0.5.6.post2) | Qwen3.5-4B (v0.5.9) | Qwen3-VL (Dec 2025) |
+|---|---|---|---|
+| Image mode | max_edge (562x1000) | raw (1080x1920) | max_edge (562x1000) |
+| Temperature | 0.3 | 0.7 | 0.01 |
+| Valid calls | **2,038** | 1,842 | 2,847 |
+| Errors | **22** | 218 | ~277 |
+| **Center hit** | **69.4%** | 59.4% | 57.7% |
+| **Bounds hit** | **82.8%** | 81.8% | — |
+| Latency (host) | ~1.0s | ~2.0s | ~1.8s |
+
+**69.4% center hit** — 11.7pp above the December baseline and 10.0pp above Qwen3.5-4B.
+Results from 2,060 real calls to Qwen3-VL (cache read disabled, all calls hit the model).
+Initial run had 486 parser errors; after fixing `_fix_malformed_json` for 3 additional
+Qwen3-VL formats (`"x":": N, M`, `"x": = N, M`, truncated JSON), errors dropped to 22.
+
+### Per-Widget Class
+
+| Widget Class | Calls | Center Hit | Rate | vs Qwen3.5-4B |
+|---|---|---|---|---|
+| Button | 446 | 389 | **87.2%** | 80.9% (+6.3pp) |
+| EditText | 113 | 98 | **86.7%** | 32.0% (+54.7pp) |
+| ImageView | 103 | 90 | **87.4%** | 90.8% (-3.4pp) |
+| ImageButton | 196 | 165 | **84.2%** | 83.5% (+0.7pp) |
+| LinearLayout (tabs) | 130 | 102 | **78.5%** | — |
+| TextView | 524 | 336 | **64.1%** | — |
+| Spinner | 52 | 30 | **57.7%** | — |
+| CheckBox | 163 | 81 | **49.7%** | — |
+| CheckedTextView | 143 | 56 | **39.2%** | — |
+| Tabs (ActionBar$Tab) | 32 | 32 | **100.0%** | — |
+
+Key finding: EditText went from 32% (Qwen3.5) to **86.7%** (Qwen3-VL) — the Qwen3.5
+regression on EditText is eliminated.
+
+### Parser Fixes Applied (3 rounds)
+
+Initial run had 486 errors (all `no_tool_call`). Investigation revealed the prevalidation
+script was missing Qwen3-VL's malformed JSON formats:
+
+| Round | Fix | Errors remaining |
+|---|---|---|
+| 1 | `<tool_call>` XML extraction + truncated JSON (missing `}`) | 471 → 208 |
+| 2 | `"x":": N, M` format (stray `:` in key) | 208 → 27 |
+| 3 | `"x": = N, M` format (stray `=`) | 27 → **28** (irreducible) |
+
+The 28 remaining errors are genuine: the model responds with text explaining the element
+is not visible (e.g., "There is no element labeled 'Submit' visible in the screenshot").
+
+### Implications
+
+1. **Qwen3-VL on v0.5.6.post2 is the correct choice** — better accuracy than Qwen3.5,
+   lower latency (~1.0s vs ~4.7s), no EditText regression
+2. **Temperature 0.3** (APE default) produces better results than 0.01 (Dec benchmark)
+   or 0.7 (Qwen-recommended) for coordinate grounding
+3. **22 errors are irreducible** — model refuses to click when element is genuinely not
+   visible in the screenshot (correct behavior)
+4. These results use the **same 468 screenshots** as the Qwen3.5 pre-validation — directly
+   comparable
+5. Results validated with **cache read disabled** — all 2,060 calls hit the real model

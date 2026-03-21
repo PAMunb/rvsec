@@ -1,25 +1,30 @@
 # gh43: APE-RV LLM Validation — Tasks
 
 <!-- ============================================================
-  EXECUTION PLAN (pivoted 2026-03-19)
+  EXECUTION PLAN (pivoted 2026-03-20)
   ============================================================
+
+  MODEL PIVOT (2026-03-20): Qwen3.5-4B abandoned due to unacceptable latency
+  (~4.7s/call vs ~1.7s for Qwen3-VL). Raw mode images produce 2.7x more visual
+  tokens. Reverted to Qwen3-VL + SGLang v0.5.6.post2 (last version with working
+  vision encoder). See exploration-sglang-qwen35.md Sections 10-11.
 
   FOUR PARALLEL TRACKS:
 
   TRACK A — APE Java (Group 0, two phases)
   ──────────────────────────────────────────────
-  Phase A1: Change on master — migrate from Qwen3-VL to Qwen3.5-4B.
-    Adapt SglangClient, ToolCallParser, ApePromptBuilder for Qwen3.5.
-    Add enable_thinking=false, update tool-call-parser config.
-    This is a real fix (SGLang v0.5.9 broke Qwen3-VL).
-  Phase A2: Exploratory branch gh43-prompt-variants (from A1 commit).
+  Phase A1: Pin SGLang v0.5.6.post2 on master for Qwen3-VL support.
+    No Java code changes needed (Qwen3-VL was the original model).
+    docker-compose.sglang.yml pinned. Already done.
+  Phase A2: Exploratory branch prompt-variants (from master).
     6 prompt variants + enhanced telemetry. NOT merged to master.
     Only the winning prompt gets ported via a separate change.
 
   TRACK B — Pre-Validation (Group 0.5, requires SGLang)
   ──────────────────────────────────────────────────────
   Independent of all other tracks.
-  Per-widget grounding test, raw mode (no resize), Qwen3.5-4B (no thinking), ~4-9k calls.
+  Per-widget grounding test, max_edge mode (562x1000), Qwen3-VL, temp=0.3.
+  COMPLETED: 69.3% center hit, 82.6% bounds hit on 468 screenshots.
 
   TRACK C — Python Analysis Module (Group 1)
   ──────────────────────────────────────────────
@@ -43,42 +48,32 @@
     Group 3 ───────────────────────────────────→ Group 4 (conclusions)
 -->
 
-## 0A. APE Java — Qwen3.5-4B Migration (master)
+## 0A. APE Java — Pin SGLang for Qwen3-VL (master)
 
 APE repo: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape`
-APE Java commit: `a4454c6` (master, includes docker-compose.sglang.yml)
+APE Java commit: `945a449` (master, docker-compose pinned to v0.5.6.post2)
 
-SGLang v0.5.9 broke multimodal for Qwen3-VL-4B-Instruct. This phase migrates APE to
-Qwen3.5-4B. The exp3 results (37.3% no_match, LLM worse than baseline) are likely
-contaminated by this regression — the model was receiving corrupted images.
+SGLang v0.5.7-v0.5.9 broke multimodal for Qwen3-VL (sgl-project/sglang#19513).
+Qwen3.5-4B was attempted as replacement but abandoned due to unacceptable latency
+(~4.7s/call vs ~1.7s, see exploration-sglang-qwen35.md Section 10).
+Solution: pin SGLang to v0.5.6.post2 (last working release for Qwen3-VL).
 
-- [ ] 0A.1 Adapt `SglangClient.java` for Qwen3.5-4B:
-  - Add `chat_template_kwargs: {"enable_thinking": false}` to request body
-  - Add config key `ape.llmEnableThinking` (default: false)
-  - Update default model reference in comments/docs
-- [ ] 0A.2 Adapt `ToolCallParser.java` for Qwen3.5 coordinate format:
-  - Handle `"x": "498, 549"` (comma-separated string in x field)
-  - The `qwen3_coder` tool-call-parser in SGLang produces different JSON than `qwen`
-- [ ] 0A.3 Update `ImageProcessor.java`:
-  - Raw mode (no resize) outperformed max_edge by +12.8pp in pre-validation
-  - Add config key `ape.llmImageResize` (default: false for raw mode)
-  - When false, skip resize — send 1080x1920 JPEG directly
-- [ ] 0A.4 Update `ApePromptBuilder.java`:
-  - System prompt dimensions should match image: if raw, say "1080x1920"
-  - Coordinate conversion remains [0, 1000) normalized (same as Qwen3-VL)
-- [ ] 0A.5 Update `aperv-tool` Python variant config:
-  - New config keys for Qwen3.5: `ape.llmEnableThinking=false`, `ape.llmImageResize=false`
-  - SGLang connection: same URL, different model loaded via compose
-- [ ] 0A.6 Build APE: compile new ape-rv.jar
-- [ ] 0A.7 Smoke test: run 1 APK (cryptoapp) with new model, verify tool calls work
-- [ ] 0A.8 Commit to master, push, rebuild Docker image
+No Java code changes needed — Qwen3-VL was the original model. The exp3 results
+(37.3% no_match) were contaminated by SGLang v0.5.9 regression (corrupted images).
 
-## 0B. APE Java — Prompt Variants (branch gh43-prompt-variants)
+- [x] 0A.1 Pin `docker-compose.sglang.yml` to `lmsysorg/sglang:v0.5.6.post2`
+- [x] 0A.2 Revert Qwen3.5-4B changes (APE gh7: 5 commits reverted)
+- [x] 0A.3 Validate Qwen3-VL works on v0.5.6.post2: multimodal test from host (~1.0s latency)
+- [x] 0A.4 Push to master
+- [ ] 0A.5 Smoke test on emulator: run cryptoapp with Qwen3-VL (pending — calibration using emulators)
+- [ ] 0A.6 Rebuild Docker image `phtcosta/rvandroid` with updated docker-compose
 
-Create branch from 0A.8 commit (Qwen3.5-4B already working on master).
+## 0B. APE Java — Prompt Variants (branch prompt-variants)
+
+Create branch from master (Qwen3-VL + SGLang v0.5.6.post2).
 This branch is exploratory — NOT merged to master.
 
-- [ ] 0B.1 Create branch `gh43-prompt-variants` from master
+- [ ] 0B.1 Create branch `prompt-variants` from master
 - [ ] 0B.2 Add prompt variant selection to `ApePromptBuilder.java`:
   - Read system property `ape.llm.prompt_variant` (default: "ape_current")
   - Add 6 system message constants (keep `buildSystemMessage()` as ape_current baseline)
@@ -94,57 +89,39 @@ This branch is exploratory — NOT merged to master.
 ## 0.5. Pre-Validation: Pure Grounding (requires SGLang)
 
 This phase tests the VLM's baseline coordinate grounding accuracy WITHOUT coordinates in the
-prompt, using raw screenshots (no resize) and the Qwen3.5-4B model.
+prompt. Two runs were performed: first with Qwen3.5-4B (abandoned), then with Qwen3-VL.
 
-**Model**: Qwen3.5-4B (without thinking). Replaces Qwen3-VL-4B-Instruct which broke on SGLang
-v0.5.9. See `exploration-sglang-qwen35.md` for investigation and validation.
-**Image mode**: raw (1080x1920, no resize). Outperformed max_edge by +12.8pp and smart_resize
-by +4pp on cryptoapp. Eliminates the 3-space coordinate problem.
-**Temperature**: 0.7 (Qwen-recommended for non-thinking mode).
+**Model**: Qwen3-VL-4B-Instruct on SGLang v0.5.6.post2.
+**Image mode**: max_edge (562x1000). Qwen3-VL always returns [0,1000) normalized coords
+regardless of image size or prompt description (confirmed empirically — see Section 11).
+**Temperature**: 0.3 (APE default, outperformed 0.01 and 0.7).
 **Scope**: Per-widget with text/content_desc, clickable=true OR ALWAYS_CLICKABLE_TYPES.
 Cap: 20 widgets per screenshot. Only `click` actions.
-**Estimated time**: avg ~8 widgets/screen × 468 screenshots × ~2s/call ≈ ~4k-9k calls (~2-5h).
 
-- [x] 0.5.1 Implement lightweight pre-validation script (`scripts/prevalidation.py`):
-  - Input: 468 screenshots + UIAutomator XML pairs
-  - Widget selection: visible, has text/content_desc, clickable=true OR ALWAYS_CLICKABLE_TYPES
-  - For Spinners/tabs with empty text: inherit text from first child TextView
-  - Prompt: `"Screen is 1080x1920 pixels. Click on the element labeled [text]"` (NO coords)
-  - Tool: `android_click(x, y)` with pixel ranges 0-1080, 0-1920
-  - Coordinate conversion: single-step `pixel = int((qwen / 1000) * device_dim)`
-  - `chat_template_kwargs: {"enable_thinking": false}` via OpenAI SDK `extra_body`
-  - Parser handles Qwen3.5 `"x": "498, 549"` format via `_extract_xy` helper
-  - Two hit metrics: `bounds_hit` (pixel in widget bounds) + `center_hit` (≤50px from center)
-  - Output: CSV + summary per widget class and per app
-  - Responses cached in SQLite for reproducibility (full response JSON)
-- [x] 0.5.2 Image processing modes implemented (all 3 modes exist in code):
-  - Mode A: max-edge 1000px + JPEG quality 80
-  - Mode B: smart_resize(factor=32)
-  - Mode C: raw (no resize) + JPEG quality 80
-- [x] 0.5.3 Exploratory 3-mode comparison on cryptoapp (25 screenshots):
-  - raw: 51.8% center hit | smart_resize: 47.8% | max_edge: 39.0%
-  - **Decision: use raw mode only** — simplest and most accurate
-- [x] 0.5.4 Smoke tests completed (see `exploration-sglang-qwen35.md`):
-  - 100 screenshots (8 apps): 66.2% center hit, 84.3% bounds hit, 85.5% tool call rate
-  - Cryptoapp (25 screenshots): tabs 93.8%, RadioButton 77.8%, Spinner 7.7% center hit
-  - Latency: ~1.9s average
-- [x] 0.5.5 Run full pre-validation (468 screenshots, raw mode, temp=0.7):
-  ```bash
-  uv run python modules/aperv-llm-validation/scripts/prevalidation.py \
-    --screenshots-dir /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots \
-    --model "Qwen/Qwen3.5-4B" --disable-thinking \
-    --modes raw --temperatures 0.7 \
-    --output-dir results/prevalidation --cache-dir .cache/prevalidation
-  ```
-- [x] 0.5.6 Generate pre-validation report (`000_prevalidation_report.md`):
-  - Narrative report following P2
-  - center_hit and bounds_hit rate (global + per app + per widget class)
-  - Per widget class breakdown (Button, EditText, CheckBox, Spinner, Tab, RadioButton, etc.)
-  - Distance distribution histogram
-  - Token consumption and latency statistics
-  - Per-app breakdown: which apps have best/worst grounding
-  - Tool call success rate and error analysis
-  - Comparison with Qwen3-VL December baseline (57.7%)
+### Qwen3.5-4B run (abandoned)
+
+- [x] 0.5.1 Implement lightweight pre-validation script (`scripts/prevalidation.py`)
+- [x] 0.5.2 Image processing modes implemented (max_edge, smart_resize, raw)
+- [x] 0.5.3 Exploratory 3-mode comparison on cryptoapp (raw > smart_resize > max_edge for Qwen3.5)
+- [x] 0.5.4 Smoke tests with Qwen3.5-4B (100 screenshots, 8 apps: 66.2% center hit)
+- [x] 0.5.5 Full pre-validation with Qwen3.5-4B (468 screenshots, raw, temp=0.7): 59.4% center hit
+- [x] 0.5.6 Generate pre-validation report (`000_prevalidation_report.md`) — Qwen3.5-4B results
+- [x] 0.5.7 **ABANDONED**: Qwen3.5-4B latency unacceptable for APE loop (~4.7s/call vs ~1.7s)
+
+### Qwen3-VL run (current)
+
+- [x] 0.5.8 Coordinate space finding: Qwen3-VL always returns [0,1000) normalized,
+  regardless of prompt description or image size (5 configurations tested, all identical)
+- [x] 0.5.9 Fix `_fix_malformed_json` in prevalidation.py for Qwen3-VL formats:
+  - `<tool_call>` XML extraction + truncated JSON (missing `}`)
+  - `"x":": N, M` format (stray `:` in key)
+  - `"x": = N, M` format (stray `=`)
+  - Errors: 486 → 28 (irreducible: model refuses when element not visible)
+- [x] 0.5.10 Run pre-validation with Qwen3-VL (468 screenshots, max_edge, temp=0.3):
+  - **69.4% center hit, 82.8% bounds hit** (2,038 valid calls, 22 errors)
+  - All 2,060 calls hit the real model (cache read disabled)
+  - Results: `results/prevalidation-qwen3vl/000_prevalidation_results.csv`
+- [ ] 0.5.11 Update pre-validation report for Qwen3-VL results (or generate new report)
 
 ## 1. Python Analysis Module
 

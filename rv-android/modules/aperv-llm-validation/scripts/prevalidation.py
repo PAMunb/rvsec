@@ -191,6 +191,35 @@ def _extract_xy(args: dict) -> tuple[int, int] | None:
     return None
 
 
+def _fix_malformed_json(s: str) -> str:
+    """Fix common Qwen3-VL JSON malformations (ported from APE Java ToolCallParser).
+
+    Patterns fixed:
+      "x": 499, 255          → "x": 499, "y": 255   (missing "y" key — most common)
+      "x": [499, 255]        → "x": 499, "y": 255   (array format)
+      "x": "499, 255"        → "x": 499, "y": 255   (comma-separated string, Qwen3.5)
+      ": .91                  → ": 0.91               (missing leading zero)
+      truncated JSON          → add missing closing braces
+    """
+    import re
+    # Malformed "x":": N, M or "x": = N, M — strip stray ": and = before digits
+    s = re.sub(r'"x"\s*:\s*[":=\s]*(\d+)\s*,\s*"?y"?\s*:\s*[":=\s]*(\d+)', r'"x": \1, "y": \2', s)
+    s = re.sub(r'"x"\s*:\s*[":=\s]*(\d+)\s*,\s*(\d+)', r'"x": \1, "y": \2', s)
+    # String coords: "x": "498, 549" → "x": 498, "y": 549
+    s = re.sub(r'"x"\s*:\s*"\s*(\d+)\s*,\s*(\d+)\s*"', r'"x": \1, "y": \2', s)
+    # Array coords: "x": [352, 782] → "x": 352, "y": 782
+    s = re.sub(r'"x"\s*:\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]', r'"x": \1, "y": \2', s)
+    # Missing "y" key: "x": 352, 782 → "x": 352, "y": 782
+    s = re.sub(r'"x"\s*:\s*(\d+),\s*(\d+)', r'"x": \1, "y": \2', s)
+    # Missing leading zero: ": .91 → ": 0.91
+    s = re.sub(r':\s*\.(\d+)', r': 0.\1', s)
+    # Truncated JSON: add missing closing braces
+    open_count = s.count('{') - s.count('}')
+    if open_count > 0:
+        s += '}' * open_count
+    return s
+
+
 def parse_click_response(response: dict) -> tuple[int, int] | None:
     """Extract (x, y) coordinates from LLM response. Returns None on failure."""
     try:
@@ -201,7 +230,11 @@ def parse_click_response(response: dict) -> tuple[int, int] | None:
         if tool_calls:
             args = tool_calls[0]["function"]["arguments"]
             if isinstance(args, str):
-                args = json.loads(args)
+                args = json.loads(_fix_malformed_json(args))
+            # Handle "x": [N, M] array in parsed args
+            x_val = args.get("x")
+            if isinstance(x_val, list) and len(x_val) >= 2:
+                return int(x_val[0]), int(x_val[1])
             return _extract_xy(args)
 
         # Try parsing from content text
@@ -209,7 +242,24 @@ def parse_click_response(response: dict) -> tuple[int, int] | None:
         if not content:
             return None
 
-        # Try JSON in content
+        # Level 2: XML <tool_call> tags (Qwen3-VL's most common format)
+        import re
+        tc_match = re.search(
+            r'<(?:tool_call|function_call)>(.*?)</(?:tool_call|function_call)>',
+            content, re.DOTALL)
+        if tc_match:
+            raw = tc_match.group(1).strip()
+            fixed = _fix_malformed_json(raw)
+            try:
+                obj = json.loads(fixed)
+                if "arguments" in obj:
+                    obj = obj["arguments"]
+                if "x" in obj:
+                    return _extract_xy(obj)
+            except (json.JSONDecodeError, KeyError, ValueError):
+                pass
+
+        # Level 3: inline JSON in content
         for start_marker in ['{"name"', '{"x"']:
             idx = content.find(start_marker)
             if idx >= 0:
@@ -221,11 +271,13 @@ def parse_click_response(response: dict) -> tuple[int, int] | None:
                     elif content[i] == "}":
                         brace_count -= 1
                         if brace_count == 0:
+                            raw = content[idx : i + 1]
+                            fixed = _fix_malformed_json(raw)
                             try:
-                                obj = json.loads(content[idx : i + 1])
+                                obj = json.loads(fixed)
                                 if "arguments" in obj:
                                     obj = obj["arguments"]
-                                if "x" in obj and "y" in obj:
+                                if "x" in obj:
                                     return _extract_xy(obj)
                             except (json.JSONDecodeError, KeyError, ValueError):
                                 pass
@@ -359,20 +411,9 @@ def run_prevalidation(
                         )
 
                     # Check cache
-                    cached = cache.get(
-                        screenshot=f"{app_name}/{screenshot_id}",
-                        prompt=prompt_name,
-                        rep_seed=0,
-                        temperature=temp,
-                        resize_mode=mode,
-                    )
-
-                    if cached:
-                        response = cached["response"]
-                        tokens_in = cached["tokens_in"]
-                        tokens_out = cached["tokens_out"]
-                        latency_ms = cached["latency_ms"]
-                    else:
+                    # Cache read disabled — always call the model for real results.
+                    # Cache write still active for resilience (resume after crash).
+                    if True:
                         messages = build_grounding_prompt(widget, b64, img_w, img_h)
                         start_ms = int(time.time() * 1000)
                         try:
