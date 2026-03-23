@@ -98,6 +98,8 @@ APERV_PROPERTY_MAPPING = {
     "llm_top_k": "ape.llmTopK",
     "llm_timeout_ms": "ape.llmTimeoutMs",
     "llm_max_calls": "ape.llmMaxCalls",
+    "llm_percentage": "ape.llmPercentage",
+    "llm_prompt_variant": "ape.llmPromptVariant",
 }
 
 
@@ -241,6 +243,31 @@ class ApeRVTool(AbstractTool):
                 "llm_top_k": 50,
                 "llm_timeout_ms": 15000,
                 "llm_max_calls": 200,
+            },
+            # --- Prompt variant experiment variants (gh43) ---
+            # All use sata + mop + llm at 70% rate with high call budget.
+            # Differ only in llm_prompt_variant.
+            **{
+                f"sata_mop_llm_{v}": {
+                    "strategy": "sata",
+                    "throttle_ms": 200,
+                    "mop_data": "static_analysis",
+                    "llm_url": "http://10.0.2.2:30000/v1",
+                    "llm_on_new_state": "true",
+                    "llm_on_stagnation": "true",
+                    "llm_model": "default",
+                    "llm_temperature": 0.3,
+                    "llm_top_p": 0.6,
+                    "llm_top_k": 50,
+                    "llm_timeout_ms": 15000,
+                    "llm_max_calls": 999,
+                    "llm_percentage": 0.7,
+                    "llm_prompt_variant": v,
+                }
+                for v in [
+                    "ape_current", "ape_reasoning", "compact_v1",
+                    "rvsmart_v13", "rvsmart_v17", "visual_only",
+                ]
             },
         }
 
