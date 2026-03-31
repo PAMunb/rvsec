@@ -159,7 +159,7 @@ class CoverageTracker:
         self._called_methods.add(signature)
         self._called_classes.add(method.class_name)
 
-        if method.is_activity:
+        if method.component_type == "activity":
             self._called_activities.add(method.class_name)
 
         if method.reachable:

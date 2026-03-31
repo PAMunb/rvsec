@@ -21,7 +21,7 @@ def mock_static_data():
     )
     class1 = ClassDetails(
         name="com.example.MyClass",
-        is_activity=True,
+        component_type="activity",
         methods=[method1]
     )
     class_container = ClassDetailsContainer()
@@ -49,7 +49,7 @@ def test_initialize_repository(mock_repository, mock_static_data):
 
     assert isinstance(class_coverage_data, ClassCoverageData)
     assert class_coverage_data.name == "com.example.MyClass"
-    assert class_coverage_data.is_activity is True
+    assert class_coverage_data.component_type == "activity"
 
     # Assert that a method was added
     assert len(class_coverage_data.methods) == 1

@@ -36,7 +36,7 @@ def mop_method():
 @pytest.fixture
 def sample_clazz():
     """Fixture for a standard Activity class."""
-    return Clazz(name="TestActivity", is_activity=True, is_main_activity=False)
+    return Clazz(name="TestActivity", component_type="activity", is_main=False)
 
 
 @pytest.fixture
@@ -120,8 +120,8 @@ class TestMethod:
 class TestClazz:
     def test_clazz_initialization(self, sample_clazz):
         assert sample_clazz.name == "TestActivity"
-        assert sample_clazz.is_activity is True
-        assert sample_clazz.is_main_activity is False
+        assert sample_clazz.component_type == "activity"
+        assert sample_clazz.is_main is False
         assert not sample_clazz.methods
         assert not sample_clazz.fields
 
@@ -155,7 +155,7 @@ class TestClazz:
         assert mop_methods == [mop_method]
 
     def test_clazz_representations(self, sample_clazz):
-        assert repr(sample_clazz) == "[TestActivity,True,False]"
+        assert repr(sample_clazz) == "[TestActivity,activity,False]"
         string_repr = str(sample_clazz)
         assert sample_clazz.name in string_repr
         assert "methods=0" in string_repr
@@ -178,23 +178,23 @@ class TestClazz:
 
 class TestClasses:
     def test_add_and_get_clazz(self, classes_manager):
-        clazz = classes_manager.add_clazz("TestActivity", True, False)
+        clazz = classes_manager.add_clazz("TestActivity", "activity", False)
         assert clazz.name == "TestActivity"
         assert classes_manager.get_clazz("TestActivity") is clazz
         assert classes_manager.get_clazz("NonExistent") is None
 
     def test_add_existing_clazz_returns_same_instance(self, classes_manager):
-        clazz1 = classes_manager.add_clazz("TestClass", False, False)
-        clazz2 = classes_manager.add_clazz("TestClass", True, True)  # Should not update
+        clazz1 = classes_manager.add_clazz("TestClass", None, False)
+        clazz2 = classes_manager.add_clazz("TestClass", "activity", True)  # Should not update
         assert clazz1 is clazz2
-        assert not clazz1.is_activity  # Original value
-        assert not clazz1.is_main_activity
+        assert clazz1.component_type is None  # Original value
+        assert not clazz1.is_main
 
     def test_get_main_activity(self, classes_manager):
         assert classes_manager.get_main_activity() is None
-        classes_manager.add_clazz("OtherActivity", True, False)
+        classes_manager.add_clazz("OtherActivity", "activity", False)
         assert classes_manager.get_main_activity() is None
-        main_activity = classes_manager.add_clazz("MainActivity", True, True)
+        main_activity = classes_manager.add_clazz("MainActivity", "activity", True)
         assert classes_manager.get_main_activity() is main_activity
 
     def test_add_method_flow(self, classes_manager, sample_method):
@@ -203,7 +203,7 @@ class TestClasses:
         assert not classes_manager.methods
 
         # Success
-        classes_manager.add_clazz("TestClass", True, False)
+        classes_manager.add_clazz("TestClass", "activity", False)
         assert classes_manager.add_method(sample_method)
         assert len(classes_manager.methods) == 1
 
@@ -213,20 +213,20 @@ class TestClasses:
 
     def test_get_method(self, classes_manager, sample_method):
         assert classes_manager.get_method(sample_method.signature) is None
-        classes_manager.add_clazz(sample_method.class_name, False, False)
+        classes_manager.add_clazz(sample_method.class_name, None, False)
         classes_manager.add_method(sample_method)
         assert classes_manager.get_method(sample_method.signature) is sample_method
 
     def test_get_monitored_operation_methods(self, classes_manager, sample_method, mop_method):
         assert not classes_manager.get_monitored_operation_methods()
-        classes_manager.add_clazz("TestClass", False, False)
+        classes_manager.add_clazz("TestClass", None, False)
         classes_manager.add_method(sample_method)
         assert not classes_manager.get_monitored_operation_methods()
         classes_manager.add_method(mop_method)
         assert classes_manager.get_monitored_operation_methods() == [mop_method]
 
     def test_analysis_summary(self, classes_manager, sample_method):
-        classes_manager.add_clazz("TestClass", True, False)
+        classes_manager.add_clazz("TestClass", "activity", False)
         classes_manager.add_method(sample_method)
         summary = classes_manager.get_analysis_summary()
         assert summary['classes']['total'] == 1
@@ -235,13 +235,13 @@ class TestClasses:
         assert summary['methods']['reachability_percentage'] == 100.0
 
     def test_analysis_summary_with_no_methods(self, classes_manager):
-        classes_manager.add_clazz("EmptyClass", False, False)
+        classes_manager.add_clazz("EmptyClass", None, False)
         summary = classes_manager.get_analysis_summary()
         assert summary['methods']['total'] == 0
         assert summary['methods']['reachability_percentage'] == 0
 
     def test_to_json(self, classes_manager, sample_method):
-        classes_manager.add_clazz("TestClass", True, False)
+        classes_manager.add_clazz("TestClass", "activity", False)
         classes_manager.add_method(sample_method)
         json_data = classes_manager.to_json()
         assert len(json_data["classes"]) == 1
@@ -251,8 +251,8 @@ class TestClasses:
 class TestDomainIntegrations:
     def test_full_scenario(self, classes_manager):
         # 1. Add classes
-        main_activity = classes_manager.add_clazz("com.app.MainActivity", True, True)
-        util_class = classes_manager.add_clazz("com.app.Util", False, False)
+        main_activity = classes_manager.add_clazz("com.app.MainActivity", "activity", True)
+        util_class = classes_manager.add_clazz("com.app.Util", None, False)
 
         # 2. Define methods
         entry_point = Method(class_name="com.app.MainActivity", name="onCreate", params=["Bundle"], signature="com.app.MainActivity.onCreate(Bundle)", reachable=True)
@@ -324,10 +324,10 @@ def test_method_properties_are_consistent(method):
     assert summary['monitored_operations']['is_related'] == method.is_monitored_operation_related()
 
 @settings(max_examples=10, suppress_health_check=[HealthCheck.too_slow])
-@given(name=java_class_name, is_activity=st.booleans(), is_main=st.booleans(), methods=st.sets(method_strategy))
-def test_clazz_with_random_data(name, is_activity, is_main, methods):
+@given(name=java_class_name, component_type=st.sampled_from(["activity", "service", "receiver", "provider", None]), is_main=st.booleans(), methods=st.sets(method_strategy))
+def test_clazz_with_random_data(name, component_type, is_main, methods):
     """Property-based test for Clazz consistency."""
-    clazz = Clazz(name=name, is_activity=is_activity, is_main_activity=is_main)
+    clazz = Clazz(name=name, component_type=component_type, is_main=is_main)
     for method in methods:
         clazz.add_method(method)
     

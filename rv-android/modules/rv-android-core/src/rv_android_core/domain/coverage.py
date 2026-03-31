@@ -205,11 +205,12 @@ class ClassCoverageData(BaseValidatedModel):
     """
 
     name: str = Field(description="Fully qualified class name")
-    is_activity: bool = Field(
-        default=False, description="Whether this class is an Android Activity component"
+    component_type: Optional[str] = Field(
+        default=None,
+        description="Android component type: 'activity', 'service', 'receiver', 'provider', or None",
     )
-    is_main_activity: bool = Field(
-        default=False, description="Whether this class is the main (launcher) Activity"
+    is_main: bool = Field(
+        default=False, description="Whether this class is the main (launcher) component"
     )
     methods: Dict[str, MethodCoverageData] = Field(
         default_factory=dict,
@@ -301,8 +302,8 @@ class ClassCoverageData(BaseValidatedModel):
         """
         return {
             "name": self.name,
-            "is_activity": self.is_activity,
-            "is_main_activity": self.is_main_activity,
+            "component_type": self.component_type,
+            "is_main": self.is_main,
             "method_count": self.method_count,
             "called_method_count": self.called_method_count,
             "reachable_method_count": self.reachable_method_count,
@@ -599,7 +600,7 @@ class LogcatRepository:
         for class_data in self.classes.values():
             if class_data.called:
                 metrics.called_classes += 1
-                if class_data.is_activity:
+                if class_data.component_type == "activity":
                     metrics.called_activities += 1
 
             # Count called methods
@@ -691,7 +692,7 @@ class LogcatRepository:
         for class_name, class_data in self.classes.items():
             totals["total_classes"] += 1
 
-            if class_data.is_activity:
+            if class_data.component_type == "activity":
                 totals["total_activities"] += 1
 
             # Count methods
@@ -721,7 +722,7 @@ class LogcatRepository:
         # Collect diagnostic information
         diagnostics = {
             "class_count": len(self.classes),
-            "activity_count": sum(1 for c in self.classes.values() if c.is_activity),
+            "activity_count": sum(1 for c in self.classes.values() if c.component_type == "activity"),
             "method_count": sum(len(c.methods) for c in self.classes.values()),
             "called_method_count": sum(
                 sum(1 for m in c.methods.values() if m.called)
@@ -794,7 +795,7 @@ class LogcatRepository:
                         "method_name": method_data.method_name,
                         "signature": signature,
                         "is_mop_method": method_data.reaches_mop,
-                        "activity": class_name if class_data.is_activity else None,
+                        "activity": class_name if class_data.component_type == "activity" else None,
                         "call_count": method_data.call_count,
                         "first_called_at": (
                             method_data.first_called_at.isoformat()
@@ -848,7 +849,7 @@ class LogcatRepository:
             List of activity class names
         """
         return [
-            name for name, class_data in self.classes.items() if class_data.is_activity
+            name for name, class_data in self.classes.items() if class_data.component_type == "activity"
         ]
 
     def get_mop_methods(self) -> List[str]:

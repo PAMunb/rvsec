@@ -469,7 +469,7 @@ class ExperimentRunner:
             total_activities = 0
             if static_data and static_data.classes:
                 total_activities = sum(
-                    1 for c in static_data.classes.classes.values() if c.is_activity
+                    1 for c in static_data.classes.classes.values() if c.component_type == "activity"
                 )
 
             collector = MultimodalMetricsCollector(

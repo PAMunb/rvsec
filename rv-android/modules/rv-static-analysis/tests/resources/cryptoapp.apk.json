@@ -4,8 +4,8 @@
   "reachability": [
     {
       "className": "br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -53,8 +53,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.databinding.ActivityMainBinding",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -102,8 +102,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.databinding.ActivityCipherBinding",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -151,8 +151,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -200,8 +200,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.cipher.CipherActivity",
-      "isActivity": true,
-      "isMainActivity": false,
+      "componentType": "activity",
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -235,8 +235,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.BuildConfig",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<clinit>",
@@ -256,8 +256,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.cipher.CipherActivity$1",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -277,8 +277,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.cipher.CipherUtil",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -319,8 +319,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.MainActivity$1",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -340,8 +340,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.MainActivity",
-      "isActivity": true,
-      "isMainActivity": true,
+      "componentType": "activity",
+      "isMain": true,
       "methods": [
         {
           "name": "<init>",
@@ -410,8 +410,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
-      "isActivity": true,
-      "isMainActivity": false,
+      "componentType": "activity",
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -620,8 +620,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.util.Utils",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -641,8 +641,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.generated.CryptographyActivity$1",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -676,8 +676,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.generated.CryptoUtils",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -767,8 +767,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -788,8 +788,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -823,8 +823,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-      "isActivity": true,
-      "isMainActivity": false,
+      "componentType": "activity",
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -879,8 +879,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$string",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -893,8 +893,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$layout",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -907,8 +907,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$color",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -921,8 +921,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -935,8 +935,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$drawable",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -949,8 +949,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$style",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -963,8 +963,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$array",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -977,8 +977,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$mipmap",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -991,8 +991,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$menu",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",
@@ -1005,8 +1005,8 @@
     },
     {
       "className": "br.unb.cic.cryptoapp.R$id",
-      "isActivity": false,
-      "isMainActivity": false,
+      "componentType": null,
+      "isMain": false,
       "methods": [
         {
           "name": "<init>",

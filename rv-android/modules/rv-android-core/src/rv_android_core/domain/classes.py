@@ -172,37 +172,39 @@ class Method(BaseValidatedModel):
         return self.signature
 
 
-@validated_model(["name", "is_activity", "is_main_activity"])
+@validated_model(["name", "component_type", "is_main"])
 class Clazz(BaseValidatedModel):
     """
-    Represents a Java class with its activities, methods, and fields.
+    Represents a Java class with its components, methods, and fields.
 
     ### Architectural Decisions:
     - Inherits from BaseValidatedModel for type safety and validation
     - Maintains collections of methods and fields with proper typing
-    - Supports Android-specific properties (activity classification)
+    - Supports Android-specific properties (component classification)
     - Provides comprehensive serialization and analysis capabilities
 
     ### Role in the System:
     - Represents individual Java classes in static analysis structures
     - Manages collections of methods and fields within classes
-    - Tracks Android-specific class types (activities, main activity)
+    - Tracks Android component types (activity, service, receiver, provider)
     - Enables class-level analysis and relationship tracking
 
     ### Android Context:
-    - is_activity: Indicates if class extends Android Activity
-    - is_main_activity: Indicates if class is the application's main entry point
+    - component_type: Android component type ("activity", "service", "receiver",
+      "provider") or None for plain classes
+    - is_main: Indicates if class is the application's main entry point
     """
 
     name: str = Field(..., description="Fully qualified class name", min_length=1)
 
-    is_activity: bool = Field(
-        default=False, description="Whether the class is an Android Activity"
+    component_type: Optional[str] = Field(
+        default=None,
+        description="Android component type: 'activity', 'service', 'receiver', 'provider', or None",
     )
 
-    is_main_activity: bool = Field(
+    is_main: bool = Field(
         default=False,
-        description="Whether the class is the main Activity (application entry point)",
+        description="Whether the class is the main component (application entry point)",
     )
 
     # Note: Using factory functions to avoid mutable defaults
@@ -267,8 +269,8 @@ class Clazz(BaseValidatedModel):
         """
         return {
             "name": self.name,
-            "is_activity": self.is_activity,
-            "is_main_activity": self.is_main_activity,
+            "component_type": self.component_type,
+            "is_main": self.is_main,
             "methods": [method.to_json() for method in self.methods],
             "fields": list(self.fields),
         }
@@ -286,8 +288,8 @@ class Clazz(BaseValidatedModel):
         return {
             "name": self.name,
             "type": {
-                "is_activity": self.is_activity,
-                "is_main_activity": self.is_main_activity,
+                "component_type": self.component_type,
+                "is_main": self.is_main,
             },
             "methods": {
                 "total": len(self.methods),
@@ -305,8 +307,8 @@ class Clazz(BaseValidatedModel):
             Comprehensive string representation for debugging
         """
         return (
-            f"Clazz(name={self.name}, is_activity={self.is_activity}, "
-            f"is_main={self.is_main_activity}, methods={len(self.methods)}, "
+            f"Clazz(name={self.name}, component_type={self.component_type}, "
+            f"is_main={self.is_main}, methods={len(self.methods)}, "
             f"fields={len(self.fields)})"
         )
 
@@ -317,7 +319,7 @@ class Clazz(BaseValidatedModel):
         Returns:
             Compact representation with essential information
         """
-        return f"[{self.name},{self.is_activity},{self.is_main_activity}]"
+        return f"[{self.name},{self.component_type},{self.is_main}]"
 
 
 class Classes(BaseValidatedModel):
@@ -377,14 +379,15 @@ class Classes(BaseValidatedModel):
         """
         return list(self.classes.values())
 
-    def add_clazz(self, name: str, is_activity: bool, is_main_activity: bool) -> Clazz:
+    def add_clazz(self, name: str, component_type: str | None, is_main: bool) -> Clazz:
         """
         Add a new class or return existing one.
 
         Args:
             name: Fully qualified class name
-            is_activity: Whether class is an Android Activity
-            is_main_activity: Whether class is the main Activity
+            component_type: Android component type ("activity", "service",
+                "receiver", "provider") or None for plain classes
+            is_main: Whether class is the main component
 
         Returns:
             The Clazz instance (existing or newly created)
@@ -392,7 +395,7 @@ class Classes(BaseValidatedModel):
         if name not in self.classes:
             self.logger.debug(f"Adding new class: {name}")
             self.classes[name] = Clazz(
-                name=name, is_activity=is_activity, is_main_activity=is_main_activity
+                name=name, component_type=component_type, is_main=is_main
             )
         return self.classes[name]
 
@@ -416,7 +419,7 @@ class Classes(BaseValidatedModel):
             Main activity Clazz instance or None if not found
         """
         for clazz in self.classes.values():
-            if clazz.is_main_activity:
+            if clazz.is_main:
                 return clazz
         return None
 
@@ -473,7 +476,7 @@ class Classes(BaseValidatedModel):
         total_methods = len(self.methods)
         reachable_methods = sum(1 for m in self.methods.values() if m.reachable)
         monitored_methods = len(self.get_monitored_operation_methods())
-        activities = sum(1 for c in self.classes.values() if c.is_activity)
+        activities = sum(1 for c in self.classes.values() if c.component_type == "activity")
         main_activity = self.get_main_activity()
 
         return {

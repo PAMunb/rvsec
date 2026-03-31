@@ -111,7 +111,7 @@ static_data = parser.parse_file("/path/to/app.apk.json", "com.example.app")
 ```
 
 The parser processes three JSON sections:
-1. **reachability**: Classes, methods, activity flags, MOP reachability flags
+1. **reachability**: Classes, methods, component type/main flags, MOP reachability flags
 2. **windows**: Window definitions with widgets, event listeners, inputType, hint, entries
 3. **transitions**: WTG edges between windows with triggering events
 
@@ -128,8 +128,8 @@ Analysis produces one JSON file per APK: `{app_name}.json`
   "reachability": [
     {
       "className": "com.example.MainActivity",
-      "isActivity": true,
-      "isMainActivity": true,
+      "componentType": "activity",
+      "isMain": true,
       "methods": [
         {
           "name": "onCreate",

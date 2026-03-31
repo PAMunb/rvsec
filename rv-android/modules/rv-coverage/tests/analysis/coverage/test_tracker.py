@@ -19,14 +19,14 @@ class TestCoverageTracker:
         # Create mock classes matching logcat content
         main_activity_class = classes.add_clazz(
             "br.unb.cic.cryptoapp.MainActivity",
-            is_activity=True,
-            is_main_activity=True
+            component_type="activity",
+            is_main=True
         )
 
         crypto_activity_class = classes.add_clazz(
             "br.unb.cic.cryptoapp.generated.CryptographyActivity",
-            is_activity=True,
-            is_main_activity=False
+            component_type="activity",
+            is_main=False
         )
 
         # Add methods matching logcat entries

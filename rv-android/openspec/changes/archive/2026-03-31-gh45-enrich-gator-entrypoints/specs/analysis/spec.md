@@ -150,14 +150,30 @@ Each entry in `reachability[]` MUST include `componentType` (string: `"activity"
 - **AND** no exception MUST propagate
 - **AND** the class MUST NOT appear in `components{}`
 
-#### Scenario: Components section in JSON — app with Services, Receivers, and Providers
+#### Scenario: Components section in JSON — app with all component types
 
-- **WHEN** an APK declares Receiver `com.example.app.BootReceiver` with intent-filter action `android.intent.action.BOOT_COMPLETED`, Service `com.example.app.CryptoService` with action `com.example.START_CRYPTO`, and Provider `com.example.app.DataProvider` with authorities `com.example.app.data`
+- **WHEN** an APK declares Activity `com.example.app.MainActivity` (main launcher) and `com.example.app.DetailActivity` (with action EDIT), Receiver `com.example.app.BootReceiver` with intent-filter action `android.intent.action.BOOT_COMPLETED`, Service `com.example.app.CryptoService` with action `com.example.START_CRYPTO`, and Provider `com.example.app.DataProvider` with authorities `com.example.app.data`
 - **THEN** the JSON MUST contain:
   ```json
   "components": {
+    "activities": [{
+      "className": "com.example.app.MainActivity",
+      "isMain": true,
+      "intentFilters": [{"actions": ["android.intent.action.MAIN"], "categories": ["android.intent.category.LAUNCHER"]}],
+      "exported": true,
+      "reachesMop": false,
+      "mopMethods": []
+    }, {
+      "className": "com.example.app.DetailActivity",
+      "isMain": false,
+      "intentFilters": [{"actions": ["android.intent.action.EDIT"], "categories": []}],
+      "exported": true,
+      "reachesMop": false,
+      "mopMethods": []
+    }],
     "receivers": [{
       "className": "com.example.app.BootReceiver",
+      "isMain": false,
       "intentFilters": [{"actions": ["android.intent.action.BOOT_COMPLETED"], "categories": []}],
       "exported": true,
       "reachesMop": true,
@@ -165,6 +181,7 @@ Each entry in `reachability[]` MUST include `componentType` (string: `"activity"
     }],
     "services": [{
       "className": "com.example.app.CryptoService",
+      "isMain": false,
       "intentFilters": [{"actions": ["com.example.START_CRYPTO"], "categories": []}],
       "exported": false,
       "reachesMop": true,
@@ -180,10 +197,11 @@ Each entry in `reachability[]` MUST include `componentType` (string: `"activity"
   }
   ```
 
-#### Scenario: Components section — app without non-Activity components
+#### Scenario: Components section — app with only Activities
 
 - **WHEN** an APK declares no Services, BroadcastReceivers, or ContentProviders
-- **THEN** the JSON MUST contain `"components": {"receivers": [], "services": [], "providers": []}`
+- **THEN** the JSON MUST contain `"components": {"activities": [...], "receivers": [], "services": [], "providers": []}`
+- **AND** `activities[]` MUST contain entries for all declared Activities with their intent-filters
 - **AND** all other sections (`reachability[]`, `windows[]`, `transitions[]`) MUST be unchanged
 
 #### Scenario: Component without intent-filters

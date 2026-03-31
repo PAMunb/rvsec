@@ -84,14 +84,44 @@ class TestWellFormedJSON:
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         main_clazz = result.classes.get_clazz("br.unb.cic.cryptoapp.MainActivity")
         assert main_clazz is not None
-        assert main_clazz.is_main_activity is True
+        assert main_clazz.is_main is True
 
     def test_activity_flag(self, parser):
         """Verify activity classes are marked as activities."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         main_clazz = result.classes.get_clazz("br.unb.cic.cryptoapp.MainActivity")
         assert main_clazz is not None
-        assert main_clazz.is_activity is True
+        assert main_clazz.component_type == "activity"
+
+    def test_parse_service_component_type(self, parser, tmp_path):
+        """Test parsing a reachability entry with componentType=service."""
+        data = {
+            "reachability": [
+                {
+                    "className": "br.unb.cic.cryptoapp.MyService",
+                    "componentType": "service",
+                    "isMain": False,
+                    "methods": [
+                        {
+                            "name": "onStartCommand",
+                            "signature": "<br.unb.cic.cryptoapp.MyService: int onStartCommand(android.content.Intent,int,int)>",
+                            "reachable": True,
+                            "reachesMop": False,
+                            "directlyReachesMop": False,
+                        }
+                    ],
+                }
+            ],
+            "windows": [],
+            "transitions": [],
+        }
+        path = _write_json(tmp_path, data)
+        result = parser.parse_file(path, "br.unb.cic.cryptoapp")
+        service_clazz = result.classes.get_clazz("br.unb.cic.cryptoapp.MyService")
+        assert service_clazz is not None
+        assert service_clazz.component_type == "service"
+        assert service_clazz.is_main is False
+        assert len(service_clazz.methods) == 1
 
     def test_reachability_flags(self, parser):
         """Verify reachability flags are parsed correctly."""
@@ -205,8 +235,8 @@ class TestEmptyAndMissingData:
             "reachability": [
                 {
                     "className": "com.example.Main",
-                    "isActivity": True,
-                    "isMainActivity": True,
+                    "componentType": "activity",
+                    "isMain": True,
                     "methods": [],
                 }
             ],
@@ -254,14 +284,14 @@ class TestCodePackageFiltering:
             "reachability": [
                 {
                     "className": "com.example.MyClass",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [],
                 },
                 {
                     "className": "org.other.OtherClass",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [],
                 },
             ],
@@ -280,14 +310,14 @@ class TestCodePackageFiltering:
             "reachability": [
                 {
                     "className": "com.a.A",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [],
                 },
                 {
                     "className": "com.b.B",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [],
                 },
             ],
@@ -349,8 +379,8 @@ class TestInnerClassNormalization:
             "reachability": [
                 {
                     "className": "com.example.Outer$Inner",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [],
                 }
             ],
@@ -367,8 +397,8 @@ class TestInnerClassNormalization:
             "reachability": [
                 {
                     "className": "com.example.Outer.Inner",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [],
                 }
             ],
@@ -484,8 +514,8 @@ class TestTruncatedJSON:
             "reachability": [
                 {
                     "className": "com.example.Main",
-                    "isActivity": True,
-                    "isMainActivity": True,
+                    "componentType": "activity",
+                    "isMain": True,
                     "methods": [
                         {
                             "name": "onCreate",
@@ -547,8 +577,8 @@ class TestEmptyMOPSpecs:
             "reachability": [
                 {
                     "className": "com.example.Main",
-                    "isActivity": True,
-                    "isMainActivity": True,
+                    "componentType": "activity",
+                    "isMain": True,
                     "methods": [
                         {
                             "name": "onCreate",
@@ -615,8 +645,8 @@ class TestMethodSignatureParsing:
             "reachability": [
                 {
                     "className": "com.example.Main",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "doStuff",
@@ -643,8 +673,8 @@ class TestMethodSignatureParsing:
             "reachability": [
                 {
                     "className": "com.example.Main",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "run",
@@ -778,7 +808,7 @@ class TestBaselineEquivalence:
     def test_activity_count_exact(self, parser):
         """Exact match: number of activity classes."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        activities = [c for c in result.classes.classes.values() if c.is_activity]
+        activities = [c for c in result.classes.classes.values() if c.component_type == "activity"]
         assert len(activities) == self.BASELINE["activities"]
 
     def test_window_count_exact(self, parser):
@@ -833,7 +863,7 @@ class TestBaselineEquivalence:
             "br.unb.cic.cryptoapp.generated.CryptographyActivity",
         }
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        actual = {c.name for c in result.classes.classes.values() if c.is_activity}
+        actual = {c.name for c in result.classes.classes.values() if c.component_type == "activity"}
         assert actual == expected_activities
 
     def test_wtg_window_ids_match_windows(self, parser):
@@ -893,8 +923,8 @@ class TestNormalizerSafetyNet:
             "reachability": [
                 {
                     "className": "com.example.Outer.Inner",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "run",
@@ -922,8 +952,8 @@ class TestNormalizerSafetyNet:
             "reachability": [
                 {
                     "className": "com.example.Outer.Inner",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "run",
@@ -958,8 +988,8 @@ class TestNormalizerSafetyNet:
             "reachability": [
                 {
                     "className": cn,
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "m",
@@ -993,8 +1023,8 @@ class TestMultiPackageFiltering:
             "reachability": [
                 {
                     "className": "edu.cmu.cylab.starslinger.demo.Main",
-                    "isActivity": True,
-                    "isMainActivity": True,
+                    "componentType": "activity",
+                    "isMain": True,
                     "methods": [
                         {
                             "name": "onCreate",
@@ -1007,8 +1037,8 @@ class TestMultiPackageFiltering:
                 },
                 {
                     "className": "edu.cmu.cylab.starslinger.exchange.ExchangeActivity",
-                    "isActivity": True,
-                    "isMainActivity": False,
+                    "componentType": "activity",
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "process",
@@ -1021,8 +1051,8 @@ class TestMultiPackageFiltering:
                 },
                 {
                     "className": "com.google.firebase.App",
-                    "isActivity": False,
-                    "isMainActivity": False,
+                    "componentType": None,
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "init",
@@ -1057,8 +1087,8 @@ class TestMultiPackageFiltering:
             "reachability": [
                 {
                     "className": "org.godotengine.godot.GodotActivity",
-                    "isActivity": True,
-                    "isMainActivity": True,
+                    "componentType": "activity",
+                    "isMain": True,
                     "methods": [
                         {
                             "name": "onCreate",
@@ -1071,8 +1101,8 @@ class TestMultiPackageFiltering:
                 },
                 {
                     "className": "ir.hsn6.trans.Launcher",
-                    "isActivity": True,
-                    "isMainActivity": False,
+                    "componentType": "activity",
+                    "isMain": False,
                     "methods": [
                         {
                             "name": "start",

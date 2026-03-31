@@ -82,9 +82,9 @@ Note: The ape design cited `ServiceTestingClient` (L54) as using this pattern. C
 
 The ape design suggested `getMethodByNameUnsafe()`. Soot's `getMethodByName()` throws `AmbiguousMethodException` for overloaded methods (e.g., `onBind` with different signatures). Instead, iterate `SootClass.getMethods()` and filter by name. This matches the existing pattern in `getEntryPoints()` which iterates `activity.getMethods()`.
 
-**D3: Structured `components{}` with `receivers[]`/`services[]`/`providers[]`**
+**D3: Structured `components{}` with `activities[]`/`receivers[]`/`services[]`/`providers[]`**
 
-Type-specific arrays enable different lifecycle method sets and triggering construction per component type. From `analise_broadcast_service_integration.md` analysis. Each type has its own ADB triggering mechanism: `am startservice` (Service), `am broadcast` (Receiver), `content query/insert/update/delete` (Provider).
+Type-specific arrays enable different lifecycle method sets and triggering construction per component type. All four Android component types are included with their triggering data: `am start -a action` (Activity), `am startservice` (Service), `am broadcast -a action` (Receiver), `content query --uri content://authority` (Provider). Activity entries include `isMain` boolean to identify the launcher activity. Written in priority order: activities first (most important for triggering).
 
 **D4: Parse `android:exported` in `DefaultXMLParser.readManifest()`**
 
@@ -139,7 +139,7 @@ The current JSON uses `isActivity` (boolean) and `isMainActivity` (boolean) per 
 
 ### `RvsecAnalysisClient.writeComponents(JsonWriter w, Set<SootMethod> reachesMopSet) -> void`
 - **Pre**: JsonWriter in object context, XMLParser and IntentFilterManager singletons available
-- **Post**: Writes `"components": {"receivers": [...], "services": [...], "providers": [...]}` with full enrichment data
+- **Post**: Writes `"components": {"activities": [...], "receivers": [...], "services": [...], "providers": [...]}` with full enrichment data. Activity entries include `isMain` boolean.
 - **Error**: IOException propagated to caller (same as other write methods)
 
 ## Data Flow

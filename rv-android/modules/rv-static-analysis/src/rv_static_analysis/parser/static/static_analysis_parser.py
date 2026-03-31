@@ -196,9 +196,9 @@ class StaticAnalysisParser:
                 if package and package not in normalized:
                     continue
 
-                is_activity = cls_data.get("isActivity", False)
-                is_main = cls_data.get("isMainActivity", False)
-                classes.add_clazz(normalized, is_activity, is_main)
+                component_type = cls_data.get("componentType", None)
+                is_main = cls_data.get("isMain", False)
+                classes.add_clazz(normalized, component_type, is_main)
 
                 for m_data in cls_data.get("methods", []):
                     signature = m_data.get("signature", "")
@@ -290,7 +290,7 @@ class StaticAnalysisParser:
                 if is_main:
                     clazz = classes.get_clazz(normalized_name)
                     if clazz:
-                        clazz.is_main_activity = True
+                        clazz.is_main = True
 
             return windows
 

@@ -98,8 +98,8 @@ class TestClassCoverageData(ModelTestBase):
         """Create a standard class coverage data instance for testing."""
         return ClassCoverageData(
             name="com.example.TestClass",
-            is_activity=True,
-            is_main_activity=False
+            component_type="activity",
+            is_main=False
         )
 
     @pytest.fixture
@@ -129,8 +129,8 @@ class TestClassCoverageData(ModelTestBase):
     def test_initialization(self, class_data):
         """Test that ClassCoverageData initializes with correct attributes."""
         assert class_data.name == "com.example.TestClass"
-        assert class_data.is_activity is True
-        assert class_data.is_main_activity is False
+        assert class_data.component_type == "activity"
+        assert class_data.is_main is False
         assert len(class_data.methods) == 0
 
     def test_add_method(self, class_data, method_data_1, method_data_2):
@@ -325,8 +325,8 @@ class TestLogcatRepository(ModelTestBase):
         """Create a class coverage data instance for testing."""
         return ClassCoverageData(
             name="com.example.TestClass",
-            is_activity=True,
-            is_main_activity=False
+            component_type="activity",
+            is_main=False
         )
 
     @pytest.fixture
@@ -394,15 +394,15 @@ class TestLogcatRepository(ModelTestBase):
         # Try adding the same class again
         class_data_duplicate = ClassCoverageData(
             name="com.example.TestClass",
-            is_activity=False,  # Different value
-            is_main_activity=True  # Different value
+            component_type=None,  # Different value
+            is_main=True  # Different value
         )
         repository.add_class(class_data_duplicate)
 
         # Should still only have one class, and values shouldn't change
         assert len(repository.classes) == 1
-        assert repository.classes["com.example.TestClass"].is_activity is True
-        assert repository.classes["com.example.TestClass"].is_main_activity is False
+        assert repository.classes["com.example.TestClass"].component_type == "activity"
+        assert repository.classes["com.example.TestClass"].is_main is False
 
     def test_get_class(self, repository, class_data):
         """Test retrieving a class from the repository."""
@@ -506,8 +506,8 @@ class TestLogcatRepository(ModelTestBase):
         # (instead of modifying the existing one)
         new_class = ClassCoverageData(
             name="com.example.TestClass",
-            is_activity=True,
-            is_main_activity=False
+            component_type="activity",
+            is_main=False
         )
 
         # Add the original method

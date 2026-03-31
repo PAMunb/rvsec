@@ -52,8 +52,8 @@ def initialize_repository_from_static_data(
     for class_name, class_info in static_data.classes.classes.items():
         class_data = ClassCoverageData(
             name=class_name,
-            is_activity=class_info.is_activity,
-            is_main_activity=getattr(class_info, "is_main_activity", False),
+            component_type=class_info.component_type,
+            is_main=getattr(class_info, "is_main", False),
         )
         repository.add_class(class_data)
 

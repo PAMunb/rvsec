@@ -18,7 +18,7 @@ class MethodData:
     name: str
     parameters: str
     signature: str  # Full signature: class.method(params)
-    is_activity: bool
+    component_type: str
     reachable: bool
     reaches_mop: bool
     directly_reaches_mop: bool
@@ -71,7 +71,7 @@ class MethodsParser:
                     name=row["method"],
                     parameters=row["parameters"],
                     signature=signature,
-                    is_activity=row["is_activity"].lower() == "true",
+                    component_type=row.get("component_type", row.get("is_activity", "")),
                     reachable=row["reachable"].lower() == "true",
                     reaches_mop=row["reaches_mop"].lower() == "true",
                     directly_reaches_mop=row["directly_reaches_mop"].lower() == "true",
@@ -82,7 +82,7 @@ class MethodsParser:
                 self.signatures.add(signature)
                 self.classes.add(method.class_name)
 
-                if method.is_activity:
+                if method.component_type == "activity":
                     self.activities.add(method.class_name)
 
                 # Update totals
