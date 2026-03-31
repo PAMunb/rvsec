@@ -35,6 +35,9 @@ import presto.android.Configs;
 import presto.android.gui.PropertyManager;
 import presto.android.gui.GUIAnalysisClient;
 import presto.android.gui.GUIAnalysisOutput;
+import presto.android.gui.wtg.intent.IntentFilter;
+import presto.android.gui.wtg.intent.IntentFilterManager;
+import presto.android.xml.XMLParser;
 import presto.android.gui.clients.energy.VarUtil;
 import presto.android.gui.graph.NDialogNode;
 import presto.android.gui.graph.NNode;
@@ -262,6 +265,76 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				}
 			}
 		}
+
+		// Service entry points
+		XMLParser xmlParser = XMLParser.Factory.getXMLParser();
+		Iterator<String> serviceIt = xmlParser.getServices();
+		while (serviceIt.hasNext()) {
+			String className = serviceIt.next();
+			SootClass sootClass = Scene.v().getSootClassUnsafe(className);
+			if (sootClass == null) {
+				System.out.println("[RvsecAnalysisClient] WARNING: Service class not found in Soot Scene: " + className);
+				continue;
+			}
+			for (SootMethod m : sootClass.getMethods()) {
+				String methodName = m.getName();
+				// Service lifecycle methods
+				if (methodName.equals("onCreate") || methodName.equals("onStartCommand") ||
+					methodName.equals("onBind") || methodName.equals("onUnbind") ||
+					methodName.equals("onRebind") || methodName.equals("onDestroy") ||
+					methodName.equals("onHandleIntent")) {
+					entryPoints.add(m);
+				}
+				// Public/protected methods
+				if (m.isPublic() || m.isProtected()) {
+					entryPoints.add(m);
+				}
+			}
+		}
+
+		// Receiver entry points
+		Iterator<String> receiverIt = xmlParser.getReceivers();
+		while (receiverIt.hasNext()) {
+			String className = receiverIt.next();
+			SootClass sootClass = Scene.v().getSootClassUnsafe(className);
+			if (sootClass == null) {
+				System.out.println("[RvsecAnalysisClient] WARNING: Receiver class not found in Soot Scene: " + className);
+				continue;
+			}
+			for (SootMethod m : sootClass.getMethods()) {
+				if (m.getName().equals("onReceive")) {
+					entryPoints.add(m);
+				}
+				if (m.isPublic() || m.isProtected()) {
+					entryPoints.add(m);
+				}
+			}
+		}
+
+		// Provider entry points
+		Iterator<String> providerIt = xmlParser.getProviders();
+		while (providerIt.hasNext()) {
+			String className = providerIt.next();
+			SootClass sootClass = Scene.v().getSootClassUnsafe(className);
+			if (sootClass == null) {
+				System.out.println("[RvsecAnalysisClient] WARNING: Provider class not found in Soot Scene: " + className);
+				continue;
+			}
+			for (SootMethod m : sootClass.getMethods()) {
+				String methodName = m.getName();
+				// Provider lifecycle methods
+				if (methodName.equals("onCreate") || methodName.equals("query") ||
+					methodName.equals("insert") || methodName.equals("update") ||
+					methodName.equals("delete") || methodName.equals("call") ||
+					methodName.equals("openFile")) {
+					entryPoints.add(m);
+				}
+				if (m.isPublic() || m.isProtected()) {
+					entryPoints.add(m);
+				}
+			}
+		}
+
 		return entryPoints;
 	}
 
@@ -369,6 +442,44 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			Set<NNode> roots = output.getActivityRoots(activity);
 			for (NNode root : roots) {
 				collectEventHandlers(output, root, callbacks, visited);
+			}
+		}
+
+		// Add Service/Receiver/Provider lifecycle methods to callbacks
+		XMLParser xmlParser = XMLParser.Factory.getXMLParser();
+		for (Iterator<String> it = xmlParser.getServices(); it.hasNext(); ) {
+			SootClass sc = Scene.v().getSootClassUnsafe(it.next());
+			if (sc == null) continue;
+			for (SootMethod m : sc.getMethods()) {
+				String name = m.getName();
+				if (name.equals("onCreate") || name.equals("onStartCommand") ||
+					name.equals("onBind") || name.equals("onUnbind") ||
+					name.equals("onRebind") || name.equals("onDestroy") ||
+					name.equals("onHandleIntent")) {
+					callbacks.add(m);
+				}
+			}
+		}
+		for (Iterator<String> it = xmlParser.getReceivers(); it.hasNext(); ) {
+			SootClass sc = Scene.v().getSootClassUnsafe(it.next());
+			if (sc == null) continue;
+			for (SootMethod m : sc.getMethods()) {
+				if (m.getName().equals("onReceive")) {
+					callbacks.add(m);
+				}
+			}
+		}
+		for (Iterator<String> it = xmlParser.getProviders(); it.hasNext(); ) {
+			SootClass sc = Scene.v().getSootClassUnsafe(it.next());
+			if (sc == null) continue;
+			for (SootMethod m : sc.getMethods()) {
+				String name = m.getName();
+				if (name.equals("onCreate") || name.equals("query") ||
+					name.equals("insert") || name.equals("update") ||
+					name.equals("delete") || name.equals("call") ||
+					name.equals("openFile")) {
+					callbacks.add(m);
+				}
 			}
 		}
 
@@ -774,6 +885,11 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			writeTransitions(w, wtg);
 			w.flush();
 
+			// Section 4: components (activities, services, receivers, providers)
+			w.name("components");
+			writeComponents(w, reachesMopSet, output.getActivities(), mainActivity);
+			w.flush();
+
 			w.endObject();
 		} catch (IOException e) {
 			System.err.println("[RvsecAnalysisClient] ERROR writing JSON: " + e.getMessage());
@@ -792,6 +908,15 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		Set<SootClass> activities = output.getActivities();
 		SootClass mainActivity = output.getMainActivity();
 
+		// Build component name sets for type resolution
+		XMLParser xmlParser = XMLParser.Factory.getXMLParser();
+		Set<String> serviceNames = new HashSet<>();
+		for (Iterator<String> it = xmlParser.getServices(); it.hasNext(); ) serviceNames.add(it.next());
+		Set<String> receiverNames = new HashSet<>();
+		for (Iterator<String> it = xmlParser.getReceivers(); it.hasNext(); ) receiverNames.add(it.next());
+		Set<String> providerNames = new HashSet<>();
+		for (Iterator<String> it = xmlParser.getProviders(); it.hasNext(); ) providerNames.add(it.next());
+
 		w.beginArray();
 		for (Map.Entry<SootClass, List<SootMethod>> entry : appClasses.entrySet()) {
 			SootClass cls = entry.getKey();
@@ -799,8 +924,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			w.beginObject();
 			w.name("className").value(cls.getName());
-			w.name("isActivity").value(activities.contains(cls));
-			w.name("isMainActivity").value(cls.equals(mainActivity));
+			String componentType = null;
+			if (activities.contains(cls)) {
+				componentType = "activity";
+			} else if (serviceNames.contains(cls.getName())) {
+				componentType = "service";
+			} else if (receiverNames.contains(cls.getName())) {
+				componentType = "receiver";
+			} else if (providerNames.contains(cls.getName())) {
+				componentType = "provider";
+			}
+			w.name("componentType").value(componentType);
+			w.name("isMain").value(cls.equals(mainActivity));
 
 			w.name("methods");
 			w.beginArray();
@@ -870,6 +1005,152 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			w.name("eventType").value((String) listener.get("eventType"));
 			w.name("handler").value((String) listener.get("handler"));
 			w.endObject();
+		}
+		w.endArray();
+
+		w.endObject();
+	}
+
+	private void writeComponents(JsonWriter w, Set<SootMethod> reachesMopSet,
+			Set<SootClass> activities, SootClass mainActivity) throws IOException {
+		XMLParser xmlParser = XMLParser.Factory.getXMLParser();
+		Map<String, Set<IntentFilter>> allFilters = IntentFilterManager.v().getAllFilters();
+
+		w.beginObject();
+
+		// Write activities (first — most important for triggering)
+		w.name("activities");
+		w.beginArray();
+		for (SootClass activity : activities) {
+			String className = activity.getName();
+			boolean isMain = activity.equals(mainActivity);
+			writeComponentEntry(w, className, activity, allFilters, reachesMopSet, xmlParser,
+					new String[]{"onCreate", "onStart", "onResume", "onPause", "onStop", "onDestroy", "onRestart"}, isMain);
+		}
+		w.endArray();
+
+		// Write receivers
+		w.name("receivers");
+		w.beginArray();
+		for (Iterator<String> it = xmlParser.getReceivers(); it.hasNext(); ) {
+			String className = it.next();
+			SootClass sc = Scene.v().getSootClassUnsafe(className);
+			writeComponentEntry(w, className, sc, allFilters, reachesMopSet, xmlParser,
+					new String[]{"onReceive"}, false);
+		}
+		w.endArray();
+
+		// Write services
+		w.name("services");
+		w.beginArray();
+		for (Iterator<String> it = xmlParser.getServices(); it.hasNext(); ) {
+			String className = it.next();
+			SootClass sc = Scene.v().getSootClassUnsafe(className);
+			writeComponentEntry(w, className, sc, allFilters, reachesMopSet, xmlParser,
+					new String[]{"onCreate", "onStartCommand", "onBind", "onUnbind", "onRebind", "onDestroy", "onHandleIntent"}, false);
+		}
+		w.endArray();
+
+		// Write providers
+		w.name("providers");
+		w.beginArray();
+		for (Iterator<String> it = xmlParser.getProviders(); it.hasNext(); ) {
+			String className = it.next();
+			SootClass sc = Scene.v().getSootClassUnsafe(className);
+			writeProviderEntry(w, className, sc, reachesMopSet, xmlParser,
+					new String[]{"onCreate", "query", "insert", "update", "delete", "call", "openFile"});
+		}
+		w.endArray();
+
+		w.endObject();
+	}
+
+	private void writeComponentEntry(JsonWriter w, String className, SootClass sc,
+			Map<String, Set<IntentFilter>> allFilters, Set<SootMethod> reachesMopSet,
+			XMLParser xmlParser, String[] lifecycleMethodNames, boolean isMain) throws IOException {
+		if (sc == null) return;
+
+		w.beginObject();
+		w.name("className").value(className);
+		w.name("isMain").value(isMain);
+
+		// Intent filters
+		w.name("intentFilters");
+		w.beginArray();
+		Set<IntentFilter> filters = allFilters.get(className);
+		if (filters != null) {
+			for (IntentFilter filter : filters) {
+				w.beginObject();
+				w.name("actions");
+				w.beginArray();
+				for (String action : filter.getActions()) {
+					w.value(action);
+				}
+				w.endArray();
+				w.name("categories");
+				w.beginArray();
+				for (String category : filter.getCategories()) {
+					w.value(category);
+				}
+				w.endArray();
+				w.endObject();
+			}
+		}
+		w.endArray();
+
+		w.name("exported").value(xmlParser.isComponentExported(className));
+
+		// MOP reachability
+		List<String> mopMethods = new ArrayList<>();
+		boolean reachesMop = false;
+		for (SootMethod m : sc.getMethods()) {
+			String methodName = m.getName();
+			for (String lifecycle : lifecycleMethodNames) {
+				if (methodName.equals(lifecycle) && reachesMopSet.contains(m)) {
+					reachesMop = true;
+					mopMethods.add(m.getSignature());
+				}
+			}
+		}
+		w.name("reachesMop").value(reachesMop);
+		w.name("mopMethods");
+		w.beginArray();
+		for (String sig : mopMethods) {
+			w.value(sig);
+		}
+		w.endArray();
+
+		w.endObject();
+	}
+
+	private void writeProviderEntry(JsonWriter w, String className, SootClass sc,
+			Set<SootMethod> reachesMopSet, XMLParser xmlParser,
+			String[] lifecycleMethodNames) throws IOException {
+		if (sc == null) return;
+
+		w.beginObject();
+		w.name("className").value(className);
+		w.name("isMain").value(false);
+		w.name("authorities").value(xmlParser.getProviderAuthorities(className));
+		w.name("exported").value(xmlParser.isComponentExported(className));
+
+		// MOP reachability
+		List<String> mopMethods = new ArrayList<>();
+		boolean reachesMop = false;
+		for (SootMethod m : sc.getMethods()) {
+			String methodName = m.getName();
+			for (String lifecycle : lifecycleMethodNames) {
+				if (methodName.equals(lifecycle) && reachesMopSet.contains(m)) {
+					reachesMop = true;
+					mopMethods.add(m.getSignature());
+				}
+			}
+		}
+		w.name("reachesMop").value(reachesMop);
+		w.name("mopMethods");
+		w.beginArray();
+		for (String sig : mopMethods) {
+			w.value(sig);
 		}
 		w.endArray();
 

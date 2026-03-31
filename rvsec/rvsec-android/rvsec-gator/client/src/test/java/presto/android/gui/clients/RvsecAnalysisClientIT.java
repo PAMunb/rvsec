@@ -45,6 +45,7 @@ public class RvsecAnalysisClientIT {
 		assertTrue("Missing 'package'", result.has("package"));
 		assertTrue("Missing 'mainActivity'", result.has("mainActivity"));
 		assertTrue("Missing 'reachability'", result.has("reachability"));
+		assertTrue("Missing 'components'", result.has("components"));
 		assertTrue("Missing 'windows'", result.has("windows"));
 		assertTrue("Missing 'transitions'", result.has("transitions"));
 	}
@@ -81,8 +82,8 @@ public class RvsecAnalysisClientIT {
 
 		for (JsonElement classElem : reachability) {
 			JsonObject cls = classElem.getAsJsonObject();
-			assertTrue("Missing isActivity", cls.has("isActivity"));
-			assertTrue("Missing isMainActivity", cls.has("isMainActivity"));
+			assertTrue("Missing componentType", cls.has("componentType"));
+			assertTrue("Missing isMain", cls.has("isMain"));
 
 			for (JsonElement methodElem : cls.getAsJsonArray("methods")) {
 				JsonObject method = methodElem.getAsJsonObject();
@@ -117,13 +118,13 @@ public class RvsecAnalysisClientIT {
 		boolean foundMain = false;
 		for (JsonElement classElem : reachability) {
 			JsonObject cls = classElem.getAsJsonObject();
-			if (cls.get("isMainActivity").getAsBoolean()) {
+			if (cls.get("isMain").getAsBoolean()) {
 				assertEquals("br.unb.cic.cryptoapp.MainActivity", cls.get("className").getAsString());
-				assertTrue("Main activity must also be isActivity", cls.get("isActivity").getAsBoolean());
+				assertEquals("Main activity must have componentType=activity", "activity", cls.get("componentType").getAsString());
 				foundMain = true;
 			}
 		}
-		assertTrue("Must have exactly one isMainActivity=true class", foundMain);
+		assertTrue("Must have exactly one isMain=true class", foundMain);
 	}
 
 	// -----------------------------------------------------------------
@@ -274,6 +275,7 @@ public class RvsecAnalysisClientIT {
 		assertTrue("package must be string", result.get("package").isJsonPrimitive());
 		assertTrue("mainActivity must be string", result.get("mainActivity").isJsonPrimitive());
 		assertTrue("reachability must be array", result.get("reachability").isJsonArray());
+		assertTrue("components must be object", result.get("components").isJsonObject());
 		assertTrue("windows must be array", result.get("windows").isJsonArray());
 		assertTrue("transitions must be array", result.get("transitions").isJsonArray());
 	}

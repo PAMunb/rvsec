@@ -35,6 +35,10 @@ public interface XMLParser {
     protected final ArrayList<String> activities = Lists.newArrayList();
     protected final ArrayList<String> services = Lists.newArrayList();
     protected final ArrayList<String> receivers = Lists.newArrayList();
+    protected final ArrayList<String> providers = Lists.newArrayList();
+
+    protected final Map<String, Boolean> componentExported = Maps.newHashMap();
+    protected final Map<String, String> providerAuthorities = Maps.newHashMap();
 
     protected SootClass mainActivity;
 
@@ -46,6 +50,31 @@ public interface XMLParser {
     @Override
     public Iterator<String> getActivities() {
       return activities.iterator();
+    }
+
+    @Override
+    public Iterator<String> getReceivers() {
+      return receivers.iterator();
+    }
+
+    @Override
+    public Iterator<String> getServices() {
+      return services.iterator();
+    }
+
+    @Override
+    public Iterator<String> getProviders() {
+      return providers.iterator();
+    }
+
+    @Override
+    public boolean isComponentExported(String className) {
+      return componentExported.getOrDefault(className, false);
+    }
+
+    @Override
+    public String getProviderAuthorities(String className) {
+      return providerAuthorities.get(className);
     }
 
     @Override
@@ -152,6 +181,14 @@ public interface XMLParser {
   Iterator<String> getActivities();
 
   Iterator<String> getServices();
+
+  Iterator<String> getReceivers();
+
+  Iterator<String> getProviders();
+
+  boolean isComponentExported(String className);
+
+  String getProviderAuthorities(String className);
 
   Integer getApplicationIdValue(String type, String name);
 

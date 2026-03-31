@@ -85,6 +85,10 @@ public class JsonOutputTest {
 			w.beginArray();
 			w.endArray();
 
+			w.name("components");
+			w.beginObject();
+			w.endObject();
+
 			w.name("windows");
 			w.beginArray();
 			w.endArray();
@@ -98,12 +102,13 @@ public class JsonOutputTest {
 
 		// Verify exactly the expected top-level keys
 		Set<String> expectedKeys = new LinkedHashSet<>(
-				Arrays.asList("package", "mainActivity", "reachability", "windows", "transitions"));
+				Arrays.asList("package", "mainActivity", "reachability", "components", "windows", "transitions"));
 		assertEquals(expectedKeys, root.keySet());
 
 		assertEquals("test.app", root.get("package").getAsString());
 		assertEquals("test.app.MainActivity", root.get("mainActivity").getAsString());
 		assertTrue(root.get("reachability").isJsonArray());
+		assertTrue(root.get("components").isJsonObject());
 		assertTrue(root.get("windows").isJsonArray());
 		assertTrue(root.get("transitions").isJsonArray());
 	}
@@ -116,8 +121,8 @@ public class JsonOutputTest {
 			w.beginArray();
 			w.beginObject();
 			w.name("className").value("test.app.MyClass");
-			w.name("isActivity").value(true);
-			w.name("isMainActivity").value(false);
+			w.name("componentType").value("activity");
+			w.name("isMain").value(false);
 
 			w.name("methods");
 			w.beginArray();
@@ -139,8 +144,8 @@ public class JsonOutputTest {
 
 		JsonObject classEntry = reachability.get(0).getAsJsonObject();
 		assertEquals("test.app.MyClass", classEntry.get("className").getAsString());
-		assertTrue(classEntry.get("isActivity").getAsBoolean());
-		assertFalse(classEntry.get("isMainActivity").getAsBoolean());
+		assertEquals("activity", classEntry.get("componentType").getAsString());
+		assertFalse(classEntry.get("isMain").getAsBoolean());
 
 		JsonArray methods = classEntry.getAsJsonArray("methods");
 		assertEquals(1, methods.size());
@@ -275,8 +280,8 @@ public class JsonOutputTest {
 			w.beginArray();
 			w.beginObject();
 			w.name("className").value("test.app.Outer$Inner");
-			w.name("isActivity").value(false);
-			w.name("isMainActivity").value(false);
+			w.name("componentType").nullValue();
+			w.name("isMain").value(false);
 			w.name("methods");
 			w.beginArray();
 			w.endArray();
@@ -353,8 +358,8 @@ public class JsonOutputTest {
 		w.beginArray();
 		w.beginObject();
 		w.name("className").value("test.app.MyClass");
-		w.name("isActivity").value(true);
-		w.name("isMainActivity").value(false);
+		w.name("componentType").value("activity");
+		w.name("isMain").value(false);
 		w.name("methods");
 		w.beginArray();
 		w.endArray();

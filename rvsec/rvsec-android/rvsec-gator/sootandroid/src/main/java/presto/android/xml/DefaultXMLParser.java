@@ -165,11 +165,6 @@ class DefaultXMLParser extends AbstractXMLParser {
     return intAndStringValues.get(idValue);
   }
 
-  @Override
-  public Iterator<String> getServices() {
-    return services.iterator();
-  }
-
   //================================================
 
   private static final boolean debug = false;
@@ -364,6 +359,14 @@ class DefaultXMLParser extends AbstractXMLParser {
             activities.add(cls);
             readIntentFilters(cls, n);
 
+            // Parse android:exported
+            Node exportedNode = m.getNamedItemNS(ANDROID_NS, "exported");
+            if (exportedNode != null) {
+              componentExported.put(cls, Boolean.parseBoolean(exportedNode.getTextContent()));
+            } else {
+              componentExported.put(cls, IntentFilterManager.v().getAllFilters().containsKey(cls));
+            }
+
             //TODO: use generic intent filter processing
             if (isMainActivity(n)) {
               assert mainActivity == null;
@@ -419,10 +422,19 @@ class DefaultXMLParser extends AbstractXMLParser {
                     .getTextContent();
 
             String cls = Helper.getClassName(partialClassName, appPkg);
-            services.add(cls);
-            readIntentFilters(cls, n);
-            Logger.trace("XML", "Service: " + cls);
-
+            if (cls != null) {
+              services.add(cls);
+              readIntentFilters(cls, n);
+              // Parse android:exported
+              Node exportedNode = m.getNamedItemNS(ANDROID_NS, "exported");
+              if (exportedNode != null) {
+                componentExported.put(cls, Boolean.parseBoolean(exportedNode.getTextContent()));
+              } else {
+                // Default: true if has intent-filters, false otherwise (API 31+ behavior)
+                componentExported.put(cls, IntentFilterManager.v().getAllFilters().containsKey(cls));
+              }
+              Logger.trace("XML", "Service: " + cls);
+            }
           }
 
           if ("receiver".equals(eleName)) {
@@ -430,9 +442,41 @@ class DefaultXMLParser extends AbstractXMLParser {
             String partialClassName = m.getNamedItemNS(ANDROID_NS, "name")
                     .getTextContent();
             String cls = Helper.getClassName(partialClassName, appPkg);
-            receivers.add(cls);
-            readIntentFilters(cls, n);
-            Logger.trace("XML", "Receiver: " + cls);
+            if (cls != null) {
+              receivers.add(cls);
+              readIntentFilters(cls, n);
+              // Parse android:exported
+              Node exportedNode = m.getNamedItemNS(ANDROID_NS, "exported");
+              if (exportedNode != null) {
+                componentExported.put(cls, Boolean.parseBoolean(exportedNode.getTextContent()));
+              } else {
+                // Default: true if has intent-filters, false otherwise (API 31+ behavior)
+                componentExported.put(cls, IntentFilterManager.v().getAllFilters().containsKey(cls));
+              }
+              Logger.trace("XML", "Receiver: " + cls);
+            }
+          }
+
+          if ("provider".equals(eleName)) {
+            NamedNodeMap m = n.getAttributes();
+            String partialClassName = m.getNamedItemNS(ANDROID_NS, "name").getTextContent();
+            String cls = Helper.getClassName(partialClassName, appPkg);
+            if (cls != null) {
+              providers.add(cls);
+              // Parse android:authorities
+              Node authNode = m.getNamedItemNS(ANDROID_NS, "authorities");
+              if (authNode != null) {
+                providerAuthorities.put(cls, authNode.getTextContent());
+              }
+              // Parse android:exported (default false for providers without intent-filters)
+              Node exportedNode = m.getNamedItemNS(ANDROID_NS, "exported");
+              if (exportedNode != null) {
+                componentExported.put(cls, Boolean.parseBoolean(exportedNode.getTextContent()));
+              } else {
+                componentExported.put(cls, false);
+              }
+              Logger.trace("XML", "Provider: " + cls);
+            }
           }
         } catch (NullPointerException ne) {
           //A work around for uk.co.busydoingnothing.catverbs_5.apk
