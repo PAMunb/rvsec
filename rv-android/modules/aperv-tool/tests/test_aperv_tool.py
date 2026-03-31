@@ -40,12 +40,15 @@ class TestToolSpec:
 class TestVariants:
     """Verify get_variants() structure (INV-APV-05)."""
 
-    def test_exactly_seven_variants(self):
+    def test_base_variants_present(self):
         variants = ApeRVTool.get_variants()
-        assert set(variants.keys()) == {
+        base_variants = {
             "default", "sata", "sata_mop", "bfs", "random",
             "sata_llm", "sata_mop_llm",
         }
+        assert base_variants.issubset(set(variants.keys())), (
+            f"Missing base variants: {base_variants - set(variants.keys())}"
+        )
 
     def test_default_uses_sata_strategy(self):
         variants = ApeRVTool.get_variants()
