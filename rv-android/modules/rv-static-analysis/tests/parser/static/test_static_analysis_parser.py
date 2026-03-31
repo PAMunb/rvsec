@@ -1125,3 +1125,241 @@ class TestMultiPackageFiltering:
         assert "org.godotengine.godot.GodotActivity" in result.classes.classes
         # Manifest package class should be filtered out
         assert "ir.hsn6.trans.Launcher" not in result.classes.classes
+
+
+# --- Components parsing ---
+
+
+class TestComponentsParsing:
+    """Tests for components{} section parsing."""
+
+    def test_parse_activities_with_intent_filters(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": {
+                "activities": [
+                    {
+                        "className": "com.example.MainActivity",
+                        "isMain": True,
+                        "intentFilters": [
+                            {
+                                "actions": ["android.intent.action.MAIN"],
+                                "categories": ["android.intent.category.LAUNCHER"],
+                            }
+                        ],
+                        "exported": True,
+                        "reachesMop": False,
+                        "mopMethods": [],
+                    }
+                ],
+                "receivers": [],
+                "services": [],
+                "providers": [],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        assert len(result.components.activities) == 1
+        activity = result.components.activities[0]
+        assert activity.class_name == "com.example.MainActivity"
+        assert activity.is_main is True
+        assert activity.exported is True
+        assert len(activity.intent_filters) == 1
+        assert activity.intent_filters[0].actions == ["android.intent.action.MAIN"]
+        assert activity.intent_filters[0].categories == [
+            "android.intent.category.LAUNCHER"
+        ]
+
+    def test_parse_providers_with_authorities(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": {
+                "activities": [],
+                "receivers": [],
+                "services": [],
+                "providers": [
+                    {
+                        "className": "com.example.DataProvider",
+                        "isMain": False,
+                        "authorities": "com.example.data",
+                        "exported": False,
+                        "reachesMop": True,
+                        "mopMethods": [
+                            "<com.example.DataProvider: Cursor query()>"
+                        ],
+                    }
+                ],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        assert len(result.components.providers) == 1
+        provider = result.components.providers[0]
+        assert provider.class_name == "com.example.DataProvider"
+        assert provider.component_type == "provider"
+        assert provider.is_main is False
+        assert provider.authorities == "com.example.data"
+        assert provider.reaches_mop is True
+        assert len(provider.mop_methods) == 1
+        assert provider.intent_filters == []
+
+    def test_parse_all_component_types(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": {
+                "activities": [
+                    {
+                        "className": "com.example.Act",
+                        "isMain": True,
+                        "intentFilters": [],
+                        "exported": True,
+                        "reachesMop": False,
+                        "mopMethods": [],
+                    }
+                ],
+                "receivers": [
+                    {
+                        "className": "com.example.Recv",
+                        "isMain": False,
+                        "intentFilters": [],
+                        "exported": True,
+                        "reachesMop": False,
+                        "mopMethods": [],
+                    }
+                ],
+                "services": [
+                    {
+                        "className": "com.example.Svc",
+                        "isMain": False,
+                        "intentFilters": [],
+                        "exported": False,
+                        "reachesMop": True,
+                        "mopMethods": ["sig"],
+                    }
+                ],
+                "providers": [
+                    {
+                        "className": "com.example.Prov",
+                        "authorities": "auth",
+                        "exported": False,
+                        "reachesMop": False,
+                        "mopMethods": [],
+                    }
+                ],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        assert len(result.components.activities) == 1
+        assert len(result.components.receivers) == 1
+        assert len(result.components.services) == 1
+        assert len(result.components.providers) == 1
+        assert result.components.services[0].reaches_mop is True
+
+    def test_missing_components_section(self, parser, tmp_path):
+        json_data = {"reachability": [], "windows": [], "transitions": []}
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        assert len(result.components.get_all()) == 0
+
+    def test_empty_components_section(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": {},
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        assert len(result.components.get_all()) == 0
+
+    def test_malformed_components_section(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": "not_an_object",
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        assert len(result.components.get_all()) == 0
+
+    def test_mop_methods_parsed(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": {
+                "activities": [],
+                "receivers": [
+                    {
+                        "className": "com.example.Recv",
+                        "isMain": False,
+                        "intentFilters": [
+                            {
+                                "actions": [
+                                    "android.intent.action.BOOT_COMPLETED"
+                                ],
+                                "categories": [],
+                            }
+                        ],
+                        "exported": True,
+                        "reachesMop": True,
+                        "mopMethods": [
+                            "<com.example.Recv: void onReceive(Context,Intent)>"
+                        ],
+                    }
+                ],
+                "services": [],
+                "providers": [],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        recv = result.components.receivers[0]
+        assert recv.reaches_mop is True
+        assert recv.mop_methods == [
+            "<com.example.Recv: void onReceive(Context,Intent)>"
+        ]
+        assert recv.exported is True
+
+    def test_exported_flag(self, parser, tmp_path):
+        json_data = {
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "components": {
+                "activities": [],
+                "receivers": [],
+                "services": [
+                    {
+                        "className": "com.example.Svc1",
+                        "isMain": False,
+                        "intentFilters": [],
+                        "exported": True,
+                        "reachesMop": False,
+                        "mopMethods": [],
+                    },
+                    {
+                        "className": "com.example.Svc2",
+                        "isMain": False,
+                        "intentFilters": [],
+                        "exported": False,
+                        "reachesMop": False,
+                        "mopMethods": [],
+                    },
+                ],
+                "providers": [],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        exported = result.components.get_exported_components()
+        assert len(exported) == 1
+        assert exported[0].class_name == "com.example.Svc1"

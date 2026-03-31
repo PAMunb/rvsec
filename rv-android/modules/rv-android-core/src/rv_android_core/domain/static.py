@@ -9,6 +9,7 @@ from pydantic import ConfigDict, Field
 
 # Direct imports - static.py should be imported after other domain modules
 from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.components import Components
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_android_core.util.validation import BaseValidatedModel
@@ -56,4 +57,8 @@ class StaticAnalysisData(BaseValidatedModel):
     )
     wtg: WindowTransitionGraph = Field(
         description="Window transition graph representing application navigation flows from GATOR analysis"
+    )
+    components: Components = Field(
+        default_factory=Components,
+        description="Component data (Activities, Services, Receivers, Providers) with intent-filters, authorities, and MOP reachability",
     )

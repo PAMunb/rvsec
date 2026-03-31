@@ -21,7 +21,7 @@ The three modules occupy distinct positions in the experiment lifecycle:
 ```
 Pre-Processing Phase:
   APK -----> rv-static-analysis -----> StaticAnalysisData
-                                        (Classes, Windows, WTG)
+                                        (Classes, Windows, WTG, Components)
 
 Execution Phase:
   Logcat -----> rv-coverage -----> CoverageTracker
@@ -56,7 +56,7 @@ sequenceDiagram
     Note over SAC,CT: Task Initialization
     SAC->>JSON: copy to task results dir
     SAC->>Parser: parse_file(json_path, code_package)
-    Parser-->>SAC: StaticAnalysisData(Classes, Windows, WTG)
+    Parser-->>SAC: StaticAnalysisData(Classes, Windows, WTG, Components)
     SAC->>CT: initialize(static_data)
     CT->>CT: build LogcatRepository (method universe)
 
@@ -108,6 +108,7 @@ StaticAnalysisData:
   classes: Classes              # Collection of application classes and methods (reachability section)
   windows: Windows              # Collection of UI windows and widgets (windows section)
   wtg: WindowTransitionGraph    # Navigation graph (transitions section)
+  components: Components        # Non-Activity component data with intent-filters and MOP reachability (components section)
 
 Classes:
   classes: Dict[str, Clazz]     # Class name -> class info (component_type, is_main, methods)
@@ -156,6 +157,26 @@ WindowTransition:
   widget_id: str                # Widget that triggers this transition
   event: WidgetEventType        # Event type (CLICK, LONG_CLICK, etc.)
   handler: str                  # Handler method signature
+
+Components:
+  activities: List[ComponentInfo]   # Activities with intent-filters and MOP data
+  receivers: List[ComponentInfo]    # BroadcastReceivers with intent-filters and MOP data
+  services: List[ComponentInfo]     # Services with intent-filters and MOP data
+  providers: List[ComponentInfo]    # ContentProviders with authorities and MOP data
+
+ComponentInfo:
+  class_name: str                   # Fully qualified class name
+  component_type: str               # "activity", "service", "receiver", "provider"
+  is_main: bool                     # True if this is the main launcher Activity
+  intent_filters: List[IntentFilter]  # Intent filters (empty for providers)
+  authorities: str | None           # Content provider authorities (providers only)
+  exported: bool                    # Whether the component is exported
+  reaches_mop: bool                 # Whether lifecycle methods reach monitored operations
+  mop_methods: List[str]            # Signatures of lifecycle methods reaching MOP
+
+IntentFilter:
+  actions: List[str]                # Intent actions (e.g., "android.intent.action.MAIN")
+  categories: List[str]             # Intent categories (e.g., "android.intent.category.LAUNCHER")
 
 RvCoverageLog:
   clazz: str                    # Fully qualified class name
@@ -242,7 +263,7 @@ CoverageCalculationMode:
 
 ```
 rv-static-analysis:
-  Depends on: rv-android-core (App, Classes, Windows, WTG, ErrorHandler, LoggingManager)
+  Depends on: rv-android-core (App, Classes, Windows, WTG, Components, ErrorHandler, LoggingManager)
   Consumed by: rv-platform (StaticAnalysisComponent), rv-agent (TransitionManager, MOP prioritization),
                rv-coverage (repository initialization), rv-experiment (pre-processing phase)
 
@@ -275,7 +296,7 @@ rv-screen-parser:
 
 ### Output
 
-- `StaticAnalysisData` -- Unified static analysis results containing Classes, Windows, and WTG (destination: rv-platform StaticAnalysisComponent, rv-agent, rv-coverage)
+- `StaticAnalysisData` -- Unified static analysis results containing Classes, Windows, WTG, and Components (destination: rv-platform StaticAnalysisComponent, rv-agent, rv-coverage)
 - `StaticAnalysisResult` -- Analysis pipeline status with analysis file path, timeout flag, and errors (destination: rv-experiment pre-processing)
 - `Dict[str, float]` -- Coverage metrics dictionary with method_coverage, activity_coverage, mop_method_coverage, called_methods, total_errors (destination: rv-platform CoverageComponent)
 - `ScreenDescription` -- Complete screen state with items, actions, and coordinates (destination: rv-agent ScreenProcessor, LLM prompt generation)
@@ -294,7 +315,7 @@ rv-screen-parser:
 - `RVCommandTimeoutError` -- Raised when the analysis tool exceeds `analysis_timeout`. The `Command` class kills the process tree via `kill_process_tree()`.
 - `ConfigurationError` -- Raised by RVStaticAnalysisConfig when required paths are missing (analysis client JAR, MOP directory, Android SDK).
 - `ValueError` -- Raised by ItemAction coordinate validation when coordinates are not a 2-element integer tuple or contain negative values.
-- Parser errors -- Caught internally and logged; the parser returns empty domain objects per-section (empty Classes, empty Windows, empty WindowTransitionGraph) on failure rather than propagating exceptions.
+- Parser errors -- Caught internally and logged; the parser returns empty domain objects per-section (empty Classes, empty Windows, empty WindowTransitionGraph, empty Components) on failure rather than propagating exceptions.
 
 ## Invariants
 
@@ -346,7 +367,7 @@ The `complementWithCallbacks()` method, which propagates MOP flags for lifecycle
 
 Each entry in `reachability[]` MUST include `componentType` (string: `"activity"`, `"service"`, `"receiver"`, `"provider"`, or `null`) and `isMain` (boolean) fields. The old `isActivity` and `isMainActivity` fields are removed. The `StaticAnalysisParser` (Python) MUST parse these fields into the `Clazz` domain model (`component_type: str | None`, `is_main: bool`).
 
-The analysis JSON output is parsed by `StaticAnalysisParser` into the `StaticAnalysisData` domain model (Classes, Windows, WindowTransitionGraph). Downstream consumers (rv-agent, rv-coverage, rv-platform) receive this data structure.
+The analysis JSON output is parsed by `StaticAnalysisParser` into the `StaticAnalysisData` domain model (Classes, Windows, WindowTransitionGraph, Components). Downstream consumers (rv-agent, rv-coverage, rv-platform) receive this data structure.
 
 The reachability section defines the **method universe** — the total set of reachable methods that serves as the denominator for all coverage percentage calculations. Without reachability data, the system can count absolute method calls but cannot compute coverage percentages. The `CoverageAnalyzer` explicitly switches to `RUNTIME_ONLY` or `FALLBACK_MODE` when reachability data is unavailable.
 
@@ -361,7 +382,7 @@ The call graph is built using Soot's default entry point strategy — Android li
 
 - **WHEN** `StaticAnalyzer._run_analysis()` is called with a valid APK path and the analysis client JAR exists at `lib/gator/rvsec-analysis-client.jar`
 - **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> -withCHA`
-- **AND** the resulting `.json` file MUST be parseable by `StaticAnalysisParser` into a `StaticAnalysisData` containing non-empty `Classes`, `Windows`, and `WindowTransitionGraph`
+- **AND** the resulting `.json` file MUST be parseable by `StaticAnalysisParser` into a `StaticAnalysisData` containing non-empty `Classes`, `Windows`, `WindowTransitionGraph`, and `Components`
 - **AND** the `.json` file MUST contain a `components` section (may have empty `receivers[]`, `services[]`, and `providers[]` arrays)
 
 #### Scenario: Static analysis JSON parsing — windows section
@@ -392,6 +413,15 @@ The call graph is built using Soot's default entry point strategy — Android li
 - **AND** class names and signatures MUST be normalized via `SignatureNormalizer` (INV-ANA-02)
 - **AND** classes not containing `code_package` in their name MUST be filtered out (INV-ANA-03)
 
+#### Scenario: Static analysis JSON parsing — components section
+
+- **WHEN** `StaticAnalysisParser._parse_components()` processes the `components` object from the analysis JSON
+- **THEN** each entry in `activities[]`, `receivers[]`, and `services[]` MUST produce a `ComponentInfo` object with `class_name`, `component_type`, `is_main`, `intent_filters` (list of `IntentFilter`), `exported`, `reaches_mop`, and `mop_methods`
+- **AND** each entry in `providers[]` MUST produce a `ComponentInfo` object with `class_name`, `component_type="provider"`, `is_main=False`, `authorities` (string), `exported`, `reaches_mop`, and `mop_methods`
+- **AND** if the `components` key is missing from the JSON (e.g., timeout before Section 4 was written), `_parse_components()` MUST return an empty `Components` object
+- **AND** if the `components` section contains malformed data, `_parse_components()` MUST log an error and return an empty `Components` object (INV-ANA-06)
+- **AND** the resulting `Components` object MUST be stored in `StaticAnalysisData.components`
+
 #### Scenario: Static analysis JSON parsing with inner class normalization
 
 - **WHEN** `StaticAnalysisParser` encounters a class name like `com.example.OuterActivity.InnerFragment` in any section
@@ -402,7 +432,7 @@ The call graph is built using Soot's default entry point strategy — Android li
 
 - **WHEN** `StaticAnalysisParser.parse_file()` is called with a non-existent file path
 - **THEN** a warning MUST be logged
-- **AND** an empty `StaticAnalysisData` MUST be returned with empty `Classes()`, `Windows()`, and `WindowTransitionGraph()`
+- **AND** an empty `StaticAnalysisData` MUST be returned with empty `Classes()`, `Windows()`, `WindowTransitionGraph()`, and `Components()`
 
 #### Scenario: Partial JSON parse failure (per-section graceful degradation)
 

@@ -2,9 +2,9 @@
 Parse unified static analysis JSON into domain objects.
 
 Convert the JSON output produced by RvsecAnalysisClient (a GATOR Java client)
-into StaticAnalysisData containing Classes, Windows, and WindowTransitionGraph.
-The JSON contains three sections written in priority order (reachability, windows,
-transitions), and on timeout some sections may be missing. The parser handles
+into StaticAnalysisData containing Classes, Windows, WindowTransitionGraph, and Components.
+The JSON contains four sections written in priority order (reachability, windows,
+transitions, components), and on timeout some sections may be missing. The parser handles
 partial or truncated JSON gracefully by returning empty domain objects for
 missing or corrupt sections.
 
@@ -19,6 +19,7 @@ import re
 
 import rv_android_core.constants as constants
 from rv_android_core.domain.classes import Classes, Method
+from rv_android_core.domain.components import Components, ComponentInfo, IntentFilter
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import (
     Widget,
@@ -82,7 +83,7 @@ class StaticAnalysisParser:
             package: Application code_package for class filtering (INV-ANA-03)
 
         Returns:
-            StaticAnalysisData with parsed Classes, Windows, and WindowTransitionGraph.
+            StaticAnalysisData with parsed Classes, Windows, WindowTransitionGraph, and Components.
             On any failure, returns data with empty objects for the failed sections.
         """
         if not file_path or not os.path.isfile(file_path):
@@ -99,14 +100,16 @@ class StaticAnalysisParser:
         classes = self._parse_classes(data, package)
         windows = self._parse_windows(data, package, classes)
         wtg = self._parse_transitions(data, windows)
+        components = self._parse_components(data)
 
         self.logger.info(
             f"Parsed: {len(classes.classes)} classes, "
             f"{len(classes.methods)} methods, "
             f"{len(windows.windows)} windows, "
-            f"{len(wtg.transitions)} transitions"
+            f"{len(wtg.transitions)} transitions, "
+            f"{sum(len(v) for v in [components.activities, components.receivers, components.services, components.providers])} components"
         )
-        return StaticAnalysisData(classes, windows, wtg)
+        return StaticAnalysisData(classes, windows, wtg, components=components)
 
     def read_static_analysis_files(
         self, results_dir: str, apk: str, package: str
@@ -453,6 +456,74 @@ class StaticAnalysisParser:
         except Exception as e:
             self.logger.error(f"Error parsing transitions section: {e}")
             return WindowTransitionGraph()
+
+    def _parse_intent_filters(self, filters_data: list) -> list[IntentFilter]:
+        """Parse intent filter entries into IntentFilter objects."""
+        result = []
+        for f in filters_data:
+            result.append(IntentFilter(
+                actions=f.get("actions", []),
+                categories=f.get("categories", []),
+            ))
+        return result
+
+    def _parse_component_list(self, entries: list, component_type: str) -> list[ComponentInfo]:
+        """Parse component entries (activities, receivers, services) with intentFilters."""
+        result = []
+        for entry in entries:
+            result.append(ComponentInfo(
+                class_name=entry.get("className", ""),
+                component_type=component_type,
+                is_main=entry.get("isMain", False),
+                intent_filters=self._parse_intent_filters(entry.get("intentFilters", [])),
+                exported=entry.get("exported", False),
+                reaches_mop=entry.get("reachesMop", False),
+                mop_methods=entry.get("mopMethods", []),
+            ))
+        return result
+
+    def _parse_provider_list(self, entries: list) -> list[ComponentInfo]:
+        """Parse provider entries with authorities instead of intentFilters."""
+        result = []
+        for entry in entries:
+            result.append(ComponentInfo(
+                class_name=entry.get("className", ""),
+                component_type="provider",
+                is_main=False,  # Providers are never the main component
+                authorities=entry.get("authorities"),
+                exported=entry.get("exported", False),
+                reaches_mop=entry.get("reachesMop", False),
+                mop_methods=entry.get("mopMethods", []),
+            ))
+        return result
+
+    def _parse_components(self, data: dict) -> Components:
+        """Parse the components section into Components domain object.
+
+        Each component type has its own array in the JSON. Activities, receivers,
+        and services share the same shape (with intentFilters). Providers use
+        authorities instead of intentFilters.
+
+        Returns empty Components on missing data or parse error (INV-ANA-06).
+        """
+        try:
+            components_data = data.get("components")
+            if not components_data:
+                return Components()
+
+            return Components(
+                activities=self._parse_component_list(
+                    components_data.get("activities", []), "activity"),
+                receivers=self._parse_component_list(
+                    components_data.get("receivers", []), "receiver"),
+                services=self._parse_component_list(
+                    components_data.get("services", []), "service"),
+                providers=self._parse_provider_list(
+                    components_data.get("providers", [])),
+            )
+        except Exception as e:
+            self.logger.error(f"Error parsing components section: {e}")
+            return Components()
 
     def _map_window_type(self, type_str: str) -> WindowType:
         """Map analysis JSON window type string to WindowType enum."""
