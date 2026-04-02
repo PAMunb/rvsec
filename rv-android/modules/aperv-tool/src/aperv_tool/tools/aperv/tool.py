@@ -535,6 +535,16 @@ class ApeRVTool(AbstractTool):
             jar_path, APERV_DEVICE_JAR_PATH, device_serial, task.result.trace_file
         )
 
+        # Step 1a: Push system-broadcast.json for component triggering (gh11)
+        broadcast_catalog = os.path.join(os.path.dirname(__file__), "system-broadcast.json")
+        if os.path.exists(broadcast_catalog):
+            self._push_file_to_device(
+                broadcast_catalog,
+                "/data/local/tmp/system-broadcast.json",
+                device_serial,
+                task.result.trace_file,
+            )
+
         # Step 1b: Optionally push static analysis JSON for sata_mop variant
         mop_json_pushed = False
         if self._tool_config.get("mop_data") == "static_analysis":
