@@ -75,10 +75,10 @@ class TestVariants:
         assert variants["sata_mop_llm"]["mop_data"] == "static_analysis"
 
     def test_llm_variants_have_all_llm_keys(self):
-        """LLM variants must include all 9 LLM config keys explicitly."""
+        """LLM variants must include all 8 LLM config keys explicitly."""
         variants = ApeRVTool.get_variants()
         llm_keys = {"llm_url", "llm_on_new_state", "llm_on_stagnation", "llm_model",
-                     "llm_temperature", "llm_top_p", "llm_top_k", "llm_timeout_ms", "llm_max_calls"}
+                     "llm_temperature", "llm_top_p", "llm_top_k", "llm_timeout_ms"}
         for name in ["sata_llm", "sata_mop_llm"]:
             for key in llm_keys:
                 assert key in variants[name], f"{name} missing {key}"
@@ -342,7 +342,6 @@ class TestPushPropertiesLlm:
         assert "ape.llmTopP=0.6" in props
         assert "ape.llmTopK=50" in props
         assert "ape.llmTimeoutMs=15000" in props
-        assert "ape.llmMaxCalls=200" in props
 
     def test_llm_properties_absent_when_no_llm_url(self, tmp_path):
         """No ape.llm* keys for non-LLM variants."""
