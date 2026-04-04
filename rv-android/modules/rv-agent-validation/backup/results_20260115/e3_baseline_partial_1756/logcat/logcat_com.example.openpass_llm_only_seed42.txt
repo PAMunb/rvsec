@@ -1,6 +1,0 @@
---------- beginning of system
---------- beginning of main
-01-14 17:12:20.902 14244 14244 V RVSEC-COV: <com.example.openpass.TokenListActivity: void onCreate(android.os.Bundle)>
-01-14 17:12:20.955 14244 14244 V RVSEC-COV: <com.example.openpass.TokenListActivity: void updateTokens()>
-01-14 17:12:20.955 14244 14244 V RVSEC-COV: <com.example.openpass.Settings: java.util.Vector loadTokens(android.content.Context)>
-01-14 17:12:21.111 14244 14244 V RVSEC-COV: <com.example.openpass.TokenListActivity: boolean onCreateOptionsMenu(android.view.Menu)>

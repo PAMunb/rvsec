@@ -1,8 +1,0 @@
---------- beginning of system
---------- beginning of main
-01-14 23:39:18.253 11417 11417 V RVSEC-COV: <net.xvello.salasana.SalasanaApplication: void onCreate()>
-01-14 23:39:18.330 11417 11417 V RVSEC-COV: <net.xvello.salasana.MainActivity: void onCreate(android.os.Bundle)>
-01-14 23:39:18.639 11417 11417 V RVSEC-COV: <net.xvello.salasana.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
-01-14 23:39:25.034 11417 11417 V RVSEC-COV: <net.xvello.salasana.MainActivity: void generatePassword(android.view.View)>
-01-14 23:39:25.034 11417 11417 V RVSEC-COV: <net.xvello.salasana.MainActivity: java.lang.String encodePassword(java.lang.String)>
-01-14 23:39:25.052 11417 11417 V RVSEC   : net.xvello.salasana.MainActivity.generatePassword(Unknown Source:1) ::: Object_MonitorOwner notify() and notifyAll() can be called only by the owner of this object's monitor.

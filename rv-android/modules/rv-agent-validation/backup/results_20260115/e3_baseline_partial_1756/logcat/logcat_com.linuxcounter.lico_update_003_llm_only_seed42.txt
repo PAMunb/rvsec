@@ -1,3 +1,0 @@
---------- beginning of system
---------- beginning of main
-01-14 17:42:43.311 27197 27197 V RVSEC-COV: <com.linuxcounter.lico_update_003.MainActivity: void onCreate(android.os.Bundle)>

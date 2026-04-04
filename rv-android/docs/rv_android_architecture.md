@@ -4,7 +4,7 @@
 
 RV-Android is a modular framework for runtime verification of Android applications, developed as part of a PhD thesis at the University of Brasilia (UnB). The framework combines static analysis, dynamic testing, formal verification through Monitoring-Oriented Programming (MOP), and LLM-guided exploration to detect violations in Android applications. It instruments APKs with runtime monitors generated from formal property specifications, then exercises the application using automated testing tools to trigger and detect property violations.
 
-The framework is built as a **uv workspace** with 15 Python modules, each with a well-defined responsibility. A single `uv sync` at the project root installs all modules in editable mode, so source changes take effect immediately without reinstallation.
+The framework is built as a **uv workspace** with 14 Python modules, each with a well-defined responsibility. A single `uv sync` at the project root installs all modules in editable mode, so source changes take effect immediately without reinstallation.
 
 ### Purpose
 
@@ -24,7 +24,7 @@ This document is intended for developers and researchers who need to understand 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | **Workspace Management** | uv workspace with `modules/*` members | Single lockfile, shared `.venv`, editable installs. Enables independent module development with coordinated dependencies. |
-| **Modular Decomposition** | 15 modules grouped by layer | Each module has a single responsibility, clear dependencies, and can be tested independently. Layers enforce dependency direction. |
+| **Modular Decomposition** | 13 modules grouped by layer | Each module has a single responsibility, clear dependencies, and can be tested independently. Layers enforce dependency direction. |
 | **Component-Based Execution** | Pluggable `ITaskComponent` pipeline | Task execution concerns (emulator, coverage, logcat, static analysis, tool invocation) are isolated into components with a uniform lifecycle (`initialize`/`execute`/`cleanup`). |
 | **Three-Phase Workflow** | Pre-process, Execute, Post-process | Experiment workflow has a natural ordering: prepare artifacts (monitors, instrumented APKs, static analysis), execute testing tasks, generate diagnostics. |
 | **Tool Plugin System** | `ToolRegistry` + `ToolFactory` + `AbstractTool` | Tools are registered at import time, discovered via registry, and instantiated via factory with variant configuration. Adding a tool requires no modification to platform code. |
@@ -40,14 +40,14 @@ This document is intended for developers and researchers who need to understand 
 
 ### Pattern: Layered Architecture
 
-The 15 modules are organized into 5 layers with strict dependency direction (higher layers depend on lower layers, never the reverse).
+The 13 modules are organized into 5 layers with strict dependency direction (higher layers depend on lower layers, never the reverse).
 
 | Layer | Modules | Responsibility |
 |-------|---------|----------------|
-| **L5 - Orchestration** | rv-experiment, rv-agent-validation | Experiment coordination, validation benchmarking |
+| **L5 - Orchestration** | rv-experiment | Experiment coordination |
 | **L4 - Execution** | rv-platform | Task generation, execution pipeline, result processing |
 | **L3 - Analysis** | rv-coverage, rv-static-analysis, rv-screen-parser, rv-monitor-generator, rv-instrumentation | Domain-specific analysis and processing |
-| **L2 - Tools** | rv-tools, rv-uiautomator, rv-agent, rvagent-tool, rvsmart-tool, aperv-tool | Testing tools and device interaction |
+| **L2 - Tools** | rv-tools, rv-uiautomator, rv-agent, rvagent-tool, aperv-tool | Testing tools and device interaction |
 | **L1 - Core** | rv-android-core | Foundation: domain models, error handling, logging, validation |
 
 ### Pattern: Component-Based Execution
@@ -60,7 +60,7 @@ The 15 modules are organized into 5 layers with strict dependency direction (hig
 
 ### Pattern: Factory + Registry
 
-`ToolRegistry` stores tool classes, specifications, and variant configurations. `ToolFactory` resolves variants, merges parameters, and produces configured `AbstractTool` instances. External tools (rvagent, rvsmart, aperv) register lazily on module import via rv-platform's `__init__.py`.
+`ToolRegistry` stores tool classes, specifications, and variant configurations. `ToolFactory` resolves variants, merges parameters, and produces configured `AbstractTool` instances. External tools (rvagent, aperv) register lazily on module import via rv-platform's `__init__.py`.
 
 ### Pattern: Template Method
 
@@ -86,7 +86,6 @@ flowchart TB
     subgraph L5["Layer 5: Orchestration"]
         direction LR
         Experiment["rv-experiment"]
-        Validation["rv-agent-validation"]
     end
 
     subgraph L4["Layer 4: Execution"]
@@ -108,7 +107,6 @@ flowchart TB
         UIAutomator["rv-uiautomator"]
         Agent["rv-agent"]
         AgentTool["rvagent-tool"]
-        SmartTool["rvsmart-tool"]
         ApervTool["aperv-tool"]
     end
 
@@ -124,11 +122,6 @@ flowchart TB
     Experiment --> Coverage
     Experiment --> ScreenParser
 
-    Validation --> Agent
-    Validation --> StaticAnalysis
-    Validation --> MonitorGen
-    Validation --> Instrumentation
-
     PlatformMod --> Tools
     PlatformMod --> Coverage
     PlatformMod --> StaticAnalysis
@@ -137,7 +130,6 @@ flowchart TB
     AgentTool --> Agent
     AgentTool --> Tools
 
-    SmartTool --> Tools
     ApervTool --> Tools
 
     Agent --> ScreenParser
@@ -156,7 +148,6 @@ flowchart TB
     Agent --> Core
     PlatformMod --> Core
     Experiment --> Core
-    Validation --> Core
 ```
 
 ### Key Abstractions
@@ -180,7 +171,7 @@ flowchart TB
 
 ```
 rv-android/
-├── pyproject.toml              # Workspace root: declares all 15 module members
+├── pyproject.toml              # Workspace root: declares all 13 module members
 ├── uv.lock                     # Shared lockfile for all modules
 ├── CLAUDE.md                   # Project-wide development guide
 ├── modules/
@@ -189,7 +180,6 @@ rv-android/
 │   ├── rv-uiautomator/         # L2: Shared UIAutomator components
 │   ├── rv-agent/               # L2: LLM-driven testing agent
 │   ├── rvagent-tool/           # L2: rv-agent wrapper for rv-platform
-│   ├── rvsmart-tool/           # L2: RVSmart Java agent wrapper
 │   ├── aperv-tool/             # L2: APE-RV tool wrapper
 │   ├── rv-coverage/            # L3: Coverage analysis and tracking
 │   ├── rv-static-analysis/     # L3: GATOR-based static analysis
@@ -197,8 +187,7 @@ rv-android/
 │   ├── rv-monitor-generator/   # L3: JavaMOP/RV-Monitor integration
 │   ├── rv-instrumentation/     # L3: APK instrumentation pipeline
 │   ├── rv-platform/            # L4: Central execution engine
-│   ├── rv-experiment/          # L5: Experiment orchestration
-│   └── rv-agent-validation/    # L5: Validation and benchmarking
+│   └── rv-experiment/          # L5: Experiment orchestration
 ├── apks_examples/              # Source APKs for testing
 ├── results/                    # Persistent experiment results
 ├── out/                        # Temporary artifacts (monitors, instrumented APKs)
@@ -219,7 +208,6 @@ flowchart TD
     uiauto["rv-uiautomator<br/>(L2)"]
     agent["rv-agent<br/>(L2)"]
     agentTool["rvagent-tool<br/>(L2)"]
-    smartTool["rvsmart-tool<br/>(L2)"]
     apervTool["aperv-tool<br/>(L2)"]
 
     coverage["rv-coverage<br/>(L3)"]
@@ -231,7 +219,6 @@ flowchart TD
     platform["rv-platform<br/>(L4)"]
 
     experiment["rv-experiment<br/>(L5)"]
-    validation["rv-agent-validation<br/>(L5)"]
 
     tools --> core
     uiauto --> core
@@ -243,8 +230,6 @@ flowchart TD
     agentTool --> core
     agentTool --> agent
     agentTool --> tools
-    smartTool --> core
-    smartTool --> tools
     apervTool --> core
     apervTool --> tools
 
@@ -269,12 +254,6 @@ flowchart TD
     experiment --> coverage
     experiment --> screenP
 
-    validation --> core
-    validation --> agent
-    validation --> staticA
-    validation --> screenP
-    validation --> monGen
-    validation --> instrm
 ```
 
 ### Build Dependencies Summary
@@ -291,11 +270,9 @@ flowchart TD
 | rv-instrumentation | rv-android-core | pydantic |
 | rv-agent | rv-android-core, rv-screen-parser, rv-uiautomator, rv-static-analysis | langchain, langgraph, scipy, faker, pillow, httpx |
 | rvagent-tool | rv-android-core, rv-agent, rv-tools | pydantic |
-| rvsmart-tool | rv-android-core, rv-tools | pydantic |
 | aperv-tool | rv-android-core, rv-tools | -- |
 | rv-platform | rv-android-core, rv-tools, rv-coverage, rv-static-analysis, rvagent-tool | pydantic, pandas |
 | rv-experiment | rv-platform, rv-android-core, rv-tools, rv-monitor-generator, rv-instrumentation, rv-static-analysis, rv-coverage, rv-screen-parser | pydantic, matplotlib |
-| rv-agent-validation | rv-android-core, rv-agent, rv-static-analysis, rv-screen-parser, rv-monitor-generator, rv-instrumentation | scipy, optuna, pandas, langchain-openai |
 
 ---
 
@@ -383,7 +360,6 @@ flowchart TB
     subgraph Emulator["Android Emulator (RVSec AVD)"]
         direction TB
         AUT["App Under Test<br/>(instrumented APK)"]
-        RVSmart["RVSmart Agent<br/>(via app_process)"]
         Logcat["Logcat<br/>(RVSEC-COV / RVSEC tags)"]
     end
 
@@ -391,7 +367,6 @@ flowchart TB
     Python -- "OpenAI API" --> SGLang
     Java -- "subprocess" --> Python
     AUT -- "Log.v()" --> Logcat
-    RVSmart -- "UIAutomator" --> AUT
 ```
 
 ### Hardware Requirements
@@ -412,7 +387,7 @@ Brief descriptions of each module's role. For detailed architecture, see module-
 
 ### Layer 1: Core
 
-**rv-android-core** -- Foundation library with zero internal dependencies. Provides domain models (`Task`, `App`, `ToolConfig`, `CoverageMetrics`, `LogcatRepository`), error handling (`ErrorHandler` singleton with 23-type exception hierarchy), logging (`LoggingManager`), command execution (`Command` with process tree management), tool contract (`AbstractTool` template method), and Pydantic validation (`BaseValidatedModel`). Fan-in: all 14 other modules depend on it.
+**rv-android-core** -- Foundation library with zero internal dependencies. Provides domain models (`Task`, `App`, `ToolConfig`, `CoverageMetrics`, `LogcatRepository`), error handling (`ErrorHandler` singleton with 23-type exception hierarchy), logging (`LoggingManager`), command execution (`Command` with process tree management), tool contract (`AbstractTool` template method), and Pydantic validation (`BaseValidatedModel`). Fan-in: all 12 other modules depend on it.
 
 ### Layer 2: Tools & Device Interaction
 
@@ -423,8 +398,6 @@ Brief descriptions of each module's role. For detailed architecture, see module-
 **rv-agent** -- LLM-driven testing agent using LangGraph for workflow orchestration. Supports three modes: `pure_algorithm` (DFS-based exploration with 9-scorer action ranking), `llm_only` (Qwen3-VL vision-language model), and `multimode` (70/30 hybrid). Includes memory systems, WTG-guided navigation, MOP prioritization, successor tracking, plateau detection, and proactive backtracking.
 
 **rvagent-tool** -- Thin wrapper that implements `AbstractTool` for rv-agent, enabling it to run as a tool within rv-platform's task execution pipeline.
-
-**rvsmart-tool** -- Wrapper for the RVSmart Java exploration agent. Deploys `rvsmart.jar` to the emulator and runs it via `app_process` for direct device-side execution (~14 events/second).
 
 **aperv-tool** -- Wrapper for APE with runtime verification extensions.
 
@@ -448,20 +421,18 @@ Brief descriptions of each module's role. For detailed architecture, see module-
 
 **rv-experiment** -- Top-level experiment orchestration. Three-phase workflow: pre-processing (monitor generation, instrumentation, static analysis), execution (delegation to rv-platform), post-processing (diagnostics). CLI interface (`rv-experiment` command) for experiment automation. Supports Docker-based parallel execution.
 
-**rv-agent-validation** -- Validation framework for rv-agent benchmarking. 3-phase methodology: algorithm comparison, prompt/LLM tuning, multimode validation. Statistical analysis (Kruskal-Wallis, Cliff's Delta), parameter calibration (Optuna with 37 tunable parameters), checkpoint/resume, and report generation.
-
 ---
 
 ## 9. NFR Support
 
 | NFR | Architectural Support |
 |-----|-----------------------|
-| **Maintainability** | 15 fine-grained modules with single responsibilities. Each module has its own `pyproject.toml`, tests, and documentation. Component-based execution isolates concerns. Clear layer boundaries prevent tangled dependencies. |
+| **Maintainability** | 13 fine-grained modules with single responsibilities. Each module has its own `pyproject.toml`, tests, and documentation. Component-based execution isolates concerns. Clear layer boundaries prevent tangled dependencies. |
 | **Extensibility** | Tool plugin system allows adding tools without modifying platform code. `ITaskComponent` allows adding execution phases. `ExplorationStrategy` and `Scorer` ABCs allow adding exploration algorithms and ranking criteria. Specification sets are directory-based and extensible. |
 | **Testability** | All domain models are Pydantic-based with factory methods. Environment-aware validation can be toggled for tests. Dependency injection in rv-agent enables full unit testing. Each module has independent test suites. Test categories: unit, integration, smoke, online, performance, regression. |
 | **Reliability** | `ErrorHandler` classifies 23 exception types into absorbed vs propagated categories. `TaskStorage` uses atomic writes for crash recovery. Experiment resume skips completed tasks. Pre-processing failures do not block execution (graceful degradation). Tool timeouts are treated as successful completion. |
-| **Reproducibility** | `ExperimentConfig` and `PlatformConfig` are saved as JSON in results directories. `ExperimentMetadata` stores config checksums for continuation compatibility. Deterministic task generation from configuration. rv-agent-validation uses deterministic seed generation from (app, strategy, repetition) tuples. |
-| **Performance** | Static analysis and coverage initialization run outside the emulator session. rv-android-core validation is disabled in production (`RV_PYDANTIC`). RVSmart achieves ~14 events/second via device-side `app_process` execution. Lazy imports for optional modules. |
+| **Reproducibility** | `ExperimentConfig` and `PlatformConfig` are saved as JSON in results directories. `ExperimentMetadata` stores config checksums for continuation compatibility. Deterministic task generation from configuration. |
+| **Performance** | Static analysis and coverage initialization run outside the emulator session. rv-android-core validation is disabled in production (`RV_PYDANTIC`). Lazy imports for optional modules. |
 
 ### Key Trade-off: Performance vs Safety
 
@@ -624,7 +595,6 @@ uv run pytest -m "not slow" -v                   # Fast tests only
 | rv-agent | Unit, integration, smoke, online, performance, regression | 200+ |
 | rv-platform | Unit (config, executor, resume, components) | 40+ |
 | rv-experiment | Unit (controller), integration (resume CLI) | 15+ |
-| rv-agent-validation | Unit (statistics, calibration, coverage) | 30+ |
 
 ### Quality Tools
 

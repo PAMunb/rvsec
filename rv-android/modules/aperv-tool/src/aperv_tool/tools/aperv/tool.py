@@ -11,7 +11,7 @@ random, or DFS strategies to trigger monitored operations.
 ApeRVTool is the rv-platform plugin for APE-RV, an enhanced fork of the AOSP
 Monkey tool that implements model-based testing via the Widget Table Graph (WTG)
 model. Within rv-platform, it sits alongside other AbstractTool implementations
-(rvsmart-tool, rv-agent) and is selected by experiment configuration.
+(rv-agent) and is selected by experiment configuration.
 
 ### Key Features:
 
@@ -112,7 +112,7 @@ class ApeRVTool(AbstractTool):
 
     ### Role in the System:
     Implements the AbstractTool interface so rv-platform can dispatch APE-RV
-    as a first-class exploration tool alongside rvsmart and rv-agent. Manages
+    as a first-class exploration tool alongside rv-agent. Manages
     the full device interaction lifecycle: JAR push, properties push, execution,
     and empty-trace detection.
 

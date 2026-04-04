@@ -19,7 +19,6 @@ Quick reference for common paths, commands, and environment setup.
 | rv-screen-parser | `modules/rv-screen-parser` | UI parsing |
 | rv-agent | `modules/rv-agent` | LLM-driven testing |
 | rv-experiment | `modules/rv-experiment` | Experiment orchestration |
-| rv-agent-validation | `modules/rv-agent-validation` | Validation framework |
 
 ---
 
@@ -131,7 +130,7 @@ When installing or updating modules, follow this order:
 3. `rv-screen-parser`, `rv-coverage`, `rv-static-analysis` (analysis)
 4. `rv-instrumentation`, `rv-monitor-generator` (instrumentation)
 5. `rv-agent`, `rv-platform` (execution)
-6. `rv-experiment`, `rv-agent-validation` (orchestration)
+6. `rv-experiment` (orchestration)
 
 ---
 

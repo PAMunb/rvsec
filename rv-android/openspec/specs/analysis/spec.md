@@ -273,8 +273,7 @@ rv-coverage:
 
 rv-screen-parser:
   Depends on: rv-android-core (StaticAnalysisData for MOP tracking, WidgetEventType, ErrorHandler)
-  Consumed by: rv-agent (ScreenProcessor), rv-uiautomator (device interaction),
-               rv-agent-validation (benchmark framework)
+  Consumed by: rv-agent (ScreenProcessor), rv-uiautomator (device interaction)
 ```
 
 ## Data Contracts

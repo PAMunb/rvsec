@@ -1,4 +1,0 @@
---------- beginning of main
---------- beginning of system
-01-14 12:50:05.403  9653  9653 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onCreate(android.os.Bundle)>
-01-14 12:50:05.739  9653  9653 V RVSEC-COV: <byrne.utilities.hashpass.HashPassActivity: void onItemSelected(android.widget.AdapterView,android.view.View,int,long)>

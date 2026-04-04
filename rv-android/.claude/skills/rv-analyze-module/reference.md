@@ -93,5 +93,5 @@ Analyze dynamic behavior:
 | rv-agent | 4 | rv_agent | LLM-driven testing with LangGraph |
 | rv-platform | 4 | rv_platform | Central execution platform |
 | rv-experiment | 5 | rv_experiment | Experiment orchestration |
-| rv-agent-validation | 5 | rv_agent_validation | Validation framework for rv-agent |
 | rvagent-tool | 5 | rvagent_tool | rv-agent as rv-platform tool |
+| aperv-tool | 5 | aperv_tool | APE-RV as rv-platform tool |

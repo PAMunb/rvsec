@@ -16,9 +16,7 @@ dependencies = [
     "rv-uiautomator",
     "rv-platform",
     "rv-agent",
-    "rv-agent-validation",
     "rvagent-tool",
-    "rvsmart-tool",
     "aperv-tool",
     "rv-experiment",
     "aperv-llm-validation",
@@ -66,9 +64,7 @@ rv-tools = { workspace = true }
 rv-uiautomator = { workspace = true }
 rv-platform = { workspace = true }
 rv-agent = { workspace = true }
-rv-agent-validation = { workspace = true }
 rvagent-tool = { workspace = true }
-rvsmart-tool = { workspace = true }
 aperv-tool = { workspace = true }
 rv-experiment = { workspace = true }
 aperv-llm-validation = { workspace = true }

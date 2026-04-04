@@ -156,7 +156,6 @@ Reference `checklists/version-management.md`:
 10. rv-platform        (depends on core, tools, coverage)
 11. rv-agent           (depends on core, llm, screen-parser, platform)
 12. rv-experiment      (depends on platform, agent)
-13. rv-agent-validation (depends on agent)
 ```
 
 ### Steps

@@ -102,7 +102,7 @@ Core modules synchronized, extensions independent.
 **Implementation**:
 ```bash
 # Core (synchronized): rv-android-core, rv-platform, rv-tools
-# Extensions (independent): rv-agent-validation
+# Extensions (independent): aperv-llm-validation
 ```
 
 ---

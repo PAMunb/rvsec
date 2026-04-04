@@ -41,7 +41,7 @@ INPUT_CLASS_NAMES = frozenset({
 })
 
 # Widgets that report clickable=false in UIAutomator but are inherently interactive.
-# Unified from rv-screen-parser ALWAYS_CLICKABLE_TYPES + rvsmart ALWAYS_CLICKABLE_WIDGETS.
+# Unified from rv-screen-parser ALWAYS_CLICKABLE_TYPES.
 ALWAYS_CLICKABLE_TYPES = frozenset({
     # Tabs
     "ActionBar$Tab", "Tab", "TabLayout", "TabView",
@@ -59,7 +59,7 @@ ALWAYS_CLICKABLE_TYPES = frozenset({
     "Chip", "com.google.android.material.chip.Chip",
     "FloatingActionButton",
     "com.google.android.material.floatingactionbutton.FloatingActionButton",
-    # Spinner (explicitly clickable=false in UIAutomator — from rvsmart)
+    # Spinner (explicitly clickable=false in UIAutomator)
     "Spinner", "AppCompatSpinner",
     "android.widget.Spinner", "androidx.appcompat.widget.AppCompatSpinner",
 })

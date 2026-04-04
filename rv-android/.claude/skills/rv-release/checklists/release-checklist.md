@@ -101,7 +101,6 @@ For workspaces with multiple modules:
   5. [ ] rv-platform
   6. [ ] rv-agent
   7. [ ] rv-experiment
-  8. [ ] rv-agent-validation
 
 - [ ] Each module version updated
 - [ ] Each module's inter-dependencies updated
@@ -177,8 +176,9 @@ MODULES=(
     "rv-instrumentation"
     "rv-platform"
     "rv-agent"
+    "rvagent-tool"
+    "aperv-tool"
     "rv-experiment"
-    "rv-agent-validation"
 )
 
 echo "=== Validating All Modules ==="

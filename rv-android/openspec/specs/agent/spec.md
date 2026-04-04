@@ -218,7 +218,6 @@ Unified Action Format (dict):
 **Consumed by:**
 - rv-platform via `rvagent-tool` wrapper (tool plugin system integration)
 - rv-experiment for managed execution with emulator lifecycle
-- rv-agent-validation for calibration and benchmarking
 
 ## Data Contracts
 

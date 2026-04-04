@@ -11,7 +11,7 @@ Layer 1 (Foundation):  rv-android-core
 Layer 2 (Utilities):   rv-tools, rv-uiautomator, rv-screen-parser
 Layer 3 (Analysis):    rv-static-analysis, rv-coverage, rv-monitor-generator
 Layer 4 (Execution):   rv-agent, rv-instrumentation, rv-platform
-Layer 5 (Experiment):  rv-experiment, rv-agent-validation, rvagent-tool
+Layer 5 (Experiment):  rv-experiment, rvagent-tool, aperv-tool
 ```
 
 **Rule**: A module may depend on modules above it in this diagram but never on modules below it or at the same level (unless explicitly documented).
@@ -31,7 +31,8 @@ Layer 5 (Experiment):  rv-experiment, rv-agent-validation, rvagent-tool
 | rv-agent | rv-android-core, rv-tools, rv-uiautomator, rv-screen-parser |
 | rv-instrumentation | rv-android-core, rv-monitor-generator |
 | rv-experiment | rv-android-core, rv-platform, rv-tools |
-| rv-agent-validation | rv-android-core, rv-agent, rv-experiment |
+| rvagent-tool | rv-android-core, rv-agent, rv-tools |
+| aperv-tool | rv-android-core, rv-tools |
 
 Any dependency not in this matrix is a **violation**.
 
