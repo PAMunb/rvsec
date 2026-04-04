@@ -1,4 +1,11 @@
-# rvandroid/parser/screen/visitor/new_enhanced_visitor.py
+"""Enhanced visitor producing comprehensive, analysis-oriented screen descriptions.
+
+Generates the most detailed output of all visitors, including hierarchy depth,
+layout type inference, element purpose classification, accessibility analysis,
+bounds/position info, form structure tracking, and validation rule inference.
+Designed for scenarios where maximum information is needed for thorough analysis.
+"""
+
 import logging
 from typing import Any, Dict, List, Optional, Set
 
@@ -17,19 +24,51 @@ from rv_screen_parser.parser.screen.visitor.model import (
 
 
 class EnhancedTextVisitor(AbstractScreenVisitor):
-    """
-    Highly detailed visitor implementation for generating comprehensive text descriptions of Android UI elements.
-    This visitor provides extensive details about UI elements, their properties, relationships, and accessibility information.
-    It's designed for situations where maximum information is needed for thorough analysis.
+    """Generate comprehensive, analysis-oriented screen descriptions with full context.
+
+    ### Architectural Decisions:
+    - Tracks hierarchy depth and screen structure metadata (element counts,
+      form elements, navigation elements) for structural analysis.
+    - Classifies element purpose using heuristic keyword matching on resource IDs,
+      text content, and content descriptions (e.g., "Navigation" button, "Privacy"
+      switch, "Agreement" checkbox).
+    - Includes layout type inference, accessibility auditing, bounds/position info,
+      and validation rule inference in element descriptions.
+    - Prepends a "Screen Overview" summary item to the description for context.
+
+    ### Role in the System:
+    - Selected via VisitorType.ENHANCED when detailed analysis output is needed.
+    - Produces the richest ScreenDescription variant, trading token count for
+      completeness -- useful for debugging, analysis, and detailed reporting.
+    - Overrides get_possible_actions to add input type hints to SET_TEXT actions.
+
+    ### Key Features:
+    - Form detection: tracks input fields, checkboxes, radio groups, sliders,
+      spinners, and toggles in screen_structure for form-level analysis.
+    - Purpose classification for buttons, text views, checkboxes, toggles,
+      switches, images, and sliders.
+    - Accessibility info: reports missing a11y descriptions and disabled state.
+    - Validation inference: detects required fields and expected input formats.
+
+    ### Integration Points:
+    - Inherits all action generation and MOP tracking from AbstractScreenVisitor.
+    - ScreenDescription output consumed by rv-agent and rv-platform.
+    - VisitorFactory creates instances based on VisitorType enum.
     """
 
     def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
-        """
-        Initialize the visitor.
+        """Initialize the enhanced visitor with structural tracking state.
 
         Args:
-            static_info: Static analysis data (optional)
-            activity: Current activity name
+            static_info: Static analysis data for MOP tracking and widget matching.
+                When None, MOP annotations and widget info are skipped.
+            activity: Fully qualified Android activity name for the current screen.
+
+        State:
+            processed_parents: Set of node IDs already processed to avoid duplicates.
+            node_depth_map: Cache of computed hierarchy depths per node.
+            screen_structure: Accumulated metadata about the screen (element counts,
+                hierarchy depth, form elements, navigation elements).
         """
         super().__init__(static_info, activity)
         self.processed_parents: Set[str] = set()  # Track processed parent nodes
@@ -839,17 +878,20 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         inherit_click: bool = False,
         prioritize_check: bool = False,
     ) -> List[ItemAction]:
-        """
-        Get possible actions for a node with enhanced security awareness and detailed information.
+        """Generate actions with enhanced hints for text input fields.
+
+        Extends the base implementation by appending current value, hint text, or
+        inferred input type to SET_TEXT action descriptions, giving downstream
+        consumers richer context about expected input.
 
         Args:
-            node: The node to get actions for
-            counter: Counter for generating unique IDs
-            inherit_click: Whether to add click action from parent
-            prioritize_check: Whether to prioritize check/uncheck over click
+            node: The UI node to generate actions for.
+            counter: Counter for generating unique sequential action IDs.
+            inherit_click: When True, add a click action from parent context.
+            prioritize_check: When True, prefer CHECK/UNCHECK over CLICK.
 
         Returns:
-            List of possible actions with security information
+            List of ItemAction instances with enhanced text hints.
         """
         actions = []
 
@@ -996,12 +1038,14 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         return actions
 
     def get_screen_description(self) -> ScreenDescription:
-        """
-        Create a comprehensive screen description including element relationships
-        and screen structure information.
+        """Build a ScreenDescription with a structural overview and back action.
+
+        Prepends a "Screen Overview" item summarizing element counts, hierarchy
+        depth, and detected form elements. Appends a system back button action
+        for consistent navigation.
 
         Returns:
-            ScreenDescription object with detailed information
+            ScreenDescription with overview item, all visited elements, and back action.
         """
         # Add screen structure overview as the first item
         structure_desc = (

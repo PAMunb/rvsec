@@ -1,8 +1,9 @@
 """
-Execution controller for RV-Android experiments using rv-platform integration.
+Execution controller for RV-Android experiments.
 
-This module implements the execution coordination system that orchestrates experiment
-execution through rv-platform with clean separation of concerns.
+Coordinate experiment execution through rv-platform, translating experiment
+configuration into platform configuration and delegating all task execution
+and result processing to the platform layer.
 """
 
 import os
@@ -29,32 +30,45 @@ from rv_platform.platform import Platform
 
 
 class ExecutionController:
-    """
-    Clean execution controller that coordinates experiment execution through rv-platform.
+    """Coordinate experiment execution through rv-platform.
 
-    This controller provides a clean interface between rv-experiment's orchestration
-    and rv-platform's execution engine. It eliminates data transfer between modules
-    and maintains clear separation of concerns.
+    ### Role in the System:
+    Bridge between rv-experiment orchestration and rv-platform execution.
+    Translate ExperimentConfig parameters into PlatformConfig, initialize the
+    Platform instance, and delegate all task execution and result processing.
 
-    ### Architectural Role:
-    - Translates experiment configurations to platform configurations
-    - Coordinates experiment execution through rv-platform
-    - Provides execution statistics without data transfer
+    ### Architectural Decisions:
+    - No data transfer back to rv-experiment. Results remain in rv-platform;
+      this controller only tracks success/failure status.
+    - Device port injection into tool parameters enables parallel execution
+      across multiple emulator instances.
+    - Falls back to original APK directory when instrumented directory is
+      empty (supports skip-instrument workflows).
 
-    ### Key Principles:
-    - No data transfer between rv-platform and rv-experiment
-    - rv-platform handles all task execution and result processing
-    - rv-experiment provides only orchestration and coordination
-    - Clean separation of concerns with no architectural compromises
+    ### Key Features:
+    - Two-step lifecycle: setup() configures platform, run() executes tasks
+    - Automatic device_port injection for parallel container execution
+    - Execution statistics collection without cross-module data transfer
+
+    ### Integration Points:
+    - PlatformConfig: Configuration translation target for rv-platform
+    - Platform: Execution engine handling tasks and result processing
+    - ExperimentConfig: Source configuration from rv-experiment
     """
 
     @ErrorHandler.handle_errors(component="ExecutionController", phase="initialization")
     def __init__(self, config: ExperimentConfig):
-        """
-        Initialize the execution controller with clean platform integration.
+        """Initialize execution controller for platform coordination.
 
         Args:
-            config: Experiment configuration with orchestration parameters
+            config: Experiment configuration providing APK paths, tool configs,
+                timeouts, device port, and processing flags
+
+        State:
+            config: Experiment configuration instance
+            platform: Platform instance, set by setup()
+            platform_config: PlatformConfig instance, set by setup()
+            has_errors: True if any task failed during execution
         """
         self.config = config
 
@@ -86,17 +100,20 @@ class ExecutionController:
         no_window: bool = False,
         results_dir: str = None,
     ):
-        """
-        Set up experiment execution by configuring rv-platform integration.
+        """Configure rv-platform for experiment execution.
+
+        Create PlatformConfig from experiment parameters and initialize the
+        Platform instance. Must be called before run().
 
         Args:
-            apks: List of application objects to test
-            repetitions: Number of repetitions for each task
-            timeouts: List of timeout values for task execution
-            tools: List of testing tools for experiment execution
-            tool_configs: List of original tool configurations with variant info
-            no_window: Whether to run emulator in headless mode
-            results_dir: Directory for storing results
+            apks: Application objects to test (instrumented or original)
+            repetitions: Number of repetitions per APK/tool/timeout combination
+            timeouts: Timeout values in seconds for task execution
+            tools: Tool instances created by ToolFactory
+            tool_configs: Original ToolConfig list with variant info. When
+                provided, used instead of deriving configs from tool instances.
+            no_window: Run emulator in headless mode
+            results_dir: Directory for storing platform results
         """
         with self.logger.with_context(
             apks=[app.name for app in apks],
@@ -120,15 +137,18 @@ class ExecutionController:
 
     @ErrorHandler.handle_errors(component="ExecutionController", phase="execution")
     def run(self) -> bool:
-        """
-        Execute experiment tasks through rv-platform coordination.
+        """Execute experiment tasks through rv-platform.
 
-        This method delegates complete execution to rv-platform including
-        task execution and result processing. No data is transferred back
-        to rv-experiment.
+        Delegate complete execution to Platform.run(), which handles emulator
+        lifecycle, tool execution, and result processing. Only success/failure
+        status is tracked locally.
 
         Returns:
-            True if all tasks completed successfully, False if errors occurred
+            True if all tasks completed successfully, False if any task failed
+
+        Raises:
+            RVExperimentExecutionError: If setup() was not called or platform
+                execution raises an unrecoverable error
         """
         if not self.platform or not self.platform_config:
             raise RVExperimentExecutionError(
@@ -179,17 +199,20 @@ class ExecutionController:
         no_window: bool = False,
         results_dir: str = None,
     ) -> PlatformConfig:
-        """
-        Create platform configuration from experiment parameters.
+        """Translate experiment parameters into PlatformConfig.
+
+        Build platform tool configurations by copying ToolConfig instances
+        and injecting device_port for parallel execution. Determine APK
+        directory with fallback from instrumented to original APKs.
 
         Args:
-            apks: List of application objects
+            apks: Application objects to test
             repetitions: Number of execution repetitions
-            timeouts: List of timeout values
-            tools: List of testing tools
-            tool_configs: List of original tool configurations with variant info
-            no_window: Headless execution flag
-            results_dir: Directory for storing results
+            timeouts: Timeout values in seconds
+            tools: Tool instances (used as fallback when tool_configs is None)
+            tool_configs: Original ToolConfig list with variant info
+            no_window: Headless emulator execution flag
+            results_dir: Platform results directory path
 
         Returns:
             PlatformConfig configured for experiment execution
@@ -262,11 +285,14 @@ class ExecutionController:
         component="ExecutionController", phase="statistics_collection"
     )
     def get_statistics(self) -> Dict[str, Any]:
-        """
-        Get execution statistics from platform integration.
+        """Get execution statistics from platform integration.
 
         Returns:
-            Dictionary containing execution statistics and metrics
+            Dictionary with keys:
+                - status: "not_executed" if platform was never run
+                - execution_method: Always "rv_platform_integration"
+                - has_errors: Whether any task failed
+                - platform_results_dir: Path to platform results directory
         """
         if not self.platform:
             return {
@@ -291,11 +317,14 @@ class ExecutionController:
         component="ExecutionController", phase="coverage_report_generation"
     )
     def get_coverage_report(self) -> Dict[str, Any]:
-        """
-        Get coverage report summary from platform execution.
+        """Get coverage report summary from platform execution.
 
         Returns:
-            Dictionary containing coverage summary information
+            Dictionary with keys:
+                - status: "no_execution_data" or "coverage_report_error"
+                - coverage_source: Always "rv_platform_integration"
+                - has_coverage_data: True if execution had no errors
+                - results_location: Path to platform results directory
         """
         if not self.platform:
             return {"status": "no_execution_data"}

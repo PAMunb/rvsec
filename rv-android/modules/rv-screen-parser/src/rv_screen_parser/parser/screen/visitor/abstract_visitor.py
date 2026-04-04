@@ -1,4 +1,11 @@
-# rvandroid/parser/screen/visitor/abstract_visitor.py
+"""Abstract base visitor for processing Android UI hierarchy elements.
+
+Defines the visitor pattern contract for traversing Android UI trees parsed from
+UIAutomator or DroidBot dumps. Concrete visitors produce different output formats
+(basic, default, enhanced) while sharing common logic for action generation,
+system button filtering, and MOP (Monitored Operations) tracking.
+"""
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Set
 
@@ -45,18 +52,51 @@ ALWAYS_CLICKABLE_TYPES = {
 
 
 class AbstractScreenVisitor(ABC):
-    """
-    Abstract base visitor implementation for processing Android UI elements.
-    Uses a more generic approach with registered handlers for different element types.
+    """Abstract base visitor for processing Android UI hierarchy elements.
+
+    ### Architectural Decisions:
+    - Uses the visitor pattern to decouple UI tree traversal from description
+      generation, allowing multiple output formats from the same tree structure.
+    - Centralizes action generation logic (click, long-click, scroll, text input,
+      check/uncheck, drag) so concrete visitors only handle description formatting.
+    - Integrates with static analysis data to annotate actions with MOP reachability,
+      enabling prioritized exploration of specification-relevant UI paths.
+
+    ### Role in the System:
+    - Base class for all screen visitors (BasicTextVisitor, DefaultTextVisitor,
+      EnhancedTextVisitor) providing shared traversal and action logic.
+    - Consumed by screen parsers (UIAutomator2Parser, DroidBotParser) which build
+      the Node tree and dispatch it through the visitor.
+    - Produces ScreenDescription objects consumed by rv-agent for action selection
+      and by rv-platform for coverage tracking.
+
+    ### Key Features:
+    - System button and keyboard filtering to exclude non-app UI elements.
+    - ALWAYS_CLICKABLE_TYPES set for elements that are interactive regardless of
+      the clickable attribute in UIAutomator dumps (tabs, navigation items, chips).
+    - Widget matching against static analysis data for MOP annotation.
+    - Coordinate extraction for precise action targeting.
+
+    ### Integration Points:
+    - StaticAnalysisData: provides window/widget info for MOP tracking.
+    - Node: the UI tree element that accepts this visitor.
+    - ScreenDescription/ScreenItem/ItemAction: the output model consumed downstream.
     """
 
     def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
-        """
-        Initialize the visitor.
+        """Initialize the visitor with static analysis context and activity name.
 
         Args:
-            static_info: Static analysis data (optional)
-            activity: Current activity name
+            static_info: Static analysis data for MOP tracking and widget matching.
+                When None, MOP annotations are skipped.
+            activity: Fully qualified Android activity name for the current screen.
+
+        State:
+            counter: Sequential ID generator for action identifiers.
+            items: Accumulated ScreenItem list built during traversal.
+            visited_nodes: Set of node unique identifiers to prevent duplicate processing.
+            window_info: Running statistics (total/matched widgets, interactive elements).
+            window: Resolved GATOR window for the current activity, if available.
         """
         # Configure logging
         logging_manager = LoggingManager.get_instance()
@@ -232,14 +272,21 @@ class AbstractScreenVisitor(ABC):
         return False
 
     def should_exclude_system_button(self, node: Node) -> bool:
-        """
-        Determine if a node represents a system navigation button or keyboard key that should be excluded.
+        """Determine if a node represents a system navigation button or keyboard key.
+
+        Filter out non-app UI elements that would produce meaningless actions during
+        automated testing: system navigation bar buttons (home, back, recents),
+        on-screen keyboard keys, and elements within the system navigation area.
+
+        Uses multiple heuristics: resource ID patterns, package names, class names,
+        bounds-based position checks, content descriptions, and small-button detection
+        for keyboard keys.
 
         Args:
-            node: UI node to check
+            node: UI node to check.
 
         Returns:
-            True if the node should be excluded from testing
+            True if the node should be excluded from the action space.
         """
         # Check for resource IDs related to navigation buttons
         resource_id = node.resource_id or ""
@@ -346,17 +393,24 @@ class AbstractScreenVisitor(ABC):
         inherit_click: bool = False,
         prioritize_check: bool = False,
     ) -> List[ItemAction]:
-        """
-        Get possible actions for a node with enhanced security awareness and detailed information.
+        """Generate all possible actions for a UI node based on its properties.
+
+        Inspects node attributes (clickable, long_clickable, checkable, scrollable,
+        editable) and the ALWAYS_CLICKABLE_TYPES set to build a complete action list.
+        Each action is annotated with MOP reachability from static analysis when
+        available.
 
         Args:
-            node: The node to get actions for
-            counter: Counter for generating unique IDs
-            inherit_click: Whether to add click action from parent
-            prioritize_check: Whether to prioritize check/uncheck over click
+            node: The UI node to generate actions for.
+            counter: Counter for generating unique sequential action IDs.
+            inherit_click: When True, add a click action even if the node itself
+                is not clickable (used for leaf nodes whose parent is clickable).
+            prioritize_check: When True, generate CHECK/UNCHECK actions instead of
+                CLICK for checkable nodes (used for checkboxes, switches, toggles).
 
         Returns:
-            List of possible actions with security information
+            List of ItemAction instances, each with coordinates, event type, and
+            MOP annotations. Empty list if the node has no interactive properties.
         """
         actions = []
 
@@ -492,6 +546,7 @@ class AbstractScreenVisitor(ABC):
         return actions
 
     def create_checked_action(self, actions, coordinates, counter, node, node_data):
+        """Append a CHECK or UNCHECK action based on the node's checked state."""
         if node.checked:
             action = ItemAction(
                 id=counter.increment(),

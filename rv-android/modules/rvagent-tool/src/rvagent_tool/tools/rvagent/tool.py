@@ -1,8 +1,9 @@
 """
 RVAgent Tool for rv-platform integration.
 
-Wraps rv-agent as an AbstractTool for execution within the rv-platform
-task execution framework.
+Wrap rv-agent as an AbstractTool for execution within the rv-platform
+task execution framework. Maps platform Task/App context to RVAgentConfig
+and delegates to AgentFactory for LLM-driven Android UI exploration.
 """
 
 from typing import Any, Dict
@@ -25,27 +26,34 @@ class RVAgentTool(AbstractTool):
     """
     RV-Agent tool for rv-platform integration.
 
-    Wraps rv-agent AgentFactory and RVAgent for execution within
+    Wrap rv-agent AgentFactory and RVAgent for execution within
     the rv-platform task execution framework. Supports three
     exploration modes: pure_algorithm, llm_only, multimode.
 
-    ### Architectural Role:
-    - Implements AbstractTool interface for platform integration
+    ### Role in the System:
+    - Implements AbstractTool interface so rv-platform can dispatch
+      RV-Agent as a first-class exploration tool
     - Delegates to rv-agent AgentFactory for agent creation
-    - Maps platform Task/ToolConfig to RVAgentConfig
-    - Supports static analysis data from platform context
+    - Maps platform Task/ToolConfig to RVAgentConfig parameters
+
+    ### Architectural Decisions:
+    - Lazy import of rv-agent modules in execute_tool_specific_logic()
+      to avoid circular dependencies at registration time
+    - Timeout is controlled by Task.config, not by tool variants,
+      keeping execution timeout uniform across all tools
+    - Static analysis data is injected from the platform context
+      rather than loaded independently
+
+    ### Key Features:
+    - Five named variants: default, multimode, pure_algorithm, llm_only, thorough
+    - Configuration mapping from platform Task to RVAgentConfig via config module
+    - Static analysis data passthrough from platform StaticAnalysisComponent
 
     ### Integration Points:
-    - Registered via rv-platform on import
-    - Uses rv-android-core error handling and logging
-    - Connects with rv-agent for LLM-driven testing
-    - Receives static_data from platform StaticAnalysisComponent
-
-    ### Tool Execution Flow:
-    1. configure() stores variant configuration
-    2. execute_tool_specific_logic() builds RVAgentConfig from task/app
-    3. AgentFactory creates configured RVAgent with static data
-    4. RVAgent executes exploration until timeout
+    - Input: Task (device_id, timeout, static_data), App (package_name)
+    - Output: exploration results logged; coverage via logcat
+    - Upstream: rv-platform registers tool on import; ToolFactory resolves variants
+    - Downstream: rv-agent AgentFactory creates and runs the configured agent
     """
 
     # process_pattern is used by kill_related_processes() to terminate
@@ -64,7 +72,13 @@ class RVAgentTool(AbstractTool):
         """
         Initialize RVAgent tool.
 
-        Sets up logging and prepares for configuration-based setup.
+        Set up logging and prepare for configuration-based setup via
+        the AbstractTool interface.
+
+        State:
+            self.logger: Context-aware logger tagged with component "RVAgentTool".
+            self._tool_config: Stores resolved variant config from configure().
+                Empty until configure() is called.
         """
         tool_spec = self.get_tool_spec()
         super().__init__(
@@ -202,10 +216,11 @@ class RVAgentTool(AbstractTool):
 
     def get_tool_info(self) -> dict:
         """
-        Get comprehensive tool information.
+        Get comprehensive tool information including current configuration.
 
         Returns:
-            Dictionary with tool information and current configuration
+            Dictionary with tool metadata, spec, version, URL, and active
+            variant configuration from configure()
         """
         info = super().get_tool_info()
         info.update(

@@ -392,7 +392,14 @@ class CoverageMetrics(BaseValidatedModel):
     )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert metrics to a dictionary with calculated percentages."""
+        """Convert metrics to a dictionary with raw counts and calculated percentages.
+
+        Returns:
+            Dictionary containing all raw count fields plus calculated percentage
+            fields: "class_coverage", "activity_coverage", "method_coverage",
+            "reachable_method_coverage", "mop_method_coverage",
+            "direct_mop_method_coverage".
+        """
         return {
             # Raw counts
             "total_classes": self.total_classes,
@@ -455,7 +462,16 @@ class LogcatRepository:
     """
 
     def __init__(self):
-        """Initialize the coverage repository."""
+        """Initialize an empty coverage repository.
+
+        State:
+            self.classes: Map of fully-qualified class name to ClassCoverageData.
+                Populated by repository_initializer from static analysis data.
+            self.errors: Ordered list of all RV property violations detected.
+            self.unique_errors: Set of unique error message signatures for deduplication.
+            self._static_totals: Cached static analysis totals, invalidated when
+                classes are added. Lazily computed by _calculate_static_totals().
+        """
         self.logger = logging.getLogger(__name__)
         self.classes: Dict[str, ClassCoverageData] = {}
         self.errors: List[RvErrorLog] = []
@@ -677,7 +693,12 @@ class LogcatRepository:
         }
 
     def _calculate_static_totals(self) -> None:
-        """Calculate and cache totals from static analysis data."""
+        """Calculate and cache totals from static analysis data.
+
+        Iterate all classes and methods to compute aggregate counts for
+        classes, activities, methods, reachable methods, and MOP methods.
+        Store result in self._static_totals for reuse by calculate_metrics().
+        """
         totals = {
             "total_classes": 0,
             "total_activities": 0,

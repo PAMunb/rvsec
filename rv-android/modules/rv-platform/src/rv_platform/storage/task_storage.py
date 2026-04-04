@@ -168,13 +168,24 @@ class TaskStorage(ITaskStorage):
         experiment_metadata: Optional[ExperimentMetadata] = None,
     ):
         """
-        Initialize storage with file path and enhanced metadata support.
+        Initialize storage with file path and metadata support.
 
         Args:
-            storage_file: Path to storage file
-            task_factory: Optional TaskFactory for creating tasks
-            storage_config: Optional StorageConfig for storage behavior
-            experiment_metadata: Optional ExperimentMetadata for continuation support
+            storage_file: Path to the JSON file for task persistence. Created
+                on first save if it does not exist.
+            task_factory: Factory for creating Task instances from serialized
+                data. Defaults to TaskFactory(Task).
+            storage_config: Controls storage behavior (auto-save, metadata,
+                statistics, compression). Defaults to StorageConfig().
+            experiment_metadata: Experiment metadata for continuation support.
+                Can also be set later via set_experiment_metadata().
+
+        State:
+            tasks: Dict mapping task IDs to Task objects (the in-memory store).
+            loaded: Whether load() has been called successfully.
+            lock: RLock for thread-safe access to tasks and transactions.
+            in_transaction: Whether a transaction is currently active.
+            transaction_tasks: Buffered task changes during an active transaction.
         """
         self.storage_file = storage_file
         self.task_factory = task_factory or TaskFactory(Task)
@@ -262,11 +273,15 @@ class TaskStorage(ITaskStorage):
 
     def save(self) -> bool:
         """
-        Save tasks to storage file with atomic operations and experiment metadata.
-        Uses atomic file operations to prevent data corruption.
+        Save tasks to storage file with atomic write-then-rename.
+
+        Write to a temporary file first, fsync, then atomically rename to
+        the target path. Include experiment metadata and statistics when
+        enabled in StorageConfig.
 
         Returns:
-            True if saving succeeded, False otherwise
+            True if saving succeeded, False otherwise. On failure, the
+            temporary file is cleaned up if possible.
         """
         with self.lock:
             temp_file = None
@@ -671,8 +686,12 @@ class TaskStorage(ITaskStorage):
         """
         Calculate experiment statistics from current task data.
 
+        Count tasks by state, compute completion percentage, and aggregate
+        execution times across all tasks with positive execution time.
+
         Returns:
-            ExperimentStatistics with current metrics
+            ExperimentStatistics populated with total/completed/failed/pending
+            counts, completion percentage, and execution time aggregates.
         """
         tasks = list(self.tasks.values())
         total_tasks = len(tasks)

@@ -1,8 +1,14 @@
 """
 Device connection and management utilities.
 
-This module provides utilities for managing Android device connections
-and monitoring device state.
+Provide ADB-based device discovery, connection verification, and property
+retrieval. All ADB commands use subprocess with timeouts to prevent hangs
+from unresponsive devices or disconnected emulators.
+
+### Integration Points:
+    - rv-platform uses DeviceManager for device discovery before task execution
+    - UIAutomator2Adapter relies on ADB connectivity managed here
+    - restart_adb_server() provides recovery from stale ADB connections
 """
 
 import subprocess
@@ -34,7 +40,11 @@ class DeviceManager:
     """
 
     def __init__(self):
-        """Initialize device manager with logging."""
+        """Initialize device manager.
+
+        State:
+            logger: Component logger with DeviceManager context.
+        """
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_uiautomator.utils.device_manager", {CONTEXT_COMPONENT: "DeviceManager"}

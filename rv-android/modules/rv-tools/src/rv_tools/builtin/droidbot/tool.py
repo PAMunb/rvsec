@@ -74,6 +74,10 @@ class DroidBotTool(AbstractTool):
     def __init__(self):
         """
         Initialize the DroidBot tool with rv-android-core infrastructure.
+
+        State:
+            config: Dictionary holding policy, count, interval, device_serial,
+                and other DroidBot-specific parameters. Populated by configure().
         """
         # Initialize base class with tool spec parameters
         tool_spec = self.get_tool_spec()

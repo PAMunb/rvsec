@@ -1,31 +1,10 @@
 """
-Experiment Configuration Management for Android Testing Orchestration
+Experiment configuration management.
 
-### Architectural Overview:
-This module implements clean configuration architecture for Android testing experiments,
-providing type-safe configuration management with just-in-time sub-module configuration
-and dependency injection ready design.
-
-### Key Architectural Decisions:
-- **Clean Design**: Direct class naming and focused responsibility
-- **Just-in-Time Configuration**: Sub-modules configured only when needed
-- **DI-Ready Design**: Factory pattern preparation for dependency injection
-- **Monitored Operations**: Support for JCA crypto and generic programming pattern monitoring
-- **Specification Set Support**: JCA crypto vs generic programming patterns
-- **English Documentation**: Comprehensive architectural comments and documentation
-
-### Role in the System:
-- Primary configuration management for all experiment types
-- Just-in-time coordination with sub-modules (rv-monitor-generator, rv-instrumentation, etc.)
-- Factory-ready configuration structure for DI containers
-- Support for multiple monitored operations specification sets
-- Clean template generation for different experiment scenarios
-
-### Design Patterns:
-- **Factory Ready**: Configuration optimized for factory pattern usage
-- **Just-in-Time**: Sub-module configuration created only when accessed
-- **Template Builder**: Intelligent template creation for different scenarios
-- **Validation Strategy**: Comprehensive validation with clear error messages
+Provide type-safe configuration for Android testing experiments using Pydantic
+validation. Sub-module configurations (monitor generation, instrumentation,
+static analysis) are created just-in-time when accessed, keeping initialization
+lightweight and avoiding unnecessary validation of unused modules.
 """
 
 import json
@@ -63,28 +42,37 @@ if TYPE_CHECKING:
 
 
 class ExperimentConfig(BaseValidatedModel):
-    """
-    Primary experiment configuration for Android testing experiments.
-
-    ### Architectural Overview:
-    This class serves as the central configuration coordinator providing
-    type-safe configuration with on-demand sub-module configuration.
-
-    ### Key Features:
-    - **Configuration Management**: Focused class responsibility for experiment settings
-    - **On-Demand Configuration**: Sub-modules configured only when accessed
-    - **Factory Pattern**: Preparation for dependency injection
-    - **Monitored Operations**: Support for JCA crypto and generic programming pattern monitoring
-    - **Specification Sets**: Support for JCA crypto vs generic programming patterns
-    - **Documentation**: Comprehensive architectural comments and documentation
+    """Central configuration for Android testing experiments.
 
     ### Role in the System:
-    - Primary configuration class for all experiment types
-    - Coordinator for sub-module configuration
-    - Factory structure for dependency injection
-    - Template generator for different experiment scenarios
-    - Validation coordinator with error handling
-    - Configuration bridge between CLI and orchestration components
+    Primary configuration class used by ExperimentController, CLI, and
+    configuration factory. Bridges CLI arguments to experiment orchestration
+    by holding all experiment parameters and providing just-in-time
+    sub-module configuration creation.
+
+    ### Architectural Decisions:
+    - Sub-module configurations (RVGeneratorConfig, RVInstrumentationConfig,
+      RVStaticAnalysisConfig) are created on-demand via get_*_config() methods,
+      not at initialization. This avoids validation failures when modules
+      are not needed (e.g., skip-monitors flag).
+    - RVSEC_HOME resolution follows a priority hierarchy: config override
+      first, then environment variable, then error.
+    - Pydantic validation via BaseValidatedModel provides type safety
+      at system boundaries.
+
+    ### Key Features:
+    - Tool configuration with variant and parameter support
+    - Three specification sets: JCA, generic, custom
+    - Resume mode with automatic pre-processing skip
+    - APK filtering via external file
+    - Serialization to/from JSON for persistence and templates
+
+    ### Integration Points:
+    - ExperimentController: Consumes config for workflow orchestration
+    - RVGeneratorConfig: Created by get_monitored_operations_config()
+    - RVInstrumentationConfig: Created by get_instrumentation_config()
+    - RVStaticAnalysisConfig: Created by get_static_analysis_config()
+    - CLI (__main__.py): Creates config from command-line arguments
     """
 
     # Basic experiment metadata
@@ -160,7 +148,17 @@ class ExperimentConfig(BaseValidatedModel):
     )
 
     def model_post_init(self, __context) -> None:
-        """Initialize configuration after creation with defaults and validation."""
+        """Apply defaults and validate after Pydantic model creation.
+
+        Set default name from timestamp, resolve output_dir and results_dir,
+        set creation timestamp, and run validation.
+
+        State:
+            name: Defaults to "experiment_YYYYMMDD_HHMMSS" if empty
+            output_dir: Defaults to constants.INSTRUMENTED_DIR if empty
+            results_dir: Derived from output_dir parent if not specified
+            created_at: Set to current ISO timestamp if not provided
+        """
         date_now = datetime.now()
 
         if not self.name:
@@ -384,30 +382,17 @@ class ExperimentConfig(BaseValidatedModel):
         return apks
 
     def validate_specs_dir(self, directory_path_str: str) -> bool:
-        """
-        Validate monitored operations specification directory structure.
+        """Validate that a specification directory contains .mop files.
 
-        ### Architectural Overview:
-        This method implements specification set validation by verifying directory
-        existence and required .mop file presence for monitor generation compatibility.
-
-        ### Validation Strategy:
-        - Directory existence validation with proper error handling
-        - Monitor Operation Pattern (.mop) file detection
-        - Case-insensitive extension matching for cross-platform compatibility
-        - Early termination optimization on first valid file detection
-
-        ### Role in the System:
-        - Validates custom specification directory structure for monitor generation
-        - Ensures monitored operations specification availability before execution
-        - Provides early failure detection for invalid specification configurations
-        - Integrates with configuration validation workflow for consistent error handling
+        Check directory existence and scan for at least one .mop file.
+        Used by get_monitored_operations_config() to validate custom
+        specification directories before monitor generation.
 
         Args:
             directory_path_str: Path to specification directory to validate
 
         Returns:
-            True if directory contains valid .mop specification files, False otherwise
+            True if directory exists and contains at least one .mop file
         """
         # Convert the string path to a Path object
         path = Path(directory_path_str)
@@ -561,24 +546,10 @@ class ExperimentConfig(BaseValidatedModel):
             ) from e
 
     def get_rv_instrumentation_config(self) -> RVInstrumentationConfig:
-        """
-        Get configuration for rv-instrumentation module.
+        """Delegate to get_instrumentation_config().
 
-        ### Architectural Overview:
-        This method provides the rv-instrumentation module configuration by delegating
-        to the primary instrumentation configuration method. It ensures consistent
-        configuration access patterns across experiment workflow components.
-
-        ### Configuration Integration:
-        The method returns a validated RVInstrumentationConfig instance that includes
-        all necessary paths, tools, and validation parameters required for APK
-        instrumentation operations within the experiment context.
-
-        ### Role in the System:
-        - Provides configuration access point for pre-processor components
-        - Ensures instrumentation configuration consistency across workflow phases
-        - Integrates with experiment output directory structure
-        - Validates instrumentation tool availability and accessibility
+        Alias used by PreProcessor for consistent naming with other
+        get_*_config() methods.
 
         Returns:
             RVInstrumentationConfig instance with instrumentation configuration
@@ -590,30 +561,17 @@ class ExperimentConfig(BaseValidatedModel):
         return self.get_instrumentation_config()
 
     def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
-        """
-        Just-in-time configuration for static analysis component.
+        """Create static analysis configuration on demand.
 
-        ### Configuration Pattern:
-        This method creates static analysis configuration only when needed,
-        providing type safety and validation while maintaining module independence
-        through clean parameter passing.
-
-        ### Implementation:
-        Returns a typed RVStaticAnalysisConfig instance that provides validation,
-        tool coordination, and integration with the experiment output structure.
-
-        ### Role in the System:
-        - Coordinates static analysis tool configuration with experiment parameters
-        - Provides output directory integration for analysis result storage
-        - Enables tool selection and parameter coordination
-        - Integrates with experiment workflow for consistent error handling
-
+        Resolve GATOR tool paths from RVSEC_HOME and configure analysis
+        output directory. Supports RV_SA_TIMEOUT and RV_JVM_MEMORY env
+        vars to override default timeout and JVM memory settings.
 
         Returns:
-            RVStaticAnalysisConfig instance with static analysis configuration
+            RVStaticAnalysisConfig with tool paths and output directory
 
         Raises:
-            ConfigurationError: If static analysis configuration fails
+            ConfigurationError: If configuration creation fails
         """
         # Use configuration hierarchy for RVSEC_HOME resolution
         rvsec_root = self.get_effective_rvsec_root()
@@ -653,13 +611,7 @@ class ExperimentConfig(BaseValidatedModel):
             ) from e
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert configuration to dictionary format for serialization and storage.
-
-        ### Serialization Architecture:
-        This method provides configuration serialization using Pydantic's model_dump
-        functionality, ensuring consistent data structure representation across
-        different storage and transmission contexts.
+        """Convert configuration to dictionary via Pydantic model_dump.
 
         Returns:
             Configuration as dictionary with all fields serialized
@@ -667,12 +619,7 @@ class ExperimentConfig(BaseValidatedModel):
         return self.model_dump()
 
     def to_json(self, indent: int = 2) -> str:
-        """
-        Convert configuration to JSON format for storage and exchange.
-
-        ### JSON Serialization:
-        This method provides JSON serialization with configurable indentation
-        for human-readable configuration files and API responses.
+        """Serialize configuration to JSON string.
 
         Args:
             indent: JSON indentation level for formatting
@@ -684,13 +631,10 @@ class ExperimentConfig(BaseValidatedModel):
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ExperimentConfig":
-        """
-        Create configuration from dictionary with validation and type conversion.
+        """Create configuration from dictionary with ToolConfig conversion.
 
-        ### Deserialization Architecture:
-        This method implements configuration deserialization with automatic
-        type conversion for tool configurations and proper validation
-        of all configuration parameters.
+        Convert raw dict entries in tool_configs to ToolConfig instances
+        before constructing the model.
 
         Args:
             data: Configuration dictionary from storage or API
@@ -709,15 +653,10 @@ class ExperimentConfig(BaseValidatedModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> "ExperimentConfig":
-        """
-        Create configuration from JSON string with parsing and validation.
-
-        ### JSON Deserialization:
-        This method provides JSON parsing with automatic conversion to
-        typed configuration instance, including validation of all parameters.
+        """Parse JSON string into validated ExperimentConfig.
 
         Args:
-            json_str: JSON configuration string from file or API
+            json_str: JSON configuration string
 
         Returns:
             Validated ExperimentConfig instance
@@ -727,12 +666,7 @@ class ExperimentConfig(BaseValidatedModel):
 
     @classmethod
     def from_file(cls, file_path: str) -> "ExperimentConfig":
-        """
-        Load configuration from file with format detection and validation.
-
-        ### File Loading Architecture:
-        This method implements configuration file loading with automatic
-        format detection (JSON) and comprehensive validation of loaded data.
+        """Load and validate configuration from JSON file.
 
         Args:
             file_path: Path to configuration file (JSON format)
@@ -741,8 +675,7 @@ class ExperimentConfig(BaseValidatedModel):
             Validated ExperimentConfig instance
 
         Raises:
-            FileNotFoundError: If configuration file doesn't exist
-            ConfigurationError: If file format or content is invalid
+            FileNotFoundError: If configuration file does not exist
         """
         path = Path(file_path)
         if not path.exists():
@@ -754,15 +687,10 @@ class ExperimentConfig(BaseValidatedModel):
         return cls.from_dict(data)
 
     def save_to_file(self, file_path: str) -> None:
-        """
-        Save configuration to file with directory creation and logging.
-
-        ### File Saving Architecture:
-        This method implements configuration persistence with automatic
-        directory creation and comprehensive logging for audit trails.
+        """Save configuration to JSON file, creating parent directories.
 
         Args:
-            file_path: Path to save configuration file (JSON format)
+            file_path: Destination path for the JSON configuration file
         """
         path = Path(file_path)
 
@@ -786,24 +714,17 @@ class ExperimentConfig(BaseValidatedModel):
         RVStaticAnalysisConfig,
         Dict[str, Any],
     ]:
-        """
-        Get module-specific configuration with type safety and just-in-time creation.
+        """Get module-specific configuration by module name.
 
-        ### Module Configuration Pattern:
-        This method provides module-specific configuration instances using
-        just-in-time creation pattern, ensuring each module receives properly
-        typed and validated configuration objects.
-
-        ### Supported Modules:
-        - **rv-monitor-generator**: Monitor generation configuration
-        - **rv-instrumentation**: APK instrumentation configuration
-        - **rv-static-analysis**: Static analysis tool configuration
+        Dispatch to the appropriate get_*_config() method based on module name.
+        Return empty dict for unrecognized modules.
 
         Args:
-            module_name: Name of the module requiring configuration
+            module_name: One of "rv-monitor-generator", "rv-instrumentation",
+                or "rv-static-analysis"
 
         Returns:
-            Typed configuration instance specific to the requested module
+            Typed configuration instance for known modules, empty dict otherwise
         """
         if module_name == "rv-monitor-generator":
             return self.get_monitored_operations_config()
@@ -815,13 +736,7 @@ class ExperimentConfig(BaseValidatedModel):
             return {}
 
     def get_instrumented_dir(self) -> str:
-        """
-        Get the instrumented APKs directory path for experiment workflow.
-
-        ### Directory Structure:
-        This method provides the standard directory path where instrumented
-        APKs are stored, maintaining consistent directory structure across
-        experiment execution phases.
+        """Return the standard instrumented APKs directory constant.
 
         Returns:
             Path to instrumented APKs directory
@@ -829,15 +744,10 @@ class ExperimentConfig(BaseValidatedModel):
         return INSTRUMENTED_DIR
 
     def get_timestamp_string(self) -> str:
-        """
-        Get timestamp string for experiment identification and result organization.
-
-        ### Timestamp Format:
-        This method provides consistent timestamp formatting for experiment
-        identification, result directory naming, and audit trail maintenance.
+        """Return current timestamp as YYYYMMDD_HHMMSS string.
 
         Returns:
-            Timestamp string in format YYYYMMDD_HHMMSS
+            Formatted timestamp string
         """
         return datetime.now().strftime("%Y%m%d_%H%M%S")
 

@@ -48,8 +48,25 @@ class Platform:
         """
         Initialize the platform with configuration.
 
+        Validate dependencies, set up logging and error handling, initialize
+        task storage for persistent tracking, and prepare the tool factory.
+
         Args:
-            config: Platform configuration
+            config: Platform configuration defining APKs, tools, timeouts, and
+                output directories.
+
+        State:
+            config: Validated PlatformConfig instance.
+            task_storage: TaskStorage loaded from results_dir/tasks.json for
+                experiment continuation support.
+            tasks: In-memory list of Task objects for current execution.
+            tool_factory: ToolFactory for creating configured tool instances.
+            _skipped_count: Number of tasks skipped during resume (from
+                previous completed runs).
+
+        Raises:
+            ValueError: If configuration dependencies are invalid (no APKs,
+                empty tool names).
         """
         self.config = config
 
@@ -86,8 +103,23 @@ class Platform:
         """
         Execute the platform workflow.
 
+        Generate tasks from APK/tool/timeout combinations, skip previously
+        completed tasks (resume support), execute remaining tasks, process
+        results into CSV/JSON, and return an execution summary.
+
         Returns:
-            Summary of execution results
+            Summary dictionary with keys:
+                - total_tasks: Number of tasks executed in this session.
+                - successful_tasks: Count of successful tasks.
+                - failed_tasks: Count of failed tasks.
+                - skipped_tasks: Count of tasks skipped from previous runs.
+                - success_rate: Ratio of successful to total tasks.
+                - total_execution_time: Sum of all task execution times.
+                - average_execution_time: Mean execution time per task.
+                - results: List of per-task result dictionaries.
+
+        Raises:
+            Exception: Re-raised after logging if any phase of execution fails.
         """
         try:
             self.logger.info("Starting platform execution")
@@ -169,7 +201,14 @@ class Platform:
         self.logger.info(f"Generated {task_count} tasks")
 
     def _skip_completed_tasks(self) -> None:
-        """Skip tasks that were already completed in a previous run (resume support)."""
+        """
+        Skip tasks already completed in a previous run (resume support).
+
+        Match tasks by identity tuple (apk_name, tool_name, variant, repetition,
+        timeout) against completed tasks in TaskStorage. Log a warning if the
+        config checksum differs from the previous run. Update _skipped_count
+        and filter self.tasks in place.
+        """
         completed_tasks = self.task_storage.get_completed_tasks()
         if not completed_tasks:
             return
@@ -243,10 +282,17 @@ class Platform:
 
     def _execute_tasks(self) -> List[Dict[str, Any]]:
         """
-        Execute all generated tasks.
+        Execute all generated tasks sequentially.
+
+        For each task: load the tool, create a TaskExecutor with registered
+        components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution),
+        execute, and persist the result to TaskStorage. Failed tasks are caught,
+        marked as ERROR, and included in the results.
 
         Returns:
-            List of task execution results
+            List of per-task result dictionaries with keys: task_id, apk_name,
+            tool_name, repetition, timeout, success, execution_time,
+            error_message.
         """
         self.logger.info(f"Executing {len(self.tasks)} tasks")
         results = []

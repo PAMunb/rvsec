@@ -1,8 +1,18 @@
 """
 State format conversion utilities.
 
-This module provides conversion between different state representations
-used by UIAutomator and DroidBot frameworks.
+Convert between UIAutomator and DroidBot state representations. The UIAutomator
+adapter captures state with keys like ``xml``, ``current_activity``, and
+``current_package``, while DroidBot parsers expect ``hierarchy``/``view_tree``,
+``activity``, and ``package_name``. This module bridges that gap.
+
+### Architectural Decisions:
+    This is a temporary adapter. A proper DeviceState model with typed attributes
+    should replace dictionary-based state passing in the future.
+
+### Integration Points:
+    - rv-agent's StateEnricher consumes the DroidBot-format output
+    - Screen hashes feed into the DFS exploration strategy for state identification
 """
 
 import hashlib
@@ -63,7 +73,11 @@ class StateConverter:
     """
 
     def __init__(self):
-        """Initialize state converter with logging."""
+        """Initialize state converter.
+
+        State:
+            logger: Component logger with StateConverter context.
+        """
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_uiautomator.state.converter", {CONTEXT_COMPONENT: "StateConverter"}

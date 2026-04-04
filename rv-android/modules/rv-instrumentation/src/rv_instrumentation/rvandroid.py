@@ -527,7 +527,7 @@ class RVInstrumentation:
             self.clear(temp_cleanup)
 
     def create_temp_directories(self):
-        # Ensure temporary directories exist for processing
+        """Create temporary directories required for instrumentation processing."""
         temp_directories = [self.config.tmp_dir, self.config.rvm_tmp_dir]
         for directory in temp_directories:
             if not os.path.exists(directory):

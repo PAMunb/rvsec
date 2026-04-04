@@ -1,4 +1,11 @@
-# rvandroid/parser/visitor/text_visitor.py
+"""Default visitor producing standard screen descriptions with system actions.
+
+Generates balanced descriptions that include element type, text content,
+accessibility hints, focus state, and resource IDs. Automatically injects
+SYSTEM_BACK and RESTART_APP actions on every screen for consistent navigation.
+This is the standard visitor used in production exploration flows.
+"""
+
 from typing import Any, Dict, Optional, Set
 
 from rv_android_core.domain.static import StaticAnalysisData
@@ -16,25 +23,62 @@ from rv_screen_parser.parser.screen.visitor.model import (
 
 
 class DefaultTextVisitor(AbstractScreenVisitor):
+    """Generate standard screen descriptions with automatic system action injection.
+
+    ### Architectural Decisions:
+    - Balances description detail with token efficiency -- includes element type,
+      text, hints, focus state, and resource IDs without depth/bounds metadata.
+    - Automatically injects SYSTEM_BACK and RESTART_APP actions via
+      _ensure_standard_system_actions, so every screen provides consistent
+      navigation capabilities regardless of its UI elements.
+    - Uses processed_parents tracking to handle actionable containers whose
+      children do not themselves handle the action (avoids missing interactions).
+
+    ### Role in the System:
+    - The standard production visitor, selected via VisitorType.DEFAULT.
+    - Produces ScreenDescription objects consumed by rv-agent for LLM-driven
+      action selection and by rv-platform for task execution.
+    - Handles the full widget type spectrum: buttons, edit text, text views,
+      checkboxes, switches, toggles, radio buttons/groups, spinners, sliders,
+      and image buttons/images.
+
+    ### Key Features:
+    - System action injection: SYSTEM_BACK and RESTART_APP with virtual target views.
+    - Parent clickability inheritance: leaf nodes inherit click from parent containers.
+    - ALWAYS_CLICKABLE_TYPES support for inherently interactive elements.
+    - Slider support via DRAG actions with calculated swipe coordinates.
+    - Spinner support with forced click action (spinners may lack clickable attr).
+
+    ### Integration Points:
+    - Inherits action generation and MOP tracking from AbstractScreenVisitor.
+    - VisitorFactory creates instances based on VisitorType enum.
+    - SystemActionType and ActionType enums from constants.py classify virtual actions.
+    """
 
     def __init__(self, static_info: Optional[StaticAnalysisData], activity: str):
-        """
-        Initialize the visitor.
+        """Initialize the default visitor.
 
         Args:
-            static_info: Static analysis data (optional)
-            activity: Current activity name
+            static_info: Static analysis data for MOP tracking and widget matching.
+                When None, MOP annotations are skipped.
+            activity: Fully qualified Android activity name for the current screen.
+
+        State:
+            processed_parents: Set of node IDs already processed to avoid duplicates.
         """
         super().__init__(static_info, activity)
         self.processed_parents: Set[str] = set()  # Track processed parent nodes
         self.logger.debug(f"Initialized DefaultTextVisitor for activity: {activity}")
 
     def get_screen_description(self) -> ScreenDescription:
-        """
-        Create and return a complete screen description with system actions.
+        """Build a ScreenDescription with automatic system action injection.
+
+        Injects SYSTEM_BACK and RESTART_APP actions (if not already present)
+        before constructing the final ScreenDescription, ensuring every screen
+        provides consistent navigation capabilities.
 
         Returns:
-            ScreenDescription object containing all parsed items with system actions
+            ScreenDescription with all visited UI elements and system actions.
         """
         # Add standard system actions for consistent navigation
         self._ensure_standard_system_actions()
@@ -486,15 +530,14 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 child.accept(self)
 
     def visit_slider(self, node: Node) -> None:
-        """
-        Visit a slider (SeekBar) element and generate its description.
+        """Visit a slider (SeekBar) and generate DRAG actions for target positions.
 
-        Uses DRAG action type with calculated swipe coordinates for each
-        target position. The swipe goes from the current slider center to
-        the target position.
+        Create DRAG_SLIDER actions for 0%, 25%, 50%, 75%, and 100% positions,
+        each with calculated swipe coordinates from the current center to the
+        target. Falls back to CLICK if bounds are not available.
 
         Args:
-            node: The slider node to visit
+            node: The slider node to visit.
         """
         self.logger.debug(f"Visiting slider: {node.resource_id}")
 
@@ -565,7 +608,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         )
 
     def _add_system_action(self, actions: list[ItemAction]):
-        """Adds a system action as a new ScreenItem."""
+        """Wrap system actions in a ScreenItem and append to items list."""
         system_item = ScreenItem(
             view=self._create_system_action_view(SystemActionType.BACK),
             base_description="System",
@@ -575,19 +618,11 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         self.logger.debug(f"Adding system actions: {len(actions)}")
 
     def _ensure_standard_system_actions(self) -> None:
-        """
-        Inject standard system actions for consistent navigation capabilities.
+        """Inject SYSTEM_BACK and RESTART_APP actions if not already present.
 
-        ### System Action Strategy:
-        - Automatically provides SYSTEM_BACK and RESTART actions for every screen
-        - Creates virtual target views with system action markers
-        - Uses null coordinates to indicate system-level operations
-        - Assigns incremental IDs to avoid conflicts with UI elements
-
-        ### Integration Points:
-        - Called during screen processing to ensure action availability
-        - Coordinates with ActionGenerator for proper action resolution
-        - Supports LLM decision-making with consistent system options
+        Creates virtual ScreenItems with system action markers so every screen
+        provides consistent navigation capabilities. Uses null coordinates and
+        incremental IDs that avoid conflicts with UI element actions.
         """
         max_action_id = self._get_max_action_id()
         actions = []
@@ -627,20 +662,14 @@ class DefaultTextVisitor(AbstractScreenVisitor):
     def _create_system_action_view(
         self, action_type: SystemActionType
     ) -> Dict[str, Any]:
-        """
-        Create virtual view representation for system actions.
-
-        ### Virtual View Strategy:
-        - Provides consistent view structure for system operations
-        - Includes system_action flag for action type identification
-        - Uses ActionType enum for proper classification
-        - Maintains compatibility with existing action processing pipeline
+        """Create a virtual view dictionary representing a system-level action.
 
         Args:
-            action_type: System action type from SystemActionType enum
+            action_type: System action type (BACK, RESTART) from SystemActionType enum.
 
         Returns:
-            Dictionary representing virtual view for system action
+            Dictionary with system_action flag, action_type classification,
+            and placeholder bounds/resource_id for pipeline compatibility.
         """
         return {
             "content_description": f"System {action_type.value} Action",

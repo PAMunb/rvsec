@@ -2,15 +2,45 @@
 Parse unified static analysis JSON into domain objects.
 
 Convert the JSON output produced by RvsecAnalysisClient (a GATOR Java client)
-into StaticAnalysisData containing Classes, Windows, WindowTransitionGraph, and Components.
-The JSON contains four sections written in priority order (reachability, windows,
-transitions, components), and on timeout some sections may be missing. The parser handles
-partial or truncated JSON gracefully by returning empty domain objects for
-missing or corrupt sections.
+into StaticAnalysisData containing Classes, Windows, WindowTransitionGraph, and
+Components. The JSON contains four sections written in priority order
+(reachability, windows, transitions, components), and on timeout some sections
+may be missing. The parser handles partial or truncated JSON gracefully by
+returning empty domain objects for missing or corrupt sections.
 
 All class names are normalized via SignatureNormalizer as a safety net for
 inner class notation (Outer.Inner -> Outer$Inner), and classes are filtered
 by code_package to exclude framework code.
+
+### Architectural Decisions:
+
+- Each section is parsed independently so a corrupt or missing section does
+  not prevent recovery of the others (INV-ANA-06)
+- Truncated JSON recovery via bracket completion handles timeout scenarios
+  where the Java client flushed some sections but was killed mid-write
+- SignatureNormalizer is applied defensively -- the GATOR client already
+  writes $-notation, but the normalizer guards against future changes
+
+### Role in the System:
+
+- Called by StaticAnalyzer.get_static_data() to convert raw JSON into
+  StaticAnalysisData domain objects for downstream consumers
+- Module-level convenience functions (parse_file, read_static_analysis_files)
+  provide a singleton-based API for direct use
+
+### Key Features:
+
+- Graceful degradation: missing or corrupt sections yield empty domain objects
+- Truncated JSON recovery via bracket completion for timeout scenarios
+- Class filtering by code_package to exclude framework/library classes
+- Widget back-fill: widgets referenced in transitions but absent from windows
+  are created on-the-fly
+
+### Integration Points:
+
+- Input: JSON files produced by RvsecAnalysisClient (GATOR)
+- Output: StaticAnalysisData (Classes, Windows, WindowTransitionGraph, Components)
+- Dependencies: rv-android-core domain models, SignatureNormalizer, LoggingManager
 """
 
 import json
@@ -134,7 +164,14 @@ class StaticAnalysisParser:
         return self.parse_file(file_path, package)
 
     def _load_json(self, file_path: str) -> dict | None:
-        """Load and parse JSON, with recovery for truncated files from timeout."""
+        """Load and parse JSON, with bracket-recovery for truncated files from timeout.
+
+        Args:
+            file_path: Path to the analysis JSON file.
+
+        Returns:
+            Parsed dictionary, or None if the file cannot be read or recovered.
+        """
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -149,10 +186,14 @@ class StaticAnalysisParser:
             return None
 
     def _recover_truncated_json(self, content: str) -> dict | None:
-        """
-        Recover a truncated JSON file by finding the last complete array bracket
-        and closing the JSON object. This handles timeout scenarios where the
-        Java client flushed some sections but was killed mid-write.
+        """Recover truncated JSON by closing at the last complete array bracket.
+
+        Args:
+            content: Raw file content that failed json.loads().
+
+        Returns:
+            Parsed dictionary from the recovered content, or None if
+            recovery fails (no ']' found or still invalid after fix).
         """
         last_bracket = content.rfind("]")
         if last_bracket == -1:
@@ -458,7 +499,14 @@ class StaticAnalysisParser:
             return WindowTransitionGraph()
 
     def _parse_intent_filters(self, filters_data: list) -> list[IntentFilter]:
-        """Parse intent filter entries into IntentFilter objects."""
+        """Parse intent filter entries into IntentFilter objects.
+
+        Args:
+            filters_data: List of filter dictionaries with actions and categories.
+
+        Returns:
+            List of IntentFilter domain objects.
+        """
         result = []
         for f in filters_data:
             result.append(
@@ -472,7 +520,15 @@ class StaticAnalysisParser:
     def _parse_component_list(
         self, entries: list, component_type: str
     ) -> list[ComponentInfo]:
-        """Parse component entries (activities, receivers, services) with intentFilters."""
+        """Parse component entries (activities, receivers, services) with intentFilters.
+
+        Args:
+            entries: List of component dictionaries from the JSON.
+            component_type: Type label ("activity", "receiver", "service").
+
+        Returns:
+            List of ComponentInfo domain objects with parsed intent filters.
+        """
         result = []
         for entry in entries:
             result.append(
@@ -491,7 +547,14 @@ class StaticAnalysisParser:
         return result
 
     def _parse_provider_list(self, entries: list) -> list[ComponentInfo]:
-        """Parse provider entries with authorities instead of intentFilters."""
+        """Parse provider entries with authorities instead of intentFilters.
+
+        Args:
+            entries: List of provider dictionaries from the JSON.
+
+        Returns:
+            List of ComponentInfo domain objects with authorities field.
+        """
         result = []
         for entry in entries:
             result.append(
@@ -514,7 +577,12 @@ class StaticAnalysisParser:
         and services share the same shape (with intentFilters). Providers use
         authorities instead of intentFilters.
 
-        Returns empty Components on missing data or parse error (INV-ANA-06).
+        Args:
+            data: Parsed JSON dictionary from the analysis file.
+
+        Returns:
+            Components populated with activities, receivers, services, and
+            providers, or empty Components on missing data or parse error.
         """
         try:
             components_data = data.get("components")
@@ -540,7 +608,14 @@ class StaticAnalysisParser:
             return Components()
 
     def _map_window_type(self, type_str: str) -> WindowType:
-        """Map analysis JSON window type string to WindowType enum."""
+        """Map analysis JSON window type string to WindowType enum.
+
+        Args:
+            type_str: Window type from JSON (e.g., "ACTIVITY", "DIALOG").
+
+        Returns:
+            Corresponding WindowType enum value, defaulting to ACTIVITY.
+        """
         mapping = {
             "ACTIVITY": WindowType.ACTIVITY,
             "DIALOG": WindowType.DIALOG,
@@ -551,7 +626,14 @@ class StaticAnalysisParser:
         return mapping.get(type_str, WindowType.ACTIVITY)
 
     def _extract_params(self, signature: str) -> list[str]:
-        """Extract parameter types from a Soot method signature."""
+        """Extract parameter types from a Soot method signature.
+
+        Args:
+            signature: Soot signature like ``<class: retType name(p1,p2)>``.
+
+        Returns:
+            List of parameter type strings, or empty list if none found.
+        """
         match = re.search(r"\(([^)]*)\)", signature)
         if match:
             params_str = match.group(1).strip()
@@ -560,7 +642,14 @@ class StaticAnalysisParser:
         return []
 
     def _extract_class_method(self, signature: str) -> tuple[str, str]:
-        """Extract class and method from Soot signature <class: retType method(params)>."""
+        """Extract class name and method name from a Soot signature.
+
+        Args:
+            signature: Soot signature like ``<class: retType method(params)>``.
+
+        Returns:
+            Tuple of (class_name, method_name), or ("", "") if not parseable.
+        """
         match = re.match(r"<([^:]+):\s+\S+\s+(\w+)\(", signature)
         if match:
             return match.group(1), match.group(2)
@@ -572,12 +661,29 @@ _instance = StaticAnalysisParser()
 
 
 def parse_file(file_path: str, package: str) -> StaticAnalysisData:
-    """Parse a unified analysis JSON file."""
+    """Parse a unified analysis JSON file using the module singleton.
+
+    Args:
+        file_path: Path to the .json analysis output file.
+        package: Application code_package for class filtering.
+
+    Returns:
+        StaticAnalysisData with parsed domain objects.
+    """
     return _instance.parse_file(file_path, package)
 
 
 def read_static_analysis_files(
     results_dir: str, apk: str, package: str
 ) -> StaticAnalysisData:
-    """Parse analysis JSON for an APK from a results directory."""
+    """Parse analysis JSON for an APK from a results directory using the module singleton.
+
+    Args:
+        results_dir: Directory containing analysis result files.
+        apk: APK filename including extension (e.g., "cryptoapp.apk").
+        package: Application code_package for class filtering.
+
+    Returns:
+        StaticAnalysisData with parsed domain objects.
+    """
     return _instance.read_static_analysis_files(results_dir, apk, package)

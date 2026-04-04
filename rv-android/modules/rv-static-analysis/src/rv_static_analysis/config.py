@@ -1,8 +1,30 @@
 """
-Configuration management for rv-static-analysis module.
+Configure the unified GATOR-based static analysis pipeline.
 
-Provides configuration for the unified GATOR-based analysis client that produces
-a single JSON output containing reachability, windows, and transitions.
+Provide path resolution, validation, and command generation for the GATOR analysis
+client that produces a single JSON output containing reachability, windows, and
+transitions. Path resolution follows a priority chain: explicit parameters >
+rvsec_root layout > RVSEC_HOME env var > CWD parent.
+
+### Role in the System:
+
+- Consumed by StaticAnalyzer to build GATOR command lines and validate
+  tool availability before execution
+- Consumed by rv-platform's StaticAnalysisComponent for pipeline configuration
+- CLI (__main__.py) creates instances from parsed command-line arguments
+
+### Key Features:
+
+- Priority-based path resolution with four fallback levels
+- Eager validation of GATOR launcher, analysis JAR, Android SDK, and MOP dir
+- Command generation for the RvsecAnalysisClient GATOR invocation
+- Optional deferred validation via validate_on_init=False for dry-run mode
+
+### Integration Points:
+
+- Input: RVSEC_HOME and ANDROID_HOME environment variables, explicit paths
+- Output: Validated paths and GATOR command lines consumed by StaticAnalyzer
+- Dependencies: rv-android-core (BaseValidatedModel, ConfigurationError, constants)
 """
 
 import os
@@ -67,13 +89,18 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
     )
 
     def model_post_init(self, __context) -> None:
-        """Resolve paths and validate after initialization."""
+        """Resolve paths and validate after Pydantic construction.
+
+        State:
+            All path fields are resolved to absolute paths. When validate_on_init
+            is True, all tool paths are verified to exist on disk.
+        """
         self._resolve_paths()
         if self.validate_on_init:
             self._validate_configuration()
 
     def _resolve_paths(self) -> None:
-        """Resolve all paths using priority-based strategy."""
+        """Resolve all paths using the four-level priority strategy."""
         if not self.rvsec_root:
             self.rvsec_root = os.environ.get(ENV_RVSEC_HOME)
             if not self.rvsec_root:
@@ -83,7 +110,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         self._normalize_paths()
 
     def _apply_default_paths(self) -> None:
-        """Apply default paths based on RVSEC root."""
+        """Apply default paths based on rvsec_root standard directory layout."""
         rvsec_path = Path(self.rvsec_root)
 
         if not self.lib_dir:
@@ -148,7 +175,12 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
                 setattr(self, attr, os.path.abspath(value))
 
     def _validate_configuration(self) -> None:
-        """Validate configuration for operational readiness."""
+        """Validate all paths and tools for operational readiness.
+
+        Raises:
+            ConfigurationError: When any required path is missing, any tool
+                binary is not found, or the Android SDK is misconfigured.
+        """
         self._validate_required_paths()
         self._validate_tool_availability()
         self._validate_android_sdk()
@@ -199,7 +231,15 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             )
 
     def validate_apk_input(self, apk_path: str) -> None:
-        """Validate APK input file for analysis."""
+        """Validate that the APK file exists and has .apk extension.
+
+        Args:
+            apk_path: Path to the APK file to validate.
+
+        Raises:
+            ConfigurationError: When path is empty, file does not exist,
+                or file does not have .apk extension.
+        """
         if not apk_path:
             raise ConfigurationError("APK path is required")
         if not os.path.isfile(apk_path):
@@ -260,7 +300,12 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         return cmd
 
     def get_configuration_summary(self) -> Dict[str, Any]:
-        """Configuration summary for logging."""
+        """Return a nested dictionary summarizing all configuration values.
+
+        Returns:
+            Dictionary with sections: rvsec_integration, android_integration,
+            and analysis_tool, each containing the relevant path and setting values.
+        """
         return {
             "rvsec_integration": {
                 "rvsec_root": self.rvsec_root,
@@ -281,6 +326,6 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         }
 
     def create_output_directories(self) -> None:
-        """Create output directories for analysis."""
+        """Create the output directory tree on disk (no-op if it exists)."""
         if self.output_dir:
             os.makedirs(self.output_dir, exist_ok=True)

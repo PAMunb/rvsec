@@ -1065,7 +1065,14 @@ class RVAgentStrategy(ExplorationStrategy):
         )
 
     def _has_untested_inputs(self, screen_desc: ScreenDescription) -> bool:
-        """Check if the current screen has EditText actions with remaining test values."""
+        """Check if the current screen has EditText actions with remaining test values.
+
+        Args:
+            screen_desc: Current screen description with all parsed actions.
+
+        Returns:
+            True if any EditText action has remaining input variations to test.
+        """
         for action in screen_desc.get_all_actions():
             target_class = (
                 action.target_view.get("class", "") if action.target_view else ""

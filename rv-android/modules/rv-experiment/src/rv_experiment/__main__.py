@@ -1,36 +1,14 @@
 #!/usr/bin/env python3
 """
-RV-Experiment CLI - Simple Android Testing Orchestration
+RV-Experiment CLI entry point.
 
-### Architectural Overview:
-This module implements a simplified CLI interface for Android testing experiments
-with monitored operations. It follows the direct approach inspired by the original
-main.py, eliminating complex DI patterns in favor of straightforward execution flow.
+Provide the primary CLI interface for Android testing experiments with
+runtime verification monitors. Four commands: run (execute experiments),
+config (generate templates), list-tools (show available tools), and
+validate (check configuration files).
 
-### Key Architectural Decisions:
-- **Simple Command Structure**: Four core commands (run, config, list-tools, validate)
-- **Direct Execution**: Uses execute_with_config() directly without bridge patterns
-- **Tool Specification DSL**: Modern tool:variant@parameter format support
-- **Configuration-First**: Both CLI arguments and file-based configuration support
-- **Monitored Operations**: Support for JCA crypto and generic specification sets
-
-### Role in the System:
-- Primary CLI entry point for experiment execution
-- Configuration management for both interactive and file-based workflows
-- Tool registry integration with specification parsing
-- Direct interface to existing experiment orchestration infrastructure
-
-### Design Patterns:
-- **Command Pattern**: Clean CLI command structure with focused responsibilities
-- **Factory Pattern**: Tool creation through registry with specification parsing
-- **Template Method**: Configuration creation from various sources
-- **Strategy Pattern**: Different execution modes based on configuration type
-
-### Command Structure:
-- **run**: Execute experiments with tool specification parsing or config files
-- **config**: Generate configuration templates for different scenarios
-- **list-tools**: Display available tools and their capabilities
-- **validate**: Validate configuration files and tool specifications
+Supports two execution modes: CLI mode with tool specification DSL
+(tool:variant@param=value) and config-file mode with JSON configuration.
 """
 
 import json
@@ -63,29 +41,34 @@ from rv_tools import ToolRegistry
 
 
 class CLIContext:
-    """
-    CLI context for experiment execution with clean architecture principles.
-
-    ### Architectural Overview:
-    This class manages CLI state and provides centralized access to system
-    components following clean architecture patterns. It serves as the
-    coordination point for logging, error handling, and tool registry access.
-
-    ### Key Features:
-    - **Centralized Logging**: Consistent logging configuration across commands
-    - **Error Handling**: Comprehensive error management using rv-android-core patterns
-    - **Tool Registry**: Direct access to tool registry for specification parsing
-    - **Configuration Management**: Template generation and validation coordination
+    """Manage shared state across CLI commands.
 
     ### Role in the System:
-    - Provides shared context for all CLI commands
-    - Manages system component initialization and lifecycle
-    - Coordinates configuration creation and validation
-    - Facilitates tool specification parsing and registry operations
+    Provide centralized access to logging, error handling, and tool registry
+    for all Click commands. Passed automatically via Click's context mechanism
+    (pass_context decorator).
+
+    ### Key Features:
+    - Logging configuration with debug/level/context support
+    - Tool specification DSL parsing into ToolConfig instances
+    - Tool registry access for validation and listing
+
+    ### Integration Points:
+    - LoggingManager: Console and file logging configuration
+    - ErrorHandler: Consistent error management across commands
+    - ToolRegistry: Tool discovery, variant listing, and validation
     """
 
     def __init__(self):
-        """Initialize CLI context with system component integration."""
+        """Initialize CLI context with core infrastructure components.
+
+        State:
+            logging_manager: Singleton LoggingManager instance
+            error_handler: Singleton ErrorHandler instance
+            logger: Logger for CLI operations
+            debug: Whether debug logging is enabled
+            tool_registry: Singleton ToolRegistry with all registered tools
+        """
         # Initialize core components from rv-android-core
         self.logging_manager = LoggingManager.get_instance()
         self.error_handler = ErrorHandler.get_instance()

@@ -1,12 +1,25 @@
-# rvandroid/parser/log/logcat_parser.py
 """
-A comprehensive log parsing module for extracting runtime verification and coverage information from Android logcat output.
+Parse Android logcat output for runtime verification and coverage data.
 
-### Architectural Design:
-- Implements robust parsing strategies for complex logcat log entries
-- Provides flexible and extensible log parsing mechanisms
-- Supports multiple parsing approaches for different log formats
-- Enables detailed extraction of runtime verification events
+Extract RVSEC (property violation) and RVSEC-COV (method coverage) entries
+from standard Android logcat format, producing typed domain objects
+(RvErrorLog, RvCoverageLog) stored in a LogcatRepository.
+
+### Role in the System:
+Entry point for all logcat data in rv-coverage. Both CoverageTracker
+(real-time) and CoverageAnalyzer (batch) delegate line-level parsing here.
+
+### Key Features:
+- Three error formats: JCA comma-separated, FSM ``:::``, generic spec error
+- Two coverage formats: modern angle-bracket signatures, legacy ``:::``
+- Year-aware timestamp conversion handling December/January transitions
+- Memory-efficient line-by-line file processing
+
+### Integration Points:
+- RvErrorLog / RvCoverageLog (rv-android-core): domain model output
+- LogcatRepository (rv-android-core): repository populated by parse_logcat_file
+- CoverageTracker: calls parse_logcat_line per line in real-time
+- CoverageAnalyzer: calls parse_logcat_file for batch processing
 """
 
 import logging
@@ -28,15 +41,19 @@ from rv_android_core.util.android.repository_initializer import (
 
 def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     """
-    Parse a logcat file and extract runtime verification logs.
-    Returns a standardized LogcatRepository.
+    Parse a logcat file and return a populated LogcatRepository.
+
+    Read the file line-by-line for memory efficiency, extracting all RVSEC
+    error entries and RVSEC-COV coverage entries. Optionally initialize the
+    repository with static analysis data to enable reachability-based metrics.
 
     Args:
-        log_file (str): Path to the logcat file
-        static_data: Optional static analysis data to initialize the repository
+        log_file: Absolute path to the logcat file.
+        static_data: Optional StaticAnalysisData to pre-populate the repository
+            with reachable classes and methods.
 
     Returns:
-        LogcatRepository containing the parsed coverage data
+        LogcatRepository containing all parsed errors and method calls.
     """
     # Initialize the repository
     repository = LogcatRepository()
@@ -70,10 +87,11 @@ def parse_logcat_line(
     Parse a single logcat line for RVSEC or RVSEC-COV entries.
 
     Args:
-        line: Logcat line to parse
+        line: Raw logcat line in standard Android format.
 
     Returns:
-        Tuple of (error_log, coverage_log) - only one will be non-None
+        Tuple of ``(error_log, coverage_log)``. At most one element is
+        non-None. Both are None for non-RVSEC lines or unparseable input.
     """
     entry = _parse_logcat_line(line)
     if not entry:
@@ -100,14 +118,11 @@ def parse_logcat_line(
 
 
 def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
-    """
-    Parse a single logcat line.
-
-    Args:
-        line: Raw logcat line
+    """Parse a raw logcat line into its component fields.
 
     Returns:
-        Dictionary with parsed fields or None if line cannot be parsed
+        Dict with date, time, pid, tid, level, tag, message, original;
+        or None if the line does not match standard logcat format.
     """
     pattern = r"(\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+(\w)\s+(\S+)\s*:\s*(.*)"
     match = re.match(pattern, line)
@@ -129,14 +144,17 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
 
 def _parse_error_message(message: str) -> Optional[RvErrorLog]:
     """
-    Parse an error log message to extract error details.
-    Enhanced version with better handling of different error formats.
+    Parse an RVSEC error message into an RvErrorLog.
+
+    Try three formats in order: generic spec error (``went into an error
+    state.``), JCA comma-separated (6+ fields), and FSM ``:::`` separator.
+    Log a warning and return None if no format matches.
 
     Args:
-        message: Error message from the log
+        message: The message portion of an RVSEC-tagged logcat line.
 
     Returns:
-        RvErrorLog instance containing parsed error information or None if parsing fails
+        Parsed RvErrorLog, or None if the message format is unrecognized.
     """
     # First check if this is a generic "went into an error state" message
     if message.endswith("went into an error state."):
@@ -189,14 +207,11 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
 
 
 def _parse_generic_spec_error(log_line: str) -> Optional[Dict[str, Any]]:
-    """
-    Parse a generic specification error message.
-
-    Args:
-        log_line (str): Log line containing the error message
+    """Parse ``class.method(file:line) ::: Spec went into an error state.`` format.
 
     Returns:
-        Dictionary containing parsed error information or None if parsing fails
+        Dict with class, method, file_name, line_number, spec, message;
+        or None if the pattern does not match.
     """
     pattern = r"(.*)\.(.*)\((.*):(.*)\) ::: (.*) went into an error state."
     match = re.match(pattern, log_line)
@@ -216,13 +231,16 @@ def _parse_generic_spec_error(log_line: str) -> Optional[Dict[str, Any]]:
 
 def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
     """
-    Parse a coverage log message to extract class, method and parameter information.
+    Parse an RVSEC-COV message into an RvCoverageLog.
+
+    Try the modern angle-bracket format first (``<class: retType method(params)>``),
+    then the legacy ``:::`` format. Log a warning and return None if neither matches.
 
     Args:
-        message (str): Method signature from the log
+        message: The message portion of an RVSEC-COV-tagged logcat line.
 
     Returns:
-        RvCoverageLog instance containing parsed information or None if parsing fails
+        Parsed RvCoverageLog, or None if the message format is unrecognized.
     """
     # First try the modern format with angle brackets
     match = re.match(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>", message)
@@ -245,15 +263,18 @@ def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
 
 def _convert_to_datetime(date: str, time: str) -> datetime:
     """
-    Convert date and time strings from logcat format to datetime object.
-    Handles year transitions intelligently.
+    Convert logcat date and time strings to a datetime object.
+
+    Logcat timestamps lack a year. Infer the year from the current date,
+    attributing December entries to the previous year when the current
+    month is January (year-transition handling).
 
     Args:
-        date (str): Date string in MM-DD format
-        time (str): Time string in HH:MM:SS.mmm format
+        date: Date string in ``MM-DD`` format.
+        time: Time string in ``HH:MM:SS.mmm`` format.
 
     Returns:
-        datetime object representing the parsed date and time
+        Datetime with the inferred year.
     """
     current_year = datetime.now().year
 

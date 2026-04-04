@@ -1,8 +1,14 @@
 """
 Screenshot capture and management utilities.
 
-This module provides utilities for capturing, processing, and managing
-screenshot files for testing and debugging purposes.
+Provide screenshot file management including unique path generation, image
+optimization (PNG to compressed JPEG), validation, and disk space cleanup.
+Screenshot files use millisecond-precision timestamps for uniqueness.
+
+### Integration Points:
+    - UIAutomator2Adapter uses paths generated here for screenshot storage
+    - rv-agent's vision strategy consumes screenshots for LLM analysis
+    - cleanup_old_screenshots() prevents disk exhaustion during long experiments
 """
 
 import os
@@ -35,11 +41,14 @@ class ScreenshotManager:
     """
 
     def __init__(self, screenshot_dir: str = SCREENSHOT_DIR):
-        """
-        Initialize screenshot manager.
+        """Initialize screenshot manager and ensure storage directory exists.
 
         Args:
-            screenshot_dir: Directory for storing screenshots
+            screenshot_dir: Directory for storing screenshots. Created if absent.
+
+        State:
+            logger: Component logger with ScreenshotManager context.
+            screenshot_dir: Path to the screenshot storage directory.
         """
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(

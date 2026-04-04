@@ -70,6 +70,11 @@ class APETool(AbstractTool):
     def __init__(self):
         """
         Initialize the APE tool with rv-android-core infrastructure.
+
+        State:
+            jar_resolver: JarResolver for locating APE jar files on disk.
+            config: Dictionary holding strategy, running_minutes, device_serial,
+                and other APE-specific parameters. Populated by configure().
         """
         # Initialize base class with tool spec parameters
         tool_spec = self.get_tool_spec()

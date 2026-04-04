@@ -1,8 +1,9 @@
 """
-Clean experiment controller for RV-Android experiments.
+Experiment controller for RV-Android experiments.
 
-This module provides experiment orchestration with clean separation of concerns
-and no data transfer between modules.
+Orchestrate three-phase experiment workflow (pre-processing, execution,
+post-processing) with clean separation of concerns. rv-experiment handles
+orchestration only; rv-platform handles all task execution and result processing.
 """
 
 import os
@@ -27,36 +28,54 @@ from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 
 
 class ExperimentController:
-    """
-    Clean experiment controller with three-phase workflow.
+    """Orchestrate three-phase experiment workflow for Android testing.
 
-    This controller orchestrates experiments with clear separation of concerns:
-    - Pre-processing: APK instrumentation and static analysis
-    - Execution: rv-platform coordination (includes automatic result processing)
-    - Post-processing: Basic diagnostics only
+    ### Role in the System:
+    Central orchestrator that coordinates experiment lifecycle without
+    performing task execution itself. Delegates pre-processing to PreProcessor,
+    execution to ExecutionController (which wraps rv-platform), and
+    post-processing to PostProcessor.
 
-    ### Architectural Principles:
-    - No data transfer between rv-platform and rv-experiment
-    - rv-platform handles all task execution and result processing
-    - rv-experiment provides only orchestration and basic diagnostics
-    - Clean three-phase workflow with minimal complexity
+    ### Architectural Decisions:
+    - No data transfer between rv-platform and rv-experiment. Results stay
+      in rv-platform; this controller tracks only success/failure status.
+    - Pre-processing runs monitor generation, APK instrumentation, and
+      static analysis as independent steps before execution begins.
+    - Post-processing is limited to basic diagnostics. CSV/JSON result
+      generation is handled entirely by rv-platform.
+
+    ### Key Features:
+    - Three-phase workflow: pre-processing, execution, post-processing
+    - Experiment configuration persistence for reproducibility
+    - Tool creation via ToolFactory with variant support
+    - Resume support through rv-platform task tracking
 
     ### Integration Points:
-    - PreProcessor: APK instrumentation and static analysis
-    - ExecutionController: Clean rv-platform coordination
-    - PostProcessor: Basic completion diagnostics only
+    - PreProcessor: Monitor generation, APK instrumentation, static analysis
+    - ExecutionController: rv-platform coordination for task execution
+    - PostProcessor: Completion diagnostics and error tracking
+    - ToolFactory: Tool instance creation from ToolConfig specifications
     """
 
     @ErrorHandler.handle_errors(
         component="ExperimentController", phase="initialization"
     )
     def __init__(self, config: ExperimentConfig, experiment_id: str = None):
-        """
-        Initialize the clean experiment controller.
+        """Initialize experiment controller with workflow components.
 
         Args:
-            config: Experiment configuration
-            experiment_id: Optional experiment identifier
+            config: Experiment configuration defining tools, APKs, timeouts,
+                and processing flags
+            experiment_id: Unique experiment identifier. Defaults to
+                current timestamp in YYYYMMDD_HHMMSS format.
+
+        State:
+            config: Experiment configuration instance
+            experiment_id: Unique identifier for this experiment run
+            results_dir: Directory path for experiment results
+            pre_processor: PreProcessor for monitor generation and instrumentation
+            execution_controller: ExecutionController wrapping rv-platform
+            post_processor: PostProcessor for completion diagnostics
         """
         self.config = config
         self.experiment_id = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -86,11 +105,16 @@ class ExperimentController:
 
     @ErrorHandler.handle_errors(component="ExperimentController", phase="execution")
     def run(self) -> bool:
-        """
-        Execute the complete experiment with clean three-phase workflow.
+        """Execute the complete three-phase experiment workflow.
+
+        Phase 1 (pre-processing) runs monitor generation, APK instrumentation,
+        and static analysis based on config flags. Phase 2 (execution) delegates
+        to rv-platform via ExecutionController. Phase 3 (post-processing)
+        generates completion diagnostics.
 
         Returns:
-            True if experiment completed successfully, False otherwise
+            True if all phases completed successfully, False if execution
+            had failures (pre-processing errors raise exceptions instead)
         """
         with self.logger.with_context(
             experiment_id=self.experiment_id, phase="complete_experiment"
@@ -139,9 +163,7 @@ class ExperimentController:
                 return False
 
     def _run_pre_processing(self):
-        """
-        Execute pre-processing phase with instrumentation error tracking.
-        """
+        """Execute pre-processing phase with instrumentation error tracking."""
         self.pre_processor.process(
             generate_monitors=self.config.generate_monitors,
             instrument=self.config.instrument_apks,
@@ -149,11 +171,18 @@ class ExperimentController:
         )
 
     def _run_execution(self) -> bool:
-        """
-        Execute tasks through rv-platform coordination.
+        """Execute tasks through rv-platform coordination.
+
+        Retrieve instrumented APKs from pre-processor, create tool instances
+        via ToolFactory, configure ExecutionController, and delegate execution
+        to rv-platform.
 
         Returns:
-            True if execution successful, False otherwise
+            True if all tasks completed successfully, False otherwise
+
+        Raises:
+            RVExperimentExecutionError: If execution setup or platform
+                coordination fails
         """
         try:
             # Get instrumented APKs
@@ -189,11 +218,13 @@ class ExperimentController:
             raise RVExperimentExecutionError(f"Execution failed: {e}") from e
 
     def _get_configured_tools(self) -> List[AbstractTool]:
-        """
-        Get configured tools for execution.
+        """Create tool instances from configured ToolConfig specifications.
+
+        Iterate over tool_configs and use ToolFactory to instantiate each tool.
+        Tools that fail to instantiate are logged as warnings and skipped.
 
         Returns:
-            List of configured tool instances
+            List of successfully created AbstractTool instances
         """
         tools = []
 
@@ -222,11 +253,13 @@ class ExperimentController:
         return tools
 
     def get_experiment_status(self) -> dict:
-        """
-        Get the current status of the experiment.
+        """Get the current status of the experiment.
 
         Returns:
-            dict: Dictionary containing experiment status information
+            Dictionary with keys:
+                - experiment_id: Unique experiment identifier
+                - results_dir: Path to results directory
+                - execution_method: Workflow type identifier
         """
         return {
             "experiment_id": self.experiment_id,
@@ -246,11 +279,14 @@ class ExperimentController:
 
 
 def execute_with_config(config: ExperimentConfig) -> bool:
-    """
-    Execute experiment with provided configuration.
+    """Execute experiment with provided configuration.
+
+    Create an ExperimentController and run the three-phase workflow.
+    This is the primary entry point used by the CLI and programmatic callers.
 
     Args:
-        config: Experiment configuration
+        config: Validated ExperimentConfig with tools, APKs, timeouts,
+            and processing flags
 
     Returns:
         True if experiment completed successfully, False otherwise

@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
 """
-CLI for rv-static-analysis module.
+Provide a CLI for the rv-static-analysis module.
 
-Runs the unified GATOR-based analysis client that produces a single JSON
-output with reachability, windows, and transitions.
+Expose ``analyze`` (single APK) and ``batch`` (directory of APKs) subcommands
+that run the unified GATOR-based analysis client. Each invocation produces a
+single JSON output per APK with reachability, windows, and transitions sections.
+
+### Role in the System:
+
+- Standalone entry point for running static analysis outside rv-platform
+- Used for ad-hoc analysis, debugging, and batch pre-processing of APK sets
+
+### Key Features:
+
+- Single-APK and batch analysis with configurable concurrency
+- Dry-run mode for configuration validation without execution
+- Verbose output and summary display for debugging
+- Continue-on-error option for batch resilience
+
+### Integration Points:
+
+- Creates RVStaticAnalysisConfig from CLI arguments
+- Delegates analysis to StaticAnalyzer (analysis/static/static_analysis.py)
+- Reports StaticAnalysisResult status and timing to stdout
 """
 
 import argparse
@@ -21,7 +40,11 @@ from rv_static_analysis import (
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
-    """Set up and return the argument parser."""
+    """Build the top-level argument parser with analyze and batch subcommands.
+
+    Returns:
+        Configured ArgumentParser with subparsers for each command.
+    """
     parser = argparse.ArgumentParser(
         description="RV Static Analysis - Unified GATOR-based Android static analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -61,7 +84,11 @@ Examples:
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add common arguments used by multiple commands."""
+    """Add configuration, tool, and utility arguments shared by all subcommands.
+
+    Args:
+        parser: Subparser to add argument groups to.
+    """
     config_group = parser.add_argument_group("Configuration Options")
     config_group.add_argument("--rvsec-root", help="RVSEC installation root directory")
     config_group.add_argument(
@@ -102,7 +129,11 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def add_analyze_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add arguments specific to analyze command."""
+    """Add input/output and force-reanalysis arguments for the analyze subcommand.
+
+    Args:
+        parser: The analyze subparser to add arguments to.
+    """
     io_group = parser.add_argument_group("Input/Output Options")
     io_group.add_argument("--apk", required=True, help="APK file to analyze")
     io_group.add_argument(
@@ -118,7 +149,11 @@ def add_analyze_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def add_batch_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add arguments specific to batch command."""
+    """Add input/output, concurrency, and error-handling arguments for the batch subcommand.
+
+    Args:
+        parser: The batch subparser to add arguments to.
+    """
     io_group = parser.add_argument_group("Input/Output Options")
     io_group.add_argument(
         "--apks-dir", required=True, help="Directory containing APK files to analyze"
@@ -147,7 +182,18 @@ def add_batch_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
-    """Create configuration from command line arguments."""
+    """Create an RVStaticAnalysisConfig from parsed CLI arguments.
+
+    Map argument names to config field names, apply overrides for non-None
+    values, and handle dry-run mode by deferring validation.
+
+    Args:
+        args: Parsed argparse namespace with CLI values.
+
+    Returns:
+        Validated RVStaticAnalysisConfig instance. In dry-run mode,
+        path validation is deferred (validate_on_init=False).
+    """
     config_kwargs = {}
 
     arg_mappings = {
@@ -186,7 +232,17 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
 
 
 def handle_analyze_command(args: argparse.Namespace) -> int:
-    """Handle the analyze command for single APK analysis."""
+    """Run static analysis on a single APK.
+
+    Validate configuration and APK input, then execute StaticAnalyzer.
+    Support dry-run (validate only), verbose, and summary modes.
+
+    Args:
+        args: Parsed argparse namespace with analyze subcommand values.
+
+    Returns:
+        Exit code: 0 on success, 1 on any failure.
+    """
     if args.verbose:
         print(f"Analyzing APK: {args.apk}")
 
@@ -237,7 +293,18 @@ def handle_analyze_command(args: argparse.Namespace) -> int:
 
 
 def handle_batch_command(args: argparse.Namespace) -> int:
-    """Handle the batch command for multiple APK analysis."""
+    """Run static analysis on all APKs in a directory.
+
+    Iterate over .apk files, analyze each with StaticAnalyzer, and report
+    aggregate results. Respect --continue-on-error to keep going after
+    individual failures.
+
+    Args:
+        args: Parsed argparse namespace with batch subcommand values.
+
+    Returns:
+        Exit code: 0 if all APKs succeed, 1 if any fail.
+    """
     if args.verbose:
         print(f"Batch analyzing APKs from: {args.apks_dir}")
 
@@ -317,7 +384,11 @@ def handle_batch_command(args: argparse.Namespace) -> int:
 
 
 def display_configuration_summary(config: RVStaticAnalysisConfig) -> None:
-    """Display configuration summary."""
+    """Print a human-readable configuration summary to stdout.
+
+    Args:
+        config: Configuration instance to summarize.
+    """
     print("\nConfiguration Summary:")
     summary = config.get_configuration_summary()
 
@@ -331,7 +402,12 @@ def display_configuration_summary(config: RVStaticAnalysisConfig) -> None:
 
 
 def display_analysis_summary(result, analysis_time: float) -> None:
-    """Display analysis result summary."""
+    """Print analysis result details including timing and output path.
+
+    Args:
+        result: StaticAnalysisResult from the analyzer.
+        analysis_time: Wall-clock time of the analysis in seconds.
+    """
     print("\nAnalysis Summary:")
     print(f"  Total time: {analysis_time:.2f} seconds")
     print(f"  Output: {result.analysis_file}")
@@ -345,7 +421,11 @@ def display_analysis_summary(result, analysis_time: float) -> None:
 
 
 def main() -> int:
-    """Main CLI entry point."""
+    """Parse arguments and dispatch to the appropriate subcommand handler.
+
+    Returns:
+        Exit code: 0 on success, 1 on failure or missing command.
+    """
     parser = setup_argument_parser()
     args = parser.parse_args()
 

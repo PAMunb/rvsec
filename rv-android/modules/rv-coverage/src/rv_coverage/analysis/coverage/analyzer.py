@@ -78,22 +78,30 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         """
         Initialize the analyzer with fallback support.
 
+        Determine the calculation mode from the completeness of ``static_data``
+        and populate the repository with reachable classes/methods when available.
+        When static data is absent or incomplete, automatically enter fallback mode.
+
         Args:
-            static_data: Optional static analysis data
+            static_data: Static analysis results providing the reachable method
+                universe. Pass ``None`` to operate in fallback (runtime-only) mode.
+
+        State:
+            repository: LogcatRepository accumulating coverage and error entries.
+            calculation_mode: Active CoverageCalculationMode governing metric
+                calculation strategy.
+            fallback_reason: Human-readable explanation when operating in degraded
+                mode, or ``None`` in full mode.
+            static_analysis_available: Whether static data with class information
+                was provided.
         """
         super().__init__(analyzer_name="coverage", static_data=static_data)
 
-        # Initialize repository directly for optimal performance
         self.repository = LogcatRepository()
-
-        # Initialize calculation mode based on available data
         self.calculation_mode = self._determine_calculation_mode(static_data)
-
-        # Fallback state tracking
         self.fallback_reason: Optional[str] = None
         self.static_analysis_available = bool(static_data and static_data.classes)
 
-        # Initialize repository from static_data if available
         if static_data and static_data.classes:
             self._initialize_from_static_data()
         else:
@@ -103,7 +111,7 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         component="CoverageAnalyzer", phase="static_data_initialization"
     )
     def _initialize_from_static_data(self) -> None:
-        """Initialize repository from static analysis data."""
+        """Populate the repository with classes and methods from static analysis."""
         self.logger.info("Initializing analyzer from static analysis data")
 
         # Use centralized repository initializer to eliminate code duplication
@@ -289,7 +297,9 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         Get detailed status of fallback capabilities.
 
         Returns:
-            Dictionary with fallback status information
+            Dictionary containing the current calculation mode, whether
+            fallback is active, the fallback reason, and a ``capabilities``
+            sub-dict mapping each analysis feature to a boolean.
         """
         return {
             "mode": self.calculation_mode.value,
@@ -304,7 +314,7 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         }
 
     def _get_available_capabilities(self) -> Dict[str, bool]:
-        """Get dictionary of available analysis capabilities."""
+        """Map each analysis capability name to whether it is available."""
         return {
             "runtime_coverage": True,
             "error_tracking": True,
@@ -317,19 +327,20 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
 
     def analyze(self, data: Any) -> Dict[str, Any]:
         """
-        Analyze data and return results.
+        Analyze data and return coverage metrics.
 
-        Can handle:
-        - RvCoverageLog: for method call registration
-        - RvErrorLog: for error registration
-        - str: assumes it's a logcat file path
-        - List[RvCoverageLog] or List[RvErrorLog]: batch processing
+        Accept multiple input types: a logcat file path (str), a single
+        RvCoverageLog or RvErrorLog, or a list of either. Register entries
+        in the repository and return the current metrics.
 
         Args:
-            data: The data to analyze
+            data: Input to analyze. Accepts ``str`` (logcat file path),
+                ``RvCoverageLog``, ``RvErrorLog``, or a list of log entries.
 
         Returns:
-            Dictionary with coverage metrics
+            Dictionary with coverage metrics including ``method_coverage``,
+            ``activities_coverage``, ``total_errors``, and
+            ``total_method_calls``.
         """
         if isinstance(data, str):
             return self.process_logcat_file(data)
@@ -353,13 +364,13 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
 
     def process_logcat_file(self, logcat_file: str) -> Dict[str, Any]:
         """
-        Process a logcat file for coverage and error data.
+        Parse a logcat file and merge its data into the repository.
 
         Args:
-            logcat_file: Path to logcat file
+            logcat_file: Absolute path to the logcat file to process.
 
         Returns:
-            Dictionary with coverage results
+            Dictionary with the updated coverage metrics after merging.
         """
         from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 
@@ -399,10 +410,12 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
 
     def get_coverage_metrics(self) -> Dict[str, Any]:
         """
-        Get coverage metrics.
+        Calculate and return current coverage metrics from the repository.
 
         Returns:
-            Dictionary with metrics
+            Dictionary with ``SUMMARY`` (full metrics dict), ``method_coverage``,
+            ``activities_coverage``, ``methods_jca_reachable_coverage``,
+            ``total_errors``, and ``total_method_calls``.
         """
         metrics_obj = self.repository.calculate_metrics()
         metrics = metrics_obj.to_dict()
@@ -418,9 +431,9 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
 
     def get_metrics(self) -> Dict[str, Any]:
         """
-        Get metrics from the analyzer.
+        Get metrics from the analyzer (BaseAnalyzer interface).
 
         Returns:
-            Dictionary containing metrics and their values
+            Same dictionary as ``get_coverage_metrics()``.
         """
         return self.get_coverage_metrics()

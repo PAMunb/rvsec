@@ -57,6 +57,17 @@ class MonkeyTool(AbstractTool):
     ):
         """
         Initialize Monkey tool with rv-android-core infrastructure.
+
+        Args:
+            name: Override tool name (defaults to TOOL_SPEC.name)
+            description: Override tool description (defaults to TOOL_SPEC.description)
+            process_pattern: Override process pattern for tool detection
+                (defaults to TOOL_SPEC.process_pattern)
+
+        State:
+            logger: Structured logger for Monkey tool operations.
+            config: Dictionary holding event count, seed, throttle, device_id,
+                verbosity, boolean flags, and event type percentages.
         """
         super().__init__(
             name=name or self.TOOL_SPEC.name,
@@ -99,12 +110,18 @@ class MonkeyTool(AbstractTool):
 
     @classmethod
     def get_tool_spec(cls):
-        """Get tool specification for registration."""
+        """Return tool specification for registry registration."""
         return cls.TOOL_SPEC
 
     @classmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
-        """Get available Monkey variants with different configurations."""
+        """Return available Monkey variants with preconfigured event parameters.
+
+        Returns:
+            Dictionary mapping variant names (default, fast, stress) to
+            configuration dictionaries with event count, seed, throttle,
+            verbosity, and crash/timeout handling flags.
+        """
         return {
             "default": {
                 "event_count": 1000,

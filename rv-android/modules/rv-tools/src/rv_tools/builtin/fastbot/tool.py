@@ -76,6 +76,18 @@ class FastBotTool(AbstractTool):
     ):
         """
         Initialize the FastBot tool with rv-android-core infrastructure.
+
+        Args:
+            name: Override tool name (defaults to TOOL_SPEC.name)
+            description: Override tool description (defaults to TOOL_SPEC.description)
+            process_pattern: Override process pattern for tool detection
+                (defaults to TOOL_SPEC.process_pattern)
+
+        State:
+            logger: Structured logger for FastBot tool operations.
+            jar_resolver: JarResolver for locating FastBot jar files on disk.
+            config: Dictionary holding max_step, device_serial, strategy, throttle,
+                jar paths, timeout, and reinforcement learning parameters.
         """
         super().__init__(
             name=name or self.TOOL_SPEC.name,
@@ -110,12 +122,18 @@ class FastBotTool(AbstractTool):
 
     @classmethod
     def get_tool_spec(cls):
-        """Get tool specification for registration."""
+        """Return tool specification for registry registration."""
         return cls.TOOL_SPEC
 
     @classmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
-        """Get available FastBot variants with different learning strategies."""
+        """Return available FastBot variants with preconfigured learning strategies.
+
+        Returns:
+            Dictionary mapping variant names (default, conservative, aggressive,
+            balanced) to configuration dictionaries with max_step, strategy,
+            throttle, timeout, and reinforcement learning parameters.
+        """
         return {
             "default": {
                 "max_step": 10000,

@@ -1,7 +1,24 @@
 """
 Parse UI node for RVAgent workflow.
 
-Captures and parses the current screen UI state.
+Capture the current screen UI state from the device, parse it into a
+ScreenDescription via ScreenProcessor, and detect external navigation
+(app left the target package). Implement screen description caching:
+reuse the cached ScreenDescription when the structural hash is unchanged,
+updating only element bounds to account for keyboard-induced shifts.
+
+### Role in the System:
+
+- First node in the LangGraph workflow (entry point for each iteration)
+- Produces screen_hash, activity, screen_description, and ui_elements_text
+  consumed by all downstream nodes (decision, algorithm, llm, execute, learn)
+- Registers screen elements in UICoverageTracker for coverage analysis
+
+### Integration Points:
+
+- Input: DeviceInterface (UI dump), ScreenProcessor (parsing), RVAgentConfig
+- Output: State updates consumed by decision_router_node and subsequent nodes
+- Dependencies: rv-screen-parser (ScreenDescription), UICoverageTracker
 """
 
 import logging

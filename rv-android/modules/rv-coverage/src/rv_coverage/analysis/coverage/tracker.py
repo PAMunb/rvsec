@@ -1,4 +1,29 @@
-# rv_coverage/analysis/coverage/tracker.py
+"""
+Real-time coverage tracking for Android runtime verification.
+
+Monitor logcat output in real-time during test execution, extracting coverage
+information and formal property violations as they occur. Provide incremental
+metric calculation with change detection optimization.
+
+### Role in the System:
+CoverageTracker is the primary real-time monitoring component used by rv-platform's
+TaskExecutor during tool execution. It runs a background thread that tails the logcat
+file, parsing each new line for RVSEC/RVSEC-COV tags and updating a LogcatRepository.
+
+### Architectural Decisions:
+- Background thread with adaptive sleep (0.5s with data, 1.0s idle) balances latency
+  and CPU usage for continuous logcat monitoring
+- Change detection flag avoids redundant metric calculations when no new data arrives
+- Direct LogcatRepository integration (no wrapper) for minimal latency in the hot path
+- RLock allows the tracking thread and metric readers to coexist safely
+
+### Integration Points:
+- LogcatRepository (rv-android-core): stores coverage and error data
+- parse_logcat_line (rv-coverage): parses individual logcat entries
+- StaticAnalysisData (rv-android-core): initializes reachable method universe
+- LoggingManager (rv-android-core): structured logging with component context
+"""
+
 import os
 import threading
 import time
@@ -92,11 +117,26 @@ class CoverageTracker:
         Initialize the coverage tracker with optional task correlation.
 
         Args:
-            logcat_file: Path to the logcat file to monitor
-            static_data: Optional static analysis data
-            task_start_time: When tool execution started (for calculating accurate relative timing)
-                            Note: This should be tool_execution_start, not task creation time
-            task_id: Optional task identifier for log correlation
+            logcat_file: Path to the logcat file to monitor.
+            static_data: Optional static analysis data providing the reachable
+                method universe for coverage percentage calculations.
+            task_start_time: When tool execution started, used to calculate
+                relative timing on coverage and error entries. Should be
+                the tool_execution_start time, not task creation time.
+            task_id: Optional task identifier for log correlation.
+
+        State:
+            repository: LogcatRepository storing all coverage and error data.
+            is_running: Whether the background tracking thread is active.
+            thread: Background daemon thread tailing the logcat file.
+            _stop_event: Threading event to signal the tracking thread to stop.
+            _reader_lock: RLock protecting concurrent file reads and state access.
+            last_update_time: Timestamp of the last metric calculation.
+            total_errors: Running count of property violations detected.
+            total_method_calls: Running count of method calls recorded.
+            _previous_metrics: Last computed metrics snapshot for change detection.
+            _data_changed_since_last_update: Flag to skip redundant metric
+                calculations when no new data has arrived.
         """
         self.logcat_file = logcat_file
         self.static_data = static_data
@@ -111,22 +151,17 @@ class CoverageTracker:
             {CONTEXT_COMPONENT: "CoverageTracker"},
         )
 
-        # Initialize LogcatRepository directly for optimal performance
-        # Direct repository usage provides better performance and simpler data flow
         self.repository = LogcatRepository()
 
-        # Initialize running state
         self.is_running = False
         self.thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._reader_lock = threading.RLock()
 
-        # Metrics
         self.last_update_time = datetime.now()
         self.total_errors = 0
         self.total_method_calls = 0
 
-        # Track previous metrics for change detection and performance optimization
         self._previous_metrics = {
             "method_coverage": 0.0,
             "activity_coverage": 0.0,
@@ -136,10 +171,8 @@ class CoverageTracker:
             "unique_errors": 0,
         }
 
-        # Performance optimization: track if data has changed since last metrics calculation
         self._data_changed_since_last_update = False
 
-        # Initialize repository with static data
         if static_data and static_data.classes:
             self._initialize_from_static_data()
 
@@ -169,7 +202,16 @@ class CoverageTracker:
             )
 
     def start(self) -> None:
-        """Start the coverage tracker thread."""
+        """
+        Start the background thread that tails the logcat file.
+
+        Create the logcat file and parent directories if they do not exist,
+        then spawn a daemon thread that continuously reads new lines.
+
+        Raises:
+            Exception: If the logcat file cannot be created or the thread
+                fails to start. The tracker is left in a stopped state.
+        """
         if self.is_running:
             self.logger.warning("Coverage tracker is already running")
             return
@@ -201,7 +243,13 @@ class CoverageTracker:
             raise
 
     def stop(self) -> None:
-        """Stop the coverage tracker thread."""
+        """
+        Stop the background tracking thread.
+
+        Signal the thread to terminate and wait up to 5 seconds for it to
+        join. Log a warning if the thread does not terminate gracefully.
+        Safe to call when the tracker is already stopped.
+        """
         if not self.is_running:
             return
 
@@ -226,7 +274,7 @@ class CoverageTracker:
             self.is_running = False
 
     def _track_coverage(self) -> None:
-        """Main tracking method that runs in a separate thread."""
+        """Tail the logcat file, processing new lines and updating metrics."""
         file_handle = None
 
         try:
@@ -282,8 +330,11 @@ class CoverageTracker:
         """
         Context manager for tracking coverage.
 
+        Start the background thread on entry and stop it on exit, ensuring
+        proper cleanup even if an exception occurs.
+
         Yields:
-            Self for use within the context
+            This tracker instance for metric queries during execution.
         """
         self.start()
         try:
@@ -293,21 +344,17 @@ class CoverageTracker:
 
     def process_lines(self, lines: List[str]) -> None:
         """
-        Process multiple logcat lines.
+        Process multiple logcat lines for coverage and error data.
 
         Args:
-            lines: List of logcat lines
+            lines: Raw logcat lines to parse. Non-RVSEC lines are silently
+                skipped.
         """
         for line in lines:
             self._process_line(line)
 
     def _process_line(self, line: str) -> None:
-        """
-        Process a single logcat line.
-
-        Args:
-            line: Logcat line to process
-        """
+        """Parse one logcat line and register any error or coverage entry."""
         try:
             # Skip empty lines
             if not line.strip():
@@ -426,10 +473,14 @@ class CoverageTracker:
 
     def get_coverage_metrics(self) -> Dict[str, float]:
         """
-        Get the current coverage metrics.
+        Get the current coverage metrics from the repository.
+
+        Thread-safe: can be called from any thread while the tracker is running.
 
         Returns:
-            Dictionary with coverage metrics
+            Dictionary with keys such as ``method_coverage``,
+            ``activity_coverage``, ``mop_method_coverage``, ``called_methods``,
+            and ``unique_errors``.
         """
         metrics = self.repository.calculate_metrics()
         return metrics.to_dict()

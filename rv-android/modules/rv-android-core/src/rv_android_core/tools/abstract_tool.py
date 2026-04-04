@@ -28,52 +28,43 @@ from rv_android_core.util.logging.manager import LoggingManager
 
 class AbstractTool(ABC):
     """
-    Abstract base class defining the core contract for monitored operations testing tools.
+    Base class defining the contract and template method for testing tools.
 
     ### Architectural Decisions:
-    - Implements a standardized interface for test automation tool integration
-    - Defines a template method pattern for tool execution workflow
-    - Provides consistent mechanism for tool-specific logic implementation
-    - Supports flexible extension and customization of testing strategies
-    - Integrates with rv-android-core infrastructure for error handling and logging
+    - Template method pattern: execute() orchestrates the workflow, subclasses
+      implement execute_tool_specific_logic() for custom behavior.
+    - Variant system: get_variants() provides named parameter presets that
+      ToolFactory resolves during tool creation.
+    - Timeout conversion: RVCommandTimeoutError from Command is converted to
+      RVToolTimeoutError for uniform handling by the platform.
 
     ### Role in the System:
-    - Serves as the foundational abstraction for all testing tools
-    - Defines uniform execution workflow for different testing approaches
-    - Enables seamless integration of diverse monitored operations testing strategies
-    - Provides standardized mechanism for process management and cleanup
-    - Acts as critical component in experiment tool orchestration
+    - Foundational abstraction for all testing tools (Monkey, DroidBot, APE-RV, etc.)
+    - Registered in ToolRegistry via get_tool_spec() for dynamic discovery
+    - Executed by ToolExecutionComponent during task processing
 
-    ### Key Considerations:
-    - Enforces consistent execution contract for all tool implementations
-    - Manages tool-specific process termination and resource cleanup
-    - Supports flexible tool initialization and configuration patterns
-    - Provides template for implementing tool-specific execution logic
-    - Ensures proper integration with error handling and logging infrastructure
-
-    ### Integration Strategy:
-    - Compatible with multiple testing tool implementations
-    - Supports dynamic tool registration and execution via plugin system
-    - Enables dependency injection and tool composition patterns
-    - Provides clear extension point for new monitored operations testing tools
-    - Facilitates tool-agnostic experiment design and execution
-
-    ### Performance and Scalability:
-    - Designed for lightweight tool abstraction with minimal overhead
-    - Minimizes performance impact in tool execution and management
-    - Supports diverse testing tool implementations and complexity levels
-    - Enables efficient process termination and resource cleanup
-    - Adaptable to different monitored operations testing scale requirements
+    ### Integration Points:
+    - Configured by ToolFactory with resolved variant parameters
+    - Uses Command infrastructure for subprocess execution
+    - Integrates with ErrorHandler and LoggingManager from rv-android-core
+    - Provides process cleanup via ADB for device-side processes
     """
 
     def __init__(self, name: str, description: str, process_pattern: str):
         """
-        Initialize the abstract tool with basic properties.
+        Initialize the abstract tool with identity, logging, and error handling.
 
         Args:
-            name: Unique tool identifier
+            name: Unique tool identifier (e.g., "monkey", "droidbot", "aperv")
             description: Human-readable tool description
-            process_pattern: Pattern for identifying related processes to cleanup
+            process_pattern: Pattern for identifying device-side processes to kill on cleanup
+
+        State:
+            self.name: Tool identifier used in logging, registry, and result tracking.
+            self.description: Human-readable description for diagnostics.
+            self.process_pattern: grep pattern for ADB process cleanup after execution.
+            self.logger: Contextualized logger with tool name in structured fields.
+            self.error_handler: Singleton ErrorHandler instance for error management.
         """
         self.name = name
         self.description = description
@@ -95,30 +86,20 @@ class AbstractTool(ABC):
     @abstractmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
         """
-        Get available variants for this tool.
+        Return available variant configurations for this tool.
 
-        Every tool must provide at least a 'default' variant configuration.
-        Variants define tool-specific parameter sets that can be referenced
-        by name in experiment configurations.
-
-        ### Architectural Overview:
-        This method enables the variant system by providing predefined configurations
-        that can be referenced by name in experiment specifications. Each variant
-        represents a complete configuration for the tool with specific parameters.
-
-        ### Implementation Requirements:
-        - Must include at least a 'default' variant
-        - Variant names should be descriptive and meaningful
-        - Parameters should be complete for tool execution
-        - Avoid complex nested structures for simplicity
+        Must include at least a 'default' variant. Each variant maps a name
+        to a dictionary of tool-specific parameters used by ToolFactory
+        during configuration resolution.
 
         Returns:
-            Dictionary mapping variant names to configuration parameters
+            Dictionary mapping variant names to parameter dictionaries.
 
-        Example:
+        Example::
+
             {
                 "default": {"policy": "dfs_naive", "timeout": 300},
-                "greedy": {"policy": "dfs_greedy", "count": 5000, "timeout": 600}
+                "greedy": {"policy": "dfs_greedy", "count": 5000, "timeout": 600},
             }
         """
 
@@ -127,21 +108,9 @@ class AbstractTool(ABC):
         """
         Configure tool with resolved variant parameters.
 
-        This method receives configuration resolved from variant registration
-        and experiment parameters. Implementation must prepare the tool for
-        execution with the provided configuration.
-
-        ### Configuration Resolution Flow:
-        1. ToolFactory resolves variant configuration from registry
-        2. Applies parameter overrides from experiment configuration
-        3. Calls this method with final configuration dictionary
-        4. Tool prepares internal state for execution
-
-        ### Implementation Guidelines:
-        - Store configuration in instance variables for execution
-        - Validate required parameters and provide clear error messages
-        - Prepare any tool-specific setup required for execution
-        - Do not perform heavy operations - defer to execution phase
+        Receive the final configuration dictionary (variant defaults merged
+        with experiment overrides) and store parameters as instance state.
+        Do not perform heavy operations here -- defer to execution phase.
 
         Args:
             config: Configuration dictionary with tool-specific parameters

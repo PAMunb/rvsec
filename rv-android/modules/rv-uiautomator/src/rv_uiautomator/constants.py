@@ -1,11 +1,12 @@
 """
 Constants for RV-UIAutomator module.
 
-This module defines constants used throughout the UIAutomator components
-for consistent configuration and behavior.
+Define timing, retry, and quality constants used by all UIAutomator components.
+Values are tuned for headless emulator mode where SwiftShader software rendering
+causes slower UI idle detection than hardware-accelerated rendering.
 
 ### Performance Optimization Notes (2026-01-27):
-- Swipe duration reduced from 0.5s to 0.25s (50 steps × 5ms)
+- Swipe duration reduced from 0.5s to 0.25s (50 steps x 5ms)
 - ACTION_EXECUTION_DELAY reduced from 0.5s to 0.3s
 - waitForIdleTimeout configured to reduce UI idle waiting
 - These optimizations improve headless mode performance significantly

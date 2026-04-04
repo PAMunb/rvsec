@@ -61,6 +61,10 @@ class ToolFactory:
 
         Args:
             registry: Optional tool registry instance for tool discovery
+
+        State:
+            registry: ToolRegistry used for tool class and variant resolution.
+            logger: Structured logger for factory operations.
         """
         self.registry = registry or ToolRegistry.get_instance()
 

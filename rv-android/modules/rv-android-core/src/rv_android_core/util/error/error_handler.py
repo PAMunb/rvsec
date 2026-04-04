@@ -54,7 +54,15 @@ class ErrorHandler:
         return cls._instance
 
     def __init__(self):
-        """Initialize the error handler."""
+        """Initialize the error handler with built-in handlers.
+
+        State:
+            self._logger: Logger instance for error handler diagnostics.
+            self._error_callbacks: Ordered list of handler callbacks. Each callback
+                receives (exception, context_dict) and returns True to absorb,
+                False to propagate, or None if not applicable.
+            self._registered_handlers: Set of handler signatures to prevent duplicates.
+        """
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
             "rv_android_core.util.error.error_handler",
@@ -69,7 +77,13 @@ class ErrorHandler:
         self._register_builtin_handlers()
 
     def _register_builtin_handlers(self):
-        """Register built-in error handlers."""
+        """Register built-in error handlers for the RV-Android exception hierarchy.
+
+        Register two groups: absorbed errors (validation, tool timeout, tool execution)
+        that are fully handled, and propagated errors (tool, experiment, parsing,
+        command timeout) that are logged but re-raised. Also register special handlers
+        for FileNotFoundError, RVAndroidError, and the catch-all Exception fallback.
+        """
         # Errors considered fully handled (return True, won't propagate from context manager)
         handled_types = [
             CommandValidationError,
@@ -166,7 +180,15 @@ class ErrorHandler:
         return self._handle_error_internal(error, final_context)
 
     def _handle_error_internal(self, error: Exception, context: Dict[str, Any]) -> bool:
-        """Internal error handling: log the error, then iterate callbacks."""
+        """Log the error and iterate callbacks until one absorbs it.
+
+        Args:
+            error: The exception to handle.
+            context: Context dictionary with component, phase, and operation info.
+
+        Returns:
+            True if a callback absorbed the error, False otherwise.
+        """
         self._log_error(error, context)
 
         handled = False
@@ -188,7 +210,16 @@ class ErrorHandler:
         return handled
 
     def _log_error(self, error: Exception, context: Optional[Dict[str, Any]]):
-        """Log an error with appropriate detail level based on error type."""
+        """Log an error at the appropriate level based on error type.
+
+        Timeout errors are logged as WARNING without stacktrace since they
+        represent expected behavior. All other errors are logged as ERROR
+        with full exception info.
+
+        Args:
+            error: The exception to log.
+            context: Optional context information (unused, reserved for future use).
+        """
         # Timeouts are expected behavior — log as WARNING without stacktrace
         if isinstance(error, (RVToolTimeoutError, RVCommandTimeoutError)):
             self._logger.warning(f"Timeout: {error}")
@@ -204,15 +235,15 @@ class ErrorHandler:
     # --- Generic handler methods ---
 
     def _handle_and_absorb(self, error, context=None):
-        """Handle error and prevent further propagation."""
+        """Absorb the error, preventing further propagation."""
         return True
 
     def _handle_and_propagate(self, error, context=None):
-        """Log error but allow propagation for higher-level handling."""
+        """Allow propagation for higher-level handling."""
         return False
 
     def _handle_generic_error(self, error, context=None):
-        """Default handler for RVAndroid errors."""
+        """Log RVAndroid errors without absorbing them."""
         self._logger.info(f"Recorded RVAndroid error: {error.message}")
         return False
 

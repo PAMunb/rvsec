@@ -1,8 +1,33 @@
 """
 Execute node for RVAgent workflow.
 
-Executes actions on the device. All actions are expected to be in unified
-format with coordinates already in device space (from ActionNormalizer).
+Execute actions on the Android device via ToolExecutor. All actions arrive
+in unified format with device-space coordinates (LLM actions normalized by
+ActionNormalizer, algorithm actions already in device space). After execution,
+record state transitions in the exploration strategy and track UI element
+interactions in UICoverageTracker.
+
+### Role in the System:
+
+- Seventh node in the LangGraph workflow, after validate_action
+- Bridges the action decision (from algorithm or LLM) to physical device
+  interaction via ToolExecutor
+- Unified recording point for UI coverage: both algorithm and LLM actions
+  are tracked here post-execution
+
+### Architectural Decisions:
+
+- Pre-marking for LLM actions: record action in DynamicStateGraph BEFORE
+  execution to ensure crash-causing actions are never retried
+- One-iteration offset fix: transition recording uses previous_action_signature
+  because the transition (prev -> current) was caused by the previous action
+
+### Integration Points:
+
+- Input: current_action from validate_action_node or algorithm_node
+- Output: action_executed, action_success consumed by learn_node
+- Dependencies: ToolExecutor, DynamicStateGraph, UICoverageTracker,
+  ExplorationStrategy (record_transition)
 """
 
 import logging

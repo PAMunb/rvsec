@@ -515,11 +515,20 @@ class Task:
     def __init__(self, config: TaskConfiguration, task_id: Optional[str] = None):
         """
         Initialize a task with its configuration.
-        Uses standardized models for data representation.
 
         Args:
-            config: Task configuration
-            task_id: Optional task ID (generated if not provided)
+            config: Task configuration defining APK, tool, timeout, and device
+            task_id: Optional task ID (auto-generated UUID if not provided)
+
+        State:
+            self.id: Unique task identifier (UUID string).
+            self.config: Immutable task configuration.
+            self.result: Mutable TaskResult tracking state, timing, and metrics.
+            self.app: App instance set during execution setup. None until set_app().
+            self.results_dir: Output directory path. Empty until initialize().
+            self.static_data: Static analysis data for coverage. None until set externally.
+            self.repository: LogcatRepository for coverage/error tracking. None if
+                coverage module unavailable.
         """
         self.id = task_id or str(uuid.uuid4())
         self.config = config

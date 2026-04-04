@@ -63,10 +63,23 @@ class TaskExecutor:
         Initialize with a task and tool.
 
         Args:
-            task: Task to execute
-            tool: Tool implementation to use
-            task_storage: Optional task storage for persistence
-            error_handler: Optional error handler
+            task: Task to execute, must have an App instance set before
+                calling execute().
+            tool: Tool implementation (e.g., MonkeyTool, DroidbotTool,
+                RVAgentTool) to run against the APK.
+            task_storage: Persistent storage for task state. When provided,
+                task results survive process restarts.
+            error_handler: Error handler for consistent error management.
+                Defaults to the singleton ErrorHandler instance.
+
+        State:
+            components: Ordered list of registered execution components.
+                Components execute in registration order during the
+                coordinated execution phase.
+            pre_execution_hooks: Callables invoked with the Task before
+                component execution begins.
+            post_execution_hooks: Callables invoked with (Task, success_bool)
+                after execution completes or fails.
         """
         self.task = task
         self.tool = tool
@@ -96,11 +109,12 @@ class TaskExecutor:
 
     def get_task_context(self) -> Dict[str, Any]:
         """
-        Get the standard context for this task execution.
-        Used by components and error handlers.
+        Build the standard context dictionary for this task execution.
 
         Returns:
-            Dictionary with task context
+            Dictionary with keys: task_id, apk_name, tool_name, repetition,
+            timeout. Used by components and error handlers for contextual
+            logging and error reporting.
         """
         return {
             "task_id": self.task.id,
@@ -162,10 +176,21 @@ class TaskExecutor:
 
     def execute(self) -> bool:
         """
-        Execute the task with comprehensive error handling and performance monitoring.
+        Execute the task through the full component lifecycle.
+
+        Run pre-execution hooks, initialize all registered components,
+        execute them in coordinated phases (static analysis -> coverage init
+        -> emulator session with tool), clean up components, and run
+        post-execution hooks. On failure, clean up resources and mark the
+        task as ERROR.
 
         Returns:
-            bool: True if task execution was successful, False otherwise
+            True if task execution completed successfully, False if the task
+            had no App instance set or if any component raised an exception.
+
+        Raises:
+            No exceptions are raised; all errors are caught, logged via
+            ErrorHandler, and reflected in the return value and task state.
         """
         self.logger.info(LOG_START.format(phase=f"execution of task {self.task}"))
 
@@ -248,10 +273,19 @@ class TaskExecutor:
 
     def _execute_coordinated_components(self, context: Dict[str, Any]) -> None:
         """
-        Execute components in a coordinated manner, managing emulator lifecycle properly.
+        Execute components in three coordinated phases.
+
+        Phase 1: Static analysis data loading (outside emulator).
+        Phase 2: Coverage tracker initialization (outside emulator).
+        Phase 3: Emulator session with logcat capture, coverage tracking,
+        and tool execution (inside emulator context manager).
 
         Args:
-            context: Task execution context
+            context: Task execution context, enriched with 'android' and
+                'device_id' keys during the emulator session phase.
+
+        Raises:
+            TaskExecutionError: If any component's execute() returns False.
         """
         # Get components by type
         static_component = None

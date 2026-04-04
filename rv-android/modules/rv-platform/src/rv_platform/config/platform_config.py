@@ -30,6 +30,18 @@ class PlatformConfig(BaseValidatedModel):
     - Validates configuration before execution begins
     - Supports serialization for persistence and debugging
     - Enables reproducible platform execution
+
+    ### Key Features:
+    - Field validators ensure apks_dir exists, tools are non-empty, repetitions
+      and timeouts are positive, and log_level is a standard Python level.
+    - File-based loading (from_file) and saving (to_file) for JSON configs.
+    - get_total_tasks() calculates the Cartesian product size of APKs x tools
+      x repetitions x timeouts.
+
+    ### Integration Points:
+    - Platform.__init__ receives this config and calls validate_dependencies().
+    - rv-experiment creates PlatformConfig and passes it to Platform.
+    - ToolConfig instances (from rv-android-core) are embedded in the tools list.
     """
 
     # Required parameters
@@ -156,8 +168,11 @@ class PlatformConfig(BaseValidatedModel):
         """
         Calculate the total number of tasks that will be generated.
 
+        Compute the Cartesian product: APK count x tool count x repetitions
+        x timeout count.
+
         Returns:
-            Total number of tasks
+            Total number of tasks based on current configuration.
         """
         # Count APK files
         apks_path = Path(self.apks_dir)
@@ -170,13 +185,18 @@ class PlatformConfig(BaseValidatedModel):
 
     def validate_dependencies(self) -> bool:
         """
-        Validate that all required dependencies are available.
+        Validate that all required runtime dependencies are available.
+
+        Check that the APKs directory contains at least one .apk file and
+        that all tool names are non-empty. Called by Platform.__init__ before
+        task generation begins.
 
         Returns:
-            True if all dependencies are valid
+            True if all dependencies are valid.
 
         Raises:
-            ValueError: If dependencies are invalid
+            ValueError: If no APK files exist in apks_dir or any tool has an
+                empty name.
         """
         # Check APKs directory has APK files
         apks_path = Path(self.apks_dir)

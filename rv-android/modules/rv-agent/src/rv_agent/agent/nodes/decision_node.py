@@ -1,7 +1,23 @@
 """
 Decision router node for RVAgent workflow.
 
-Routes decisions between LLM and algorithm paths based on mode and state.
+Route each iteration to the LLM path, algorithm path, or end based on the
+agent mode and current state. Check for forced recovery actions first
+(stuck detection, error recovery), then delegate to RoutingManager for
+mode-based probabilistic routing (pure_algorithm, llm_only, multimode).
+
+### Role in the System:
+
+- Second node in the LangGraph workflow, immediately after parse_ui
+- Sets decision_path ("llm", "algorithm", or "end") which the conditional
+  edge uses to branch the workflow
+- Overrides normal routing when stuck recovery or error recovery is active
+
+### Integration Points:
+
+- Input: AgentState with force_back_action, force_restart_app, force_fill_input
+- Output: decision_path and decision_maker consumed by conditional edges
+- Dependencies: RoutingManager (probabilistic routing)
 """
 
 import logging

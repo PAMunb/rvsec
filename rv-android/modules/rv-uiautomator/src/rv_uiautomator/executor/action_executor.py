@@ -1,8 +1,15 @@
 """
 Action executor for UIAutomator framework.
 
-This module provides action execution capabilities using UIAutomator,
-translating GeneratedAction objects into device interactions.
+Translate GeneratedAction objects into UIAdapter device commands. Each action type
+(click, text change, long click, scroll, back) is dispatched to the corresponding
+adapter method with appropriate coordinate extraction and parameter handling.
+
+### Integration Points:
+    - Receives GeneratedAction objects from rv-agent's workflow nodes
+    - Delegates execution to any UIAdapter implementation
+    - Supports WidgetEventType-based actions and custom coordinate actions
+      from the vision strategy
 """
 
 from rv_android_core.domain.widget import WidgetEventType
@@ -31,7 +38,11 @@ class UIAutomatorActionExecutor:
     """
 
     def __init__(self):
-        """Initialize action executor with logging."""
+        """Initialize action executor.
+
+        State:
+            logger: Component logger with UIAutomatorActionExecutor context.
+        """
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_uiautomator.executor", {CONTEXT_COMPONENT: "UIAutomatorActionExecutor"}
@@ -94,7 +105,15 @@ class UIAutomatorActionExecutor:
             return False
 
     def _execute_click(self, action, ui_adapter: UIAdapter) -> bool:
-        """Execute click action at specified coordinates."""
+        """Execute click action at coordinates from the action object.
+
+        Args:
+            action: GeneratedAction with coordinates attribute.
+            ui_adapter: Target UIAdapter for device interaction.
+
+        Returns:
+            True if click executed successfully.
+        """
         try:
             if not hasattr(action, "coordinates") or not action.coordinates:
                 self.logger.error("Click action missing coordinates")
@@ -115,7 +134,18 @@ class UIAutomatorActionExecutor:
             return False
 
     def _execute_text_change(self, action, ui_adapter: UIAdapter) -> bool:
-        """Execute text input action."""
+        """Execute text input action with optional field focus click.
+
+        Click on the target field if coordinates are available, then input
+        text from ``action.params["text"]`` or ``action.text_value``.
+
+        Args:
+            action: GeneratedAction with text content and optional coordinates.
+            ui_adapter: Target UIAdapter for device interaction.
+
+        Returns:
+            True if text input completed successfully.
+        """
         try:
             # First click on the field if coordinates are available
             if hasattr(action, "coordinates") and action.coordinates:
@@ -149,7 +179,17 @@ class UIAutomatorActionExecutor:
             return False
 
     def _execute_long_click(self, action, ui_adapter: UIAdapter) -> bool:
-        """Execute long click action."""
+        """Execute long click action with configurable duration.
+
+        Duration defaults to 1.0s unless overridden via ``action.params["duration"]``.
+
+        Args:
+            action: GeneratedAction with coordinates and optional duration param.
+            ui_adapter: Target UIAdapter for device interaction.
+
+        Returns:
+            True if long click executed successfully.
+        """
         try:
             if not hasattr(action, "coordinates") or not action.coordinates:
                 self.logger.error("Long click action missing coordinates")
@@ -180,7 +220,19 @@ class UIAutomatorActionExecutor:
             return False
 
     def _execute_scroll(self, action, ui_adapter: UIAdapter) -> bool:
-        """Execute scroll action."""
+        """Execute scroll action by computing swipe endpoints from direction.
+
+        Translate a directional scroll (up/down/left/right) into a swipe
+        between two coordinate pairs. Direction and distance come from
+        ``action.params`` with defaults of "down" and 300px.
+
+        Args:
+            action: GeneratedAction with coordinates and optional direction/distance.
+            ui_adapter: Target UIAdapter for device interaction.
+
+        Returns:
+            True if scroll executed successfully.
+        """
         try:
             if not hasattr(action, "coordinates") or not action.coordinates:
                 self.logger.error("Scroll action missing coordinates")

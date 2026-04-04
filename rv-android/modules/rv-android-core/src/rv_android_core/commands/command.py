@@ -54,48 +54,23 @@ def kill_process_tree(pid: int):
 @validated_model(["command", "args", "timeout"])
 class Command(BaseValidatedModel):
     """
-    A system command execution utility with process management and error handling capabilities.
-
-    ### Architectural Decisions:
-    - Inherits from BaseValidatedModel for comprehensive validation and type safety
-    - Implements flexible and secure approach to system command execution
-    - Provides validated handling of command invocation and result processing
-    - Supports timeout enforcement and process tree management with validated parameters
-    - Ensures consistent output and error capturing across different command scenarios
+    Execute system commands with timeout enforcement, process management, and validation.
 
     ### Role in the System:
-    - Acts as a utility for executing system commands across the RV-Android framework
-    - Abstracts low-level command execution complexities with type-safe parameters
-    - Provides a uniform interface for invoking shell commands, ADB operations, and tool interactions
-    - Manages process lifecycle, including timeout handling and clean termination
-    - Enables reliable and predictable command execution in testing and automation workflows
+    - Uniform interface for shell commands, ADB operations, and tool invocations
+      across all RV-Android modules.
 
-    ### Key Considerations:
-    - Handles cross-platform command execution challenges
-    - Implements process management and termination strategies
-    - Supports multiple execution modes (synchronous and daemon)
-    - Provides error handling and reporting with comprehensive logging integration
-    - Ensures secure and controlled command invocation with validated inputs
+    ### Key Features:
+    - Synchronous execution with timeout (invoke)
+    - Daemon execution without blocking (invoke_as_deamon)
+    - Process-group execution for parallel environments (invoke_as_process)
+    - Recursive process tree termination on timeout via kill_process_tree
+    - Pydantic validation for command, args, and timeout fields
 
-    ### Integration Strategy:
-    - Integrated with Android testing and instrumentation tools
-    - Compatible with various system command scenarios
-    - Supports flexible timeout and process management configurations
-    - Enables command execution across different modules
-    - Provides result object for consistent processing
-
-    ### Performance and Scalability:
-    - Designed for efficient and lightweight command execution
-    - Minimizes resource overhead during command processing
-    - Supports timeout mechanisms to prevent long-running commands
-    - Implements recursive process tree termination for cleanup
-    - Adaptable to different command complexity and system environments
-
-    ### Validation Features:
-    - Command string validation to prevent empty commands
-    - Argument list validation for proper parameter passing
-    - Timeout value validation to ensure positive values
-    - Type safety for all command execution parameters
+    ### Integration Points:
+    - Used by AbstractTool for tool command execution
+    - Used by Android utilities (ADB install, emulator management, logcat)
+    - Returns CommandResult for uniform output/error processing
     """
 
     model_config = ConfigDict(
@@ -156,7 +131,11 @@ class Command(BaseValidatedModel):
         return v
 
     def model_post_init(self, __context):
-        """Initialize logging and error handling after model validation."""
+        """Initialize logger and error handler after Pydantic validation.
+
+        Use object.__setattr__ to bypass Pydantic's validate_assignment
+        for non-model attributes (logger, error_handler).
+        """
         # Use object.__setattr__ to bypass Pydantic validation for logger
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(

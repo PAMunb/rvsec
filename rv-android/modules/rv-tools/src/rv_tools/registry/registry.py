@@ -68,6 +68,13 @@ class ToolRegistry:
     def __init__(self):
         """
         Initialize the registry with rv-android-core infrastructure.
+
+        State:
+            logger: Structured logger for registry operations.
+            error_handler: Centralized error handler instance.
+            tool_classes: Map of tool name to tool class type.
+            tool_specs: Map of tool name to tool specification.
+            variants: Nested map of tool name -> variant name -> config dict.
         """
         # Set up standardized logging
         logging_manager = LoggingManager.get_instance()

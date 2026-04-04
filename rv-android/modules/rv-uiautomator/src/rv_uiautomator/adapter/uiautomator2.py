@@ -1,8 +1,15 @@
 """
 UIAutomator2 adapter implementation for Android device interaction.
 
-This module provides the concrete implementation of the UIAdapter interface
-using the UIAutomator2 framework for device interaction.
+Provide the concrete UIAdapter implementation using the uiautomator2 Python library.
+All device operations go through UIAutomator2's HTTP-based protocol, communicating
+with the UIAutomator2 server running on the Android device.
+
+### Integration Points:
+    - UIAutomatorActionExecutor delegates all device operations here
+    - rv-agent uses this adapter for UI state capture and action execution
+    - Connection parameters are optimized for headless emulator mode
+      (SwiftShader software rendering causes slower UI idle detection)
 """
 
 import time
@@ -40,11 +47,16 @@ class UIAutomator2Adapter(UIAdapter):
     """
 
     def __init__(self, device_id: str = "emulator-5554"):
-        """
-        Initialize UIAutomator2 adapter.
+        """Initialize UIAutomator2 adapter.
 
         Args:
-            device_id: Device identifier for connection
+            device_id: ADB device identifier for connection.
+
+        State:
+            logger: Component logger with UIAutomator2Adapter context.
+            device_id: Target device identifier.
+            device: UIAutomator2 device handle, set on connect().
+            connected: Whether a device connection is active.
         """
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
