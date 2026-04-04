@@ -47,7 +47,7 @@ rv-platform is the central execution engine for Android testing experiments in t
 
 ```
 src/rv_platform/
-    __init__.py              # External tool registration (rvagent, rvsmart, aperv)
+    __init__.py              # External tool registration (rvagent, aperv)
     __main__.py              # CLI entry point with subcommands
     platform.py              # Main Platform class
     config/
@@ -77,19 +77,19 @@ src/rv_platform/
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| `platform.py` | Main Platform class - task generation, execution orchestration | 419 |
-| `execution/executor.py` | TaskExecutor - component coordination and lifecycle | 483 |
-| `storage/task_storage.py` | TaskStorage - persistent storage with transactions | 740 |
-| `components/result_processor.py` | Result processing - CSV/JSON generation | 607 |
-| `__main__.py` | CLI entry point with run, list-tools, validate-config commands | 473 |
-| `components/coverage.py` | Coverage tracker lifecycle management | 353 |
-| `components/performance_processor.py` | Task execution timing CSV generation | 157 |
-| `interfaces/task_interfaces.py` | Core interfaces (ITaskComponent, ITaskExecutor, ITaskStorage) | 267 |
-| `components/static_analysis.py` | Static analysis file copying and loading | 231 |
-| `components/emulator.py` | Emulator startup and app installation | 223 |
-| `config/platform_config.py` | PlatformConfig with Pydantic validation | 192 |
-| `components/tool_execution.py` | Tool invocation and error handling | 175 |
-| `components/logcat.py` | Logcat capture component | 168 |
+| `platform.py` | Main Platform class - task generation, execution orchestration | 571 |
+| `execution/executor.py` | TaskExecutor - component coordination and lifecycle | 511 |
+| `storage/task_storage.py` | TaskStorage - persistent storage with transactions | 852 |
+| `components/result_processor.py` | Result processing - CSV/JSON generation | 802 |
+| `__main__.py` | CLI entry point with run, list-tools, validate-config commands | 498 |
+| `components/coverage.py` | Coverage tracker lifecycle management | 334 |
+| `components/performance_processor.py` | Task execution timing CSV generation | 151 |
+| `interfaces/task_interfaces.py` | Core interfaces (ITaskComponent, ITaskExecutor, ITaskStorage) | 269 |
+| `components/static_analysis.py` | Static analysis file copying and loading | 249 |
+| `components/emulator.py` | Emulator startup and app installation | 241 |
+| `config/platform_config.py` | PlatformConfig with Pydantic validation | 223 |
+| `components/tool_execution.py` | Tool invocation and error handling | 171 |
+| `components/logcat.py` | Logcat capture component | 179 |
 
 ## Dependencies
 
@@ -100,7 +100,6 @@ src/rv_platform/
 - **rv-coverage**: CoverageTracker, logcat_parser for coverage analysis
 - **rv-static-analysis**: static_analysis_parser for loading GATOR/GESDA/REACH data
 - **rvagent-tool**: RVAgentTool for LLM-driven testing (registered on import)
-- **rvsmart-tool**: RVSmartTool for Java-based UI exploration (registered on import)
 - **aperv-tool**: ApeRVTool for APE-based exploration (registered on import)
 
 ### External

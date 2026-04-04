@@ -118,6 +118,7 @@ grep -v "RVTRACK" agent.log > clean.log
 src/rv_agent/
 ├── __init__.py              # Package exports
 ├── constants.py             # Validated constants (LLM params, thresholds)
+├── tracking.py              # Unified [RVTRACK:<CATEGORY>] tracking module
 │
 ├── agent/                   # Core agent components
 │   ├── rv_agent.py          # Main RVAgent class with LangGraph workflow
@@ -177,6 +178,9 @@ src/rv_agent/
 │   ├── ui_coverage.py       # UI element coverage
 │   └── element_id.py        # Element identification
 │
+├── metrics/                 # Metrics collection
+│   └── exporter.py          # MetricsExporter - saves exploration metrics to JSON
+│
 ├── routing/                 # Decision routing
 │   ├── routing_manager.py   # LLM/algorithm routing (stuck detection via learn_node)
 │   ├── fallback_manager.py  # Fallback strategy management
@@ -190,6 +194,7 @@ src/rv_agent/
 │   ├── coordinate_utils.py  # Coordinate utilities
 │   ├── coordinate_extractor.py # Coordinate extraction
 │   ├── action_mapper.py     # Action mapping
+│   ├── error_detection.py   # Validation error detection with false-positive filtering
 │   └── screenshot_optimizer.py # Screenshot optimization
 │
 ├── prompts/                 # LLM prompts
@@ -197,7 +202,8 @@ src/rv_agent/
 │   ├── v13.py               # Dialog handling (default)
 │   ├── v14.py               # Structured reasoning
 │   ├── v15.py               # Priority scores and graph metadata inline
-│   └── v16.py               # Navigation-first exploration with variety enforcement
+│   ├── v16.py               # Navigation-first exploration with variety enforcement
+│   └── v17.py               # MOP-aware navigation with monitored operation context
 │
 ├── ui/                      # UI processing
 │   └── rvagent_visitor.py   # Custom visitor for screen parsing

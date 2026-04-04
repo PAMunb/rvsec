@@ -42,16 +42,15 @@ src/rv_android_core/
 │   ├── __init__.py
 │   ├── app.py                    # Android application model (APK metadata)
 │   ├── classes.py                # Java class/method models
+│   ├── components.py             # Android component models (Activity, Service, etc.)
+│   ├── coverage.py               # Method coverage tracking and analysis models
 │   ├── dynamic_wtg.py            # Dynamic Window Transition Graph
 │   ├── log.py                    # Coverage and error log models
 │   ├── static.py                 # Static analysis data models
 │   ├── task.py                   # Task configuration and execution models
 │   ├── widget.py                 # Android UI widget models
+│   ├── window.py                 # Window and screen models for UI analysis
 │   └── wtg.py                    # Window Transition Graph models
-├── event/
-│   ├── __init__.py
-│   ├── handler.py                # Event handler with callback and optional filter
-│   └── models.py                 # Event types, channels, and event classes
 ├── tools/
 │   ├── __init__.py
 │   ├── abstract_tool.py          # Base class for testing tools
@@ -92,13 +91,15 @@ src/rv_android_core/
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| `domain/task.py` | Task, TaskConfiguration, TaskResult models | ~920 |
-| `event/models.py` | Event types (17), channels, and event classes | ~330 |
-| `util/error/error_handler.py` | ErrorHandler with 16 builtin handlers (absorbed/propagated) | ~370 |
+| `domain/task.py` | Task, TaskConfiguration, TaskResult models | ~979 |
+| `domain/coverage.py` | MethodCoverageData and coverage tracking models | ~905 |
+| `domain/window.py` | Window and screen models for UI analysis | ~466 |
+| `util/error/error_handler.py` | ErrorHandler with builtin handlers (absorbed/propagated) | ~469 |
 | `util/error/exceptions.py` | Exception hierarchy (23 types) | ~195 |
 | `util/logging/manager.py` | LoggingManager with context support | ~415 |
-| `tools/abstract_tool.py` | AbstractTool base class | ~410 |
+| `tools/abstract_tool.py` | AbstractTool base class | ~346 |
 | `domain/widget.py` | Widget and WidgetEvent models | ~365 |
+| `domain/components.py` | Android component models (Activity, Service, etc.) | ~102 |
 | `commands/command.py` | Command execution with validation | ~335 |
 | `util/android/package_detector.py` | Detects code package vs manifest package (~27.5% APKs differ) | ~650 |
 | `util/android/signature_normalizer.py` | Normalizes inner class notation in Soot signatures | ~350 |

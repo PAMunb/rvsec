@@ -350,7 +350,7 @@ When resume mode is detected (existing `tasks.json`), the flow differs:
 **Location**: `src/rv_experiment/config.py`
 
 **Key Classes**:
-- `ExperimentConfig(BaseValidatedModel)`: Holds all experiment parameters. Provides `get_monitored_operations_config()`, `get_rv_instrumentation_config()`, `get_static_analysis_config()` for on-demand sub-module configuration.
+- `ExperimentConfig(BaseValidatedModel)`: Holds all experiment parameters. Provides `get_monitored_operations_config()`, `get_instrumentation_config()`, `get_static_analysis_config()`, and `get_module_config()` for on-demand sub-module configuration. `get_rv_instrumentation_config()` is an alias for `get_instrumentation_config()`.
 
 **Dependencies**:
 - Internal: `constants.py`
@@ -457,12 +457,20 @@ class ExperimentConfig(BaseValidatedModel):
         """Create monitor generation config with RVSEC_HOME resolution."""
         ...
 
-    def get_rv_instrumentation_config(self) -> "RVInstrumentationConfig":
+    def get_instrumentation_config(self) -> "RVInstrumentationConfig":
         """Create instrumentation config with validated paths."""
+        ...
+
+    def get_rv_instrumentation_config(self) -> "RVInstrumentationConfig":
+        """Alias for get_instrumentation_config()."""
         ...
 
     def get_static_analysis_config(self) -> "RVStaticAnalysisConfig":
         """Create static analysis config for GATOR/GESDA/REACH."""
+        ...
+
+    def get_module_config(self, module_name: str) -> Union[...]:
+        """Dispatch to the appropriate get_*_config() method by module name."""
         ...
 ```
 
@@ -520,8 +528,10 @@ classDiagram
         +run_static_analysis: bool
         +resume_mode: bool
         +get_monitored_operations_config() RVGeneratorConfig
+        +get_instrumentation_config() RVInstrumentationConfig
         +get_rv_instrumentation_config() RVInstrumentationConfig
         +get_static_analysis_config() RVStaticAnalysisConfig
+        +get_module_config(module_name) Union
         +validate()
     }
 

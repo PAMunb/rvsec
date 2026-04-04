@@ -31,16 +31,26 @@ modules/rv-experiment/
 │   ├── experiment/
 │   │   ├── experiment_controller.py    # Main orchestration controller
 │   │   └── workflow/
-│   │       ├── pre_processor.py        # Monitor generation, APK instrumentation, static analysis
+│   │       ├── workflow_factory.py     # Factory for workflow components
+│   │       ├── pre_processor.py       # Monitor generation, APK instrumentation, static analysis
 │   │       ├── execution_controller.py # rv-platform coordination
-│   │       ├── post_processor.py       # Basic diagnostics only
-│   │       └── result_manager.py       # Instrumentation error tracking
+│   │       ├── post_processor.py      # Basic diagnostics only
+│   │       └── result_manager.py      # Instrumentation error tracking
 │   └── factories/
 │       └── configuration_factory.py    # Factory pattern for configurations
 └── tests/
+    ├── conftest.py
+    ├── helpers.py
     ├── experiment/
-    │   └── test_experiment_controller.py
-    └── test_resume_cli.py              # Resume CLI tests (U11-U14)
+    │   ├── test_experiment_controller.py
+    │   └── test_resume_experiment.py
+    ├── test_config_jit.py              # JIT configuration tests
+    ├── test_config_json.py             # JSON serialization tests
+    ├── test_config_validation.py       # Validation tests
+    ├── test_configuration_factory.py   # Factory tests
+    ├── test_constants.py               # Constants tests
+    ├── test_post_processor.py          # Post-processing tests
+    └── test_resume_cli.py              # Resume CLI tests
 ```
 
 ## CLI Commands
@@ -177,6 +187,9 @@ instr_config = config.get_instrumentation_config()
 
 # Get static analysis config (rv-static-analysis)
 static_config = config.get_static_analysis_config()
+
+# Generic dispatch by module name (returns empty dict for unknown modules)
+module_config = config.get_module_config("rv-instrumentation")
 ```
 
 ## Directory Constants

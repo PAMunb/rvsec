@@ -96,7 +96,12 @@ rv-tools/
 │       ├── monkey/              # Android Monkey (random events)
 │       └── qtesting/            # QTesting (Docker-based Q-learning)
 ├── tests/
-│   └── test_basic.py            # Basic registry and factory tests
+│   ├── conftest.py              # Test fixtures and registry setup
+│   ├── helpers.py               # Test helper utilities
+│   ├── test_basic.py            # Registry initialization and singleton behavior
+│   ├── test_builtin_registration.py  # Auto-registration of 8 built-in tools
+│   ├── test_factory.py          # Factory creation and variant resolution
+│   └── test_registry.py         # Registry operations (register, query, validate)
 ├── pyproject.toml               # Project configuration
 └── README.md                    # Detailed documentation
 ```
@@ -193,6 +198,9 @@ uv run pytest --cov=src --cov-report=term-missing
 | File | Purpose |
 |------|---------|
 | `tests/test_basic.py` | Registry initialization and singleton behavior |
+| `tests/test_registry.py` | Registry operations (register, query, validate, clear) |
+| `tests/test_factory.py` | Factory creation and variant resolution |
+| `tests/test_builtin_registration.py` | Auto-registration of 8 built-in tools |
 
 ## Common Tasks
 

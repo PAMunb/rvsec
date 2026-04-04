@@ -117,21 +117,21 @@
 
 ### 5D. Existing documentation sync
 
-- [ ] 5.19 Run `/rv-docs-sync rv-android-core`
-- [ ] 5.20 Run `/rv-docs-sync rv-agent`
-- [ ] 5.21 Run `/rv-docs-sync rv-platform`
-- [ ] 5.22 Run `/rv-docs-sync rv-experiment`
-- [ ] 5.23 Run `/rv-docs-sync rv-tools`
+- [x] 5.19 Run `/rv-docs-sync rv-android-core` — updated CLAUDE.md (directory structure, line counts, removed event/)
+- [x] 5.20 Run `/rv-docs-sync rv-agent` — updated CLAUDE.md (added tracking.py, metrics/, services/error_detection.py)
+- [x] 5.21 Run `/rv-docs-sync rv-platform` — updated CLAUDE.md (removed rvsmart, updated line counts)
+- [x] 5.22 Run `/rv-docs-sync rv-experiment` — updated CLAUDE.md + architecture.md (added get_module_config, test files)
+- [x] 5.23 Run `/rv-docs-sync rv-tools` — updated CLAUDE.md (test categories, directory structure)
 - [ ] 5.24 Update project-level `CLAUDE.md` with final state
 - [ ] 5.25 Update project-level `docs/rv_android_architecture.md` with final state
 
 ### 5E. Missing README/CLAUDE.md
 
-- [ ] 5.26 Run `/rv-doc-readme aperv-tool`
-- [ ] 5.27 Run `/rv-doc-readme aperv-llm-validation`
-- [ ] 5.28 Run `/rv-doc-generate-claude-md rvagent-tool`
-- [ ] 5.29 Run `/rv-doc-generate-claude-md aperv-tool`
-- [ ] 5.30 Run `/rv-doc-generate-claude-md aperv-llm-validation`
+- [x] 5.26 Run `/rv-doc-readme aperv-tool` — README.md created (variants, config, JAR resolution)
+- [x] 5.27 Run `/rv-doc-readme aperv-llm-validation` — README.md created (pipeline, prevalidation script)
+- [x] 5.28 Run `/rv-doc-generate-claude-md rvagent-tool` — CLAUDE.md created (~85 lines, variants, config flow)
+- [x] 5.29 Run `/rv-doc-generate-claude-md aperv-tool` — CLAUDE.md created (~105 lines, 13 variants, properties mapping)
+- [x] 5.30 Run `/rv-doc-generate-claude-md aperv-llm-validation` — CLAUDE.md created (~120 lines, coordinate pipeline)
 
 ## 6. Test Coverage
 
