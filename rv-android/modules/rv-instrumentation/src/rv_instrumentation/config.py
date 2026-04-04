@@ -17,41 +17,45 @@ from rv_android_core.util.validation.decorators import validated_model
 class Dex2jarTools(BaseValidatedModel):
     """
     Configuration model for dex2jar tool suite paths and validation.
-    
+
     ### Architectural Decisions:
     - Implements type-safe access to dex2jar tool components
     - Provides automatic validation of tool existence and executability
     - Centralizes dex2jar tool path management for instrumentation pipeline
     - Integrates with error handling system for robust tool validation
-    
+
     ### Role in the System:
     - Validates availability of required dex2jar tools during configuration
     - Provides structured access to tool paths for command execution
     - Ensures instrumentation pipeline dependencies are met before execution
     - Enables clear error reporting when tools are missing or inaccessible
-    
+
     ### Tool Components:
     - dex2jar: Primary DEX to JAR conversion tool
     - asm_verify: JAR structural verification utility
     - apk_sign: APK signing tool for deployment preparation
     """
 
-    dex2jar: str = Field(..., description="Path to dex2jar executable for DEX conversion")
-    asm_verify: str = Field(..., description="Path to ASM verify tool for JAR validation")
+    dex2jar: str = Field(
+        ..., description="Path to dex2jar executable for DEX conversion"
+    )
+    asm_verify: str = Field(
+        ..., description="Path to ASM verify tool for JAR validation"
+    )
     apk_sign: str = Field(..., description="Path to APK signing tool for deployment")
 
-    @field_validator('dex2jar', 'asm_verify', 'apk_sign')
+    @field_validator("dex2jar", "asm_verify", "apk_sign")
     @classmethod
     def validate_tool_exists(cls, v: str) -> str:
         """
         Validate that dex2jar tool executable exists and is accessible.
-        
+
         Args:
             v: Tool path to validate
-            
+
         Returns:
             Validated tool path
-            
+
         Raises:
             ValueError: If tool is not found or not executable
         """
@@ -67,13 +71,13 @@ class Dex2jarTools(BaseValidatedModel):
 class ConfigurationSummary(BaseValidatedModel):
     """
     Structured summary of instrumentation configuration for logging and debugging.
-    
+
     ### Architectural Decisions:
     - Provides comprehensive configuration overview for operational visibility
     - Organizes configuration data into logical categories for analysis
     - Supports automated configuration validation and reporting
     - Integrates monitor artifact counting for pipeline verification
-    
+
     ### Role in the System:
     - Enables detailed configuration logging for debugging instrumentation issues
     - Provides structured data for configuration validation reports
@@ -81,25 +85,33 @@ class ConfigurationSummary(BaseValidatedModel):
     - Facilitates troubleshooting of instrumentation pipeline setup
     """
 
-    android_integration: Dict[str, str] = Field(..., description="Android SDK integration configuration")
-    instrumentation_paths: Dict[str, str] = Field(..., description="Instrumentation directory paths")
-    temporary_directories: Dict[str, str] = Field(..., description="Temporary processing directories")
+    android_integration: Dict[str, str] = Field(
+        ..., description="Android SDK integration configuration"
+    )
+    instrumentation_paths: Dict[str, str] = Field(
+        ..., description="Instrumentation directory paths"
+    )
+    temporary_directories: Dict[str, str] = Field(
+        ..., description="Temporary processing directories"
+    )
     tools: Dict[str, Any] = Field(..., description="Tool configurations and paths")
     signing: Dict[str, Any] = Field(..., description="APK signing configuration")
-    monitor_artifacts: Dict[str, int] = Field(..., description="Monitor artifact counts")
+    monitor_artifacts: Dict[str, int] = Field(
+        ..., description="Monitor artifact counts"
+    )
     validation_status: str = Field(..., description="Configuration validation status")
 
 
 class InstrumentationError(BaseValidatedModel):
     """
     Structured representation of instrumentation pipeline errors.
-    
+
     ### Architectural Decisions:
     - Provides consistent error structure for instrumentation failure tracking
     - Integrates with existing error handling and logging infrastructure
     - Supports detailed error classification for debugging and analysis
     - Enables automated error reporting and recovery strategies
-    
+
     ### Role in the System:
     - Standardizes error information across instrumentation pipeline phases
     - Enables structured error logging and analysis for debugging
@@ -108,7 +120,9 @@ class InstrumentationError(BaseValidatedModel):
     """
 
     code: int = Field(..., description="Numeric error code for programmatic handling")
-    tool: Optional[str] = Field(default=None, description="Name of tool that failed during execution")
+    tool: Optional[str] = Field(
+        default=None, description="Name of tool that failed during execution"
+    )
     message: str = Field(..., description="Human-readable error description")
     phase: str = Field(..., description="Pipeline phase where error occurred")
 
@@ -116,13 +130,13 @@ class InstrumentationError(BaseValidatedModel):
 class InstrumentationResults(BaseValidatedModel):
     """
     Comprehensive results and metrics from instrumentation pipeline execution.
-    
+
     ### Architectural Decisions:
     - Aggregates instrumentation outcomes for batch processing analysis
     - Provides computed metrics for success rate calculation and reporting
     - Structures error information for detailed failure analysis
     - Integrates with experiment orchestration for batch operation tracking
-    
+
     ### Role in the System:
     - Tracks instrumentation success and failure metrics across batches
     - Provides structured data for experiment result analysis
@@ -131,18 +145,21 @@ class InstrumentationResults(BaseValidatedModel):
     """
 
     errors: Dict[str, InstrumentationError] = Field(
-        default_factory=dict,
-        description="Detailed error information keyed by APK name"
+        default_factory=dict, description="Detailed error information keyed by APK name"
     )
-    success_count: int = Field(default=0, ge=0, description="Number of successfully instrumented APKs")
-    total_count: int = Field(default=0, ge=0, description="Total number of APKs processed")
+    success_count: int = Field(
+        default=0, ge=0, description="Number of successfully instrumented APKs"
+    )
+    total_count: int = Field(
+        default=0, ge=0, description="Total number of APKs processed"
+    )
 
     @computed_field
     @property
     def success_rate(self) -> float:
         """
         Calculate instrumentation success rate as percentage.
-        
+
         Returns:
             Success rate percentage (0.0 to 100.0)
         """
@@ -151,15 +168,26 @@ class InstrumentationResults(BaseValidatedModel):
         return (self.success_count / self.total_count) * 100
 
 
-@validated_model([
-    'rvsec_root', 'monitor_output_dir', 'android_jar_path', 'android_platforms_dir',
-    'keystore_file', 'keystore_password', 'working_dir', 'instrumented_dir',
-    'tmp_dir', 'lib_tmp_dir', 'rvm_tmp_dir', 'dex2jar_home'
-])
+@validated_model(
+    [
+        "rvsec_root",
+        "monitor_output_dir",
+        "android_jar_path",
+        "android_platforms_dir",
+        "keystore_file",
+        "keystore_password",
+        "working_dir",
+        "instrumented_dir",
+        "tmp_dir",
+        "lib_tmp_dir",
+        "rvm_tmp_dir",
+        "dex2jar_home",
+    ]
+)
 class RVInstrumentationConfig(BaseValidatedModel):
     """
     Configuration management for RVInstrumentation with comprehensive path validation.
-    
+
     The RVInstrumentationConfig provides a configuration system that supports
     multiple deployment scenarios from development environments to production systems.
     It implements an intelligent path resolution strategy with fallback mechanisms for
@@ -180,7 +208,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
     - Ensures configuration consistency across different execution environments
     - Supports both automated discovery and explicit path specification
     - Manages Android SDK integration and keystore configuration for APK signing
-    
+
     ### Configuration Priority (highest to lowest):
     1. Individual tool paths explicitly provided (monitor_output_dir, android_jar_path, etc.)
     2. Explicit rvsec_root parameter with relative path resolution
@@ -198,74 +226,70 @@ class RVInstrumentationConfig(BaseValidatedModel):
     # Core paths
     rvsec_root: Optional[str] = Field(
         default=None,
-        description="Root directory of RVSEC installation for path discovery"
+        description="Root directory of RVSEC installation for path discovery",
     )
     monitor_output_dir: Optional[str] = Field(
         default=None,
-        description="Directory containing generated monitor artifacts from rv-monitor-generator"
+        description="Directory containing generated monitor artifacts from rv-monitor-generator",
     )
     working_dir: Optional[str] = Field(
         default=None,
-        description="Base working directory for instrumentation operations"
+        description="Base working directory for instrumentation operations",
     )
 
     # Android SDK paths
     android_jar_path: Optional[str] = Field(
         default=None,
-        description="Path to Android SDK android.jar file for APK processing"
+        description="Path to Android SDK android.jar file for APK processing",
     )
     android_platforms_dir: Optional[str] = Field(
         default=None,
-        description="Android SDK platforms directory for API compatibility"
+        description="Android SDK platforms directory for API compatibility",
     )
 
     # Output directories
     instrumented_dir: Optional[str] = Field(
-        default=None,
-        description="Output directory for instrumented APK artifacts"
+        default=None, description="Output directory for instrumented APK artifacts"
     )
     tmp_dir: Optional[str] = Field(
         default=None,
-        description="Temporary directory for intermediate processing files"
+        description="Temporary directory for intermediate processing files",
     )
     lib_tmp_dir: Optional[str] = Field(
         default=None,
-        description="Temporary directory for library extraction and processing"
+        description="Temporary directory for library extraction and processing",
     )
     rvm_tmp_dir: Optional[str] = Field(
         default=None,
-        description="Temporary directory for runtime verification monitor processing"
+        description="Temporary directory for runtime verification monitor processing",
     )
 
     # Signing configuration
     keystore_file: Optional[str] = Field(
-        default=None,
-        description="Path to keystore file for APK signing"
+        default=None, description="Path to keystore file for APK signing"
     )
     keystore_password: Optional[str] = Field(
-        default=None,
-        description="Password for keystore access"
+        default=None, description="Password for keystore access"
     )
 
     # Tools
     dex2jar_home: Optional[str] = Field(
-        default=None,
-        description="Directory containing dex2jar tool suite"
+        default=None, description="Directory containing dex2jar tool suite"
     )
 
     def __init__(self, **data: Any):
         """
         Initialize RVInstrumentationConfig with intelligent path resolution and validation.
-        
+
         The initialization process follows a strict priority order for path resolution,
         ensuring predictable behavior across different deployment scenarios. All paths
         are validated for existence and accessibility during initialization.
-        
+
         Raises:
             ConfigurationError: If path resolution fails or required tools are not accessible
         """
         # Store original values before calling super().__init__
-        original_rvsec_root = data.get('rvsec_root')
+        original_rvsec_root = data.get("rvsec_root")
 
         # Call parent constructor first to set up Pydantic model
         super().__init__(**data)
@@ -273,8 +297,8 @@ class RVInstrumentationConfig(BaseValidatedModel):
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            'rv_instrumentation.config.RVInstrumentationConfig',
-            {CONTEXT_COMPONENT: 'RVInstrumentationConfig'}
+            "rv_instrumentation.config.RVInstrumentationConfig",
+            {CONTEXT_COMPONENT: "RVInstrumentationConfig"},
         )
 
         # Resolve paths based on priority
@@ -283,33 +307,38 @@ class RVInstrumentationConfig(BaseValidatedModel):
         # Validate configuration
         self._validate_configuration()
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="path_resolution", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentationConfig", phase="path_resolution", reraise=True
+    )
     def _resolve_paths(self, rvsec_root: Optional[str]) -> None:
         """
         Execute intelligent path resolution based on configuration priority system.
-        
+
         This method implements the core path resolution logic, following the established
         priority order to determine final paths for all required tools and directories.
         The resolution process is designed to support both development and production
         deployment scenarios with special consideration for Android SDK integration.
-        
+
         ### Resolution Strategy:
         1. Check if all critical individual paths are explicitly provided (highest priority)
         2. Use explicit rvsec_root for automatic path discovery
         3. Fall back to ENV_RVSEC_HOME environment variable
         4. Apply default working directory resolution for local paths
         5. Raise ConfigurationError if no valid configuration source exists
-        
+
         Args:
             rvsec_root: Optional explicit RVSEC root directory
-            
+
         Raises:
             ConfigurationError: If no valid configuration source is available
         """
         # Priority 1: Check if all critical individual paths are explicitly provided
         critical_paths = [
-            self.monitor_output_dir, self.android_jar_path, self.keystore_file,
-            self.instrumented_dir, self.dex2jar_home
+            self.monitor_output_dir,
+            self.android_jar_path,
+            self.keystore_file,
+            self.instrumented_dir,
+            self.dex2jar_home,
         ]
 
         if all(path is not None for path in critical_paths):
@@ -342,17 +371,17 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def _resolve_from_rvsec_root(self, rvsec_root: str) -> None:
         """
         Resolve individual tool paths from RVSEC root directory using standard layout.
-        
+
         This method implements the standard RVSEC directory layout assumptions for
         automatic path discovery. It follows the conventional RVSEC installation
         structure to locate tools, Android SDK integration, and working directories.
-        
+
         ### RVSEC Layout Assumptions:
         - Monitor artifacts generated in rvsec/rv-android/mop_out
         - Android SDK configured through ANDROID_HOME environment
         - Working directory defaults to rvsec/rv-android
         - Instrumentation outputs in rvsec/rv-android/out
-        
+
         Args:
             rvsec_root: Validated RVSEC root directory path
         """
@@ -374,7 +403,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def _resolve_from_working_dir(self) -> None:
         """
         Resolve paths using current working directory as base for relative path resolution.
-        
+
         This fallback resolution strategy assumes the instrumentation is being executed
         from within the rv-android directory structure, providing reasonable defaults
         for development and testing scenarios.
@@ -389,15 +418,19 @@ class RVInstrumentationConfig(BaseValidatedModel):
         # Apply remaining default paths
         self._apply_default_paths()
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="android_sdk_resolution", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentationConfig",
+        phase="android_sdk_resolution",
+        reraise=True,
+    )
     def _resolve_android_sdk(self) -> None:
         """
         Resolve Android SDK paths from environment variables and standard configurations.
-        
+
         This method handles Android SDK integration by discovering the appropriate
         android.jar and platforms directory based on the configured Android platform
         version and ANDROID_HOME environment variable.
-        
+
         Raises:
             ConfigurationError: If Android SDK is not properly configured or accessible
         """
@@ -421,7 +454,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def _apply_default_paths(self) -> None:
         """
         Apply default path configurations for optional parameters not explicitly provided.
-        
+
         This method fills in reasonable defaults for all optional configuration paths,
         ensuring the instrumentation system has all necessary directory and file paths
         configured for successful operation.
@@ -455,23 +488,27 @@ class RVInstrumentationConfig(BaseValidatedModel):
             lib_dir = os.path.join(self.working_dir, "lib")
             self.dex2jar_home = os.path.join(lib_dir, "dex2jar")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="configuration_validation", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentationConfig",
+        phase="configuration_validation",
+        reraise=True,
+    )
     def _validate_configuration(self) -> None:
         """
         Execute comprehensive configuration validation to ensure operational readiness.
-        
+
         This validation process performs extensive checks to verify that all configured
         paths and tools are accessible and functional. It's designed to fail fast during
         initialization rather than during execution, providing clear diagnostic information
         for instrumentation pipeline requirements.
-        
+
         ### Validation Phases:
         1. Critical directory existence and accessibility verification
         2. Android SDK integration validation
-        3. Keystore accessibility and format verification  
+        3. Keystore accessibility and format verification
         4. Tool availability validation (dex2jar suite)
         5. Monitor artifacts availability verification
-        
+
         Raises:
             ConfigurationError: If any validation check fails with detailed diagnostic information
         """
@@ -495,24 +532,28 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def _validate_directory(self, directory_path: str, directory_purpose: str) -> None:
         """
         Validate directory existence and accessibility.
-        
+
         Args:
             directory_path: Path to the directory
             directory_purpose: Human-readable purpose for error messages
-            
+
         Raises:
             ConfigurationError: If directory validation fails
         """
         if not os.path.isdir(directory_path):
-            raise ConfigurationError(f"{directory_purpose} directory not found: {directory_path}")
+            raise ConfigurationError(
+                f"{directory_purpose} directory not found: {directory_path}"
+            )
 
         if not os.access(directory_path, os.R_OK):
-            raise ConfigurationError(f"{directory_purpose} directory not readable: {directory_path}")
+            raise ConfigurationError(
+                f"{directory_purpose} directory not readable: {directory_path}"
+            )
 
     def _validate_android_jar(self) -> None:
         """
         Validate Android SDK android.jar accessibility and format.
-        
+
         Raises:
             ConfigurationError: If android.jar validation fails
         """
@@ -520,16 +561,18 @@ class RVInstrumentationConfig(BaseValidatedModel):
             raise ConfigurationError(f"Android JAR not found: {self.android_jar_path}")
 
         if not os.access(self.android_jar_path, os.R_OK):
-            raise ConfigurationError(f"Android JAR not readable: {self.android_jar_path}")
+            raise ConfigurationError(
+                f"Android JAR not readable: {self.android_jar_path}"
+            )
 
     def _validate_keystore(self) -> None:
         """
         Validate keystore file accessibility and basic format validation.
-        
+
         Note: This performs basic file existence validation. Keystore password
         validation is deferred to actual signing operations to avoid exposing
         credentials during configuration validation.
-        
+
         Raises:
             ConfigurationError: If keystore validation fails
         """
@@ -540,22 +583,26 @@ class RVInstrumentationConfig(BaseValidatedModel):
             )
 
         if not os.access(self.keystore_file, os.R_OK):
-            raise ConfigurationError(f"Keystore file not readable: {self.keystore_file}")
+            raise ConfigurationError(
+                f"Keystore file not readable: {self.keystore_file}"
+            )
 
     def _validate_monitor_artifacts(self) -> None:
         """
         Validate availability of monitor artifacts from rv-monitor-generator.
-        
+
         This validation ensures that the instrumentation pipeline has access to
         the runtime verification monitors generated by rv-monitor-generator module.
         The presence of both AspectJ weaving files and Java monitor classes is
         verified to ensure complete monitored operations coverage.
-        
+
         Raises:
             ConfigurationError: If monitor artifacts are not available
         """
         # Check for AspectJ files (weaving specifications)
-        aspectj_files = glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_AJ}"))
+        aspectj_files = glob.glob(
+            os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_AJ}")
+        )
         if not aspectj_files:
             raise ConfigurationError(
                 f"No AspectJ monitor files (*{constants.EXTENSION_AJ}) found in: {self.monitor_output_dir}\n"
@@ -563,7 +610,9 @@ class RVInstrumentationConfig(BaseValidatedModel):
             )
 
         # Check for Java monitor classes
-        java_files = glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}"))
+        java_files = glob.glob(
+            os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}")
+        )
         if not java_files:
             raise ConfigurationError(
                 f"No Java monitor files (*{constants.EXTENSION_JAVA}) found in: {self.monitor_output_dir}\n"
@@ -573,10 +622,10 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def _ensure_output_directories(self) -> None:
         """
         Create required output and temporary directories if they don't exist.
-        
+
         This method ensures that all necessary directories for the instrumentation
         pipeline are available, creating them with appropriate permissions if needed.
-        
+
         Raises:
             ConfigurationError: If directory creation fails
         """
@@ -584,7 +633,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
             self.instrumented_dir,
             self.tmp_dir,
             self.lib_tmp_dir,
-            self.rvm_tmp_dir
+            self.rvm_tmp_dir,
         ]
 
         for directory in directories_to_create:
@@ -596,31 +645,33 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def get_dex2jar_tools(self) -> Dex2jarTools:
         """
         Get validated dex2jar tool suite configuration.
-        
+
         Returns:
             Dex2jarTools model with validated tool paths
         """
         return Dex2jarTools(
             dex2jar=os.path.join(self.dex2jar_home, "d2j-dex2jar.sh"),
             asm_verify=os.path.join(self.dex2jar_home, "d2j-asm-verify.sh"),
-            apk_sign=os.path.join(self.dex2jar_home, "d2j-apk-sign.sh")
+            apk_sign=os.path.join(self.dex2jar_home, "d2j-apk-sign.sh"),
         )
 
-    @ErrorHandler.handle_errors(component="RVInstrumentationConfig", phase="apk_validation", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentationConfig", phase="apk_validation", reraise=True
+    )
     def validate_apk_input(self, apk_path: str) -> None:
         """
         Validate input APK file for instrumentation processing.
-        
+
         Args:
             apk_path: Path to the APK file to be instrumented
-            
+
         Raises:
             ConfigurationError: If APK validation fails
         """
         if not os.path.isfile(apk_path):
             raise ConfigurationError(f"APK file not found: {apk_path}")
 
-        if not apk_path.lower().endswith('.apk'):
+        if not apk_path.lower().endswith(".apk"):
             raise ConfigurationError(f"File is not an APK: {apk_path}")
 
         if not os.access(apk_path, os.R_OK):
@@ -629,40 +680,50 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def get_configuration_summary(self) -> ConfigurationSummary:
         """
         Generate comprehensive summary of current instrumentation configuration.
-        
+
         Returns:
             ConfigurationSummary model with detailed configuration information
         """
         monitor_files = {
-            'aspectj_count': len(glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_AJ}"))),
-            'java_count': len(glob.glob(os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}")))
+            "aspectj_count": len(
+                glob.glob(
+                    os.path.join(self.monitor_output_dir, f"*{constants.EXTENSION_AJ}")
+                )
+            ),
+            "java_count": len(
+                glob.glob(
+                    os.path.join(
+                        self.monitor_output_dir, f"*{constants.EXTENSION_JAVA}"
+                    )
+                )
+            ),
         }
 
         return ConfigurationSummary(
             android_integration={
-                'android_jar_path': self.android_jar_path,
-                'android_platforms_dir': self.android_platforms_dir
+                "android_jar_path": self.android_jar_path,
+                "android_platforms_dir": self.android_platforms_dir,
             },
             instrumentation_paths={
-                'working_dir': self.working_dir,
-                'instrumented_dir': self.instrumented_dir,
-                'monitor_output_dir': self.monitor_output_dir
+                "working_dir": self.working_dir,
+                "instrumented_dir": self.instrumented_dir,
+                "monitor_output_dir": self.monitor_output_dir,
             },
             temporary_directories={
-                'tmp_dir': self.tmp_dir,
-                'lib_tmp_dir': self.lib_tmp_dir,
-                'rvm_tmp_dir': self.rvm_tmp_dir
+                "tmp_dir": self.tmp_dir,
+                "lib_tmp_dir": self.lib_tmp_dir,
+                "rvm_tmp_dir": self.rvm_tmp_dir,
             },
             tools={
-                'dex2jar_home': self.dex2jar_home,
-                'dex2jar_tools': self.get_dex2jar_tools().model_dump()
+                "dex2jar_home": self.dex2jar_home,
+                "dex2jar_tools": self.get_dex2jar_tools().model_dump(),
             },
             signing={
-                'keystore_file': self.keystore_file,
-                'keystore_configured': self.keystore_password is not None
+                "keystore_file": self.keystore_file,
+                "keystore_configured": self.keystore_password is not None,
             },
             monitor_artifacts=monitor_files,
-            validation_status='Validated'
+            validation_status="Validated",
         )
 
     def __str__(self) -> str:

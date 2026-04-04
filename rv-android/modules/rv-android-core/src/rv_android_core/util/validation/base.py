@@ -82,7 +82,7 @@ class BaseValidatedModel(BaseModel):
         """
         try:
             return self.model_dump_json()
-        except Exception as e:
+        except Exception:
             # Fallback to dict representation if JSON serialization fails
             return str(self.model_dump())
 

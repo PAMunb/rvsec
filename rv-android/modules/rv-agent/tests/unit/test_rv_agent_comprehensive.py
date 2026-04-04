@@ -4,13 +4,10 @@ Comprehensive tests for RVAgent core functionality.
 Tests the main RVAgent class which orchestrates the entire agent workflow.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from langgraph.graph import StateGraph
+from unittest.mock import MagicMock
 
 from rv_agent.agent.rv_agent import RVAgent
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.domain.state import AgentState
 
 
 class TestRVAgentInitialization:
@@ -59,7 +56,7 @@ class TestRVAgentInitialization:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         # Create RVAgent instance
         agent = RVAgent(
@@ -123,7 +120,7 @@ class TestRVAgentInitialization:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         agent = RVAgent(
             config=mock_config,
@@ -177,7 +174,7 @@ class TestRVAgentWorkflowConstruction:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         agent = RVAgent(
             config=mock_config,
@@ -224,7 +221,7 @@ class TestRVAgentWorkflowConstruction:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         agent = RVAgent(
             config=mock_config,
@@ -278,7 +275,7 @@ class TestRVAgentStateManagement:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         agent = RVAgent(
             config=mock_config,
@@ -329,7 +326,7 @@ class TestRVAgentIterationTracking:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         agent = RVAgent(
             config=mock_config,
@@ -376,7 +373,7 @@ class TestRVAgentIterationTracking:
         mock_llm_client = MagicMock()
         mock_screen_processor = MagicMock()
         mock_tool_executor = MagicMock()
-        mock_transition_manager = MagicMock()
+        MagicMock()
 
         agent = RVAgent(
             config=mock_config,

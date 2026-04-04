@@ -20,7 +20,6 @@ from rv_android_core.util.validation import BaseValidatedModel
 
 class ConfigurationError(RVAndroidError):
     """Raised when configuration validation or resolution fails."""
-    pass
 
 
 class RVGeneratorConfig(BaseValidatedModel):

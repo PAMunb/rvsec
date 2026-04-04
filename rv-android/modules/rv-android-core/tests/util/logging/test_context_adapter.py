@@ -2,7 +2,7 @@
 import logging
 import threading
 from datetime import datetime
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 
 import pytest
 

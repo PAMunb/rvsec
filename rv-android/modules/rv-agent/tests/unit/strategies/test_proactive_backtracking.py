@@ -8,7 +8,6 @@ Verifies FR26 Proactive Backtracking scenarios and INV-AGT-38:
 - Full tier ordering: buffer -> untested -> backtrack+planning -> scored -> BACK
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.config.agent_config import RVAgentConfig

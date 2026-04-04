@@ -34,34 +34,32 @@ main.py, eliminating complex DI patterns in favor of straightforward execution f
 """
 
 import json
-import logging
 import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import List, Optional
 
 import click
-
+from rv_android_core.domain.task import ToolConfig
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.logging.constants import (
     CONTEXT_COMPONENT,
-    LOG_START,
     LOG_COMPLETE,
+    LOG_START,
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.constants import (
     DEFAULT_APKS_DIR,
-    DEFAULT_TIMEOUT,
     DEFAULT_REPETITIONS,
     DEFAULT_SPEC_SET,
+    DEFAULT_TIMEOUT,
     RESULTS_DIR,
 )
 from rv_experiment.experiment.experiment_controller import execute_with_config
 from rv_tools import ToolRegistry
-from rv_android_core.domain.task import ToolConfig
 
 
 class CLIContext:
@@ -515,7 +513,7 @@ def run(
             ctx.logger.info("Executing experiment via experiment controller")
             execute_with_config(experiment_config)
 
-            click.echo(f"✅ Experiment completed successfully!")
+            click.echo("✅ Experiment completed successfully!")
             click.echo(f"📊 Results available in: {experiment_config.output_dir}")
             ctx.logger.info(LOG_COMPLETE.format(phase="experiment execution"))
 
@@ -822,7 +820,7 @@ def validate(ctx: CLIContext, config_file: str):
                 f"   • Monitored operations: {experiment_config.specification_set}"
             )
 
-        ctx.logger.info(f"Configuration validation completed successfully")
+        ctx.logger.info("Configuration validation completed successfully")
 
     except json.JSONDecodeError as e:
         click.echo(f"❌ Invalid JSON format: {e}")

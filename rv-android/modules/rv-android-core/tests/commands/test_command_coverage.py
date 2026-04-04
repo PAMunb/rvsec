@@ -3,17 +3,12 @@ Test file focused on achieving 100% coverage of command.py
 Only covers lines that are currently missing coverage.
 """
 
-import os
 import signal
-import subprocess
-from subprocess import PIPE, TimeoutExpired
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
-import psutil
 
 from rv_android_core.commands.command import Command, kill_process_tree
-from rv_android_core.commands.command_not_found_error import CommandNotFoundError
 from rv_android_core.util.error.exceptions import RVCommandTimeoutError
 
 

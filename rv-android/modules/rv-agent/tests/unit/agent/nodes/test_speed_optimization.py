@@ -11,7 +11,6 @@ Tests RVTRACK:STRATEGY logging in decision_node:
 """
 
 import logging
-import pytest
 from unittest.mock import MagicMock, patch
 
 from rv_agent.agent.nodes.parse_node import parse_ui_node

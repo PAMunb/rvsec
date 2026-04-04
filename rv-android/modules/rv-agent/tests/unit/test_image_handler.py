@@ -12,7 +12,7 @@ Tests verify:
 import pytest
 import base64
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 from io import BytesIO
 
 from PIL import Image
@@ -90,7 +90,7 @@ class TestImageHandlerInit:
 
         with patch("rv_agent.services.vision_service.LoggingManager") as mock_logging:
             mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
-            handler = ImageHandler(str(output_dir))
+            ImageHandler(str(output_dir))
 
         assert output_dir.exists()
 

@@ -9,17 +9,13 @@ Tests RVAgent with and without static analysis data to verify:
 
 import pytest
 import time
-from pathlib import Path
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.agent_factory import AgentFactory
 from .conftest import (
     launch_app,
     force_stop_app,
-    DATASET_ROOT,
     DEVICE_ID,
-    SGLANG_URL,
-    SGLANG_MODEL,
 )
 
 pytestmark = [pytest.mark.online, pytest.mark.static_analysis]

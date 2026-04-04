@@ -4,7 +4,6 @@ Property-based tests for the coordinate_extractor service using Hypothesis.
 
 import pytest
 from hypothesis import given, strategies as st
-import math
 
 from rv_agent.services import coordinate_extractor
 

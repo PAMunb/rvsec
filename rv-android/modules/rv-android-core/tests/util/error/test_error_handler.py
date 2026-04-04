@@ -18,11 +18,9 @@ import pytest
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
-    RVAndroidError, RVToolError, RVExperimentError,
-    RVParsingError, RVValidationError, RVToolExecutionError,
-    RVToolTimeoutError, ToolNotFoundError, ToolRegistrationError,
-    CommandValidationError, LogcatValidationError, EventProcessingError,
-    RVCommandTimeoutError, JarNotFoundError, ConfigurationError
+    RVExperimentError, RVParsingError, RVValidationError,
+    RVToolExecutionError, ToolNotFoundError, RVCommandTimeoutError,
+    ConfigurationError
 )
 
 

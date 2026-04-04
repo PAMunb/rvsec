@@ -5,7 +5,7 @@ Tests value calculation, action selection, and transition recording.
 """
 
 import pytest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph

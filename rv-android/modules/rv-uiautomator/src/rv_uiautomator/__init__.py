@@ -13,9 +13,9 @@ from .state.converter import StateConverter
 
 __all__ = [
     "UIAdapter",
-    "UIAutomator2Adapter", 
+    "UIAutomator2Adapter",
     "UIAutomatorActionExecutor",
-    "StateConverter"
+    "StateConverter",
 ]
 
 __version__ = "0.1.0"

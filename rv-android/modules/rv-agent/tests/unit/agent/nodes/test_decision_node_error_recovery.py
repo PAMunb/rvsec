@@ -5,7 +5,6 @@ When force_fill_input=True, the decision router should bypass normal
 routing and send directly to algorithm_node for error recovery.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from rv_agent.agent.nodes.decision_node import decision_router_node
@@ -114,7 +113,7 @@ class TestDecisionNodeErrorRecovery:
             "iteration": 7,
         }
 
-        result = decision_router_node(agent, state)
+        decision_router_node(agent, state)
 
         mock_track.route.assert_called_once_with(
             iter=7, mode="multimode", path="algorithm(error_recovery)"

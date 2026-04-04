@@ -6,7 +6,7 @@ This test suite focuses on the most essential properties that should hold regard
 
 import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import time
 
 from rv_agent.agent.rv_agent import RVAgent

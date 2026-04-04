@@ -13,7 +13,6 @@ import pytest
 from rv_android_core.util.error.exceptions import (
     ConfigurationError,
     ToolNotFoundError,
-    ToolRegistrationError,
 )
 from rv_tools.registry.registry import ToolRegistry
 

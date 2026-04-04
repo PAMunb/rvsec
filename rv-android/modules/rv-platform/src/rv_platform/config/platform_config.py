@@ -6,9 +6,9 @@ This module defines the configuration structure for the rv-platform module,
 providing validation and loading capabilities for platform execution parameters.
 """
 
-from typing import List, Optional, Dict, Any
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import List, Optional
 
 from pydantic import Field, field_validator
 from rv_android_core.domain.task import ToolConfig

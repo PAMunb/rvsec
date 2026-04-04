@@ -1,8 +1,6 @@
 import os
 import tempfile
 import shutil
-from unittest.mock import patch, MagicMock
-import pytest
 import cv2
 import numpy as np
 from PIL import Image
@@ -109,7 +107,7 @@ class TestScreenshotManager:
         pil_img1 = Image.new('RGB', (100, 100), color='red')
         pil_img2 = Image.new('RGB', (100, 100), color='blue')
         
-        path1 = self.manager.save_screenshot(pil_img1)
+        self.manager.save_screenshot(pil_img1)
         path2 = self.manager.save_screenshot(pil_img2)
         
         latest = self.manager.get_latest_screenshot()
@@ -146,11 +144,11 @@ class TestScreenshotManager:
 
         # Add delay to ensure different timestamps for unique filenames
         import time
-        path1 = self.manager.save_screenshot(pil_img1)
+        self.manager.save_screenshot(pil_img1)
         time.sleep(0.01)  # Small delay to ensure different timestamps
-        path2 = self.manager.save_screenshot(pil_img2)
+        self.manager.save_screenshot(pil_img2)
         time.sleep(0.01)
-        path3 = self.manager.save_screenshot(pil_img3)
+        self.manager.save_screenshot(pil_img3)
 
         # Check initial state - make sure we have 3 different paths
         unique_paths = list(set(self.manager.screenshot_paths))

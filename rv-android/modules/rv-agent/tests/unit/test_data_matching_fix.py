@@ -24,7 +24,6 @@ Covers four bug fixes applied in gh26:
 
 import logging
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.memory.ui_coverage import UICoverageTracker

@@ -200,7 +200,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             node: The checkbox node to visit
         """
         self.logger.debug(f"Visiting checkbox: {node.resource_id}")
-        widget = self.find_matching_widget(node.data)
+        self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         checked = " that is checked" if node.checked else " that is unchecked"
@@ -235,7 +235,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             node: The image button node to visit
         """
         self.logger.debug(f"Visiting image button: {node.resource_id}")
-        widget = self.find_matching_widget(node.data)
+        self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter)
 
         text = f"Image button {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}"
@@ -280,7 +280,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             node: The toggle button node to visit
         """
         self.logger.debug(f"Visiting toggle button: {node.resource_id}")
-        widget = self.find_matching_widget(node.data)
+        self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         state = " that is ON" if node.checked else " that is OFF"
@@ -298,7 +298,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             node: The switch node to visit
         """
         self.logger.debug(f"Visiting switch: {node.resource_id}")
-        widget = self.find_matching_widget(node.data)
+        self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         state = " that is ON" if node.checked else " that is OFF"
@@ -316,7 +316,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             node: The radio button node to visit
         """
         self.logger.debug(f"Visiting radio button: {node.resource_id}")
-        widget = self.find_matching_widget(node.data)
+        self.find_matching_widget(node.data)
         actions = self.get_possible_actions(node, self.counter, prioritize_check=True)
 
         selected = " that is selected" if node.selected else " that is not selected"
@@ -501,7 +501,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 ))
         else:
             # Fallback if bounds not available - use CLICK at slider center
-            self.logger.warning(f"Slider bounds not available, using click fallback")
+            self.logger.warning("Slider bounds not available, using click fallback")
             actions.append(ItemAction(
                 id=self.counter.increment(),
                 text=f"CLICK ({self.counter.get_current()}) on slider",

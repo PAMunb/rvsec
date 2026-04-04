@@ -2,15 +2,13 @@
 
 import json
 import os
-import tempfile
 
 import pytest
 
-from unittest.mock import patch
 
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType, WidgetType
+from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Windows, WindowType
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_static_analysis.parser.static.static_analysis_parser import (

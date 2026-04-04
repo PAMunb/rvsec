@@ -10,7 +10,4 @@ This package provides core coverage analysis functionality including:
 from .analyzer import CoverageAnalyzer
 from .tracker import CoverageTracker
 
-__all__ = [
-    "CoverageAnalyzer",
-    "CoverageTracker"
-]
+__all__ = ["CoverageAnalyzer", "CoverageTracker"]

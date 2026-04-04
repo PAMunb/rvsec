@@ -6,7 +6,6 @@ tool specification and metadata management for monitored operations testing tool
 """
 
 import pytest
-from typing import Dict, List, Any
 
 from rv_android_core.tools.tool_spec import ToolSpec
 

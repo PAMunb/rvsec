@@ -16,10 +16,8 @@ Tests:
 (e) RVTRACK:ATTRIBUTION is emitted with source="previous"
 """
 
-import logging
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from rv_agent.agent.nodes.learn_node import _propagate_reward, _record_action_success
 from rv_agent.agent.nodes.execute_node import execute_node

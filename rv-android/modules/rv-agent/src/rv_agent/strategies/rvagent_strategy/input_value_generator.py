@@ -11,7 +11,6 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 from faker import Faker
-
 from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)

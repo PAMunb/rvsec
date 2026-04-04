@@ -7,18 +7,16 @@ constants, and empty trace detection.
 
 import logging
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from rv_android_core.util.error.exceptions import ConfigurationError
 
 from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
-    APERV_AVAILABLE_STRATEGIES,
-    APERV_PROPERTY_MAPPING,
     ApeRVTool,
 )
-from rv_android_core.util.error.exceptions import ConfigurationError
 
 
 class TestToolSpec:
@@ -43,12 +41,17 @@ class TestVariants:
     def test_base_variants_present(self):
         variants = ApeRVTool.get_variants()
         base_variants = {
-            "default", "sata", "sata_mop", "bfs", "random",
-            "sata_llm", "sata_mop_llm",
+            "default",
+            "sata",
+            "sata_mop",
+            "bfs",
+            "random",
+            "sata_llm",
+            "sata_mop_llm",
         }
-        assert base_variants.issubset(set(variants.keys())), (
-            f"Missing base variants: {base_variants - set(variants.keys())}"
-        )
+        assert base_variants.issubset(
+            set(variants.keys())
+        ), f"Missing base variants: {base_variants - set(variants.keys())}"
 
     def test_default_uses_sata_strategy(self):
         variants = ApeRVTool.get_variants()
@@ -77,8 +80,16 @@ class TestVariants:
     def test_llm_variants_have_all_llm_keys(self):
         """LLM variants must include all 8 LLM config keys explicitly."""
         variants = ApeRVTool.get_variants()
-        llm_keys = {"llm_url", "llm_on_new_state", "llm_on_stagnation", "llm_model",
-                     "llm_temperature", "llm_top_p", "llm_top_k", "llm_timeout_ms"}
+        llm_keys = {
+            "llm_url",
+            "llm_on_new_state",
+            "llm_on_stagnation",
+            "llm_model",
+            "llm_temperature",
+            "llm_top_p",
+            "llm_top_k",
+            "llm_timeout_ms",
+        }
         for name in ["sata_llm", "sata_mop_llm"]:
             for key in llm_keys:
                 assert key in variants[name], f"{name} missing {key}"
@@ -131,11 +142,13 @@ class TestConfigure:
 
     def test_env_var_overrides_llm_url(self, monkeypatch):
         monkeypatch.setenv("APERV_LLM_BASE_URL", "http://custom:8080/v1")
-        self.tool.configure({
-            "strategy": "sata",
-            "throttle_ms": 200,
-            "llm_url": "http://10.0.2.2:30000/v1",
-        })
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_url": "http://10.0.2.2:30000/v1",
+            }
+        )
         assert self.tool._tool_config["llm_url"] == "http://custom:8080/v1"
 
     def test_env_var_ignored_without_llm_url(self, monkeypatch):
@@ -167,12 +180,16 @@ class TestJarSearchPaths:
             self.tool._resolve_jar_path()
 
         assert len(captured["paths"]) == 1
-        assert os.path.dirname(
-            self.tool._resolve_jar_path.__func__.__code__.co_filename
-            if False
-            else __file__
-        ) or True  # just verify length
+        assert (
+            os.path.dirname(
+                self.tool._resolve_jar_path.__func__.__code__.co_filename
+                if False
+                else __file__
+            )
+            or True
+        )  # just verify length
         import aperv_tool.tools.aperv.tool as tool_module
+
         assert captured["paths"][0] == os.path.dirname(tool_module.__file__)
 
     def test_rvsec_home_set_appends_path(self, monkeypatch):
@@ -345,10 +362,12 @@ class TestPushPropertiesLlm:
 
     def test_llm_properties_absent_when_no_llm_url(self, tmp_path):
         """No ape.llm* keys for non-LLM variants."""
-        self.tool.configure({
-            "strategy": "sata",
-            "throttle_ms": 200,
-        })
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "throttle_ms": 200,
+            }
+        )
 
         captured_content = {}
 
@@ -388,55 +407,70 @@ class TestPushPropertiesCalibration:
         return captured["properties"]
 
     def test_exploration_params_written(self, tmp_path):
-        props = self._capture_properties(tmp_path, {
-            "strategy": "sata",
-            "throttle_ms": 200,
-            "default_epsilon": 0.08,
-            "graph_stable_restart_threshold": 150,
-        })
+        props = self._capture_properties(
+            tmp_path,
+            {
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "default_epsilon": 0.08,
+                "graph_stable_restart_threshold": 150,
+            },
+        )
         assert "ape.defaultEpsilon=0.08" in props
         assert "ape.graphStableRestartThreshold=150" in props
 
     def test_mop_weight_params_written(self, tmp_path):
-        props = self._capture_properties(tmp_path, {
-            "strategy": "sata",
-            "throttle_ms": 200,
-            "mop_weight_direct": 400,
-            "mop_weight_transitive": 250,
-            "mop_weight_activity": 80,
-        })
+        props = self._capture_properties(
+            tmp_path,
+            {
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "mop_weight_direct": 400,
+                "mop_weight_transitive": 250,
+                "mop_weight_activity": 80,
+            },
+        )
         assert "ape.mopWeightDirect=400" in props
         assert "ape.mopWeightTransitive=250" in props
         assert "ape.mopWeightActivity=80" in props
 
     def test_minimal_config_only_throttle(self, tmp_path):
-        props = self._capture_properties(tmp_path, {
-            "strategy": "sata",
-            "throttle_ms": 200,
-        })
+        props = self._capture_properties(
+            tmp_path,
+            {
+                "strategy": "sata",
+                "throttle_ms": 200,
+            },
+        )
         assert "ape.defaultGUIThrottle=200" in props
         # Only throttle_ms is in the mapping; strategy is not
         lines = [l for l in props.strip().split("\n") if l]
         assert len(lines) == 1
 
     def test_python_only_keys_not_written(self, tmp_path):
-        props = self._capture_properties(tmp_path, {
-            "strategy": "sata",
-            "throttle_ms": 200,
-            "mop_data": "static_analysis",
-        })
+        props = self._capture_properties(
+            tmp_path,
+            {
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "mop_data": "static_analysis",
+            },
+        )
         assert "strategy" not in props
         assert "mop_data" not in props
 
     def test_mixed_params_all_written(self, tmp_path):
-        props = self._capture_properties(tmp_path, {
-            "strategy": "sata",
-            "throttle_ms": 300,
-            "default_epsilon": 0.1,
-            "mop_weight_direct": 500,
-            "llm_url": "http://10.0.2.2:30000/v1",
-            "llm_temperature": 0.5,
-        })
+        props = self._capture_properties(
+            tmp_path,
+            {
+                "strategy": "sata",
+                "throttle_ms": 300,
+                "default_epsilon": 0.1,
+                "mop_weight_direct": 500,
+                "llm_url": "http://10.0.2.2:30000/v1",
+                "llm_temperature": 0.5,
+            },
+        )
         assert "ape.defaultGUIThrottle=300" in props
         assert "ape.defaultEpsilon=0.1" in props
         assert "ape.mopWeightDirect=500" in props

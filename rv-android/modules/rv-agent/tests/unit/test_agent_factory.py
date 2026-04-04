@@ -5,7 +5,7 @@ Tests factory pattern for creating fully configured RVAgent instances.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from rv_agent.agent.agent_factory import AgentFactory
 from rv_agent.config.agent_config import RVAgentConfig

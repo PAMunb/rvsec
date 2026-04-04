@@ -4,18 +4,12 @@ Integration tests for component interactions in RVAgent.
 Tests the integration between major components without requiring emulator.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 from rv_agent.agent.rv_agent import RVAgent
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.agent.device_interface import DeviceInterface
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
-from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.llm.llm_client import LLMClient
 from rv_agent.execution.tool_executor import ToolExecutor
-from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.domain.state import AgentState
 

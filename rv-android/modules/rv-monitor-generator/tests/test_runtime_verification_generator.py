@@ -107,7 +107,7 @@ class TestRuntimeVerificationGenerator:
     def test_initialization_without_config(self):
         """Test RuntimeVerificationGenerator initialization with auto-config."""
         with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
-                patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
+                patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler'), \
                 patch('rv_monitor_generator.config.os.getenv') as mock_getenv, \
                 patch('rv_monitor_generator.config.os.path.exists') as mock_exists, \
                 patch('rv_monitor_generator.config.os.path.isfile') as mock_isfile, \
@@ -183,7 +183,7 @@ class TestRuntimeVerificationGenerator:
         try:
             with patch('rv_monitor_generator.runtime_verification_generator.LoggingManager') as mock_logging_mgr, \
                     patch('rv_monitor_generator.runtime_verification_generator.ErrorHandler') as mock_error_handler, \
-                    patch('rv_android_core.util.utils.reset_folder') as mock_reset, \
+                    patch('rv_android_core.util.utils.reset_folder'), \
                     patch('rv_android_core.util.utils.execute_command') as mock_execute:
 
                 # Setup mocks

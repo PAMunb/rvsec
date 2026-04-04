@@ -12,7 +12,6 @@ Test Images Analysis:
 - cryptoapp_009_errors.png: Form screen showing validation errors
 """
 
-import os
 import pytest
 from pathlib import Path
 import sys
@@ -25,12 +24,10 @@ sys.path.insert(0, str(src_dir))
 
 from rv_screen_parser.screenshot.screenshot_analyzer import ScreenshotAnalyzer
 from rv_screen_parser.screenshot.models import (
-    ScreenshotAnalysisResult, DetectedText, DetectedButton, ErrorIndicator,
-    InteractiveElement, ErrorType, InteractiveElementType
+    ErrorType, InteractiveElementType
 )
 from rv_screen_parser.screenshot.detectors import (
-    get_text_detector, get_button_detector, get_error_detector,
-    get_interactive_element_detector
+    get_text_detector, get_error_detector
 )
 
 

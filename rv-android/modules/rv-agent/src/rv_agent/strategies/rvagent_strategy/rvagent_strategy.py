@@ -35,10 +35,6 @@ import math
 import random
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
-
 from rv_agent import tracking as track
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.element_id import make_element_id_from_tuple
@@ -65,6 +61,9 @@ from rv_agent.strategies.rvagent_strategy.ranking import (
 )
 from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 if TYPE_CHECKING:
     from rv_agent.config.agent_config import RVAgentConfig

@@ -2604,10 +2604,12 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "autoflake" },
     { name = "bandit" },
     { name = "black" },
     { name = "flake8" },
     { name = "hypothesis" },
+    { name = "isort" },
     { name = "mypy" },
     { name = "pylint" },
     { name = "pytest" },
@@ -2646,10 +2648,12 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "autoflake", specifier = ">=2.3.0" },
     { name = "bandit", specifier = ">=1.7.0" },
     { name = "black", specifier = ">=24.0.0" },
     { name = "flake8", specifier = ">=7.0.0" },
     { name = "hypothesis", specifier = ">=6.135.26" },
+    { name = "isort", specifier = ">=5.13.0" },
     { name = "mypy", specifier = ">=1.11.0" },
     { name = "pylint", specifier = ">=3.2.0" },
     { name = "pytest", specifier = ">=8.0.0" },

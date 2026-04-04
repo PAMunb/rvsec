@@ -5,18 +5,16 @@ Wraps rv-agent as an AbstractTool for execution within the rv-platform
 task execution framework.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
+from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-
+from rv_android_core.util.logging.manager import LoggingManager
 from rvagent_tool.tools.rvagent.config import build_agent_config_dict, get_static_data
-
 
 # Tool constants
 RVAGENT_TOOL_NAME = "rvagent"
@@ -59,7 +57,7 @@ class RVAgentTool(AbstractTool):
         description=RVAGENT_DESCRIPTION,
         url="https://github.com/PAMunb/rvsec",
         version="1.0.0",
-        process_pattern=""
+        process_pattern="",
     )
 
     def __init__(self):
@@ -72,14 +70,13 @@ class RVAgentTool(AbstractTool):
         super().__init__(
             name=tool_spec.name,
             description=tool_spec.description,
-            process_pattern=tool_spec.process_pattern
+            process_pattern=tool_spec.process_pattern,
         )
 
         # Initialize component logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rvagent_tool.tools.rvagent",
-            {CONTEXT_COMPONENT: "RVAgentTool"}
+            "rvagent_tool.tools.rvagent", {CONTEXT_COMPONENT: "RVAgentTool"}
         )
 
         # Configuration stored from configure() method
@@ -115,27 +112,21 @@ class RVAgentTool(AbstractTool):
             "default": {
                 "agent_mode": "multimode",
                 "llm_probability": 0.7,
-                "strategy": "rvagent"
+                "strategy": "rvagent",
             },
             "multimode": {
                 "agent_mode": "multimode",
                 "llm_probability": 0.7,
-                "strategy": "rvagent"
+                "strategy": "rvagent",
             },
-            "pure_algorithm": {
-                "agent_mode": "pure_algorithm",
-                "strategy": "rvagent"
-            },
-            "llm_only": {
-                "agent_mode": "llm_only",
-                "strategy": "rvagent"
-            },
+            "pure_algorithm": {"agent_mode": "pure_algorithm", "strategy": "rvagent"},
+            "llm_only": {"agent_mode": "llm_only", "strategy": "rvagent"},
             "thorough": {
                 "agent_mode": "multimode",
                 "llm_probability": 0.8,
                 "strategy": "rvagent",
-                "plateau_window": 15
-            }
+                "plateau_window": 15,
+            },
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
@@ -149,12 +140,12 @@ class RVAgentTool(AbstractTool):
             config: Configuration dictionary with tool-specific parameters
         """
         self._tool_config = config.copy() if config else {}
-        self.logger.info(f"RVAgent tool configured: mode={self._tool_config.get('agent_mode', 'default')}")
+        self.logger.info(
+            f"RVAgent tool configured: mode={self._tool_config.get('agent_mode', 'default')}"
+        )
 
     @ErrorHandler.handle_errors(
-        component="RVAgentTool",
-        phase="execute_tool_specific_logic",
-        reraise=True
+        component="RVAgentTool", phase="execute_tool_specific_logic", reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -168,8 +159,8 @@ class RVAgentTool(AbstractTool):
             app: Application under test
         """
         # Import here to avoid circular dependencies
-        from rv_agent.config.agent_config import RVAgentConfig
         from rv_agent.agent.agent_factory import AgentFactory
+        from rv_agent.config.agent_config import RVAgentConfig
 
         self.logger.info(f"Executing RVAgent for {app.package_name}")
 
@@ -194,19 +185,20 @@ class RVAgentTool(AbstractTool):
 
         # Create agent via factory
         self.logger.info("Creating RVAgent via AgentFactory")
-        agent = AgentFactory.create_agent(
-            config=agent_config,
-            static_data=static_data
-        )
+        agent = AgentFactory.create_agent(config=agent_config, static_data=static_data)
 
         # Run agent exploration
-        self.logger.info(f"Starting RVAgent exploration (timeout={agent_config.timeout}s)")
+        self.logger.info(
+            f"Starting RVAgent exploration (timeout={agent_config.timeout}s)"
+        )
         results = agent.run()
 
         # Log results summary
-        iterations = results.get('iterations', 0)
-        unique_states = results.get('unique_states', 0)
-        self.logger.info(f"RVAgent completed: {iterations} iterations, {unique_states} states")
+        iterations = results.get("iterations", 0)
+        unique_states = results.get("unique_states", 0)
+        self.logger.info(
+            f"RVAgent completed: {iterations} iterations, {unique_states} states"
+        )
 
     def get_tool_info(self) -> dict:
         """
@@ -216,10 +208,16 @@ class RVAgentTool(AbstractTool):
             Dictionary with tool information and current configuration
         """
         info = super().get_tool_info()
-        info.update({
-            "tool_spec": self.TOOL_SPEC.to_dict() if hasattr(self.TOOL_SPEC, 'to_dict') else str(self.TOOL_SPEC),
-            "current_config": self._tool_config,
-            "version": self.TOOL_SPEC.version,
-            "url": self.TOOL_SPEC.url
-        })
+        info.update(
+            {
+                "tool_spec": (
+                    self.TOOL_SPEC.to_dict()
+                    if hasattr(self.TOOL_SPEC, "to_dict")
+                    else str(self.TOOL_SPEC)
+                ),
+                "current_config": self._tool_config,
+                "version": self.TOOL_SPEC.version,
+                "url": self.TOOL_SPEC.url,
+            }
+        )
         return info

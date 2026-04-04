@@ -10,7 +10,6 @@ not fine-grained scoring or reward math.
 """
 
 import pytest
-from unittest.mock import MagicMock
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph

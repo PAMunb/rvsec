@@ -22,7 +22,6 @@ from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.strategies.rvagent_strategy.path_buffer import (
     PathBuffer,
-    MAX_COVERAGE_HOPS,
 )
 from rv_agent.strategies.rvagent_strategy.reward_propagator import (
     RewardPropagator,

@@ -11,14 +11,13 @@ from collections import deque
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
-from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
-
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.constants import RVAgentConstants
 from rv_agent.services.coordinate_utils import device_to_optimized
 from rv_agent.strategies.base_strategy import ExplorationStrategy
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +216,7 @@ class BFSStrategy(ExplorationStrategy):
             )
             logger.info(f"  Signature: {action_signature}")
             logger.info(f"  Priority: {self._get_mop_priority(selected_action)}")
-            logger.info(f"  Execution count: 0 (first time)")
+            logger.info("  Execution count: 0 (first time)")
             logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
             self.graph.record_action(
@@ -234,7 +233,7 @@ class BFSStrategy(ExplorationStrategy):
             )
             if scroll_action:
                 logger.info(
-                    f"BFS SCROLL: All visible actions tested, scrolling to reveal more content"
+                    "BFS SCROLL: All visible actions tested, scrolling to reveal more content"
                 )
                 return scroll_action
 

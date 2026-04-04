@@ -11,10 +11,9 @@ Tests:
 (d) ui_coverage register and find use the same space
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from rv_agent.memory.element_id import make_element_id, parse_element_id
+from rv_agent.memory.element_id import make_element_id
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker

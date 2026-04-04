@@ -6,13 +6,10 @@ PathBuffer instances. Tests cross-group interactions between PathBuffer,
 SuccessorTracker BFS, and UICoverageTracker coverage metrics.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.strategies.rvagent_strategy.path_buffer import (
     PathBuffer,
-    MAX_COVERAGE_HOPS,
-    MAX_BACKTRACK_HOPS,
 )
 from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_android_core.domain.widget import WidgetEventType

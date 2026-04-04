@@ -1,6 +1,4 @@
-import pytest
 from unittest.mock import MagicMock, patch
-import numpy as np
 
 from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import Node

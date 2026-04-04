@@ -49,7 +49,6 @@ class TestDynamicStateGraph:
     def test_record_transition(self, graph):
         origin = "state1"
         dest = "state2"
-        action = "click_btn_next"
 
         # Setup states
         screen_desc = ScreenDescription(activity="Main", items=[], events_by_id={})

@@ -5,13 +5,11 @@ Tests invalidate_current_path() behavior and verifies that failed actions
 are not re-emitted after invalidation.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.strategies.rvagent_strategy.path_buffer import (
     PathBuffer,
     _create_back_action,
-    MAX_BACKTRACK_HOPS,
 )
 
 

@@ -4,7 +4,6 @@ Tests for find_nearest_unsaturated() hop count (gh26 Group 5, task 5.5).
 Verifies BFS returns correct distance to nearest unsaturated ancestor.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.domain.screen_node import ScreenNode

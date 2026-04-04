@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
-import cv2
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from rv_screen_parser.screenshot.detectors.error_detector import ErrorDetector
 from rv_screen_parser.screenshot.models import DetectedText, ErrorIndicator, BoundingBox, ErrorType

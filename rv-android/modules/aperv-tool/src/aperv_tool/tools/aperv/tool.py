@@ -261,8 +261,12 @@ class ApeRVTool(AbstractTool):
                     "llm_prompt_variant": v,
                 }
                 for v in [
-                    "ape_current", "ape_reasoning", "compact_v1",
-                    "v13", "v17", "visual_only",
+                    "ape_current",
+                    "ape_reasoning",
+                    "compact_v1",
+                    "v13",
+                    "v17",
+                    "visual_only",
                 ]
             },
         }
@@ -532,7 +536,9 @@ class ApeRVTool(AbstractTool):
         )
 
         # Step 1a: Push system-broadcast.json for component triggering (gh11)
-        broadcast_catalog = os.path.join(os.path.dirname(__file__), "system-broadcast.json")
+        broadcast_catalog = os.path.join(
+            os.path.dirname(__file__), "system-broadcast.json"
+        )
         if os.path.exists(broadcast_catalog):
             self._push_file_to_device(
                 broadcast_catalog,
@@ -561,7 +567,9 @@ class ApeRVTool(AbstractTool):
 
         # Step 2: Optionally push ape.properties (when tool is configured)
         if self._tool_config:
-            self._push_properties(device_serial, task.result.trace_file, mop_json_pushed)
+            self._push_properties(
+                device_serial, task.result.trace_file, mop_json_pushed
+            )
 
         # Step 3: Build and execute main command
         main_cmd = self._build_main_command(app, device_serial, timeout_seconds)

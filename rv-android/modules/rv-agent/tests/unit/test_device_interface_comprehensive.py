@@ -7,7 +7,6 @@ Tests the DeviceInterface class which handles all device interactions.
 import pytest
 from unittest.mock import MagicMock, patch
 from rv_agent.agent.device_interface import DeviceInterface
-from rv_agent.constants import RVAgentConstants
 
 
 class TestDeviceInterfaceInitialization:

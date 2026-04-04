@@ -523,7 +523,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The node to visit
         """
-        pass
 
     @abstractmethod
     def visit_leaf_node(self, node: Node) -> None:
@@ -533,7 +532,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The leaf node to visit
         """
-        pass
 
     @abstractmethod
     def visit_button(self, node: Node) -> None:
@@ -543,7 +541,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The button node to visit
         """
-        pass
 
     @abstractmethod
     def visit_edit_text(self, node: Node) -> None:
@@ -553,7 +550,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The edit text node to visit
         """
-        pass
 
     @abstractmethod
     def visit_text_view(self, node: Node) -> None:
@@ -563,7 +559,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The text view node to visit
         """
-        pass
 
     @abstractmethod
     def visit_checkbox(self, node: Node) -> None:
@@ -573,7 +568,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The checkbox node to visit
         """
-        pass
 
     @abstractmethod
     def visit_checked_text(self, node: Node) -> None:
@@ -583,7 +577,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The checked text view node to visit
         """
-        pass
 
     @abstractmethod
     def visit_toggle_button(self, node: Node) -> None:
@@ -593,7 +586,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The toggle button node to visit
         """
-        pass
 
     @abstractmethod
     def visit_switch(self, node: Node) -> None:
@@ -603,7 +595,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The switch node to visit
         """
-        pass
 
     @abstractmethod
     def visit_image_button(self, node: Node) -> None:
@@ -613,7 +604,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The image button node to visit
         """
-        pass
 
     @abstractmethod
     def visit_image(self, node: Node) -> None:
@@ -623,7 +613,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The image node to visit
         """
-        pass
 
     @abstractmethod
     def visit_radio_button(self, node: Node) -> None:
@@ -633,7 +622,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The radio button node to visit
         """
-        pass
 
     @abstractmethod
     def visit_radio_group(self, node: Node) -> None:
@@ -643,7 +631,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The radio group node to visit
         """
-        pass
 
     @abstractmethod
     def visit_spinner(self, node: Node) -> None:
@@ -653,7 +640,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The spinner node to visit
         """
-        pass
 
     @abstractmethod
     def visit_slider(self, node: Node) -> None:
@@ -663,7 +649,6 @@ class AbstractScreenVisitor(ABC):
         Args:
             node: The slider node to visit
         """
-        pass
 
     def _with_text(self, node: Node, max_length: int = 50) -> str:
         """

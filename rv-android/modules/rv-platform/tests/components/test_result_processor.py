@@ -6,15 +6,12 @@ coverage/error/summary data writing, and logcat reconstruction fallback.
 import csv
 import json
 import os
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from rv_android_core.domain.task import (
     Task,
     TaskConfiguration,
-    TaskResult,
     TaskState,
     ToolConfig,
 )

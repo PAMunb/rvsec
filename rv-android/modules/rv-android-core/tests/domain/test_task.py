@@ -1,14 +1,10 @@
 # tests/domain/test_task.py
-import os
 import time
 from datetime import datetime
-from unittest.mock import MagicMock, patch
-from typing import Dict, Any
+from unittest.mock import MagicMock
 
-import pytest
 from hypothesis import given, strategies as st
 
-from rv_android_core.domain.app import App
 from rv_android_core.domain.task import (
     TaskState,
     ToolConfig,

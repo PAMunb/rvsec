@@ -86,8 +86,4 @@ __all__ = [
     # Registry system
     "ToolRegistry",
     "ToolFactory",
-    "PluginLoader",
-
-    # Plugin interfaces
-    "ToolPlugin"
 ]

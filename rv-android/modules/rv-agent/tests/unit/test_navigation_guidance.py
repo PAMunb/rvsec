@@ -6,7 +6,7 @@ Tests the unified abstraction for algorithm and LLM navigation guidance.
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 from rv_android_core.domain.static import StaticAnalysisData

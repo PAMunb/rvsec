@@ -1,5 +1,4 @@
 # tests/analysis/coverage/test_analyzer.py
-from unittest.mock import MagicMock
 
 import pytest
 

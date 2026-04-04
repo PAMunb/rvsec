@@ -4,8 +4,7 @@ Unit tests for learn_node.
 Tests memory updates, stuck detection, and UI coverage integration.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.agent.nodes.learn_node import (
     learn_node,
@@ -69,7 +68,7 @@ class TestLearnNodeIntegration:
             "iteration": 1,
         }
 
-        result = learn_node(mock_agent, state)
+        learn_node(mock_agent, state)
 
         # Verify ui_coverage.record_interaction was NOT called from learn_node
         # (UI coverage recording now happens in execute_node)

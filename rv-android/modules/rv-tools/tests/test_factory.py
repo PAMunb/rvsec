@@ -8,10 +8,8 @@ Tests cover:
 - FR20 scenario: Parameter overrides replace variant values
 """
 
-import pytest
 
 from rv_android_core.domain.task import ToolConfig
-from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_tools.registry.factory import ToolFactory
 
 class TestCreateTool:

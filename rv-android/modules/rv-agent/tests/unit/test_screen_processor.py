@@ -6,7 +6,6 @@ Tests UI element formatting, coordinate transformation, and scored output.
 
 import pytest
 from unittest.mock import MagicMock, patch
-import time
 
 from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph

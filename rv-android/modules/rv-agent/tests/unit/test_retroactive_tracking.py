@@ -10,7 +10,7 @@ Tests the tracking calls added retroactively to existing code paths:
 
 import logging
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 from rv_agent import tracking as track
 from rv_agent.domain.screen_node import ScreenNode

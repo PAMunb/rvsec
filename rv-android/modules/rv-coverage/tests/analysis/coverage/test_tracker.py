@@ -1,6 +1,5 @@
 # tests/analysis/coverage/test_tracker.py
-from datetime import datetime, timedelta
-from unittest.mock import MagicMock
+from datetime import datetime
 
 import pytest
 

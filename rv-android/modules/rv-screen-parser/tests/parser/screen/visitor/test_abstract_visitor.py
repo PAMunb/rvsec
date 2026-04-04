@@ -24,63 +24,48 @@ class MockScreenVisitor(AbstractScreenVisitor):
 
     def visit_node(self, node: Node) -> None:
         """Mock implementation of visit_node"""
-        pass
 
     def visit_leaf_node(self, node: Node) -> None:
         """Mock implementation of visit_leaf_node"""
-        pass
 
     def visit_button(self, node: Node) -> None:
         """Mock implementation of visit_button"""
-        pass
 
     def visit_edit_text(self, node: Node) -> None:
         """Mock implementation of visit_edit_text"""
-        pass
 
     def visit_text_view(self, node: Node) -> None:
         """Mock implementation of visit_text_view"""
-        pass
 
     def visit_checkbox(self, node: Node) -> None:
         """Mock implementation of visit_checkbox"""
-        pass
 
     def visit_checked_text(self, node: Node) -> None:
         """Mock implementation of visit_checked_text"""
-        pass
 
     def visit_toggle_button(self, node: Node) -> None:
         """Mock implementation of visit_toggle_button"""
-        pass
 
     def visit_switch(self, node: Node) -> None:
         """Mock implementation of visit_switch"""
-        pass
 
     def visit_image_button(self, node: Node) -> None:
         """Mock implementation of visit_image_button"""
-        pass
 
     def visit_image(self, node: Node) -> None:
         """Mock implementation of visit_image"""
-        pass
 
     def visit_radio_button(self, node: Node) -> None:
         """Mock implementation of visit_radio_button"""
-        pass
 
     def visit_radio_group(self, node: Node) -> None:
         """Mock implementation of visit_radio_group"""
-        pass
 
     def visit_spinner(self, node: Node) -> None:
         """Mock implementation of visit_spinner"""
-        pass
 
     def visit_slider(self, node: Node) -> None:
         """Mock implementation of visit_slider"""
-        pass
 
 
 class TestAbstractScreenVisitor:

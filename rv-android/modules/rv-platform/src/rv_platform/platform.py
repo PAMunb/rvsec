@@ -9,9 +9,8 @@ through the rv-platform system.
 import hashlib
 import json
 import os
-from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskFactory
@@ -334,8 +333,8 @@ class Platform:
             A clear, user-friendly error message
         """
         from rv_android_core.util.error.exceptions import (
-            RVToolTimeoutError,
             RVToolExecutionError,
+            RVToolTimeoutError,
         )
 
         # Walk through the exception chain to find the root cause

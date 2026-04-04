@@ -32,8 +32,6 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.exceptions import LLMError
 from rv_agent.llm.tools.sglang_tools import get_android_tools
@@ -42,6 +40,7 @@ from rv_agent.llm.tools.tool_call_parser import (
     parse_tool_calls_with_strategy,
     parser_stats,
 )
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 logger = logging.getLogger(__name__)
 

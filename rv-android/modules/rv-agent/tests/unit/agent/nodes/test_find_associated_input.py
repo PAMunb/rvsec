@@ -6,7 +6,6 @@ in algorithm_node. These functions map error indicators (from VisualErrorDetecto
 to nearby input fields using overlap scoring + widget-type boost + below-field heuristic.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_screen_parser.screenshot.models import (
@@ -20,7 +19,6 @@ from rv_agent.agent.nodes.algorithm_node import (
     _find_associated_input_action,
     _calculate_association_score,
     SPATIAL_BELOW_FIELD_SCORE,
-    SPATIAL_BELOW_FIELD_MAX_PX,
 )
 
 

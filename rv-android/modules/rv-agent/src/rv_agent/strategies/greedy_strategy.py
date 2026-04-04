@@ -10,13 +10,12 @@ import logging
 import math
 from typing import Dict, List, Optional, Set, Tuple
 
-from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
-
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.constants import RVAgentConstants
 from rv_agent.strategies.base_strategy import ExplorationStrategy
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.widget import WidgetEventType
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +141,7 @@ class GreedyStrategy(ExplorationStrategy):
             action_signature = self._convert_signature_to_optimized(
                 text_action.coords_for_matching
             )
-            logger.info(f"Greedy SELECT (TEXT): SET_TEXT action")
+            logger.info("Greedy SELECT (TEXT): SET_TEXT action")
             logger.info(f"  Signature: {action_signature}")
             logger.info(f"  Pre-marking as executed on state {current_hash[:8]}")
 
@@ -186,7 +185,7 @@ class GreedyStrategy(ExplorationStrategy):
                     f"Greedy SELECT: Highest-value UNTESTED action ID={selected_action.id}"
                 )
                 logger.info(f"  Value: {action_values[selected_action.id]:.2f}")
-                logger.info(f"  Execution count: 0 (first time)")
+                logger.info("  Execution count: 0 (first time)")
 
         elif filtered_actions:
             # CONTINUOUS: All actions tested
@@ -196,7 +195,7 @@ class GreedyStrategy(ExplorationStrategy):
             )
             if scroll_action:
                 logger.info(
-                    f"Greedy SCROLL: All visible actions tested, scrolling to reveal more content"
+                    "Greedy SCROLL: All visible actions tested, scrolling to reveal more content"
                 )
                 return scroll_action
 

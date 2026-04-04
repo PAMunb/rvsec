@@ -327,7 +327,7 @@ def unzip(zip_file: str, out_dir: str):
         logger.debug(f"Extracting {zip_file} to {out_dir}")
         with ZipFile(zip_file, "r") as zObject:
             zObject.extractall(path=out_dir)
-        logger.debug(f"Extraction completed successfully")
+        logger.debug("Extraction completed successfully")
     except Exception as e:
         logger.error(f"Failed to extract {zip_file}: {e}")
         raise

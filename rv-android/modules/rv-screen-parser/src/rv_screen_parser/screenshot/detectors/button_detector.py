@@ -19,7 +19,7 @@ clickable UI elements in mobile applications and games.
 - Integrates text detection results for improved button identification
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 import cv2
 import numpy as np
 

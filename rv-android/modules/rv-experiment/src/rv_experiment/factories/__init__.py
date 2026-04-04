@@ -28,6 +28,4 @@ component creation with just-in-time configuration and DI-ready design.
 
 from .configuration_factory import ConfigurationFactory
 
-__all__ = [
-    'ConfigurationFactory'
-]
+__all__ = ["ConfigurationFactory"]

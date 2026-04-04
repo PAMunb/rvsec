@@ -13,10 +13,8 @@ Tests:
 """
 
 import logging
-import time
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from rv_agent.agent.nodes.learn_node import learn_node
 from rv_agent.agent.nodes.parse_node import _update_cached_bounds

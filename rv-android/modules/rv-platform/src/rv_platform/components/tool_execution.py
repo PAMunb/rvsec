@@ -6,14 +6,20 @@ This component handles tool invocation and result processing in a simplified,
 standalone manner suitable for the platform architecture.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_android_core.util.logging.constants import CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, \
-    LOG_START, LOG_COMPLETE, LOG_ERROR
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.logging.constants import (
+    CONTEXT_APP_NAME,
+    CONTEXT_TASK_ID,
+    CONTEXT_TOOL_NAME,
+    LOG_COMPLETE,
+    LOG_ERROR,
+    LOG_START,
+)
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class ToolExecutionComponent:
@@ -37,28 +43,28 @@ class ToolExecutionComponent:
         self.name = "ToolExecutionComponent"
         self.task = task
         self.tool = tool
-        
+
         # Initialize logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.components.tool_execution',
+            "rv_platform.components.tool_execution",
             {
                 CONTEXT_TASK_ID: task.id,
                 CONTEXT_APP_NAME: task.config.apk_name,
-                CONTEXT_TOOL_NAME: tool.name
-            }
+                CONTEXT_TOOL_NAME: tool.name,
+            },
         )
-        
+
         # Error handler
         self.error_handler = ErrorHandler.get_instance()
 
     def initialize(self, context: Dict[str, Any]) -> bool:
         """
         Initialize the component.
-        
+
         Args:
             context: Task execution context
-            
+
         Returns:
             True if initialization was successful
         """
@@ -68,10 +74,10 @@ class ToolExecutionComponent:
     def execute(self, context: Dict[str, Any]) -> bool:
         """
         Execute the testing tool for the task.
-        
+
         Args:
             context: Task execution context
-            
+
         Returns:
             True if tool execution was successful
         """
@@ -80,7 +86,7 @@ class ToolExecutionComponent:
     def cleanup(self, context: Dict[str, Any]) -> None:
         """
         Clean up component resources.
-        
+
         Args:
             context: Task execution context
         """
@@ -107,37 +113,48 @@ class ToolExecutionComponent:
         except Exception as e:
             # Check if this is a timeout exception (already logged)
             from rv_android_core.util.error.exceptions import RVToolTimeoutError
-            
+
             if isinstance(e, RVToolTimeoutError):
                 # Timeout is expected, don't log as error
-                self.logger.info(LOG_COMPLETE.format(phase=f"tool: {self.tool.name} (timeout)"))
-                self.logger.info(f"Tool stopped: {self.tool.name} for task {self.task.id} (timeout)")
+                self.logger.info(
+                    LOG_COMPLETE.format(phase=f"tool: {self.tool.name} (timeout)")
+                )
+                self.logger.info(
+                    f"Tool stopped: {self.tool.name} for task {self.task.id} (timeout)"
+                )
 
                 return True  # Timeout is considered successful completion
             else:
                 # Actual failure - reduced logging (tool already logged the details)
-                self.logger.error(LOG_ERROR.format(
-                    phase=f"executing tool {self.tool.name}",
-                    error=str(e)
-                ))
-                
+                self.logger.error(
+                    LOG_ERROR.format(
+                        phase=f"executing tool {self.tool.name}", error=str(e)
+                    )
+                )
+
                 self.logger.error(f"Task failed: {self.task.id}")
 
                 return False
 
     def cleanup_processes(self) -> None:
         """Clean up any hanging processes related to the tool."""
-        if hasattr(self.tool, 'process_pattern') and self.tool.process_pattern:
+        if hasattr(self.tool, "process_pattern") and self.tool.process_pattern:
             try:
-                self.logger.debug(LOG_START.format(
-                    phase=f"cleaning up processes for tool: {self.tool.name}"
-                ))
+                self.logger.debug(
+                    LOG_START.format(
+                        phase=f"cleaning up processes for tool: {self.tool.name}"
+                    )
+                )
                 self.tool.kill_related_processes(self.tool.process_pattern)
-                self.logger.debug(LOG_COMPLETE.format(
-                    phase=f"cleaning up processes for tool: {self.tool.name}"
-                ))
+                self.logger.debug(
+                    LOG_COMPLETE.format(
+                        phase=f"cleaning up processes for tool: {self.tool.name}"
+                    )
+                )
             except Exception as e:
-                self.logger.warning(LOG_ERROR.format(
-                    phase=f"cleaning up processes for tool: {self.tool.name}",
-                    error=str(e)
-                ))
+                self.logger.warning(
+                    LOG_ERROR.format(
+                        phase=f"cleaning up processes for tool: {self.tool.name}",
+                        error=str(e),
+                    )
+                )

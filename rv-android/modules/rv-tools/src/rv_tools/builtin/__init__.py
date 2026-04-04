@@ -51,27 +51,14 @@ BUILTIN_TOOLS = [
     QTestingTool,
 ]
 
-# # Tool class mapping for dynamic loading
-# BUILTIN_TOOL_CLASSES = {
-#     "ape": APETool,
-#     "monkey": MonkeyTool,
-#     "ares": AresTool,
-#     "droidbot": DroidBotTool,
-#     "droidmate": DroidMateTool,
-#     "fastbot": FastBotTool,
-#     "humanoid": HumanoidTool,
-#     "qtesting": QTestingTool,
-# }
-
 __all__ = [
     "APETool",
     "MonkeyTool",
-    "AresTool", 
+    "AresTool",
     "DroidBotTool",
     "DroidMateTool",
     "FastBotTool",
     "HumanoidTool",
     "QTestingTool",
-    "BUILTIN_TOOLS"
-    # "BUILTIN_TOOL_CLASSES"
+    "BUILTIN_TOOLS",
 ]

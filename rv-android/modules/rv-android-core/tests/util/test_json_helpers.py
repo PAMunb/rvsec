@@ -1,6 +1,4 @@
 
-import json
-import pytest
 from rv_android_core.util.json_helpers import (
     safe_parse_json,
     safe_json_parse,

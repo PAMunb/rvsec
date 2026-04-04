@@ -6,7 +6,6 @@ on the current screen looking for the first TEXT_CHANGE (set_text) action.
 Used as fallback when spatial association finds no match.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.agent.nodes.algorithm_node import _find_next_input_action

@@ -503,7 +503,7 @@ class TestGraphReportGeneration:
         node1.total_actions = 10
         node1.record_action(((100, 200), "click"))
 
-        node2 = graph.get_or_create_state("hash2", "Detail", empty_screen_desc)
+        graph.get_or_create_state("hash2", "Detail", empty_screen_desc)
 
         # Record transition
         graph.record_action_to_trace({"type": "click", "x": 100})

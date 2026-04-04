@@ -21,7 +21,6 @@ contextual classification of text elements.
 
 import re
 from typing import List, Set, Tuple
-import cv2
 import numpy as np
 import pytesseract
 

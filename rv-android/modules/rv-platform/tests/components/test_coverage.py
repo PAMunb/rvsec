@@ -4,8 +4,7 @@ Tests for CoverageComponent, specifically verifying that coverage timing
 uses tool_execution_start (not task creation time) for accurate relative timestamps.
 """
 
-from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

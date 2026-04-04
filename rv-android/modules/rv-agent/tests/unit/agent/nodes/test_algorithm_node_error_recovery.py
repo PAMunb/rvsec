@@ -7,8 +7,7 @@ should find the nearest input field to the error indicator and generate
 an appropriate action (SET_TEXT for EditText, CLICK for Spinner).
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.agent.nodes.algorithm_node import algorithm_node
 

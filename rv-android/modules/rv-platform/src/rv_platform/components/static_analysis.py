@@ -7,21 +7,21 @@ Handles static analysis data loading during task execution.
 
 import os
 import shutil
-from typing import Dict, Any
+from typing import Any, Dict
 
+from rv_android_core.constants import EXTENSION_METHODS, EXTENSION_STATIC_ANALYSIS
+from rv_android_core.domain.task import Task
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
-    CONTEXT_TASK_ID, 
-    CONTEXT_APP_NAME, 
+    CONTEXT_APP_NAME,
+    CONTEXT_TASK_ID,
+    LOG_COMPLETE,
+    LOG_ERROR,
+    LOG_SKIPPED,
     LOG_START,
-    LOG_COMPLETE, 
-    LOG_SKIPPED, 
-    LOG_ERROR
 )
-from rv_android_core.constants import EXTENSION_STATIC_ANALYSIS, EXTENSION_METHODS
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.domain.task import Task
 from rv_static_analysis.parser.static import static_analysis_parser
 
 
@@ -51,17 +51,14 @@ class StaticAnalysisComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.components.static_analysis',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name
-            }
+            "rv_platform.components.static_analysis",
+            {CONTEXT_TASK_ID: task.id, CONTEXT_APP_NAME: task.config.apk_name},
         )
 
     def initialize(self, context: Dict[str, Any]) -> None:
         """
         Initialize the static analysis component.
-        
+
         Args:
             context: Task execution context
         """
@@ -70,24 +67,26 @@ class StaticAnalysisComponent:
     def execute(self, context: Dict[str, Any]) -> bool:
         """
         Execute static analysis data loading for the task.
-        
+
         Args:
             context: Task execution context
-            
+
         Returns:
             True if static analysis data was loaded successfully
         """
         try:
             # First copy static analysis files from instrumented directory
             self.copy_static_analysis_files()
-            
+
             if not self.load_static_data(context):
                 # Static analysis failure is not critical for basic execution
-                self.logger.warning("Static analysis data loading failed, continuing without static data")
-            
+                self.logger.warning(
+                    "Static analysis data loading failed, continuing without static data"
+                )
+
             self.logger.info("Static analysis component completed")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Static analysis component execution failed: {e}")
             self.error_handler.handle_error(e, context)
@@ -97,7 +96,7 @@ class StaticAnalysisComponent:
     def cleanup(self, context: Dict[str, Any]) -> None:
         """
         Clean up static analysis resources.
-        
+
         Args:
             context: Task execution context
         """
@@ -114,7 +113,7 @@ class StaticAnalysisComponent:
             Success status
         """
         with self.logger.with_context(phase="load_static_data"):
-            if hasattr(self.task, 'static_data') and self.task.static_data:
+            if hasattr(self.task, "static_data") and self.task.static_data:
                 self.logger.debug("Static data already loaded")
                 return True
 
@@ -125,44 +124,51 @@ class StaticAnalysisComponent:
                 static_data = static_analysis_parser.read_static_analysis_files(
                     self.task.results_dir,
                     self.task.config.apk_name,
-                    self.task.app.code_package if self.task.app else None
+                    self.task.app.code_package if self.task.app else None,
                 )
 
                 # Store static data in task
                 self.task.static_data = static_data
 
                 if static_data:
-                    app_name = self.task.app.name if self.task.app else self.task.config.apk_name
-                    self.logger.info(LOG_COMPLETE.format(phase="loading static analysis data"))
+                    app_name = (
+                        self.task.app.name
+                        if self.task.app
+                        else self.task.config.apk_name
+                    )
+                    self.logger.info(
+                        LOG_COMPLETE.format(phase="loading static analysis data")
+                    )
                     self.logger.info(f"Static analysis completed for {app_name}")
                     return True
                 else:
-                    self.logger.warning(LOG_SKIPPED.format(
-                        phase="static analysis data loading",
-                        reason="No data found, coverage tracking will be limited"
-                    ))
+                    self.logger.warning(
+                        LOG_SKIPPED.format(
+                            phase="static analysis data loading",
+                            reason="No data found, coverage tracking will be limited",
+                        )
+                    )
                     return False
 
             except Exception as e:
-                self.logger.warning(LOG_ERROR.format(
-                    phase="loading static data",
-                    error=str(e)
-                ))
+                self.logger.warning(
+                    LOG_ERROR.format(phase="loading static data", error=str(e))
+                )
                 # Convert to AnalysisError but don't raise
                 self.error_handler.handle_error(
                     AnalysisError("Failed to load static analysis data", e),
-                    task_context
+                    task_context,
                 )
                 return False
 
     def copy_static_analysis_files(self) -> bool:
         """
         Copies static analysis files for current APK from APKs directory to results directory.
-        
+
         Based on the original ExecutionManager.copy_static_analysis_files method.
         Copies files from the same directory where APKs are located to the task's results directory.
         This ensures APKs and their static analysis files are kept together.
-        
+
         Returns:
             True if at least one file was copied, False otherwise
         """
@@ -170,9 +176,11 @@ class StaticAnalysisComponent:
         instrumented_dir = self.apks_dir
         apk_name = self.task.config.apk_name
         target_dir = self.task.results_dir
-        
-        self.logger.info(f"Copying static analysis files for {apk_name} to {target_dir}")
-        
+
+        self.logger.info(
+            f"Copying static analysis files for {apk_name} to {target_dir}"
+        )
+
         # Extensions to copy: unified analysis JSON + methods list
         extensions = [EXTENSION_METHODS, EXTENSION_STATIC_ANALYSIS]
         copied_files = 0
@@ -191,13 +199,19 @@ class StaticAnalysisComponent:
                     shutil.copy(source_file_path, target_dir)
                     copied_files += 1
                 else:
-                    self.logger.debug(f"Static analysis file not found: {source_file_path}")
+                    self.logger.debug(
+                        f"Static analysis file not found: {source_file_path}"
+                    )
 
             if copied_files == 0:
-                self.logger.warning(f"No static analysis files found for {apk_name} in {instrumented_dir}")
+                self.logger.warning(
+                    f"No static analysis files found for {apk_name} in {instrumented_dir}"
+                )
                 return False
 
-            self.logger.info(f"Successfully copied {copied_files} static analysis files for {apk_name}")
+            self.logger.info(
+                f"Successfully copied {copied_files} static analysis files for {apk_name}"
+            )
             return True
 
         except Exception as e:
@@ -209,12 +223,14 @@ class StaticAnalysisComponent:
                 "source_directory": instrumented_dir,
                 "target_directory": target_dir,
                 "extensions_checked": extensions,
-                "copied_files_count": copied_files
+                "copied_files_count": copied_files,
             }
-            
+
             # Use ErrorHandler for proper exception handling
             self.error_handler.handle_error(e, error_context)
-            
+
             # Log additional information
-            self.logger.error(f"Error copying static analysis files for {apk_name}: {e}")
+            self.logger.error(
+                f"Error copying static analysis files for {apk_name}: {e}"
+            )
             return False

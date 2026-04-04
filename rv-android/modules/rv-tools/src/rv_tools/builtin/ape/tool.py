@@ -16,8 +16,6 @@ from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVToolTimeoutError, RVToolExecutionError
 from rv_android_core.util.jar_resolver import JarResolver
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 
 
 class APETool(AbstractTool):
@@ -231,7 +229,7 @@ class APETool(AbstractTool):
             with open(task.result.trace_file, 'wb') as trace_file:
                 # Use centralized command execution with error handling
                 # Redirect both stdout and stderr to trace file to prevent console flooding
-                result = self._execute_and_check_command(ape_cmd, stdout=trace_file, stderr=trace_file)
+                self._execute_and_check_command(ape_cmd, stdout=trace_file, stderr=trace_file)
             
             # # Append success information to trace file (text mode for metadata)
             # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
@@ -241,7 +239,7 @@ class APETool(AbstractTool):
             #     success_info += f"Command: {cmd_str}\n"
             #     trace_file.write(success_info)
                 
-        except RVToolTimeoutError as e:
+        except RVToolTimeoutError:
             # APE timeout is expected behavior - log as completion
             self.logger.info(f"APE execution timed out after {timeout_in_seconds} seconds (expected behavior)")
             
@@ -317,7 +315,7 @@ class APETool(AbstractTool):
         ], timeout=60)  # 60 seconds timeout for push
         
         with open(trace_file_path, 'ab') as trace_file:
-            trace_file.write(f"\n--- APE Jar Push ---\n".encode('utf-8'))
+            trace_file.write("\n--- APE Jar Push ---\n".encode('utf-8'))
             result = push_cmd.invoke(stdout=trace_file)
             
             if result.is_failure():

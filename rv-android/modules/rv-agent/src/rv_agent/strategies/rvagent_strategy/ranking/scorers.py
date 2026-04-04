@@ -30,10 +30,9 @@ from rv_agent import tracking as track
 from rv_agent.memory.element_id import make_element_id_from_action
 
 if TYPE_CHECKING:
-    from rv_screen_parser.parser.screen.visitor.model import ItemAction
-
     from rv_agent.config.agent_config import RVAgentConfig
     from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
+    from rv_screen_parser.parser.screen.visitor.model import ItemAction
 
 
 logger = logging.getLogger(__name__)

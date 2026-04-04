@@ -5,20 +5,20 @@ Logcat component for RV-Platform.
 Manages logcat capture and filtering during task execution.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_android_core.util.error.exceptions import AnalysisError
+from rv_android_core.domain.task import Task
 from rv_android_core.util.android.logcat_manager import LogcatManager
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
-    CONTEXT_TASK_ID,
     CONTEXT_APP_NAME,
-    LOG_START,
+    CONTEXT_TASK_ID,
     LOG_COMPLETE,
     LOG_ERROR,
+    LOG_START,
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.domain.task import Task
 
 
 class LogcatComponent:

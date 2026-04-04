@@ -10,17 +10,16 @@ Tests DFS, BFS, Greedy, and RVAgent strategies to verify:
 
 import pytest
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import List, Tuple
 
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
 )
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
-    ScreenNode,
     compute_screen_hash_from_description,
 )
 from rv_agent.strategies.dfs_strategy import DFSStrategy

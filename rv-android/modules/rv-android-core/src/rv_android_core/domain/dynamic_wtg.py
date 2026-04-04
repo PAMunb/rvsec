@@ -437,7 +437,7 @@ class DynamicTransitionGraph:
             DynamicTransition if current_activity is set, None otherwise.
         """
         if not self.current_activity:
-            self.logger.warning(f"Cannot record transition: no current activity set")
+            self.logger.warning("Cannot record transition: no current activity set")
             return None
         actions = [{"action_id": action_id, "action_type": action_type}]
         transition = self.record_transition(

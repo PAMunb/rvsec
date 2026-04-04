@@ -70,4 +70,4 @@ def initialize_repository_from_static_data(
             )
             class_data.add_method(method_data)
 
-    logger.debug(f"Repository initialized successfully")
+    logger.debug("Repository initialized successfully")

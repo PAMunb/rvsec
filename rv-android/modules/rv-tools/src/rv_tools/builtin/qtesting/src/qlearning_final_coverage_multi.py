@@ -45,7 +45,7 @@ class QLearning(object):
         global DEVICE_ID
         global TEST_INDEX
         global TIME_LIMIT
-        bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
         path_to_config = os.path.abspath(config_file)
         config = configparser.ConfigParser()
         config.read(path_to_config)
@@ -225,13 +225,12 @@ class QLearning(object):
         global TEST_STATE
         self.current_ui_file_path = Benchmark + self.app_name + '-output-' + str(TEST_INDEX) + '/event_output/' + 'ui_' + episode + '.xml'
         self.current_command_file_path = Benchmark + self.app_name + '-output-' + str(TEST_INDEX) + '/event_output/' + 'command_' + episode + '.txt'
-        has_wait_for_jump = False
         try:
             t_0 = time.time()
             time.sleep(0.1)
             d = Device(DEVICE_ID)
             d.dump(self.current_ui_file_path)
-            dump_time = time.time() - t_0
+            time.time() - t_0
         except Exception:
             print(('UNKNOWN ' + 'uiautomator dump error'))
             self.current_package_name = 'UNKNOWN'
@@ -264,14 +263,14 @@ class QLearning(object):
             self.current_activity_name = info.split('/')[1]
             print(('current_activity_name is: ' + str(self.current_activity_name)))
             if self.previous_activity_name != self.current_activity_name:
-                has_wait_for_jump = True
+                pass
         else:
             print(('/ is not in info: ' + info))
         if self.package_name in self.current_package_name:
             self.current_package_name = self.package_name
         t0 = time.time()
         state = self.get_widget_hierarchy_state()
-        refine_time = time.time() - t0
+        time.time() - t0
         if state == 'ERROR STATE' or state == 'WAITFORASECOND':
             self.current_state_id = -1
             return state

@@ -7,7 +7,7 @@ and integration with DynamicStateGraph.
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,

@@ -8,7 +8,4 @@ and batch analysis of coverage data from logcat files.
 from .coverage.analyzer import CoverageAnalyzer
 from .coverage.tracker import CoverageTracker
 
-__all__ = [
-    "CoverageAnalyzer",
-    "CoverageTracker"
-]
+__all__ = ["CoverageAnalyzer", "CoverageTracker"]

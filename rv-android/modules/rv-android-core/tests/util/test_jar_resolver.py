@@ -8,8 +8,7 @@ error handling, and environment variable configuration.
 
 import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
+from unittest.mock import Mock, patch
 
 from rv_android_core.util.jar_resolver import JarResolver
 from rv_android_core.util.error.exceptions import JarNotFoundError
@@ -955,7 +954,7 @@ class TestJarResolverErrorHandling:
                         mock_isfile.return_value = True
                         mock_abspath.return_value = "/found/test.jar"
 
-                        result = jar_resolver.resolve_jar_path(jar_name)
+                        jar_resolver.resolve_jar_path(jar_name)
 
                         # Should have debug logging for resolution start and success
                         assert mock_logger.debug.call_count >= 2
@@ -999,7 +998,7 @@ class TestJarResolverErrorHandling:
                         mock_isdir.return_value = True
                         mock_abspath.return_value = "/found/libs"
 
-                        result = jar_resolver.resolve_resource_directory(resource_name)
+                        jar_resolver.resolve_resource_directory(resource_name)
 
                         # Should have debug logging for resolution
                         mock_logger.debug.assert_called()

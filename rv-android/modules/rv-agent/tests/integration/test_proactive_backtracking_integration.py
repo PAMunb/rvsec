@@ -7,7 +7,6 @@ the full backtracking decision chain: saturated state -> should_backtrack
 -> PathBuffer plans BACK actions.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.config.agent_config import RVAgentConfig
@@ -20,7 +19,6 @@ from rv_agent.strategies.rvagent_strategy.path_buffer import (
 )
 from rv_android_core.domain.widget import WidgetEventType
 
-from .conftest import create_mock_screen, create_mock_action
 
 
 def _make_strategy(backtrack_threshold=0.8):

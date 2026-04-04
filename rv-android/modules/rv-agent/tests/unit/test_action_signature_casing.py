@@ -13,7 +13,6 @@ Tests:
 (c) End-to-end: pre-mark, record success, StrengthScorer returns non-neutral
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.domain.screen_node import ScreenNode

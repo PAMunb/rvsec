@@ -7,16 +7,9 @@ using real static analysis data from fixtures.
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
 
 from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_screen_parser.parser.screen.visitor.model import (
-    ItemAction,
-    ScreenDescription,
-    ScreenItem,
-    Node,
-)
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
 )

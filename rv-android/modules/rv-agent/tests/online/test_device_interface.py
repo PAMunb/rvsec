@@ -7,8 +7,7 @@ Tests DeviceInterface with real Android emulator.
 import pytest
 import time
 
-from rv_agent.agent.device_interface import DeviceInterface
-from .conftest import launch_app, force_stop_app, go_home
+from .conftest import launch_app
 
 pytestmark = [pytest.mark.online]
 

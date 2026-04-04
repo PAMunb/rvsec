@@ -12,7 +12,7 @@ Tests the autonomous Android exploration agent including:
 
 import pytest
 import time
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from rv_agent.agent.rv_agent import RVAgent
 from rv_agent.agent.nodes import (
@@ -32,7 +32,6 @@ from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.services.vision_service import ImageHandler
 from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.llm.llm_client import LLMClient
-from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.domain.action import ActionNormalizer
@@ -555,7 +554,7 @@ class TestExecuteNode:
             "current_action": {"action_type": "CLICK", "x": 50},
             "decision_maker": "llm",
         }
-        result = execute_node(agent, state)
+        execute_node(agent, state)
 
         mock_dependencies["tool_executor"].execute_action.assert_called_with(
             {"action_type": "CLICK", "x": 50}

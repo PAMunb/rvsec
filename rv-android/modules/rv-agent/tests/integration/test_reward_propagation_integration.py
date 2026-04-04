@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 from rv_agent.strategies.rvagent_strategy.reward_propagator import (
     RewardPropagator,
     REWARD_MOP_WEIGHT,
-    REWARD_PROPAGATION_N,
     MAX_CUMULATIVE_REWARD_FACTOR,
     REWARD_VALUES,
 )

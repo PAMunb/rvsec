@@ -3,7 +3,6 @@ Shared fixtures for rv-experiment tests.
 """
 
 import pytest
-from pathlib import Path
 
 from rv_android_core.domain.task import ToolConfig
 

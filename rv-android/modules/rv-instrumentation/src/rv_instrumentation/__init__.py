@@ -14,8 +14,4 @@ Key Components:
 from .rvandroid import RVInstrumentation
 from .config import RVInstrumentationConfig, ConfigurationError
 
-__all__ = [
-    'RVInstrumentation',
-    'RVInstrumentationConfig', 
-    'ConfigurationError'
-]
+__all__ = ["RVInstrumentation", "RVInstrumentationConfig", "ConfigurationError"]

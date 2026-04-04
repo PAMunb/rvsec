@@ -113,7 +113,7 @@ class TestLLMLatency:
             message = create_vision_message(img_data["base64"])
 
             start_time = time.time()
-            result = llm_with_tools.invoke([message])
+            llm_with_tools.invoke([message])
             latency_ms = (time.time() - start_time) * 1000
             latencies.append(latency_ms)
 
@@ -147,7 +147,7 @@ class TestLLMLatency:
                 message = create_vision_message(img_data["base64"])
 
                 start_time = time.time()
-                result = llm_with_tools.invoke([message])
+                llm_with_tools.invoke([message])
                 latency_ms = (time.time() - start_time) * 1000
                 latencies.append(latency_ms)
 

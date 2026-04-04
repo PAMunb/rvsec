@@ -10,14 +10,16 @@ from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
+from rv_android_core.util.android.repository_initializer import (
+    initialize_repository_from_static_data,
+)
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
 class CoverageTracker:
     """
     Real-time coverage tracking system for Android application testing.
-    
+
     The CoverageTracker monitors logcat output in real-time, extracting coverage
     information and formal property violations as they occur during test execution.
     It serves as the primary real-time monitoring component in the RV-Android system.
@@ -60,7 +62,7 @@ class CoverageTracker:
     with CoverageTracker(logcat_file, static_data) as tracker:
         # Run tests, tracker monitors automatically
         pass
-    
+
     # Manual lifecycle management
     tracker = CoverageTracker(logcat_file, static_data)
     tracker.start()
@@ -69,7 +71,7 @@ class CoverageTracker:
         pass
     finally:
         tracker.stop()
-    
+
     # Get real-time metrics
     metrics = tracker.get_coverage_metrics()
     ```
@@ -79,8 +81,13 @@ class CoverageTracker:
     concurrently. Internal state is protected by appropriate locking mechanisms.
     """
 
-    def __init__(self, logcat_file: str, static_data: Optional[StaticAnalysisData] = None,
-                 task_start_time: Optional[datetime] = None, task_id: Optional[str] = None):
+    def __init__(
+        self,
+        logcat_file: str,
+        static_data: Optional[StaticAnalysisData] = None,
+        task_start_time: Optional[datetime] = None,
+        task_id: Optional[str] = None,
+    ):
         """
         Initialize the coverage tracker with optional task correlation.
 
@@ -100,8 +107,8 @@ class CoverageTracker:
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_coverage.analysis.coverage.tracker',
-            {CONTEXT_COMPONENT: 'CoverageTracker'}
+            "rv_coverage.analysis.coverage.tracker",
+            {CONTEXT_COMPONENT: "CoverageTracker"},
         )
 
         # Initialize LogcatRepository directly for optimal performance
@@ -126,7 +133,7 @@ class CoverageTracker:
             "mop_method_coverage": 0.0,
             "called_methods": 0,
             "total_activities": 0,
-            "unique_errors": 0
+            "unique_errors": 0,
         }
 
         # Performance optimization: track if data has changed since last metrics calculation
@@ -142,17 +149,24 @@ class CoverageTracker:
             self.logger.info("Initializing coverage tracker from static analysis data")
 
             # Use centralized repository initializer to eliminate code duplication
-            initialize_repository_from_static_data(self.repository, self.static_data, self.__class__.__name__)
+            initialize_repository_from_static_data(
+                self.repository, self.static_data, self.__class__.__name__
+            )
 
             # Log summary of initialized data
-            total_methods = sum(len(class_info.methods) for class_info in self.static_data.classes.classes.values())
+            total_methods = sum(
+                len(class_info.methods)
+                for class_info in self.static_data.classes.classes.values()
+            )
             self.logger.info(
                 f"Initialized repository with {len(self.repository.classes)} classes "
                 f"and {total_methods} methods from static data"
             )
 
         except Exception as e:
-            self.logger.error(f"Error initializing from static data: {e}", exc_info=True)
+            self.logger.error(
+                f"Error initializing from static data: {e}", exc_info=True
+            )
 
     def start(self) -> None:
         """Start the coverage tracker thread."""
@@ -168,7 +182,7 @@ class CoverageTracker:
 
             # Create empty file if it doesn't exist
             if not os.path.exists(self.logcat_file):
-                with open(self.logcat_file, 'w'):
+                with open(self.logcat_file, "w"):
                     pass
 
             # Reset tracker state
@@ -200,7 +214,9 @@ class CoverageTracker:
 
                 # Check if still alive
                 if self.thread.is_alive():
-                    self.logger.warning("Coverage tracker thread did not terminate gracefully")
+                    self.logger.warning(
+                        "Coverage tracker thread did not terminate gracefully"
+                    )
 
             self.is_running = False
             self.logger.info("Coverage tracker stopped")
@@ -214,7 +230,7 @@ class CoverageTracker:
         file_handle = None
 
         try:
-            with open(self.logcat_file, 'r') as f:
+            with open(self.logcat_file, "r") as f:
                 file_handle = f
 
                 # Process existing lines
@@ -238,7 +254,9 @@ class CoverageTracker:
                         self.last_update_time = datetime.now()
                     else:
                         # Only update metrics periodically if no new data
-                        if (datetime.now() - self.last_update_time).total_seconds() >= 10:
+                        if (
+                            datetime.now() - self.last_update_time
+                        ).total_seconds() >= 10:
                             self._update_coverage_metrics()
                             self.last_update_time = datetime.now()
 
@@ -302,17 +320,21 @@ class CoverageTracker:
             if error_log:
                 # Calculate time since tool execution start using logcat timestamp
                 if self.tool_execution_start_time and error_log.time_occurred:
-                    time_since_start = int((error_log.time_occurred - self.tool_execution_start_time).total_seconds())
+                    time_since_start = int(
+                        (
+                            error_log.time_occurred - self.tool_execution_start_time
+                        ).total_seconds()
+                    )
                     time_since_start = max(0, time_since_start)  # Ensure non-negative
                 else:
                     time_since_start = 0
-                
+
                 # Set timing info for error
                 error_log.time_since_task_start = time_since_start
                 self.repository.register_rv_error(error_log)
                 self.total_errors += 1
                 self._data_changed_since_last_update = True  # Mark data as changed
-                
+
                 self.logger.warning(
                     f"MOP violation detected: {error_log.spec} in {error_log.class_full_name}.{error_log.method}"
                 )
@@ -323,7 +345,11 @@ class CoverageTracker:
             elif coverage_log:
                 # Calculate time since tool execution start using logcat timestamp
                 if self.tool_execution_start_time and coverage_log.time_occurred:
-                    time_since_start = int((coverage_log.time_occurred - self.tool_execution_start_time).total_seconds())
+                    time_since_start = int(
+                        (
+                            coverage_log.time_occurred - self.tool_execution_start_time
+                        ).total_seconds()
+                    )
                     time_since_start = max(0, time_since_start)  # Ensure non-negative
                 else:
                     time_since_start = 0
@@ -367,7 +393,7 @@ class CoverageTracker:
                 "mop_method_coverage": metrics_dict.get("mop_method_coverage", 0.0),
                 "called_methods": metrics.called_methods,
                 "total_activities": metrics.total_activities,
-                "unique_errors": metrics.unique_errors
+                "unique_errors": metrics.unique_errors,
             }
 
             # Check if any metrics have actually changed from previous values

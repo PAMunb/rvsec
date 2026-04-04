@@ -11,7 +11,6 @@ rv_experiment.constants module are working correctly.
 """
 
 import os
-import pytest
 from rv_experiment import constants
 
 class TestConstants:

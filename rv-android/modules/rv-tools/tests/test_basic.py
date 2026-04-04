@@ -2,7 +2,6 @@
 Basic tests for rv-tools module.
 """
 
-import pytest
 from rv_tools.registry.registry import ToolRegistry
 from rv_tools.registry.factory import ToolFactory
 

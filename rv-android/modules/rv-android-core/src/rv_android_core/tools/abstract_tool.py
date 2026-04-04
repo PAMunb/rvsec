@@ -199,7 +199,6 @@ class AbstractTool(ABC):
             task: Task configuration and context
             app: Application under test
         """
-        execution_successful = False
 
         try:
             self.logger.info(f"Executing monitored operations tool: {self.name}")
@@ -212,7 +211,6 @@ class AbstractTool(ABC):
             self.kill_related_processes(self.process_pattern)
 
             # Mark execution as successful only if we reach this point
-            execution_successful = True
             self.logger.info(f"Tool {self.name} execution completed successfully")
 
         except RVCommandTimeoutError as e:
@@ -230,7 +228,7 @@ class AbstractTool(ABC):
                 cause=e,
             )
 
-        except Exception as e:
+        except Exception:
             # Re-raise to caller (ToolExecutionComponent) — @handle_errors on
             # execute_tool_specific_logic already logged the first entry
             raise

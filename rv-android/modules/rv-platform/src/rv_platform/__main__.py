@@ -9,13 +9,12 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List
 
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_tools.registry.registry import ToolRegistry
 from rv_android_core.domain.task import ToolConfig
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform
+from rv_tools.registry.registry import ToolRegistry
 
 
 def add_performance_arguments(parser):
@@ -178,7 +177,7 @@ def cmd_run(args) -> int:
             console_level=log_level,
             console_context=show_context,
         )
-        logger = logging_manager.get_logger("rv_platform.cli")
+        logging_manager.get_logger("rv_platform.cli")
 
         # Check for standalone result processing mode
         if args.process_results:
@@ -476,7 +475,7 @@ def _process_results_standalone(results_dir: str) -> int:
         processor.execute({})
         processor.cleanup()
 
-        print(f"✅ Results processing completed successfully")
+        print("✅ Results processing completed successfully")
         print(f"📂 Output files saved to: {results_dir}")
 
         return 0

@@ -15,7 +15,6 @@ errors gracefully.
 
 import pytest
 from rv_screen_parser.constants import ScreenParserType
-from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
 from rv_screen_parser.parser.screen.parser_factory import ParserFactory
 from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser

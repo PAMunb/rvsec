@@ -9,7 +9,6 @@ Verifies buffered navigation for multi-step path execution:
 - Backtrack rejects paths exceeding MAX_BACKTRACK_HOPS
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from rv_android_core.domain.widget import WidgetEventType
@@ -244,4 +243,3 @@ class TestPlanMopPath:
 class TestPlanCoveragePath:
     """Coverage path tests moved to test_path_buffer_coverage.py."""
 
-    pass

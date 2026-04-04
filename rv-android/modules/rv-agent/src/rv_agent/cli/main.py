@@ -19,7 +19,6 @@ import sys
 from pathlib import Path
 
 import click
-
 from rv_agent.agent.agent_factory import AgentFactory
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.constants import RVAgentConstants
@@ -165,7 +164,7 @@ def run(
         click.echo(f"Agent initialized (mode: {mode})")
 
         # Run exploration
-        click.echo(f"\nStarting exploration...")
+        click.echo("\nStarting exploration...")
         click.echo("Press Ctrl+C to stop\n")
 
         try:
@@ -210,7 +209,7 @@ def run(
 )
 def test(device: str):
     """Test device connection and configuration."""
-    logger = setup_logging(False)
+    setup_logging(False)
 
     click.echo("Testing RVAgent Configuration")
     click.echo("=" * 50)

@@ -9,8 +9,6 @@ import logging
 import random
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type
 
-from rv_android_core.domain.static import StaticAnalysisData
-
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.services.transition_manager import TransitionManager
 from rv_agent.strategies.base_strategy import ExplorationStrategy
@@ -18,6 +16,7 @@ from rv_agent.strategies.bfs_strategy import BFSStrategy
 from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.strategies.greedy_strategy import GreedyStrategy
 from rv_agent.strategies.rvagent_strategy import RVAgentStrategy
+from rv_android_core.domain.static import StaticAnalysisData
 
 if TYPE_CHECKING:
     from rv_agent.config.agent_config import RVAgentConfig

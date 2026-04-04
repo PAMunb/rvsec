@@ -12,12 +12,18 @@ A comprehensive log parsing module for extracting runtime verification and cover
 import logging
 import re
 from datetime import datetime
-from typing import Dict, Any, Optional, Generator
-from typing import Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from rv_android_core.domain.coverage import LogcatRepository
-from rv_android_core.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
-from rv_android_core.util.android.repository_initializer import initialize_repository_from_static_data
+from rv_android_core.domain.log import (
+    RvErrorLog,
+    RvCoverageLog,
+    TAG_RVSEC,
+    TAG_RVSEC_COV,
+)
+from rv_android_core.util.android.repository_initializer import (
+    initialize_repository_from_static_data,
+)
 
 
 def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
@@ -37,13 +43,13 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     logger = logging.getLogger(__name__)
 
     # Initialize repository with static data if provided
-    if static_data and hasattr(static_data, 'classes'):
+    if static_data and hasattr(static_data, "classes"):
         logger.debug("Initializing repository with static analysis data")
         initialize_repository_from_static_data(repository, static_data, "LogcatParser")
 
     # Process log file line by line for memory efficiency
     try:
-        with open(log_file, 'r') as f:
+        with open(log_file, "r") as f:
             for line in f:
                 error_log, coverage_log = parse_logcat_line(line)
 
@@ -57,38 +63,9 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     return repository
 
 
-# Legacy function removed - now using centralized initialize_repository_from_static_data
-
-
-def stream_logcat_entries(log_file: str) -> Generator[Dict[str, Any], None, None]:
-    """
-    Stream logcat entries from a file as they are added.
-    This allows for real-time processing of logs as they are generated.
-
-    Args:
-        log_file (str): Path to the logcat file
-
-    Yields:
-        Dictionary with parsed log entry fields or None if no new entries
-    """
-    with open(log_file, 'r') as f:
-        # Move to the end of the file to start processing from there
-        f.seek(0, 2)  # Seek to EOF
-
-        while True:
-            line = f.readline()
-            if not line:
-                # No new data, yield control back temporarily
-                yield None
-                continue
-
-            # Process line
-            entry = _parse_logcat_line(line)
-            if entry:
-                yield entry
-
-
-def parse_logcat_line(line: str) -> Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
+def parse_logcat_line(
+    line: str,
+) -> Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
     """
     Parse a single logcat line for RVSEC or RVSEC-COV entries.
 
@@ -146,7 +123,7 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
         "level": level,
         "tag": tag,
         "message": message,
-        "original": line.strip()
+        "original": line.strip(),
     }
 
 
@@ -171,7 +148,7 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
                 generic["class"],
                 generic["method"],
                 generic["file_name"],
-                generic["message"]
+                generic["message"],
             )
 
     # Try to parse JCA specification error format
@@ -185,7 +162,9 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
             parts[1],  # class
             parts[3],  # method
             parts[4],  # source
-            ",".join(parts[6:]) if len(parts) > 6 else "No additional message"  # message
+            (
+                ",".join(parts[6:]) if len(parts) > 6 else "No additional message"
+            ),  # message
         )
 
     # Alternative format with ::: separator (FSM format)
@@ -193,14 +172,16 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
         split = message.split(":::")
         if len(split) >= 2:
             tmp = split[0]
-            tmp = tmp[:tmp.find("(") if "(" in tmp else len(tmp)]
+            tmp = tmp[: tmp.find("(") if "(" in tmp else len(tmp)]
             dot_idx = tmp.rfind(".")
             if dot_idx != -1:
                 clazz = tmp[:dot_idx]
-                method = tmp[dot_idx + 1:]
+                method = tmp[dot_idx + 1 :]
                 message_text = split[1].strip()
                 spec = message_text.split(" ")[0]
-                return RvErrorLog(spec, spec, clazz, method, "Unknown Source:1", message_text)
+                return RvErrorLog(
+                    spec, spec, clazz, method, "Unknown Source:1", message_text
+                )
 
     # Fallback for malformed messages - log warning instead of creating malformed data
     logging.getLogger(__name__).warning(f"Failed to parse error message: {message}")
@@ -228,7 +209,7 @@ def _parse_generic_spec_error(log_line: str) -> Optional[Dict[str, Any]]:
             "file_name": file_name,
             "line_number": int(line_number) if line_number.isdigit() else 0,
             "spec": spec,
-            "message": f"{spec} went into an error state."
+            "message": f"{spec} went into an error state.",
         }
     return None
 
@@ -278,7 +259,7 @@ def _convert_to_datetime(date: str, time: str) -> datetime:
 
     # Handle edge case for year transition
     current_month = datetime.now().month
-    log_month = int(date.split('-')[0])
+    log_month = int(date.split("-")[0])
 
     # If current month is January (1) and log month is December (12),
     # it means the log is from the previous year

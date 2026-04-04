@@ -9,9 +9,8 @@ Complements test_resume_cli.py (CLI argument parsing) by testing:
 """
 
 import os
-from unittest.mock import MagicMock, Mock, patch, call
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.config import ExperimentConfig

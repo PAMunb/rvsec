@@ -274,7 +274,7 @@ class MonkeyTool(AbstractTool):
         with open(task.result.trace_file, 'wb') as trace_file:
             # Use centralized command execution with error handling
             # Redirect both stdout and stderr to trace file to prevent console flooding
-            result = self._execute_and_check_command(monkey_cmd, stdout=trace_file, stderr=trace_file)
+            self._execute_and_check_command(monkey_cmd, stdout=trace_file, stderr=trace_file)
         
         # Append success information to trace file (text mode for metadata)
         # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:

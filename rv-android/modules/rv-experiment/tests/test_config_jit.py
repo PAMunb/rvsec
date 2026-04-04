@@ -11,7 +11,6 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from rv_experiment.config import ExperimentConfig
 from helpers import make_config
 
 
@@ -91,7 +90,7 @@ class TestJitMonitorConfig:
 
         mock_config = MagicMock()
         with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
-            result = config.get_monitored_operations_config()
+            config.get_monitored_operations_config()
 
         call_kwargs = mock_cls.call_args[1]
         assert "generic" in call_kwargs["mop_specs_dir"]
@@ -114,7 +113,7 @@ class TestJitMonitorConfig:
 
         mock_config = MagicMock()
         with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
-            result = config.get_monitored_operations_config()
+            config.get_monitored_operations_config()
 
         call_kwargs = mock_cls.call_args[1]
         assert call_kwargs["mop_specs_dir"] == str(custom_dir)
@@ -135,7 +134,7 @@ class TestJitMonitorConfig:
 
         mock_config = MagicMock()
         with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
-            result = config.get_monitored_operations_config()
+            config.get_monitored_operations_config()
 
         call_kwargs = mock_cls.call_args[1]
         assert call_kwargs["aspects_dir"] == str(custom_aspects)
@@ -156,7 +155,7 @@ class TestJitMonitorConfig:
         # The method itself will hit the else branch and raise, but no decorator on it
         # Let's just test it doesn't crash
         try:
-            result = config.get_monitored_operations_config()
+            config.get_monitored_operations_config()
         except Exception:
             pass  # ConfigurationError expected for unsupported spec set
 class TestGetModuleConfig:

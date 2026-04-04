@@ -45,6 +45,8 @@ dev = [
     "vulture>=2.7.0",
     "safety>=3.2.0",
     "radon>=6.0.0",
+    "autoflake>=2.3.0",
+    "isort>=5.13.0",
 ]
 
 [tool.uv]

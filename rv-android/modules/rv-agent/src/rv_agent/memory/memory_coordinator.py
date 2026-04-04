@@ -9,13 +9,12 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.agent_memory import AgentMemoryManager
 from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.short_term import ShortTermMemory
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 
 class MemoryCoordinator:

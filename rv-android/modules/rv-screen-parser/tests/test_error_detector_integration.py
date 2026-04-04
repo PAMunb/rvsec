@@ -15,7 +15,7 @@ from pathlib import Path
 
 from rv_screen_parser.screenshot.detectors.error_detector import ErrorDetector, get_error_detector
 from rv_screen_parser.screenshot.detectors.text_detector import get_text_detector
-from rv_screen_parser.screenshot.models import DetectedText, ErrorIndicator, ErrorType, DetectionMethod
+from rv_screen_parser.screenshot.models import ErrorType, DetectionMethod
 
 
 IMAGES_DIR = Path(__file__).parent / "images"

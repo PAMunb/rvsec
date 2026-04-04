@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from pydantic import Field
-
 from rv_android_core.domain.task import Task, TaskFactory, TaskState
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT

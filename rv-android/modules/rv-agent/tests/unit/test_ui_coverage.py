@@ -4,9 +4,7 @@ Unit tests for UICoverageTracker.
 Tests element tracking, annotation, coverage statistics, and exploration suggestions.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
-import time
+from unittest.mock import MagicMock
 
 from rv_agent.memory.ui_coverage import UICoverageTracker, UIElementStats
 

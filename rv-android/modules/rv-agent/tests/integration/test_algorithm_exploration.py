@@ -11,7 +11,7 @@ Tests DFS algorithm exploration using real screenshots and UIAutomator dumps to 
 
 import pytest
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import List, Tuple
 
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
@@ -243,7 +243,7 @@ class TestDFSExplorationOrder:
         screen_hash = compute_screen_hash_from_description(screen_desc)
 
         # Select first action
-        action1 = dfs_strategy.select_next_action(screen_hash, screen_desc)
+        dfs_strategy.select_next_action(screen_hash, screen_desc)
 
         # Check that action was recorded in graph
         node = graph.states.get(screen_hash)
@@ -505,7 +505,7 @@ class TestCoordinateTracking:
         _, screen_desc = load_fixture("cryptoapp", "001")
         screen_hash = compute_screen_hash_from_description(screen_desc)
 
-        action = dfs_strategy.select_next_action(screen_hash, screen_desc)
+        dfs_strategy.select_next_action(screen_hash, screen_desc)
 
         node = graph.states[screen_hash]
 
@@ -519,7 +519,7 @@ class TestCoordinateTracking:
     def test_same_element_same_signature(self, graph):
         """Same element produces consistent signature."""
         _, screen_desc = load_fixture("cryptoapp", "001")
-        screen_hash = compute_screen_hash_from_description(screen_desc)
+        compute_screen_hash_from_description(screen_desc)
 
         actions = screen_desc.get_all_actions()
         if not actions:

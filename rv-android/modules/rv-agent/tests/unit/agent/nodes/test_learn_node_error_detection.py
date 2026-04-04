@@ -9,8 +9,7 @@ Tests the 3-way branching logic:
 Also tests the detection disabled path and counter reset on no-error-found.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from rv_agent.agent.nodes.learn_node import (
     learn_node,
@@ -258,7 +257,7 @@ class TestLearnNodeErrorDetection:
         agent.last_screen_hash = "old_hash"
 
         with patch("rv_agent.agent.nodes.learn_node.track") as mock_track:
-            result = learn_node(agent, state)
+            learn_node(agent, state)
 
             # Find the track.learn call
             learn_calls = mock_track.learn.call_args_list
@@ -288,7 +287,7 @@ class TestLearnNodeErrorDetection:
         agent.last_screen_hash = "old_hash"
 
         with patch("rv_agent.agent.nodes.learn_node.track") as mock_track:
-            result = learn_node(agent, state)
+            learn_node(agent, state)
 
             # track.error called with correct args
             mock_track.error.assert_called_once_with(

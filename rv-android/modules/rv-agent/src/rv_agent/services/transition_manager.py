@@ -29,11 +29,10 @@ import logging
 from collections import deque
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
-
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
 # Max hops for MOP BFS path (matches Strategy A's MAX_BACKTRACK_HOPS)
 MAX_MOP_BFS_DEPTH = 8

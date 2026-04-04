@@ -265,7 +265,7 @@ class LongTermMemory:
             if current_state_hash not in self.states:
                 return ["explore_new_elements", "try_different_actions"]
 
-            state = self.states[current_state_hash]
+            self.states[current_state_hash]
 
             # Actions that were rarely tried
             underexplored_actions = []

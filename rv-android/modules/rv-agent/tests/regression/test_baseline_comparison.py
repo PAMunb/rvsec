@@ -11,9 +11,7 @@ Tests verify:
 import pytest
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-from rv_agent.config.agent_config import RVAgentConfig
 
 # =============================================================================
 # Fixtures

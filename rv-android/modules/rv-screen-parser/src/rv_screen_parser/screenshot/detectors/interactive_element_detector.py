@@ -20,7 +20,7 @@ components that may not be properly identified through standard UI hierarchy.
 """
 
 import math
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
@@ -29,7 +29,7 @@ from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
-from ..models import DetectedText, InteractiveElement, InteractiveElementType, BoundingBox, DetectionMethod
+from ..models import DetectedText, InteractiveElement, InteractiveElementType, DetectionMethod
 from ..utils.geometry_utils import get_geometry_utils
 
 
@@ -202,7 +202,7 @@ class InteractiveElementDetector:
         
         for contour in contours:
             try:
-                area = cv2.contourArea(contour)
+                cv2.contourArea(contour)
                 x, y, w, h = cv2.boundingRect(contour)
                 aspect_ratio = w / h if h > 0 else 0
                 

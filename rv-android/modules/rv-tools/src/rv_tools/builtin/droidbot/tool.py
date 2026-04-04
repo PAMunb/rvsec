@@ -13,8 +13,6 @@ from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.logging.manager import LoggingManager
 
 
 class DroidBotTool(AbstractTool):
@@ -226,7 +224,7 @@ class DroidBotTool(AbstractTool):
         with open(task.result.trace_file, 'wb') as trace_file:
             # Use centralized command execution with error handling
             # Redirect both stdout and stderr to trace file to prevent console flooding
-            result = self._execute_and_check_command(droidbot_cmd, stdout=trace_file, stderr=trace_file)
+            self._execute_and_check_command(droidbot_cmd, stdout=trace_file, stderr=trace_file)
 
         # Append success information to trace file (text mode for metadata)
         # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:

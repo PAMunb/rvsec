@@ -20,7 +20,7 @@ error conditions, warnings, and validation messages in mobile applications.
 """
 
 import re
-from typing import List, Optional, Tuple, Set
+from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
@@ -29,7 +29,7 @@ from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
-from ..models import DetectedText, ErrorIndicator, ErrorType, BoundingBox, DetectionMethod
+from ..models import DetectedText, ErrorIndicator, ErrorType, DetectionMethod
 from ..utils.geometry_utils import get_geometry_utils
 
 

@@ -122,7 +122,6 @@ class BaseScreenParser(Generic[T], ABC):
         Returns:
             ScreenDescription object containing parsed UI elements
         """
-        pass
 
     def create_visitor(self, static_data: Optional[StaticAnalysisData], activity: str) -> AbstractScreenVisitor:
         """
@@ -152,7 +151,6 @@ class BaseScreenParser(Generic[T], ABC):
         Raises:
             ValueError: If activity name cannot be determined
         """
-        pass
 
     @abstractmethod
     def create_node_tree(self, state_data: Dict[str, Any]) -> Optional[Node]:
@@ -168,7 +166,6 @@ class BaseScreenParser(Generic[T], ABC):
         Raises:
             ValueError: If node tree cannot be created from the state data
         """
-        pass
 
     def get_package_name(self, state_data: Dict[str, Any]) -> Optional[str]:
         """

@@ -33,9 +33,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
 from rv_agent import tracking as track
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 if TYPE_CHECKING:
     from rv_agent.services.transition_manager import TransitionManager

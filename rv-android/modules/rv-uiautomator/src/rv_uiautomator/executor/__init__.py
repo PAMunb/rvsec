@@ -7,6 +7,4 @@ generated actions into device interactions.
 
 from .action_executor import UIAutomatorActionExecutor
 
-__all__ = [
-    "UIAutomatorActionExecutor"
-]
+__all__ = ["UIAutomatorActionExecutor"]

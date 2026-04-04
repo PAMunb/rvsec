@@ -11,7 +11,7 @@ Tests verify:
 """
 
 import pytest
-from unittest.mock import MagicMock, Mock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 from collections import deque
 
 from rv_agent.strategies.bfs_strategy import BFSState, BFSStrategy

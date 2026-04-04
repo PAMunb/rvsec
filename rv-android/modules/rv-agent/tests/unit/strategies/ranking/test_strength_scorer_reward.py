@@ -65,7 +65,7 @@ class TestStrengthScorerReward:
 
         node = ScreenNode(screen_hash="test_hash", activity="TestActivity")
         action = _make_action()
-        sig = action.coords_for_matching
+        action.coords_for_matching
 
         # Untested action, no cumulative reward
         context = _make_context_with_node(node)

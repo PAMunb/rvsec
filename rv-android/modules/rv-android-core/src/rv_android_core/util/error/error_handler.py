@@ -175,7 +175,7 @@ class ErrorHandler:
                 result = callback(error, context)
                 if result is True:
                     handled = True
-                    self._logger.debug(f"Error handled by callback")
+                    self._logger.debug("Error handled by callback")
                     break
             except Exception as e:
                 self._logger.error(f"Error in callback: {e}")

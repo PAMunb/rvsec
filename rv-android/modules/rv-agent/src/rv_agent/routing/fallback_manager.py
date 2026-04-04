@@ -8,9 +8,8 @@ or when loops are detected during LLM-guided exploration.
 import logging
 from typing import Optional
 
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
-
 from rv_agent.strategies.strategy_registry import StrategyRegistry
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 
 class FallbackManager:

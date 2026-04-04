@@ -8,8 +8,6 @@ Tests:
 (d) learn_node dynamic stuck threshold uses screen_description element count
 """
 
-import logging
-import pytest
 from unittest.mock import MagicMock, patch
 
 from rv_agent.execution.tool_executor import ToolExecutor
@@ -139,7 +137,7 @@ class TestRVTRACKIterationNumbers:
         from rv_agent import tracking as track
 
         logged_calls = []
-        original_strategy = track.strategy
+        track.strategy
 
         def capture_strategy(**kwargs):
             logged_calls.append(kwargs)
@@ -147,9 +145,7 @@ class TestRVTRACKIterationNumbers:
         with patch.object(track, "strategy", side_effect=capture_strategy):
             # Simulate what algorithm_node does: set _current_iteration
             # then strategy uses it in tier1
-            from rv_agent.strategies.rvagent_strategy.rvagent_strategy import (
-                RVAgentStrategy,
-            )
+            pass
 
             # We just verify the tracking function signature accepts iter
             # and the strategy code passes self._current_iteration

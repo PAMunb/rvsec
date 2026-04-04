@@ -52,7 +52,7 @@ class TestLLMClientInit:
             mock_llm.bind_tools.return_value = mock_llm
             mock_chat.return_value = mock_llm
 
-            client = LLMClient(config, prompt_module)
+            LLMClient(config, prompt_module)
 
             mock_llm.bind_tools.assert_called_once()
             tools = get_android_tools()

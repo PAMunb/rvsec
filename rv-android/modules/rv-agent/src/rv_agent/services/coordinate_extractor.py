@@ -96,7 +96,7 @@ def extract_clickable_elements_with_coords(
                     # Build enhanced description WITH COORDINATES
                     text = node.get("text", "")
                     content_desc = node.get("content-desc", "")
-                    resource_id = node.get("resource-id", "")
+                    node.get("resource-id", "")
                     class_name = node.get("class", "").split(".")[-1]
 
                     # FORMATO CRÍTICO - LLM usa coordenadas, não IDs

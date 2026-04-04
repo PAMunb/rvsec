@@ -6,7 +6,7 @@ highest exploration_potential (coverage_gap * element_count).
 """
 
 import pytest
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 from rv_agent.strategies.rvagent_strategy.path_buffer import (
     PathBuffer,

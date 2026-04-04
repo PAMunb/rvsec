@@ -129,7 +129,7 @@ class TestGradualDecayScorerIdFix:
 
         # Capture INFO-level logs from the tracking module
         with caplog.at_level(logging.INFO, logger="rv_agent.tracking"):
-            score = scorer.score(action, context)
+            scorer.score(action, context)
 
         # Verify a SCORE_DETAIL line was emitted
         score_detail_lines = [

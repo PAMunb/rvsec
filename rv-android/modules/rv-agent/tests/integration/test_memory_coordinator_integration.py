@@ -8,7 +8,7 @@ and multi-component coordination.
 import pytest
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Tuple
 
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,

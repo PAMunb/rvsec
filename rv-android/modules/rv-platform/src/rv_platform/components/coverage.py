@@ -5,21 +5,21 @@ Coverage component for RV-Platform.
 Manages coverage tracking and analysis during task execution.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from rv_android_core.domain.coverage import LogcatRepository
+from rv_android_core.domain.task import Task
+from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
-    CONTEXT_TASK_ID,
     CONTEXT_APP_NAME,
+    CONTEXT_TASK_ID,
     LOG_ERROR,
-    LOG_SKIPPED
+    LOG_SKIPPED,
 )
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.domain.task import Task
 
 
 class CoverageComponent:
@@ -60,11 +60,8 @@ class CoverageComponent:
         # Initialize logging with task context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.components.coverage',
-            {
-                CONTEXT_TASK_ID: task.id,
-                CONTEXT_APP_NAME: task.config.apk_name
-            }
+            "rv_platform.components.coverage",
+            {CONTEXT_TASK_ID: task.id, CONTEXT_APP_NAME: task.config.apk_name},
         )
 
         # Parse any existing logcat file if available
@@ -74,24 +71,21 @@ class CoverageComponent:
     def initialize(self, context: Dict[str, Any]) -> None:
         """
         Initialize the coverage component.
-        
+
         Args:
             context: Task execution context
         """
         self.logger.debug("Initializing CoverageComponent")
 
-    @ErrorHandler.handle_errors(
-        component="CoverageComponent",
-        phase="execution"
-    )
+    @ErrorHandler.handle_errors(component="CoverageComponent", phase="execution")
     def execute(self, context: Dict[str, Any]) -> bool:
         """
         Execute coverage initialization for the task.
         This method is called during preparation phase to initialize coverage tracker.
-        
+
         Args:
             context: Task execution context
-            
+
         Returns:
             True if coverage tracker was initialized successfully
         """
@@ -99,13 +93,13 @@ class CoverageComponent:
             # Initialize coverage tracker (but don't start tracking yet)
             if not self.initialize_tracker():
                 return False
-                
+
             # Store coverage tracker in context for later use
             context["coverage_tracker"] = self.coverage_tracker
-            
+
             self.logger.info("Coverage tracker initialized successfully")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Coverage component initialization failed: {e}")
             self.error_handler.handle_error(e, context)
@@ -114,7 +108,7 @@ class CoverageComponent:
     def cleanup(self, context: Dict[str, Any]) -> None:
         """
         Clean up coverage resources.
-        
+
         Args:
             context: Task execution context
         """
@@ -128,18 +122,24 @@ class CoverageComponent:
     def _parse_existing_logcat(self) -> None:
         """Parse existing logcat file if available."""
         import os
-        if self.task.result.logcat_file and os.path.exists(self.task.result.logcat_file):
-            self.logger.info(f"Parsing existing logcat file: {self.task.result.logcat_file}")
+
+        if self.task.result.logcat_file and os.path.exists(
+            self.task.result.logcat_file
+        ):
+            self.logger.info(
+                f"Parsing existing logcat file: {self.task.result.logcat_file}"
+            )
             try:
                 self.repository = parse_logcat_file(self.task.result.logcat_file)
                 self.task.repository = self.repository
             except Exception as e:
                 self.logger.error(f"Error parsing logcat file: {e}")
-                self.error_handler.handle_error(e, {"task_id": self.task.id, "phase": "parse_logcat"})
+                self.error_handler.handle_error(
+                    e, {"task_id": self.task.id, "phase": "parse_logcat"}
+                )
 
     @ErrorHandler.handle_errors(
-        component="CoverageComponent",
-        phase="tracker_initialization"
+        component="CoverageComponent", phase="tracker_initialization"
     )
     def initialize_tracker(self) -> bool:
         """
@@ -159,26 +159,24 @@ class CoverageComponent:
 
                 self.coverage_tracker = CoverageTracker(
                     logcat_file=self.task.result.logcat_file,
-                    static_data=getattr(self.task, 'static_data', None),
+                    static_data=getattr(self.task, "static_data", None),
                     task_start_time=timing_reference,
-                    task_id=self.task.id
+                    task_id=self.task.id,
                 )
                 return True
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="initializing coverage tracker",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(
+                        phase="initializing coverage tracker", error=str(e)
+                    )
+                )
                 self.error_handler.handle_error(
                     AnalysisError("Failed to initialize coverage tracker", e),
-                    {"task_id": self.task.id}
+                    {"task_id": self.task.id},
                 )
                 return False
 
-    @ErrorHandler.handle_errors(
-        component="CoverageComponent",
-        phase="start_tracking"
-    )
+    @ErrorHandler.handle_errors(component="CoverageComponent", phase="start_tracking")
     def start_tracking(self) -> bool:
         """
         Start coverage tracking.
@@ -196,26 +194,24 @@ class CoverageComponent:
 
                 # Update timing reference now that tool_execution_start is available
                 if self.task.result.tool_execution_start:
-                    self.coverage_tracker.tool_execution_start_time = self.task.result.tool_execution_start
+                    self.coverage_tracker.tool_execution_start_time = (
+                        self.task.result.tool_execution_start
+                    )
 
                 self.coverage_tracker.start()
                 self.logger.info(f"Coverage tracking started for task {self.task.id}")
                 return True
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="starting coverage tracking",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase="starting coverage tracking", error=str(e))
+                )
                 self.error_handler.handle_error(
                     AnalysisError("Failed to start coverage tracking", e),
-                    {"task_id": self.task.id}
+                    {"task_id": self.task.id},
                 )
                 return False
 
-    @ErrorHandler.handle_errors(
-        component="CoverageComponent",
-        phase="stop_tracking"
-    )
+    @ErrorHandler.handle_errors(component="CoverageComponent", phase="stop_tracking")
     def stop_tracking(self) -> bool:
         """
         Stop coverage tracking.
@@ -233,20 +229,16 @@ class CoverageComponent:
                 self.logger.info(f"Coverage tracking stopped for task {self.task.id}")
                 return True
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="stopping coverage tracking",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase="stopping coverage tracking", error=str(e))
+                )
                 self.error_handler.handle_error(
                     AnalysisError("Failed to stop coverage tracking", e),
-                    {"task_id": self.task.id}
+                    {"task_id": self.task.id},
                 )
                 return False
 
-    @ErrorHandler.handle_errors(
-        component="CoverageComponent",
-        phase="process_results"
-    )
+    @ErrorHandler.handle_errors(component="CoverageComponent", phase="process_results")
     def process_results(self) -> bool:
         """
         Process coverage results and update task metrics.
@@ -257,10 +249,12 @@ class CoverageComponent:
         """
         with self.logger.with_context(phase="process_results"):
             if not self.coverage_tracker:
-                self.logger.warning(LOG_SKIPPED.format(
-                    phase="coverage data processing",
-                    reason="No coverage tracker available"
-                ))
+                self.logger.warning(
+                    LOG_SKIPPED.format(
+                        phase="coverage data processing",
+                        reason="No coverage tracker available",
+                    )
+                )
                 return False
 
             try:
@@ -274,13 +268,17 @@ class CoverageComponent:
                 metrics_dict = metrics.to_dict()
 
                 # Update task result with metrics
-                self.task.result.coverage_metrics.update({
-                    "method_coverage": metrics_dict["method_coverage"],
-                    "activities_coverage": metrics_dict["activity_coverage"],
-                    "methods_jca_reachable_coverage": metrics_dict["mop_method_coverage"],
-                    "total_errors": metrics_dict["unique_errors"],
-                    "total_method_calls": metrics.called_methods
-                })
+                self.task.result.coverage_metrics.update(
+                    {
+                        "method_coverage": metrics_dict["method_coverage"],
+                        "activities_coverage": metrics_dict["activity_coverage"],
+                        "methods_jca_reachable_coverage": metrics_dict[
+                            "mop_method_coverage"
+                        ],
+                        "total_errors": metrics_dict["unique_errors"],
+                        "total_method_calls": metrics.called_methods,
+                    }
+                )
 
                 # Store the repository directly in the task
                 self.task.repository = repository
@@ -293,18 +291,19 @@ class CoverageComponent:
                     f"Errors: {metrics_dict['unique_errors']}"
                 )
 
-                self.logger.info(f"Coverage updated for task {self.task.id}: {self.task.result.coverage_metrics}")
+                self.logger.info(
+                    f"Coverage updated for task {self.task.id}: {self.task.result.coverage_metrics}"
+                )
                 self.logger.info("Coverage data processing completed")
                 return True
 
             except Exception as e:
-                self.logger.error(LOG_ERROR.format(
-                    phase="processing coverage data",
-                    error=str(e)
-                ))
+                self.logger.error(
+                    LOG_ERROR.format(phase="processing coverage data", error=str(e))
+                )
                 self.error_handler.handle_error(
                     AnalysisError("Coverage data processing failed", e),
-                    {"task_id": self.task.id}
+                    {"task_id": self.task.id},
                 )
                 return False
 

@@ -7,7 +7,6 @@ Tests cover:
 
 import json
 import os
-import pytest
 from unittest.mock import MagicMock
 
 from rv_experiment.experiment.workflow.result_manager import ResultManager
@@ -89,5 +88,5 @@ class TestResultManager:
         mock_storage = MagicMock()
         mock_storage.get_tasks.return_value = []
 
-        manager = ResultManager(new_dir, mock_storage)
+        ResultManager(new_dir, mock_storage)
         assert os.path.isdir(new_dir)

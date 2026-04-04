@@ -9,11 +9,10 @@ than 8 real actions from reaching the 80% backtrack threshold.
 
 import pytest
 from unittest.mock import MagicMock
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.domain.screen_node import ScreenNode
 
 
 @dataclass
@@ -291,7 +290,6 @@ class TestPathBufferFailureCache:
     def test_cooldown_blocks_planning(self):
         """During cooldown, planning is skipped without calling TransitionManager."""
         from rv_agent.strategies.rvagent_strategy.path_buffer import (
-            PLAN_COOLDOWN_AFTER_FAILURE,
             PathBuffer,
         )
 

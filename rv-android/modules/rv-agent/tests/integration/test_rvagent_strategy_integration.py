@@ -14,20 +14,14 @@ These tests use real component instances (not mocks) to validate
 the integration between RVAgentStrategy and its dependencies.
 """
 
-import pytest
 import hashlib
-from typing import List
 
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.config.agent_config import RVAgentConfig
 
 from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
 
 from .conftest import (
-    MockScreenDescription,
-    MockItemAction,
     create_mock_action,
     create_mock_screen,
 )
@@ -92,7 +86,7 @@ class TestActionSelection:
         """Selected action is recorded in the graph."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
-        action = rvagent_strategy.select_next_action(screen_hash, simple_screen)
+        rvagent_strategy.select_next_action(screen_hash, simple_screen)
 
         node = rvagent_strategy.graph.states.get(screen_hash)
         assert node is not None
@@ -102,7 +96,7 @@ class TestActionSelection:
         """Selected action is pre-marked in the graph (UI coverage tracking moved to execute_node)."""
         screen_hash = compute_test_hash("MainActivity", 3)
 
-        action = rvagent_strategy.select_next_action(screen_hash, simple_screen)
+        rvagent_strategy.select_next_action(screen_hash, simple_screen)
 
         # UI coverage tracking was moved to execute_node.py (post-execution).
         # The strategy pre-marks the action in the graph instead.
@@ -331,10 +325,10 @@ class TestSuccessorTracking:
         # Dropdown is now incomplete (1/3 actions executed)
         # When we revisit main screen, the dropdown action should be re-enabled
         main_node = rvagent_strategy.graph.states[main_hash]
-        initial_executed = len(main_node.executed_actions)
+        len(main_node.executed_actions)
 
         # Trigger re-enabling by selecting from main screen again
-        action2 = rvagent_strategy.select_next_action(main_hash, main_screen)
+        rvagent_strategy.select_next_action(main_hash, main_screen)
 
         # The dropdown action should have been re-enabled and selected again
         # OR action2 is None if the logic works differently
@@ -420,7 +414,7 @@ class TestPlateauDetection:
                 create_mock_action(coords=(200, 500)),
             ],
         )
-        screen_hash = compute_test_hash("StuckActivity", 2)
+        compute_test_hash("StuckActivity", 2)
 
         # Fill plateau window with no-progress iterations (default window_size=10)
         for _ in range(11):
@@ -478,7 +472,7 @@ class TestReset:
     def test_reset_clears_plateau_detector(self, rvagent_strategy, simple_screen):
         """Reset clears plateau detector history."""
         screen_hash = compute_test_hash("MainActivity", 3)
-        action = rvagent_strategy.select_next_action(screen_hash, simple_screen)
+        rvagent_strategy.select_next_action(screen_hash, simple_screen)
         rvagent_strategy.plateau_detector.record_iteration(True, None)
 
         rvagent_strategy.reset()

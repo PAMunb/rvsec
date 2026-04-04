@@ -15,7 +15,6 @@ from rv_agent.agent.agent_factory import AgentFactory
 from .conftest import (
     launch_app,
     force_stop_app,
-    go_home,
     SGLANG_URL,
     SGLANG_MODEL,
     DEVICE_ID,
@@ -254,7 +253,7 @@ class TestMultimodeExecution:
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)
 
-        result = agent.run()
+        agent.run()
 
         routing = agent.routing_manager
         total = routing.llm_executed + routing.algorithm_chosen
@@ -371,7 +370,7 @@ class TestMemorySystems:
         launch_app(device_id, cryptoapp.package_name)
         time.sleep(2)
 
-        result = agent.run()
+        agent.run()
 
         # Check dynamic graph
         graph = agent.dynamic_graph

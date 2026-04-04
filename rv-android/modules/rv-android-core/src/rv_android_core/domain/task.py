@@ -675,7 +675,7 @@ class Task:
                     try:
                         self.repository = parse_logcat_file(self.result.logcat_file)
                         self.logger.warning(
-                            f"Parsed logcat file without static data - method calls may be ignored"
+                            "Parsed logcat file without static data - method calls may be ignored"
                         )
                     except Exception as fallback_error:
                         self.logger.error(

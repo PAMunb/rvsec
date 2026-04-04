@@ -7,11 +7,10 @@ Tests LLM functionality via AgentFactory and RVAgent.
 import pytest
 import time
 import base64
-from pathlib import Path
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.agent_factory import AgentFactory
-from .conftest import launch_app, DATASET_ROOT, DEVICE_ID, SGLANG_URL, SGLANG_MODEL
+from .conftest import DATASET_ROOT, DEVICE_ID, SGLANG_URL, SGLANG_MODEL
 
 pytestmark = [pytest.mark.online, pytest.mark.sglang]
 
@@ -127,7 +126,6 @@ class TestToolCalling:
     def test_tool_binding(self, sglang_url, sglang_model, check_sglang):
         """SGLang supports tool binding."""
         from langchain_openai import ChatOpenAI
-        from langchain_core.messages import HumanMessage
         from langchain_core.tools import tool
 
         @tool

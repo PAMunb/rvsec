@@ -4,7 +4,6 @@ Unit tests for execute_node functionality.
 Tests the execute_node function which handles action execution on the device.
 """
 
-import pytest
 from unittest.mock import MagicMock
 from rv_agent.agent.nodes.execute_node import execute_node
 from rv_agent.domain.state import AgentState
@@ -164,7 +163,7 @@ class TestExecuteNode:
             previous_action_signature=prev_sig,
         )
 
-        result = execute_node(mock_agent, state)
+        execute_node(mock_agent, state)
 
         # Verify strategy record_transition was called with signature tuple
         mock_agent.strategy.record_transition.assert_called_once_with(
@@ -217,7 +216,7 @@ class TestExecuteNode:
             previous_screen_hash="prev_hash",
         )
 
-        result = execute_node(mock_agent, state)
+        execute_node(mock_agent, state)
 
         # Verify UI coverage was recorded
         assert mock_agent.ui_coverage.record_interaction.called
@@ -259,7 +258,7 @@ class TestExecuteNode:
             previous_screen_hash="prev_hash",
         )
 
-        result = execute_node(mock_agent, state)
+        execute_node(mock_agent, state)
 
         # Verify UI coverage WAS recorded for algorithm action
         # execute_node now records for ALL sources (unified tracking point)

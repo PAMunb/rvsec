@@ -62,10 +62,8 @@ class TestScorerWeightDefaults:
     def test_stochastic_gumbel_sampling_with_015(self, config):
         """With stochastic_probability=0.15, top-scored action wins ~85% of time."""
         import random
-        import math
         from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import (
             ActionRanker,
-            ScoredAction,
         )
 
         # Create mock actions with distinct scores

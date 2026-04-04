@@ -19,6 +19,7 @@ def _register_external_tools():
     if not registry.is_tool_registered("rvagent"):
         try:
             from rvagent_tool.tools.rvagent.tool import RVAgentTool
+
             registry.register_tool_class(RVAgentTool)
         except ImportError as e:
             logging.getLogger(__name__).warning(f"rvagent tool not available: {e}")
@@ -29,6 +30,7 @@ def _register_external_tools():
     if not registry.is_tool_registered("aperv"):
         try:
             from aperv_tool.tools.aperv.tool import ApeRVTool
+
             registry.register_tool_class(ApeRVTool)
         except ImportError as e:
             logging.getLogger(__name__).warning(f"aperv tool not available: {e}")

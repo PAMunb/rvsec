@@ -31,10 +31,9 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
 from rv_agent import tracking as track
 from rv_agent.domain.screen_node import ScreenNode, Transition
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 logger = logging.getLogger(__name__)
 

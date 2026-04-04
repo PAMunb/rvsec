@@ -11,7 +11,7 @@ Tests U15-U17 verify MOP violation reconstruction from logcat (task 10).
 import csv
 import json
 import os
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,14 +19,13 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import (
     Task,
     TaskConfiguration,
-    TaskFactory,
     TaskState,
     ToolConfig,
 )
 from rv_platform.components.result_processor import ResultProcessorComponent
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform
-from rv_platform.storage.task_storage import ExperimentMetadata, TaskStorage
+from rv_platform.storage.task_storage import ExperimentMetadata
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -6,7 +6,7 @@ available, and graceful degradation when it is not. Uses mocks to isolate
 NavigationGuidance from TransitionManager and StaticAnalysisData internals.
 """
 
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 from rv_agent.services.navigation_guidance import (
     NavigationGuidance,

@@ -19,7 +19,6 @@ binary thresholding, and noise reduction operations.
 - Optimizes parameters for mobile screenshot characteristics
 """
 
-from typing import Optional
 import cv2
 import numpy as np
 

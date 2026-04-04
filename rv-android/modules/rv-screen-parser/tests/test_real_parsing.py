@@ -1,5 +1,3 @@
-import os
-import json
 from pathlib import Path
 import pytest
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser

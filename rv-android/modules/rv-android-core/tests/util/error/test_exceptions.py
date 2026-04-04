@@ -387,7 +387,7 @@ class TestExceptionUsage:
     def test_tool_error_chaining(self):
         """Test RVToolError chaining with cause."""
         cause = RuntimeError("Process crashed")
-        error = RVToolExecutionError("Tool crashed", "monkey")
+        RVToolExecutionError("Tool crashed", "monkey")
         error_with_cause = RVToolExecutionError("Tool execution failed", "monkey", cause)
         assert error_with_cause.cause == cause
         assert "caused by RuntimeError" in str(error_with_cause)

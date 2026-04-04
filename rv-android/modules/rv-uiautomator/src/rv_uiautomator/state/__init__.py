@@ -7,6 +7,4 @@ UI state representations used by various testing frameworks.
 
 from .converter import StateConverter
 
-__all__ = [
-    "StateConverter"
-]
+__all__ = ["StateConverter"]

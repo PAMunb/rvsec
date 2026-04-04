@@ -27,7 +27,7 @@ from .parser.log.logcat_parser import parse_logcat_line, parse_logcat_file
 __version__ = "0.1.0"
 __all__ = [
     "CoverageAnalyzer",
-    "CoverageTracker", 
+    "CoverageTracker",
     "parse_logcat_line",
-    "parse_logcat_file"
+    "parse_logcat_file",
 ]

@@ -337,7 +337,7 @@ class ToolExecutor:
                 "error": "No package name provided for RESTART_APP",
             }
 
-        stop_ok = self.device.stop_app(package)
+        self.device.stop_app(package)
         time.sleep(1)
         start_ok = self.device.start_app(package)
         self.logger.info("[RVTRACK:EXEC] restart_delay=1s")

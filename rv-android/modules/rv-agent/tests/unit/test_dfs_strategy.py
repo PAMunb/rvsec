@@ -3,8 +3,7 @@ Unit tests for DFSStrategy.
 """
 
 import pytest
-from unittest.mock import MagicMock, Mock, patch
-from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
 
 from rv_agent.strategies.dfs_strategy import DFSStrategy, DFSState
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
@@ -426,7 +425,7 @@ class TestDFSStrategySelectNextAction:
         mock_graph.get_or_create_state.return_value = mock_screen_node
 
         with patch.object(dfs_strategy, "_try_generate_text_input", return_value=None):
-            result = dfs_strategy.select_next_action("new_hash", mock_screen_desc)
+            dfs_strategy.select_next_action("new_hash", mock_screen_desc)
 
         mock_graph.get_or_create_state.assert_called_once()
         assert "new_hash" in dfs_strategy.visited_states
@@ -452,7 +451,7 @@ class TestDFSStrategySelectNextAction:
         mock_graph.states = {"existing_hash": mock_screen_node}
 
         with patch.object(dfs_strategy, "_try_generate_text_input", return_value=None):
-            result = dfs_strategy.select_next_action("existing_hash", mock_screen_desc)
+            dfs_strategy.select_next_action("existing_hash", mock_screen_desc)
 
         mock_graph.get_or_create_state.assert_not_called()
 

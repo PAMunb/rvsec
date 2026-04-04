@@ -8,10 +8,9 @@ Tests verify:
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.routing.routing_manager import RoutingManager
 
 pytestmark = [pytest.mark.performance]

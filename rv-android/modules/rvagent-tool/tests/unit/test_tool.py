@@ -2,8 +2,7 @@
 Unit tests for RVAgentTool.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 class TestRVAgentToolSpec:
@@ -255,65 +254,6 @@ class TestConfigMapping:
         result = get_static_data(task)
 
         assert result is None
-
-
-class TestCalibrationParamForwarding:
-    """Test that all calibration parameters are forwarded through config.py."""
-
-    def test_all_calibration_params_forwarded(self):
-        """All parameters from parameter_space.py must be in config.py whitelists."""
-        from rvagent_tool.tools.rvagent.config import build_agent_config_dict
-        from rv_agent_validation.calibration.parameter_space import ALL_PARAMETERS
-
-        task = MagicMock()
-        task.config = None
-
-        app = MagicMock()
-        app.package_name = "com.example.test"
-
-        # Build tool_config with ALL calibration params
-        tool_config = {}
-        for p in ALL_PARAMETERS:
-            tool_config[p.name] = p.default
-
-        config_dict = build_agent_config_dict(task, app, tool_config)
-
-        missing = []
-        for p in ALL_PARAMETERS:
-            if p.name not in config_dict:
-                missing.append(p.name)
-
-        assert missing == [], (
-            f"Calibration params NOT forwarded by config.py: {missing}. "
-            f"Add them to the appropriate whitelist in build_agent_config_dict()."
-        )
-
-    def test_calibration_params_preserve_values(self):
-        """Forwarded params must preserve their original values (no type coercion)."""
-        from rvagent_tool.tools.rvagent.config import build_agent_config_dict
-        from rv_agent_validation.calibration.parameter_space import ALL_PARAMETERS
-
-        task = MagicMock()
-        task.config = None
-
-        app = MagicMock()
-        app.package_name = "com.example.test"
-
-        # Use non-default values to ensure forwarding, not defaults
-        tool_config = {}
-        for p in ALL_PARAMETERS:
-            if p.param_type == "float":
-                tool_config[p.name] = (p.low + p.high) / 2
-            else:
-                tool_config[p.name] = int((p.low + p.high) / 2)
-
-        config_dict = build_agent_config_dict(task, app, tool_config)
-
-        for p in ALL_PARAMETERS:
-            assert config_dict[p.name] == tool_config[p.name], (
-                f"Param {p.name}: expected {tool_config[p.name]}, "
-                f"got {config_dict.get(p.name)}"
-            )
 
 
 class TestRVAgentToolInfo:

@@ -28,8 +28,6 @@ import importlib
 import logging
 from typing import Optional
 
-from rv_android_core.domain.static import StaticAnalysisData
-
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.agent.rv_agent import RVAgent
@@ -49,6 +47,7 @@ from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.services.transition_manager import TransitionManager
 from rv_agent.services.vision_service import ImageHandler
 from rv_agent.strategies.strategy_registry import StrategyRegistry
+from rv_android_core.domain.static import StaticAnalysisData
 
 logger = logging.getLogger(__name__)
 

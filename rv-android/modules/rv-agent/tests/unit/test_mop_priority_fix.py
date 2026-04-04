@@ -10,7 +10,7 @@ Covers three related changes:
 """
 
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,

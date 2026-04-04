@@ -9,7 +9,7 @@ Design ref: D13 (R3-1) in gh26-exploration-strategy/design.md
 Scenarios: R3-1-S1 through R3-1-S13
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.agent.nodes.parse_node import _update_cached_bounds
 

@@ -12,10 +12,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from rv_screen_parser.parser.screen.visitor.model import ItemAction
-
     from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
     from rv_agent.strategies.rvagent_strategy.ranking.scorers import Scorer
+    from rv_screen_parser.parser.screen.visitor.model import ItemAction
 
 
 logger = logging.getLogger(__name__)

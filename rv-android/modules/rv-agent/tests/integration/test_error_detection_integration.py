@@ -9,9 +9,7 @@ External services (VisualErrorDetector, device, value_generator) are mocked
 to isolate the cross-node interaction logic.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
-from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.nodes.learn_node import learn_node, MAX_ERROR_RECOVERY
@@ -29,7 +27,6 @@ from rv_screen_parser.screenshot.models import (
     ErrorIndicator,
     DetectionMethod,
     ErrorType,
-    BoundingBox,
 )
 
 # ---------------------------------------------------------------------------
@@ -503,7 +500,7 @@ class TestMaxRecoveryRegressionMultipleIterations:
 
         # Iteration 5: still capped
         agent.last_screen_hash = None
-        result_5 = learn_node(agent, base)
+        learn_node(agent, base)
         assert agent.error_recovery_count == MAX_ERROR_RECOVERY
         assert mock_detect.call_count == 3  # still unchanged
 

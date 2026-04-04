@@ -1,11 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
-from contextlib import ExitStack
-import time
 from rv_android_core.util.android.android import Android
-from rv_android_core.commands.command import Command
 from rv_android_core.domain.app import App
-from rv_android_core.util import utils
 
 # Mock the Command class globally for these tests
 @pytest.fixture(autouse=True)

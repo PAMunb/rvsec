@@ -5,8 +5,7 @@ Verifies BFS on WTG transitions finds paths to activities with MOP methods,
 prioritized by MOP density.
 """
 
-import pytest
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 from rv_agent.services.transition_manager import TransitionManager
 

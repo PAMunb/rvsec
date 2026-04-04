@@ -2,8 +2,6 @@
 Basic tests for UIAutomator adapter functionality.
 """
 
-import pytest
-from unittest.mock import Mock, patch
 
 from rv_uiautomator.adapter import UIAutomator2Adapter
 from rv_uiautomator.executor import UIAutomatorActionExecutor

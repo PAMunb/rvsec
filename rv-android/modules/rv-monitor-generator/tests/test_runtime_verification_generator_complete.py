@@ -2,12 +2,11 @@ import os
 import tempfile
 import shutil
 from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 import pytest
 
 from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
-from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError
+from rv_monitor_generator.config import RVGeneratorConfig
 from rv_android_core.commands.command_exception import CommandException
 
 

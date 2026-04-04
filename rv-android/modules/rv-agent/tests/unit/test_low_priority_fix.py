@@ -10,9 +10,7 @@ Covers:
 (f) RVTRACK aggregate counters — include new counter fields
 """
 
-import logging
-from collections import deque
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

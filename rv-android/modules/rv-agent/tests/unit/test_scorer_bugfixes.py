@@ -16,7 +16,7 @@ B3: MopScorer deferral block checked action.action_type, which doesn't exist on
 import math
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

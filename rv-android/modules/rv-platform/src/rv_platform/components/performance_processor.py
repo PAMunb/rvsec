@@ -9,13 +9,13 @@ for performance analysis and research purposes.
 import csv
 import os
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import (
     CONTEXT_COMPONENT,
+    LOG_COMPLETE,
     LOG_START,
-    LOG_COMPLETE
 )
 from rv_android_core.util.logging.manager import LoggingManager
 
@@ -48,22 +48,28 @@ class PerformanceProcessorComponent:
         # Initialize logging with component context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            'rv_platform.components.performance_processor',
-            {CONTEXT_COMPONENT: 'PerformanceProcessorComponent'}
+            "rv_platform.components.performance_processor",
+            {CONTEXT_COMPONENT: "PerformanceProcessorComponent"},
         )
 
         # Ensure results directory exists
         os.makedirs(results_dir, exist_ok=True)
 
-    @ErrorHandler.handle_errors(component="PerformanceProcessorComponent", phase="performance_processing")
+    @ErrorHandler.handle_errors(
+        component="PerformanceProcessorComponent", phase="performance_processing"
+    )
     def generate(self) -> None:
         """Generate performance CSV files from task execution metrics."""
         with self.logger.with_context(phase="performance_processing"):
             self.logger.info(LOG_START.format(phase="performance metrics processing"))
             self._generate_performance_csv()
-            self.logger.info(LOG_COMPLETE.format(phase="performance metrics processing"))
+            self.logger.info(
+                LOG_COMPLETE.format(phase="performance metrics processing")
+            )
 
-    @ErrorHandler.handle_errors(component="PerformanceProcessorComponent", phase="performance_csv")
+    @ErrorHandler.handle_errors(
+        component="PerformanceProcessorComponent", phase="performance_csv"
+    )
     def _generate_performance_csv(self) -> None:
         """Generate performance CSV with task execution metrics."""
         with self.logger.with_context(phase="performance_csv"):
@@ -71,14 +77,21 @@ class PerformanceProcessorComponent:
 
             performance_file = os.path.join(self.results_dir, "performance.csv")
 
-            with open(performance_file, 'w', newline='', encoding='utf-8') as f:
+            with open(performance_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
 
                 # Write header
-                writer.writerow([
-                    'apk', 'rep', 'timeout', 'tool', 'execution_time_seconds',
-                    'task_state', 'timestamp'
-                ])
+                writer.writerow(
+                    [
+                        "apk",
+                        "rep",
+                        "timeout",
+                        "tool",
+                        "execution_time_seconds",
+                        "task_state",
+                        "timestamp",
+                    ]
+                )
 
                 # Process each completed task
                 for task in self.tasks:
@@ -101,21 +114,25 @@ class PerformanceProcessorComponent:
             timeout = config.timeout
             tool_name = config.tool_config.get_full_tool_name()
 
-            execution_time = getattr(task.result, 'execution_time_seconds', 0)
-            task_state = getattr(task.result, 'state', 'unknown')
+            execution_time = getattr(task.result, "execution_time_seconds", 0)
+            task_state = getattr(task.result, "state", "unknown")
 
-            writer.writerow([
-                apk_name,
-                repetition,
-                timeout,
-                tool_name,
-                execution_time,
-                task_state,
-                datetime.now().timestamp()
-            ])
+            writer.writerow(
+                [
+                    apk_name,
+                    repetition,
+                    timeout,
+                    tool_name,
+                    execution_time,
+                    task_state,
+                    datetime.now().timestamp(),
+                ]
+            )
 
         except Exception as e:
-            self.logger.warning(f"Failed to write performance data for task {task.id}: {e}")
+            self.logger.warning(
+                f"Failed to write performance data for task {task.id}: {e}"
+            )
 
     def get_performance_summary(self) -> Dict[str, Any]:
         """
@@ -127,11 +144,8 @@ class PerformanceProcessorComponent:
         try:
             return {
                 "total_tasks": len(self.tasks),
-                "summary": f"Processed {len(self.tasks)} tasks"
+                "summary": f"Processed {len(self.tasks)} tasks",
             }
         except Exception as e:
             self.logger.warning(f"Failed to generate performance summary: {e}")
-            return {
-                "error": str(e),
-                "summary": "Performance summary generation failed"
-            }
+            return {"error": str(e), "summary": "Performance summary generation failed"}

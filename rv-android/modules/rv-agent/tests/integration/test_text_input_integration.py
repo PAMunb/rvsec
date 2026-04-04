@@ -5,8 +5,7 @@ Verifies clear-before-type in ToolExecutor and LLM text tracking
 in InputValueGenerator via learn_node.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,

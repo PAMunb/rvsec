@@ -9,7 +9,7 @@ All tests use mocks — no real screenshots or cv2 processing.
 
 from unittest.mock import patch, MagicMock
 
-from rv_agent.services.error_detection import VisualErrorDetector, ValidationErrorResult
+from rv_agent.services.error_detection import VisualErrorDetector
 
 
 def _make_indicator(x=100, y=500, width=52, height=51, confidence=0.80):

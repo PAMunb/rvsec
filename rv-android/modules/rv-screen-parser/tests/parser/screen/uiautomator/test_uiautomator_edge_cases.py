@@ -224,7 +224,6 @@ class TestUIAutomator2ParserEdgeCases:
         # Skip this test for now - the error handling approach needs further investigation
         # Create a visitor that would in theory raise an exception during node traversal
         # but we're not testing this specific behavior now
-        pass
 
     def test_large_xml_performance(self, parser, mock_visitor):
         """Test performance with large XML (basic check that it completes)."""
@@ -262,7 +261,6 @@ class TestUIAutomator2ParserEdgeCases:
 
         # Skip this specific assertion for now
         # The actual behavior may vary depending on the XML parser implementation
-        pass
 
     def test_system_navigation_bounds(self, parser, mock_visitor):
         """Test handling of system navigation bounds."""

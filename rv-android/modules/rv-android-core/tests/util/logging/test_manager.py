@@ -195,7 +195,7 @@ class TestLoggingManager:
         assert len(logging.getLogger().handlers) > 0
 
         # Initialize LoggingManager — should replace basicConfig handlers
-        manager = LoggingManager.get_instance()
+        LoggingManager.get_instance()
 
         # Root logger should have LoggingManager's handlers, not basicConfig's
         root = logging.getLogger()
@@ -209,7 +209,7 @@ class TestLoggingManager:
         manager = LoggingManager.get_instance()
 
         # Get a logger via get_logger
-        logger = manager.get_logger("some.module")
+        manager.get_logger("some.module")
 
         # Root should have a handler with a formatter
         root = logging.getLogger()

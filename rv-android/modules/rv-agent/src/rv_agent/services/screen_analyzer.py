@@ -16,11 +16,6 @@ import logging
 import time
 from typing import Any, Dict, Optional, Tuple
 
-from rv_android_core.domain.static import StaticAnalysisData
-from rv_screen_parser.constants import ScreenParserType
-from rv_screen_parser.parser.screen.parser_factory import ParserFactory
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ScreenItem
-
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
@@ -28,6 +23,10 @@ from rv_agent.agent.dynamic_state_graph import (
 )
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.ui.rvagent_visitor import RVAgentVisitor
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_screen_parser.constants import ScreenParserType
+from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ScreenItem
 
 # Launcher packages where pressing BACK does nothing useful.
 # When detected, immediately restart instead of wasting iterations.

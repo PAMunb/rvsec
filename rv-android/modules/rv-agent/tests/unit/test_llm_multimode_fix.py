@@ -8,7 +8,6 @@ Tests:
 """
 
 import logging
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.agent.nodes.execute_node import execute_node

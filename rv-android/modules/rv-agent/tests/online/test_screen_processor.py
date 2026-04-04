@@ -8,8 +8,7 @@ import pytest
 import time
 
 from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.agent.device_interface import DeviceInterface
-from .conftest import launch_app, force_stop_app
+from .conftest import launch_app
 
 pytestmark = [pytest.mark.online]
 

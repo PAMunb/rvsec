@@ -3,7 +3,6 @@ Unit tests for the action_mapper service.
 """
 
 import pytest
-from unittest.mock import MagicMock
 from rv_agent.services import action_mapper
 from rv_screen_parser.parser.screen.visitor.model import (
     ScreenDescription,

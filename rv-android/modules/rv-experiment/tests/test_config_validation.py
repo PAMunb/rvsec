@@ -13,10 +13,8 @@ created but is in an invalid state. Pydantic-level constraints (gt=0) DO raise.
 """
 
 import pytest
-from pathlib import Path
 
 from rv_android_core.domain.task import ToolConfig
-from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_experiment.config import ExperimentConfig
 from helpers import make_config
 

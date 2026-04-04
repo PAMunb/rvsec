@@ -60,4 +60,3 @@ class TestFallbackManager:
         # A refactoring would be needed to make this test more meaningful.
         # For now, we ensure it doesn't crash and returns None.
         # A better test would be to mock the code inside the try block to raise an exception.
-        pass

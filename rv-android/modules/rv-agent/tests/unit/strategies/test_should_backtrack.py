@@ -4,8 +4,7 @@ Tests for should_backtrack() saturation threshold (gh26 Group 5).
 Verifies INV-AGT-31: backtrack based on saturation threshold, not binary exhaustion.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.screen_node import ScreenNode

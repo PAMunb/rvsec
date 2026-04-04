@@ -1,12 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
 import os
-import shutil
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZIP_DEFLATED
 
 from rv_android_core.util.utils import (
     execute_command,
@@ -24,19 +22,13 @@ from rv_android_core.util.utils import (
     unzip,
     zip_dir_content,
     to_readable_time,
-    datetime_to_milliseconds,
-    datetime_to_string,
-    milliseconds_to_datetime,
     get_env_or_default,
     get_env_or_exception,
     read_json,
 )
-from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
 from rv_android_core.domain.app import App
-from rv_android_core.constants import EXTENSION_APK
 from rv_android_core.util.error.exceptions import RVAndroidError
-from rv_android_core.util.logging.manager import LoggingManager
 
 
 # Mock LoggingManager globally

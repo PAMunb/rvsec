@@ -43,10 +43,9 @@ import logging
 from collections import deque
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
+from rv_agent import tracking as track
 from rv_android_core.domain.widget import WidgetEventType
 from rv_screen_parser.parser.screen.visitor.model import ItemAction
-
-from rv_agent import tracking as track
 
 if TYPE_CHECKING:
     from rv_agent.config.agent_config import RVAgentConfig

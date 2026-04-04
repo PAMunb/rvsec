@@ -14,13 +14,11 @@ early termination. Task 12.4 was REVERSED.
 """
 
 import math
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
-from rv_agent.domain.screen_node import ScreenNode
 
 
 def _make_config(**overrides):
@@ -151,7 +149,7 @@ class TestTier3RestartFallback:
         hash_val = "empty_saturated"
 
         # Create an empty node (saturated because 0 actions = 100%)
-        node = graph.get_or_create_state(hash_val, ".MainActivity", empty_desc)
+        graph.get_or_create_state(hash_val, ".MainActivity", empty_desc)
 
         strategy.path_buffer = MagicMock()
         strategy.path_buffer.is_active = False
@@ -184,7 +182,6 @@ class TestScoreDecay:
     def test_score_decay_zero_executions(self):
         """No decay for actions that have never been executed."""
         base_score = 825.0
-        exec_count = 0
 
         # exec_count == 0 means no decay
         decayed = base_score  # no decay applied

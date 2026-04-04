@@ -7,7 +7,7 @@ LongTermMemory, UICoverageTracker, and AgentMemoryManager.
 
 import pytest
 import time
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph

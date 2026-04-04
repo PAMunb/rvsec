@@ -2,7 +2,7 @@
 CLI entry point for rv-instrumentation.
 
 This module provides command-line interface for instrumenting Android APKs with
-runtime verification monitors, transforming standard APKs into monitored 
+runtime verification monitors, transforming standard APKs into monitored
 operations-enabled artifacts ready for runtime verification testing.
 """
 
@@ -18,13 +18,13 @@ from rv_instrumentation.rvandroid import RVInstrumentation
 def create_parser() -> argparse.ArgumentParser:
     """
     Create and configure the argument parser for rv-instrumentation CLI.
-    
+
     Returns:
         Configured ArgumentParser instance with all command options
     """
     parser = argparse.ArgumentParser(
-        prog='rv-instrumentation',
-        description='Instrument Android APKs with runtime verification monitors for monitored operations analysis',
+        prog="rv-instrumentation",
+        description="Instrument Android APKs with runtime verification monitors for monitored operations analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -70,24 +70,26 @@ Instrumentation Pipeline:
   4. Dependency Integration (merge runtime verification libraries)
   5. Recompilation (JAR → DEX using Android d8 compiler)
   6. APK Signing (create deployment-ready instrumented APK)
-        """
+        """,
     )
 
     # Add subcommands
-    subparsers = parser.add_subparsers(dest='command', help='Available instrumentation commands')
+    subparsers = parser.add_subparsers(
+        dest="command", help="Available instrumentation commands"
+    )
 
     # Single APK instrumentation command
     instrument_parser = subparsers.add_parser(
-        'instrument',
-        help='Instrument a single APK with runtime verification monitors',
-        description='Transform a single APK into a monitored operations-enabled artifact'
+        "instrument",
+        help="Instrument a single APK with runtime verification monitors",
+        description="Transform a single APK into a monitored operations-enabled artifact",
     )
 
     # Batch APK instrumentation command
     batch_parser = subparsers.add_parser(
-        'batch',
-        help='Batch instrument multiple APKs with runtime verification monitors',
-        description='Transform multiple APKs in a directory into monitored operations-enabled artifacts'
+        "batch",
+        help="Batch instrument multiple APKs with runtime verification monitors",
+        description="Transform multiple APKs in a directory into monitored operations-enabled artifacts",
     )
 
     # Add common arguments to both parsers
@@ -104,116 +106,110 @@ Instrumentation Pipeline:
 
 def _add_configuration_arguments(parser: argparse.ArgumentParser) -> None:
     """Add configuration-related arguments to parser."""
-    config_group = parser.add_argument_group('Configuration Options')
+    config_group = parser.add_argument_group("Configuration Options")
     config_group.add_argument(
-        '--rvsec-root',
-        help='Root directory of RVSEC installation (alternative to individual paths)'
+        "--rvsec-root",
+        help="Root directory of RVSEC installation (alternative to individual paths)",
     )
 
     # Monitor configuration
-    monitor_group = parser.add_argument_group('Monitor Configuration')
+    monitor_group = parser.add_argument_group("Monitor Configuration")
     monitor_group.add_argument(
-        '--monitor-dir',
-        help='Directory containing generated monitor artifacts from rv-monitor-generator'
+        "--monitor-dir",
+        help="Directory containing generated monitor artifacts from rv-monitor-generator",
     )
 
     # Android SDK configuration
-    android_group = parser.add_argument_group('Android SDK Configuration')
+    android_group = parser.add_argument_group("Android SDK Configuration")
     android_group.add_argument(
-        '--android-jar',
-        help='Path to Android SDK android.jar file'
+        "--android-jar", help="Path to Android SDK android.jar file"
     )
     android_group.add_argument(
-        '--android-platforms-dir',
-        help='Directory containing Android SDK platform libraries'
+        "--android-platforms-dir",
+        help="Directory containing Android SDK platform libraries",
     )
 
     # Signing configuration
-    signing_group = parser.add_argument_group('APK Signing Configuration')
+    signing_group = parser.add_argument_group("APK Signing Configuration")
     signing_group.add_argument(
-        '--keystore',
-        help='Path to keystore file for APK signing'
+        "--keystore", help="Path to keystore file for APK signing"
     )
     signing_group.add_argument(
-        '--keystore-password',
-        help='Password for keystore access'
+        "--keystore-password", help="Password for keystore access"
     )
 
     # Directory configuration
-    dirs_group = parser.add_argument_group('Working Directory Configuration')
+    dirs_group = parser.add_argument_group("Working Directory Configuration")
     dirs_group.add_argument(
-        '--working-dir',
-        help='Base working directory for instrumentation operations'
+        "--working-dir", help="Base working directory for instrumentation operations"
     )
     dirs_group.add_argument(
-        '--tmp-dir',
-        help='Temporary directory for intermediate processing files'
+        "--tmp-dir", help="Temporary directory for intermediate processing files"
     )
     dirs_group.add_argument(
-        '--dex2jar-home',
-        help='Directory containing dex2jar tool suite'
+        "--dex2jar-home", help="Directory containing dex2jar tool suite"
     )
 
 
-def _add_apk_arguments(instrument_parser: argparse.ArgumentParser,
-                       batch_parser: argparse.ArgumentParser) -> None:
+def _add_apk_arguments(
+    instrument_parser: argparse.ArgumentParser, batch_parser: argparse.ArgumentParser
+) -> None:
     """Add APK-specific arguments to parsers."""
     # Single APK argument
-    apk_group = instrument_parser.add_argument_group('APK Input')
+    apk_group = instrument_parser.add_argument_group("APK Input")
     apk_group.add_argument(
-        '--apk',
-        required=True,
-        help='Path to APK file to be instrumented'
+        "--apk", required=True, help="Path to APK file to be instrumented"
     )
 
     # Batch APK arguments
-    batch_group = batch_parser.add_argument_group('Batch APK Input')
+    batch_group = batch_parser.add_argument_group("Batch APK Input")
     batch_group.add_argument(
-        '--apks-dir',
+        "--apks-dir",
         required=True,
-        help='Directory containing APK files to be instrumented'
+        help="Directory containing APK files to be instrumented",
     )
 
 
 def _add_output_arguments(parser: argparse.ArgumentParser) -> None:
     """Add output-related arguments to parser."""
-    output_group = parser.add_argument_group('Output Configuration')
+    output_group = parser.add_argument_group("Output Configuration")
     output_group.add_argument(
-        '--output',
+        "--output",
         required=True,
-        help='Output directory for instrumented APKs and logs'
+        help="Output directory for instrumented APKs and logs",
     )
     output_group.add_argument(
-        '--force',
-        action='store_true',
-        help='Force re-instrumentation even if APK already instrumented'
+        "--force",
+        action="store_true",
+        help="Force re-instrumentation even if APK already instrumented",
     )
 
 
 def _add_utility_arguments(parser: argparse.ArgumentParser) -> None:
     """Add utility arguments to parser."""
-    util_group = parser.add_argument_group('Utility Options')
+    util_group = parser.add_argument_group("Utility Options")
     util_group.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Enable verbose output with detailed logging'
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output with detailed logging",
     )
     util_group.add_argument(
-        '--summary',
-        action='store_true',
-        help='Display instrumentation summary after completion'
+        "--summary",
+        action="store_true",
+        help="Display instrumentation summary after completion",
     )
     util_group.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Validate configuration without performing instrumentation'
+        "--dry-run",
+        action="store_true",
+        help="Validate configuration without performing instrumentation",
     )
 
 
 def configure_logging(verbose: bool) -> None:
     """
     Configure logging based on verbosity level.
-    
+
     Args:
         verbose: Enable verbose logging if True
     """
@@ -222,21 +218,21 @@ def configure_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
 def create_instrumentation_config(args) -> RVInstrumentationConfig:
     """
     Create RVInstrumentationConfig from command line arguments.
-    
+
     Args:
         args: Parsed command line arguments
-        
+
     Returns:
         Configured RVInstrumentationConfig instance
-        
+
     Raises:
         ConfigurationError: If configuration validation fails
     """
@@ -250,16 +246,16 @@ def create_instrumentation_config(args) -> RVInstrumentationConfig:
         working_dir=args.working_dir,
         instrumented_dir=args.output,
         tmp_dir=args.tmp_dir,
-        dex2jar_home=args.dex2jar_home
+        dex2jar_home=args.dex2jar_home,
     )
 
 
-def display_instrumentation_summary(errors: Dict[str, Dict[str, Any]],
-                                    total_apks: int,
-                                    operation_type: str) -> None:
+def display_instrumentation_summary(
+    errors: Dict[str, Dict[str, Any]], total_apks: int, operation_type: str
+) -> None:
     """
     Display comprehensive instrumentation summary.
-    
+
     Args:
         errors: Dictionary of instrumentation errors
         total_apks: Total number of APKs processed
@@ -277,10 +273,10 @@ def display_instrumentation_summary(errors: Dict[str, Dict[str, Any]],
     print(f"Success Rate: {success_rate:.1f}%")
 
     if errors:
-        print(f"\nFailed APKs:")
+        print("\nFailed APKs:")
         for apk_name, error_details in errors.items():
-            tool = error_details.get('tool', 'unknown')
-            phase = error_details.get('phase', 'unknown')
+            tool = error_details.get("tool", "unknown")
+            phase = error_details.get("phase", "unknown")
             print(f"  • {apk_name} - {tool} ({phase})")
 
     print("=" * 60)
@@ -289,10 +285,10 @@ def display_instrumentation_summary(errors: Dict[str, Dict[str, Any]],
 def handle_instrument_command(args) -> int:
     """
     Handle the single APK instrumentation command execution.
-    
+
     Args:
         args: Parsed command line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -302,12 +298,18 @@ def handle_instrument_command(args) -> int:
 
         if args.dry_run:
             print("✓ Configuration validation successful")
-            print(f"Configuration Summary:")
+            print("Configuration Summary:")
             summary = config.get_configuration_summary()
-            print(f"  Monitor Directory: {summary['instrumentation_paths']['monitor_output_dir']}")
-            print(f"  Android JAR: {summary['android_integration']['android_jar_path']}")
+            print(
+                f"  Monitor Directory: {summary['instrumentation_paths']['monitor_output_dir']}"
+            )
+            print(
+                f"  Android JAR: {summary['android_integration']['android_jar_path']}"
+            )
             print(f"  Keystore: {summary['signing']['keystore_file']}")
-            print(f"  Output Directory: {summary['instrumentation_paths']['instrumented_dir']}")
+            print(
+                f"  Output Directory: {summary['instrumentation_paths']['instrumented_dir']}"
+            )
             return 0
 
         # Validate APK input
@@ -322,9 +324,11 @@ def handle_instrument_command(args) -> int:
 
         # Create temporary APKs directory for single APK processing
         import tempfile
+
         with tempfile.TemporaryDirectory() as temp_apks_dir:
             # Copy APK to temporary directory for processing
             import shutil
+
             temp_apk_path = os.path.join(temp_apks_dir, os.path.basename(args.apk))
             shutil.copy2(args.apk, temp_apk_path)
 
@@ -332,7 +336,7 @@ def handle_instrument_command(args) -> int:
             errors = instrumentation.instrument_apks(
                 apks_dir=temp_apks_dir,
                 results_dir=args.output,
-                force_instrumentation=args.force
+                force_instrumentation=args.force,
             )
 
         # Display results
@@ -361,10 +365,10 @@ def handle_instrument_command(args) -> int:
 def handle_batch_command(args) -> int:
     """
     Handle the batch APK instrumentation command execution.
-    
+
     Args:
         args: Parsed command line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -374,15 +378,22 @@ def handle_batch_command(args) -> int:
 
         if args.dry_run:
             print("✓ Configuration validation successful")
-            print(f"Configuration Summary:")
+            print("Configuration Summary:")
             summary = config.get_configuration_summary()
             print(f"  APKs Directory: {args.apks_dir}")
-            print(f"  Monitor Directory: {summary['instrumentation_paths']['monitor_output_dir']}")
-            print(f"  Android JAR: {summary['android_integration']['android_jar_path']}")
-            print(f"  Output Directory: {summary['instrumentation_paths']['instrumented_dir']}")
+            print(
+                f"  Monitor Directory: {summary['instrumentation_paths']['monitor_output_dir']}"
+            )
+            print(
+                f"  Android JAR: {summary['android_integration']['android_jar_path']}"
+            )
+            print(
+                f"  Output Directory: {summary['instrumentation_paths']['instrumented_dir']}"
+            )
 
             # Count APKs in directory
             from rv_android_core.util import utils
+
             apks = utils.get_apks(args.apks_dir)
             print(f"  APKs Found: {len(apks)}")
             return 0
@@ -401,11 +412,12 @@ def handle_batch_command(args) -> int:
         errors = instrumentation.instrument_apks(
             apks_dir=args.apks_dir,
             results_dir=args.output,
-            force_instrumentation=args.force
+            force_instrumentation=args.force,
         )
 
         # Count total APKs for summary
         from rv_android_core.util import utils
+
         try:
             apks = utils.get_apks(args.apks_dir)
             total_apks = len(apks)
@@ -443,7 +455,7 @@ def handle_batch_command(args) -> int:
 def main() -> int:
     """
     Main entry point for rv-instrumentation CLI.
-    
+
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
@@ -451,17 +463,17 @@ def main() -> int:
     args = parser.parse_args()
 
     # Configure logging
-    configure_logging(getattr(args, 'verbose', False))
+    configure_logging(getattr(args, "verbose", False))
 
     # Handle commands
-    if args.command == 'instrument':
+    if args.command == "instrument":
         return handle_instrument_command(args)
-    elif args.command == 'batch':
+    elif args.command == "batch":
         return handle_batch_command(args)
     else:
         parser.print_help()
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

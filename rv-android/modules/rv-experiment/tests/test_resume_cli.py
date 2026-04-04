@@ -7,11 +7,8 @@ These test already-implemented logic and should all pass.
 """
 
 import json
-import os
-from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.__main__ import _create_experiment_config_from_cli, CLIContext

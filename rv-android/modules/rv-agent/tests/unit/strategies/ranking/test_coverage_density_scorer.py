@@ -15,7 +15,6 @@ from unittest.mock import MagicMock
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import CoverageDensityScorer
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
-from rv_agent.memory.ui_coverage import UICoverageTracker
 
 
 def _make_action(coordinates=(100, 200), action_type="CLICK"):

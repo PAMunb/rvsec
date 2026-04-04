@@ -7,7 +7,6 @@ visible on screen.
 """
 
 import logging
-import pytest
 from unittest.mock import MagicMock
 
 from rv_agent.agent.nodes.parse_node import parse_ui_node

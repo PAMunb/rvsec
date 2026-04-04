@@ -28,8 +28,6 @@ import traceback
 from typing import Any, Dict, Optional
 
 from langgraph.graph import END, StateGraph
-from rv_android_core.domain.static import StaticAnalysisData
-
 from rv_agent import tracking as track
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
@@ -56,6 +54,7 @@ from rv_agent.services.navigation_guidance import NavigationGuidance
 from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_agent.services.vision_service import ImageHandler
 from rv_agent.strategies.base_strategy import ExplorationStrategy
+from rv_android_core.domain.static import StaticAnalysisData
 
 logger = logging.getLogger(__name__)
 

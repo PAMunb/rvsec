@@ -1,14 +1,13 @@
 # tests/tools/test_abstract_tool.py
-import os
 import tempfile
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 from typing import Dict, Any
 
 import pytest
 from hypothesis import given, strategies as st
 
 from rv_android_core.domain.app import App
-from rv_android_core.domain.task import Task, TaskConfiguration, ToolConfig, TaskState
+from rv_android_core.domain.task import Task, TaskConfiguration, ToolConfig
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.commands.command import Command
@@ -159,7 +158,7 @@ class TestAbstractToolExecution:
         app = MagicMock(spec=App)
 
         # Override execute_tool_specific_logic to raise exception
-        original_execute = tool.execute_tool_specific_logic
+        tool.execute_tool_specific_logic
 
         def failing_execute(task, app):
             raise RVToolExecutionError("Tool failed", tool_name="testtool")

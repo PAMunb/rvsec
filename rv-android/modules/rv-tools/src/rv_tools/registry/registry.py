@@ -210,7 +210,6 @@ class ToolRegistry:
 
         try:
             tool_class = self.tool_classes[tool_name]
-            tool_spec = self.tool_specs[tool_name]
 
             # Create tool instance with parameterless constructor
             # Tool spec data is handled internally by tool classes now
@@ -321,37 +320,6 @@ class ToolRegistry:
         """
         return tool_name in self.tool_classes
 
-    def get_variant_config(self, tool_name: str, variant_name: str) -> Dict[str, Any]:
-        """
-        Get configuration for a specific tool variant.
-        
-        This method provides access to variant-specific configuration parameters
-        for use in tool instantiation and configuration processes.
-        
-        Args:
-            tool_name: Name of the tool
-            variant_name: Name of the variant
-            
-        Returns:
-            Configuration dictionary for the variant
-            
-        Raises:
-            ConfigurationError: If tool or variant not found
-        """
-        from rv_android_core.util.error.exceptions import ConfigurationError
-        
-        if tool_name not in self.variants:
-            raise ConfigurationError(f"Tool '{tool_name}' not found in registry")
-            
-        if variant_name not in self.variants[tool_name]:
-            available = list(self.variants[tool_name].keys())
-            raise ConfigurationError(
-                f"Variant '{variant_name}' not found for tool '{tool_name}'. "
-                f"Available variants: {available}"
-            )
-        
-        return self.variants[tool_name][variant_name].copy()
-    
     def validate_tool_variant(self, tool_name: str, variant_name: str) -> bool:
         """
         Validate that a tool variant combination exists and is properly configured.

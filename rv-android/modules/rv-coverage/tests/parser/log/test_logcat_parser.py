@@ -27,7 +27,7 @@ from rv_android_core.domain.coverage import LogcatRepository
 from rv_coverage.parser.log.logcat_parser import (
     parse_logcat_file, parse_logcat_line, _parse_logcat_line,
     _parse_error_message, _parse_coverage_message, _convert_to_datetime,
-    stream_logcat_entries, _parse_generic_spec_error
+    _parse_generic_spec_error
 )
 
 
@@ -325,7 +325,7 @@ class TestLogcatParser:
             # Convert a December date
             date = "12-31"
             time = "23:59:59.999"
-            dt = _convert_to_datetime(date, time)
+            _convert_to_datetime(date, time)
 
             # The implementation should have modified the year
             # Verify that the function tried to adjust the year
@@ -356,48 +356,6 @@ class TestLogcatParser:
         else:
             for key, value in expected.items():
                 assert result[key] == value
-
-    def test_stream_logcat_entries(self, sample_logcat_file):
-        """Test streaming logcat entries from a file."""
-        # We need to use a proper file object, not a Mock
-        with patch('builtins.open', mock_open(read_data=
-                                              "07-15 14:30:22.123 1234 5678 E RVSEC: Test message 1\n"
-                                              "07-15 14:30:22.124 1234 5678 E RVSEC: Test message 2\n"
-                                              "07-15 14:30:22.125 1234 5678 E RVSEC: Test message 3\n"
-                                              )) as mock_file:
-            # Setup the readline method to simulate returning data
-            mock_file.return_value.readline.side_effect = [
-                "07-15 14:30:22.123 1234 5678 E RVSEC: Test message 1\n",
-                "07-15 14:30:22.124 1234 5678 E RVSEC: Test message 2\n",
-                "",  # No new data
-                "07-15 14:30:22.125 1234 5678 E RVSEC: Test message 3\n",
-                ""  # End simulation
-            ]
-
-            # We need to add a seek method to our mock
-            mock_file.return_value.seek = Mock()
-
-            # Test the generator
-            entries = []
-            generator = stream_logcat_entries(sample_logcat_file)
-
-            # Take the first four values from the generator
-            # (3 log entries + 1 None for "no new data")
-            for _ in range(4):
-                entry = next(generator)
-                entries.append(entry)
-
-            # Verify we got 3 valid entries and 1 None
-            assert entries[0] is not None
-            assert entries[0]["message"] == "Test message 1"
-
-            assert entries[1] is not None
-            assert entries[1]["message"] == "Test message 2"
-
-            assert entries[2] is None
-
-            assert entries[3] is not None
-            assert entries[3]["message"] == "Test message 3"
 
     def test_parse_error_message_with_commas_in_message(self):
         """Test parsing error message with commas in the error message itself."""

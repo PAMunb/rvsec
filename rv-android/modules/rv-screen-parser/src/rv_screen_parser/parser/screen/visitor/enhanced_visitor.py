@@ -732,7 +732,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 ))
         else:
             # Fallback if bounds not available - use CLICK at slider center
-            self.logger.warning(f"Slider bounds not available, using click fallback")
+            self.logger.warning("Slider bounds not available, using click fallback")
             actions.append(ItemAction(
                 id=self.counter.increment(),
                 text=f"CLICK ({self.counter.get_current()}) on slider",
@@ -1237,7 +1237,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         """
         # Check common properties for clues
         resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        text = node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
+        node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
         hint = node.hint.lower() if hasattr(node, 'hint') and node.hint else ""
         content_desc = node.content_description.lower() if hasattr(node,
                                                                    'content_description') and node.content_description else ""

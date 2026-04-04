@@ -6,8 +6,7 @@ Tests routing decisions, mode transitions, and action validation.
 
 import pytest
 from pathlib import Path
-from typing import Dict, List, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Tuple
 
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
@@ -17,7 +16,6 @@ from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
-    compute_screen_hash_from_description,
 )
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.routing.fallback_manager import FallbackManager
