@@ -78,11 +78,13 @@ class CLIContext:
             "rv_experiment.cli", {CONTEXT_COMPONENT: "CLIContext"}
         )
 
-        # CLI state management
         self.debug = False
 
-        # Tool registry is populated by rv-platform on import (external tools)
-        # and rv-tools on import (builtin tools)
+        # Tool registry is a singleton populated at import time:
+        # - rv-tools registers builtin tools (monkey, droidbot, ape)
+        # - rv-platform registers external tools (rvagent, rvsmart, aperv)
+        # By the time CLIContext is created, all tools are already registered
+        # because rv-platform is a transitive dependency of rv-experiment.
         self.tool_registry = ToolRegistry.get_instance()
 
         self.logger.info("CLI context initialized successfully")
@@ -114,7 +116,8 @@ class CLIContext:
             console_context=show_context,
         )
 
-        # Silence noisy third-party loggers
+        # Silence noisy third-party loggers that flood output during APK analysis.
+        # androguard is particularly verbose at INFO level during APK parsing.
         for noisy_logger in [
             "androguard",
             "matplotlib",
@@ -439,7 +442,8 @@ def run(
     ):
         ctx.logger.info(LOG_START.format(phase="experiment execution"))
 
-        # Validate custom specifications directory if custom specification set is selected
+        # Early validation: "custom" spec set requires a user-provided directory of .mop files.
+        # This check happens before config creation to provide a clear CLI error message.
         if specification_set == "custom" and not custom_specs_dir:
             raise click.ClickException(
                 "Custom specification directory (--custom-specs-dir) is required "
@@ -447,8 +451,10 @@ def run(
             )
 
         try:
+            # Two mutually exclusive config sources: --config (JSON file) takes
+            # precedence over CLI arguments. Both produce an ExperimentConfig that
+            # follows the same validation and execution path below.
             if config:
-                # Config file mode - load experiment configuration from file
                 ctx.logger.info(f"Loading experiment configuration from: {config}")
                 experiment_config = ExperimentConfig.from_file(config)
                 ctx.logger.info(
@@ -456,7 +462,7 @@ def run(
                 )
 
             else:
-                # CLI mode - create experiment configuration from command line arguments
+                # CLI mode: parse tool DSL, detect resume, build ExperimentConfig.
                 experiment_config = _create_experiment_config_from_cli(
                     ctx,
                     tools,
@@ -478,7 +484,8 @@ def run(
                     resume_dir,
                 )
 
-            # Validate configuration before execution
+            # Validate before execution to catch errors early (missing APKs, unknown tools,
+            # invalid spec set) rather than failing mid-experiment after pre-processing.
             experiment_config.validate()
 
             # Display experiment information
@@ -836,6 +843,11 @@ def _split_tool_specifications(tools_string: str) -> list[str]:
     # tool_name[:variant][@params] where params can contain commas
     # A new tool starts with a word that's NOT preceded by = (which would make it a param value)
 
+    # Ambiguity: commas separate BOTH tool specs AND parameter key-value pairs.
+    # "monkey,droidbot@a=1,b=2" has 3 comma-separated parts but only 2 tools.
+    # Strategy: a part starting with a valid identifier (followed by :, @, or end)
+    # is treated as a new tool spec; anything else is a parameter continuation
+    # belonging to the previous tool spec.
     specs = []
     current_spec = []
     parts = tools_string.split(",")
@@ -845,17 +857,14 @@ def _split_tool_specifications(tools_string: str) -> list[str]:
         if not stripped:
             continue
 
-        # Check if this part looks like the start of a new tool spec
-        # A tool spec starts with: word (optionally followed by :variant or @params)
-        # A parameter continuation has = at the start or looks like key=value without tool prefix
+        # Heuristic: parameter continuations look like "b=2" or "value" (no colon/@ prefix).
+        # New tool specs look like "droidbot", "droidbot:dfs_greedy", or "rvagent@temp=0.3".
         is_new_tool = bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_-]*(?::|@|$)", stripped))
 
         if is_new_tool and current_spec:
-            # Save previous spec and start new one
             specs.append(",".join(current_spec))
             current_spec = [stripped]
         else:
-            # Continue current spec (this is a parameter continuation)
             current_spec.append(stripped)
 
     # Don't forget the last spec
@@ -927,11 +936,20 @@ def _create_experiment_config_from_cli(
         for tool_spec in tool_specs:
             tool_configs.extend(ctx.parse_tool_specification(tool_spec))
 
-        # Resume detection: --resume-dir takes precedence over --name
+        # Resume detection: three mutually exclusive paths determine how the
+        # experiment identity and output directory are resolved.
+        # Precedence: --resume-dir > --name (with existing tasks.json) > new experiment.
+        #
+        # Resume invariant: ALL pre-processing flags are forced to False on resume.
+        # This prevents re-generating monitors and re-instrumenting APKs, which
+        # would overwrite the artifacts that the original run already produced.
+        # rv-platform handles task-level resume via tasks.json independently.
         resume_mode = False
 
         if resume_dir:
-            # Explicit resume: use the provided directory as experiment dir
+            # Explicit resume: --resume-dir points directly to an existing
+            # results directory (e.g., results/my_exp/). The experiment_id is
+            # derived from the directory name for consistency.
             experiment_id = Path(resume_dir).name
             output_dir = str(resume_dir)
             resume_mode = True
@@ -941,12 +959,14 @@ def _create_experiment_config_from_cli(
             ctx.logger.info(f"Resuming experiment from {resume_dir}")
 
         elif name:
+            # Named experiment: --name provides a stable identifier across runs.
+            # If tasks.json exists from a previous run, this becomes an implicit
+            # resume (same pre-processing skip behavior as --resume-dir).
             experiment_id = name
             results_path = Path(f"./{RESULTS_DIR}/{name}")
             tasks_json = results_path / "tasks.json"
 
             if tasks_json.exists():
-                # Implicit resume: existing results with tasks.json
                 resume_mode = True
                 generate_monitors = False
                 instrument_apks = False
@@ -959,13 +979,18 @@ def _create_experiment_config_from_cli(
                 output_dir = str(results_path)
 
         else:
+            # New experiment: generate a unique ID with timestamp + random suffix
+            # to avoid collisions when launching experiments in quick succession.
             experiment_id = f"cli_experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
         # Determine output directory (if not already set by resume logic)
         if not output_dir:
             output_dir = f"./{RESULTS_DIR}/{experiment_id}"
 
-        # Create ExperimentConfig instance
+        # output_dir and results_dir point to the same flat directory.
+        # output_dir is used by pre-processing (monitors, instrumented APKs);
+        # results_dir is used by rv-platform (tasks.json, CSV, JSON reports).
+        # Both are the same directory to keep all experiment artifacts together.
         experiment_config = ExperimentConfig(
             name=experiment_id,
             description="Experiment created via CLI interface",

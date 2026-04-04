@@ -21,6 +21,9 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
+# TYPE_CHECKING guards allow rv-android-core to define Task without requiring
+# all downstream modules (rv-coverage, etc.) to be installed. Tests and lightweight
+# consumers can import Task without pulling in the full dependency graph.
 if TYPE_CHECKING:
     from rv_android_core.domain.app import App
 else:
@@ -38,7 +41,9 @@ else:
 if TYPE_CHECKING:
     from rv_android_core.util.logging.manager import LoggingManager
 else:
-    # Fallback for when full dependencies aren't available
+    # LoggingManager uses a different strategy: try actual import first (not just Any)
+    # because Task needs to call LoggingManager.get_instance() at runtime for logging,
+    # unlike App/LogcatRepository which are only used as type annotations on Task fields.
     try:
         from rv_android_core.util.logging.manager import LoggingManager
     except ImportError:
@@ -329,11 +334,11 @@ class TaskResult(BaseValidatedModel):
         default=None, description="Error message if task failed"
     )
 
-    # Output files
+    # === OUTPUT FILES ===
     logcat_file: str = Field(default="", description="Path to logcat output file")
     trace_file: str = Field(default="", description="Path to trace output file")
 
-    # Analysis results
+    # === ANALYSIS RESULTS ===
     coverage_metrics: Dict[str, float] = Field(
         default_factory=dict, description="Coverage analysis metrics"
     )
@@ -341,7 +346,7 @@ class TaskResult(BaseValidatedModel):
         default_factory=list, description="List of detected errors"
     )
 
-    # State transition history
+    # === STATE TRANSITION HISTORY ===
     state_transitions: List[Dict[str, Any]] = Field(
         default_factory=list, description="Task state change history"
     )
@@ -549,12 +554,14 @@ class Task:
             # Fallback to standard logging
             self.logger = logging.getLogger("rv_android_core.domain.task")
 
-        # Runtime data
+        # Runtime data (populated during task lifecycle, not at creation)
         self.app: Optional[App] = None
         self.results_dir: str = ""
         self.static_data = None
 
-        # Standard repository for coverage and error data
+        # LogcatRepository is the single source of truth for coverage/error data.
+        # The "!= Any" check detects whether the real class was imported or the
+        # TYPE_CHECKING fallback is active (meaning rv-coverage is not installed).
         if LogcatRepository != Any:
             self.repository = LogcatRepository()
         else:
@@ -621,7 +628,10 @@ class Task:
         metrics = self.repository.calculate_metrics()
         metrics_dict = metrics.to_dict()
 
-        # Update result metrics from repository using standardized keys
+        # Update result metrics from repository using standardized keys.
+        # "methods_jca_reachable_coverage" key is a legacy name kept for backward
+        # compatibility with CSV report consumers; it maps to MOP method coverage
+        # regardless of specification set (JCA or generic).
         self.result.coverage_metrics.update(
             {
                 "method_coverage": metrics_dict["method_coverage"],
@@ -661,6 +671,9 @@ class Task:
                 self.repository = None
 
             # If logcat file exists, parse it and populate the repository
+            # Lazy reconstruction: if a logcat file exists from a previous run,
+            # re-parse it to populate the repository. This enables post-hoc
+            # coverage analysis (e.g., re-running analysis on saved results).
             if (
                 hasattr(self, "result")
                 and self.result.logcat_file
@@ -669,8 +682,9 @@ class Task:
                 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 
                 try:
-                    # CRITICAL: Pass static_data to preserve class/method information during parsing
+                    # CRITICAL: Pass static_data to preserve class/method information during parsing.
                     # Without static_data, all method calls are ignored as "unknown classes"
+                    # because the parser can only register calls for methods known from static analysis.
                     self.repository = parse_logcat_file(
                         self.result.logcat_file, self.static_data
                     )
@@ -701,20 +715,22 @@ class Task:
         """
         self.logger.info(f"Initializing task {self.id}: {self.config}")
 
-        # Set status to configured
+        # Phase 1: State transition
         self.update_state(TaskState.INITIALIZING)
 
-        # Create results directory
+        # Phase 2: Create results directory structure
         app_results_dir = os.path.join(base_results_dir, self.config.apk_name)
         self.results_dir = app_results_dir
         os.makedirs(app_results_dir, exist_ok=True)
 
-        # Generate output file paths with variant information
+        # Phase 3: Generate output file paths
+        # File naming encodes all experiment dimensions (apk, repetition, timeout, tool+variant)
+        # to produce unique filenames across experiment matrix without needing subdirectories.
         base_name = f"{self.config.apk_name}__{self.config.repetition}__{self.config.timeout}__{self.config.tool_config.get_full_tool_name()}"
         self.result.logcat_file = os.path.join(app_results_dir, f"{base_name}.logcat")
         self.result.trace_file = os.path.join(app_results_dir, f"{base_name}.trace")
 
-        # Mark as ready
+        # Phase 4: Mark task as ready for execution
         self.update_state(TaskState.READY)
         self.logger.debug(f"Task initialized with result dir: {self.results_dir}")
 
@@ -741,7 +757,8 @@ class Task:
         # Record the state transition
         self.result.add_state_transition(state)
 
-        # Perform state-specific actions
+        # State-specific side effects: RUNNING sets start_time, terminal states
+        # (COMPLETED/ERROR/CANCELED) set end_time and compute execution duration.
         if state == TaskState.RUNNING:
             self.result.start_time = datetime.now()
             self.logger.info(f"Task {self.id} started at {self.result.start_time}")

@@ -151,6 +151,8 @@ class CoverageTracker:
             {CONTEXT_COMPONENT: "CoverageTracker"},
         )
 
+        # Empty repository -- will be populated from static data (if available) and
+        # incrementally from logcat lines as the background thread processes them.
         self.repository = LogcatRepository()
 
         self.is_running = False
@@ -173,6 +175,9 @@ class CoverageTracker:
 
         self._data_changed_since_last_update = False
 
+        # Pre-populate the repository with the full method universe from static analysis,
+        # so coverage percentages are calculated against reachable methods (denominator)
+        # rather than only against methods seen at runtime.
         if static_data and static_data.classes:
             self._initialize_from_static_data()
 
@@ -281,34 +286,34 @@ class CoverageTracker:
             with open(self.logcat_file, "r") as f:
                 file_handle = f
 
-                # Process existing lines
+                # Step 1: Drain any lines already in the file (e.g., logcat started before tracker)
                 with self._reader_lock:
                     self.process_lines(f.readlines())
 
-                # Move to end of file
+                # Step 2: Seek to EOF so subsequent reads only pick up new lines
                 f.seek(0, os.SEEK_END)
 
-                # Keep reading until stopped
+                # Step 3: Tail loop -- read new lines as logcat appends them
                 while not self._stop_event.is_set():
-                    # Read new lines
                     with self._reader_lock:
                         new_lines = f.readlines()
 
-                    # Process new lines if any
                     if new_lines:
                         self.process_lines(new_lines)
-                        # Update metrics immediately after processing new data
+                        # Recalculate metrics right away so callers see fresh data
                         self._update_coverage_metrics()
                         self.last_update_time = datetime.now()
                     else:
-                        # Only update metrics periodically if no new data
+                        # Periodic metric refresh (every 10s) catches edge cases where
+                        # the repository was mutated outside the normal line path.
                         if (
                             datetime.now() - self.last_update_time
                         ).total_seconds() >= 10:
                             self._update_coverage_metrics()
                             self.last_update_time = datetime.now()
 
-                    # Longer sleep when no new data to reduce CPU usage
+                    # Adaptive sleep: shorter when data is flowing (0.5s) to keep
+                    # latency low, longer when idle (1.0s) to reduce CPU usage.
                     sleep_time = 0.5 if new_lines else 1.0
                     time.sleep(sleep_time)
 
@@ -360,19 +365,24 @@ class CoverageTracker:
             if not line.strip():
                 return
 
-            # Parse line for coverage or error info
+            # parse_logcat_line returns a mutually exclusive tuple: at most one of
+            # error_log or coverage_log is non-None. Both are None for non-RVSEC lines.
             error_log, coverage_log = parse_logcat_line(line)
 
-            # Update repository
             if error_log:
-                # Calculate time since tool execution start using logcat timestamp
+                # Compute relative timestamp: seconds since the testing tool started.
+                # Uses the logcat entry's own timestamp (parsed from the MM-DD HH:MM:SS
+                # prefix), not wall-clock time, so the offset stays consistent even if
+                # the tracker processes the line with delay.
                 if self.tool_execution_start_time and error_log.time_occurred:
                     time_since_start = int(
                         (
                             error_log.time_occurred - self.tool_execution_start_time
                         ).total_seconds()
                     )
-                    time_since_start = max(0, time_since_start)  # Ensure non-negative
+                    # Clamp to zero -- negative values occur when the logcat line predates
+                    # the tool start (e.g., buffered lines from a previous run).
+                    time_since_start = max(0, time_since_start)
                 else:
                     time_since_start = 0
 

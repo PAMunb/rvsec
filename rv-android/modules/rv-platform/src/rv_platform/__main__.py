@@ -179,7 +179,10 @@ def cmd_run(args) -> int:
         )
         logging_manager.get_logger("rv_platform.cli")
 
-        # Check for standalone result processing mode
+        # Standalone result processing mode: re-generates CSV/JSON from an
+        # existing results directory without re-executing any tasks. Useful
+        # after fixing a result processor bug or when result processing was
+        # skipped during the original run (--skip-result-processing).
         if args.process_results:
             return _process_results_standalone(args.process_results)
 
@@ -376,13 +379,19 @@ def _create_config_from_cli(args) -> PlatformConfig:
     """Create PlatformConfig from CLI arguments."""
     from datetime import datetime
 
-    # Parse tools — each entry may include a variant (e.g., "droidbot:dfs_greedy")
+    # Parse tool specifications from the comma-separated CLI string.
+    # Each spec may include a variant after a colon (e.g., "droidbot:dfs_greedy").
+    # ToolConfig.from_tool_specification() handles the parsing and defaults
+    # variant to "default" when no colon is present.
     tool_specs = [t.strip() for t in args.tools.split(",")]
     tools = []
     for tool_spec in tool_specs:
         tools.append(ToolConfig.from_tool_specification(tool_spec))
 
-    # Generate results directory if not specified
+    # Auto-generate a timestamped results directory if not specified. Each run
+    # gets a unique directory, which prevents accidental overwriting of previous
+    # results. When --results-dir points to an existing directory with tasks.json,
+    # the platform automatically enters resume mode.
     if not args.results_dir:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results_dir = f"./results/platform_{timestamp}"

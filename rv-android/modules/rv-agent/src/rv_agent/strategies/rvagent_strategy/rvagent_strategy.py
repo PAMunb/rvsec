@@ -241,7 +241,12 @@ class RVAgentStrategy(ExplorationStrategy):
         self.device_dimensions = device_dimensions or config.device_dimensions
         self.target_package = config.package_name
 
-        # Gumbel-max stochastic selection parameters from config
+        # Gumbel-max stochastic selection parameters.
+        # stochastic_probability controls how often we use Gumbel-max sampling
+        # instead of deterministic argmax. This prevents the agent from always
+        # selecting the highest-scored action, which causes deterministic cycles.
+        # stochastic_temperature controls the "randomness spread" of Gumbel noise:
+        # higher temperature = more uniform selection, lower = closer to argmax.
         self.stochastic_probability = config.stochastic_probability
         self.stochastic_temperature = config.stochastic_temperature
 
@@ -254,27 +259,38 @@ class RVAgentStrategy(ExplorationStrategy):
         )
         self.coverage_metrics = CoverageMetrics(graph, ui_coverage)
 
-        # Action ranking system with configurable scorer weights
+        # Action ranking system with 9 weighted scorers.
+        # Scores are additive: each scorer contributes an independent score,
+        # and the total determines action priority. Positive scorers promote
+        # desirable actions; penalty scorers demote undesirable ones.
+        # The scorer order here is for readability only -- ActionRanker sums all.
         self.action_ranker = ActionRanker(
             scorers=[
-                # Prioritization scorers
-                MopScorer(config=config),
-                WtgScorer(config=config),
-                SaturationScorer(config=config),
-                ComponentPriorityScorer(config=config),
-                StrengthScorer(config=config),
-                GradualDecayScorer(config=config),
-                CoverageDensityScorer(config=config),
-                # Penalty scorers
-                SystemElementFilter(),
-                VisitationPenaltyScorer(config=config),
+                # Prioritization scorers (positive contributions)
+                MopScorer(config=config),           # +500 (DM) / +300 (M) for MOP-reaching actions
+                WtgScorer(config=config),           # +150 for WTG-guided navigation to unvisited screens
+                SaturationScorer(config=config),    # +100 * (1 - saturation) for unsaturated states
+                ComponentPriorityScorer(config=config),  # +50 buttons, +40 toggles, etc.
+                StrengthScorer(config=config),      # Historical success rate + reward propagation
+                GradualDecayScorer(config=config),  # 200 * 0.7^visits, encourages fresh actions
+                CoverageDensityScorer(config=config),  # 200 * coverage_gap for untested elements
+                # Penalty scorers (negative contributions)
+                SystemElementFilter(),              # -5000 for system UI (nav bar, status bar)
+                VisitationPenaltyScorer(config=config),  # -15 * log(1 + visits) logarithmic penalty
             ]
         )
 
-        # N-step reward propagator for action value estimation
+        # N-step reward propagator for action value estimation.
+        # When positive events occur (new state discovered, MOP triggered),
+        # rewards propagate backward through the last N=5 actions with gamma
+        # discounting. This teaches the agent which action sequences lead to
+        # valuable outcomes. Cumulative rewards are clamped to [-15, +15].
         self.reward_propagator = RewardPropagator(config=config)
 
-        # PathBuffer for multi-step navigation (backtrack, MOP, coverage paths)
+        # PathBuffer for multi-step navigation (backtrack, MOP, coverage paths).
+        # Stores a pre-planned sequence of actions and dispenses one per iteration.
+        # Three planning strategies: A (backtrack to unsaturated ancestor),
+        # B (navigate to MOP-rich activity via WTG), C (coverage-directed).
         self.path_buffer = PathBuffer(
             transition_manager=transition_manager,
             successor_tracker=self.successor_tracker,
@@ -404,12 +420,11 @@ class RVAgentStrategy(ExplorationStrategy):
             f"  Saturation: {saturation_rate:.1%}"
         )
 
-        # 5. Select action using tiered priority
-        # Tier 1: PathBuffer (buffered multi-step path in progress)
-        # Tier 2: Untested actions
-        # Tier 3: Proactive backtracking (saturation >= threshold)
-        # Tier 4: Scored continuous mode (ActionRanker on all actions)
-        # Tier 5: BACK fallback
+        # 5. Select action using 5-tier priority cascade.
+        # Tiers are evaluated in order; the first tier that produces an action wins.
+        # This ordering ensures: active plans complete (T1), fresh actions get tried
+        # (T2), saturated states trigger escape plans (T3), tested actions get
+        # revisited with score decay (T4), and BACK is the last resort (T5).
         selected_action = None
 
         # TIER 1 - BUFFERED PATH: Return next action from active path buffer
@@ -454,9 +469,11 @@ class RVAgentStrategy(ExplorationStrategy):
                 logger.info("RVAgent TIER2: Fallback to first untested action")
 
         elif self.should_backtrack(current_hash):
-            # TIER 3 - PROACTIVE BACKTRACKING: saturation >= threshold
-            # Try planning paths: coverage > MOP > backtrack (C > B > A)
-            # Skip planning if cooling down after a resolution failure (D8)
+            # TIER 3 - PROACTIVE BACKTRACKING: saturation >= threshold.
+            # Instead of continuing to re-execute tested actions on this screen,
+            # plan a multi-step path to escape to a more productive state.
+            # Strategy priority: C (coverage-directed) > B (MOP-directed) > A (ancestor).
+            # Cooling down prevents rapid re-planning after a failed resolution (D8).
             if not self.path_buffer.is_active and not self.path_buffer.is_cooling_down:
                 planned = (
                     self.path_buffer.plan_coverage_path(current_hash)
@@ -516,10 +533,12 @@ class RVAgentStrategy(ExplorationStrategy):
                 logger.info("RVAgent SCROLL: scrolling to reveal more content")
                 return scroll_action
 
-            # Select action using scored selection with execution-count decay.
-            # Tier 4: all actions tested, so MopScorer applies at full weight (INV-AGT-39).
-            # Score decay: effective_score = base_score / (1 + log2(execution_count))
-            # prevents the same high-score action from being selected hundreds of times.
+            # Select action using scored selection with logarithmic execution-count decay.
+            # Tier 4 runs when all visible actions have been tested at least once.
+            # Without decay, a CLICK with score 825 (from MOP + component priority)
+            # would be selected 200+ times consecutively. The log2 decay formula
+            # ensures gradual score reduction: after 8 executions, effective score
+            # is reduced to ~25% of base score, allowing lower-scored actions to win.
             selected_action = self._select_with_score_decay(
                 all_filtered_actions, screen_desc, node
             )
@@ -549,7 +568,11 @@ class RVAgentStrategy(ExplorationStrategy):
             )
             return self._create_back_action()
 
-        # 6. Handle input fields with value generation
+        # 6. Handle input fields with value generation.
+        # TEXT_CHANGE actions (EditText fields) are tested with multiple values
+        # (e.g., valid email, empty string, special characters, long text) to
+        # maximize code path coverage. Each input field gets up to max_variations
+        # (11 for MOP-reaching fields, fewer for regular fields).
         if selected_action.event == WidgetEventType.TEXT_CHANGE:
             original_action = selected_action
             selected_action = self._prepare_input_action(selected_action, current_hash)
@@ -645,11 +668,11 @@ class RVAgentStrategy(ExplorationStrategy):
             to_hash: Destination state hash
             action_signature: Device-space action signature ((x, y), action_type)
         """
-        # Update plateau detector for ALL iterations (including self-loops)
-        # to correctly detect stagnation. The flag was stored by
-        # select_next_action() instead of checking `to_hash not in
-        # self.graph.states`, because by the time record_transition() runs
-        # the state was already added to the graph by get_or_create_state().
+        # Update plateau detector for ALL iterations (including self-loops).
+        # The "new state" flag is stored by select_next_action() BEFORE
+        # get_or_create_state() adds it to the graph. If we checked
+        # `to_hash not in self.graph.states` here, it would always be False
+        # because the state was already added earlier in the same iteration.
         new_state = self._last_is_new_state
         self.plateau_detector.record_iteration(
             discovered_new_state=new_state, new_mop_method=None
@@ -661,9 +684,11 @@ class RVAgentStrategy(ExplorationStrategy):
             reason=f"discovered_new={new_state}",
         )
 
-        # Self-loop guard: skip graph/successor recording for same-state
-        # transitions — they provide zero exploration benefit and pollute
-        # the successor re-enable mechanism.
+        # Self-loop guard: skip graph/successor recording for same-state transitions.
+        # Without this guard, actions that don't change the screen (e.g., clicking
+        # a disabled button) would create self-loop edges in the graph AND poison
+        # the successor tracker, causing the action to be re-enabled endlessly
+        # (since its "destination" state always has untested actions -- itself).
         if from_hash == to_hash:
             track.self_loop_guard(
                 iter=0,
@@ -813,8 +838,10 @@ class RVAgentStrategy(ExplorationStrategy):
         for item in screen_desc.items:
             item_package = item.view.get("package", "")
 
-            # Filter by package - only include items from target app
-            # BUT allow system dialog packages (they render UI as part of app flow)
+            # Filter by package - only include items from target app.
+            # System dialog packages (e.g., permission dialogs, compatibility warnings)
+            # are allowed through because they are part of the app's user flow,
+            # even though they render under a different package name.
             if self.target_package and item_package:
                 if item_package != self.target_package:
                     # Allow system dialog packages (permission dialogs, alerts, etc.)
@@ -943,7 +970,12 @@ class RVAgentStrategy(ExplorationStrategy):
         # Track ALL actions with component type (DEBUG level - for calibration)
         track.rank_full(iter=self._current_iteration, actions=scored_actions_full)
 
-        # Use stochastic selection based on configured probability
+        # Stochastic vs deterministic selection.
+        # Gumbel-max sampling adds noise proportional to temperature, making
+        # lower-ranked actions occasionally win. This breaks deterministic cycles
+        # (e.g., always clicking the same high-score button) while still
+        # respecting the general priority order. Probability is boosted
+        # to 0.5 during plateau detection to inject more randomness.
         use_stochastic = random.random() < self.stochastic_probability
         if use_stochastic and len(actions) > 1:
             selected = self.action_ranker.select_stochastic(
@@ -1028,6 +1060,9 @@ class RVAgentStrategy(ExplorationStrategy):
             # Score decay: reduce attractiveness as execution count grows.
             # Positive scores are divided (smaller = less attractive).
             # Negative scores are multiplied (more negative = less attractive).
+            # This asymmetry ensures both positive and negative scores become
+            # "less desirable" with more executions. Example: score=800, count=8
+            # -> 800 / (1 + 3) = 200. Score=-100, count=8 -> -100 * 4 = -400.
             if exec_count > 0:
                 decay_factor = 1 + math.log2(exec_count)
                 if base_score >= 0:
@@ -1152,9 +1187,11 @@ class RVAgentStrategy(ExplorationStrategy):
             logger.debug(f"Input field {element_id}: all variations tested")
             return None
 
-        # Create a NEW action with the text input value
-        # IMPORTANT: Do NOT mutate the original action, as it may be selected again
-        # with a different test value if input variations are not exhausted
+        # Create a NEW action with the text input value.
+        # IMPORTANT: Do NOT mutate the original action. ItemActions from the
+        # ScreenDescription are shared references -- mutating text_input would
+        # permanently change the action for all future iterations on this screen.
+        # model_copy() creates a shallow Pydantic clone with only text_input overridden.
         action_with_input = action.model_copy(update={"text_input": test_value})
 
         logger.info(

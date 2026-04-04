@@ -119,7 +119,11 @@ class LLMClient:
             llm_kwargs["extra_body"] = lc_config["extra_body"]
         self.llm = ChatOpenAI(**llm_kwargs)
 
-        # Bind tools
+        # Bind tools (click, type, scroll, back, etc.) to the LLM.
+        # bind_tools() uses LangChain's tool calling format, which SGLang
+        # translates to Qwen3-VL's native tool format. The binding is
+        # non-deterministic: SGLang returns native tool_calls ~50% of the time
+        # and XML-in-content ~50%, hence the hybrid parser in _extract_tool_calls.
         self.tools = get_android_tools()
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
@@ -200,17 +204,22 @@ class LLMClient:
 
             self.logger.debug(f"Built {len(messages)} messages")
 
-            # Invoke LLM
+            # Phase 1: Invoke LLM with multimodal input (screenshot + UI text)
             response = self.llm_with_tools.invoke(messages)
             latency_ms = (time.perf_counter() - start_time) * 1000
 
-            # Extract token usage
+            # Phase 2: Extract token usage for cost/budget tracking
             tokens_input, tokens_output = self._extract_token_usage(response)
 
-            # Extract tool calls with fallback parsing
+            # Phase 3: Extract tool calls using hybrid parsing strategy.
+            # Native tool_calls field is checked first. If empty (SGLang's
+            # non-deterministic behavior), fall back to parsing XML/JSON from
+            # the response content text.
             tool_calls, parser_strategy = self._extract_tool_calls(response)
 
-            # Inject tool calls into response if found via parser
+            # Inject parsed tool calls back into the AIMessage so downstream
+            # code (ActionNormalizer, validate_action_node) sees a uniform format
+            # regardless of which parsing strategy succeeded.
             if tool_calls and not response.tool_calls:
                 response.tool_calls = tool_calls
 
@@ -283,7 +292,11 @@ class LLMClient:
             screen_line=screen_line,
         )
 
-        # Create multimodal human message
+        # Build a stateless 2-message context: system prompt + multimodal user message.
+        # No conversation history is included -- each LLM call is independent.
+        # The user message combines text (UI elements, navigation hints, last action
+        # summary) with the screenshot image. This keeps context at ~2500 tokens,
+        # well within Qwen3-VL's context window.
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(
@@ -343,11 +356,15 @@ class LLMClient:
         tool_calls = []
         parser_strategy = "none"
 
-        # Try native tool calls first
+        # Step 1: Try native tool_calls from SGLang's structured output.
+        # When SGLang correctly parses Qwen3-VL's output as tool calls,
+        # they appear in the AIMessage.tool_calls field with proper structure.
         if hasattr(response, "tool_calls") and response.tool_calls:
             parser_strategy = "native"
             for tc in response.tool_calls:
                 raw_args = tc.get("args", tc.get("arguments", {}))
+                # normalize_tool_args handles edge cases: string coords -> int,
+                # missing fields, aliased parameter names (e.g., "input" vs "text")
                 normalized_args = (
                     normalize_tool_args(raw_args) if isinstance(raw_args, dict) else {}
                 )
@@ -360,7 +377,11 @@ class LLMClient:
                 )
             self.logger.debug(f"Native tool calls: {len(tool_calls)}")
 
-        # Fallback: parse from text content
+        # Step 2: Fallback -- parse tool calls from text content.
+        # Qwen3-VL with SGLang sometimes embeds tool calls as XML (Hermes format),
+        # JSON arrays, JSON objects, or markdown code blocks instead of using
+        # the structured tool_calls field. parse_tool_calls_with_strategy tries
+        # all formats and returns the first successful parse.
         if not tool_calls and response.content:
             parsed, fallback_strategy = parse_tool_calls_with_strategy(response.content)
             if parsed:

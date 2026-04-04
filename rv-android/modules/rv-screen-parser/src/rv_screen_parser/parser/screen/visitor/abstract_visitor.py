@@ -21,8 +21,11 @@ from rv_screen_parser.parser.screen.visitor.model import (
     ScreenItem,
 )
 
-# Element types that should always be considered clickable even without clickable=true
-# These are UI elements that are inherently interactive but may not be marked as such
+# UIAutomator dumps often report clickable=false for elements that are in fact
+# interactive (especially custom views and Material Design components). This set
+# overrides the clickable attribute for known-interactive types, preventing the
+# visitor from silently dropping valid actions. Entries include both simple class
+# names and fully-qualified names because UIAutomator inconsistently reports either.
 ALWAYS_CLICKABLE_TYPES = {
     # Standard Android Tabs
     "ActionBar$Tab",
@@ -176,7 +179,9 @@ class AbstractScreenVisitor(ABC):
         if not resource_id or not self.window:
             return None
 
-        # Try by resource ID
+        # Android resource IDs use "package:type/name" format (e.g.,
+        # "com.example:id/btn_submit"). GATOR stores only the name part
+        # ("btn_submit") in Widget.name, so we strip the prefix before matching.
         parts = resource_id.split("/")
         widget_name = parts[-1] if len(parts) > 1 else parts[0]
 
@@ -353,7 +358,9 @@ class AbstractScreenVisitor(ABC):
                 if top_y >= nav_top:
                     return True
 
-        # Check for keyboard pattern: small buttons in bottom half of screen
+        # Heuristic for on-screen keyboard keys: small buttons (< 100x100 px) in
+        # the bottom half of the screen with single-character text. This catches
+        # custom keyboards that do not set a recognizable package or class name.
         if hasattr(self, "device_info") and self.device_info:
             display_height = self.device_info.get("displayHeight", 0)
             if display_height > 0:
@@ -428,7 +435,9 @@ class AbstractScreenVisitor(ABC):
                 y = (bounds[0][1] + bounds[1][1]) // 2
                 coordinates = (x, y)
 
-        # Handle check/uncheck actions with priority if needed
+        # When prioritize_check is True, checkable nodes get CHECK/UNCHECK instead
+        # of CLICK. This prevents checkboxes and switches from being treated as
+        # plain buttons, which would lose semantic information for the LLM agent.
         if prioritize_check and node.checkable:
             if node.checked:
                 action = ItemAction(
@@ -456,8 +465,9 @@ class AbstractScreenVisitor(ABC):
                 self._update_action_mop_related_info(action, node)
                 actions.append(action)
 
-        # Handle click actions (skip for editable elements - they use TEXT_CHANGE instead)
-        # Also consider elements that are inherently clickable by type (e.g., ActionBar$Tab)
+        # Editable elements get TEXT_CHANGE (not CLICK) because clicking an EditText
+        # just focuses it -- the meaningful action is typing. ALWAYS_CLICKABLE_TYPES
+        # overrides clickable=false for known-interactive widgets (tabs, chips, FABs).
         elif (
             (node.clickable or inherit_click or self.is_always_clickable_type(node))
             and not (prioritize_check and node.checkable)
@@ -479,7 +489,8 @@ class AbstractScreenVisitor(ABC):
             self._update_action_mop_related_info(action, node)
             actions.append(action)
 
-        # Handle long click actions
+        # Long-click on EditText/TextView triggers text selection, not a meaningful
+        # app action, so we exclude those to avoid polluting the action space.
         if node.long_clickable:
             if "EditText" not in node.view_class and "TextView" not in node.view_class:
                 text_suffix = ""
@@ -502,12 +513,12 @@ class AbstractScreenVisitor(ABC):
         if not prioritize_check and node.checkable:
             self.create_checked_action(actions, coordinates, counter, node, node_data)
 
-        # Handle scroll actions with better description
+        # Generate scroll actions. We restrict directions by widget type to avoid
+        # producing impossible actions (e.g., horizontal scroll on a ListView).
+        # Unknown scrollable types get all four directions as a safe default.
         if node.scrollable:
-            # Infer scrollable directions based on the widget type and content
             directions = ["UP", "DOWN", "LEFT", "RIGHT"]
 
-            # Filter directions for certain widget types
             if node.view_class in [
                 "android.widget.ListView",
                 "android.widget.ScrollView",
@@ -580,11 +591,14 @@ class AbstractScreenVisitor(ABC):
             action: The action to update
             node: The node associated with the action
         """
+        # Match the runtime UI node to a GATOR-analyzed widget via resource ID or text.
+        # If matched, check whether the widget's event handler reaches a monitored
+        # operation (MOP). This enables rv-agent to prioritize actions that trigger
+        # specification-relevant code paths.
         widget = self.find_matching_widget(node.data)
         if not widget:
             return
 
-        # Find matching event type
         for event in widget.events:
             if event.type == action.event:
                 # Check if method reaches or directly reaches MOP
@@ -595,6 +609,9 @@ class AbstractScreenVisitor(ABC):
                 action.widget_id = widget.id
                 action.callback_signature = event.signature
 
+                # Append MOP markers to the action text so the LLM can see them
+                # in the screen description. [DM] = directly reaches a monitored
+                # operation (one call away); [M] = transitively reaches one.
                 if action.directly_reaches_mop:
                     action.text += " [DM]"
                 elif action.reaches_mop:

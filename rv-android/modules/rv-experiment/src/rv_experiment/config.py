@@ -75,39 +75,72 @@ class ExperimentConfig(BaseValidatedModel):
     - CLI (__main__.py): Creates config from command-line arguments
     """
 
-    # Basic experiment metadata
+    # =========================================================================
+    # Field groups:
+    # 1. Metadata — experiment identity and paths
+    # 2. Tool configuration — which tools/variants to run
+    # 3. Execution parameters — repetitions, timeouts, device config
+    # 4. Processing phase flags — control which Phase 1 steps run
+    # 5. Specification set — which .mop files to use for monitors
+    # 6. APK sources — where to find APKs and optional filtering
+    # 7. Results and resume — output directory and continuation support
+    # =========================================================================
+
+    # --- 1. Metadata ---
     name: str = ""
     description: str = ""
     output_dir: str = ""
 
+    # Override for RVSEC_HOME. Takes priority over the environment variable.
+    # Used in Docker containers where RVSEC_HOME may differ from the host.
     rvsec_root: Optional[str] = Field(
         default=None, description="Override for RVSEC_HOME environment variable"
     )
 
-    # Tool configuration
+    # --- 2. Tool configuration ---
+    # Each ToolConfig specifies a tool name, variant, and parameters.
+    # Multi-variant CLI specs (e.g., "droidbot:dfs_greedy:bfs_greedy") are
+    # expanded into separate ToolConfig entries by the CLI parser.
     tool_configs: List[ToolConfig] = Field(
         default_factory=list, description="List of tool configurations"
     )
 
-    # Execution parameters
+    # --- 3. Execution parameters ---
     repetitions: int = Field(default=1, gt=0, description="Number of repetitions")
+    # Multiple timeouts create a cross-product with tools and APKs:
+    # total tasks = len(apks) * len(tools) * len(timeouts) * repetitions
     timeouts: List[int] = Field(
         default_factory=lambda: [60], description="List of timeout values in seconds"
     )
     no_window: bool = Field(default=True, description="Run without GUI window")
+    # device_port enables parallel execution in Docker containers.
+    # Each container gets a unique port (5554, 5556, ...) so multiple
+    # emulators can run simultaneously on the same host.
     device_port: Optional[int] = Field(
         default=None, description="Emulator port for parallel execution"
     )
 
-    # Processing phases
+    # --- 4. Processing phase flags (Phase 1 steps) ---
+    # Each flag controls one step of the pre-processing pipeline.
+    # On resume, all three are forced to False by the CLI layer because
+    # artifacts (monitors, instrumented APKs, static analysis JSON)
+    # already exist from the first run. Re-running would overwrite them.
     generate_monitors: bool = Field(default=True, description="Generate monitors")
     instrument_apks: bool = Field(default=True, description="Instrument APKs")
     run_static_analysis: bool = Field(default=True, description="Run static analysis")
+    # Controls whether Phase 2 (execution) runs. Useful for pre-processing-only
+    # workflows where you want to generate artifacts without running tools.
     run_execution: bool = Field(
         default=True, description="Execute tasks after preprocessing"
     )
 
-    # Monitored operations specification set
+    # --- 5. Specification set ---
+    # Determines which .mop files are used for monitor generation in Phase 1.
+    # "jca" = Java Cryptography Architecture API misuse detection
+    # "generic" = general API usage patterns (Iterator, Collections, Streams)
+    # "custom" = user-provided .mop files via custom_specs_dir
+    # The two standard sets are mutually exclusive — an experiment uses one
+    # or the other, never both.
     specification_set: str = Field(
         default=DEFAULT_SPEC_SET, description="Specification set type"
     )
@@ -118,28 +151,38 @@ class ExperimentConfig(BaseValidatedModel):
         default=None, description="Custom AspectJ aspects directory"
     )
 
-    # APK sources
+    # --- 6. APK sources ---
+    # Points to the ORIGINAL (uninstrumented) APKs. Phase 1 reads from here
+    # and writes instrumented copies to output_dir/instrumented_apks/.
+    # When using --skip-instrument, this directory is used directly by Phase 2.
     apks_dir: str = Field(
         default=f"./{DEFAULT_APKS_DIR}/",
         description="Source APK directory path (contains APKs to be instrumented)",
     )
+    # Optional filter file: one APK filename per line. Only listed APKs are processed.
+    # Useful for large APK directories where you want to run a subset.
     apks_filter: Optional[str] = Field(
         default=None,
         description="Path to text file listing APK filenames to process (one per line)",
     )
 
-    # Results configuration
+    # --- 7. Results and resume ---
+    # results_dir is a flat directory (no subdirectory nesting). All artifacts
+    # for an experiment live here: tasks.json, CSV reports, experiment_config.json.
     results_dir: Optional[str] = Field(
         default=None, description="Results directory path"
     )
 
-    # Additional metadata
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
 
-    # Continuation support and configuration hierarchy
+    # Resume support: when True, all Phase 1 flags are ignored (forced to False
+    # by CLI layer). rv-platform loads completed tasks from tasks.json and skips
+    # them, executing only new/pending tasks. Resume is triggered by:
+    # - --resume-dir (explicit): points to existing results directory
+    # - --name (implicit): if results/<name>/tasks.json exists, resume activates
     resume_mode: bool = Field(
         default=False, description="Enable experiment continuation mode"
     )
@@ -164,10 +207,15 @@ class ExperimentConfig(BaseValidatedModel):
         if not self.name:
             self.name = f"experiment_{date_now.strftime('%Y%m%d_%H%M%S')}"
 
+        # output_dir defaults to "out/" — the shared pre-processing artifacts directory.
+        # When --name is provided, CLI sets this to "results/<name>" instead,
+        # so pre-processing artifacts and results coexist in the same directory.
         if not self.output_dir:
             self.output_dir = constants.INSTRUMENTED_DIR
 
-        # Set results_dir to same level as output_dir if not specified
+        # results_dir defaults to a "results/" sibling of output_dir.
+        # For CLI-created configs, results_dir is typically set explicitly
+        # to the same path as output_dir (flat directory structure).
         if not self.results_dir:
             if os.path.isabs(self.output_dir):
                 self.results_dir = os.path.join(
@@ -179,7 +227,9 @@ class ExperimentConfig(BaseValidatedModel):
         if not self.created_at:
             self.created_at = date_now.isoformat()
 
-        # Initialize logging (not stored as instance attributes to avoid Pydantic validation issues)
+        # Logger is local (not stored as instance attribute) to avoid Pydantic
+        # trying to validate/serialize it — Pydantic models must only contain
+        # serializable fields.
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
             "rv_experiment.config", {CONTEXT_COMPONENT: "ExperimentConfig"}
@@ -230,7 +280,8 @@ class ExperimentConfig(BaseValidatedModel):
                 "No valid APK source directory configured. Ensure apks_dir exists and contains APK files."
             )
 
-        # Validate specification set
+        # Validate specification set. "jca" and "generic" map to predefined directories
+        # under RVSEC_HOME; "custom" requires a user-provided path to .mop files.
         valid_spec_sets = ["jca", "generic", "custom"]
         if self.specification_set not in valid_spec_sets:
             raise ValueError(
@@ -282,11 +333,11 @@ class ExperimentConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If any tool/variant combination is invalid
         """
-        # Import only when needed to avoid circular dependencies
+        # Lazy import to avoid circular dependencies: rv-tools depends on rv-android-core,
+        # and importing it at module level could trigger import chains during testing.
         try:
             from rv_tools import ToolRegistry
         except ImportError:
-            # If rv-tools is not available, skip validation
             logging_manager = LoggingManager.get_instance()
             logger = logging_manager.get_logger(
                 "rv_experiment.config", {CONTEXT_COMPONENT: "ExperimentConfig"}
@@ -294,7 +345,10 @@ class ExperimentConfig(BaseValidatedModel):
             logger.warning("rv-tools not available - skipping tool variant validation")
             return
 
-        # External tools are registered by rv-platform on import
+        # ToolRegistry is populated at import time:
+        # - rv-tools registers builtin tools (monkey, droidbot, ape)
+        # - rv-platform registers external tools (rvagent, rvsmart, aperv)
+        # Validation runs against the current registry state.
         tool_registry = ToolRegistry.get_instance()
 
         for tool_config in self.tool_configs:
@@ -362,6 +416,9 @@ class ExperimentConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If no APK files are found
         """
+        # Scan apks_dir for all .apk files, then optionally filter.
+        # The filter file is a plain text list of APK filenames (one per line),
+        # useful for batch processing subsets of a large APK corpus.
         apks = []
 
         if self.apks_dir:
@@ -442,10 +499,14 @@ class ExperimentConfig(BaseValidatedModel):
             ConfigurationError: If specification set is not supported
             MonitorConfigError: If RVGeneratorConfig validation fails
         """
-        # Use configuration hierarchy for RVSEC_HOME resolution
         rvsec_root = self.get_effective_rvsec_root()
 
-        # Determine specification set directory
+        # Map specification_set to the directory containing .mop files.
+        # The directory structure under RVSEC_HOME is:
+        #   rvsec/rvsec-mop/src/main/resources/
+        #     jca/       <- JCA crypto API specs (.mop files)
+        #     generic/   <- generic API usage specs (.mop files)
+        #     aspect/    <- shared AspectJ aspects
         mop_base_dir = os.path.join(
             rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources"
         )
@@ -468,10 +529,9 @@ class ExperimentConfig(BaseValidatedModel):
             )
 
         try:
-            # Create RVGeneratorConfig instance with explicit paths
-            # to ensure mop_specs_dir is not overridden by automatic resolution
-
-            # Determine aspects directory: custom if provided, otherwise standard RVSEC
+            # Explicit paths prevent RVGeneratorConfig's internal resolver from
+            # overriding mop_specs_dir with a default — we need the spec-set-specific
+            # directory determined above, not whatever the config class thinks is default.
             if self.custom_aspects_dir:
                 aspects_dir = self.custom_aspects_dir
             else:
@@ -520,13 +580,14 @@ class ExperimentConfig(BaseValidatedModel):
             ConfigurationError: If APK configuration is invalid
             InstrumentationConfigError: If RVInstrumentationConfig validation fails
         """
-        # Use configuration hierarchy for RVSEC_HOME resolution
         rvsec_root = self.get_effective_rvsec_root()
 
-        # Use rv-android directory as working directory (where lib/ and tools are)
+        # working_dir must be rv-android/ (not the project root) because
+        # instrumentation tools reference lib/ and tools/ relative to it.
         rv_android_dir = os.path.join(rvsec_root, "rv-android")
 
-        # Determine monitor output directory from experiment
+        # Monitors generated in Phase 1 Step 1 are consumed here.
+        # The monitor_output_dir must match what _generate_monitors() writes to.
         monitor_output_dir = (
             os.path.join(self.output_dir, MONITORS_DIR) if self.output_dir else None
         )
@@ -573,20 +634,21 @@ class ExperimentConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If configuration creation fails
         """
-        # Use configuration hierarchy for RVSEC_HOME resolution
         rvsec_root = self.get_effective_rvsec_root()
 
-        # Use rv-android directory as base for lib tools
+        # GATOR and its analysis client JAR live under rv-android/lib/gator/.
+        # This path is fixed by the RVSEC project structure.
         rv_android_dir = os.path.join(rvsec_root, "rv-android")
         lib_dir = os.path.join(rv_android_dir, "lib")
 
         try:
-            # analysis_client_jar defaults from gator_dir, but explicit is clearer
             gator_dir = os.path.join(lib_dir, "gator")
             analysis_client_jar = os.path.join(gator_dir, "rvsec-analysis-client.jar")
 
             # RV_SA_TIMEOUT and RV_JVM_MEMORY env vars override SA defaults.
             # Used by preprocess_docker.py --sa-timeout/--jvm-memory for retry runs.
+            # GATOR static analysis can be very slow on large APKs (>30 min),
+            # so the timeout override allows per-APK tuning in batch runs.
             kwargs = {}
             sa_timeout = os.environ.get("RV_SA_TIMEOUT")
             if sa_timeout:

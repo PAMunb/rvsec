@@ -102,13 +102,19 @@ class ResultProcessorComponent:
         with self.logger.with_context(phase="result_processing"):
             self.logger.info(LOG_START.format(phase="experiment result processing"))
 
-            # Filter for completed tasks
+            # Filter for completed tasks. This includes tasks from ALL sessions
+            # (previous runs loaded from tasks.json + current session), because
+            # Platform._process_results() passes task_storage.get_completed_tasks().
             completed_tasks = self._filter_completed_tasks()
             if not completed_tasks:
                 self.logger.warning("No completed tasks found for result processing")
                 return
 
-            # Generate all output files
+            # Generate all output files. Each generator handles the distinction
+            # between tasks with in-memory repository (current session) and tasks
+            # without repository (loaded from tasks.json on resume). For the
+            # latter, MOP violations are reconstructed from persisted logcat files,
+            # while coverage uses the serialized coverage_metrics fallback.
             self._generate_coverage_csv(completed_tasks)
             self._generate_errors_csv(completed_tasks)
             self._generate_summary_csv(completed_tasks)
@@ -237,7 +243,13 @@ class ResultProcessorComponent:
             timeout = config.timeout
             tool_name = config.tool_config.get_full_tool_name()
 
-            # Get repository data if available
+            # Branch 1: Task has an in-memory repository (current session).
+            # Full per-method progressive coverage data is available.
+            # Branch 2 (else): Task loaded from tasks.json on resume — repository
+            # is None. Per-method coverage CANNOT be reconstructed because
+            # register_method_call() requires static analysis class data, which
+            # is not serialized. Instead, write a single summary row using
+            # task.result.coverage_metrics (serialized in tasks.json).
             if hasattr(task, "repository") and task.repository:
                 repository = task.repository
 
@@ -397,8 +409,11 @@ class ResultProcessorComponent:
             timeout = config.timeout
             tool_name = config.tool_config.get_full_tool_name()
 
-            # Get repository: use in-memory if available, reconstruct from
-            # logcat for tasks loaded from tasks.json on resume
+            # For MOP violation data (errors.csv), we CAN reconstruct from logcat
+            # because violations are standalone log entries that don't need static
+            # analysis context. This is the key asymmetry with coverage.csv:
+            # - errors.csv: reconstructible from logcat (RVSEC markers are self-contained)
+            # - coverage.csv: NOT reconstructible (needs static analysis class list)
             repository = None
             if hasattr(task, "repository") and task.repository:
                 repository = task.repository
@@ -553,10 +568,10 @@ class ResultProcessorComponent:
 
             results_file = os.path.join(self.results_dir, "results.json")
 
-            # Build structured results data
+            # Build hierarchical JSON: apk -> repetition -> timeout -> tool.
+            # This nesting matches the experiment's Cartesian product structure
+            # and makes it easy to compare tools for the same APK/timeout pair.
             results_data = {}
-
-            # Process tasks by APK for hierarchical structure
             for task in completed_tasks:
                 apk_name = task.config.apk_name
                 rep = task.config.repetition

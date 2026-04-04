@@ -64,22 +64,43 @@ class PreProcessor:
             instrument: Whether to instrument APKs
             static_analysis: Whether to perform static analysis
         """
+        # =====================================================================
+        # Pre-processing pipeline — three sequential steps:
+        #
+        # Step 1: Generate MOP monitors from .mop specs (JavaMOP + RV-Monitor)
+        #   Input:  .mop specification files from RVSEC_HOME
+        #   Output: AspectJ aspects + monitor classes in out/monitors/
+        #
+        # Step 2: Instrument APKs with generated monitors (dex2jar + AspectJ + d8)
+        #   Input:  Original APKs from apks_dir + monitors from Step 1
+        #   Output: Instrumented APKs in out/instrumented_apks/
+        #
+        # Step 3: Run GATOR static analysis on original APKs
+        #   Input:  Original APKs from apks_dir (NOT instrumented — see below)
+        #   Output: Static analysis JSON alongside instrumented APKs
+        #
+        # Steps must run in order: Step 2 depends on Step 1's output.
+        # Step 3 is independent of Steps 1-2 but runs last by convention.
+        #
+        # When resuming, all three flags are forced to False by the CLI layer
+        # because artifacts already exist from the previous run.
+        # =====================================================================
         with self.logger.with_context(phase="pre_processing"):
             self.logger.info(LOG_START.format(phase="APK pre-processing"))
 
-            # Generate monitors if requested
+            # Step 1: Generate MOP monitors from .mop specs (JavaMOP + RV-Monitor)
             if generate_monitors:
                 self._generate_monitors()
             else:
                 self.logger.warning("Skipping monitor generation")
 
-            # Instrument APKs if requested
+            # Step 2: Instrument APKs with generated monitors (dex2jar + AspectJ + d8)
             if instrument:
                 self._instrument_apks()
             else:
                 self.logger.warning("Skipping APK instrumentation")
 
-            # Perform static analysis if requested
+            # Step 3: Run GATOR static analysis on original APKs
             if static_analysis:
                 self._run_static_analysis()
             else:
@@ -90,15 +111,25 @@ class PreProcessor:
 
     def _generate_monitors(self):
         """Generate runtime verification monitors using JavaMOP and RV-Monitor."""
+        # Monitor generation pipeline:
+        # 1. Read .mop specification files from the specification_set directory
+        #    (jca/ or generic/ under RVSEC_HOME/rvsec/rvsec-mop/.../resources/)
+        # 2. JavaMOP compiles .mop files into .aj (AspectJ) aspect files
+        # 3. RV-Monitor generates runtime monitor classes from .mop files
+        # 4. Output (aspects + monitors) goes to out/monitors/
+        #
+        # ExperimentConfig.specification_set ("jca" or "generic") determines
+        # which .mop files are used. The two sets are mutually exclusive —
+        # an experiment uses one or the other, never both.
         with self.logger.with_context(phase="generate_monitors"):
             self.logger.info(LOG_START.format(phase="monitor generation"))
 
             try:
-                # Ensure monitor output directory exists
                 monitor_output_dir = os.path.join(self.config.output_dir, MONITORS_DIR)
                 os.makedirs(monitor_output_dir, exist_ok=True)
 
-                # Get monitored operations configuration
+                # get_monitored_operations_config() creates an RVGeneratorConfig
+                # just-in-time, resolving RVSEC_HOME and the spec directory path.
                 rv_config = self.config.get_monitored_operations_config()
 
                 # Import and use monitor generator
@@ -131,17 +162,27 @@ class PreProcessor:
 
     def _instrument_apks(self):
         """Instrument APKs with runtime verification monitors."""
+        # Instrumentation pipeline (per APK):
+        # 1. dex2jar: Convert DEX bytecode to JAR (Java bytecode)
+        # 2. AspectJ: Weave monitor aspects into the JAR (requires Step 1 monitors)
+        # 3. d8: Convert woven JAR back to DEX bytecode
+        # 4. Repackage as APK and re-sign with debug keystore
+        #
+        # This step depends on _generate_monitors() having run first —
+        # the monitors/ directory must contain the generated aspects.
+        # If instrumentation fails for an APK, the original is copied
+        # as fallback so execution can proceed (with no MOP monitoring).
         with self.logger.with_context(phase="instrument_apks"):
             self.logger.info(LOG_START.format(phase="APK instrumentation"))
 
             try:
-                # Ensure required directories exist
                 instrumented_dir = os.path.join(
                     self.config.output_dir, INSTRUMENTED_APKS_DIR
                 )
                 os.makedirs(instrumented_dir, exist_ok=True)
 
-                # Get instrumentation configuration (monitors should already be generated)
+                # get_rv_instrumentation_config() creates an RVInstrumentationConfig
+                # just-in-time, resolving tool paths from RVSEC_HOME.
                 instrumentation_config = self.config.get_rv_instrumentation_config()
 
                 # Import instrumentation module
@@ -190,7 +231,13 @@ class PreProcessor:
                 # Note: Instrumentation errors will be tracked and reported by ResultManager
 
     def _copy_original_apks(self):
-        """Copy original APKs to output directory as fallback."""
+        """Copy original APKs to output directory as fallback.
+
+        Called when instrumentation fails or the instrumentation module is
+        unavailable. Ensures Phase 2 (execution) always has APKs to work with,
+        even though they won't have MOP monitors woven in — coverage will be 0%
+        for monitored operations, but the tools can still exercise the app.
+        """
         instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         os.makedirs(instrumented_dir, exist_ok=True)
 
@@ -214,15 +261,17 @@ class PreProcessor:
             self.logger.info(LOG_START.format(phase="static analysis"))
 
             try:
-                # Import static analysis module
                 from rv_static_analysis.analysis.static.static_analysis import (
                     StaticAnalyzer,
                 )
 
-                # Get static analysis configuration
                 static_config = self.config.get_static_analysis_config()
 
-                # Get target APKs (prefer instrumented, fallback to original)
+                # Static analysis uses ORIGINAL APKs (not instrumented) because
+                # GATOR/Soot needs unmodified DEX bytecode. Instrumented APKs have
+                # woven AspectJ aspects that cause TypeResolver errors in GATOR's
+                # call graph analysis. The output JSON is placed alongside the
+                # instrumented APKs so rv-platform finds both in the same directory.
                 target_apks = self._get_target_apks_for_analysis()
                 if not target_apks:
                     self.logger.warning("No APKs available for static analysis")
@@ -241,8 +290,9 @@ class PreProcessor:
                                 )
                             )
 
-                            # Use instrumented APKs directory for static analysis output
-                            # This keeps APKs and their static analysis files together
+                            # Output goes to instrumented_apks/ (not a separate static_analysis/ dir)
+                            # so rv-platform finds the JSON alongside the APK it belongs to.
+                            # Platform looks for <apk_name>.json next to the APK file.
                             apk_output_dir = os.path.join(
                                 self.config.output_dir, INSTRUMENTED_APKS_DIR
                             )
@@ -310,6 +360,12 @@ class PreProcessor:
         Returns:
             List of App objects representing the instrumented APKs
         """
+        # Called by ExperimentController._run_execution() to feed APKs into Phase 2.
+        # Two scenarios:
+        # 1. Normal run: instrumented_apks/ contains woven APKs from _instrument_apks()
+        # 2. Resume / skip-instrument: instrumented_apks/ may be empty, so we fall
+        #    back to original APKs from apks_dir. This ensures execution proceeds
+        #    even when pre-processing was entirely skipped.
         with self.logger.with_context(phase="find_instrumented_apks"):
             apks = []
             instrumented_dir = os.path.join(

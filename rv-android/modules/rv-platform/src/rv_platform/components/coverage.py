@@ -51,7 +51,10 @@ class CoverageComponent:
         self.task = task
         self.error_handler = ErrorHandler.get_instance()
 
-        # Coverage tracking
+        # LogcatRepository collects parsed RVSEC log entries (MOP violations).
+        # It is attached to the task so ResultProcessorComponent can access
+        # violation data during CSV/JSON generation. For resumed tasks, this
+        # repository is reconstructed from the persisted logcat file.
         self.repository = LogcatRepository()
         self.task.repository = self.repository
         self.tracker_process = None
@@ -90,11 +93,15 @@ class CoverageComponent:
             True if coverage tracker was initialized successfully
         """
         try:
-            # Initialize coverage tracker (but don't start tracking yet)
+            # Initialize the tracker but don't start the monitoring thread yet.
+            # Tracking starts later in start_tracking(), called by the executor
+            # AFTER the emulator is booted and the tool begins executing. This
+            # two-phase approach avoids capturing irrelevant logcat output during
+            # emulator boot and APK installation.
             if not self.initialize_tracker():
                 return False
 
-            # Store coverage tracker in context for later use
+            # Expose the tracker via context so other components can access it
             context["coverage_tracker"] = self.coverage_tracker
 
             self.logger.info("Coverage tracker initialized successfully")
@@ -152,9 +159,11 @@ class CoverageComponent:
             try:
                 self.logger.info("Initializing coverage tracker")
 
-                # Use task start_time as initial timing reference during tracker initialization.
-                # The accurate tool_execution_start timestamp is set later in start_tracking(),
-                # after mark_tool_execution_start() has been called in the executor.
+                # Two-phase timing: use task start_time as a placeholder here (phase 2
+                # of execution, before the emulator even boots). The accurate timestamp
+                # is injected later in start_tracking() after mark_tool_execution_start()
+                # has been called inside the emulator session. This avoids including
+                # emulator boot time (~30-60s) in coverage timing calculations.
                 timing_reference = self.task.result.start_time
 
                 self.coverage_tracker = CoverageTracker(
@@ -192,7 +201,9 @@ class CoverageComponent:
             try:
                 self.logger.info("Starting coverage tracking")
 
-                # Update timing reference now that tool_execution_start is available
+                # Replace the placeholder timing reference with the precise tool
+                # execution start. This timestamp was set by TaskExecutor.mark_tool_execution_start()
+                # just before this method is called, after emulator boot and APK install.
                 if self.task.result.tool_execution_start:
                     self.coverage_tracker.tool_execution_start_time = (
                         self.task.result.tool_execution_start
@@ -267,7 +278,10 @@ class CoverageComponent:
                 metrics = repository.calculate_metrics()
                 metrics_dict = metrics.to_dict()
 
-                # Update task result with metrics
+                # Persist coverage metrics into the task result. These are serialized
+                # in tasks.json and serve as fallback data for resumed tasks where
+                # per-method coverage cannot be reconstructed (because static analysis
+                # class data is not available for loaded tasks).
                 self.task.result.coverage_metrics.update(
                     {
                         "method_coverage": metrics_dict["method_coverage"],
@@ -280,7 +294,8 @@ class CoverageComponent:
                     }
                 )
 
-                # Store the repository directly in the task
+                # Attach the live repository to the task so ResultProcessorComponent
+                # can extract per-method and per-error data without reparsing logcat.
                 self.task.repository = repository
 
                 # Log coverage summary

@@ -484,10 +484,14 @@ class RVInstrumentation:
         try:
             self.create_temp_directories()
 
-            # Execute instrumentation pipeline phases
+            # Execute the six-phase instrumentation pipeline:
+            # Phase 1: DEX -> JAR (dex2jar) -- decompile bytecode to Java classes
             self.__decompile_apk(app)
+            # Phase 2: Copy AspectJ/Java monitor files into the class directory
             self.__include_generated_monitors()
+            # Phase 3: AspectJ weaving -- integrate monitoring pointcuts at bytecode level
             self.__weave_monitors(app)
+            # Phases 4-6: Merge support libs, recompile to DEX (d8), sign APK
             signed_apk = self.__create_apk(app)
 
             # Validate successful APK creation
@@ -577,10 +581,13 @@ class RVInstrumentation:
                 f"dex2jar failed to create JAR file: {no_monitor_jar}", None
             )
 
-        # Perform structural verification (optional but recommended)
+        # ASM verification is currently skipped (skip_verify=True) because some
+        # APKs produce JARs with minor structural issues that do not affect weaving.
+        # Enable for debugging when weaving fails on specific APKs.
         self.__d2j_asm_verify(no_monitor_jar, skip_verify=True)
 
-        # Extract JAR contents for AspectJ weaving
+        # Extract JAR into the tmp_dir as loose .class files so AspectJ's ajc
+        # compiler can process them via -inpath. The JAR is deleted to save disk.
         utils.unzip(no_monitor_jar, self.config.tmp_dir)
         utils.delete_file(no_monitor_jar)
 
@@ -614,10 +621,13 @@ class RVInstrumentation:
             ["-f", "-o", output_jar_file, "-e", exception_file, app.path],
         )
 
-        # Execute dex2jar (skip stderr verification as dex2jar outputs to stderr normally)
+        # Skip stderr verification (3rd arg = True) because dex2jar writes
+        # informational messages to stderr even on success -- treating stderr
+        # as an error would cause false negatives on valid APKs.
         utils.execute_command(dex2jar_cmd, tag, True)
 
-        # Check for exception file indicating conversion errors
+        # dex2jar writes an exception zip when it encounters conversion errors
+        # (e.g., unsupported opcodes). Its presence indicates partial failure.
         if os.path.exists(exception_file):
             raise CommandException(
                 tag,
@@ -775,27 +785,34 @@ class RVInstrumentation:
             extra={"classpath_entries": len(classpath), "classpath": classpath_str},
         )
 
-        # Execute AspectJ compiler with monitor weaving configuration
+        # ajc processes two inputs simultaneously:
+        #   -inpath: compiled .class files from the decompiled APK (bytecode weaving)
+        #   -sourceroots: .aj and .java files from rv-monitor-generator (source compilation)
+        # Both point to tmp_dir because monitor sources were copied there in Phase 2.
+        # Output (-d) goes back to tmp_dir, overwriting the original classes with
+        # woven versions. Java 1.8 source level ensures broad Android compatibility.
         ajc_cmd = Command(
             "ajc",
             [
                 "-cp",
                 classpath_str,
-                "-Xlint:ignore",  # Suppress AspectJ lint warnings for generated code
+                "-Xlint:ignore",
                 "-inpath",
-                self.config.tmp_dir,  # Process compiled classes
+                self.config.tmp_dir,
                 "-d",
-                self.config.tmp_dir,  # Output directory for woven classes
+                self.config.tmp_dir,
                 "-source",
-                "1.8",  # Java source compatibility
+                "1.8",
                 "-sourceroots",
-                self.config.tmp_dir,  # Source directory for AspectJ files
+                self.config.tmp_dir,
             ],
         )
 
         utils.execute_command(ajc_cmd, "ajc")
 
-        # Clean up temporary source files after successful weaving
+        # Remove .java and .aj source files after weaving -- only the compiled
+        # .class files are needed for DEX conversion. Leaving them would bloat
+        # the JAR and could confuse downstream d8 compilation.
         utils.delete_files_by_extension(constants.EXTENSION_JAVA, self.config.tmp_dir)
         utils.delete_files_by_extension(constants.EXTENSION_AJ, self.config.tmp_dir)
 
@@ -915,11 +932,14 @@ class RVInstrumentation:
             self._logger.debug(f"Extracting support library: {jar_name}")
             utils.unzip(jar_path, self.config.rvm_tmp_dir)
 
-        # Remove conflicting manifest files
+        # Each JAR has its own META-INF with manifests and signatures. Merging
+        # multiple META-INFs would produce conflicts (duplicate MANIFEST.MF entries),
+        # and they are not needed for the final DEX output. Delete before merging.
         metainf_dir = os.path.join(self.config.rvm_tmp_dir, "META-INF")
         utils.delete_dir(metainf_dir)
 
-        # Merge support classes with instrumented application classes
+        # Merge extracted support classes into the instrumented app's class tree.
+        # dirs_exist_ok=True handles overlapping package directories gracefully.
         shutil.copytree(
             self.config.rvm_tmp_dir, self.config.tmp_dir, dirs_exist_ok=True
         )
@@ -968,8 +988,10 @@ class RVInstrumentation:
             },
         )
 
-        # Execute d8 compiler to convert JAR to DEX
-        # TODO(#23): Make min-api dynamic based on app.min_api when available
+        # d8 converts the instrumented JAR to DEX bytecode. --release enables
+        # optimizations, --lib provides the Android framework stubs. min-api 26
+        # is conservative and covers Android 8.0+; a future enhancement (#23) will
+        # read the app's actual minSdkVersion to produce more optimized bytecode.
         d8_cmd = Command(
             "d8",
             [
@@ -978,7 +1000,7 @@ class RVInstrumentation:
                 "--lib",
                 self.__get_android_jar(app),
                 "--min-api",
-                "26",  # Conservative minimum API level
+                "26",
             ],
         )
 
@@ -993,6 +1015,9 @@ class RVInstrumentation:
             extra={"original_apk": app.path, "unsigned_apk": unsigned_apk},
         )
 
+        # Copy the original APK and replace its classes.dex with the instrumented one.
+        # This preserves resources, assets, AndroidManifest.xml, and native libraries
+        # from the original APK -- only the Dalvik bytecode changes.
         shutil.copy2(app.path, unsigned_apk)
 
         if not os.path.exists(unsigned_apk):
@@ -1000,7 +1025,9 @@ class RVInstrumentation:
                 f"Failed to create unsigned APK copy: {unsigned_apk}", None
             )
 
-        # Replace original classes.dex with instrumented version
+        # zip -u updates the APK in-place, replacing classes.dex (and any
+        # additional classesN.dex files) with the d8-compiled instrumented versions.
+        # d8 outputs DEX files in the current working directory.
         self._logger.info(
             "Integrating instrumented DEX into APK",
             extra={
@@ -1061,23 +1088,24 @@ class RVInstrumentation:
         # Define target path for signed APK
         signed_apk = os.path.join(self.config.instrumented_dir, app.name)
 
-        # Execute initial dex2jar APK signing
+        # Two-stage signing: first d2j_apk_sign adds a basic signature (required for
+        # the APK to be parseable), then we strip META-INF and re-sign with jarsigner
+        # using our keystore. The d2j signature alone is not accepted by modern Android
+        # because it uses an outdated algorithm; jarsigner applies SHA-256.
         self.__d2j_apk_sign(signed_apk, unsigned_apk)
 
-        # Remove unsigned APK after successful initial signing
         os.remove(unsigned_apk)
 
-        # Validate initial signing success
         if not os.path.exists(signed_apk):
             raise InstrumentationError(
                 f"dex2jar APK signing failed: {signed_apk}", None
             )
 
-        # Clean up conflicting META-INF entries
+        # Strip the d2j signature so jarsigner can apply a clean one.
+        # Without this, jarsigner would fail with "duplicate entry" errors.
         zip_cmd = Command("zip", ["-q", "-d", signed_apk, "META-INF*"])
         utils.execute_command(zip_cmd, "zip_sign_apk")
 
-        # Apply final keystore signature
         self.__jarsigner(signed_apk)
 
         # Verify signature integrity
@@ -1106,7 +1134,9 @@ class RVInstrumentation:
                 self._logger.debug(f"Cleaning temporary directory: {folder}")
                 shutil.rmtree(folder, ignore_errors=True)
 
-        # Clean up any stray DEX files in working directory
+        # d8 outputs classes.dex (and classesN.dex for multidex) in the working
+        # directory. These stray files must be removed so the next APK does not
+        # accidentally pick up DEX files from a previous run.
         utils.delete_files_by_extension(
             constants.EXTENSION_DEX, self.config.working_dir
         )
@@ -1187,6 +1217,12 @@ class RVInstrumentation:
         Raises:
             CommandException: If APK was not actually instrumented
         """
+        # Hash comparison catches a subtle failure mode: if all pipeline steps
+        # succeed but weaving produces no bytecode changes (e.g., no matching
+        # pointcuts), the output APK is byte-identical to the original. This
+        # means no monitors were actually injected, so the experiment would
+        # produce zero coverage data. Treating this as an error ensures we
+        # catch misconfigured monitor specifications early.
         original_hash = utils.file_hash(app.path)
         instrumented_path = os.path.join(self.config.instrumented_dir, app.name)
         instrumented_hash = utils.file_hash(instrumented_path)

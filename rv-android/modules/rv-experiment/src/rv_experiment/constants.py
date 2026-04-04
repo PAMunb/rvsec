@@ -19,14 +19,27 @@ import os
 # Base directories following original structure
 WORKING_DIR = os.getcwd()
 
-# Core directory structure - Updated for new architecture
-RESULTS_DIR = "results"  # Individual experiment results (persistent)
-INSTRUMENTED_DIR = "out"  # Temporary artifacts directory (output_dir default)
-MONITORS_DIR = "monitors"  # Generated monitors (within output_dir)
-INSTRUMENTED_APKS_DIR = (
-    "instrumented_apks"  # Instrumented APK files (within output_dir)
-)
-STATIC_ANALYSIS_DIR = "static_analysis"  # Static analysis results (within output_dir)
+# Core directory structure:
+#
+#   results/                      <- RESULTS_DIR: persistent experiment results
+#     my_experiment/              <- one flat directory per experiment
+#       tasks.json                <- rv-platform task tracking (enables resume)
+#       experiment_config.json    <- config snapshot for reproducibility
+#       experiment_completion.json <- Phase 3 diagnostic marker
+#       *.csv                     <- rv-platform result reports
+#
+#   out/                          <- INSTRUMENTED_DIR: temporary pre-processing artifacts
+#     monitors/                   <- MONITORS_DIR: JavaMOP/RV-Monitor output
+#     instrumented_apks/          <- INSTRUMENTED_APKS_DIR: woven APKs + static analysis JSON
+#     static_analysis/            <- STATIC_ANALYSIS_DIR: (legacy, output now goes to instrumented_apks/)
+#
+# When --name is used, output_dir is set to results/<name>/ so artifacts
+# and results coexist. When not, output_dir defaults to out/ (INSTRUMENTED_DIR).
+RESULTS_DIR = "results"
+INSTRUMENTED_DIR = "out"
+MONITORS_DIR = "monitors"
+INSTRUMENTED_APKS_DIR = "instrumented_apks"
+STATIC_ANALYSIS_DIR = "static_analysis"
 
 # Default source directories
 DEFAULT_APKS_DIR = "apks_examples"
@@ -46,7 +59,10 @@ DEFAULT_TIMEOUT = 300
 DEFAULT_REPETITIONS = 1
 DEFAULT_TOOL_TIMEOUT = 60
 
-# Specification sets
+# Specification sets for runtime verification monitors.
+# JCA and generic are predefined directories under RVSEC_HOME containing .mop files.
+# Custom allows user-provided .mop files via --custom-specs-dir.
+# An experiment uses exactly one spec set — they are mutually exclusive.
 SPEC_SET_JCA = "jca"
 SPEC_SET_GENERIC = "generic"
 SPEC_SET_CUSTOM = "custom"

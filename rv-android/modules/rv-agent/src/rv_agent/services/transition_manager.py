@@ -125,6 +125,11 @@ class TransitionManager:
         if not windows or not hasattr(windows, "windows"):
             return None
 
+        # Multi-strategy matching because GATOR's static analysis window names
+        # don't always match Android's runtime activity names exactly.
+        # Example: GATOR may record "MainActivity" while runtime reports
+        # "com.example.app.MainActivity". Each strategy is progressively looser.
+
         # Strategy 1: Exact match on activity field
         for window in windows.windows:
             if hasattr(window, "activity") and window.activity == activity:
@@ -137,7 +142,9 @@ class TransitionManager:
                 self._activity_to_window_id[activity] = window.id
                 return window.id
 
-        # Strategy 3: Partial match
+        # Strategy 3: Partial match using class simple name.
+        # Handles cases like runtime "com.example.SettingsActivity" matching
+        # GATOR window "SettingsActivity" or vice versa.
         activity_parts = activity.split(".")
         activity_class = activity_parts[-1] if activity_parts else activity
 
@@ -207,7 +214,9 @@ class TransitionManager:
                 else False
             )
 
-            # Calculate priority
+            # Priority scoring combines three factors to rank navigation targets:
+            # +100 for unvisited (maximize coverage), +50 for direct MOP access
+            # (maximize monitored operation triggering), +25 for transitive MOP reach.
             priority = self._calculate_target_priority(
                 target_id=target_id,
                 visited=visited,
@@ -367,7 +376,10 @@ class TransitionManager:
         guidance["unvisited_targets"] = unvisited
         guidance["has_static_guidance"] = len(unvisited) > 0
 
-        # Map WTG targets to executable actions
+        # Map static WTG targets to actual on-screen ItemActions.
+        # The mapping bridges the gap between static analysis (widget IDs from
+        # GATOR) and runtime UI (parsed actions with coordinates). Only targets
+        # that match a visible action on the current screen are returned.
         suggested_actions = self._map_targets_to_actions(unvisited, screen_desc)
         guidance["suggested_actions"] = suggested_actions
 
@@ -533,9 +545,11 @@ class TransitionManager:
             )
             return None
 
-        # BFS to find reachable activities with MOP methods
-        # Each queue entry: (window_id, path_of_transitions)
-        # path_of_transitions is a list of transition dicts from WTG
+        # BFS on the static WTG graph to find shortest path to an activity
+        # containing MOP methods. Unlike runtime navigation (which goes screen
+        # by screen), this plans the full path ahead of time using static knowledge.
+        # Only step 1 is resolved against current screen actions; subsequent steps
+        # are re-planned when the agent reaches each intermediate screen.
         visited: Set[str] = {current_window_id}
         queue: deque = deque()
 
@@ -583,7 +597,10 @@ class TransitionManager:
             self.logger.debug("plan_path_to_mop_activity: No MOP activity reachable")
             return None
 
-        # Select best candidate by MOP density (highest first), then shortest path
+        # Select best candidate by MOP density (highest first), then shortest path.
+        # MOP density (number of monitored methods) is preferred over path length
+        # because reaching a screen with 10 MOP methods is more valuable than
+        # reaching one with 1 MOP method, even if the path is slightly longer.
         candidates.sort(key=lambda c: (-c[0], len(c[1])))
         best_mop_count, best_path = candidates[0]
 

@@ -158,7 +158,9 @@ class RVAgent:
             raise ValueError(f"LLM client required for mode: {mode}")
 
         # Level 1 stuck detection (screen unchanged)
-        # Dynamic threshold based on screen complexity (number of elements)
+        # Dynamic threshold based on screen complexity (number of elements).
+        # Screens with more elements need more attempts before declaring "stuck"
+        # because there are more actions to try that might not change the hash.
         self.last_screen_hash = None
         self.stuck_screen_count = 0
         self.error_recovery_count = 0
@@ -168,13 +170,19 @@ class RVAgent:
         )
 
         # Level 2 stuck detection (persistent same state)
-        # Uses Backtrack BFS to find unsaturated ancestors, then RESTART if none found
+        # Activated when Level 1 triggers multiple times from the same state.
+        # Uses Backtrack BFS on the dynamic graph to find unsaturated ancestors
+        # (states with untested actions). Falls back to RESTART if none found.
         self.stuck_recovery = StuckRecovery(max_blocks=10)
 
-        # Screen description cache: reuse when screen_hash is unchanged
+        # Screen description cache: reuse when screen_hash is unchanged.
+        # Avoids re-parsing the same XML dump, which is expensive due to
+        # visitor traversal and MOP enrichment from static analysis.
         self._cached_screen_desc = None
 
-        # Deadlock detection (no action available)
+        # Deadlock detection (no action available).
+        # Separate from stuck detection: stuck = same screen repeatedly,
+        # deadlock = decision router returns no action to execute.
         self.consecutive_no_action = 0
         self.NO_ACTION_THRESHOLD = 3  # Force BACK after 3 iterations without action
 
@@ -242,21 +250,26 @@ class RVAgent:
         workflow.set_entry_point("parse_ui")
         workflow.add_edge("parse_ui", "decision_router")
 
-        # Decision routing
+        # Decision routing: decision_router_node sets "decision_path" in state,
+        # which this conditional edge reads to branch the workflow.
+        # "end" path exits the graph (used when timeout is near or no actions).
         workflow.add_conditional_edges(
             "decision_router",
             lambda s: s.get("decision_path", "end"),
             {"llm": "capture_screenshot", "algorithm": "algorithm_node", "end": END},
         )
 
-        # LLM path
+        # LLM path: screenshot is captured AFTER routing (not during parse_ui)
+        # because screenshots are expensive and algorithm path doesn't need them.
         workflow.add_edge("capture_screenshot", "llm_generate")
         workflow.add_edge("llm_generate", "validate_action")
 
-        # Algorithm path also goes through validation
+        # Both paths converge at validate_action for uniform processing.
+        # Algorithm actions are validated the same way as LLM actions.
         workflow.add_edge("algorithm_node", "validate_action")
 
-        # Validation always goes to execute (no fallback cycle)
+        # Validation always proceeds to execute -- never loops back.
+        # Invalid actions are replaced with BACK, not re-routed to another path.
         workflow.add_edge("validate_action", "execute")
 
         # Common path
@@ -316,7 +329,9 @@ class RVAgent:
             logger.error(f"Failed to launch app: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
 
-        # Set up .trace file handler for RVTRACK log persistence
+        # Set up .trace file handler for RVTRACK log persistence.
+        # The trace file captures ALL log output (DEBUG level) for post-mortem
+        # analysis using grep filters (e.g., "grep RVTRACK:SELECT trace.log").
         trace_handler = None
         if self.config.metrics_output_dir:
             try:
@@ -339,7 +354,10 @@ class RVAgent:
             except Exception as e:
                 logger.warning(f"Failed to set up trace file: {e}")
 
-        # Initialize state
+        # Initialize state.
+        # This dict IS the LangGraph AgentState. Each graph.invoke() reads from
+        # it, runs all nodes, and returns an updated copy. The external loop
+        # merges updates back via state.update(result).
         state = {
             "iteration": 0,
             "start_time": start_time,
@@ -375,7 +393,10 @@ class RVAgent:
             "error_indicators": None,
         }
 
-        # External execution loop
+        # External execution loop.
+        # Each iteration invokes the LangGraph workflow once (parse -> decide ->
+        # act -> learn). The loop handles timeout, error recovery, and KeyboardInterrupt.
+        # Two error counters: consecutive (resets on success) and total (never resets).
         consecutive_errors = 0
         max_consecutive_errors = 10
         total_errors = 0
@@ -392,8 +413,10 @@ class RVAgent:
 
                 state["iteration"] = iteration
 
-                # Invoke graph for one iteration
-                # Set recursion_limit to prevent infinite loops in validation routing
+                # Invoke graph for one iteration.
+                # LangGraph runs parse_ui -> decision_router -> [llm|algorithm] ->
+                # validate_action -> execute -> learn, then returns updated state.
+                # recursion_limit prevents runaway conditional edge cycles.
                 result = self.graph.invoke(state, {"recursion_limit": 100})
 
                 # Update state with results
@@ -425,6 +448,10 @@ class RVAgent:
                     break
 
                 if consecutive_errors >= max_consecutive_errors:
+                    # Reset consecutive counter but keep going. The total_errors
+                    # counter (never resets) is the hard stop. This allows the agent
+                    # to recover from transient issues (e.g., ADB connection drops)
+                    # while still halting on persistent failures.
                     logger.error(
                         f"Too many consecutive errors ({max_consecutive_errors}), "
                         "resetting counter but continuing until timeout or total limit"

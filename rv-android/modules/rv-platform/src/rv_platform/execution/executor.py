@@ -98,12 +98,16 @@ class TaskExecutor:
             },
         )
 
-        # Component registry for coordinated task execution
-        # Components are initialized and executed in specific order for proper lifecycle
+        # Component registry for coordinated task execution.
+        # Registration order determines initialization order. During execution,
+        # components are dispatched to phases by type (see _execute_coordinated_components),
+        # not by registration order — but initialization still follows registration order.
         self.components: List[Any] = []
 
-        # Execution hooks for extension points
-        # Allow task customization and monitoring integration
+        # Execution hooks for extension points.
+        # Pre-hooks run after task validation but before component initialization.
+        # Post-hooks run after cleanup, receiving (task, success_bool) for both
+        # success and failure paths. rv-experiment uses these for cross-task coordination.
         self.pre_execution_hooks: List[Callable[[Task], None]] = []
         self.post_execution_hooks: List[Callable[[Task, bool], None]] = []
 
@@ -206,25 +210,32 @@ class TaskExecutor:
             return False
 
         try:
-            # Run pre-execution hooks
+            # Step 1: Pre-execution hooks (e.g., rv-experiment cross-task coordination)
             for hook in self.pre_execution_hooks:
                 hook(self.task)
 
-            # Update task state to running
+            # Step 2: State transition — marks the task as actively running
             self.task.update_state(TaskState.RUNNING)
             self._publish_task_started_event()
 
-            # Initialize all components
+            # Step 3: Initialize all components in registration order.
+            # Each component gets the task context for configuration. Components
+            # that need the Android device (emulator, logcat) defer their real work
+            # to the execution phase — initialization only prepares internal state.
             context = self.get_task_context()
             self._initialize_components(context)
 
-            # Execute components in specialized order with proper coordination
+            # Step 4: Execute components in three coordinated phases.
+            # Phase 1 (static analysis) and Phase 2 (coverage init) run OUTSIDE
+            # the emulator — no device needed. Phase 3 runs INSIDE the emulator
+            # context manager, which handles boot, app install, and teardown.
+            # This separation avoids holding an emulator idle during analysis.
             self._execute_coordinated_components(context)
 
-            # Clean up all components
+            # Step 5: Clean up all components (release file handles, stop threads)
             self._cleanup_components(context)
 
-            # Mark task as completed
+            # Step 6: Mark task as completed — persisted by Platform._execute_tasks()
             self.task.update_state(TaskState.COMPLETED)
 
             # Publish completed event
@@ -238,20 +249,21 @@ class TaskExecutor:
             return True
 
         except Exception as e:
-            # Let the error handler process the error
+            # Error path: mark task as failed, clean up resources, notify hooks.
+            # Cleanup runs even on failure to release emulator/logcat resources;
+            # _cleanup_resources() catches its own exceptions to avoid masking
+            # the original error.
             self.error_handler.handle_error(e, self.get_task_context())
 
-            # Update task status (error_handler.handle_error above already logged)
             error_message = str(e)
             self.task.update_state(TaskState.ERROR, error_message)
 
-            # Publish failed event
             self._publish_task_failed_event(error_message)
 
-            # Clean up resources
             self._cleanup_resources()
 
-            # Run post-execution hooks
+            # Post-execution hooks receive success=False so they can perform
+            # failure-specific actions (e.g., notification, retry scheduling).
             for hook in self.post_execution_hooks:
                 hook(self.task, False)
 
@@ -287,7 +299,12 @@ class TaskExecutor:
         Raises:
             TaskExecutionError: If any component's execute() returns False.
         """
-        # Get components by type
+        # Classify components by type for phase-based execution.
+        # Components are dispatched to three phases based on their resource needs:
+        # - Phases 1-2 run WITHOUT an emulator (no Android device needed)
+        # - Phase 3 runs INSIDE the emulator context manager (device is booted)
+        # This separation avoids holding an emulator idle during static analysis
+        # and coverage initialization, which can take significant time.
         static_component = None
         coverage_component = None
         emulator_component = None
@@ -306,7 +323,10 @@ class TaskExecutor:
             elif isinstance(component, ToolExecutionComponent):
                 tool_component = component
 
-        # Phase 1: Load static data (outside emulator)
+        # Phase 1: Static analysis data loading (outside emulator).
+        # Loads GATOR/GESDA/REACH data into the task's static_data field.
+        # This data is needed by CoverageTracker to know which methods belong
+        # to the app (vs library code) for accurate coverage calculation.
         if static_component:
             self.logger.info(f"Executing component: {static_component.name}")
             if not static_component.execute(context):
@@ -314,7 +334,10 @@ class TaskExecutor:
                     f"Component {static_component.name} execution failed", self.task.id
                 )
 
-        # Phase 2: Initialize coverage tracking (outside emulator)
+        # Phase 2: Coverage tracker initialization (outside emulator).
+        # Creates the CoverageTracker with static_data and logcat_file path,
+        # but does NOT start the monitoring thread yet. Tracking starts inside
+        # the emulator session after the APK is installed and tool begins.
         if coverage_component:
             self.logger.info(f"Executing component: {coverage_component.name}")
             if not coverage_component.execute(context):
@@ -323,7 +346,9 @@ class TaskExecutor:
                     self.task.id,
                 )
 
-        # Phase 3: Start emulator session and execute tool
+        # Phase 3: Emulator session (emulator boot -> app install -> tool run).
+        # Everything inside this phase runs within the emulator context manager,
+        # which handles startup, boot-wait, and teardown automatically.
         if emulator_component and tool_component:
             self._run_emulator_session(
                 emulator_component,
@@ -355,9 +380,15 @@ class TaskExecutor:
             tool_component: Tool execution component
             context: Task execution context
         """
-        # Start emulator using context manager
+        # The context manager boots the emulator, waits for it to be ready,
+        # and tears it down when the block exits (even on exception).
+        # "RVSec" is the AVD name shared by all experiment containers.
+        # The emulator gets a unique port via device_port in tool_config.parameters,
+        # enabling parallel execution across Docker containers without port conflicts.
         with emulator_component.start_emulator("RVSec") as android:
-            # Store android interface and device_id in context for tools
+            # Inject the Android interface into context so downstream components
+            # (especially ToolExecutionComponent) can interact with the device.
+            # Tools receive this via context["android"] in their execute() call.
             context["android"] = android
             context["device_id"] = self.task.config.device_id
 
@@ -369,29 +400,50 @@ class TaskExecutor:
                         "Failed to install application", self.task.id
                     )
 
-            # Set up logcat and coverage tracking
+            # Start logcat capture BEFORE the tool runs. Logcat captures all
+            # Android system log output to a file, including RVSEC MOP violation
+            # markers emitted by the instrumented APK. This file is persisted in
+            # tasks.json and used for MOP violation reconstruction on resume.
             if logcat_component:
                 logcat_component.start_capture()
 
-            # Mark precise tool execution start for accurate timing measurement
+            # Record the precise tool execution start timestamp BEFORE starting
+            # coverage tracking. CoverageTracker uses this timestamp to calculate
+            # time-relative coverage metrics (e.g., "method first seen at T+30s").
+            # The task start_time includes emulator boot time, which would skew
+            # coverage timing if used instead.
             self.task.mark_tool_execution_start()
             self._publish_tool_execution_started_event()
 
+            # Start real-time coverage tracking. The tracker reads the logcat file
+            # in a background thread, parsing RVSEC log entries as they appear.
+            # CoverageTracker uses static_data (loaded in Phase 1) to distinguish
+            # app methods from library code for accurate coverage calculation.
             if coverage_component:
                 coverage_component.start_tracking()
 
-            # Execute the tool
+            # Execute the testing tool (Monkey, DroidBot, RVAgent, etc.).
+            # The tool interacts with the emulator for the configured timeout
+            # duration. RVToolTimeoutError is caught inside ToolExecutionComponent
+            # and treated as successful completion (bounded-time experiments).
             self.logger.info(f"Executing component: {tool_component.name}")
             if not tool_component.execute(context):
                 raise TaskExecutionError(
                     f"Component {tool_component.name} execution failed", self.task.id
                 )
 
-            # Stop tracking and process results
+            # Stop order matters: coverage first, then logcat.
+            # process_results() calculates final method/activity/MOP coverage and
+            # stores them in task.result.coverage_metrics, which is serialized to
+            # tasks.json. On resume, these metrics serve as the coverage fallback
+            # because per-method data cannot be reconstructed without static_data.
             if coverage_component:
                 coverage_component.stop_tracking()
                 coverage_component.process_results()
 
+            # Stop logcat capture last. The logcat file remains on disk and its
+            # path is persisted in tasks.json. On resume, ResultProcessorComponent
+            # re-parses this file to reconstruct MOP violation details for errors.csv.
             if logcat_component:
                 logcat_component.stop_capture()
 

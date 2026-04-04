@@ -84,7 +84,10 @@ class ErrorHandler:
         command timeout) that are logged but re-raised. Also register special handlers
         for FileNotFoundError, RVAndroidError, and the catch-all Exception fallback.
         """
-        # Errors considered fully handled (return True, won't propagate from context manager)
+        # === ABSORBED ERRORS ===
+        # These are expected/recoverable conditions (validation failures, tool timeouts,
+        # tool execution errors). The handler returns True, suppressing propagation
+        # in both the context manager and the decorator (when reraise=False).
         handled_types = [
             CommandValidationError,
             LogcatValidationError,
@@ -98,7 +101,9 @@ class ErrorHandler:
         for error_type in handled_types:
             self.register_handler(error_type, self._handle_and_absorb)
 
-        # Errors logged but not handled (return False, propagate from context manager)
+        # === PROPAGATED ERRORS ===
+        # These are logged for diagnostics but must propagate to callers because
+        # they require higher-level recovery (e.g., experiment retry, user intervention).
         propagated_types = [
             RVToolError,
             RVExperimentError,
@@ -135,6 +140,9 @@ class ErrorHandler:
             handler: Function to call when this error occurs, should return True if handled
         """
 
+        # Exact type match (not isinstance) ensures that subclasses don't get
+        # accidentally caught by a parent handler. For example, RVToolTimeoutError
+        # should be handled by its own handler, not by the RVToolError handler.
         def handler_wrapper(e, c):
             if type(e) == error_type:
                 return handler(e, c)
@@ -191,6 +199,9 @@ class ErrorHandler:
         """
         self._log_error(error, context)
 
+        # First-match-wins: callbacks are iterated in registration order.
+        # Specific handlers (CommandValidationError, etc.) are registered before
+        # generic ones (RVAndroidError, Exception), so they take priority.
         handled = False
         for callback in self._error_callbacks:
             try:
@@ -430,6 +441,13 @@ class ErrorHandler:
                 except Exception as e:
                     handled = handler._handle_error_internal(e, context)
 
+                    # Two independent decisions:
+                    # 1. "handled" = a callback absorbed the error (logged, metrics updated)
+                    # 2. "reraise" = caller wants the exception to propagate regardless
+                    #
+                    # When handled=True and reraise=False: error is silently absorbed,
+                    # function returns None. This is the default for non-critical operations.
+                    # When reraise=True: always propagate, even if a handler ran.
                     if handled:
                         handler._logger.debug(
                             f"Error handled by decorator in {func.__name__}"

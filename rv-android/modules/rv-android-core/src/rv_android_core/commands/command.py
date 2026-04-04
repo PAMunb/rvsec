@@ -136,14 +136,15 @@ class Command(BaseValidatedModel):
         Use object.__setattr__ to bypass Pydantic's validate_assignment
         for non-model attributes (logger, error_handler).
         """
-        # Use object.__setattr__ to bypass Pydantic validation for logger
+        # object.__setattr__ is required because validate_assignment=True in model_config
+        # causes Pydantic to intercept normal attribute assignment and reject non-Field
+        # attributes like logger and error_handler.
         logging_manager = LoggingManager.get_instance()
         logger = logging_manager.get_logger(
             "rv_android_core.commands.command", {CONTEXT_COMPONENT: "Command"}
         )
         object.__setattr__(self, "logger", logger)
 
-        # Initialize error handler for integrated error management
         error_handler = ErrorHandler.get_instance()
         object.__setattr__(self, "error_handler", error_handler)
 
@@ -174,6 +175,8 @@ class Command(BaseValidatedModel):
                 stdin = stdin.encode()
 
             try:
+                # Popen without shell=True to avoid shell injection and enable
+                # reliable process tree cleanup via kill_process_tree().
                 proc = Popen(cmd_args, stderr=stderr, stdout=stdout)
                 stdout_data, stderr_data = proc.communicate(stdin, timeout=self.timeout)
 
@@ -294,12 +297,14 @@ class Command(BaseValidatedModel):
             self.logger.debug(LOG_START.format(phase=f"process command: {cmd_str}"))
 
             try:
-                # Use subprocess.Popen with process group to avoid fork duplication
+                # os.setsid creates a new process group so that the entire subtree
+                # can be killed with os.killpg() instead of chasing individual PIDs.
+                # This prevents orphan processes when running tools in parallel.
                 process = Popen(
                     cmd_args,
                     stderr=stderr,
                     stdout=stdout,
-                    preexec_fn=os.setsid,  # Create new process group for proper cleanup
+                    preexec_fn=os.setsid,
                 )
                 self.logger.debug(f"Started single process with PID: {process.pid}")
                 return process

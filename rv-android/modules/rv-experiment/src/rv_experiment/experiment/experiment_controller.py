@@ -57,6 +57,17 @@ class ExperimentController:
     - ToolFactory: Tool instance creation from ToolConfig specifications
     """
 
+    # =========================================================================
+    # Lifecycle: __init__ -> run() -> [Phase 1 -> Phase 2 -> Phase 3]
+    #
+    # Phase 1: Pre-processing — generate monitors, instrument APKs, run static analysis
+    # Phase 2: Execution — delegate to rv-platform for task execution
+    # Phase 3: Post-processing — generate diagnostics and summary reports
+    #
+    # Each phase is independently skippable via ExperimentConfig flags.
+    # On resume, all Phase 1 steps are auto-skipped (artifacts already exist).
+    # =========================================================================
+
     @ErrorHandler.handle_errors(
         component="ExperimentController", phase="initialization"
     )
@@ -94,7 +105,11 @@ class ExperimentController:
             {CONTEXT_COMPONENT: "ExperimentController"},
         )
 
-        # Initialize clean workflow components
+        # Initialize the three workflow components — one per phase.
+        # PreProcessor handles Phase 1 (monitor gen, instrumentation, static analysis).
+        # ExecutionController wraps rv-platform for Phase 2 (task execution).
+        # PostProcessor generates Phase 3 diagnostics (instrumentation errors, completion).
+        # Each component is stateless across phases — no data flows between them.
         self.pre_processor = PreProcessor(config)
         self.execution_controller = ExecutionController(config)
         self.post_processor = PostProcessor(self.results_dir)
@@ -121,17 +136,26 @@ class ExperimentController:
         ):
             self.logger.info(LOG_START.format(phase=f"experiment {self.experiment_id}"))
 
-            # Save experiment configuration to results directory for reproducibility
+            # Save experiment configuration to results directory for reproducibility.
+            # The JSON snapshot captures the exact config used, enabling re-runs
+            # with identical parameters and audit trails for published results.
             self.save_experiment_config()
 
             try:
                 success = True
 
-                # Phase 1: Pre-processing (includes apk instrumentation for MOP error tracking)
+                # Phase 1: Pre-processing — generate monitors, instrument APKs, run static analysis.
+                # Each step is controlled by a separate flag in ExperimentConfig.
+                # When resuming, all flags are forced to False by the CLI layer
+                # because artifacts (monitors, instrumented APKs, static analysis JSON)
+                # already exist from the first run. Re-running would overwrite them.
                 self.logger.info("Starting pre-processing phase")
                 self._run_pre_processing()
 
-                # Phase 2: Execution (rv-platform handles everything including result processing)
+                # Phase 2: Execution — delegate to rv-platform via ExecutionController.
+                # rv-platform handles the full task lifecycle: emulator management,
+                # tool execution, logcat capture, coverage tracking, and CSV/JSON
+                # result generation. No data transfers back to rv-experiment.
                 if self.config.run_execution:
                     self.logger.info("Starting execution phase")
                     execution_success = self._run_execution()
@@ -142,7 +166,10 @@ class ExperimentController:
                 else:
                     self.logger.info("Execution phase skipped (--skip-execution)")
 
-                # Phase 3: Post-processing (basic diagnostics only)
+                # Phase 3: Post-processing — generate diagnostics and summary reports.
+                # Intentionally lightweight: only produces instrumentation error JSON
+                # and a completion timestamp. All heavy result processing (CSV, coverage
+                # reports, MOP violation summaries) happens in rv-platform during Phase 2.
                 self.logger.info("Starting post-processing phase")
                 self.post_processor.process()
 
@@ -164,6 +191,9 @@ class ExperimentController:
 
     def _run_pre_processing(self):
         """Execute pre-processing phase with instrumentation error tracking."""
+        # Delegate to PreProcessor with per-step flags from ExperimentConfig.
+        # Each flag can be individually disabled via CLI (--skip-monitors, etc.)
+        # or automatically disabled on resume (all three forced to False).
         self.pre_processor.process(
             generate_monitors=self.config.generate_monitors,
             instrument=self.config.instrument_apks,
@@ -185,7 +215,10 @@ class ExperimentController:
                 coordination fails
         """
         try:
-            # Get instrumented APKs
+            # Get instrumented APKs from the pre-processing output directory.
+            # If instrumentation was skipped (resume or --skip-instrument), this
+            # falls back to original APKs from apks_dir. Either way, these APKs
+            # are what rv-platform will install on emulators for task execution.
             apks = self.pre_processor.get_instrumented_apks()
 
             if not apks:
@@ -198,18 +231,23 @@ class ExperimentController:
                 self.logger.error("No valid tools found for execution")
                 return False
 
-            # Setup execution controller
+            # Two-step lifecycle: setup() translates ExperimentConfig into PlatformConfig,
+            # then run() delegates to Platform.run() which handles everything from here.
+            # tool_configs is passed separately because it carries variant info that
+            # would be lost if we derived configs from the tool instances alone.
             self.execution_controller.setup(
                 apks=apks,
                 repetitions=self.config.repetitions,
                 timeouts=self.config.timeouts,
                 tools=tools,
-                tool_configs=self.config.tool_configs,  # Add original tool configs for variant info
+                tool_configs=self.config.tool_configs,
                 no_window=getattr(self.config, "no_window", False),
                 results_dir=self.results_dir,
             )
 
-            # Execute through rv-platform (includes automatic result processing)
+            # Execute through rv-platform. Platform.run() handles emulator lifecycle,
+            # tool execution, logcat capture, and result processing (CSV/JSON).
+            # On resume, rv-platform loads tasks.json and skips completed tasks.
             success = self.execution_controller.run()
             return success
 
@@ -229,7 +267,9 @@ class ExperimentController:
         tools = []
 
         try:
-            # Import tool factory
+            # Lazy import: ToolFactory is only needed when we actually create tools.
+            # This avoids import-time side effects when rv-tools is not installed
+            # (e.g., during unit testing or pre-processing-only runs).
             from rv_tools import ToolFactory
 
             # Create ToolFactory instance

@@ -49,7 +49,11 @@ class PostProcessor:
         self.results_dir = results_dir
         self.error_handler = ErrorHandler.get_instance()
 
-        # Initialize TaskStorage to access tasks for ResultManager
+        # Load tasks.json created by rv-platform during Phase 2 (execution).
+        # TaskStorage provides read-only access to task status and metadata,
+        # which ResultManager uses to identify instrumentation failures.
+        # On first run before execution, the file may not exist — TaskStorage
+        # handles this gracefully by returning an empty task list.
         tasks_file = os.path.join(results_dir, "tasks.json")
         self.task_storage = TaskStorage(tasks_file)
         self.task_storage.load()
@@ -67,6 +71,15 @@ class PostProcessor:
         This method handles only basic post-processing diagnostics.
         All result processing is handled by rv-platform automatically.
         """
+        # Phase 3: Post-processing — generate diagnostics and summary reports.
+        #
+        # This phase is intentionally minimal. rv-platform already generates
+        # CSV reports, coverage summaries, and MOP violation data during Phase 2.
+        # Post-processing only adds:
+        # 1. Instrumentation errors JSON — identifies APKs that failed instrumentation
+        #    so they can be excluded from coverage calculations.
+        # 2. Completion diagnostics — a timestamp marker confirming the experiment
+        #    finished (useful for automated pipelines checking experiment status).
         with self.logger.with_context(phase="post_processing"):
             self.logger.info(LOG_START.format(phase="experiment post-processing"))
 
@@ -89,7 +102,10 @@ class PostProcessor:
             )
 
             try:
-                # Create ResultManager and generate instrumentation errors
+                # ResultManager cross-references task_storage with APK files to
+                # identify which APKs failed instrumentation. The output JSON is
+                # consumed by analysis scripts to exclude non-instrumented APKs
+                # from MOP coverage calculations (they would show 0% by definition).
                 result_manager = ResultManager(self.results_dir, self.task_storage)
                 result_manager.generate_reports()
 

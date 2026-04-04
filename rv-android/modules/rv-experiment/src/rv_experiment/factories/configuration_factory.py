@@ -1,23 +1,12 @@
 """
-Configuration Factory - Phase 8 Clean Architecture Implementation
+Configuration factory for RV-Android experiments.
 
-### Architectural Overview:
-This module implements the configuration factory pattern for Phase 8 clean architecture,
-providing factory methods for creating different types of experiment configurations
-with just-in-time parameter validation and DI-ready design.
+Provide factory methods for creating ExperimentConfig instances from different
+sources: CLI arguments, dictionaries, and pre-built templates. The factory
+handles tool specification DSL parsing, default generation, and validation.
 
-### Key Features:
-- **Factory Pattern**: Clean configuration creation through factory methods
-- **Template Generation**: Intelligent template creation for different scenarios
-- **Just-in-Time Validation**: Configuration validation only when needed
-- **DI-Ready Design**: Structure optimized for dependency injection containers
-- **Specification Set Support**: JCA crypto vs generic programming patterns
-
-### Role in the System:
-- Provides factory methods for creating experiment configurations
-- Eliminates complex configuration coordination patterns
-- Enables clean template generation for different experiment types
-- Supports just-in-time configuration validation and error handling
+Used by the CLI layer (__main__.py) and programmatic callers to create
+properly validated experiment configurations without manual field wiring.
 """
 
 import uuid
@@ -32,26 +21,18 @@ from rv_experiment.config import ExperimentConfig
 
 
 class ConfigurationFactory:
-    """
-    Factory for creating experiment configurations with Phase 8 clean architecture.
-
-    ### Architectural Overview:
-    This factory implements clean configuration creation patterns, eliminating complex
-    coordination in favor of simple factory methods that create properly configured
-    experiment configurations for different scenarios.
-
-    ### Phase 8 Key Features:
-    - **Factory Pattern**: Clean configuration creation through factory methods
-    - **Just-in-Time Configuration**: Configuration parameters set only when needed
-    - **Template Generation**: Intelligent template creation for different scenarios
-    - **DI-Ready Design**: Structure optimized for dependency injection containers
-    - **Specification Set Support**: Support for different monitored operations types
+    """Factory for creating experiment configurations.
 
     ### Role in the System:
-    - Provides factory methods for creating different types of configurations
-    - Eliminates complex configuration coordination and ComponentConfigurator patterns
-    - Enables clean template generation with intelligent defaults
-    - Supports configuration validation and error handling
+    Provides factory methods for creating ExperimentConfig from CLI arguments,
+    dictionaries, and pre-built templates. Centralizes configuration creation
+    logic that would otherwise be duplicated across callers.
+
+    ### Key Methods:
+    - create_cli_config(): Build config from CLI-style parameters
+    - create_full_config(): Build config with explicit tool_configs
+    - create_basic/advanced/llm_template(): Pre-built configs for common scenarios
+    - parse_tool_specifications(): Parse tool DSL strings into structured dicts
     """
 
     def __init__(self):
@@ -236,20 +217,19 @@ class ConfigurationFactory:
     )
     def create_llm_template(self) -> ExperimentConfig:
         """
-        Create LLM-focused configuration template using factory pattern.
-
-        ### Template Factory Pattern:
-        This method creates LLM-focused configuration templates optimized for
-        agentic testing scenarios with rvagent and monitored operations.
+        Create LLM-focused configuration template.
 
         Returns:
             LLM-focused ExperimentConfig template
         """
+        # LLM-driven testing needs longer timeouts because the agent explores
+        # the app interactively, taking screenshots and reasoning about each step.
+        # 30 minutes is a reasonable default for thorough exploration.
         return ExperimentConfig(
             name="llm_experiment",
             description="LLM-driven testing experiment",
             tool_configs=[ToolConfig(name="rvagent", variant="multimode")],
-            timeouts=[1800],  # 30 minutes for LLM
+            timeouts=[1800],
             specification_set="jca",
         )
 
@@ -300,8 +280,11 @@ class ConfigurationFactory:
         Returns:
             Structured tool configuration dictionary
         """
+        # The DSL uses two delimiters:
+        # - '@' separates tool identity from parameters
+        # - ':' separates tool name from variant names
+        # Parameters without '=' are treated as boolean flags (e.g., "verbose").
         try:
-            # Split tool name/variants from parameters
             if "@" in tool_spec:
                 tool_part, params_part = tool_spec.split("@", 1)
                 # Parse parameters

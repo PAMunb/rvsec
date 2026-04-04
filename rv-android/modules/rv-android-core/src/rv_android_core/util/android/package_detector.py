@@ -387,7 +387,8 @@ class PackageDetector:
         sorted_pkgs = sorted(packages)
         prefix = os.path.commonprefix(sorted_pkgs)
 
-        # Adjust to package boundary (remove incomplete component)
+        # os.path.commonprefix operates character-by-character, so "com.example.app"
+        # and "com.example.api" yields "com.example.a" -- truncate to last full segment.
         if prefix and not prefix.endswith("."):
             prefix = prefix.rsplit(".", 1)[0] if "." in prefix else ""
 
@@ -519,7 +520,9 @@ class PackageDetector:
         manifest_pkg = apk.get_package()
 
         # Extract all components from manifest (Activities, Services, Receivers).
-        # Providers excluded as they are frequently from third-party libraries.
+        # Providers are intentionally excluded: ContentProviders are frequently
+        # from third-party libraries (Firebase, Room, etc.) and would pollute
+        # frequency-based detection with non-application packages.
         all_components = []
         all_components.extend(apk.get_activities())
         all_components.extend(apk.get_services())
@@ -529,7 +532,9 @@ class PackageDetector:
         # libraries, and common third-party packages).
         app_components = [c for c in all_components if not self.is_framework(c)]
 
-        # Check if all components are in the manifest package (most common case).
+        # Fast path: check if all components belong to the manifest package.
+        # This is the common case (~72.5% of APKs) and avoids the more expensive
+        # heuristic pipeline below.
         same_package = True
         for component in app_components:
             if manifest_pkg not in component:
@@ -616,6 +621,9 @@ class PackageDetector:
                 # Priority 4: Most common package (dominance heuristic)
                 top_pkg, top_count = pkg_freq.most_common(1)[0]
 
+                # 60% threshold chosen empirically: lower values produced false
+                # positives from library packages; higher values missed legitimate
+                # main packages in apps with many library components.
                 if top_count >= len(app_components) * 0.6:
                     # One package covers 60%+ of components: likely main package.
                     detected_pkg = top_pkg

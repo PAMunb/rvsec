@@ -50,7 +50,8 @@ class DroidBotTool(AbstractTool):
     - random: Random event generation
     """
 
-    # Simplified tool specification
+    # process_pattern is used to detect the running DroidBot process on the
+    # host machine (unlike Monkey/APE which run inside the Android runtime).
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="droidbot",
         description="DroidBot lightweight test input generator for Android applications",
@@ -59,7 +60,9 @@ class DroidBotTool(AbstractTool):
         process_pattern="droidbot",
     )
 
-    # Available exploration policies that can be used as variants
+    # Policies map to DroidBot's -policy CLI argument. "none" and "manual"
+    # are useful for scripted or interactive testing but are rarely used in
+    # automated experiments.
     AVAILABLE_POLICIES = [
         "dfs_naive",
         "dfs_greedy",
@@ -119,6 +122,9 @@ class DroidBotTool(AbstractTool):
                 "interval": 3,
                 "ignore_ad": True,
             },
+            # Greedy variants use a very high count (effectively infinite)
+            # because their graph-based exploration should run until the
+            # timeout expires, not until an arbitrary event budget runs out.
             "dfs_greedy": {
                 "policy": "dfs_greedy",
                 "count": 10000000000,
@@ -173,7 +179,9 @@ class DroidBotTool(AbstractTool):
                 f"Available policies: {self.AVAILABLE_POLICIES}"
             )
 
-        # Set configuration with defaults
+        # Build config with explicit defaults first, then spread the incoming
+        # config at the end. This allows factory-injected parameters (e.g.,
+        # device_serial from the platform) to override the defaults here.
         self.config = {
             "policy": config["policy"],
             "count": config.get("count", 1000),
@@ -187,7 +195,7 @@ class DroidBotTool(AbstractTool):
             "script_path": config.get("script_path", None),
             "profiling_method": config.get("profiling_method", "none"),
             "ignore_ad": config.get("ignore_ad", True),
-            **config,  # Include any additional parameters
+            **config,  # Spread ensures any extra/future parameters are preserved
         }
 
         self.logger.info(
@@ -212,27 +220,30 @@ class DroidBotTool(AbstractTool):
             task: Task configuration containing timeout and other parameters
             app: Application under test with package name and metadata
         """
+        # --- Step 1: Resolve execution parameters ---
         self.logger.info(f"Executing DroidBot tool for {app.package_name}")
         self.logger.debug(
             f"Policy: {self.config['policy']}, Count: {self.config['count']}"
         )
 
-        # Get timeout from task configuration
+        # Task-level timeout takes precedence over the tool's own default,
+        # ensuring the experiment controller has uniform duration control.
         timeout_in_seconds = getattr(task.config, "timeout", self.config["timeout"])
 
         self.logger.info(f"DroidBot execution timeout: {timeout_in_seconds} seconds")
 
-        # Build DroidBot command
+        # --- Step 2: Build the DroidBot CLI command ---
         droidbot_cmd = self._build_droidbot_command(app, timeout_in_seconds)
 
-        # Build command string for logging
         cmd_str = f"{droidbot_cmd.command} {' '.join(droidbot_cmd.args)}"
         self.logger.debug(f"DroidBot command: {cmd_str}")
 
-        # Execute DroidBot testing with centralized error handling
+        # --- Step 3: Execute and capture output ---
         self.logger.info(f"Starting DroidBot execution for {app.package_name}")
 
-        # Execute command with output redirection (binary mode for command output)
+        # DroidBot runs as a host-side Python process (unlike Monkey/APE which
+        # run inside the Android runtime). Output is redirected to the trace
+        # file for consistent post-processing across all tools.
         with open(task.result.trace_file, "wb") as trace_file:
             # Use centralized command execution with error handling
             # Redirect both stdout and stderr to trace file to prevent console flooding
@@ -266,22 +277,30 @@ class DroidBotTool(AbstractTool):
         Returns:
             Configured Command object for DroidBot execution
         """
-        # Get device serial from config, fallback to default
         device_serial = self.config.get("device_serial") or "emulator-5554"
 
+        # DroidBot uses a different CLI contract from Monkey/APE: it takes the
+        # APK path (-a) instead of a package name, and it manages its own
+        # APK installation on the device.
         cmd_args = [
             "-d",
-            device_serial,  # Target device specification (dynamic)
+            device_serial,
             "-a",
             app.path,
             "-policy",
-            self.config["policy"],  # Exploration policy configuration
+            self.config["policy"],
             "-count",
-            "10000000000",  # High event count for comprehensive exploration
+            # High event count ensures DroidBot does not stop early; the
+            # -timeout flag is the real execution bound.
+            "10000000000",
             "-timeout",
             str(timeout_seconds),
-            "-ignore_ad",  # Ignore advertisement elements
-            "-is_emulator",  # Emulator-specific optimizations
+            # Advertisement views pollute the UI transition graph with
+            # irrelevant states, reducing effective exploration coverage.
+            "-ignore_ad",
+            # Emulator flag enables DroidBot optimizations (e.g., faster
+            # screenshots via minicap) specific to emulated environments.
+            "-is_emulator",
         ]
 
         return Command("droidbot", cmd_args, timeout_seconds)

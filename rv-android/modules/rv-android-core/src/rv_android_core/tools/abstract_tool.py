@@ -170,20 +170,20 @@ class AbstractTool(ABC):
         """
 
         try:
+            # Phase 1: Execute tool-specific logic (subclass implementation)
             self.logger.info(f"Executing monitored operations tool: {self.name}")
             self.logger.debug(f"Tool description: {self.description}")
-
-            # Execute tool-specific logic
             self.execute_tool_specific_logic(task, app)
 
-            # Cleanup related processes
+            # Phase 2: Cleanup device-side processes spawned by the tool
             self.kill_related_processes(self.process_pattern)
 
-            # Mark execution as successful only if we reach this point
             self.logger.info(f"Tool {self.name} execution completed successfully")
 
         except RVCommandTimeoutError as e:
-            # Convert command timeout to tool timeout - this is expected behavior
+            # RVCommandTimeoutError (from Command.invoke) is an infrastructure-level
+            # exception. Convert to RVToolTimeoutError so the platform layer can
+            # handle all tool timeouts uniformly without knowing about Command internals.
             timeout_msg = (
                 f"{self.name} execution timed out after {e.timeout_seconds} seconds"
             )
@@ -282,7 +282,8 @@ class AbstractTool(ABC):
                 f"Cleaning up processes matching pattern: {process_pattern}"
             )
 
-            # Get list of processes matching the pattern
+            # Run "ps | grep" inside the device shell to find tool-related processes.
+            # The pipe runs on-device (adb shell), not on the host.
             get_processes_cmd = Command(
                 "adb", ["shell", "ps", "|", "grep", process_pattern]
             )
@@ -293,7 +294,7 @@ class AbstractTool(ABC):
                 self.logger.debug("No matching processes found for cleanup")
                 return
 
-            # Kill each matching process
+            # Parse ps output: second token in each line is the PID (Android ps format)
             killed_count = 0
             for line in get_processes_result.stdout.decode("ascii").split(os.linesep):
                 line = line.strip()

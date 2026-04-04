@@ -138,6 +138,10 @@ class RoutingManager:
             return "llm"
 
         elif mode == "multimode":
+            # Probabilistic coin flip each iteration. The 70/30 default ratio
+            # was calibrated empirically: LLM excels at semantic actions (login,
+            # form filling) while algorithm covers systematic DFS exploration.
+            # Over hundreds of iterations this converges to the configured ratio.
             llm_probability = self.config.llm_probability
 
             if random.random() < llm_probability:
@@ -179,7 +183,10 @@ class RoutingManager:
         Returns:
             Dict with validation_path, loop_detected, and current_action
         """
-        # Check for valid action
+        # Only null-action check here. Loop/stuck detection is evidence-based
+        # in learn_node (screen hash unchanged), not heuristic-based here.
+        # Returning "execute" with a BACK action (not re-routing to algorithm)
+        # prevents fallback cycles between LLM and algorithm paths.
         if not action or not action.get("action_type"):
             if decision_maker == "llm":
                 self.llm_validation_failed += 1
@@ -192,9 +199,11 @@ class RoutingManager:
                 "current_action": self._create_back_action("no_valid_action"),
             }
 
-        # Track execution metrics
-        # Note: algorithm_chosen is already incremented in route_decision()
-        # We only track llm_executed here (after successful validation)
+        # Track execution metrics.
+        # algorithm_chosen is incremented in route_decision() (before execution)
+        # but llm_executed is incremented here (after validation). This asymmetry
+        # exists because LLM actions can fail validation (null tool calls), so we
+        # only count them as "executed" when they pass. Algorithm actions always pass.
         if decision_maker == "llm":
             self.llm_executed += 1
 

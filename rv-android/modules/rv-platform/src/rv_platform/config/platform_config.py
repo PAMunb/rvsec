@@ -44,7 +44,8 @@ class PlatformConfig(BaseValidatedModel):
     - ToolConfig instances (from rv-android-core) are embedded in the tools list.
     """
 
-    # Required parameters
+    # Required parameters — these define the experiment's Cartesian product:
+    # total_tasks = len(APKs) x len(tools) x repetitions x len(timeouts)
     apks_dir: str = Field(description="Directory containing APK files")
     tools: List[ToolConfig] = Field(description="List of tools to execute")
     repetitions: int = Field(default=1, description="Number of repetitions per task")
@@ -52,7 +53,10 @@ class PlatformConfig(BaseValidatedModel):
         default_factory=lambda: [60], description="Timeout values in seconds"
     )
 
-    # Optional parameters with defaults
+    # Optional parameters with defaults.
+    # max_parallel_tasks > 1 enables parallel execution via ExecutionController
+    # (in rv-experiment), where each task runs in a separate Docker container
+    # with its own emulator on a unique port.
     max_parallel_tasks: int = Field(
         default=1, description="Maximum number of parallel tasks"
     )
@@ -64,9 +68,16 @@ class PlatformConfig(BaseValidatedModel):
         default="tasks.json", description="Task persistence file"
     )
     log_level: str = Field(default="INFO", description="Logging level")
+    # When True, CSV/JSON generation is skipped after execution. Useful for
+    # debugging (faster iteration) or when result processing will be run
+    # standalone later via `rv-platform run --process-results <dir>`.
     skip_result_processing: bool = Field(
         default=False, description="Skip result processing after execution"
     )
+    # Filter file allows running experiments on a subset of APKs without
+    # reorganizing the APK directory. The file contains one APK filename per
+    # line (e.g., "com.example.app_1.apk"). Only APKs matching these filenames
+    # are included in task generation.
     apks_filter_file: Optional[str] = Field(
         default=None,
         description="Path to text file listing APK filenames to process (one per line)",

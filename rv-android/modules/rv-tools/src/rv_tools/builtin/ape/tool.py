@@ -55,7 +55,9 @@ class APETool(AbstractTool):
     - random: Random exploration strategy
     """
 
-    # Simplified tool specification
+    # APE reuses the Monkey entry point (com.android.commands.monkey.Monkey)
+    # as its Java main class, so process_pattern must match the same pattern
+    # used by Monkey. The platform distinguishes them by which tool was started.
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="ape",
         description="APE CEGAR-based model abstraction testing tool for systematic Android exploration",
@@ -140,7 +142,8 @@ class APETool(AbstractTool):
                 f"Available strategies: {self.AVAILABLE_STRATEGIES}"
             )
 
-        # Set configuration with defaults
+        # Build config with explicit defaults, then spread incoming config.
+        # Same merge pattern as DroidBot — see DroidBotTool.configure().
         self.config = {
             "strategy": config["strategy"],
             "running_minutes": config.get("running_minutes", 5),
@@ -148,7 +151,7 @@ class APETool(AbstractTool):
             "debug_mode": config.get("debug_mode", True),
             "output_dir": config.get("output_dir", None),
             "ape_jar_path": config.get("ape_jar_path", None),
-            **config,  # Include any additional parameters
+            **config,  # Spread ensures any extra/future parameters are preserved
         }
 
         self.logger.info(
@@ -177,9 +180,12 @@ class APETool(AbstractTool):
         Raises:
             RVToolExecutionError: If APE execution fails or command returns non-zero exit code
         """
+        # --- Step 1: Resolve execution parameters ---
         self.logger.info(f"Executing APE tool for {app.package_name}")
 
-        # Get timeout from task configuration
+        # APE's --running-minutes flag requires minutes, but the platform uses
+        # seconds. Convert here, clamping to a minimum of 1 minute so APE
+        # always has a meaningful exploration window.
         timeout_in_seconds = getattr(
             task.config, "timeout", self.config["running_minutes"] * 60
         )
@@ -194,17 +200,16 @@ class APETool(AbstractTool):
             f"APE execution timeout: {timeout_in_seconds} seconds ({timeout_in_minutes} minutes)"
         )
 
-        # Create output directory for APE results
         output_dir = os.path.join(os.path.dirname(task.result.trace_file), "ape_output")
         os.makedirs(output_dir, exist_ok=True)
 
-        # Resolve APE jar file
+        # --- Step 2: Resolve and deploy the APE jar ---
+        # APE runs inside the Android runtime via app_process, so the jar must
+        # be pushed to /data/local/tmp/ before each execution.
         ape_jar_path = self._resolve_ape_jar_path()
-
-        # Step 1: Push APE jar to device
         self._push_ape_jar_to_device(ape_jar_path, task.result.trace_file)
 
-        # Step 2: Execute APE using original ADB shell command format
+        # --- Step 3: Build and execute APE shell command ---
         ape_cmd = self._build_ape_shell_command(
             app, timeout_in_minutes, timeout_in_seconds
         )
@@ -234,7 +239,10 @@ class APETool(AbstractTool):
             #     trace_file.write(success_info)
 
         except RVToolTimeoutError:
-            # APE timeout is expected behavior - log as completion
+            # APE's --running-minutes is an internal timer, but the Command
+            # timeout fires first when the platform's timeout is shorter.
+            # Either way, a timeout means APE explored for the full budget,
+            # which is the successful outcome — not an error.
             self.logger.info(
                 f"APE execution timed out after {timeout_in_seconds} seconds (expected behavior)"
             )
@@ -263,12 +271,12 @@ class APETool(AbstractTool):
             RVToolExecutionError: If APE jar file is not found
         """
         # Use JarResolver for centralized JAR resolution
+        # Search paths ordered by specificity: configured path first, then
+        # environment-based, then co-located with this module file (Docker
+        # images bundle jars alongside the tool code), then standard installs.
         search_paths = [
-            # Environment variable based path
             os.path.join(os.environ.get("TOOLS_DIR", ""), "ape"),
-            # Relative to current module
             os.path.dirname(__file__),
-            # Standard installation paths
             "/opt/rv-android/tools/ape",
             "./tools/ape",
             "../tools/ape",
@@ -301,6 +309,8 @@ class APETool(AbstractTool):
         Raises:
             RVToolExecutionError: If jar push fails
         """
+        # /data/local/tmp/ is writable without root and survives across ADB
+        # sessions, making it the standard staging location for tool jars.
         device_jar_path = "/data/local/tmp/ape.jar"
 
         self.logger.info(f"Pushing APE jar from {jar_path} to {device_jar_path}")
@@ -349,7 +359,11 @@ class APETool(AbstractTool):
         Returns:
             Configured Command object for APE execution
         """
-        # Build original ADB shell command format
+        # APE piggybacks on the Monkey entry point class but with its own
+        # CEGAR-based exploration engine loaded via the --ape flag. The
+        # CLASSPATH env var and app_process invocation are the standard way
+        # to run custom Java code inside Android's Dalvik/ART runtime without
+        # packaging it as an APK.
         cmd_args = [
             "-s",
             self.config["device_serial"],

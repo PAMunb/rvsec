@@ -43,7 +43,9 @@ class MonkeyTool(AbstractTool):
     - Device communication and command execution
     """
 
-    # Simplified tool specification
+    # process_pattern matches the Java class that Monkey runs as inside the
+    # Android runtime, used by the platform to detect whether the tool process
+    # is still alive on the device (via `adb shell ps`).
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="monkey",
         description="Android UI/Application exerciser generating pseudo-random user events",
@@ -81,7 +83,9 @@ class MonkeyTool(AbstractTool):
             "rv_tools.builtin.monkey", {CONTEXT_COMPONENT: "MonkeyTool"}
         )
 
-        # Default Monkey configuration
+        # Default Monkey configuration.
+        # The huge event_count acts as "effectively infinite" — actual duration
+        # is bounded by the task timeout, not by the event count.
         self.config = {
             "event_count": 1_000_000_000,  # Number of events to generate
             "seed": None,  # Random seed for reproducibility
@@ -90,7 +94,7 @@ class MonkeyTool(AbstractTool):
             "verbosity": 2,  # Verbosity level (0-3)
             "ignore_crashes": False,  # Continue after crashes
             "ignore_timeouts": False,  # Continue after ANR timeouts
-            "ignore_monitored_violations": True,  # Ignore monitored operations violations
+            "ignore_monitored_violations": True,  # Must be True: MOP violations are detected via logcat, not Monkey's own mechanism
             "kill_process_after_error": False,  # Kill process after error
             "monitor_native_crashes": True,  # Monitor for native crashes
             "event_percentages": {  # Event type percentages
@@ -278,28 +282,31 @@ class MonkeyTool(AbstractTool):
             task: Task configuration containing timeout and other parameters
             app: Application under test with package name and metadata
         """
+        # --- Step 1: Resolve execution parameters ---
         device_id = self.config["device_id"]
         event_count = self.config["event_count"]
 
         self.logger.info(f"Executing Monkey tool for {app.package_name}")
         self.logger.debug(f"Device: {device_id}, Events: {event_count}")
 
-        # Get timeout from task configuration
+        # Task-level timeout takes precedence over tool defaults, so the
+        # experiment controller can enforce uniform durations across tools.
         timeout_in_seconds = getattr(task.config, "timeout", 300)  # Default 5 minutes
 
         self.logger.info(f"Monkey execution timeout: {timeout_in_seconds} seconds")
 
-        # Build Monkey command
+        # --- Step 2: Build the ADB shell command ---
         monkey_cmd = self._build_monkey_command(app, timeout_in_seconds)
 
-        # Build command string for logging
         cmd_str = f"{monkey_cmd.command} {' '.join(monkey_cmd.args)}"
         self.logger.debug(f"Monkey command: {cmd_str}")
 
-        # Execute Monkey testing with centralized error handling
+        # --- Step 3: Execute and capture output ---
         self.logger.info(f"Starting Monkey execution for {app.package_name}")
 
-        # Execute command with output redirection (binary mode for command output)
+        # Both stdout and stderr go to trace_file so that Monkey's verbose
+        # output (event log, crash reports) is preserved for post-analysis
+        # without flooding the experiment's console output.
         with open(task.result.trace_file, "wb") as trace_file:
             # Use centralized command execution with error handling
             # Redirect both stdout and stderr to trace file to prevent console flooding
@@ -337,7 +344,7 @@ class MonkeyTool(AbstractTool):
             "monkey",
         ]
 
-        # Verbosity flags (-v repeated N times)
+        # Monkey's verbosity uses repeated -v flags: -v (level 1), -v -v (level 2), etc.
         for _ in range(self.config.get("verbosity", 2)):
             cmd_args.append("-v")
 
@@ -347,20 +354,24 @@ class MonkeyTool(AbstractTool):
         if self.config.get("ignore_timeouts"):
             cmd_args.append("--ignore-timeouts")
 
+        # Always ignore security exceptions — instrumented apps trigger
+        # SecurityManager warnings from RV-Monitor weavings that are harmless.
         cmd_args.append("--ignore-security-exceptions")
 
         throttle = self.config.get("throttle", 0)
         if throttle > 0:
             cmd_args.extend(["--throttle", str(throttle)])
 
+        # Seed enables deterministic replay for reproducing failures.
         seed = self.config.get("seed")
         if seed is not None:
             cmd_args.extend(["-s", str(seed)])
 
         cmd_args.extend(["-p", app.package_name])
-        cmd_args.append(
-            str(1_000_000_000)
-        )  # Effectively infinite — timeout controls execution duration
+        # Event count is set to a billion (effectively infinite) because the
+        # platform enforces the actual time limit via Command timeout. This
+        # ensures Monkey never stops early due to exhausting its event budget.
+        cmd_args.append(str(1_000_000_000))
 
         return Command("adb", cmd_args, timeout_seconds)
 

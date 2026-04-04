@@ -79,7 +79,11 @@ class StaticAnalysisComponent:
             self.copy_static_analysis_files()
 
             if not self.load_static_data(context):
-                # Static analysis failure is not critical for basic execution
+                # Static analysis failure is non-critical: the tool can still
+                # execute and produce logcat output, but CoverageTracker will lack
+                # the class-to-package mapping needed for accurate per-method
+                # coverage. MOP violation detection is unaffected because RVSEC
+                # markers in logcat are self-contained.
                 self.logger.warning(
                     "Static analysis data loading failed, continuing without static data"
                 )
@@ -120,7 +124,12 @@ class StaticAnalysisComponent:
             try:
                 self.logger.info(LOG_START.format(phase="loading static analysis data"))
 
-                # Load static analysis data
+                # Load GATOR/GESDA/REACH unified analysis data. Uses code_package
+                # (the detected implementation package, e.g., "com.example.app")
+                # instead of package_name (manifest package). This matters because
+                # some APKs have a different manifest package than their actual code
+                # package — using the wrong one would misclassify app methods as
+                # library code and report 0% coverage.
                 static_data = static_analysis_parser.read_static_analysis_files(
                     self.task.results_dir,
                     self.task.config.apk_name,
@@ -172,7 +181,11 @@ class StaticAnalysisComponent:
         Returns:
             True if at least one file was copied, False otherwise
         """
-        # Get the APKs directory (source) - where APKs and their static analysis files are located
+        # Static analysis files (.json, .methods) are co-located with APKs in
+        # apks_dir. This is because rv-experiment's pre-processing phase generates
+        # these files alongside the instrumented APKs. We copy them to the task's
+        # results directory so load_static_data() can find them without requiring
+        # the original apks_dir path (which may differ across resume sessions).
         instrumented_dir = self.apks_dir
         apk_name = self.task.config.apk_name
         target_dir = self.task.results_dir

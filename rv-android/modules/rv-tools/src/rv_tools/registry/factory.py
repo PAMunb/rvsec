@@ -102,15 +102,16 @@ class ToolFactory:
         tool_name = tool_config.name
         variant_name = tool_config.variant
 
-        # Get tool class from registry
+        # Step 1: Resolve tool class from registry
         if not self.registry.is_tool_registered(tool_name):
             raise ConfigurationError(f"Tool '{tool_name}' not found in registry")
 
         tool_class = self.registry.get_tool_class(tool_name)
 
-        # Resolve variant configuration
+        # Step 2: Resolve variant configuration.
+        # Every tool must have at least a "default" variant registered.
+        # Named variants provide curated presets (e.g., droidbot:dfs_greedy).
         if variant_name and variant_name != "default":
-            # Use specific variant
             if not self.registry.validate_tool_variant(tool_name, variant_name):
                 raise ConfigurationError(
                     f"Invalid variant '{variant_name}' for tool '{tool_name}'"
@@ -118,13 +119,16 @@ class ToolFactory:
 
             variant_config = self.registry.get_variant_config(tool_name, variant_name)
         else:
-            # Use default variant
             variant_config = self.registry.get_variant_config(tool_name, "default")
 
-        # Apply parameter overrides from tool_config
+        # Step 3: Merge user parameters over variant defaults.
+        # This lets users override individual settings (e.g., timeout) without
+        # having to respecify the entire variant configuration.
         final_config = {**variant_config, **tool_config.parameters}
 
-        # Create and configure tool instance
+        # Step 4: Create a fresh instance and apply the merged configuration.
+        # The constructor sets sane defaults; configure() overrides with the
+        # variant+user values. This two-step pattern keeps constructors simple.
         tool_instance = tool_class()
         tool_instance.configure(final_config)
 

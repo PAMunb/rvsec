@@ -103,7 +103,11 @@ class ToolExecutionComponent:
             self.logger.info(LOG_START.format(phase=f"tool: {self.tool.name}"))
             self.logger.info(f"Tool started: {self.tool.name} for task {self.task.id}")
 
-            # Execute the tool
+            # Dispatch to the tool's execute() method. This is a blocking call
+            # that runs the tool for the configured timeout duration. Each tool
+            # type (MonkeyTool, DroidbotTool, RVAgentTool) implements execute()
+            # differently, but all interact with the emulator through ADB and
+            # raise RVToolTimeoutError when the timeout expires.
             self.tool.execute(self.task, self.task.app)
             self.logger.info(LOG_COMPLETE.format(phase=f"tool: {self.tool.name}"))
             self.logger.info(f"Tool stopped: {self.tool.name} for task {self.task.id}")
@@ -115,7 +119,10 @@ class ToolExecutionComponent:
             from rv_android_core.util.error.exceptions import RVToolTimeoutError
 
             if isinstance(e, RVToolTimeoutError):
-                # Timeout is expected, don't log as error
+                # Timeout is EXPECTED behavior in bounded-time experiments. The
+                # tool ran for the configured duration and was interrupted — this
+                # counts as a successful execution. Coverage and MOP violation
+                # data collected up to the timeout point are valid results.
                 self.logger.info(
                     LOG_COMPLETE.format(phase=f"tool: {self.tool.name} (timeout)")
                 )
@@ -123,7 +130,7 @@ class ToolExecutionComponent:
                     f"Tool stopped: {self.tool.name} for task {self.task.id} (timeout)"
                 )
 
-                return True  # Timeout is considered successful completion
+                return True
             else:
                 # Actual failure - reduced logging (tool already logged the details)
                 self.logger.error(
@@ -138,6 +145,10 @@ class ToolExecutionComponent:
 
     def cleanup_processes(self) -> None:
         """Clean up any hanging processes related to the tool."""
+        # Some tools (DroidBot, RVSmart) spawn child processes that may survive
+        # after the tool's main process exits. Each tool defines a process_pattern
+        # regex (e.g., "droidbot" or "app_process") used to pkill lingering
+        # processes. This prevents resource leaks across consecutive tasks.
         if hasattr(self.tool, "process_pattern") and self.tool.process_pattern:
             try:
                 self.logger.debug(

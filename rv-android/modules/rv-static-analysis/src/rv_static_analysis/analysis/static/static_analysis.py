@@ -287,7 +287,10 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             tool_name=name,
             app_name=self.app.name,
         ):
-            # Cache: skip if result already exists
+            # File-level caching: if the output JSON exists, skip execution entirely.
+            # We do not validate content -- existence implies a previous run completed
+            # (or timed out with partial output the parser can recover). This enables
+            # experiment resume without re-running the expensive GATOR analysis.
             if os.path.isfile(result_file):
                 self.logger.info(
                     "Analysis result already exists, skipping",
@@ -307,10 +310,12 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             )
 
             start_time = time.time()
-            # Timeout is treated as partial success because the GATOR client
-            # flushes each JSON section before starting the next. The parser
-            # recovers truncated files via bracket completion (INV-ANA-06),
-            # so even a timed-out run yields usable reachability data.
+            # Timeout is treated as partial success (not failure) because the GATOR
+            # client writes sections in priority order -- reachability first, then
+            # windows, then transitions -- and flushes between each. Even if killed
+            # mid-write, the parser recovers truncated JSON via bracket completion
+            # (INV-ANA-06), so a timed-out run still yields usable reachability data
+            # (the most critical section for coverage calculation and MOP tracking).
             try:
                 cmd_result = command.invoke(stdout=sys.stdout)
             except RVCommandTimeoutError:

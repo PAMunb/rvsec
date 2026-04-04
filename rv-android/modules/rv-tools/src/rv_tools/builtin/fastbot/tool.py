@@ -53,7 +53,6 @@ class FastBotTool(AbstractTool):
     - balanced: Balanced exploration strategy
     """
 
-    # Simplified tool specification
     TOOL_SPEC = ToolSpec.create_builtin_spec(
         name="fastbot",
         description="FastBot model-based testing tool with reinforcement learning capabilities",
@@ -102,7 +101,10 @@ class FastBotTool(AbstractTool):
         )
         self.jar_resolver = JarResolver()
 
-        # Default FastBot configuration
+        # Default FastBot configuration.
+        # FastBot requires three separate JARs (monkeyq, framework,
+        # fastbot-thirdpart) plus architecture-specific native libs. Jar paths
+        # are resolved lazily during execution if not set here.
         self.config = {
             "max_step": 10000,  # Maximum exploration steps
             "device_serial": None,  # Device serial number
@@ -145,6 +147,9 @@ class FastBotTool(AbstractTool):
                 "exploration_rate": 0.2,
                 "model_update_frequency": 100,
             },
+            # Conservative variant uses a higher throttle and lower exploration
+            # rate, trading off breadth for stability — useful for fragile apps
+            # where aggressive actions may cause unrecoverable crashes.
             "conservative": {
                 "max_step": 5000,
                 "strategy": "conservative",
@@ -155,6 +160,8 @@ class FastBotTool(AbstractTool):
                 "exploration_rate": 0.1,
                 "model_update_frequency": 200,
             },
+            # Aggressive variant maximizes exploration: low throttle, high
+            # epsilon, and frequent model updates to exploit new states quickly.
             "aggressive": {
                 "max_step": 20000,
                 "strategy": "aggressive",
@@ -255,7 +262,8 @@ class FastBotTool(AbstractTool):
             except (ValueError, TypeError):
                 self.logger.warning(f"Invalid timeout value: {config['timeout']}")
 
-        # Update learning parameters
+        # RL hyperparameters are clamped to [0.0, 1.0] to prevent divergence
+        # in the Q-learning model.
         learning_params = ["learning_rate", "exploration_rate"]
         for param in learning_params:
             if param in config:
@@ -313,26 +321,24 @@ class FastBotTool(AbstractTool):
             task: Task configuration containing timeout and other parameters
             app: Application under test with package name and metadata
         """
+        # --- Step 1: Resolve execution parameters ---
         self.logger.info(f"Executing FastBot tool for {app.package_name}")
         self.logger.debug(
             f"Strategy: {self.config['strategy']}, Max steps: {self.config['max_step']}"
         )
 
-        # Get timeout from task configuration
         timeout_in_seconds = getattr(task.config, "timeout", self.config["timeout"])
 
         self.logger.info(f"FastBot execution timeout: {timeout_in_seconds} seconds")
 
-        # Resolve FastBot jar files
+        # --- Step 2: Resolve and deploy artifacts to device ---
+        # FastBot needs three JARs + per-architecture native .so files pushed
+        # to the device before execution can begin.
         jar_paths = self._resolve_fastbot_jars()
-
-        # Push JARs to device before execution
         self._push_jars_to_sdcard(jar_paths, task.result.trace_file)
-
-        # Push native libraries to device
         self._push_libs_to_device(task.result.trace_file)
 
-        # Build FastBot command
+        # --- Step 3: Build and execute FastBot command ---
         timeout_in_minutes = int(timeout_in_seconds / 60)
         if timeout_in_minutes == 0:
             timeout_in_minutes = 1
@@ -423,6 +429,9 @@ class FastBotTool(AbstractTool):
 
         return jar_paths
 
+    # FastBot pushes to /sdcard/ instead of /data/local/tmp/ (used by APE)
+    # because the FastBot CLASSPATH is hardcoded to /sdcard/ paths in the
+    # original ByteDance implementation.
     def _push_jars_to_sdcard(
         self, jar_paths: Dict[str, str], trace_file_path: str
     ) -> None:
@@ -510,7 +519,9 @@ class FastBotTool(AbstractTool):
             )
             return
 
-        # Architecture mappings - fastbot expects libs in /data/local/tmp/<arch>/
+        # Native libs must be placed in per-architecture directories. FastBot
+        # loads libfastbot_native.so at runtime; missing architectures are
+        # skipped with a warning since the emulator typically only uses x86_64.
         arch_mappings = {
             "arm64-v8a": "/data/local/tmp/arm64-v8a/",
             "armeabi-v7a": "/data/local/tmp/armeabi-v7a/",
@@ -587,6 +598,11 @@ class FastBotTool(AbstractTool):
         Returns:
             Configured Command object for FastBot execution
         """
+        # FastBot, like APE, runs inside the Android runtime via app_process.
+        # It uses the same Monkey main class but replaces the exploration engine
+        # via --agent reuseq (Q-learning-based action reuse strategy).
+        # Three JARs on the CLASSPATH provide the core framework, the Monkey
+        # entry point, and third-party RL dependencies respectively.
         cmd_args = [
             "-s",
             self.config.get("device_serial") or "emulator-5554",
@@ -605,7 +621,7 @@ class FastBotTool(AbstractTool):
             "--throttle",
             str(self.config["throttle"]),
             "-v",
-            "-v",  # Verbose output for debugging
+            "-v",
         ]
 
         return Command("adb", cmd_args, timeout_seconds)
@@ -642,7 +658,8 @@ class FastBotTool(AbstractTool):
         return info
 
 
-# Function to register FastBot variants
+# Standalone registration function for use outside the standard
+# register_tool_class() flow (e.g., legacy integration or manual setup).
 def register_fastbot_variants(registry):
     """
     Register FastBot variants in the tool registry.

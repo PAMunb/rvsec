@@ -161,6 +161,8 @@ class ApeRVTool(AbstractTool):
                 until configure() is called; checked in execute_tool_specific_logic()
                 to decide whether to push ape.properties.
         """
+        # Retrieve spec once and delegate to AbstractTool. The spec is a class-level
+        # constant, but we go through get_tool_spec() so subclasses can override it.
         tool_spec = self.get_tool_spec()
         super().__init__(
             name=tool_spec.name,
@@ -174,6 +176,9 @@ class ApeRVTool(AbstractTool):
         )
 
         self.jar_resolver = JarResolver()
+        # Empty dict signals "not yet configured" — execute_tool_specific_logic()
+        # checks truthiness to decide whether ape.properties should be pushed.
+        # After configure(), this holds the full merged variant config.
         self._tool_config: Dict[str, Any] = {}
 
     @classmethod
@@ -194,7 +199,12 @@ class ApeRVTool(AbstractTool):
         Returns:
             Dictionary mapping variant names to configuration parameters
         """
+        # Each variant is a frozen config dict merged into _tool_config by configure().
+        # "mop_data" and "strategy" are Python-only keys consumed during execution;
+        # they are NOT written to ape.properties (see APERV_PROPERTY_MAPPING).
         return {
+            # "default" maps to sata because SATA (adaptive random) provides the best
+            # general-purpose exploration coverage without requiring static analysis data.
             "default": {
                 "strategy": "sata",
                 "throttle_ms": 200,
@@ -203,6 +213,9 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "throttle_ms": 200,
             },
+            # sata_mop enables MOP-guided scoring: APE-RV reads a static analysis JSON
+            # that maps activities to monitored operations, biasing exploration toward
+            # screens more likely to trigger coverage events.
             "sata_mop": {
                 "strategy": "sata",
                 "throttle_ms": 200,
@@ -216,6 +229,9 @@ class ApeRVTool(AbstractTool):
                 "strategy": "random",
                 "throttle_ms": 200,
             },
+            # LLM variants use 10.0.2.2 (Android emulator's alias for host loopback)
+            # to reach the SGLang server running on the host machine. The env var
+            # APERV_LLM_BASE_URL overrides this for Docker or non-emulator setups.
             "sata_llm": {
                 "strategy": "sata",
                 "throttle_ms": 200,
@@ -244,6 +260,8 @@ class ApeRVTool(AbstractTool):
             # --- Prompt variant experiment variants (gh43) ---
             # All use sata + mop + llm at 70% rate.
             # Differ only in llm_prompt_variant.
+            # Generated via dict comprehension to avoid duplicating the full config
+            # block 6 times — each variant is identical except for the prompt variant name.
             **{
                 f"sata_mop_llm_{v}": {
                     "strategy": "sata",
@@ -286,6 +304,8 @@ class ApeRVTool(AbstractTool):
             ConfigurationError: If strategy key is absent or not in
                 APERV_AVAILABLE_STRATEGIES
         """
+        # Validate eagerly so experiment YAML typos are caught before any device
+        # interaction — a failed push mid-experiment wastes minutes of emulator time.
         strategy = config.get("strategy")
         if strategy is None:
             raise ConfigurationError(
@@ -297,9 +317,13 @@ class ApeRVTool(AbstractTool):
                 f"aperv: invalid strategy '{strategy}'. "
                 f"Valid strategies: {APERV_AVAILABLE_STRATEGIES}"
             )
+        # Defensive copy prevents the caller's dict from being mutated by the
+        # env var override below.
         self._tool_config = config.copy()
 
-        # Allow env var override for LLM URL (host execution uses different URL than Docker)
+        # Allow env var override for LLM URL. Inside the emulator, 10.0.2.2 routes
+        # to the host, but Docker containers or physical devices need a real IP.
+        # APERV_LLM_BASE_URL lets operators override without changing variant configs.
         llm_url_override = os.environ.get("APERV_LLM_BASE_URL")
         if llm_url_override and "llm_url" in self._tool_config:
             self._tool_config["llm_url"] = llm_url_override
@@ -319,6 +343,9 @@ class ApeRVTool(AbstractTool):
         Raises:
             RVToolExecutionError: If ape-rv.jar is not found in any search path
         """
+        # Priority order matters: module-local JAR (shipped with the package) takes
+        # precedence over Maven build output, which takes precedence over manual placement.
+        # This ensures reproducible experiments use the packaged JAR by default.
         search_paths = [os.path.dirname(__file__)]
         rvsec_home = os.environ.get("RVSEC_HOME", "")
         if rvsec_home:
@@ -360,10 +387,13 @@ class ApeRVTool(AbstractTool):
 
         push_cmd = Command(
             "adb",
+            # -a preserves file timestamps; -p shows transfer progress in the trace.
             ["-s", device_serial, "push", "-a", "-p", local_path, device_path],
             timeout=60,
         )
 
+        # Append mode ("ab") so multiple pushes (JAR, properties, broadcast catalog)
+        # accumulate in the same trace file without overwriting earlier output.
         with open(trace_file_path, "ab") as trace_file:
             result = push_cmd.invoke(stdout=trace_file)
             if result.is_failure():
@@ -388,10 +418,15 @@ class ApeRVTool(AbstractTool):
         Returns:
             Absolute path string if found, None otherwise
         """
+        # Guard against tasks that lack results_dir or config — this happens when
+        # running aperv standalone (outside rv-experiment) where pre-processing
+        # (static analysis) was not executed.
         if not hasattr(task, "results_dir") or not task.results_dir:
             return None
         if not hasattr(task, "config") or not task.config:
             return None
+        # The static analysis module writes <apk_name>.json to the task's results_dir.
+        # The file maps activities to monitored operations for MOP-guided exploration.
         json_path = os.path.join(task.results_dir, f"{task.config.apk_name}.json")
         if os.path.isfile(json_path):
             self.logger.info(f"Found static analysis file: {json_path}")
@@ -413,14 +448,21 @@ class ApeRVTool(AbstractTool):
             trace_file_path: Trace file for logging
             mop_json_pushed: If True, include ape.mopDataPath in properties
         """
+        # Build the properties file content by translating Python config keys to
+        # Java property names. Only keys present in _tool_config AND in
+        # APERV_PROPERTY_MAPPING are written — Python-only keys (strategy, mop_data)
+        # are excluded automatically because they have no mapping entry.
         lines = []
         if mop_json_pushed:
+            # Hardcoded device path — must match the push destination in execute_tool_specific_logic()
             lines.append("ape.mopDataPath=/data/local/tmp/static_analysis.json")
         for python_key, java_key in APERV_PROPERTY_MAPPING.items():
             if python_key in self._tool_config:
                 lines.append(f"{java_key}={self._tool_config[python_key]}")
         properties_content = "\n".join(lines) + "\n"
 
+        # Write to a temp file first because adb push requires a local file path.
+        # delete=False so the file survives until we explicitly unlink it after push.
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".properties", delete=False
         ) as tmp:
@@ -458,15 +500,26 @@ class ApeRVTool(AbstractTool):
             Command with timeout = timeout_seconds + 15
         """
         strategy = self._tool_config.get("strategy", "sata")
+        # APE-RV accepts minutes, not seconds. Floor division with min 1 ensures
+        # short timeouts (< 60s) still get at least one minute of exploration.
         running_minutes = max(1, timeout_seconds // 60)
 
+        # The command runs APE-RV inside the emulator via app_process, which loads
+        # the JAR into an Android runtime process (not a standard JVM). This is the
+        # same mechanism the AOSP Monkey tool uses.
         cmd_args = [
             "-s",
             device_serial,
             "shell",
+            # CLASSPATH is set as an inline env var for the shell command, not via
+            # adb shell's env mechanism, because app_process reads it from the
+            # process environment at startup.
             f"CLASSPATH={APERV_DEVICE_JAR_PATH}",
             "/system/bin/app_process",
-            "/system/bin",  # INV-APV-04: working dir /system/bin, not /data/local/tmp/
+            # Working directory is /system/bin (not /data/local/tmp/) because APE-RV
+            # requires system-level resource resolution for internal Android APIs.
+            # Using /data/local/tmp/ causes ClassNotFoundException on some API levels.
+            "/system/bin",
             APERV_MAIN_CLASS,
             "-p",
             app.package_name,
@@ -476,6 +529,9 @@ class ApeRVTool(AbstractTool):
             strategy,
         ]
 
+        # +15s grace period gives APE-RV time to flush its WTG model and exit
+        # cleanly after --running-minutes expires. Without this buffer, the
+        # Command timeout kills the process before it can write final output.
         return Command("adb", cmd_args, timeout_seconds + 15)
 
     def _check_empty_trace(self, trace_file_path: str) -> None:
@@ -518,13 +574,14 @@ class ApeRVTool(AbstractTool):
         """
         self.logger.info(f"Executing APE-RV for {app.package_name}")
 
-        # Extract device serial from task configuration
+        # --- Step 0: Extract execution parameters from task ---
+        # Defaults (emulator-5554, 300s) handle standalone execution where task.config
+        # may be absent. In normal rv-platform flow, these are always populated.
         device_serial = "emulator-5554"
         task_config = task.config if hasattr(task, "config") else None
         if task_config and hasattr(task_config, "device_id") and task_config.device_id:
             device_serial = task_config.device_id
 
-        # Extract timeout from task configuration
         timeout_seconds = 300
         if task_config and hasattr(task_config, "timeout") and task_config.timeout:
             timeout_seconds = task_config.timeout
@@ -535,7 +592,9 @@ class ApeRVTool(AbstractTool):
             jar_path, APERV_DEVICE_JAR_PATH, device_serial, task.result.trace_file
         )
 
-        # Step 1a: Push system-broadcast.json for component triggering (gh11)
+        # Step 1b: Push system-broadcast.json for component triggering (gh11).
+        # This catalog tells APE-RV which broadcast intents to fire at receivers
+        # discovered in the manifest. Optional — APE-RV degrades gracefully without it.
         broadcast_catalog = os.path.join(
             os.path.dirname(__file__), "system-broadcast.json"
         )
@@ -547,7 +606,9 @@ class ApeRVTool(AbstractTool):
                 task.result.trace_file,
             )
 
-        # Step 1b: Optionally push static analysis JSON for sata_mop variant
+        # Step 1c: Optionally push static analysis JSON for MOP-guided variants.
+        # The flag tracks whether the push succeeded so _push_properties() knows
+        # whether to include ape.mopDataPath in the generated properties file.
         mop_json_pushed = False
         if self._tool_config.get("mop_data") == "static_analysis":
             static_json = self._find_static_analysis_file(task)
@@ -565,7 +626,9 @@ class ApeRVTool(AbstractTool):
                     "running without MOP data"
                 )
 
-        # Step 2: Optionally push ape.properties (when tool is configured)
+        # Step 2: Push ape.properties with exploration parameters.
+        # Skipped only when _tool_config is empty (tool used without configure()),
+        # which means APE-RV falls back to its built-in defaults.
         if self._tool_config:
             self._push_properties(
                 device_serial, task.result.trace_file, mop_json_pushed
@@ -577,6 +640,9 @@ class ApeRVTool(AbstractTool):
         self.logger.info(f"Starting APE-RV exploration (timeout={timeout_seconds}s)")
 
         try:
+            # "wb" (not "ab") because the main execution output should replace the
+            # push diagnostic output written earlier. The push output is low-value;
+            # the exploration trace is the primary artifact for post-processing.
             with open(task.result.trace_file, "wb") as trace_file:
                 # Use invoke() directly: APE-RV exits with non-zero when it detects
                 # app crashes during exploration (e.g. exit code 211) — this is normal
@@ -589,7 +655,10 @@ class ApeRVTool(AbstractTool):
                         "(non-zero is normal when app crashes are detected)"
                     )
         except RVCommandTimeoutError:
-            # Timeout is expected behavior for exploration tools
+            # Timeout is the normal exit path for exploration tools — APE-RV is
+            # designed to explore indefinitely until killed. We re-raise as
+            # RVToolTimeoutError so rv-platform records this as a completed run
+            # (not a failure) and proceeds to collect coverage from logcat.
             self.logger.info(
                 f"APE-RV execution timed out after {timeout_seconds} seconds "
                 "(expected behavior)"
@@ -599,7 +668,10 @@ class ApeRVTool(AbstractTool):
                 tool_name=self.name,
             )
 
-        # Step 4: Check for empty trace
+        # Step 4: Detect silent failures. An empty trace suggests APE-RV crashed
+        # at startup (e.g., missing CLASSPATH, incompatible API level) without
+        # producing any output. This is a warning, not an error, because coverage
+        # may still have been captured via logcat independently.
         self._check_empty_trace(task.result.trace_file)
 
         self.logger.info("APE-RV execution completed successfully")

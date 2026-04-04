@@ -70,7 +70,9 @@ class Platform:
         """
         self.config = config
 
-        # Validate configuration
+        # Validate early, before any resources are allocated. This catches
+        # misconfigurations (empty APK dir, invalid tool names) before we
+        # create loggers, storage files, or factory instances.
         self.config.validate_dependencies()
 
         # Initialize logging
@@ -85,16 +87,24 @@ class Platform:
         # Task management with persistent storage
         self.task_factory = TaskFactory(Task)
 
-        # Initialize TaskStorage for persistent task tracking
+        # TaskStorage is the persistence backbone for experiment resume. On first
+        # run, load() finds no file and starts empty. On subsequent runs, load()
+        # deserializes all previously completed tasks from tasks.json so that
+        # _skip_completed_tasks() can identify which work units are already done.
         tasks_file = os.path.join(config.results_dir, "tasks.json")
         self.task_storage = TaskStorage(tasks_file, self.task_factory)
         self.task_storage.load()
 
-        # Tasks list for in-memory operations
+        # In-memory task list for the CURRENT session only. After _skip_completed_tasks(),
+        # this contains only pending tasks — previously completed tasks live only in
+        # TaskStorage. This separation is intentional: self.tasks drives the execution
+        # loop, while TaskStorage drives result processing (which needs ALL sessions).
         self.tasks: List[Task] = []
         self._skipped_count: int = 0
 
-        # Tool factory
+        # ToolFactory uses the ToolRegistry (populated at import time via __init__.py)
+        # to create configured tool instances. Each task gets a fresh tool instance
+        # because tools may hold per-execution state (process handles, temp files).
         self.tool_factory = ToolFactory()
 
         self.logger.info(f"Platform initialized with config: {self.config.apks_dir}")
@@ -124,27 +134,40 @@ class Platform:
         try:
             self.logger.info("Starting platform execution")
 
-            # Generate tasks
+            # --- Phase 1: Task Generation ---
+            # Build the full task matrix: APKs x tools x repetitions x timeouts.
+            # All possible tasks are generated upfront so resume logic can diff
+            # against previously completed tasks.
             self._generate_tasks()
 
-            # Store experiment metadata for continuation support
+            # Store experiment metadata for continuation support.
+            # The config checksum enables detecting config changes between runs,
+            # so we can warn if a resumed experiment has different parameters.
             config_dict = self.config.model_dump(mode="json")
             metadata = ExperimentMetadata.create_from_config(
                 experiment_id=str(self.config.results_dir), config_dict=config_dict
             )
             self.task_storage.set_experiment_metadata(metadata)
 
-            # Resume: skip tasks already completed in a previous run
+            # --- Phase 2: Resume Check ---
+            # Match generated tasks against completed tasks in TaskStorage by
+            # identity tuple (apk, tool, variant, repetition, timeout). Matched
+            # tasks are removed from self.tasks so they are not re-executed.
             self._skip_completed_tasks()
 
-            # Execute tasks
+            # --- Phase 3: Execution ---
             results = self._execute_tasks()
 
-            # Process experiment results (unless skipped)
+            # --- Phase 4: Result Processing ---
+            # Generate CSV/JSON from ALL completed tasks (previous + current).
+            # Uses task_storage.get_completed_tasks() as the single source of truth,
+            # which merges tasks from all sessions. Using self.tasks here would only
+            # include tasks from the current session, producing incomplete output on
+            # resume. Skippable for debugging or standalone result processing later.
             if not getattr(self.config, "skip_result_processing", False):
                 self._process_results()
 
-            # Generate summary
+            # --- Phase 5: Summary ---
             summary = self._generate_summary(results, self._skipped_count)
 
             self.logger.info("Platform execution completed successfully")
@@ -163,7 +186,9 @@ class Platform:
         apks = self._discover_apks()
         self.logger.info(f"Discovered {len(apks)} APK files")
 
-        # Generate tasks for each combination
+        # Cartesian product: every APK x tool x repetition x timeout produces one task.
+        # This exhaustive generation is intentional: resume logic later filters out
+        # tasks that were already completed, so the full matrix must be known upfront.
         task_count = 0
         for apk_path in apks:
             apk_name = apk_path.name
@@ -174,7 +199,9 @@ class Platform:
             for tool_config in self.config.tools:
                 for repetition in range(1, self.config.repetitions + 1):
                     for timeout in self.config.timeouts:
-                        # Set device_id from parameters for parallel execution
+                        # device_serial is injected by ExecutionController when running
+                        # in parallel containers. Each container gets a unique emulator
+                        # port (5554, 5556, ...) to avoid port conflicts.
                         device_id = tool_config.parameters.get(
                             "device_serial", "emulator-5554"
                         )
@@ -228,6 +255,9 @@ class Platform:
                 f"Config changed since last run (stored: {stored}, current: {current}) — resuming anyway"
             )
 
+        # Identity tuple uniquely identifies a task across sessions. Two tasks
+        # with the same identity are considered the "same work unit" regardless
+        # of task_id (which is a UUID generated fresh each run).
         def task_identity(task):
             tc = task.config
             return (
@@ -301,13 +331,19 @@ class Platform:
             self.logger.info(f"Executing task {i}/{len(self.tasks)}: {task}")
 
             try:
-                # Load tool
+                # Step 1: Create a fresh tool instance per task. Tools may hold
+                # per-execution state (e.g., process handles), so sharing across
+                # tasks would be unsafe.
                 tool = self._load_tool(task.config.tool_config)
 
-                # Create task executor with TaskStorage
+                # Step 2: Build the TaskExecutor with its component pipeline.
+                # Components are registered in a specific order that determines
+                # their initialization and execution sequence inside the executor.
                 executor = TaskExecutor(task, tool, task_storage=self.task_storage)
 
-                # Register all essential components in execution order
+                # Registration order matters: StaticAnalysis and Coverage run outside
+                # the emulator session (phases 1-2), while Emulator/Logcat/ToolExecution
+                # run inside the emulator context manager (phase 3).
                 components = [
                     StaticAnalysisComponent(task, self.config.apks_dir),
                     EmulatorComponent(task),
@@ -319,10 +355,12 @@ class Platform:
                 for component in components:
                     executor.register_component(component)
 
-                # Execute task
+                # Step 3: Execute the full component lifecycle (init -> execute -> cleanup).
                 success = executor.execute()
 
-                # Save task to persistent storage
+                # Step 4: Persist task result immediately after completion.
+                # Atomic write ensures crash recovery: if the process dies before
+                # the next task, this task's result is already on disk.
                 self.task_storage.update_task(task)
 
                 # Collect result
@@ -341,13 +379,18 @@ class Platform:
                 self.logger.info(f"Task completed: {success}")
 
             except Exception as e:
-                # Extract meaningful error message from exception chain
+                # Walk the exception chain to find the most informative message.
+                # RVToolTimeoutError is treated specially: timeouts are expected
+                # behavior in bounded-time experiments, not failures.
                 error_message = self._extract_meaningful_error_message(e)
 
                 self.logger.error(f"Task execution failed: {error_message}")
                 task.update_state(task.result.state.__class__.ERROR, error_message)
 
-                # Save failed task to persistent storage
+                # Persist failed tasks too so they are not re-executed on resume.
+                # This is critical: without this, a crash-and-resume cycle would
+                # re-run tasks that already failed, wasting experiment time. The
+                # atomic write in TaskStorage.save() guarantees this survives crashes.
                 self.task_storage.update_task(task)
 
                 result = {
@@ -510,10 +553,11 @@ class Platform:
         """
         self.logger.info("Processing experiment results")
 
-        # Use TaskStorage as source of truth: includes completed tasks from all
-        # sessions (previous runs loaded from tasks.json + current session).
-        # Using self.tasks would only include tasks executed in this session,
-        # missing tasks that were skipped during resume.
+        # TaskStorage is the single source of truth for result processing.
+        # It merges tasks from ALL sessions: previous runs (loaded from tasks.json
+        # on startup) plus the current session. Using self.tasks instead would
+        # only include tasks executed NOW, producing incomplete CSV/JSON when
+        # resuming an experiment. This is the key invariant for resume correctness.
         all_completed = list(self.task_storage.get_completed_tasks())
         processor = ResultProcessorComponent(all_completed, self.config.results_dir)
 

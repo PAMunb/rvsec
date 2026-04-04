@@ -81,8 +81,9 @@ class ExecutionController:
             {CONTEXT_COMPONENT: "ExecutionController"},
         )
 
-        # Platform integration state for clean coordination
-        # Platform instance handles all task execution and result processing
+        # Platform integration state — set by setup(), consumed by run().
+        # This two-step lifecycle exists because setup() needs APK/tool info
+        # that is only available after Phase 1 (pre-processing) completes.
         self.platform = None
         self.platform_config = None
         self.has_errors = False
@@ -159,10 +160,15 @@ class ExecutionController:
             self.logger.info(LOG_START.format(phase="platform execution"))
 
             try:
-                # Execute through rv-platform (includes automatic result processing)
+                # Execute through rv-platform. Platform.run() is the single point of control
+                # for the entire execution lifecycle: task generation, emulator management,
+                # tool execution, logcat capture, coverage tracking, and CSV/JSON results.
+                # On resume, it loads tasks.json and skips already-completed tasks.
                 results = self.platform.run()
 
-                # Track execution results (no data transfer)
+                # Only success/failure status crosses the module boundary.
+                # Detailed results (CSV, coverage, MOP violations) remain in rv-platform's
+                # results directory — rv-experiment never reads or transforms them.
                 self.has_errors = results.get("failed_tasks", 0) > 0
 
                 # Log execution statistics
@@ -217,19 +223,27 @@ class ExecutionController:
         Returns:
             PlatformConfig configured for experiment execution
         """
-        # Use provided results directory (should be the experiment results directory)
+        # Use the experiment results directory as the platform results directory.
+        # Both rv-experiment and rv-platform write to the same flat directory
+        # (e.g., results/my_exp/), so tasks.json, CSV reports, and experiment
+        # config all coexist in one location for easy inspection.
         platform_results_dir = results_dir
 
-        # Use instrumented APKs directory from experiment output_dir
+        # Prefer instrumented APKs produced by Phase 1.
+        # Falls back to original APKs when instrumentation was skipped (--skip-instrument
+        # or resume mode). This fallback is critical: without it, the platform would
+        # fail to find APKs when pre-processing is disabled.
         apks_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
-
-        # Fallback to original APKs if instrumented directory doesn't exist
         if not os.path.exists(apks_dir) or not os.listdir(apks_dir):
             apks_dir = self.config.apks_dir
 
         # Build platform tool configurations from experiment tool configs.
-        # Both rv-experiment and rv-platform use the same ToolConfig class from rv-android-core,
+        # Both rv-experiment and rv-platform use the same ToolConfig from rv-android-core,
         # so no conversion is needed — just inject device_port into a copy of parameters.
+        #
+        # Prefer tool_configs over tool instances because ToolConfig carries variant
+        # metadata that tool instances may not expose. The fallback (deriving configs
+        # from tool instances) exists for programmatic callers that skip the CLI layer.
         platform_tools = []
 
         source_configs = (
@@ -248,7 +262,11 @@ class ExecutionController:
         for original_config in source_configs:
             params = dict(original_config.parameters)
 
-            # Inject device_port into tool parameters for parallel execution
+            # Inject device_port into tool parameters for parallel container execution.
+            # In Docker-based batch runs, each container gets a unique emulator port
+            # (e.g., 5554, 5556, 5558). Tools need this to connect to the right
+            # emulator instance via ADB. The three keys (device_port, device_serial,
+            # device_id) cover different tool conventions for device addressing.
             if self.config.device_port is not None:
                 params["device_port"] = self.config.device_port
                 params["device_serial"] = f"emulator-{self.config.device_port}"

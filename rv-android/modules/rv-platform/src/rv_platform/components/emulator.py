@@ -74,8 +74,11 @@ class EmulatorComponent:
         Returns:
             True if emulator component is ready
         """
-        # EmulatorComponent execution is handled by _run_emulator_session
-        # This method just indicates the component is ready
+        # No-op during the generic component execution phase. The actual emulator
+        # lifecycle is managed by start_emulator() which is called directly by
+        # TaskExecutor._run_emulator_session() as a context manager. This two-step
+        # design exists because the emulator must wrap other components (logcat,
+        # coverage, tool) rather than running alongside them.
         self.logger.info("EmulatorComponent prepared for execution")
         return True
 
@@ -86,8 +89,11 @@ class EmulatorComponent:
         Args:
             context: Task execution context
         """
+        # Intentionally a no-op: the emulator is managed by the context manager
+        # in start_emulator(). When the `with` block exits (normally or via exception),
+        # EmulatorManager.__exit__ handles shutdown. Doing cleanup here would risk
+        # double-shutdown or premature teardown.
         self.logger.debug("Cleaning up EmulatorComponent")
-        # Cleanup is handled by context manager
 
     def start_emulator(self, avd_name: str = "RVSec"):
         """
@@ -99,9 +105,10 @@ class EmulatorComponent:
         Returns:
             Context manager for emulator session
         """
-        # Extract dynamic port allocation from task configuration for parallel execution
-        # Each parallel task gets unique emulator port (5554, 5556, 5558, etc.)
-        # Set by ParallelManager during task distribution to prevent port conflicts
+        # Dynamic port allocation for parallel Docker containers: each container
+        # runs one emulator on a unique port (5554, 5556, 5558, ...). The port
+        # is injected into tool_config.parameters by ExecutionController when
+        # --device-port is specified. Without it, defaults to 5554 (single-emulator mode).
         device_port = 5554  # default fallback port
         if (
             hasattr(self.task.config, "tool_config")
@@ -169,7 +176,8 @@ class EmulatorComponent:
                 return True
 
             try:
-                # Get device_serial from parameters for installation
+                # device_serial must match the emulator port used in start_emulator().
+                # In parallel mode, this is "emulator-5556", "emulator-5558", etc.
                 device_serial = "emulator-5554"  # default
                 if (
                     hasattr(self.task.config, "tool_config")

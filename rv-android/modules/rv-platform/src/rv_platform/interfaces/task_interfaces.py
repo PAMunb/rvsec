@@ -4,6 +4,11 @@ Core interfaces for the task execution subsystem in rv-platform.
 This module provides the fundamental interfaces that define the contract
 for task-related components in the RV-Android system, promoting clear
 separation of concerns and enabling dependency injection.
+
+Note: Concrete implementations (TaskExecutor, TaskStorage, component classes)
+do not formally inherit from these ABCs — they follow the same API by convention.
+These interfaces serve as documentation of the expected contracts rather than
+enforced type constraints, keeping the system simpler (P1: Simplicity).
 """
 
 from abc import ABC, abstractmethod
@@ -43,6 +48,11 @@ class ITaskComponent(ABC):
         """
         Initialize the component with task-specific context.
 
+        Called once per task execution, before execute(). Components should
+        prepare internal state but NOT acquire expensive resources (emulators,
+        file handles) — those are deferred to execute() or phase-specific
+        methods (e.g., start_capture(), start_tracking()).
+
         Args:
             context: Dictionary with task context information
 
@@ -55,6 +65,10 @@ class ITaskComponent(ABC):
         """
         Execute the component's primary function.
 
+        For some components (Emulator, Logcat), this is a no-op because their
+        actual work is driven by the executor's phase coordination. For others
+        (StaticAnalysis, Coverage), this performs real work during Phases 1-2.
+
         Args:
             context: Dictionary with task context information
 
@@ -66,6 +80,10 @@ class ITaskComponent(ABC):
     def cleanup(self, context: Dict[str, Any]) -> bool:
         """
         Clean up any resources used by the component.
+
+        Called after execution completes (both success and failure paths).
+        Must be idempotent — may be called multiple times if error recovery
+        triggers additional cleanup attempts.
 
         Args:
             context: Dictionary with task context information

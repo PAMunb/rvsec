@@ -44,6 +44,8 @@ class ToolRegistry:
     - Integration with rv-android-core error handling and logging
     """
 
+    # --- Singleton Management ---
+
     _instance: Optional["ToolRegistry"] = None
 
     @classmethod
@@ -85,10 +87,15 @@ class ToolRegistry:
         # Initialize error handler
         self.error_handler = ErrorHandler.get_instance()
 
-        # Core storage for tools and configurations
+        # --- Core Storage ---
+        # Three parallel maps keyed by tool name. They stay in sync: every tool
+        # has an entry in all three, though the variants dict may be empty for
+        # tools that only have a "default" variant supplied at creation time.
         self.tool_classes: Dict[str, Type[AbstractTool]] = {}
         self.tool_specs: Dict[str, ToolSpec] = {}
         self.variants: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    # --- Tool Registration ---
 
     @ErrorHandler.handle_errors(component="ToolRegistry", phase="register_tool")
     def register_tool(
@@ -106,6 +113,8 @@ class ToolRegistry:
             ToolRegistrationError: If tool registration fails
         """
         try:
+            # Re-registration is allowed (e.g., hot-reloading during development)
+            # but logged as a warning so it does not silently mask plugin conflicts.
             if tool_name in self.tool_classes:
                 self.logger.warning(
                     f"Tool '{tool_name}' already registered, replacing existing registration"
@@ -146,14 +155,18 @@ class ToolRegistry:
             ToolRegistrationError: If tool class registration or variant registration fails
         """
         try:
-            # Get tool specification using new method
+            # Two-phase registration: first the tool class itself, then its
+            # declared variants. This keeps variant knowledge inside the tool
+            # class (get_variants()) while the registry owns the storage.
             tool_spec = tool_class.get_tool_spec()
             tool_name = tool_spec.name
 
-            # Register tool class (existing logic)
+            # Phase 1: Register the tool class and spec
             self.register_tool(tool_name, tool_class, tool_spec)
 
-            # Automatic variant registration (Registry responsibility)
+            # Phase 2: Register all variants declared by the tool class.
+            # If variant registration fails, the tool class itself is still
+            # registered — partial registration is preferred over none.
             try:
                 variants = tool_class.get_variants()
                 for variant_name, config in variants.items():
@@ -198,6 +211,7 @@ class ToolRegistry:
             if tool_name not in self.variants:
                 self.variants[tool_name] = {}
 
+            # Defensive copy prevents external mutation of registry state.
             self.variants[tool_name][variant_name] = config.copy()
             self.logger.debug(
                 f"Registered variant '{variant_name}' for tool: {tool_name}"
@@ -207,6 +221,8 @@ class ToolRegistry:
             raise ToolRegistrationError(
                 f"Failed to register variant '{variant_name}' for tool '{tool_name}': {e}"
             ) from e
+
+    # --- Tool Instantiation ---
 
     def get_tool(self, tool_name: str, variant: str = "default") -> AbstractTool:
         """
@@ -228,14 +244,19 @@ class ToolRegistry:
         try:
             tool_class = self.tool_classes[tool_name]
 
-            # Create tool instance with parameterless constructor
-            # Tool spec data is handled internally by tool classes now
+            # Tools use parameterless constructors with sensible defaults.
+            # Configuration is applied afterwards via configure(), which is
+            # the variant system's extension point for each tool.
             tool_instance = tool_class()
 
-            # Apply variant configuration if available
+            # Variant configuration is only applied for non-default variants.
+            # The "default" variant is the tool's own constructor defaults,
+            # avoiding a redundant configure() call with the same values.
             if variant != "default" and tool_name in self.variants:
                 if variant in self.variants[tool_name]:
                     variant_config = self.variants[tool_name][variant]
+                    # Duck-typing check: not all AbstractTool subclasses may
+                    # implement configure() (e.g., tools with fixed config).
                     if hasattr(tool_instance, "configure") and callable(
                         tool_instance.configure
                     ):
@@ -276,6 +297,8 @@ class ToolRegistry:
                 )
 
         return tools
+
+    # --- Query and Discovery ---
 
     def get_tool_names(self) -> List[str]:
         """
@@ -347,6 +370,8 @@ class ToolRegistry:
             True if tool is registered, False otherwise
         """
         return tool_name in self.tool_classes
+
+    # --- Validation ---
 
     def validate_tool_variant(self, tool_name: str, variant_name: str) -> bool:
         """
@@ -421,7 +446,11 @@ class ToolRegistry:
                 f"Variant '{variant_name}' not found for tool '{tool_name}'"
             )
 
+        # Returns a copy so callers can safely merge user overrides without
+        # mutating the registered defaults (see ToolFactory.create_tool).
         return self.variants[tool_name][variant_name].copy()
+
+    # --- Lifecycle ---
 
     def clear(self) -> None:
         """Clear all registered tools and variants."""

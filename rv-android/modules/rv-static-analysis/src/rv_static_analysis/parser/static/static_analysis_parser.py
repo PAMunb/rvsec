@@ -126,7 +126,10 @@ class StaticAnalysisParser:
         if data is None:
             return StaticAnalysisData(Classes(), Windows(), WindowTransitionGraph())
 
-        # Parse each section independently (INV-ANA-06)
+        # Step 1: Parse each section independently so a corrupt section does not
+        # prevent recovery of the others (graceful degradation, INV-ANA-06).
+        # Order matters: windows need classes (to mark main activity), and
+        # transitions need windows (for source/target lookup and widget back-fill).
         classes = self._parse_classes(data, package)
         windows = self._parse_windows(data, package, classes)
         wtg = self._parse_transitions(data, windows)
@@ -195,6 +198,11 @@ class StaticAnalysisParser:
             Parsed dictionary from the recovered content, or None if
             recovery fails (no ']' found or still invalid after fix).
         """
+        # The GATOR client writes sections sequentially and flushes between each.
+        # On timeout, the file is truncated mid-array (e.g., the transitions array
+        # is half-written). We find the last complete ']' and close the root object
+        # with '}', discarding the partial entry. This preserves all fully-flushed
+        # sections even when the process was killed mid-write.
         last_bracket = content.rfind("]")
         if last_bracket == -1:
             self.logger.error("Cannot recover truncated JSON: no ']' found")
@@ -234,9 +242,15 @@ class StaticAnalysisParser:
 
             for cls_data in reachability:
                 class_name = cls_data.get("className", "")
+                # Normalize inner class notation: Outer.Inner -> Outer$Inner.
+                # GATOR already outputs $-notation via SootClass.getName(), but
+                # the normalizer guards against future upstream changes.
                 normalized = self.normalizer.normalize_class_name(class_name)
 
-                # Filter by code_package (INV-ANA-03)
+                # Filter by code_package prefix to exclude Android framework and
+                # third-party library classes. Uses substring match (not startswith)
+                # because code_package may differ from the manifest package in apps
+                # that use a library namespace (e.g., Godot games).
                 if package and package not in normalized:
                     continue
 
@@ -248,7 +262,9 @@ class StaticAnalysisParser:
                     signature = m_data.get("signature", "")
                     method_name = m_data.get("name", "")
 
-                    # Extract params from signature: <class: retType name(p1,p2)>
+                    # Extract parameter types from Soot signature format:
+                    # "<class: retType name(p1,p2)>" -- we need the params list
+                    # to build the Method domain object for coverage matching.
                     params = self._extract_params(signature)
 
                     method = Method(
@@ -297,7 +313,9 @@ class StaticAnalysisParser:
                 window_name = w_data.get("name", "")
                 normalized_name = self.normalizer.normalize_class_name(window_name)
 
-                # Filter by code_package (INV-ANA-03) — only for ACTIVITY windows
+                # Only ACTIVITY windows are filtered by code_package. DIALOGs,
+                # OPTIONSMENUs, and other window types are kept regardless of package
+                # because they can be system-provided overlays triggered by app code.
                 w_type_str = w_data.get("type", "ACTIVITY")
                 if (
                     w_type_str == "ACTIVITY"
@@ -463,7 +481,11 @@ class StaticAnalysisParser:
                     widget_class = evt_data.get("widgetClass", "")
                     widget_name = evt_data.get("widgetName", "")
 
-                    # Ensure widget exists in the window
+                    # Widget back-fill: GATOR may reference widgets in transitions
+                    # that were not listed in the window's widget array (e.g., widgets
+                    # created dynamically in code). Create them on-the-fly and register
+                    # in both the window and the global widget index so downstream
+                    # consumers (rv-agent's TransitionManager) can look them up.
                     if widget_id and not source_window.get_widget(widget_id):
                         widget_type = WidgetType.from_class_name(widget_class)
                         widget = Widget(
@@ -475,8 +497,9 @@ class StaticAnalysisParser:
                         source_window.add_widget(widget)
                         windows.widgets[widget_id] = widget
 
-                    # Create WindowTransition event
-                    # GATOR JSON uses "type" in transition events (not "eventType" like in listeners)
+                    # GATOR JSON uses "type" for transition events but "eventType" for
+                    # widget listeners -- inconsistent naming from the Java client.
+                    # Default to CLICK because most transitions are click-triggered.
                     event_type_str = evt_data.get("type", "click")
                     event_type = _EVENT_TYPE_MAP.get(
                         event_type_str, WidgetEventType.CLICK

@@ -105,9 +105,12 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         if node_id in self.processed_parents:
             return
 
-        # Check if this node is actionable but none of its children handle the action
+        # An actionable container (e.g., a LinearLayout with clickable=true) should
+        # only produce its own action when none of its children are independently
+        # actionable. If a child handles the interaction, the container's click would
+        # duplicate it -- and worse, the container's bounds may be much larger,
+        # leading to imprecise coordinate targeting by the LLM agent.
         if node.actionable and node.children:
-            # Process actionable parent only if children don't handle the actions
             child_handles_action = False
             for child in node.children:
                 if child.actionable:
@@ -156,7 +159,11 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         else:
             node_depth = self.node_depth_map[node_id]
 
-        # Check if this node or its parent is actionable
+        # A leaf node is actionable either on its own (clickable/editable/etc.) or
+        # because a parent container is clickable. In the latter case we pass
+        # inherit_click=True so the leaf gets a CLICK action even though its own
+        # clickable attribute is false -- the click will land on the leaf's
+        # coordinates but be handled by the parent's click listener.
         is_actionable = node.actionable
         parent_clickable = False
 
@@ -601,7 +608,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         node_depth = self._compute_node_depth(node)
         bounds_info = self._format_bounds_info(node)
 
-        # Process group itself if actionable
+        # Process the group container itself only if it has its own actions (rare).
+        # The main logic below handles the individual radio buttons.
         if node.actionable:
             actions = self.get_possible_actions(node, self.counter)
             description = (
@@ -616,10 +624,12 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             self.screen_structure["element_count"] += 1
             self.screen_structure["actionable_count"] += 1
 
-        # Collect all radio buttons in this group
+        # When a RadioGroup contains 2+ radio buttons, present them as a single
+        # ScreenItem with SELECT actions for each option. This gives the LLM a
+        # clear "choose one of N" framing instead of N independent checkboxes.
+        # Individual radio button nodes are marked as processed to prevent
+        # duplicate visits when the tree traversal reaches them later.
         radio_buttons = node.find_children_by_class("android.widget.RadioButton")
-
-        # If we found multiple radio buttons, create a single item for the group
         if len(radio_buttons) > 1:
             group_actions = []
             group_text = "Radio button group with options: "
@@ -789,7 +799,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         actions = []
 
-        # Get slider bounds for coordinate calculation
+        # Generate DRAG actions at fixed percentage positions (0%, 25%, 50%, 75%, 100%).
+        # Each action swipes from the slider's current center to the target X coordinate.
+        # The Y stays constant because Android SeekBars are horizontal-only.
         bounds = node.bounds if hasattr(node, "bounds") else node.data.get("bounds")
         if bounds and len(bounds) == 2:
             x1, y1 = bounds[0]
@@ -1312,7 +1324,10 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Returns:
             Position description
         """
-        # Assume screen is approximately 1080x1920 (can be adjusted based on device)
+        # Hardcoded reference resolution for position classification. This is a
+        # rough heuristic for labeling screen regions (Top/Middle/Bottom, Left/Center/
+        # Right) -- not for coordinate targeting, so the approximation is acceptable.
+        # Most emulators and test devices use 1080x1920 or similar aspect ratios.
         screen_width = 1080
         screen_height = 1920
 

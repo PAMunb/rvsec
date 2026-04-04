@@ -198,18 +198,25 @@ class TaskStorage(ITaskStorage):
             "rv_platform.storage.task_storage", {CONTEXT_COMPONENT: "TaskStorage"}
         )
 
-        # Task storage
+        # In-memory task store, keyed by task ID. This is the authoritative
+        # representation of all known tasks: both loaded from disk and added
+        # during the current session. Persisted to disk via save().
         self.tasks: Dict[str, Task] = {}
         self.loaded = False
 
-        # Thread synchronization
+        # RLock (reentrant) because save() may be called from within update_task(),
+        # which already holds the lock. A regular Lock would deadlock in that case.
         self.lock = threading.RLock()
 
-        # Transaction support
+        # Transaction support for batching multiple updates into a single atomic
+        # disk write. Without transactions, each update_task() triggers a save(),
+        # which is fine for single-task updates but expensive for bulk operations.
         self.in_transaction = False
         self.transaction_tasks: Dict[str, Task] = {}
 
-        # Statistics cache
+        # Statistics cache with a 10-second TTL. Avoids recomputing stats on
+        # every call during rapid polling (e.g., progress reporting) while still
+        # reflecting recent task completions.
         self._statistics_cache: Optional[ExperimentStatistics] = None
         self._statistics_cache_time: Optional[datetime] = None
 
@@ -290,9 +297,12 @@ class TaskStorage(ITaskStorage):
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(self.storage_file), exist_ok=True)
 
-                # Prepare data with enhanced metadata support
+                # Prepare the complete persistence payload. Version 3 includes
+                # experiment metadata (config checksum for resume validation) and
+                # per-task coverage_metrics (fallback when LogcatRepository is
+                # not available on resume).
                 data = {
-                    "version": 3,  # Version 3 includes experiment metadata
+                    "version": 3,
                     "timestamp": datetime.now().isoformat(),
                     "tasks": [task.to_dict() for task in self.tasks.values()],
                 }
@@ -314,18 +324,21 @@ class TaskStorage(ITaskStorage):
                     stats_dict["last_updated"] = statistics.last_updated.isoformat()
                     data["statistics"] = stats_dict
 
-                # Create a temporary file in the same directory
+                # Atomic write: write to temp file first, then rename. This prevents
+                # corrupted tasks.json if the process is killed mid-write.
+                # shutil.move is used instead of os.rename because the temp file
+                # and target may be on different filesystems in Docker containers.
                 temp_file = f"{self.storage_file}.tmp"
 
-                # Write to the temporary file first
                 with open(temp_file, "w") as f:
                     json.dump(data, f, indent=2)
 
-                    # Ensure data is written to disk
+                    # fsync ensures data reaches the physical disk, not just
+                    # the OS page cache. Without this, a power failure after
+                    # rename could leave an empty file.
                     f.flush()
                     os.fsync(f.fileno())
 
-                # Atomic rename to avoid partial writes
                 shutil.move(temp_file, self.storage_file)
 
                 self.logger.info(
@@ -503,6 +516,10 @@ class TaskStorage(ITaskStorage):
                 self.logger.warning("Transaction already in progress")
                 return
 
+            # Transaction buffer: changes accumulate here instead of going
+            # to self.tasks. On commit, the buffer is merged into self.tasks
+            # and saved in a single atomic write. On rollback, the buffer is
+            # discarded and self.tasks remains untouched.
             self.in_transaction = True
             self.transaction_tasks = {}
             self.logger.debug("Transaction started")
@@ -578,7 +595,9 @@ class TaskStorage(ITaskStorage):
         with self.lock:
             if self.in_transaction:
                 if task_id in self.tasks or task_id in self.transaction_tasks:
-                    # Use None as a marker for deletion
+                    # Use None as a sentinel for "delete on commit". The commit
+                    # handler must check for None entries and remove them from
+                    # self.tasks instead of merging them.
                     self.transaction_tasks[task_id] = None  # type: ignore
                     self.logger.debug(
                         f"Marked task {task_id} for deletion in transaction"
@@ -751,7 +770,8 @@ class TaskStorage(ITaskStorage):
         with self.lock:
             now = datetime.now()
 
-            # Use cache if recent (within 10 seconds)
+            # 10-second cache TTL avoids recalculating statistics on every call
+            # during tight monitoring loops while keeping data reasonably fresh.
             if (
                 self._statistics_cache
                 and self._statistics_cache_time
@@ -812,11 +832,14 @@ class TaskStorage(ITaskStorage):
         if not self.experiment_metadata:
             return False
 
-        # Calculate checksum of new configuration
+        # Checksum comparison detects ANY config change (tools, timeouts,
+        # repetitions, APK directory, etc.). sort_keys=True ensures deterministic
+        # serialization so the same config always produces the same hash.
+        # A mismatch is a WARNING, not an error: resume proceeds anyway because
+        # task identity matching (not config equality) determines what to skip.
         config_json = json.dumps(config_dict, sort_keys=True)
         new_checksum = hashlib.sha256(config_json.encode()).hexdigest()
 
-        # Compare with stored checksum
         compatible = new_checksum == self.experiment_metadata.config_checksum
 
         if not compatible:

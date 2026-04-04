@@ -124,6 +124,9 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
         Dict with date, time, pid, tid, level, tag, message, original;
         or None if the line does not match standard logcat format.
     """
+    # Standard Android logcat "threadtime" format:
+    #   MM-DD HH:MM:SS.mmm  PID  TID  LEVEL  TAG: message
+    # Note: logcat omits the year -- _convert_to_datetime infers it.
     pattern = r"(\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+(\w)\s+(\S+)\s*:\s*(.*)"
     match = re.match(pattern, line)
     if not match:
@@ -156,7 +159,13 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
     Returns:
         Parsed RvErrorLog, or None if the message format is unrecognized.
     """
-    # First check if this is a generic "went into an error state" message
+    # Three error formats exist because different RV-Monitor/RVSEC versions emit
+    # different message structures. We try the most specific first (generic spec
+    # error with source location), then JCA comma-separated (6+ fields), then the
+    # older FSM triple-colon format. Order matters: the comma-split would match
+    # generic messages too, producing garbled fields.
+
+    # Format 1: Generic spec error -- "class.method(file:line) ::: Spec went into an error state."
     if message.endswith("went into an error state."):
         generic = _parse_generic_spec_error(message)
         if generic:
@@ -169,10 +178,11 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
                 generic["message"],
             )
 
-    # Try to parse JCA specification error format
+    # Format 2: JCA comma-separated -- "spec,class,init,method,source,error_type[,message]"
+    # The JCA instrumentation emits exactly this CSV layout. Fields beyond index 6
+    # are joined back as the human-readable message (some messages contain commas).
     parts = message.split(",")
 
-    # Check if we have enough parts for the expected format
     if len(parts) >= 6:
         return RvErrorLog(
             parts[0],  # spec
@@ -185,7 +195,9 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
             ),  # message
         )
 
-    # Alternative format with ::: separator (FSM format)
+    # Format 3: FSM triple-colon -- "class.method(params):::Spec message"
+    # Older RV-Monitor FSM output. Extract class and method by finding the last
+    # dot before the opening parenthesis (handles inner classes with dots).
     if ":::" in message:
         split = message.split(":::")
         if len(split) >= 2:
@@ -242,13 +254,15 @@ def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
     Returns:
         Parsed RvCoverageLog, or None if the message format is unrecognized.
     """
-    # First try the modern format with angle brackets
+    # Modern Soot-signature format: "<class: returnType method(params)>"
+    # This is what the current RVSEC instrumentation emits via RVSEC-COV tag.
     match = re.match(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>", message)
     if match:
         class_name, return_type, method_name, parameters = match.groups()
         return RvCoverageLog(class_name, method_name, parameters, message)
 
-    # Try the legacy format with ::: separators
+    # Legacy triple-colon format: "class:::method:::params"
+    # Kept for backward compatibility with older instrumented APKs.
     parts = message.split(":::")
     if len(parts) >= 2:
         class_name = parts[0].strip()
@@ -278,12 +292,14 @@ def _convert_to_datetime(date: str, time: str) -> datetime:
     """
     current_year = datetime.now().year
 
-    # Handle edge case for year transition
+    # Android logcat timestamps lack a year. We infer it from the current date.
+    # Edge case: if we're in January and the log entry is from December, it must
+    # be from the previous year (experiment started before midnight on Dec 31).
+    # This only handles a one-month overlap, which is sufficient because
+    # experiments never span more than a few hours.
     current_month = datetime.now().month
     log_month = int(date.split("-")[0])
 
-    # If current month is January (1) and log month is December (12),
-    # it means the log is from the previous year
     year = current_year - 1 if current_month == 1 and log_month == 12 else current_year
 
     date_format = "%Y-%m-%d %H:%M:%S.%f"

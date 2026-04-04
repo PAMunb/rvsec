@@ -43,7 +43,10 @@ class LogcatComponent:
         self.task = task
         self.error_handler = ErrorHandler.get_instance()
 
-        # Get device_serial from task configuration for parallel execution
+        # Resolve which emulator instance to capture logcat from. In parallel
+        # execution, each container runs its own emulator on a unique port, so
+        # device_serial is "emulator-5554", "emulator-5556", etc. LogcatManager
+        # uses `adb -s <serial> logcat` to target the correct device.
         device_serial = getattr(task.config, "device_id", "emulator-5554")
         if hasattr(task.config, "tool_config") and hasattr(
             task.config.tool_config, "parameters"
@@ -81,8 +84,12 @@ class LogcatComponent:
         Returns:
             True if logcat component is ready
         """
-        # LogcatComponent execution is handled by _run_emulator_session
-        # This method just indicates the component is ready
+        # No-op during the generic component execution phase, same pattern as
+        # EmulatorComponent. Actual logcat capture is controlled directly by
+        # TaskExecutor._run_emulator_session() via start_capture()/stop_capture(),
+        # because logcat must start AFTER the emulator boots and stop AFTER the
+        # tool finishes. The captured logcat file is persisted in tasks.json and
+        # serves as the reconstruction source for MOP violations on resume.
         self.logger.info("LogcatComponent prepared for execution")
         return True
 

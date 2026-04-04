@@ -51,6 +51,10 @@ class MethodCoverageData(BaseValidatedModel):
     parameters: List[str] = Field(
         description="List of parameter types for method signature"
     )
+    # === STATIC ANALYSIS FLAGS ===
+    # These three flags form a reachability hierarchy from GATOR static analysis:
+    # reachable -> reaches_mop -> directly_reaches_mop (each level is a subset).
+    # "MOP" refers to any monitored operation (JCA or generic), not specifically security.
     reachable: bool = Field(
         default=False,
         description="Whether method is reachable according to static analysis",
@@ -81,6 +85,9 @@ class MethodCoverageData(BaseValidatedModel):
         default=False,
         description="Whether method data originates from static analysis results",
     )
+    # time_since_task_start uses tool_execution_start (not task start_time) as epoch,
+    # so coverage timestamps reflect actual tool execution duration. This value
+    # flows unchanged from RvCoverageLog -> MethodCoverageData -> CSV export.
     time_since_task_start: int = Field(
         default=0,
         description="Seconds elapsed since task start when method was first called (preserved from RvCoverageLog)",
@@ -487,7 +494,9 @@ class LogcatRepository:
         Args:
             class_data: Class coverage data
         """
-        # We should only add a class once to maintain static analysis integrity
+        # Guard against duplicate additions: static analysis data is loaded once
+        # during experiment initialization. Re-adding would overwrite runtime
+        # call tracking (called=True, call_count, timestamps) with fresh defaults.
         if class_data.name not in self.classes:
             self.classes[class_data.name] = class_data
 
@@ -495,7 +504,7 @@ class LogcatRepository:
             for signature, method in class_data.methods.items():
                 method.from_static_analysis = True
 
-            # Reset static totals cache when adding a class
+            # Invalidate cached totals so calculate_metrics() recomputes them
             self._static_totals = None
 
     def get_class(self, class_name: str) -> Optional[ClassCoverageData]:
@@ -579,14 +588,15 @@ class LogcatRepository:
         """
         metrics = CoverageMetrics()
 
-        # Check if static analysis data is available
+        # Without static analysis data, coverage is undefined (0/0).
+        # This happens when --skip-static is used without pre-existing data.
         if not self.classes:
             self.logger.warning(
                 "No static analysis data available, returning 0% for all metrics"
             )
             return metrics
 
-        # Calculate static analysis totals (only once)
+        # Step 1: Compute static totals (cached after first call, invalidated by add_class)
         if self._static_totals is None:
             self._calculate_static_totals()
 
@@ -607,11 +617,11 @@ class LogcatRepository:
                 "Static totals not available, metrics may be inaccurate"
             )
 
-        # Count errors
+        # Step 2: Count RV property violations (total and deduplicated)
         metrics.total_errors = len(self.errors)
         metrics.unique_errors = len(self.unique_errors)
 
-        # Calculate called metrics
+        # Step 3: Aggregate dynamic execution counts across all classes/methods
         for class_data in self.classes.values():
             if class_data.called:
                 metrics.called_classes += 1
