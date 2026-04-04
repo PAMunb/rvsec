@@ -122,8 +122,8 @@
 - [x] 5.21 Run `/rv-docs-sync rv-platform` — updated CLAUDE.md (removed rvsmart, updated line counts)
 - [x] 5.22 Run `/rv-docs-sync rv-experiment` — updated CLAUDE.md + architecture.md (added get_module_config, test files)
 - [x] 5.23 Run `/rv-docs-sync rv-tools` — updated CLAUDE.md (test categories, directory structure)
-- [ ] 5.24 Update project-level `CLAUDE.md` with final state
-- [ ] 5.25 Update project-level `docs/rv_android_architecture.md` with final state
+- [x] 5.24 Update project-level `CLAUDE.md` with final state — already updated in TG1
+- [x] 5.25 Update project-level `docs/rv_android_architecture.md` with final state — fixed module count to 14
 
 ### 5E. Missing README/CLAUDE.md
 

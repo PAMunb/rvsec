@@ -24,7 +24,7 @@ This document is intended for developers and researchers who need to understand 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | **Workspace Management** | uv workspace with `modules/*` members | Single lockfile, shared `.venv`, editable installs. Enables independent module development with coordinated dependencies. |
-| **Modular Decomposition** | 13 modules grouped by layer | Each module has a single responsibility, clear dependencies, and can be tested independently. Layers enforce dependency direction. |
+| **Modular Decomposition** | 14 modules grouped by layer | Each module has a single responsibility, clear dependencies, and can be tested independently. Layers enforce dependency direction. |
 | **Component-Based Execution** | Pluggable `ITaskComponent` pipeline | Task execution concerns (emulator, coverage, logcat, static analysis, tool invocation) are isolated into components with a uniform lifecycle (`initialize`/`execute`/`cleanup`). |
 | **Three-Phase Workflow** | Pre-process, Execute, Post-process | Experiment workflow has a natural ordering: prepare artifacts (monitors, instrumented APKs, static analysis), execute testing tasks, generate diagnostics. |
 | **Tool Plugin System** | `ToolRegistry` + `ToolFactory` + `AbstractTool` | Tools are registered at import time, discovered via registry, and instantiated via factory with variant configuration. Adding a tool requires no modification to platform code. |
