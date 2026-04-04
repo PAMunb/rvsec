@@ -2,64 +2,99 @@
 
 ## Overview
 
-rv-tools is a Layer 2 module in the RV-Android framework that provides a centralized tool registry and plugin system for Android application testing tools. It manages the lifecycle of 8 built-in testing tools through a Registry/Factory pattern, supporting tool variants for different testing configurations. The module serves as the bridge between tool implementations and the execution engine (rv-platform), enabling tool discovery, registration, instantiation, and configuration with variant support.
+rv-tools is the tool plugin system for the RV-Android framework. It provides a centralized registry, factory, and variant management system that enable diverse Android testing tools to be discovered, configured, and instantiated through a uniform interface. The module ships 8 built-in tool implementations covering random, model-based, and AI-guided exploration strategies, and supports external tool registration (e.g., rv-agent via rvagent-tool). rv-tools depends only on rv-android-core and is consumed by rv-platform (task execution), rv-experiment (experiment orchestration), and external tool modules.
+
+## Specification Alignment
+
+This module implements requirements from `openspec/specs/tools/spec.md`.
+
+### Functional Requirements
+
+| FR | Description | Architectural Support |
+|----|-------------|----------------------|
+| FR18 | Tool Registration and Factory System | `ToolRegistry` singleton stores tool classes, specs, and variants; `ToolFactory.create_tool()` resolves variant configuration and returns configured instances |
+| FR19 | External Tool Support (8 built-in + external) | 8 tool classes in `builtin/` extending `AbstractTool` with Template Method pattern; external tools register via `register_tool_class()` |
+| FR20 | Per-Tool Variant System | Each tool defines variants via `get_variants()`; registry stores variant configs; factory resolves and merges with user parameters |
+
+### Key Invariants
+
+| Invariant | Description | Enforcement Mechanism |
+|-----------|-------------|----------------------|
+| INV-TOOL-01 | ToolRegistry singleton returns same instance | Class-level `_instance` with `get_instance()` factory method |
+| INV-TOOL-02 | Every registered tool has a "default" variant | `get_variants()` contract on all tool classes |
+| INV-TOOL-03 | Tool names are unique; re-registration replaces and logs warning | `register_tool()` checks `tool_classes` dict and logs warning on collision |
+| INV-TOOL-04 | ToolSpec fields validated by Pydantic | `@validated_model` decorator on ToolSpec (in rv-android-core) |
+| INV-TOOL-05 | Factory calls `configure()` before returning | `ToolFactory.create_tool()` calls `tool_instance.configure(final_config)` as last step |
+| INV-TOOL-06 | `execute()` converts `RVCommandTimeoutError` to `RVToolTimeoutError` | Template Method in `AbstractTool.execute()` wraps `execute_tool_specific_logic()` |
+| INV-TOOL-07 | `execute()` calls `kill_related_processes()` after execution | Template Method in `AbstractTool.execute()` calls cleanup after tool logic |
+| INV-TOOL-08 | Built-in registration failures do not block module import | `_register_builtin_tools()` catches exceptions per tool and logs warnings |
+| INV-TOOL-13 | `get_variant_config()` returns a copy | `variants[tool_name][variant_name].copy()` in registry |
+| INV-TOOL-15 | Docker-based tools use correct network flag inside/outside Docker | `_build_ares_command()` and `_build_qtesting_command()` check for `/.dockerenv` |
+
+### Specification Scenarios
+
+Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
+
+- **Factory creates configured tool from ToolConfig**: Exercises `ToolFactory.create_tool()` -> registry lookup -> variant resolution -> parameter merge -> `configure()` call. Traces through `ToolFactory`, `ToolRegistry`, and the target tool class.
+- **Factory rejects invalid tool or variant**: Validates error paths in `ToolFactory.create_tool()` that raise `ConfigurationError` when the tool or variant is not found in the registry.
+- **Tool timeout handled as expected behavior**: Validates the Template Method in `AbstractTool.execute()` converting `RVCommandTimeoutError` to `RVToolTimeoutError` at INFO level.
+- **DroidBot policy validation**: Validates `DroidBotTool.configure()` rejecting invalid policy strings with `ConfigurationError`.
+- **ARES/QTesting Docker network flag**: Validates INV-TOOL-15 -- `--network container:$(hostname)` inside Docker, `--network host` outside.
 
 ## Key Architectural Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Application Type | Library (imported by rv-platform and rv-experiment) | Tools are created and executed by the platform, not standalone |
-| Structuring | Two-package module (registry + builtin) | Separates infrastructure from tool implementations |
-| Primary Pattern | Registry + Factory | Centralized tool management with consistent creation workflow |
-| Control Strategy | Call-based, data-driven | Configuration flows from ToolConfig through Factory to Tool instance |
-| Singleton | ToolRegistry singleton with auto-registration on import | Single source of truth for available tools across the system |
-| Tool Abstraction | AbstractTool base class in rv-android-core | Base class lives in core to avoid circular dependencies; tools extend it |
-| Variant System | Dict-based variant configs per tool | Each tool declares named configuration presets (e.g., dfs_greedy, bfs_naive) |
-| Auto-Registration | Module import triggers `_register_builtin_tools()` | Guarantees all built-in tools are available as soon as rv-tools is imported |
+| Application Type | Library (imported by rv-platform, rv-experiment) | Tools are created and executed by the platform; no standalone CLI needed |
+| Structuring | Two-package modular (`registry/` + `builtin/`) | Separates plugin infrastructure from tool implementations |
+| Primary Pattern | Registry + Factory | Decouples tool discovery from instantiation; enables the tool specification DSL (`tool:variant@param=value`) |
+| Control Strategy | Call-based (import-time auto-registration) | Module import triggers `_register_builtin_tools()` -- tools are available immediately after `import rv_tools` |
+| Singleton vs. DI | Singleton with `reset_instance()` for tests | Single source of truth across all consumers; `reset_instance()` enables test isolation |
+| Tool Abstraction | `AbstractTool` base class in rv-android-core | Base class lives in core to avoid circular dependencies; tools extend it |
+| External Registration | Deferred, idempotent, at consumer import | External tools (rvagent) register when their own modules are imported, respecting dependency hierarchy |
 
 ## Architectural Patterns
 
-### Pattern: Registry
+### Pattern: Singleton Registry
 
-**Description**: All tool classes, specifications, and variant configurations are stored in a central `ToolRegistry` singleton. Components query the registry to discover available tools, retrieve tool classes, and access variant configurations.
+**Description**: `ToolRegistry` uses a class-level `_instance` attribute with a `get_instance()` factory method to ensure all consumers share the same tool storage. Three parallel dictionaries (`tool_classes`, `tool_specs`, `variants`) store the complete state.
 
-**When Used**: The system needs a single point of truth for tool metadata that multiple consumers (rv-platform, rv-experiment) can query independently.
+**When Used**: The registry must be the single source of truth for available tools across rv-platform (task execution), rv-experiment (experiment validation), and CLI (tool listing).
 
 **Advantages**:
-- Components are decoupled from specific tool implementations
-- Tool discovery is centralized and consistent
-- Adding a new tool requires only registration, not changes to consumers
+- All modules see the same set of registered tools without passing references
+- Auto-registration at import time populates the registry before any consumer code runs
 
 **Disadvantages**:
-- Singleton creates implicit global state
-- All tools must be registered before use (addressed by auto-registration on import)
+- Global mutable state requires `reset_instance()` for test isolation
+- Import order matters: rv-platform must be imported before rvagent-tool is available
 
-### Pattern: Factory Method
+### Pattern: Factory Method with Variant Resolution
 
-**Description**: `ToolFactory.create_tool(tool_config)` encapsulates the creation workflow: resolving the tool class from the registry, fetching variant configuration, merging parameter overrides, instantiating the tool, and calling `configure()`.
+**Description**: `ToolFactory.create_tool(tool_config)` encapsulates the four-step creation workflow: (1) resolve tool class from registry, (2) fetch variant configuration, (3) merge with user parameter overrides, (4) instantiate and call `configure()`.
 
-**When Used**: rv-platform needs to create configured tool instances from a `ToolConfig` specification without knowing the concrete tool class.
+**When Used**: Every tool instantiation in rv-platform's `ToolExecutionComponent` goes through the factory.
 
 **Advantages**:
-- Consistent creation workflow across all 8+ tools
-- Variant resolution is transparent to the caller
+- Consistent creation workflow across all tools (built-in and external)
+- Variant system enables the DSL `droidbot:dfs_greedy@count=5000` without tool-specific code
 - Configuration merging (variant defaults + parameter overrides) happens in one place
 
 **Disadvantages**:
-- Tool creation is indirect (caller cannot construct tools directly without bypassing the factory)
+- Two-step creation (constructor + configure) adds a mild protocol overhead
 
 ### Pattern: Template Method
 
-**Description**: `AbstractTool` (defined in rv-android-core) defines the execution workflow. Concrete tools implement `get_tool_spec()`, `get_variants()`, `configure()`, and `execute_tool_specific_logic()` as extension points.
+**Description**: `AbstractTool.execute()` (defined in rv-android-core) provides a fixed execution workflow: call `execute_tool_specific_logic()`, handle timeout conversion (INV-TOOL-06), call `kill_related_processes()` (INV-TOOL-07). Each tool overrides only `execute_tool_specific_logic()`.
 
 **When Used**: All tools share the same lifecycle (registration, configuration, execution, cleanup) but differ in their specific logic.
 
 **Advantages**:
-- Uniform execution contract across all tools
-- Common concerns (logging, error handling, process cleanup) handled in the base class
+- Timeout handling and cleanup are guaranteed regardless of tool implementation
+- New tools only implement tool-specific logic
 
 **Disadvantages**:
-- Tools must conform to the predefined lifecycle even if their execution model differs
+- Rigid execution sequence; tools that need custom cleanup order must work within the template
 
 ---
 
@@ -71,9 +106,9 @@ rv-tools is a Layer 2 module in the RV-Android framework that provides a central
 |--------|----------------|
 | `ToolRegistry` | Singleton storing tool classes, specs, and variants. Provides discovery and retrieval. |
 | `ToolFactory` | Creates configured tool instances from `ToolConfig` by resolving variants from the registry. |
-| `AbstractTool` | Base class defining the tool contract: spec, variants, configure, execute. |
-| `ToolSpec` | Pydantic model holding tool metadata (name, description, url, version, process_pattern). |
-| `ToolConfig` | Input model specifying which tool + variant + parameter overrides to use. |
+| `AbstractTool` | Base class defining the tool contract: spec, variants, configure, execute (from rv-android-core). |
+| `ToolSpec` | Tool metadata: name, description, URL, version, process pattern (from rv-android-core). |
+| `ToolConfig` | User-facing configuration: tool name, variant name, parameter overrides (from rv-android-core). |
 | Built-in Tools | 8 concrete `AbstractTool` subclasses (Monkey, DroidBot, APE, FastBot, ARES, DroidMate, Humanoid, QTesting). |
 
 ### Component Architecture
@@ -81,18 +116,12 @@ rv-tools is a Layer 2 module in the RV-Android framework that provides a central
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    subgraph External["External Consumers"]
-        direction LR
-        Platform["rv-platform"]
-        Experiment["rv-experiment"]
-    end
-
     subgraph RVTools["rv-tools"]
         direction TB
         subgraph RegistryLayer["Registry Infrastructure"]
             direction LR
-            Registry["ToolRegistry\n(singleton)"]
-            Factory["ToolFactory"]
+            ToolReg["ToolRegistry\n(singleton)"]
+            ToolFact["ToolFactory"]
         end
         subgraph BuiltinLayer["Built-in Tools"]
             direction LR
@@ -107,29 +136,35 @@ flowchart TB
         end
     end
 
-    subgraph Core["rv-android-core"]
+    subgraph CoreModule["rv-android-core"]
         direction LR
-        AbstractToolNode["AbstractTool"]
+        AbstractTool["AbstractTool"]
         ToolSpecNode["ToolSpec"]
-        ErrorHandler["ErrorHandler"]
+        ErrHandler["ErrorHandler"]
     end
 
-    Platform -- "create_tool(config)" --> Factory
-    Platform -- "get_tool_names()" --> Registry
-    Experiment -- "get_tool_variants()" --> Registry
-    Factory -- "resolve class + variant" --> Registry
+    subgraph Consumers["Consumers"]
+        Platform["rv-platform\nToolExecutionComponent"]
+        Experiment["rv-experiment\nCLI"]
+        ExternalTools["rvagent-tool"]
+    end
 
-    Monkey --> AbstractToolNode
-    DroidBot --> AbstractToolNode
-    APE --> AbstractToolNode
-    FastBot --> AbstractToolNode
-    ARES --> AbstractToolNode
-    DroidMate --> AbstractToolNode
-    Humanoid --> AbstractToolNode
-    QTesting --> AbstractToolNode
+    Platform -- "create_tool(config)" --> ToolFact
+    Experiment -- "get_tool_variants()" --> ToolReg
+    ExternalTools -- "register_tool_class()" --> ToolReg
+    ToolFact -- "resolve class + variant" --> ToolReg
 
-    Registry -- "stores" --> ToolSpecNode
-    Registry -- "uses" --> ErrorHandler
+    Monkey --> AbstractTool
+    DroidBot --> AbstractTool
+    APE --> AbstractTool
+    FastBot --> AbstractTool
+    ARES --> AbstractTool
+    DroidMate --> AbstractTool
+    Humanoid --> AbstractTool
+    QTesting --> AbstractTool
+
+    ToolReg -- "stores" --> ToolSpecNode
+    ToolReg -- "uses" --> ErrHandler
 ```
 
 ### Entity Relationships
@@ -146,6 +181,7 @@ classDiagram
         +get_tool(name, variant) AbstractTool
         +get_tool_variants(name) List~str~
         +get_variant_config(name, variant) Dict
+        +validate_tool_variant(name, variant) bool
     }
 
     class ToolFactory {
@@ -162,6 +198,8 @@ classDiagram
         +get_variants()* Dict
         +configure(config)*
         +execute_tool_specific_logic(task, app)*
+        +execute(task, app)
+        +kill_related_processes(pattern)
     }
 
     class ToolSpec {
@@ -189,23 +227,28 @@ rv-tools/
 ├── src/rv_tools/
 │   ├── __init__.py              # Module entry, auto-registers built-in tools
 │   ├── registry/
-│   │   ├── __init__.py
-│   │   ├── registry.py          # ToolRegistry singleton (456 SLOC)
-│   │   └── factory.py           # ToolFactory with variant resolution (129 SLOC)
+│   │   ├── __init__.py          # Exports ToolRegistry, ToolFactory
+│   │   ├── registry.py          # ToolRegistry singleton (~481 SLOC)
+│   │   └── factory.py           # ToolFactory with variant resolution (~137 SLOC)
 │   └── builtin/
 │       ├── __init__.py          # BUILTIN_TOOLS list, imports all 8 tools
 │       ├── ape/tool.py          # APE: CEGAR-based exploration
 │       ├── ares/tool.py         # ARES: Docker-based systematic
-│       ├── droidbot/tool.py     # DroidBot: policy-based exploration
+│       ├── droidbot/tool.py     # DroidBot: policy-based exploration (6 policies)
 │       ├── droidmate/tool.py    # DroidMate: JAR-based research
 │       ├── fastbot/tool.py      # FastBot: reinforcement learning
 │       ├── humanoid/tool.py     # Humanoid: DroidBot + inference server
 │       ├── monkey/tool.py       # Monkey: random events
-│       └── qtesting/            # QTesting: Q-learning (has legacy src/)
-│           ├── tool.py
-│           └── src/             # Legacy QTesting internals (~1,400 SLOC)
+│       └── qtesting/
+│           ├── tool.py          # QTesting tool wrapper
+│           └── src/             # Bundled third-party QTesting source (~2000 SLOC)
 ├── tests/
-│   └── test_basic.py
+│   ├── conftest.py              # Test fixtures and registry setup
+│   ├── helpers.py               # Test helper utilities
+│   ├── test_basic.py            # Registry singleton behavior
+│   ├── test_builtin_registration.py  # Auto-registration of 8 built-in tools
+│   ├── test_factory.py          # Factory creation and variant resolution
+│   └── test_registry.py         # Registry operations (register, query, validate)
 └── pyproject.toml
 ```
 
@@ -223,10 +266,7 @@ flowchart TB
         ToolImpls["8 tool modules"]
     end
     subgraph CoreDep["rv-android-core"]
-        AbstractToolDep["AbstractTool"]
-        ToolSpecDep["ToolSpec"]
-        ErrorDep["ErrorHandler"]
-        LogDep["LoggingManager"]
+        CoreAbstractions["AbstractTool, ToolSpec,\nErrorHandler, Command,\nLoggingManager"]
     end
 
     InitMod["__init__.py\n(_register_builtin_tools)"]
@@ -235,21 +275,18 @@ flowchart TB
     InitMod --> BuiltinInit
     BuiltinInit --> ToolImpls
     FactoryMod --> RegistryMod
-    RegistryMod --> AbstractToolDep
-    RegistryMod --> ToolSpecDep
-    RegistryMod --> ErrorDep
-    RegistryMod --> LogDep
-    ToolImpls --> AbstractToolDep
-    ToolImpls --> ToolSpecDep
+    RegistryMod --> CoreAbstractions
+    FactoryMod --> CoreAbstractions
+    ToolImpls --> CoreAbstractions
 ```
 
 ---
 
 ## Process View
 
-rv-tools has no concurrency concerns. It is a synchronous library that stores state in a singleton registry. All operations (registration, creation, configuration) happen on the caller's thread. The process view is therefore captured by the execution flow below.
+rv-tools is a synchronous library with no concurrency concerns. All operations (registration, creation, configuration) happen on the caller's thread. The process view is captured by the two sequence diagrams below.
 
-### Tool Registration Flow (Module Import)
+### Tool Registration (Import Time)
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
@@ -257,49 +294,47 @@ sequenceDiagram
     participant Caller as Importing Module
     participant Init as rv_tools.__init__
     participant Builtin as builtin.__init__
-    participant Registry as ToolRegistry
+    participant Reg as ToolRegistry
     participant ToolCls as Tool Class
 
     Caller->>Init: import rv_tools
     Init->>Builtin: import BUILTIN_TOOLS
     Builtin-->>Init: [APETool, MonkeyTool, ...]
-    Init->>Registry: get_instance()
+    Init->>Reg: get_instance()
     loop For each tool class
-        Init->>Registry: register_tool_class(tool_class)
-        Registry->>ToolCls: get_tool_spec()
-        ToolCls-->>Registry: ToolSpec
-        Registry->>Registry: register_tool(name, class, spec)
-        Registry->>ToolCls: get_variants()
-        ToolCls-->>Registry: {"default": {...}, "variant1": {...}}
+        Init->>Reg: register_tool_class(tool_class)
+        Reg->>ToolCls: get_tool_spec()
+        ToolCls-->>Reg: ToolSpec
+        Reg->>Reg: register_tool(name, class, spec)
+        Reg->>ToolCls: get_variants()
+        ToolCls-->>Reg: {"default": {...}, "variant1": {...}}
         loop For each variant
-            Registry->>Registry: register_variant(name, variant, config)
+            Reg->>Reg: register_variant(name, variant, config)
         end
     end
 ```
 
-### Tool Creation Flow (Runtime)
+### Tool Creation (Runtime)
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
-    participant Platform as rv-platform
-    participant Factory as ToolFactory
-    participant Registry as ToolRegistry
-    participant ToolCls as Tool Class
+    participant Platform as rv-platform<br/>ToolExecutionComponent
+    participant Fact as ToolFactory
+    participant Reg as ToolRegistry
     participant ToolInst as Tool Instance
 
-    Platform->>Factory: create_tool(ToolConfig)
-    Factory->>Registry: is_tool_registered(name)
-    Registry-->>Factory: true
-    Factory->>Registry: get_tool_class(name)
-    Registry-->>Factory: tool_class
-    Factory->>Registry: get_variant_config(name, variant)
-    Registry-->>Factory: variant_config
-    Note over Factory: Merge: variant_config + param overrides
-    Factory->>ToolCls: __init__()
-    ToolCls-->>Factory: tool_instance
-    Factory->>ToolInst: configure(merged_config)
-    Factory-->>Platform: configured tool instance
+    Platform->>Fact: create_tool(ToolConfig)
+    Fact->>Reg: is_tool_registered(name)
+    Reg-->>Fact: true
+    Fact->>Reg: get_tool_class(name)
+    Reg-->>Fact: tool_class
+    Fact->>Reg: get_variant_config(name, variant)
+    Reg-->>Fact: variant_config (copy)
+    Note over Fact: Merge: variant_config + param overrides
+    Fact->>ToolInst: tool_class()
+    Fact->>ToolInst: configure(merged_config)
+    Fact-->>Platform: configured tool instance
 ```
 
 ---
@@ -308,18 +343,18 @@ sequenceDiagram
 
 ### ToolRegistry
 
-**Purpose**: Central repository for tool classes, specifications, and variant configurations. Provides discovery and retrieval operations for all registered tools.
+**Purpose**: Central repository for tool classes, specifications, and variant configurations. Provides discovery, validation, and retrieval operations for all registered tools.
 
 **Location**: `src/rv_tools/registry/registry.py`
 
 **Key Methods**:
-- `get_instance()`: Returns the singleton registry instance
-- `register_tool_class(tool_class)`: Registers a tool with automatic variant registration
-- `get_tool(name, variant)`: Creates and returns a configured tool instance
-- `get_tool_class(name)`: Returns the tool class for a given name
-- `get_tool_variants(name)`: Lists available variants for a tool
-- `get_variant_config(name, variant)`: Returns the configuration dict for a variant
-- `has_tool(name)` / `is_tool_registered(name)`: Checks tool existence
+- `get_instance()` / `reset_instance()`: Singleton lifecycle
+- `register_tool_class(tool_class)`: Two-phase registration (class + variants)
+- `register_variant(tool_name, variant_name, config)`: Stores defensive copy of config
+- `get_tool_class(tool_name)`: Returns the tool class for a given name
+- `get_variant_config(tool_name, variant_name)`: Returns a defensive copy of variant config (INV-TOOL-13)
+- `validate_tool_variant(tool_name, variant_name)`: Boolean validation for CLI/experiment use
+- `get_registry_info()`: Returns statistics (total tools, total variants, per-tool variant list)
 
 **Storage**:
 - `tool_classes: Dict[str, Type[AbstractTool]]` -- tool name to class mapping
@@ -337,7 +372,7 @@ sequenceDiagram
 **Location**: `src/rv_tools/registry/factory.py`
 
 **Key Methods**:
-- `create_tool(tool_config)`: Full creation workflow -- resolve class, get variant config, merge params, instantiate, configure
+- `create_tool(tool_config)`: Four-step creation -- resolve class, get variant config, merge params, instantiate and configure
 
 **Dependencies**:
 - Internal: ToolRegistry
@@ -345,42 +380,49 @@ sequenceDiagram
 
 ### Built-in Tools
 
-**Purpose**: 8 concrete tool implementations that wrap external Android testing tools.
+**Purpose**: 8 concrete `AbstractTool` implementations wrapping third-party Android testing tools.
 
 **Location**: `src/rv_tools/builtin/*/tool.py`
 
-Each tool follows the same implementation pattern:
-
-1. Declares `TOOL_SPEC` as a class-level `ToolSpec` constant
+Each tool follows the same implementation contract:
+1. Declares `TOOL_SPEC` as a class-level `ToolSpec` via `ToolSpec.create_builtin_spec()`
 2. Implements `get_tool_spec()` returning `TOOL_SPEC`
-3. Implements `get_variants()` returning a dict of named configurations (always includes `"default"`)
-4. Implements `configure(config)` to apply configuration parameters
-5. Implements `execute_tool_specific_logic(task, app)` with tool-specific execution logic
+3. Implements `get_variants()` returning a dict with named configurations (must include `"default"`)
+4. Implements `configure(config)` to validate and apply configuration parameters
+5. Implements `execute_tool_specific_logic(task, app)` to build and run tool-specific commands
 
-| Tool | Execution Model | Key Variants |
-|------|----------------|--------------|
-| **Monkey** | Direct `adb shell monkey` command | default, fast, stress |
-| **DroidBot** | Direct `droidbot` binary | dfs_greedy, bfs_greedy, dfs_naive, bfs_naive, random |
-| **APE** | Direct binary execution | default, sata, bfs, dfs |
-| **FastBot** | Direct binary execution | conservative, aggressive, balanced |
-| **ARES** | Spawns sibling Docker container | default |
-| **DroidMate** | JAR execution | default |
-| **Humanoid** | DroidBot with inference server URL | default |
-| **QTesting** | Spawns sibling Docker container | default |
+**Invocation Mechanisms**:
 
-ARES and QTesting use Docker-based execution: inside a Docker container (`/.dockerenv` exists), they spawn a sibling container with `--network container:$(hostname)` to share the parent's network namespace. Outside Docker, `--network host` is used.
+| Tool | Mechanism | Process Pattern | Key Variants |
+|------|-----------|-----------------|--------------|
+| Monkey | `adb shell monkey` | `com.android.commands.monkey` | default, fast, stress |
+| DroidBot | `uv run droidbot` | `droidbot` | dfs_greedy, bfs_greedy, dfs_naive, bfs_naive, random |
+| APE | ADB command | `ape` | default, sata, bfs, dfs, random |
+| FastBot | ADB command | `fastbot` | conservative, aggressive, balanced |
+| ARES | `docker run` (sibling container) | `ares` | default, debug, fast |
+| DroidMate | JAR execution | `droidmate` | default, systematic, quick, research |
+| Humanoid | DroidBot + inference server | `humanoid` | default, visual, nlp, hybrid |
+| QTesting | `docker run` (sibling container) | `qtesting` | default, qlearning, dqn, ddqn |
+
+ARES and QTesting are Docker-based tools that spawn sibling containers. Inside a Docker container (`/.dockerenv` exists), the sibling uses `--network container:$(hostname)` to share the parent's network namespace (INV-TOOL-15). Outside Docker, `--network host` is used.
+
+**Dependencies**:
+- Internal: None (tools do not depend on each other)
+- External: rv-android-core (AbstractTool, ToolSpec, Command, ErrorHandler, exceptions)
 
 ---
 
 ## NFR Support
 
-| NFR | Priority | Architectural Support |
-|-----|----------|----------------------|
-| Extensibility | P0 | Registry + Factory pattern allows adding new tools by implementing `AbstractTool` and calling `register_tool_class()`. No changes to consumers required. |
-| Maintainability | P0 | Each tool is an independent module with its own `tool.py`. Registry infrastructure is separate from tool implementations. |
-| Consistency | P1 | Template Method pattern in `AbstractTool` enforces uniform lifecycle (spec, variants, configure, execute) across all tools. |
-| Discoverability | P1 | Auto-registration on import ensures all built-in tools are always available. `get_tool_names()` and `get_tool_variants()` provide programmatic discovery. |
-| Performance | P2 | Singleton registry avoids repeated initialization. Tool creation is lightweight (dict lookup + instantiation). No overhead during tool execution itself. |
+How the architecture supports non-functional requirements from `docs/PRD.md` Section 7.
+
+| NFR | PRD ID | Priority | Architectural Support |
+|-----|--------|----------|----------------------|
+| Modularity | NFR01 | P0 | Standalone uv workspace module with single dependency (rv-android-core); installed in editable mode via `uv sync` |
+| Extensibility | NFR02 | P0 | Registry + Factory pattern enables adding tools without modifying existing code; external tools register at import time via `register_tool_class()` |
+| Testability | NFR03 | P1 | `reset_instance()` enables test isolation; stateless `ToolFactory` is straightforward to test; each tool is independently testable |
+| Resilience | NFR04 | P1 | Auto-registration catches and logs failures per tool (INV-TOOL-08); Template Method ensures cleanup runs after tool errors; circuit breaker prevents repeated failing commands |
+| Configurability | NFR05 | P1 | Variant system provides named presets; parameter overrides enable fine-grained control; tool specification DSL (`tool:variant@param=value`) for CLI |
 
 ---
 
@@ -390,7 +432,7 @@ ARES and QTesting use Docker-based execution: inside a Docker container (`/.dock
 
 ```python
 class AbstractTool(ABC):
-    """Base class for all testing tools."""
+    """Base class for all testing tools. Defines the execution contract."""
 
     def __init__(self, name: str, description: str, process_pattern: str): ...
 
@@ -407,6 +449,10 @@ class AbstractTool(ABC):
 
     @abstractmethod
     def execute_tool_specific_logic(self, task: Task, app: App) -> None: ...
+
+    def execute(self, task: Task, app: App) -> None:
+        """Template Method: execute_tool_specific_logic -> timeout handling -> cleanup."""
+        ...
 ```
 
 ### ToolSpec (from rv-android-core)
@@ -434,6 +480,8 @@ classDiagram
         +get_variants()* Dict
         +configure(config)*
         +execute_tool_specific_logic(task, app)*
+        +execute(task, app)
+        +kill_related_processes(pattern)
     }
 
     class MonkeyTool {
@@ -450,26 +498,50 @@ classDiagram
         +execute_tool_specific_logic(task, app)
     }
 
-    class APETool {
+    class AresTool {
         +get_tool_spec() ToolSpec
         +get_variants() Dict
         +configure(config)
         +execute_tool_specific_logic(task, app)
+        -_build_ares_command()
     }
 
     AbstractTool <|-- MonkeyTool
     AbstractTool <|-- DroidBotTool
-    AbstractTool <|-- APETool
-    note for AbstractTool "5 more tools omitted:\nFastBot, ARES, DroidMate,\nHumanoid, QTesting"
+    AbstractTool <|-- AresTool
+    note for AbstractTool "5 more tools omitted for clarity:\nAPETool, FastBotTool, DroidMateTool,\nHumanoidTool, QTestingTool"
 ```
 
 ---
 
 ## Scenarios
 
-### Scenario 1: Built-in Tool Registration on Import
+### Scenario 1: Experiment Creates and Executes a Tool
 
-**Description**: When any module imports `rv_tools`, all 8 built-in tools are automatically registered with their specs and variants.
+**Description**: rv-experiment orchestrates a task that creates a DroidBot tool with the `dfs_greedy` variant, overriding the `count` parameter, and rv-platform executes it.
+
+**Flow**:
+1. rv-experiment CLI parses `"droidbot:dfs_greedy@count=5000"` into a `ToolConfig(name="droidbot", variant="dfs_greedy", parameters={"count": 5000})`
+2. rv-platform's `ToolExecutionComponent` calls `ToolFactory.create_tool(tool_config)`
+3. Factory resolves `DroidBotTool` class and `dfs_greedy` variant config from registry
+4. Factory merges variant defaults (`policy="dfs_greedy"`, `count=10000000000`, `interval=3`, `ignore_ad=True`) with user override (`count=5000`)
+5. Factory calls `DroidBotTool()` then `configure({"policy": "dfs_greedy", "count": 5000, "interval": 3, "ignore_ad": True})`
+6. `ToolExecutionComponent` calls `tool.execute(task, app)`, which invokes `execute_tool_specific_logic()` (builds and runs `uv run droidbot` command), converts any timeout to `RVToolTimeoutError`, and calls `kill_related_processes("droidbot")`
+
+### Scenario 2: Registering an External Tool
+
+**Description**: rv-platform imports rvagent-tool, which registers the `rvagent` tool in the shared registry.
+
+**Flow**:
+1. `import rv_platform` triggers `_register_external_tools()` in rv-platform's `__init__.py`
+2. Function checks `registry.is_tool_registered("rvagent")` -- returns `False` (idempotency guard, INV-TOOL-12)
+3. Imports `RVAgentTool` from `rvagent_tool` module
+4. Calls `registry.register_tool_class(RVAgentTool)`, which registers class, spec, and 5 variants (default, multimode, pure_algorithm, llm_only, thorough)
+5. Subsequent calls to `ToolFactory.create_tool(ToolConfig(name="rvagent", variant="pure_algorithm"))` succeed
+
+### Scenario 3: Built-in Tool Registration on Import
+
+**Description**: When any module imports `rv_tools`, all 8 built-in tools are automatically registered.
 
 **Flow**:
 1. `import rv_tools` triggers `_register_builtin_tools()`
@@ -477,39 +549,16 @@ classDiagram
 3. `ToolRegistry.get_instance()` returns or creates the singleton
 4. For each tool class, `register_tool_class()` calls `get_tool_spec()` and `get_variants()`
 5. Tool class, spec, and all variants are stored in the registry dictionaries
-6. If any single tool fails to register, a warning is logged but other tools continue
-
-### Scenario 2: Creating a DroidBot Instance with dfs_greedy Variant
-
-**Description**: rv-platform creates a configured DroidBot tool for a task execution.
-
-**Flow**:
-1. rv-platform constructs `ToolConfig(name="droidbot", variant="dfs_greedy", parameters={"count": 5000})`
-2. `ToolFactory.create_tool(tool_config)` is called
-3. Factory verifies `droidbot` is registered, retrieves `DroidBotTool` class
-4. Factory fetches variant config: `{"policy": "dfs_greedy", "count": 10000000000, "interval": 3, "ignore_ad": True}`
-5. Parameter overrides are merged: `count` becomes `5000`
-6. `DroidBotTool()` is instantiated, `configure(merged_config)` is called
-7. Configured instance is returned to rv-platform for execution
-
-### Scenario 3: Registering a Custom External Tool
-
-**Description**: A new tool plugin registers itself with the registry.
-
-**Flow**:
-1. External module defines a class extending `AbstractTool` with `get_tool_spec()` and `get_variants()`
-2. External module calls `ToolRegistry.get_instance().register_tool_class(MyTool)`
-3. Registry stores the class, spec, and variants alongside built-in tools
-4. rv-platform can now create instances of the custom tool via `ToolFactory`
+6. If any single tool fails to register, a warning is logged but other tools continue (INV-TOOL-08)
 
 ---
 
 ## Extension Points
 
-- **Adding a new built-in tool**: Create a new package under `builtin/` with a `tool.py` implementing `AbstractTool`. Add the class to `BUILTIN_TOOLS` in `builtin/__init__.py`.
-- **Adding a new variant**: Modify the tool's `get_variants()` classmethod to include the new variant name and its configuration dictionary.
-- **External tool plugins**: Call `ToolRegistry.get_instance().register_tool_class(tool_class)` from any external module. The tool becomes available through the standard Factory workflow.
-- **Configuration override**: Pass additional parameters in `ToolConfig.parameters` to override variant defaults at creation time.
+- **New built-in tool**: Add a new package under `builtin/` with a `tool.py` implementing `AbstractTool`, then add the class to `BUILTIN_TOOLS` in `builtin/__init__.py`
+- **External tool registration**: Import the tool module and call `ToolRegistry.get_instance().register_tool_class(MyToolClass)` -- typically done in the consuming module's `__init__.py` with an idempotency check via `is_tool_registered()`
+- **New variant**: Add entries to the tool's `get_variants()` return dictionary -- no registry or factory changes needed
+- **Configuration override**: Use the `parameters` field in `ToolConfig` to override any variant default at runtime
 
 ## Dependencies
 
@@ -517,31 +566,28 @@ classDiagram
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Base class `AbstractTool`, `ToolSpec` model, `ErrorHandler`, `LoggingManager`, exception types |
+| rv-android-core | Base abstractions (`AbstractTool`, `ToolSpec`, `ToolConfig`), error handling (`ErrorHandler`, exception classes), logging (`LoggingManager`), command execution (`Command`, `CommandResult`) |
 
 ### External
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| pydantic | ^2.9.0 | Validation for ToolSpec and configuration models |
-
-### Depended-on By
-
-| Module | Usage |
-|--------|-------|
-| rv-platform | Uses `ToolFactory.create_tool()` to instantiate tools for task execution |
-| rv-experiment | Uses `ToolRegistry` for tool/variant discovery and configuration validation |
+| pydantic | >=2.9.0 | Configuration validation for tool specs and configs |
 
 ## Testing Strategy
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_basic.py | Registry initialization and singleton behavior |
+| Unit | tests/test_basic.py | Registry singleton initialization and behavior |
+| Unit | tests/test_registry.py | Registry operations (register, query, validate, clear) |
+| Unit | tests/test_factory.py | Factory creation and variant resolution |
+| Unit | tests/test_builtin_registration.py | Auto-registration of 8 built-in tools |
 
-Test coverage is minimal. The registry and factory logic, variant resolution, error cases, and tool creation flow lack dedicated tests.
+Third-party code in `builtin/qtesting/src/` is excluded from test coverage via `pyproject.toml` configuration.
 
 ## Related Documentation
 
-- [CLAUDE.md](../../../CLAUDE.md) - Project-wide architectural reference
-- [rv-android-core Architecture](../../rv-android-core/docs/architecture.md) - Base class definitions (AbstractTool, ToolSpec)
-- [rv-tools CLAUDE.md](../CLAUDE.md) - Module-level quick reference
+- [Domain Spec](../../openspec/specs/tools/spec.md) - Requirements, invariants, and scenarios for the tools domain (FR18-FR20, INV-TOOL-01 through INV-TOOL-15)
+- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
+- [CLAUDE.md](../../CLAUDE.md) - Project-level reference for Claude Code
+- [Module CLAUDE.md](../CLAUDE.md) - rv-tools module development reference

@@ -2,114 +2,201 @@
 
 ## Overview
 
-rv-android-core is the foundation infrastructure module for the RV-Android runtime verification framework. It provides the shared domain models, error handling, logging, command execution, and utility components that all 11 other modules in the workspace depend on. As the sole Layer 1 module with a fan-in of 11 (every other module imports from it), rv-android-core establishes the architectural patterns, type-safe validation through Pydantic, and consistent behavior that the entire system relies upon. It has zero internal module dependencies -- it depends only on four external packages (pydantic, androguard, psutil, networkx).
+rv-android-core is the foundational infrastructure module for the RV-Android framework. It provides shared domain models, error handling, logging, command execution, validation, and Android device utilities that every other module depends on. With zero internal dependencies and 12 dependents, it sits at the root of the dependency graph, defining the contracts and abstractions that unify the framework.
+
+## Specification Alignment
+
+This module implements requirements from `openspec/specs/core/spec.md`.
+
+### Functional Requirements
+
+| FR | Description | Architectural Support |
+|----|-------------|----------------------|
+| FR33 | Domain Models | `domain/` package: Task, TaskConfiguration, App, ToolConfig, coverage and log models -- all built on BaseValidatedModel |
+| FR34 | Error Handling with Recovery Strategies | `util/error/error_handler.py`: ErrorHandler singleton with 27+ type-specific handlers, decorator pattern, callback system |
+| FR35 | Pydantic Validation | `util/validation/`: BaseValidatedModel, @validated_model decorator, ValidationConfig (RV_PYDANTIC env var) |
+| FR36 | Centralized Logging | `util/logging/`: LoggingManager singleton, ContextAdapter, StructuredFormatter, custom log levels |
+| FR37 | Performance Monitoring | `util/performance/`: PerformanceMonitor singleton, measure_time() context manager, subscriber pattern |
+
+### Key Invariants
+
+| Invariant | Description | Enforcement Mechanism |
+|-----------|-------------|----------------------|
+| INV-CORE-06 | ErrorHandler is a thread-safe singleton | Double-checked locking in `get_instance()` with `_lock` |
+| INV-CORE-07 | Handler lookup uses exact type matching | `type(e) == error_type` comparison in handler registry |
+| INV-CORE-09 | Validation errors propagate (never suppressed) | `_handle_generic_exception` returns False for ValueError, ConfigurationError, RVValidationError |
+| INV-CORE-10 | BaseValidatedModel enforces strict field rules | Pydantic model_config: `extra='forbid'`, `str_strip_whitespace=True`, `validate_assignment=True` |
+| INV-CORE-13 | Command validates non-empty command string | Field validator raises `CommandValidationError` for empty/whitespace-only strings |
+| INV-CORE-14 | Command kills process tree on timeout | `kill_process_tree()` via psutil before raising `RVCommandTimeoutError` |
+| INV-CORE-16 | Circuit breaker tracks failures per command signature | SHA-256 hash of command + args; transitions CLOSED -> OPEN after `failure_threshold` failures |
+| INV-CORE-17 | App validates APK path existence | Raises `ConfigurationError` if file does not exist or is not a valid APK |
+| INV-CORE-19 | Task.id is always a UUID | `uuid.uuid4()` auto-generation when no explicit ID provided |
+| INV-CORE-20 | Task state follows defined lifecycle | CREATED -> INITIALIZING -> READY -> RUNNING -> COMPLETED\|ERROR\|CANCELED; transitions recorded in `state_transitions` |
+| INV-CORE-21 | LoggingManager is a thread-safe singleton | Cached logger instances by name + context; returns ContextAdapter wrappers |
+| INV-CORE-22 | PerformanceMonitor is zero-overhead when disabled | `measure_time()` yields immediately; `record_metric()` is a no-op when `enabled=False` |
+| INV-CORE-23 | AbstractTool converts command timeouts to tool timeouts | `execute()` catches `RVCommandTimeoutError` and raises `RVToolTimeoutError` |
+| INV-CORE-24 | Coverage repository ignores unknown methods | `register_method_call()` silently ignores classes not in static analysis data |
+| INV-CORE-25 | RvErrorLog deduplication via unique_msg | Computed as `"{class}:::{method}:::{spec}:::{error_type}:::{message}"` |
+
+### Specification Scenarios
+
+Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
+
+- **Decorator with reraise=False suppresses handled exception**: An `RVToolTimeoutError` raised inside a decorated method is caught by ErrorHandler, logged, and suppressed -- the method returns None. Traces through ErrorHandler -> handler registry -> `_handle_tool_timeout_error`.
+- **Command timeout with process tree kill**: A long-running subprocess exceeds timeout, triggering `kill_process_tree()` via psutil and raising `RVCommandTimeoutError`. Traces through Command -> Popen -> psutil -> exception hierarchy.
+- **Circuit breaker opens after threshold failures**: Three consecutive failures for the same command transition the circuit from CLOSED to OPEN, blocking subsequent executions. Traces through CommandCircuitBreaker state machine.
+- **App package mismatch detection**: App creation detects when the manifest package differs from the implementation package (observed in ~27.5% of APKs), logging the mismatch. Traces through App -> PackageDetector -> logging.
+- **Task state lifecycle**: A Task transitions through CREATED -> RUNNING -> COMPLETED, with each transition recorded in `state_transitions`. Traces through Task -> TaskState -> TaskResult.
 
 ## Key Architectural Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Application Type | Library (no entry point) | Foundation module consumed by all other modules; never executed directly |
+| Application Type | Library (no standalone execution) | Foundation layer consumed by all other modules; never runs independently |
 | Structuring | Package-by-feature within a flat layer | Groups related concerns (domain, commands, tools, util) without deep nesting; each package is self-contained |
-| Primary Pattern | Singleton + Template Method | Core services (ErrorHandler, LoggingManager, ValidationConfig) need exactly one instance; AbstractTool defines the execution contract for all testing tools |
-| Control Strategy | Call-based (synchronous) | Library module responds to direct method calls from consuming modules; no event loop or async processing |
-| Validation Strategy | Environment-aware Pydantic | Full validation during development (`RV_PYDANTIC=true`), minimal overhead in production; `BaseValidatedModel` provides the common base |
-| Error Strategy | Registry-based dispatch | ErrorHandler dispatches to exact-type-matched handlers; handlers return True (absorbed) or False (propagated) |
-| Dependency Direction | Strictly downward | rv-android-core has zero internal dependencies; all other modules depend on it, not vice versa |
+| Primary Pattern | Singleton + Registry | ErrorHandler, LoggingManager, and PerformanceMonitor use thread-safe singletons for consistent cross-module behavior; ErrorHandler uses a registry for handler lookup |
+| Control Strategy | Call-based (synchronous) | Direct method invocation; no event loop or message passing within the core module itself |
+| Validation Strategy | Environment-controlled (RV_PYDANTIC) | Full validation in development, reduced overhead in production; all models inherit from BaseValidatedModel |
+| Distribution | Single-process library | Runs in the same process as the consuming module; subprocess creation only for external tool invocation |
+| Error Philosophy | Classify and recover, not fail-fast | ErrorHandler provides per-type handlers with options to suppress or re-raise; validation errors are the exception (always propagate) |
+| Tool Contract | Template Method pattern | AbstractTool.execute() defines the workflow; subclasses implement only execute_tool_specific_logic() |
+| Process Management | Recursive tree kill via psutil | Command timeout kills the entire process tree, not just the root process, to prevent orphaned processes |
 
 ## Architectural Patterns
 
 ### Pattern: Singleton (Thread-Safe)
 
-**Description**: Core services use the double-checked locking singleton pattern to guarantee exactly one instance per service across all threads. The pattern uses a class-level `_lock` (threading.Lock) and `_instance` field with two-phase null check.
+**Description**: ErrorHandler, LoggingManager, and PerformanceMonitor use double-checked locking singletons. Each maintains a class-level `_instance` protected by a `_lock`, ensuring a single instance across all modules in the framework.
 
-**Application**: `ErrorHandler`, `LoggingManager`, and `ValidationConfig` all implement this pattern. They are accessed via `ClassName.get_instance()` class methods. Consuming modules call these methods at initialization time to obtain the shared instance.
-
-**When Used**: For services that must maintain global state consistency -- error handler registrations, logging configuration, and validation settings apply system-wide.
+**When Used**: For cross-cutting services that must maintain consistent state across the entire framework -- error statistics, logger caches, and performance metrics.
 
 **Advantages**:
-- Guarantees consistent behavior across all modules (one error handler, one logging config)
-- Thread-safe initialization without requiring explicit setup ordering
-- Lazy initialization delays creation until first use
+- Guarantees consistent behavior regardless of which module invokes the service
+- Thread-safe for concurrent access from background threads (e.g., logcat monitoring)
 
 **Disadvantages**:
-- Global state complicates unit testing (requires instance reset between tests)
-- Implicit dependency -- consuming code depends on a global instance rather than an injected dependency
-
-### Pattern: Template Method
-
-**Description**: `AbstractTool` defines a fixed execution workflow in its `execute()` method that calls the abstract `execute_tool_specific_logic()` method, which concrete tools must implement. The template method handles logging, timeout conversion, process cleanup, and error propagation.
-
-**Application**: All testing tools (Monkey, DroidBot, rv-agent, UIAutomator) inherit from `AbstractTool` and implement `execute_tool_specific_logic()`. The base class manages the invariant execution lifecycle: log start, delegate to subclass, cleanup processes, log completion.
-
-**When Used**: When multiple tool implementations share the same execution lifecycle but differ in their core testing logic.
-
-**Advantages**:
-- Enforces consistent execution lifecycle across all tools
-- Centralizes timeout handling and process cleanup
-- New tools only need to implement the varying part
-
-**Disadvantages**:
-- Inheritance-based coupling between AbstractTool and all tool implementations
-- Subclasses must understand the base class contract (e.g., that `RVCommandTimeoutError` is converted to `RVToolTimeoutError`)
+- Global state makes unit testing harder (requires reset between tests)
+- Implicit dependency -- callers import and use the singleton rather than receiving it via injection
 
 ### Pattern: Registry with Exact-Type Dispatch
 
-**Description**: `ErrorHandler` maintains a list of handler callbacks. Each callback is wrapped to match a specific exception type using exact type comparison (`type(e) == error_type`). When an error occurs, callbacks are iterated in registration order; the first callback returning `True` absorbs the error.
+**Description**: ErrorHandler maintains a dictionary mapping exception types to handler functions. At initialization, 27+ handlers are registered. On error, the handler is looked up by exact type match (`type(e) == error_type`), ensuring the most specific handler is invoked.
 
-**Application**: 16 built-in handlers are registered during `ErrorHandler.__init__()`. Handlers are partitioned into absorbed types (8 types including `CommandValidationError`, `RVToolTimeoutError`) and propagated types (5 types including `RVExperimentError`, `JarNotFoundError`), plus 3 special handlers (`FileNotFoundError`, `RVAndroidError` catch-all, `Exception` fallback).
-
-**When Used**: When different error types require different handling strategies (absorb vs propagate) and the handling policy must be configurable at runtime.
+**When Used**: To provide per-exception-type error handling with consistent classification and logging.
 
 **Advantages**:
-- Decouples error handling policy from error generation
-- New error types can be registered without modifying existing code
-- Consuming modules can register additional handlers
+- Each error type gets specialized handling (e.g., tool timeouts logged at INFO, validation errors always propagated)
+- Higher-level modules can register callbacks without circular dependencies
 
 **Disadvantages**:
-- Exact-type matching means subclass errors fall through to more generic handlers
-- Linear iteration through callbacks on every error
+- Exact type matching means subclass hierarchies require explicit handler registration for each type
 
-### Pattern: Factory (Generic)
+### Pattern: Template Method (AbstractTool)
 
-**Description**: `TaskFactory[T]` is a generic factory class parameterized by the concrete task type. It creates configured task instances with proper initialization.
+**Description**: AbstractTool.execute() is the template method that orchestrates tool execution: it calls the abstract `execute_tool_specific_logic()`, handles `RVCommandTimeoutError` conversion, and performs process cleanup. Subclasses only implement the extension point.
 
-**Application**: Used by rv-platform to create Task instances with the appropriate configuration, app metadata, and tool settings.
-
-**When Used**: When task creation involves multiple configuration steps that should be encapsulated.
+**When Used**: All 8 built-in testing tools and rv-agent's tool wrapper inherit from AbstractTool.
 
 **Advantages**:
-- Encapsulates task creation complexity
-- Type-safe through generics
+- Consistent timeout handling and process cleanup across all tools
+- Tools only implement their specific logic; lifecycle is managed by the base class
 
 **Disadvantages**:
-- Additional indirection for a relatively straightforward creation process
+- Deep inheritance chain can be rigid; changes to the template method affect all tools
+
+### Pattern: Validated Model (BaseValidatedModel)
+
+**Description**: All domain models inherit from BaseValidatedModel, which extends Pydantic v2 BaseModel with `extra='forbid'`, `str_strip_whitespace=True`, and `validate_assignment=True`. The `@validated_model` decorator adds positional argument support.
+
+**When Used**: Every configuration and domain model in the framework.
+
+**Advantages**:
+- Consistent validation rules across all models
+- Environment-controlled validation depth (development vs. production)
+- Positional argument compatibility for concise construction
+
+**Disadvantages**:
+- Pydantic overhead in tight loops (mitigated by environment toggle)
 
 ---
 
 ## Logical View
 
-Shows the key domain entities, their responsibilities, and relationships.
+Shows key domain entities and their relationships.
 
 ### Domain Entities
 
 | Entity | Responsibility |
 |--------|----------------|
-| `Task` | Represents a single execution unit with lifecycle state management (CREATED -> RUNNING -> COMPLETED/ERROR) |
-| `TaskConfiguration` | Holds all parameters for task execution: APK paths, timeouts, specification sets, tool settings |
-| `TaskResult` | Captures execution outcomes: state transitions, coverage data, error logs, timing information |
-| `ToolConfig` | Describes a (tool, variant, parameters) combination for experiment specification |
-| `App` | Represents an Android APK with metadata extracted via Androguard: package name, permissions, SDK versions |
-| `MethodCoverageData` | Tracks coverage state of individual methods: static reachability, dynamic call status, timing |
-| `ClassCoverageData` | Aggregates method coverage data at the class level |
-| `CoverageMetrics` | Computes and holds coverage percentages: activity, method, and MOP-reachable coverage |
-| `LogcatRepository` | Central store for coverage and error data populated from logcat during execution |
-| `Command` | Encapsulates system command execution with timeout, process tree management, and result capture |
-| `Widget` / `WidgetEvent` | Represents Android UI elements and their interaction events |
-| `Window` / `DynamicTransitionGraph` | Models Android activities/windows and navigation transitions between them |
-| `StaticAnalysisData` | Holds results from static analysis tools (GATOR, GESDA, REACH) |
-| `BaseValidatedModel` | Pydantic base class providing validation, serialization, and environment-aware configuration |
-| `ErrorHandler` | Singleton registry dispatching exceptions to type-matched handlers |
-| `LoggingManager` | Singleton providing context-aware structured logging across all modules |
+| Task | Represents a single test execution unit with configuration, result, and coverage data |
+| TaskConfiguration | Immutable configuration for a Task: APK, tool, variant, timeout, repetition |
+| TaskResult | Mutable result of task execution: state, timing, coverage metrics |
+| ToolConfig | Single source of truth for one (tool, variant, parameters) combination |
+| App | Android APK metadata extracted via Androguard: packages, SDK version, permissions |
+| Command | Validated subprocess execution with timeout enforcement and process tree management |
+| CommandResult | Structured result of command execution: exit code, stdout, stderr |
+| CommandCircuitBreaker | Resilience mechanism preventing cascading failures from repeated command failures |
+| ErrorHandler | Centralized error management with registry-based handler lookup |
+| LoggingManager | Thread-safe logging singleton with context injection |
+| PerformanceMonitor | Metrics collection singleton with timing and subscriber support |
+| AbstractTool | Base class for all testing tools with template method lifecycle |
+| BaseValidatedModel | Foundation for all Pydantic domain models with consistent validation |
+| LogcatRepository | Coverage and error data store for a task execution |
+| CoverageMetrics | Calculated coverage percentages (overall and MOP method coverage) |
+| RvCoverageLog | Parsed coverage event from logcat (class, method, signature, timestamp) |
+| RvErrorLog | Parsed specification violation from logcat (spec, error type, class, message) |
+| WindowTransitionGraph | Static navigation structure of an Android app (windows and transitions) |
+| StaticAnalysisData | Combined GATOR + GESDA + REACH analysis results |
+
+### Component Architecture
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Core["rv-android-core"]
+        direction TB
+        subgraph DomainLayer["Domain Models"]
+            direction LR
+            TaskModel["Task / TaskConfiguration / TaskResult"]
+            AppModel["App"]
+            CoverageModel["Coverage / LogcatRepository"]
+            StaticModel["StaticAnalysisData / WTG"]
+            LogModel["RvCoverageLog / RvErrorLog"]
+        end
+        subgraph InfraLayer["Infrastructure Services"]
+            direction LR
+            EH["ErrorHandler"]
+            LM["LoggingManager"]
+            PM["PerformanceMonitor"]
+            Val["BaseValidatedModel"]
+        end
+        subgraph CmdLayer["Command Execution"]
+            direction LR
+            Cmd["Command"]
+            CmdResult["CommandResult"]
+            CB["CommandCircuitBreaker"]
+        end
+        subgraph ToolLayer["Tool Contract"]
+            direction LR
+            AT["AbstractTool"]
+            TS["ToolSpec"]
+        end
+        subgraph AndroidLayer["Android Utilities"]
+            direction LR
+            ADB["ADB Operations"]
+            Emu["EmulatorManager"]
+            Logcat["LogcatManager"]
+            PkgDet["PackageDetector"]
+        end
+    end
+
+    DomainLayer --> InfraLayer
+    ToolLayer --> CmdLayer
+    ToolLayer --> InfraLayer
+    CmdLayer --> InfraLayer
+    AndroidLayer --> CmdLayer
+    AppModel --> PkgDet
+```
 
 ### Entity Relationships
 
@@ -122,30 +209,33 @@ classDiagram
         +from_dict(data) BaseValidatedModel
     }
 
-    class Task {
-        +state: TaskState
-        +configuration: TaskConfiguration
+    class TaskEntity {
+        +id: str
+        +config: TaskConfiguration
         +result: TaskResult
         +app: App
-        +transition_to(state)
+        +repository: LogcatRepository
+        +update_state(state)
     }
 
     class TaskConfiguration {
-        +tool_configs: List~ToolConfig~
+        +apk_name: str
+        +repetition: int
         +timeout: int
-        +specification_set: str
+        +tool_config: ToolConfig
     }
 
     class TaskResult {
+        +state: TaskState
         +state_transitions: List
-        +coverage_metrics: CoverageMetrics
         +execution_time_seconds: float
     }
 
-    class App {
+    class AppEntity {
         +app_path: str
         +package_name: str
         +code_package: str
+        +sdk_target: int
     }
 
     class LogcatRepository {
@@ -153,97 +243,92 @@ classDiagram
         +calculate_metrics() CoverageMetrics
     }
 
-    class AbstractToolBase {
+    class AbstractToolContract {
         <<abstract>>
-        +execute(task, app)*
+        +execute(task, app)
         +execute_tool_specific_logic(task, app)*
-        +configure(config)*
     }
 
-    BaseValidatedModel <|-- Task
     BaseValidatedModel <|-- TaskConfiguration
     BaseValidatedModel <|-- TaskResult
-    BaseValidatedModel <|-- App
+    BaseValidatedModel <|-- AppEntity
     BaseValidatedModel <|-- ToolConfig
     BaseValidatedModel <|-- CommandModel
 
-    Task --> TaskConfiguration : has
-    Task --> TaskResult : produces
-    Task --> App : operates on
+    TaskEntity --> TaskConfiguration : has
+    TaskEntity --> TaskResult : produces
+    TaskEntity --> AppEntity : operates on
+    TaskEntity --> LogcatRepository : stores coverage in
     TaskConfiguration --> ToolConfig : contains
-    TaskResult --> LogcatRepository : reads from
     LogcatRepository --> CoverageMetrics : calculates
-    AbstractToolBase --> Task : receives
-    AbstractToolBase --> App : receives
+    AbstractToolContract --> TaskEntity : receives
 ```
-
-### Key Abstractions
-
-- **BaseValidatedModel**: The type-safe foundation. All domain entities inherit from this Pydantic base class, gaining automatic validation (controlled by `RV_PYDANTIC` env var), serialization, and equality semantics.
-- **AbstractTool**: The tool contract. Defines the execution lifecycle that all testing tools must follow, providing the template method (`execute()`) that handles cross-cutting concerns.
-- **BaseAnalyzer[T]**: The analysis contract. Generic abstract base for analysis components, supporting static data initialization and standardized metrics output.
-- **ErrorHandler**: The error policy engine. Centralizes how each exception type is handled across the system, preventing inconsistent error management.
 
 ---
 
 ## Development View
 
-Shows code organization for developers navigating the module.
+Shows code organization for developers.
 
 ### Module Structure
 
 ```
-modules/rv-android-core/
+rv-android-core/
 ├── src/
 │   └── rv_android_core/
-│       ├── __init__.py
-│       ├── constants.py                  # File extensions, env vars, coverage column names, UI constants
+│       ├── __init__.py              # Module exports
+│       ├── constants.py             # File extensions, env vars, column names
 │       ├── analysis/
-│       │   └── base_analyzer.py          # BaseAnalyzer[T] ABC, BaseRepository
+│       │   └── base_analyzer.py     # BaseAnalyzer[T] ABC, BaseRepository
 │       ├── commands/
-│       │   ├── command.py                # Command model with subprocess, timeout, process tree kill
-│       │   ├── command_exception.py      # Base command exception
-│       │   ├── command_not_found_error.py # OSError wrapper for missing binaries
-│       │   └── command_result.py         # Structured command output (stdout, stderr, exit code)
+│       │   ├── command.py           # Subprocess execution (Pydantic model)
+│       │   ├── command_result.py    # Structured results
+│       │   ├── circuit_breaker.py   # CLOSED/OPEN/HALF_OPEN state machine
+│       │   ├── command_exception.py
+│       │   └── command_not_found_error.py
 │       ├── domain/
-│       │   ├── app.py                    # App model with Androguard APK metadata
-│       │   ├── classes.py                # Java class/method models
-│       │   ├── coverage.py              # MethodCoverageData, ClassCoverageData, CoverageMetrics, LogcatRepository
-│       │   ├── dynamic_wtg.py           # NetworkX-based dynamic window transition graph
-│       │   ├── log.py                   # RvCoverageLog, RvErrorLog models
-│       │   ├── static.py               # StaticAnalysisData models
-│       │   ├── task.py                  # TaskState, ToolConfig, TaskConfiguration, TaskResult, Task, TaskFactory
-│       │   ├── widget.py               # Widget and WidgetEvent models
-│       │   ├── window.py               # Window and Windows models
-│       │   └── wtg.py                  # Window Transition Graph models
+│       │   ├── task.py              # Task, TaskConfiguration, TaskResult (480 SLOC)
+│       │   ├── app.py               # APK metadata via Androguard
+│       │   ├── coverage.py          # Coverage tracking models (491 SLOC)
+│       │   ├── static.py            # StaticAnalysisData
+│       │   ├── log.py               # RvCoverageLog, RvErrorLog
+│       │   ├── classes.py           # Java class/method models
+│       │   ├── window.py            # Window models for WTG
+│       │   ├── widget.py            # UI widget models
+│       │   ├── wtg.py               # WindowTransitionGraph
+│       │   ├── dynamic_wtg.py       # Dynamic WTG (NetworkX)
+│       │   └── components.py        # Component models
 │       ├── tools/
-│       │   ├── abstract_tool.py         # AbstractTool template method base class
-│       │   └── tool_spec.py            # ToolSpec registration model
+│       │   ├── abstract_tool.py     # Template Method base (340 SLOC)
+│       │   └── tool_spec.py         # Tool specification model
 │       └── util/
-│           ├── decorators.py            # Utility decorators
-│           ├── diagnostics.py           # System diagnostics
-│           ├── jar_resolver.py          # JAR file resolution with env-aware paths
-│           ├── json_helpers.py          # JSON serialization utilities
-│           ├── utils.py                 # Environment helpers, file operations
+│           ├── utils.py             # General utilities
+│           ├── decorators.py        # Utility decorators
+│           ├── diagnostics.py       # Diagnostic utilities
+│           ├── jar_resolver.py      # JAR resolution with search paths
+│           ├── json_helpers.py      # JSON serialization helpers
 │           ├── android/
-│           │   ├── android.py           # ADB operations (install, uninstall, permissions, boot)
-│           │   ├── emulator_manager.py  # Emulator lifecycle control
-│           │   ├── logcat_manager.py    # Logcat capture management
-│           │   ├── package_detector.py  # Code package vs manifest package detection (7 strategies)
-│           │   ├── repository_initializer.py # StaticAnalysisData -> LogcatRepository initialization
-│           │   └── signature_normalizer.py   # Inner class notation normalization
+│           │   ├── android.py             # ADB operations (install, boot wait)
+│           │   ├── emulator_manager.py    # Emulator lifecycle
+│           │   ├── logcat_manager.py      # Logcat capture
+│           │   ├── package_detector.py    # Code package detection (CC=20)
+│           │   ├── signature_normalizer.py # Inner class notation
+│           │   └── repository_initializer.py
 │           ├── error/
-│           │   ├── error_handler.py     # ErrorHandler singleton with decorator + context manager
-│           │   └── exceptions.py        # 23-type exception hierarchy
+│           │   ├── error_handler.py   # ErrorHandler singleton (253 SLOC)
+│           │   └── exceptions.py      # Exception hierarchy (~40 classes)
 │           ├── logging/
-│           │   ├── constants.py         # Logging context keys
-│           │   ├── context_adapter.py   # Context-aware logging adapter
-│           │   ├── formatters.py        # JsonFormatter, StructuredFormatter
-│           │   └── manager.py           # LoggingManager singleton
+│           │   ├── manager.py         # LoggingManager singleton
+│           │   ├── context_adapter.py # Context-aware logging
+│           │   ├── formatters.py      # Structured/JSON formatters
+│           │   └── constants.py       # Log context keys, custom levels
+│           ├── performance/
+│           │   ├── performance_monitor.py  # PerformanceMonitor singleton
+│           │   └── configuration.py       # PerformanceMonitorConfig
 │           └── validation/
-│               ├── base.py              # BaseValidatedModel (Pydantic base class)
-│               ├── config.py            # ValidationConfig singleton (RV_PYDANTIC env var)
-│               └── decorators.py        # @validated_model decorator
+│               ├── base.py            # BaseValidatedModel
+│               ├── config.py          # ValidationConfig (RV_PYDANTIC)
+│               └── decorators.py      # @validated_model decorator
 ├── tests/
 │   ├── analysis/
 │   ├── commands/
@@ -254,8 +339,6 @@ modules/rv-android-core/
 ```
 
 ### Package Dependencies
-
-The internal package dependency graph shows that `domain` is the central package, while `util` provides cross-cutting infrastructure.
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
@@ -269,11 +352,8 @@ flowchart TB
         TaskPkg["domain/task"]
         AppPkg["domain/app"]
         CoveragePkg["domain/coverage"]
-        WidgetPkg["domain/widget"]
-        WindowPkg["domain/window"]
         StaticPkg["domain/static"]
         WtgPkg["domain/wtg"]
-        DynWtgPkg["domain/dynamic_wtg"]
     end
 
     subgraph AnalysisLayer["Analysis (Base Abstractions)"]
@@ -284,12 +364,9 @@ flowchart TB
         ErrorPkg["util/error"]
         LoggingPkg["util/logging"]
         ValidationPkg["util/validation"]
+        PerfPkg["util/performance"]
         CommandsPkg["commands"]
         AndroidPkg["util/android"]
-    end
-
-    subgraph ConstantsNode["Constants"]
-        ConstPkg["constants"]
     end
 
     AbstractToolPkg --> TaskPkg
@@ -318,78 +395,83 @@ flowchart TB
     ErrorPkg --> LoggingPkg
 ```
 
-### Build Dependencies
-
-| Dependency | Version | Type | Purpose |
-|------------|---------|------|---------|
-| pydantic | >=2.9.0 | External | Data validation, serialization, model configuration for all domain entities |
-| androguard | 3.4.0a1 | External | Android APK static metadata extraction (package name, permissions, SDK) |
-| psutil | >=7.0.0 | External | Process tree management for command timeout cleanup |
-| networkx | >=3.5 | External | Graph data structures for dynamic window transition graph |
-
 ---
 
 ## Process View
 
-rv-android-core is a library module with no autonomous processes. However, two runtime behaviors involve process-level concerns.
+rv-android-core is a library module with no event loop or independent runtime processes. However, several of its components are used in concurrent contexts by consuming modules, and the Command subsystem manages OS-level processes.
 
-### Command Execution and Timeout Handling
+### Concurrency-Relevant Components
 
-When a `Command` is invoked, it spawns a subprocess via Python's `subprocess.Popen`. If the subprocess exceeds its configured timeout, `Command` uses psutil to kill the entire process tree (parent + all children), then raises `RVCommandTimeoutError`.
+| Component | Concurrency Concern | Thread Safety Mechanism |
+|-----------|-------------------|------------------------|
+| ErrorHandler | Accessed from main thread and background logcat thread | Thread-safe singleton with `_lock`; handler registry read-only after initialization |
+| LoggingManager | Loggers requested from multiple threads | Thread-safe singleton; logger cache protected by `_lock` |
+| PerformanceMonitor | Metrics recorded from multiple components simultaneously | Thread-safe singleton; metrics list protected by `_lock` |
+| Command.invoke() | Spawns OS subprocesses with timeout monitoring | Process tree kill via psutil ensures cleanup on timeout |
+| LogcatRepository | Updated by background coverage tracking thread | Thread safety managed by consuming module (rv-coverage) |
+
+### Command Execution Flow
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant Caller as Calling Module
     participant Cmd as Command
+    participant CircuitBkr as CircuitBreaker
     participant Proc as subprocess.Popen
     participant PS as psutil
 
-    Caller->>Cmd: invoke(stdout, stderr, stdin)
-    Cmd->>Proc: Popen(command_list)
-    Cmd->>Proc: communicate(timeout=T)
-
-    alt Completes within timeout
-        Proc-->>Cmd: (stdout, stderr)
-        Cmd-->>Caller: CommandResult(code, stdout, stderr)
-    else Timeout exceeded
-        Proc-->>Cmd: TimeoutExpired
-        Cmd->>PS: kill_process_tree(pid)
-        PS->>Proc: SIGKILL (children + parent)
-        Cmd-->>Caller: raise RVCommandTimeoutError
+    Caller->>Cmd: invoke()
+    Cmd->>CircuitBkr: is_execution_allowed(signature)
+    alt Circuit OPEN
+        CircuitBkr-->>Cmd: CircuitBreakerOpenError
+        Cmd-->>Caller: raise CircuitBreakerOpenError
+    else Circuit CLOSED/HALF_OPEN
+        CircuitBkr-->>Cmd: True
+        Cmd->>Proc: Popen(command, args)
+        Proc->>Proc: communicate(timeout)
+        alt Timeout exceeded
+            Cmd->>PS: kill_process_tree(pid)
+            PS-->>Cmd: processes terminated
+            Cmd->>CircuitBkr: record_failure(signature)
+            Cmd-->>Caller: raise RVCommandTimeoutError
+        else Completed
+            Proc-->>Cmd: stdout, stderr, returncode
+            Cmd->>CircuitBkr: record_success(signature)
+            Cmd-->>Caller: CommandResult(code, stdout, stderr)
+        end
     end
 ```
 
 ### Error Handler Dispatch Flow
 
-When an exception reaches the `ErrorHandler` (via decorator or context manager), the handler iterates through registered callbacks using exact-type matching. The first callback returning `True` absorbs the error; returning `False` allows propagation.
-
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant Code as Protected Code
-    participant EH as ErrorHandler
-    participant Log as LoggingManager
-    participant CB as Handler Callbacks
+    participant ErrH as ErrorHandler
+    participant LogMgr as LoggingManager
+    participant Handlers as Handler Callbacks
 
-    Code->>EH: Exception raised
-    EH->>Log: _log_error(exception, context)
+    Code->>ErrH: Exception raised
+    ErrH->>LogMgr: _log_error(exception, context)
 
     loop For each registered callback
-        EH->>CB: callback(exception, context)
-        alt Exact type match + returns True
-            CB-->>EH: True (absorbed)
-            Note over EH: Break - error handled
-        else No match or returns False/None
-            CB-->>EH: None/False
-            Note over EH: Continue to next callback
+        ErrH->>Handlers: callback(exception, context)
+        alt Exact type match and returns True
+            Handlers-->>ErrH: True (absorbed)
+            Note over ErrH: Break - error handled
+        else No match or returns False
+            Handlers-->>ErrH: False
+            Note over ErrH: Continue to next callback
         end
     end
 
     alt Error was absorbed
-        EH-->>Code: Return None (decorator) or continue (context manager)
+        ErrH-->>Code: Return None (decorator) or suppress (context mgr)
     else Error not absorbed
-        EH-->>Code: Re-raise exception
+        ErrH-->>Code: Re-raise exception
     end
 ```
 
@@ -399,83 +481,104 @@ sequenceDiagram
 
 ### ErrorHandler
 
-**Purpose**: Centralized error management system that classifies exceptions and determines whether each should be absorbed (operation continues) or propagated (exception re-raised).
+**Purpose**: Centralized error management with type-specific handlers, decorator pattern, and callback system for cross-module error notification.
 
 **Location**: `src/rv_android_core/util/error/error_handler.py`
 
 **Key Classes**:
-- `ErrorHandler`: Singleton with two usage modes -- `@ErrorHandler.handle_errors()` decorator and `error_handler.error_context()` context manager. Registers 16 built-in handlers partitioned into absorbed types (8), propagated types (5), and special handlers (3).
+- `ErrorHandler`: Thread-safe singleton with 27+ registered handlers, `@handle_errors` decorator, `error_context()` context manager, error statistics tracking
 
 **Error Classification**:
-- **Absorbed** (return True): `CommandValidationError`, `LogcatValidationError`, `EventProcessingError`, `RVValidationError`, `ToolNotFoundError`, `ToolRegistrationError`, `RVToolTimeoutError`, `RVToolExecutionError`
+- **Absorbed** (return True): `CommandValidationError`, `LogcatValidationError`, `RVValidationError`, `ToolNotFoundError`, `ToolRegistrationError`, `RVToolTimeoutError`, `RVToolExecutionError`
 - **Propagated** (return False): `RVToolError`, `RVExperimentError`, `RVParsingError`, `RVCommandTimeoutError`, `JarNotFoundError`
-- **Special**: `FileNotFoundError` (context-aware -- absorbed for expected operations like `check_if_instrumented`), `RVAndroidError` (generic catch-all, propagated), `Exception` (fallback -- critical types propagated, non-critical operations absorbed)
+- **Special**: `FileNotFoundError` (context-aware), `RVAndroidError` (generic catch-all), `Exception` (fallback)
 
 **Dependencies**:
-- Internal: `util/logging` (LoggingManager), `util/error/exceptions` (exception types)
-- External: threading (for thread-safe singleton)
+- Internal: `exceptions.py` (exception hierarchy), `util/logging` (LoggingManager)
+- External: threading (for lock)
 
 ### LoggingManager
 
-**Purpose**: Centralized logging configuration that attaches structured formatters to the root logger. All loggers created via `logging.getLogger()` inherit this configuration. Provides context-aware logging through `ContextAdapter`.
+**Purpose**: Consistent logging configuration across all modules with context injection, custom log levels, and structured formatting.
 
 **Location**: `src/rv_android_core/util/logging/manager.py`
 
 **Key Classes**:
-- `LoggingManager`: Singleton that configures console and file handlers, formatter selection (plain, structured, JSON), and log level management. The `get_logger()` method returns a `ContextAdapter`-wrapped logger with context injection (component name, tool name).
+- `LoggingManager`: Thread-safe singleton, logger cache, `get_logger()` returns ContextAdapter
+- `ContextAdapter`: Wraps standard loggers with automatic context injection, `with_context()` for scoped context
+- `StructuredFormatter` / `JsonFormatter`: Output formatting with context data
 
-**Output Modes**:
-- Console: Enabled by default at INFO level with plain formatting
-- File: Disabled by default; activated per-experiment with timestamped filenames and configurable JSON or structured formatting
-
-**Dependencies**:
-- Internal: `util/logging/context_adapter`, `util/logging/formatters`, `util/logging/constants`
-- External: Python standard `logging`, `os`, `sys`, `threading`
-
-### BaseValidatedModel
-
-**Purpose**: Pydantic base class for all domain models. Provides consistent validation configuration, environment-aware validation behavior, safe serialization methods, and equality/hash semantics.
-
-**Location**: `src/rv_android_core/util/validation/base.py`
-
-**Key Classes**:
-- `BaseValidatedModel`: Configures Pydantic with `validate_assignment=True`, `extra='forbid'`, `arbitrary_types_allowed=True`. Delegates to `ValidationConfig` for environment-aware behavior. Provides `model_dump_safe()` and `model_dump_json_safe()` with exception fallbacks.
-- `ValidationConfig` (`config.py`): Singleton reading `RV_PYDANTIC`, `RV_PYDANTIC_STRICT`, and `RV_PYDANTIC_LOG` environment variables to control validation depth.
+**Custom Log Levels**: EXPERIMENT_START (25), EXPERIMENT_END (26), TASK_START (27), TASK_END (28)
 
 **Dependencies**:
-- Internal: `util/logging` (for ValidationConfig logging)
-- External: pydantic (BaseModel, ConfigDict, Field)
+- Internal: `constants.py` (context keys, custom levels)
+- External: logging (stdlib)
 
 ### Command
 
-**Purpose**: System command execution with Pydantic-validated parameters, subprocess management, configurable timeout enforcement, and process tree cleanup via psutil.
+**Purpose**: Validated subprocess execution with timeout enforcement, process tree management, and circuit breaker integration.
 
 **Location**: `src/rv_android_core/commands/command.py`
 
 **Key Classes**:
-- `Command`: Inherits from `BaseValidatedModel`. Validates command name, argument list, and timeout. The `invoke()` method spawns a subprocess, captures stdout/stderr, and on timeout calls `kill_process_tree()` to recursively terminate the process and all its children via SIGKILL.
-- `CommandResult` (`command_result.py`): Encapsulates exit code, stdout bytes, stderr bytes, with convenience methods `is_success()`, `is_failure()`, `get_stdout_text()`, `get_stderr_text()`.
+- `Command(BaseValidatedModel)`: Pydantic model with `invoke()`, `invoke_as_deamon()`, `invoke_as_process()` methods
+- `CommandResult(BaseValidatedModel)`: Structured result with `is_success()`, `is_failure()`
+- `CommandCircuitBreaker`: CLOSED/OPEN/HALF_OPEN state machine per command signature (SHA-256 hash)
 
 **Dependencies**:
-- Internal: `util/validation` (BaseValidatedModel), `util/logging` (LoggingManager), `util/error` (ErrorHandler, exceptions)
-- External: subprocess, psutil, signal, os
+- Internal: `BaseValidatedModel`, `exceptions.py`
+- External: subprocess, psutil, hashlib
 
 ### AbstractTool
 
-**Purpose**: Base class defining the contract and execution lifecycle for all testing tools. Implements the template method pattern: the `execute()` method orchestrates logging, delegation to `execute_tool_specific_logic()`, process cleanup, and error handling.
+**Purpose**: Template method base class defining the contract for all testing tools in the framework.
 
 **Location**: `src/rv_android_core/tools/abstract_tool.py`
 
 **Key Classes**:
-- `AbstractTool` (ABC): Requires subclasses to implement `execute_tool_specific_logic()`, `get_variants()`, `get_tool_spec()`, and `configure()`. Provides `_execute_and_check_command()` for standardized command execution with timeout conversion, and `kill_related_processes()` for ADB-based process cleanup on the device.
+- `AbstractTool(ABC)`: Template method `execute()` orchestrates lifecycle; abstract methods: `get_variants()`, `get_tool_spec()`, `configure()`, `execute_tool_specific_logic()`
 
 **Dependencies**:
-- Internal: `domain/task` (Task), `domain/app` (App), `commands` (Command, CommandResult), `util/error` (ErrorHandler, exceptions), `util/logging` (LoggingManager)
-- External: os (for process pattern cleanup)
+- Internal: Command, ErrorHandler, CommandCircuitBreaker
+- External: abc (ABC)
+
+### Domain Models
+
+**Purpose**: Core data models representing tasks, Android applications, coverage tracking, and static analysis data.
+
+**Location**: `src/rv_android_core/domain/`
+
+**Key Classes**:
+- `Task`: Central execution unit with config, result, repository, and static data references
+- `TaskConfiguration(BaseValidatedModel)`: Immutable task parameters (APK name, timeout, tool config, repetition)
+- `TaskResult(BaseValidatedModel)`: Mutable execution results with state transitions
+- `ToolConfig(BaseValidatedModel)`: Single source of truth for (tool, variant, parameters) -- imported by all modules
+- `App(BaseValidatedModel)`: APK metadata via Androguard; exposes both `package_name` (manifest) and `code_package` (implementation, lazy-computed via PackageDetector)
+- `LogcatRepository`: Coverage and error log storage with metrics calculation
+- `CoverageMetrics`: Calculated percentages (overall and MOP method coverage)
+- `RvCoverageLog` / `RvErrorLog`: Parsed logcat events
+
+**Dependencies**:
+- Internal: BaseValidatedModel, PackageDetector, ErrorHandler
+- External: androguard, uuid
+
+### BaseValidatedModel
+
+**Purpose**: Foundation Pydantic model for all validated data models, with environment-controlled validation depth.
+
+**Location**: `src/rv_android_core/util/validation/base.py`
+
+**Key Classes**:
+- `BaseValidatedModel(BaseModel)`: Pydantic v2 base with `extra='forbid'`, `str_strip_whitespace=True`, `validate_assignment=True`
+- `ValidationConfig`: Singleton reading `RV_PYDANTIC` env var
+- `@validated_model`: Decorator enabling positional argument construction
+
+**Dependencies**:
+- External: pydantic v2
 
 ### Exception Hierarchy
 
-**Purpose**: A 23-type exception tree rooted at `RVAndroidError` that provides structured error classification across the entire framework. Each exception type carries domain-specific context (tool name, timeout seconds, experiment ID, task ID, JAR name, parser type).
+**Purpose**: A ~40-type exception tree rooted at `RVAndroidError` that provides structured error classification across the entire framework.
 
 **Location**: `src/rv_android_core/util/error/exceptions.py`
 
@@ -506,52 +609,52 @@ RVAndroidError (message, cause)
 └── RVParsingError (parser_type)
 ```
 
-### BaseAnalyzer[T]
-
-**Purpose**: Generic abstract base class for all analysis components. Defines a standard interface for static data initialization, runtime data analysis, and metrics output.
-
-**Location**: `src/rv_android_core/analysis/base_analyzer.py`
-
-**Key Classes**:
-- `BaseAnalyzer[T]` (ABC, Generic): Requires subclasses to implement `_initialize_from_static_data()`, `analyze(data) -> T`, and `get_metrics() -> Dict`. Auto-initializes from `StaticAnalysisData` if provided at construction.
-- `BaseRepository`: Base class for data storage layers used by analyzers. Provides standardized logging but no abstract methods -- serves as a typed base with common infrastructure.
-
-**Dependencies**:
-- Internal: `domain/static` (StaticAnalysisData), `util/logging` (LoggingManager)
-- External: None beyond typing
-
 ### Android Utilities
 
-**Purpose**: Device interaction layer providing ADB command wrappers, emulator lifecycle management, logcat capture, package detection, and signature normalization.
+**Purpose**: ADB operations, emulator lifecycle management, logcat capture, and APK package detection.
 
 **Location**: `src/rv_android_core/util/android/`
 
 **Key Classes**:
-- `Android` (`android.py`): Static methods for ADB operations: install/uninstall APK, grant permissions, check device boot state. Provides `create_emulator()` context manager for emulator lifecycle.
-- `EmulatorManager` (`emulator_manager.py`): Controls emulator start/stop/wait operations.
-- `LogcatManager` (`logcat_manager.py`): Manages logcat capture sessions with start/stop/clear operations.
-- `PackageDetector` (`package_detector.py`): Detects the actual code package of an APK using 7 strategies in priority order. In ~27.5% of APKs, the code package differs from the manifest package (e.g., Godot games).
-- `SignatureNormalizer` (`signature_normalizer.py`): Converts inner class notation between Java source format (Outer.Inner) and bytecode format (Outer$Inner) for matching static analysis signatures with runtime signatures.
+- `Android`: Static methods for ADB operations (install, uninstall, boot wait)
+- `EmulatorManager`: Emulator start/stop and port allocation
+- `LogcatManager`: Logcat capture to file
+- `PackageDetector`: Detects implementation package vs. manifest package using 6 detection strategies (CC=20). In ~27.5% of APKs, these differ (e.g., Godot engine games).
+- `SignatureNormalizer`: Normalizes inner class notation (Outer.Inner <-> Outer$Inner)
+
+**Dependencies**:
+- Internal: Command, CommandResult
+- External: subprocess, psutil
+
+### PerformanceMonitor
+
+**Purpose**: Metrics collection with timing measurement, custom metric recording, and subscriber notification.
+
+**Location**: `src/rv_android_core/util/performance/performance_monitor.py`
+
+**Key Classes**:
+- `PerformanceMonitor`: Thread-safe singleton with `measure_time()` context manager, `record_metric()`, `get_metrics_stats()`, and subscriber pattern (`subscribe(name, callback)`)
+- `PerformanceMonitorConfig`: Configuration with `enabled` flag and `max_samples` limit
+
+**Dependencies**:
+- External: threading, time
 
 ---
 
 ## NFR Support
 
-How the architecture supports the non-functional requirements defined in the PRD.
+How the architecture supports non-functional requirements from `docs/PRD.md` Section 7.
 
-| NFR | Priority | Architectural Support |
-|-----|----------|----------------------|
-| Maintainability | P0 | Fine-grained package decomposition (7 packages). Each package is self-contained with clear responsibilities. All domain models inherit from `BaseValidatedModel` for consistent behavior. Structured exception hierarchy enables precise error handling. |
-| Extensibility | P1 | `AbstractTool` template method allows adding tools by implementing 4 abstract methods. `BaseAnalyzer[T]` allows adding analyzers by implementing 3 abstract methods. `ErrorHandler.register_handler()` allows modules to add custom error handlers. |
-| Performance | P1 | Environment-aware validation (disabled in production via `RV_PYDANTIC`). Lazy initialization of singletons. Logger caching in `LoggingManager`. Lazy `code_package` computation in `App`. Process tree kill prevents orphan processes. |
-| Reliability | P1 | `ErrorHandler` classifies 23 exception types into absorbed vs propagated categories, preventing unexpected crashes from non-critical errors. `Command` enforces timeouts and kills process trees on timeout. Context managers ensure cleanup. |
-| Testability | P2 | All domain models are Pydantic models with `from_dict()` factory methods. `ValidationConfig.set_enabled()` allows overriding validation for tests. `ErrorHandler` and `LoggingManager` singletons can be reset. Tests are organized by package (analysis, commands, domain, tools, util). |
-
-### Trade-off: Performance vs Safety
-
-**Decision**: Favor safety during development, performance during production.
-
-**Implementation**: The `RV_PYDANTIC` environment variable controls the trade-off. When `true`, all model construction goes through full Pydantic validation (type checking, constraint enforcement, field stripping). When `false` (the default), validation is minimal. The `BaseValidatedModel.__init__()` delegates to `ValidationConfig` to determine the validation depth.
+| NFR | PRD ID | Architectural Support |
+|-----|--------|----------------------|
+| Modularity | NFR01 | Zero internal dependencies; all 12 other modules depend on rv-android-core without coupling to each other through it. Clean package boundaries (domain, commands, tools, util) |
+| Extensibility | NFR02 | AbstractTool template method allows new tools without modifying core. ErrorHandler callback system lets modules react to errors without circular dependencies. BaseValidatedModel provides a consistent extension point for new domain models. BaseAnalyzer[T] generic ABC for analysis components |
+| Testability | NFR03 | 46 test files organized by package. @validated_model enables both positional and named construction for test readability. ValidationConfig toggle allows testing with and without validation. Singleton reset methods for test isolation |
+| Resilience | NFR04 | ErrorHandler with 27+ type-specific handlers and configurable suppression/propagation. CommandCircuitBreaker prevents cascading failures (CLOSED/OPEN/HALF_OPEN). Process tree kill prevents orphaned processes on timeout. Tool timeouts treated as expected behavior (INFO level, not ERROR) |
+| Configurability | NFR05 | Environment-controlled validation (RV_PYDANTIC). BaseValidatedModel as foundation for all configuration classes. PerformanceMonitorConfig for enabling/disabling metrics collection |
+| Observability | NFR06 | LoggingManager with context injection (task ID, app name, tool name, component, phase). PerformanceMonitor with timing and custom metrics. Custom log levels (EXPERIMENT_START/END, TASK_START/END). StructuredFormatter and JsonFormatter for machine-readable output |
+| Compatibility | NFR07 | Python 3.11+ via Pydantic v2. Android SDK interaction abstracted through ADB command wrappers. Platform-independent command execution via subprocess |
+| Reproducibility | NFR08 | Task UUID generation for deterministic identification. TaskResult state transition recording for audit trail. CommandResult structured output for post-hoc analysis |
 
 ---
 
@@ -561,42 +664,39 @@ How the architecture supports the non-functional requirements defined in the PRD
 
 ```python
 class AbstractTool(ABC):
-    """Base class for all testing tools."""
+    """Base class for all testing tools.
 
-    def execute(self, task: Task, app: App) -> None:
-        """Template method: log -> delegate -> cleanup -> handle errors."""
+    Template method: execute() handles lifecycle (timeout conversion,
+    process cleanup). Subclasses implement only the extension points.
+    """
+
+    @abstractmethod
+    def get_variants(self) -> list[dict]:
+        """Return available variant configurations."""
         ...
 
     @abstractmethod
-    def execute_tool_specific_logic(self, task: Task, app: App) -> None:
-        """Extension point for tool-specific testing logic."""
-        ...
-
-    @classmethod
-    @abstractmethod
-    def get_variants(cls) -> Dict[str, Dict[str, Any]]:
-        """Provide variant configurations (must include 'default')."""
+    def get_tool_spec(self) -> ToolSpec:
+        """Return tool specification for registry."""
         ...
 
     @abstractmethod
-    def configure(self, config: Dict[str, Any]) -> None:
-        """Configure tool with resolved variant parameters."""
+    def configure(self, variant: str, **kwargs) -> None:
+        """Apply variant parameters."""
         ...
 
-    @classmethod
     @abstractmethod
-    def get_tool_spec(cls) -> ToolSpec:
-        """Provide tool specification for registry registration."""
+    def execute_tool_specific_logic(self) -> None:
+        """Tool-specific testing logic (extension point)."""
         ...
 ```
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 classDiagram
-    class AbstractToolContract {
+    class AbstractToolInterface {
         <<abstract>>
         +name: str
-        +description: str
         +process_pattern: str
         +execute(task, app) void
         +execute_tool_specific_logic(task, app)* void
@@ -607,29 +707,22 @@ classDiagram
     }
 
     class MonkeyTool {
-        +execute_tool_specific_logic(task, app) void
-        +get_variants() Dict
-        +configure(config) void
-        +get_tool_spec() ToolSpec
+        +execute_tool_specific_logic()
     }
 
     class DroidBotTool {
-        +execute_tool_specific_logic(task, app) void
-        +get_variants() Dict
-        +configure(config) void
-        +get_tool_spec() ToolSpec
+        +execute_tool_specific_logic()
     }
 
     class RVAgentTool {
-        +execute_tool_specific_logic(task, app) void
-        +get_variants() Dict
-        +configure(config) void
-        +get_tool_spec() ToolSpec
+        +execute_tool_specific_logic()
     }
 
-    AbstractToolContract <|-- MonkeyTool
-    AbstractToolContract <|-- DroidBotTool
-    AbstractToolContract <|-- RVAgentTool
+    AbstractToolInterface <|-- MonkeyTool
+    AbstractToolInterface <|-- DroidBotTool
+    AbstractToolInterface <|-- RVAgentTool
+
+    note for AbstractToolInterface "Defined in rv-android-core\nImplementations in rv-tools, rvagent-tool"
 ```
 
 ### BaseAnalyzer[T] (Analyzer Contract)
@@ -666,8 +759,8 @@ def execute_task(self, task):
 with error_handler.error_context(component="TaskExecutor", phase="setup"):
     risky_operation()
 
-# Pattern 3: Register custom handler
-error_handler.register_handler(CustomError, custom_handler_fn)
+# Pattern 3: Register callback (avoids circular dependencies)
+error_handler.register_error_callback(my_callback_fn)
 ```
 
 ---
@@ -676,62 +769,62 @@ error_handler.register_handler(CustomError, custom_handler_fn)
 
 Key use cases that validate the architecture.
 
-### Scenario 1: Task Lifecycle
+### Scenario 1: Tool Execution with Timeout Handling
 
-**Description**: A testing tool (e.g., Monkey) executes against an Android application, producing coverage results.
-
-**Flow**:
-1. rv-experiment creates a `TaskConfiguration` with `ToolConfig(name="monkey", variant="default")`, timeout, and specification set.
-2. rv-platform's `TaskFactory` creates a `Task` in `CREATED` state with the configuration and an `App` instance loaded from the APK path.
-3. The `Task` transitions through `INITIALIZING` -> `READY` as the emulator boots and the instrumented APK is installed.
-4. rv-platform resolves the tool via `ToolFactory`, calls `tool.configure(config)`, then `tool.execute(task, app)`.
-5. `AbstractTool.execute()` logs the start, delegates to `MonkeyTool.execute_tool_specific_logic()`, which uses `Command` to run the Monkey binary.
-6. If `Command` times out, `kill_process_tree()` terminates the process; `RVCommandTimeoutError` is converted to `RVToolTimeoutError` by `AbstractTool.execute()`.
-7. On completion, the `Task` transitions to `COMPLETED`. `TaskResult` captures `execution_time_seconds`, coverage metrics from `LogcatRepository`, and any `RvErrorLog` entries.
-
-### Scenario 2: Error Absorption During Execution
-
-**Description**: A non-critical error occurs during static analysis file copy, and the system continues execution.
+**Description**: A testing tool runs on an Android emulator and exceeds its configured timeout. The framework kills the process tree, converts the exception, and records the result.
 
 **Flow**:
-1. A component decorated with `@ErrorHandler.handle_errors(component="StaticAnalysis", phase="file_copy")` raises a `FileNotFoundError` when copying optional analysis artifacts.
-2. `ErrorHandler._handle_error_internal()` logs the error via `LoggingManager`.
-3. The handler iterates callbacks. The `_handle_file_not_found_error` callback matches `FileNotFoundError` by exact type.
-4. Since the operation context does not match an expected operation (`check_if_instrumented`, etc.), it falls through.
-5. The `_handle_generic_exception` fallback matches. The phase is not a decorator phase, and `file_copy` matches `non_critical_operations`, so the handler returns `True`.
-6. The decorator receives `handled=True`, logs the absorption, and returns `None` to the caller.
-7. Execution continues without the optional artifacts.
+1. rv-platform's TaskExecutor calls `AbstractTool.execute()` with a configured timeout
+2. `execute()` delegates to the subclass's `execute_tool_specific_logic()`
+3. Inside the tool, `Command.invoke()` spawns a subprocess with the timeout
+4. The subprocess exceeds timeout; `Command` calls `kill_process_tree(pid)` via psutil
+5. `Command` raises `RVCommandTimeoutError`
+6. `AbstractTool.execute()` catches it and raises `RVToolTimeoutError` (INV-CORE-23)
+7. ErrorHandler (via decorator on TaskExecutor) logs at INFO level and suppresses -- tool timeout is expected behavior
 
-### Scenario 3: Package Name Resolution
+### Scenario 2: APK Metadata Extraction with Package Mismatch
 
-**Description**: An APK with mismatched manifest and code packages is analyzed.
+**Description**: An Android APK has a manifest package name that differs from its implementation package (occurs in ~27.5% of APKs).
 
 **Flow**:
-1. `App` is initialized with an APK path. Androguard extracts the manifest `package_name` (e.g., `ir.hsn6.trans`).
-2. On first access of `App.code_package`, `PackageDetector.detect_package()` is called (lazy computation).
-3. `PackageDetector` applies 7 detection strategies in priority order: game engine detection, single-package APK, common prefix analysis, etc.
-4. The detector finds that the actual code package is `org.godotengine.godot` (a Godot engine game).
-5. A `PackageDetectionResult` is returned with `code_package="org.godotengine.godot"` and `confidence` score.
-6. `App` logs a WARNING about the mismatch and caches the result.
-7. Static analysis modules use `app.code_package` for class filtering, while device operations continue using `app.package_name`.
+1. rv-platform creates an `App(app_path="/path/to/app.apk")` (INV-CORE-17 validates APK exists)
+2. App's `model_post_init()` loads the APK via Androguard, extracting `package_name` from the manifest
+3. On first access of `code_package`, `PackageDetector.detect_package()` analyzes the DEX bytecode using 6 strategies
+4. If `package_name != code_package`, a log message reports the mismatch (INV-CORE-18)
+5. Downstream modules use `package_name` for device operations and `code_package` for static analysis path matching
+
+### Scenario 3: Circuit Breaker Prevents Cascading Failures
+
+**Description**: A command fails repeatedly (e.g., ADB connection drops), and the circuit breaker prevents further attempts.
+
+**Flow**:
+1. `Command.invoke()` calls `circuit_breaker.is_execution_allowed(signature)` -- returns True (CLOSED state)
+2. The command fails; `circuit_breaker.record_failure(signature)` increments the failure count
+3. After 3 consecutive failures (default threshold), the circuit transitions to OPEN (INV-CORE-16)
+4. The next `is_execution_allowed()` call raises `CircuitBreakerOpenError`
+5. After `retry_count` attempts, the circuit transitions to HALF_OPEN, allowing one test execution
+6. If the test succeeds, the circuit resets to CLOSED; if it fails, it returns to OPEN
 
 ---
 
 ## Extension Points
 
-- **Adding a testing tool**: Subclass `AbstractTool`, implement `execute_tool_specific_logic()`, `get_variants()`, `get_tool_spec()`, and `configure()`. Register with `ToolRegistry` in rv-tools.
-- **Adding an analysis component**: Subclass `BaseAnalyzer[T]`, implement `_initialize_from_static_data()`, `analyze()`, and `get_metrics()`.
-- **Adding a custom error handler**: Call `ErrorHandler.get_instance().register_handler(ExceptionType, handler_fn)`. The handler receives the exception and context dict, returns `True` to absorb or `False` to propagate.
-- **Adding a domain model**: Subclass `BaseValidatedModel`, use Pydantic `Field()` annotations. Optionally apply `@validated_model()` decorator for positional constructor support.
-- **Configuring validation**: Set `RV_PYDANTIC=true` for full development validation, `RV_PYDANTIC_STRICT=true` for extra strict mode, or leave unset for production performance.
+- **New Testing Tools**: Subclass `AbstractTool`, implement the four abstract methods, register via `ToolSpec` in rv-tools' registry
+- **New Analysis Components**: Subclass `BaseAnalyzer[T]`, implement `_initialize_from_static_data()`, `analyze()`, `get_metrics()`
+- **New Domain Models**: Inherit from `BaseValidatedModel` with `@validated_model` for positional argument support
+- **Error Callbacks**: Register via `ErrorHandler.register_error_callback()` to react to errors from any module without circular dependencies
+- **Custom Log Levels**: Add to `util/logging/constants.py` using `logging.addLevelName()`
+- **Performance Subscribers**: Subscribe to `PerformanceMonitor` for specific metric names or `"*"` for all
 
 ## Dependencies
 
 ### Internal (rv-android modules)
 
-rv-android-core has **zero** internal module dependencies. It is the Layer 1 foundation -- all dependency arrows point inward toward it.
+| Module | Purpose |
+|--------|---------|
+| (none) | rv-android-core is the foundation with zero internal dependencies |
 
-**Consumed by** (all 11 modules):
+**Dependents** (12 modules depend on rv-android-core):
 
 | Module | What it uses |
 |--------|-------------|
@@ -743,8 +836,9 @@ rv-android-core has **zero** internal module dependencies. It is the Layer 1 fou
 | rv-monitor-generator | Command, ErrorHandler, constants |
 | rv-instrumentation | Command, App, ErrorHandler, constants |
 | rv-platform | Task, TaskConfiguration, App, ErrorHandler, LoggingManager, all domain models |
-| rv-agent | App, Task, Widget, Window, DynamicTransitionGraph, LoggingManager |
+| rv-agent | App, Task, Widget, Window, DynamicTransitionGraph, LoggingManager, PerformanceMonitor |
 | rv-experiment | Task, ToolConfig, TaskConfiguration, App, Command, constants |
+| rvagent-tool | AbstractTool, App, Task, ErrorHandler |
 | rv-agent-validation | App, Task, LoggingManager |
 
 ### External
@@ -752,9 +846,15 @@ rv-android-core has **zero** internal module dependencies. It is the Layer 1 fou
 | Package | Version | Purpose |
 |---------|---------|---------|
 | pydantic | >=2.9.0 | Data validation, serialization, model configuration for all domain entities |
-| androguard | 3.4.0a1 | Android APK static metadata extraction (package name, permissions, SDK versions) |
-| psutil | >=7.0.0 | Process tree management for command timeout cleanup |
+| androguard | 3.4.0a1 | Android APK metadata extraction (package name, permissions, SDK versions) |
+| psutil | >=7.0.0 | Process tree management for Command timeout cleanup |
 | networkx | >=3.5 | Graph data structures for dynamic window transition graph |
+
+## Known Architectural Issues
+
+1. **Circular dependency with rv-coverage**: `domain/task.py` contains a lazy import of `rv_coverage.parser.log.logcat_parser`. This creates a cycle between the foundation layer (rv-android-core) and a higher-level module. The import should be moved to rv-coverage or rv-platform, or injected via a callback/protocol.
+
+2. **PackageDetector complexity**: `package_detector.py:detect_package` has cyclomatic complexity of 20. The six detection strategies are logically separated but exist in a single function. Extracting each into its own method would improve testability and reduce per-function complexity.
 
 ## Testing Strategy
 
@@ -773,7 +873,6 @@ uv run pytest modules/rv-android-core/tests/ -v
 
 ## Related Documentation
 
-- [CLAUDE.md](../../../CLAUDE.md) - Project-level quick reference
-- [Module CLAUDE.md](../CLAUDE.md) - Module-specific development guide
-- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR33-FR37 cover core infrastructure)
-- [Core Spec](../../../openspec/specs/core/spec.md) - Formal specification for rv-android-core
+- [Domain Spec](../../openspec/specs/core/spec.md) - Requirements and invariants for this module (FR33-FR37, INV-CORE-06 through INV-CORE-25)
+- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
+- [CLAUDE.md](../../CLAUDE.md) - Project-level quick reference for Claude Code

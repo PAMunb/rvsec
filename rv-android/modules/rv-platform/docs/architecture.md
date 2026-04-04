@@ -2,68 +2,102 @@
 
 ## Overview
 
-rv-platform is the central execution engine for Android testing experiments in the RV-Android framework. It orchestrates the full lifecycle of experiment tasks: discovering APK files, generating task combinations (APK x tool x variant x repetition x timeout), executing each task through a component-based pipeline that coordinates emulator lifecycle, coverage tracking, and tool invocation, and producing standardized CSV/JSON output for analysis. The module serves as the bridge between experiment orchestration (rv-experiment) and the mechanics of running tools against Android applications, supporting both standalone CLI usage and programmatic integration.
+rv-platform is the central execution engine for Android testing experiments in the RV-Android framework. It bridges the gap between experiment orchestration (rv-experiment) and individual testing tools by transforming a declarative experiment configuration into concrete task executions with measurable results. Given a set of APK files, testing tools with variants, repetition counts, and timeout values, the platform generates the Cartesian product of all combinations, executes each task on an Android emulator while tracking method coverage and specification violations in real-time, and produces standardized CSV/JSON output files for research analysis. The platform supports both standalone CLI usage and programmatic integration via rv-experiment.
+
+## Specification Alignment
+
+This module implements requirements from `openspec/specs/platform/spec.md`.
+
+### Functional Requirements
+
+| FR | Description | Architectural Support |
+|----|-------------|----------------------|
+| FR07 | Android Emulator Management | `EmulatorComponent` delegates to `EmulatorManager` with context-manager lifecycle and dynamic port allocation |
+| FR08 | Task Generation | `Platform._generate_tasks()` computes the Cartesian product of APKs x tools x repetitions x timeouts |
+| FR09 | Component-Based Task Execution | `TaskExecutor` coordinates 5 pluggable `ITaskComponent` implementations through 3 execution phases |
+| FR10 | Persistent Task Storage | `TaskStorage` provides atomic file writes (write-temp-then-rename), transactions, and experiment resume via checksum validation |
+| FR11 | Logcat Capture and Parsing | `LogcatComponent` delegates to `LogcatManager` for background logcat capture; rv-coverage parses `RVSEC-COV` and `RVSEC` entries |
+| FR14 | Result Generation | `ResultProcessorComponent` generates `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv` from completed tasks |
+
+### Key Invariants
+
+| Invariant | Description | Enforcement Mechanism |
+|-----------|-------------|----------------------|
+| INV-PLT-01 | Task count = \|APKs\| x \|tool_configs\| x repetitions x \|timeouts\| | `Platform._generate_tasks()` iterates nested loops over all dimensions; validated by the calling test scenarios |
+| INV-PLT-02 | Tasks follow valid state transitions; terminal states are COMPLETED and ERROR | `TaskExecutor.execute()` transitions RUNNING -> COMPLETED or RUNNING -> ERROR; `TaskStorage.update_task()` persists the final state |
+| INV-PLT-03 | `TaskStorage.save()` uses atomic file operations (temp + fsync + rename) | Implemented in `TaskStorage.save()` with `shutil.move()` after `os.fsync()` |
+| INV-PLT-04 | `RVToolTimeoutError` is treated as successful completion | `ToolExecutionComponent.execute()` catches `RVToolTimeoutError` and returns `True` |
+| INV-PLT-05 | Static analysis failure does not prevent task execution | `StaticAnalysisComponent.execute()` returns `True` on failure, logging a warning |
+| INV-PLT-06 | All component `cleanup()` methods are called even if a preceding component fails | `TaskExecutor._cleanup_resources()` iterates all registered components in a try/except per component |
+| INV-PLT-07 | `TaskStorage` is thread-safe via `RLock` | All public methods acquire `self._lock` before accessing shared state |
+| INV-PLT-09 | `PlatformConfig` validates all fields at construction time | Pydantic field validators check `apks_dir` existence, tool count, repetitions, timeouts, and log level |
+| INV-PLT-10 | Result processing only includes COMPLETED tasks | `ResultProcessorComponent` filters tasks by `TaskState.COMPLETED` before generating output |
+| INV-PLT-13 | Phase 3 executes within the emulator context manager | `TaskExecutor._execute_coordinated_components()` wraps Phase 3 in `EmulatorComponent.start_emulator()` context |
+
+### Specification Scenarios
+
+Scenarios from `openspec/specs/platform/spec.md` that validate this architecture:
+
+- **Successful Three-Phase Execution**: Traces through `TaskExecutor._execute_coordinated_components()` executing Phase 1 (StaticAnalysisComponent outside emulator), Phase 2 (CoverageComponent outside emulator), and Phase 3 (EmulatorComponent context manager -> install app -> LogcatComponent -> CoverageComponent tracking -> ToolExecutionComponent -> cleanup in reverse). Validates the Logical View component coordination and the Process View phase ordering.
+
+- **Resume With Same Configuration**: Traces through `Platform.run()` -> `TaskStorage.load()` (recovers completed tasks from `tasks.json`) -> `_skip_completed_tasks()` (identity-tuple matching) -> only remaining tasks execute -> `_process_results()` uses `TaskStorage.get_completed_tasks()` to include all sessions. Validates the persistent storage architecture and result consolidation across sessions.
+
+- **Component Execution Failure with Cleanup**: Traces through `TaskExecutor.execute()` where a component raises `TaskExecutionError` -> task state set to ERROR -> `_cleanup_resources()` calls `cleanup()` on all registered components regardless of which failed -> post-execution hooks called with `success=False`. Validates INV-PLT-06 enforcement.
 
 ## Key Architectural Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Application Type | CLI tool + Library | Supports both standalone execution via CLI and programmatic use by rv-experiment |
-| Structuring | Layered with components | Separates orchestration (Platform), execution coordination (TaskExecutor), and specialized concerns (components) |
-| Primary Pattern | Component-Based Architecture | Each execution concern (emulator, coverage, logcat, static analysis, tool invocation) is an independent component with a uniform lifecycle |
-| Control Strategy | Call-based, sequential | Platform drives task execution sequentially; TaskExecutor coordinates components in a fixed phase order |
-| Persistence | File-based JSON with atomic writes | TaskStorage uses atomic file operations for crash recovery and experiment resume without requiring a database |
-| Configuration | Pydantic validation | PlatformConfig validates all parameters at construction time, before any execution begins |
-| Tool Loading | Lazy registry with try/except | External tools (rvagent, rvsmart, aperv) register on import with graceful fallback if unavailable |
+| Application Type | CLI tool + library (dual interface) | Standalone CLI via `rv-platform run` for direct use; programmatic API via `Platform(config).run()` for rv-experiment integration |
+| Structuring | Component-based modular | Each execution concern (emulator, logcat, coverage, static analysis, tool) is an independent component with standardized lifecycle |
+| Primary Pattern | Component with lifecycle (initialize/execute/cleanup) | Task execution involves 5 orthogonal concerns with strict ordering requirements; components encapsulate each concern while the executor coordinates them |
+| Control Strategy | Call-based with phase coordination | `TaskExecutor` explicitly calls components in 3 phases; no event-driven dispatch because execution order is deterministic and critical |
+| Persistence Strategy | Atomic file operations with transactions | Experiments run for hours; atomic writes (temp + fsync + rename) prevent data loss on interruption; transactions enable batched updates |
+| Timeout Handling | Timeout as success | Testing tools run for a configured duration; timeout is the normal termination mechanism, not an error |
+| Static Analysis | Non-critical (graceful degradation) | Static analysis data enriches coverage tracking but is not required; execution continues without it to avoid blocking experiments due to analysis failures |
 
 ## Architectural Patterns
 
-### Pattern: Component-Based Execution
+### Pattern: Component Lifecycle
 
-**Description**: TaskExecutor registers pluggable components that each handle a specific execution concern. Components follow a three-phase lifecycle: `initialize()`, `execute()`, and `cleanup()`. The executor coordinates these phases in a fixed order, managing the emulator session boundary.
+**Description**: Each execution concern is encapsulated in a component implementing the `ITaskComponent` interface with three lifecycle methods: `initialize(context)`, `execute(context)`, and `cleanup(context)`. The `TaskExecutor` manages the lifecycle of all registered components.
 
-**Application**: Five component types exist: `StaticAnalysisComponent`, `EmulatorComponent`, `LogcatComponent`, `CoverageComponent`, and `ToolExecutionComponent`. The executor dispatches them in phases: static analysis and coverage initialization run outside the emulator session, while logcat, coverage tracking, and tool execution run inside the emulator context.
-
-**When Used**: Every task execution uses this pattern. The fixed component set and phase ordering ensure consistent behavior across all tools.
+**When Used**: Task execution involves 5 orthogonal concerns (static analysis, emulator, logcat, coverage, tool execution) that must execute in a specific phase order. Components enable adding new execution phases without modifying the executor.
 
 **Advantages**:
-- Each concern is isolated in its own component with clear boundaries
-- Component lifecycle (initialize/execute/cleanup) provides consistent resource management
-- Pre/post execution hooks enable extension without modifying core logic
+- Each component is self-contained and testable in isolation
+- Adding a new execution concern requires only implementing `ITaskComponent` and registering it
+- Cleanup is guaranteed for all components via the executor's cleanup loop
 
 **Disadvantages**:
-- The executor uses `isinstance` checks to identify component types, coupling it to concrete classes rather than the `ITaskComponent` interface
-- Component ordering is hardcoded in `_execute_coordinated_components`, not configurable
+- Phase assignment is based on string matching on component names, which is fragile
+- Components identified by name rather than type make the phase routing implicit
 
 ### Pattern: Facade
 
-**Description**: The `Platform` class provides a single `run()` entry point that hides the internal complexity of task generation, resume logic, execution coordination, and result processing.
+**Description**: `Platform` provides a single `run()` method that hides the complexity of task generation, resume detection, component registration, sequential execution, and result processing.
 
-**Application**: Both CLI and rv-experiment call `Platform(config).run()`. The method returns a summary dictionary. All internal orchestration is invisible to callers.
-
-**When Used**: All entry points to the platform use this pattern.
+**When Used**: Callers (rv-experiment, CLI) need a simple interface to execute experiments without managing internal orchestration details.
 
 **Advantages**:
-- Callers need only `PlatformConfig` and `Platform.run()` to execute experiments
-- Internal restructuring does not affect the external interface
+- Simple API for callers
+- Internal restructuring does not affect callers
 
 **Disadvantages**:
-- Limited control over individual phases from outside (e.g., cannot skip task generation programmatically beyond config flags)
+- `Platform.run()` is a long method coordinating multiple steps; understanding the full flow requires reading through it
 
-### Pattern: Factory + Registry
+### Pattern: Registry + Factory
 
-**Description**: `ToolFactory` creates configured tool instances from `ToolConfig` specifications. `ToolRegistry` maintains a catalog of available tools. External tools register themselves lazily on module import.
+**Description**: `ToolRegistry` (singleton) stores tool classes and their specifications. `ToolFactory` creates configured tool instances from `ToolConfig` by resolving the tool class from the registry, applying variant configuration, and calling `tool.configure()`.
 
-**Application**: `rv_platform/__init__.py` registers external tools (rvagent, rvsmart, aperv) into the shared `ToolRegistry` via try/except imports. During task execution, `Platform._load_tool()` uses `ToolFactory.create_tool(tool_config)` to instantiate the appropriate tool.
-
-**When Used**: Tool instantiation happens once per task in `_execute_tasks()`.
+**When Used**: The platform supports 8+ testing tools with multiple variants each. New tools can be registered at import time (e.g., rvagent-tool registers in rv-platform's `__init__.py`).
 
 **Advantages**:
-- New tools can be added without modifying platform code
-- Variant resolution and parameter merging are centralized in the factory
+- Tool discovery is automatic via import-time registration
+- Adding a new tool does not require modifying the platform code
 
 **Disadvantages**:
-- Lazy import registration in `__init__.py` creates an inverted layer dependency (L4 importing L5 tools)
+- Import-time side effects (tool registration in `__init__.py`) create an implicit dependency on module import order
 
 ---
 
@@ -73,15 +107,13 @@ rv-platform is the central execution engine for Android testing experiments in t
 
 | Entity | Responsibility |
 |--------|----------------|
-| `Platform` | Facade that orchestrates the full experiment workflow |
-| `TaskExecutor` | Coordinates component lifecycle for a single task |
-| `PlatformConfig` | Validated configuration schema for platform execution |
-| `TaskStorage` | Persistent task state with atomic writes and resume support |
-| `ExperimentMetadata` | Config checksum and metadata for experiment continuation |
-| `ITaskComponent` | ABC defining the component lifecycle contract (initialize/execute/cleanup) |
-| `ITaskExecutor` | ABC defining the task executor contract |
-| `ITaskStorage` | ABC defining the task persistence contract |
-| `ResultProcessorComponent` | Generates CSV/JSON output from completed tasks |
+| `Platform` | Facade orchestrating task generation, execution, resume, and result processing |
+| `TaskExecutor` | Coordinates component lifecycle across 3 execution phases |
+| `ITaskComponent` | Interface for pluggable execution components (initialize/execute/cleanup) |
+| `TaskStorage` | Persistent task state with atomic writes, transactions, and experiment metadata |
+| `PlatformConfig` | Validated experiment configuration (Pydantic model) |
+| `ExperimentMetadata` | Experiment identifier, start time, config checksum for resume validation |
+| `ResultProcessorComponent` | Generates CSV/JSON output from completed tasks across all sessions |
 
 ### Component Architecture
 
@@ -90,137 +122,46 @@ rv-platform is the central execution engine for Android testing experiments in t
 flowchart TB
     subgraph RVPlatform["rv-platform"]
         direction TB
-
-        subgraph EntryPoints["Entry Points"]
+        subgraph Facade["Facade Layer"]
             direction LR
-            CLI["__main__.py<br/>CLI Interface"]
-            PlatformNode["Platform<br/>Facade"]
+            PlatformCls["Platform"]
+            CLI["CLI (__main__)"]
         end
-
-        subgraph ConfigLayer["Configuration"]
+        subgraph Execution["Execution Layer"]
             direction LR
-            ConfigNode["PlatformConfig"]
-            ToolConfigNode["ToolConfig"]
+            Executor["TaskExecutor"]
         end
-
-        subgraph ExecutionLayer["Execution"]
+        subgraph Components["Component Layer"]
             direction LR
-            ExecutorNode["TaskExecutor"]
-            StorageNode["TaskStorage"]
+            SA["StaticAnalysis\nComponent"]
+            Cov["Coverage\nComponent"]
+            Emu["Emulator\nComponent"]
+            Log["Logcat\nComponent"]
+            Tool["ToolExecution\nComponent"]
+            Res["ResultProcessor\nComponent"]
+            Perf["Performance\nProcessor"]
         end
-
-        subgraph ComponentLayer["Components"]
+        subgraph Persistence["Persistence Layer"]
             direction LR
-            StaticNode["StaticAnalysis<br/>Component"]
-            EmulatorNode["Emulator<br/>Component"]
-            LogcatNode["Logcat<br/>Component"]
-            CoverageNode["Coverage<br/>Component"]
-            ToolExecNode["ToolExecution<br/>Component"]
-            ResultNode["ResultProcessor<br/>Component"]
+            Storage["TaskStorage"]
+            Meta["Experiment\nMetadata"]
         end
-
-        subgraph InterfaceLayer["Interfaces"]
-            ITaskComp["ITaskComponent"]
-            ITaskExec["ITaskExecutor"]
-            ITaskStore["ITaskStorage"]
+        subgraph ConfigSub["Configuration"]
+            PConfig["PlatformConfig"]
         end
     end
 
-    subgraph ExternalDeps["External Dependencies"]
-        direction LR
-        CoreNode["rv-android-core"]
-        ToolsNode["rv-tools"]
-        CovModule["rv-coverage"]
-        AnalysisModule["rv-static-analysis"]
-    end
-
-    CLI --> PlatformNode
-    PlatformNode --> ConfigNode
-    ConfigNode --> ToolConfigNode
-    PlatformNode --> ExecutorNode
-    PlatformNode --> StorageNode
-    PlatformNode --> ResultNode
-    ExecutorNode --> StorageNode
-    ExecutorNode --> StaticNode
-    ExecutorNode --> EmulatorNode
-    ExecutorNode --> LogcatNode
-    ExecutorNode --> CoverageNode
-    ExecutorNode --> ToolExecNode
-
-    StaticNode -.-> ITaskComp
-    EmulatorNode -.-> ITaskComp
-    LogcatNode -.-> ITaskComp
-    CoverageNode -.-> ITaskComp
-    ToolExecNode -.-> ITaskComp
-    ExecutorNode -.-> ITaskExec
-    StorageNode -.-> ITaskStore
-
-    PlatformNode --> CoreNode
-    PlatformNode --> ToolsNode
-    CoverageNode --> CovModule
-    StaticNode --> AnalysisModule
-```
-
-### Entity Relationships
-
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-classDiagram
-    class ITaskComponent {
-        <<abstract>>
-        +initialize(context) bool
-        +execute(context) bool
-        +cleanup(context) bool
-        +name str
-    }
-
-    class ITaskExecutor {
-        <<abstract>>
-        +execute() bool
-        +register_component(component)
-        +get_components() List
-        +set_error_handler(handler)
-        +get_task_context() Dict
-    }
-
-    class ITaskStorage {
-        <<abstract>>
-        +load() bool
-        +save() bool
-        +add_task(task)
-        +update_task(task)
-        +get_task(task_id) Optional
-        +get_tasks() List
-        +get_tasks_by_state(state) List
-        +get_pending_tasks() List
-    }
-
-    class TaskExecutor {
-        -components List
-        -pre_execution_hooks List
-        -post_execution_hooks List
-        +execute() bool
-        +register_component(component)
-        +add_pre_execution_hook(hook)
-        +add_post_execution_hook(hook)
-    }
-
-    class TaskStorage {
-        -experiment_metadata ExperimentMetadata
-        +load() bool
-        +save() bool
-        +get_completed_tasks() List
-        +check_continuation_compatibility(config) bool
-    }
-
-    ITaskExecutor <|.. TaskExecutor
-    ITaskStorage <|.. TaskStorage
-    ITaskComponent <|.. StaticAnalysisComponent
-    ITaskComponent <|.. EmulatorComponent
-    ITaskComponent <|.. LogcatComponent
-    ITaskComponent <|.. CoverageComponent
-    ITaskComponent <|.. ToolExecutionComponent
-    TaskExecutor o-- ITaskComponent : registers
+    CLI --> PlatformCls
+    PlatformCls --> Executor
+    PlatformCls --> Storage
+    PlatformCls --> Res
+    PlatformCls --> PConfig
+    Executor --> SA
+    Executor --> Cov
+    Executor --> Emu
+    Executor --> Log
+    Executor --> Tool
+    Storage --> Meta
 ```
 
 ---
@@ -231,36 +172,32 @@ classDiagram
 
 ```
 modules/rv-platform/
-├── src/rv_platform/
-│   ├── __init__.py              # External tool registration (rvagent, rvsmart, aperv)
-│   ├── __main__.py              # CLI entry point (run, list-tools, validate-config)
-│   ├── platform.py              # Platform facade — task generation, execution, results
-│   ├── config/
-│   │   └── platform_config.py   # PlatformConfig (Pydantic model)
-│   ├── execution/
-│   │   └── executor.py          # TaskExecutor — component coordination
-│   ├── components/
-│   │   ├── coverage.py          # Coverage tracker lifecycle
-│   │   ├── emulator.py          # Emulator startup, app install, port allocation
-│   │   ├── logcat.py            # Logcat capture and filtering
-│   │   ├── performance_processor.py  # Timing CSV generation
-│   │   ├── result_processor.py  # CSV/JSON result generation
-│   │   ├── static_analysis.py   # Static analysis data loading
-│   │   └── tool_execution.py    # Tool invocation wrapper
-│   ├── interfaces/
-│   │   └── task_interfaces.py   # ITaskComponent, ITaskExecutor, ITaskStorage (ABCs)
-│   └── storage/
-│       └── task_storage.py      # Persistent storage with transactions
+├── src/
+│   └── rv_platform/
+│       ├── __init__.py              # External tool registration
+│       ├── __main__.py              # CLI entry point (run, list-tools, validate-config)
+│       ├── platform.py              # Platform facade
+│       ├── config/
+│       │   └── platform_config.py   # PlatformConfig (Pydantic)
+│       ├── execution/
+│       │   └── executor.py          # TaskExecutor
+│       ├── components/
+│       │   ├── emulator.py          # EmulatorComponent
+│       │   ├── logcat.py            # LogcatComponent
+│       │   ├── coverage.py          # CoverageComponent
+│       │   ├── static_analysis.py   # StaticAnalysisComponent
+│       │   ├── tool_execution.py    # ToolExecutionComponent
+│       │   ├── result_processor.py  # ResultProcessorComponent
+│       │   └── performance_processor.py  # PerformanceProcessorComponent
+│       ├── interfaces/
+│       │   └── task_interfaces.py   # ITaskComponent, ITaskExecutor, ITaskStorage
+│       └── storage/
+│           └── task_storage.py      # TaskStorage + ExperimentMetadata
 ├── tests/
 │   ├── components/
-│   │   └── test_tool_execution.py
 │   ├── config/
-│   │   └── test_platform_config.py
 │   ├── execution/
-│   │   ├── test_executor.py
-│   │   └── test_resume.py
 │   └── manual_tests/
-│       └── debug_executor.py
 └── pyproject.toml
 ```
 
@@ -269,141 +206,99 @@ modules/rv-platform/
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    subgraph PlatformPkg["rv-platform packages"]
-        direction TB
-        InitModule["__init__.py<br/>(tool registration)"]
-        MainModule["__main__.py<br/>(CLI)"]
-        PlatformModule["platform.py<br/>(facade)"]
-
-        subgraph ConfigPkg["config/"]
-            PlatformConfigModule["platform_config"]
-        end
-
-        subgraph ExecPkg["execution/"]
-            ExecutorModule["executor"]
-        end
-
-        subgraph CompPkg["components/"]
-            StaticComp["static_analysis"]
-            EmulatorComp["emulator"]
-            LogcatComp["logcat"]
-            CoverageComp["coverage"]
-            ToolExecComp["tool_execution"]
-            ResultComp["result_processor"]
-            PerfComp["performance_processor"]
-        end
-
-        subgraph InterfacesPkg["interfaces/"]
-            TaskInterfaces["task_interfaces"]
-        end
-
-        subgraph StoragePkg["storage/"]
-            TaskStorageModule["task_storage"]
-        end
+    subgraph FacadeLayer["Facade"]
+        PlatformPkg["platform.py"]
+        CLIPkg["__main__.py"]
+    end
+    subgraph ExecutionLayer["Execution"]
+        ExecutorPkg["executor.py"]
+    end
+    subgraph ComponentLayer["Components"]
+        CompPkg["emulator / logcat / coverage\nstatic_analysis / tool_execution\nresult_processor / performance_processor"]
+    end
+    subgraph PersistenceLayer["Persistence"]
+        StoragePkg["task_storage.py"]
+    end
+    subgraph ConfigSub2["Configuration"]
+        ConfigPkg["platform_config.py"]
+    end
+    subgraph InterfaceLayer["Interfaces"]
+        InterfacePkg["task_interfaces.py"]
     end
 
-    MainModule --> PlatformModule
-    PlatformModule --> PlatformConfigModule
-    PlatformModule --> ExecutorModule
-    PlatformModule --> CompPkg
-    PlatformModule --> TaskStorageModule
-    ExecutorModule --> CompPkg
-    ExecutorModule --> TaskStorageModule
+    CLIPkg --> PlatformPkg
+    PlatformPkg --> ExecutorPkg
+    PlatformPkg --> StoragePkg
+    PlatformPkg --> ConfigPkg
+    PlatformPkg --> CompPkg
+    ExecutorPkg --> CompPkg
+    ExecutorPkg --> StoragePkg
+    CompPkg -.->|follows contract| InterfacePkg
 ```
-
-### Build Dependencies
-
-| Dependency | Type | Purpose |
-|------------|------|---------|
-| rv-android-core | Internal (workspace) | Domain models (Task, App, ToolConfig, TaskState), ErrorHandler, LoggingManager |
-| rv-tools | Internal (workspace) | ToolFactory, ToolRegistry for tool creation and discovery |
-| rv-coverage | Internal (workspace) | CoverageTracker, logcat_parser for coverage analysis |
-| rv-static-analysis | Internal (workspace) | StaticAnalysisParser for loading GATOR analysis data |
-| rvagent-tool | Internal (workspace) | RVAgentTool (registered lazily on import) |
-| pydantic | External (>=2.9.0) | Configuration validation and serialization |
-| pandas | External (>=2.3.1) | Data processing for result generation |
 
 ---
 
 ## Process View
 
-rv-platform executes tasks sequentially (one task at a time). The primary concurrency boundary is between the host machine (Python orchestration) and the Android emulator (app execution). Within a single task, the process view captures how components coordinate around the emulator session.
+The process view is relevant because rv-platform manages concurrent concerns during task execution: emulator lifecycle, background logcat capture, real-time coverage tracking, and tool execution.
 
-### Task Execution Flow
+### Execution Flow
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 sequenceDiagram
     participant P as Platform
+    participant TS as TaskStorage
     participant TE as TaskExecutor
-    participant SA as StaticAnalysis
-    participant CC as Coverage
-    participant EC as Emulator
-    participant LC as Logcat
-    participant TC as ToolExecution
-    participant TS as TaskStorage
-
-    P->>TE: execute()
-    Note over TE: Phase 1: Outside Emulator
-    TE->>SA: execute(context)
-    SA-->>TE: static data loaded
-    TE->>CC: execute(context)
-    CC-->>TE: coverage initialized
-
-    Note over TE: Phase 2: Emulator Session
-    TE->>EC: start_emulator("RVSec")
-    EC-->>TE: android interface
-    TE->>EC: install_app(android, app)
-    TE->>LC: start_capture()
-    TE->>CC: start_tracking()
-
-    Note over TE: Phase 3: Tool Execution
-    TE->>TC: execute(context)
-    Note over TC: Tool runs until<br/>timeout (expected)
-    TC-->>TE: execution complete
-
-    Note over TE: Phase 4: Cleanup
-    TE->>CC: stop_tracking()
-    TE->>CC: process_results()
-    TE->>LC: stop_capture()
-    TE->>TE: cleanup_components()
-    TE-->>P: success/failure
-
-    P->>TS: update_task(task)
-    Note over TS: Atomic write to<br/>tasks.json
-```
-
-### Experiment Resume Flow
-
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-sequenceDiagram
-    participant P as Platform
-    participant TS as TaskStorage
-    participant RP as ResultProcessor
+    participant SA as StaticAnalysisComp
+    participant CC as CoverageComp
+    participant EC as EmulatorComp
+    participant LC as LogcatComp
+    participant TC as ToolExecutionComp
 
     P->>P: _generate_tasks()
-    Note over P: All APK x tool x rep x timeout<br/>combinations generated
-
-    P->>TS: set_experiment_metadata(checksum)
-    P->>TS: get_completed_tasks()
-    TS-->>P: previously completed tasks
-
+    P->>TS: load() [recover previous state]
     P->>P: _skip_completed_tasks()
-    Note over P: Match by (apk_name, tool, variant,<br/>rep, timeout) identity tuple.<br/>Store _skipped_count
 
     loop For each remaining task
-        P->>P: _execute_tasks()
-        P->>TS: update_task(task)
+        P->>TE: execute(task)
+        Note over TE: Phase 1 (no emulator)
+        TE->>SA: execute(context)
+        SA-->>TE: True (data loaded or skipped)
+
+        Note over TE: Phase 2 (no emulator)
+        TE->>CC: execute(context)
+        CC-->>TE: True (tracker initialized)
+
+        Note over TE: Phase 3 (emulator session)
+        TE->>EC: start_emulator("RVSec")
+        EC-->>TE: context manager entered
+        TE->>EC: install_app()
+        TE->>LC: start_capture()
+        TE->>CC: start_tracking()
+        TE->>TC: execute(context)
+        Note over TC: Tool runs for timeout duration
+        TC-->>TE: True (success or timeout)
+        TE->>CC: stop_tracking()
+        TE->>CC: process_results()
+        TE->>LC: stop_capture()
+        Note over TE: Emulator context exits
+
+        TE->>TE: _cleanup_resources()
+        TE-->>P: success/failure
+        P->>TS: update_task() [atomic write]
     end
 
-    P->>TS: get_completed_tasks()
-    Note over TS: Returns ALL completed tasks<br/>(previous + current sessions)
-    TS-->>P: all completed tasks
-
-    P->>RP: execute(all_completed)
-    Note over RP: Generates unified CSV/JSON<br/>across all sessions
+    P->>P: _process_results()
+    P->>TS: get_completed_tasks() [all sessions]
 ```
+
+### Concurrency Model
+
+- **Sequential task execution**: Tasks are executed one at a time (parallel execution is a future feature controlled by `max_parallel_tasks`, currently defaulting to 1)
+- **Background logcat capture**: `LogcatManager` starts a background process that writes logcat output to a file on disk
+- **Background coverage tracking**: `CoverageTracker` runs a background thread monitoring the logcat file for `RVSEC-COV` entries, publishing `COVERAGE_UPDATED` events to the EventBus
+- **Thread-safe storage**: `TaskStorage` uses `RLock` for all public methods (INV-PLT-07), supporting concurrent reads from the coverage tracking thread and writes from the main execution thread
 
 ---
 
@@ -411,148 +306,96 @@ sequenceDiagram
 
 ### Platform
 
-**Purpose**: Facade that provides the `run()` entry point for experiment execution. Handles APK discovery, task generation, resume logic, execution dispatch, and result processing.
+**Purpose**: Facade that orchestrates the entire experiment lifecycle: APK discovery, task generation, resume detection, sequential task execution, and result processing.
 
 **Location**: `src/rv_platform/platform.py`
 
 **Key Classes**:
-- `Platform`: Discovers APKs, generates tasks, coordinates execution, processes results
-
-**Key Responsibilities**:
-- Discovers APK files in the configured directory (with optional filter file)
-- Generates task combinations from APKs, tools, repetitions, and timeouts
-- Skips previously completed tasks by matching identity tuples against TaskStorage
-- Dispatches each task to a fresh TaskExecutor with registered components
-- Triggers result processing via ResultProcessorComponent after all tasks complete
+- `Platform`: Main entry point with `run()` method returning an execution summary dict
 
 **Dependencies**:
-- Internal: TaskExecutor, TaskStorage, PlatformConfig, all components, ToolFactory
-- External: rv-android-core (Task, App, TaskFactory, ErrorHandler)
+- Internal: `TaskExecutor`, `TaskStorage`, `PlatformConfig`, all component classes
+- External: `ToolFactory` (rv-tools), `Task`/`App`/`TaskFactory` (rv-android-core)
 
 ### TaskExecutor
 
-**Purpose**: Coordinates the component lifecycle for a single task execution. Manages the phased ordering of components and the emulator session boundary.
+**Purpose**: Coordinates the 3-phase component execution lifecycle for a single task. Manages component registration, phase assignment (by component name), and guaranteed cleanup.
 
 **Location**: `src/rv_platform/execution/executor.py`
 
 **Key Classes**:
-- `TaskExecutor`: Coordinates component execution with lifecycle management
-
-**Key Responsibilities**:
-- Maintains a component registry and executes components in three phases
-- Manages the emulator session as a context manager (Phase 2-3)
-- Handles pre/post execution hooks for extensibility
-- Performs cleanup of all components on both success and failure paths
+- `TaskExecutor`: Registers components, executes them in coordinated phases, manages pre/post execution hooks
 
 **Dependencies**:
-- Internal: All five component types (by concrete class), TaskStorage
-- External: rv-android-core (Task, TaskState, AbstractTool, ErrorHandler)
+- Internal: `ITaskComponent` implementations, `TaskStorage`
+- External: `ErrorHandler` (rv-android-core)
+
+### EmulatorComponent
+
+**Purpose**: Manages the Android emulator lifecycle during task execution. Starts the emulator with a named AVD, installs the APK under test, and ensures cleanup on exit via context manager.
+
+**Location**: `src/rv_platform/components/emulator.py`
+
+**Key Classes**:
+- `EmulatorComponent`: Implements `ITaskComponent`; delegates to `EmulatorManager` from rv-android-core
+
+**Dependencies**:
+- External: `EmulatorManager` (rv-android-core)
 
 ### TaskStorage
 
-**Purpose**: Persistent task state with atomic file operations, enabling experiment resume and crash recovery.
+**Purpose**: Provides persistent task state with atomic file operations, thread safety, transaction support, and experiment metadata for resume validation.
 
 **Location**: `src/rv_platform/storage/task_storage.py`
 
 **Key Classes**:
-- `TaskStorage`: Thread-safe storage with transaction support
-- `ExperimentMetadata`: Minimal runtime metadata for continuation
-- `ExperimentStatistics`: Calculated statistics from task data
-
-**Key Responsibilities**:
-- Persists task state to `tasks.json` with atomic writes (write-to-temp then rename)
-- Stores `ExperimentMetadata` with config checksum for continuation compatibility checks
-- Provides filtering by task state (completed, pending, error)
-- Preserves `coverage_metrics` in serialized form for resume reconstruction
+- `TaskStorage`: Thread-safe persistent storage with atomic save (temp + fsync + rename)
+- `ExperimentMetadata`: Experiment ID, start time, SHA-256 config checksum
+- `StorageConfig`: Storage behavior configuration (auto-save, compression, backup count)
+- `ExperimentStatistics`: Computed metrics (completion percentage, average execution time)
 
 **Dependencies**:
-- External: rv-android-core (Task, TaskFactory, TaskState)
-
-### PlatformConfig
-
-**Purpose**: Validated configuration schema for platform execution parameters.
-
-**Location**: `src/rv_platform/config/platform_config.py`
-
-**Key Classes**:
-- `PlatformConfig`: Pydantic model with field validators
-
-**Key Responsibilities**:
-- Validates all configuration fields at construction time via Pydantic field validators
-- Supports loading from and saving to JSON files
-- Calculates total expected task count from configuration
-- Validates that the APKs directory exists and contains APK files
-
-**Dependencies**:
-- External: rv-android-core (ToolConfig, BaseValidatedModel), pydantic
+- External: `TaskFactory` (rv-android-core) for task deserialization
 
 ### ResultProcessorComponent
 
-**Purpose**: Generates standardized CSV/JSON output files from completed tasks.
+**Purpose**: Generates the 5 standardized output files (CSV/JSON) from completed tasks. Handles result consolidation across sessions by re-reading logcat files for MOP violation reconstruction when `task.repository` is `None` (tasks loaded from `tasks.json`).
 
 **Location**: `src/rv_platform/components/result_processor.py`
 
-**Key Responsibilities**:
-- Produces `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, and `performance.csv`
-- Reconstructs MOP violation data from persisted logcat files for resumed tasks (since in-memory `LogcatRepository` is not serialized)
-- Falls back to serialized `coverage_metrics` when per-method coverage data cannot be reconstructed
+**Key Classes**:
+- `ResultProcessorComponent`: Implements `ITaskComponent`; uses `ErrorHandler` per file generation for fault isolation
 
 **Dependencies**:
-- External: rv-coverage (logcat_parser), pandas
-
-### EmulatorComponent
-
-**Purpose**: Manages Android emulator lifecycle including startup, app installation, and port allocation.
-
-**Location**: `src/rv_platform/components/emulator.py`
-
-**Key Responsibilities**:
-- Emulator startup with context manager pattern for proper resource cleanup
-- Dynamic port allocation for parallel execution scenarios
-- App installation on target device, raising `EmulatorError` on failure
-
-**Dependencies**:
-- External: rv-android-core (EmulatorManager, App)
-
-### CoverageComponent
-
-**Purpose**: Coverage tracker initialization and result processing.
-
-**Location**: `src/rv_platform/components/coverage.py`
-
-**Key Responsibilities**:
-- CoverageTracker initialization and configuration
-- Real-time coverage tracking during tool execution via `RVSEC-COV` logcat entries
-- Post-execution coverage data processing
-
-**Dependencies**:
-- External: rv-coverage (CoverageTracker, logcat_parser)
+- External: `parse_logcat_file` (rv-coverage) for MOP violation reconstruction, `pandas` for CSV operations
 
 ### ToolExecutionComponent
 
-**Purpose**: Tool invocation and result processing.
+**Purpose**: Invokes the configured testing tool and handles the timeout-as-success semantic. Catches `RVToolTimeoutError` (returns `True`) and `RVToolExecutionError` (returns `False`).
 
 **Location**: `src/rv_platform/components/tool_execution.py`
 
-**Key Responsibilities**:
-- Tool invocation through AbstractTool interface
-- Timeout handling (tool timeouts are treated as successful completion)
-- Process cleanup after execution
+**Key Classes**:
+- `ToolExecutionComponent`: Implements `ITaskComponent`; delegates to `AbstractTool.execute()`
 
 **Dependencies**:
-- External: rv-android-core (AbstractTool)
+- External: `AbstractTool` (rv-android-core)
 
 ---
 
 ## NFR Support
 
-| NFR | Priority | Architectural Support |
-|-----|----------|----------------------|
-| Reliability | P0 | Atomic task persistence via TaskStorage ensures no data loss on crashes. Each task is saved immediately after completion. Experiment resume reconstructs state from `tasks.json`. |
-| Maintainability | P0 | Component-based architecture isolates concerns. Each component is self-contained with a clear lifecycle. Adding a new component requires implementing the three-phase contract (initialize/execute/cleanup). |
-| Extensibility | P1 | Tool plugin system via ToolRegistry/ToolFactory allows new tools without platform changes. Pre/post execution hooks on TaskExecutor enable monitoring integration. |
-| Performance | P1 | Static analysis and coverage initialization run outside the emulator session (Phase 1-2), reducing emulator uptime per task. Sequential execution avoids resource contention on single-machine setups. |
-| Reproducibility | P1 | PlatformConfig captures all parameters. ExperimentMetadata stores config checksum. Deterministic task generation from configuration ensures identical task sets across runs. |
+How the architecture supports non-functional requirements from `docs/PRD.md` Section 7.
+
+| NFR | PRD ID | Priority | Architectural Support |
+|-----|--------|----------|----------------------|
+| Modularity | NFR01 | P0 | rv-platform is one of 14 uv workspace modules; internally organized into 4 packages (components, execution, storage, config) with clear boundaries |
+| Extensibility | NFR02 | P0 | `ITaskComponent` interface allows adding new execution phases; `ToolRegistry`/`ToolFactory` enable adding new tools without modifying platform code; pre/post execution hooks for cross-cutting behavior |
+| Testability | NFR03 | P1 | Components are independently testable; `PlatformConfig` validates at construction; interfaces define clear contracts; test directories mirror source structure |
+| Resilience | NFR04 | P1 | Tool timeouts treated as success (INV-PLT-04); static analysis is non-critical (INV-PLT-05); guaranteed component cleanup (INV-PLT-06); `ErrorHandler` decorators on all component methods |
+| Configurability | NFR05 | P1 | `PlatformConfig` (Pydantic) with field validators; CLI arguments; JSON config files; environment variable support for device ports |
+| Observability | NFR06 | P1 | `PerformanceMonitor` tracks execution timing; 5 CSV/JSON output files; structured logging throughout all components |
+| Reproducibility | NFR08 | P1 | Atomic `TaskStorage` with transactions; experiment resume via SHA-256 config checksum; deterministic task generation (sorted APK discovery, deterministic Cartesian product) |
 
 ---
 
@@ -562,213 +405,150 @@ sequenceDiagram
 
 ```python
 class ITaskComponent(ABC):
-    """Contract for task execution components."""
-
-    @abstractmethod
-    def initialize(self, context: Dict[str, Any]) -> bool: ...
-
-    @abstractmethod
-    def execute(self, context: Dict[str, Any]) -> bool: ...
-
-    @abstractmethod
-    def cleanup(self, context: Dict[str, Any]) -> bool: ...
+    """Interface for pluggable execution components with lifecycle management."""
 
     @property
-    @abstractmethod
-    def name(self) -> str: ...
-```
+    def name(self) -> str:
+        """Component name used for phase assignment."""
+        ...
 
-The `ITaskComponent` interface defines the lifecycle contract that all execution components follow. The `context` dictionary carries task-specific data (task_id, apk_name, tool_name, repetition, timeout) and is enriched during execution with runtime data (android interface, device_id).
+    def initialize(self, context: Dict[str, Any]) -> None:
+        """Prepare the component for execution."""
+        ...
+
+    def execute(self, context: Dict[str, Any]) -> bool:
+        """Execute the component's primary responsibility. Returns True on success."""
+        ...
+
+    def cleanup(self, context: Dict[str, Any]) -> None:
+        """Release resources. Called even if execute() fails."""
+        ...
+```
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 classDiagram
     class ITaskComponent {
         <<interface>>
-        +initialize(context)*
-        +execute(context)*
-        +cleanup(context)*
-        +name*
-    }
-
-    class StaticAnalysisComponent {
         +name: str
         +initialize(context)
-        +execute(context)
+        +execute(context) bool
         +cleanup(context)
     }
 
-    class EmulatorComponent {
-        +name: str
-        +initialize(context)
-        +execute(context)
-        +cleanup(context)
-        +start_emulator(avd_name)
-        +install_app(android, app)
+    class StaticAnalysisComp {
+        +name = "StaticAnalysis"
+        +execute(context) bool
     }
 
-    class CoverageComponent {
-        +name: str
-        +initialize(context)
-        +execute(context)
-        +cleanup(context)
+    class EmulatorComp {
+        +name = "Emulator"
+        +start_emulator(avd)
+        +install_app()
+    }
+
+    class LogcatComp {
+        +name = "Logcat"
+        +start_capture()
+        +stop_capture()
+    }
+
+    class CoverageComp {
+        +name = "Coverage"
         +start_tracking()
         +stop_tracking()
         +process_results()
     }
 
-    class ToolExecutionComponent {
-        +name: str
-        +initialize(context)
-        +execute(context)
-        +cleanup(context)
+    class ToolExecutionComp {
+        +name = "ToolExecution"
+        +execute(context) bool
     }
 
-    ITaskComponent <|.. StaticAnalysisComponent
-    ITaskComponent <|.. EmulatorComponent
-    ITaskComponent <|.. CoverageComponent
-    ITaskComponent <|.. ToolExecutionComponent
-```
+    class ResultProcessorComp {
+        +name = "ResultProcessor"
+        +execute(context) bool
+    }
 
-### ITaskStorage
-
-```python
-class ITaskStorage(ABC):
-    """Contract for task persistence providers."""
-
-    @abstractmethod
-    def load(self) -> bool: ...
-
-    @abstractmethod
-    def save(self) -> bool: ...
-
-    @abstractmethod
-    def add_task(self, task: Any) -> None: ...
-
-    @abstractmethod
-    def update_task(self, task: Any) -> None: ...
-
-    @abstractmethod
-    def get_task(self, task_id: str) -> Optional[Any]: ...
-
-    @abstractmethod
-    def get_tasks_by_state(self, state: 'TaskState') -> List[Any]: ...
-
-    @abstractmethod
-    def get_pending_tasks(self) -> List[Any]: ...
+    ITaskComponent <|.. StaticAnalysisComp
+    ITaskComponent <|.. EmulatorComp
+    ITaskComponent <|.. LogcatComp
+    ITaskComponent <|.. CoverageComp
+    ITaskComponent <|.. ToolExecutionComp
+    ITaskComponent <|.. ResultProcessorComp
 ```
 
 ---
 
 ## Scenarios
 
-### Scenario 1: Execute Experiment with Resume
+### Scenario 1: Execute a Single-Tool Experiment
 
-**Description**: A user runs an experiment that is interrupted after completing 5 of 10 tasks. The user re-runs the same command to complete the remaining tasks.
-
-**Flow**:
-1. User runs `rv-platform run --tools monkey --apks-dir ./apks --repetitions 2`
-2. Platform generates 10 tasks (5 APKs x 1 tool x 2 repetitions)
-3. TaskStorage loads `tasks.json` from the results directory
-4. `_skip_completed_tasks()` finds 5 completed tasks matching by identity tuple `(apk_name, tool_name, variant, repetition, timeout)` and removes them from the execution list, storing `_skipped_count = 5`
-5. Platform executes the remaining 5 tasks, saving each atomically to TaskStorage
-6. `_process_results()` calls `task_storage.get_completed_tasks()` to retrieve all 10 completed tasks (5 from previous + 5 from current session)
-7. ResultProcessorComponent generates unified CSV/JSON covering all 10 tasks
-8. Summary reports 5 executed + 5 skipped
-
-### Scenario 2: Task Execution with Coverage Tracking
-
-**Description**: A single task executes with full coverage tracking, producing per-method coverage data.
+**Description**: A researcher runs an experiment with one tool (Monkey) on 2 APKs with 1 repetition and a 300-second timeout.
 
 **Flow**:
-1. TaskExecutor initializes all registered components
-2. Phase 1: StaticAnalysisComponent loads GATOR analysis data (reachable methods, WTG) from the APKs directory
-3. Phase 2: CoverageComponent initializes the coverage tracker with static analysis data as the coverage denominator
-4. Phase 3: EmulatorComponent starts the emulator and installs the APK
-5. LogcatComponent begins capturing device logs
-6. CoverageComponent starts tracking `RVSEC-COV` log entries
-7. ToolExecutionComponent invokes the tool (e.g., monkey), which runs until timeout
-8. CoverageComponent stops tracking and processes results (per-method coverage metrics)
-9. LogcatComponent stops capture and saves the logcat file
-10. All components clean up; task is marked COMPLETED
+1. CLI parses arguments into `PlatformConfig` with `tools=[ToolConfig(name="monkey", variant="default")]`, `repetitions=1`, `timeouts=[300]`
+2. `Platform._discover_apks()` finds 2 APK files in `apks_dir` (sorted alphabetically)
+3. `Platform._generate_tasks()` produces 2 tasks (2 APKs x 1 tool x 1 rep x 1 timeout)
+4. `Platform._skip_completed_tasks()` finds no previous tasks (first run)
+5. For each task, `Platform` creates a `TaskExecutor`, registers 5 components, and calls `execute()`
+6. `TaskExecutor._execute_coordinated_components()` runs Phase 1 (static analysis), Phase 2 (coverage init), Phase 3 (emulator session with tool execution for 300 seconds)
+7. `ToolExecutionComponent` catches `RVToolTimeoutError` after 300 seconds and returns `True`
+8. `TaskStorage.update_task()` persists the completed task atomically
+9. After both tasks complete, `Platform._process_results()` generates 5 output files from all completed tasks
 
-### Scenario 3: Tool Timeout (Expected Behavior)
+### Scenario 2: Resume an Interrupted Experiment
 
-**Description**: A tool execution exceeds its configured timeout. Timeouts are treated as successful completion because tools are expected to run for the full allocated time.
-
-**Flow**:
-1. ToolExecutionComponent invokes the tool with configured timeout
-2. Tool raises `RVToolTimeoutError` after the timeout period
-3. Platform's `_extract_meaningful_error_message()` recognizes `RVToolTimeoutError` and produces a message: `"tool_name execution timed out after N seconds (expected behavior)"`
-4. The error message is stored in the task result, but the task is recorded with its collected coverage data
-5. Execution continues to the next task
-
-### Scenario 4: MOP Violation Reconstruction on Resume
-
-**Description**: During result processing after a resumed experiment, tasks loaded from `tasks.json` lack the in-memory `LogcatRepository` (it is not serialized). The result processor reconstructs violation data from persisted logcat files.
+**Description**: An experiment with 10 tasks was interrupted after completing 6. The researcher re-runs the same command.
 
 **Flow**:
-1. `_process_results()` retrieves all completed tasks from TaskStorage
-2. For each resumed task, `task.repository` is `None`
-3. `_write_task_error_data()` detects the missing repository and calls `parse_logcat_file(task.result.logcat_file)` from rv-coverage to reconstruct a `LogcatRepository`
-4. Reconstructed violations are written to `errors.csv`
-5. `_write_task_coverage_data()` cannot reconstruct per-method data (requires static analysis class list), so it writes a single summary row using `task.result.coverage_metrics` from `tasks.json`
+1. `Platform._generate_tasks()` produces the same 10 tasks
+2. `TaskStorage.load()` reads `tasks.json` and recovers 6 completed tasks
+3. `Platform._skip_completed_tasks()` matches task identities (apk, tool, variant, rep, timeout) and removes 6 tasks from the execution list; stores `_skipped_count = 6`
+4. Only 4 remaining tasks are executed through the normal component lifecycle
+5. `Platform._process_results()` calls `TaskStorage.get_completed_tasks()` which returns all 10 completed tasks (6 from previous session + 4 from current session)
+6. `ResultProcessorComponent` generates output files covering all 10 tasks, using logcat re-reading (`parse_logcat_file()`) for MOP violation reconstruction on the 6 previously completed tasks
+7. Execution summary reports "4 executed, 6 skipped from previous runs"
 
 ---
 
 ## Extension Points
 
-- **New Tools**: Register a new tool class in `ToolRegistry` (either in `__init__.py` or via the tool's own module). The tool must extend `AbstractTool` from rv-android-core. No platform code changes required.
-- **Custom Components**: Implement `ITaskComponent` to add new execution phases. Register via `TaskExecutor.register_component()`.
-- **Storage Backends**: Implement `ITaskStorage` for alternative storage mechanisms (database, cloud storage).
-- **Execution Hooks**: Use `TaskExecutor.add_pre_execution_hook()` and `add_post_execution_hook()` to inject custom logic before/after task execution.
-- **Configuration**: `PlatformConfig` accepts additional parameters through Pydantic field definitions. New fields with defaults maintain backward compatibility with existing config files.
+- **New testing tools**: Implement `AbstractTool` (from rv-android-core), register via `ToolRegistry.register_tool()` at import time. The platform discovers and executes the tool without any modifications.
+- **New execution components**: Implement `ITaskComponent`, register with `TaskExecutor.register_component()`. Phase assignment is based on the component's `name` property.
+- **Pre/post execution hooks**: Register via `TaskExecutor.add_pre_execution_hook()` and `add_post_execution_hook()` for cross-cutting behavior (used by rv-experiment for event publishing).
+- **Custom result processing**: `ResultProcessorComponent` can be subclassed or replaced to generate additional output formats.
 
 ## Dependencies
 
 ### Internal (rv-android modules)
 
-| Module | Layer | Purpose |
-|--------|-------|---------|
-| rv-android-core | L1 | Domain models (Task, App, ToolConfig, TaskState), ErrorHandler, LoggingManager |
-| rv-tools | L2 | ToolFactory, ToolRegistry for tool creation and discovery |
-| rv-coverage | L3 | CoverageTracker, logcat_parser for coverage analysis |
-| rv-static-analysis | L3 | StaticAnalysisParser for loading GATOR analysis data |
-| rvagent-tool | L5 | RVAgentTool (lazily registered on import) |
-| rvsmart-tool | L5 | RVSmartTool (lazily registered on import, undeclared in pyproject.toml) |
-| aperv-tool | L5 | ApeRVTool (lazily registered on import) |
+| Module | Purpose |
+|--------|---------|
+| rv-android-core | Domain models (Task, App, TaskFactory, ToolConfig, TaskState), ErrorHandler, LoggingManager, EmulatorManager, LogcatManager, PerformanceMonitor |
+| rv-tools | ToolFactory and ToolRegistry for resolving tool names/variants to configured tool instances |
+| rv-coverage | CoverageTracker for real-time method coverage tracking; `parse_logcat_file()` for MOP violation reconstruction on resume |
+| rv-static-analysis | `static_analysis_parser` for loading GATOR/GESDA/REACH data files |
+| rvagent-tool | RVAgentTool registered at import time via `__init__.py` (runtime discovery only) |
 
 ### External
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| pydantic | >=2.9.0 | Configuration validation and serialization |
-| pandas | >=2.3.1 | Data processing for result generation |
+| pydantic | ^2.9.0 | Configuration validation and serialization (PlatformConfig, ExperimentMetadata, StorageConfig) |
+| pandas | ^2.3.1 | Data processing for CSV output generation |
 
 ## Testing Strategy
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/config/test_platform_config.py | PlatformConfig validation rules |
-| Unit | tests/execution/test_executor.py | TaskExecutor component coordination |
-| Unit | tests/execution/test_resume.py | Resume and result consolidation (17 test cases) |
-| Unit | tests/components/test_tool_execution.py | Tool invocation component |
-| Manual | tests/manual_tests/debug_executor.py | Interactive debugging of executor flow |
-
-## Output Files
-
-| File | Description |
-|------|-------------|
-| `coverage.csv` | Per-method coverage data with timing and progressive metrics |
-| `errors.csv` | Monitored operations violations with timing and context |
-| `summary.csv` | Aggregate metrics per task (activities, methods, MOP coverage, errors) |
-| `results.json` | Hierarchical JSON with complete experiment data |
-| `performance.csv` | Task execution timing and performance metrics |
-| `tasks.json` | Task state persistence for experiment continuation (includes ExperimentMetadata with config_checksum and per-task coverage_metrics) |
+| Unit | tests/components/ | Isolated component tests (e.g., ToolExecutionComponent timeout handling) |
+| Unit | tests/config/ | PlatformConfig validation tests |
+| Unit | tests/execution/ | TaskExecutor lifecycle and resume logic tests |
+| Manual | tests/manual_tests/ | Debug scripts for executor behavior |
 
 ## Related Documentation
 
-- [CLAUDE.md](../CLAUDE.md) - Module-level quick reference for Claude Code
-- [Root CLAUDE.md](../../../CLAUDE.md) - Project-wide architecture and development guidelines
-- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR07-FR11, FR14 cover rv-platform)
-- [Platform Spec](../../../openspec/specs/platform/spec.md) - Domain specification for rv-platform
+- [Platform Domain Spec](../../../openspec/specs/platform/spec.md) - Requirements, invariants, and scenarios for this module
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR07-11, FR14, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Quick reference for Claude Code

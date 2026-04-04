@@ -23,8 +23,9 @@ declare -ra MODULES=(
     "rv-platform"               # Central execution platform for Android experiments
     "rv-agent"                  # LLM-driven agentic testing with LangGraph
     "rvagent-tool"              # RVAgent tool plugin for rv-tools registry
+    "aperv-tool"                # APE-RV tool plugin for rv-tools registry
     "rv-experiment"             # Experiment orchestration and coordination
-    "rv-agent-validation"       # Validation framework for rv-agent
+    "aperv-llm-validation"      # APE-RV LLM validation (temporary)
 )
 
 # Colors for output (with fallbacks for non-color terminals)
@@ -404,8 +405,9 @@ MODULES:
         rv-platform              Central execution platform for Android experiments
         rv-agent                 LLM-driven agentic testing with LangGraph
         rvagent-tool             RVAgent tool plugin for rv-tools registry
+        aperv-tool               APE-RV tool plugin for rv-tools registry
         rv-experiment            Experiment orchestration and coordination
-        rv-agent-validation      Validation framework for rv-agent
+        aperv-llm-validation     APE-RV LLM validation (temporary)
 
 EXAMPLES:
     ./test.sh                                       # Test all modules

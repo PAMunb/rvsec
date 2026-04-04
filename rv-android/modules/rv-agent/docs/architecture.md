@@ -1,328 +1,565 @@
-# RV-Agent Architecture
+# rv-agent Architecture
 
 ## Overview
 
-RV-Agent is an autonomous Android testing agent that combines vision-language models (Qwen3-VL via SGLang) with algorithmic exploration strategies to systematically explore Android applications. It uses LangGraph for workflow orchestration and supports three execution modes: pure algorithm, LLM-only, and multimode (hybrid).
+rv-agent is the LLM-driven testing module of RV-Android, implementing an autonomous Android application exploration agent. It combines vision-language model (Qwen3-VL) intelligence with algorithmic graph traversal strategies to explore Android applications running on an emulator, generating test inputs to maximize coverage of methods monitored by runtime verification specifications (MOP methods). The module uses LangGraph for workflow orchestration, a composite scoring system for action ranking, and five coordinated memory subsystems for exploration state management.
 
-The module serves as the primary LLM-driven testing component in the rv-android framework, enabling intelligent UI exploration that understands semantic context through visual analysis while maintaining coverage guarantees through algorithmic fallbacks.
+## Specification Alignment
 
-## Design Principles
+This module implements requirements from `openspec/specs/agent/spec.md`.
 
-- **Component-Based Architecture**: All dependencies injected via constructor, enabling testing and flexible composition
-- **Stateless LLM Context**: Fresh messages built each iteration (~2500 tokens) to prevent context overflow
-- **Hybrid Exploration**: Probabilistic mixing of LLM intelligence (70%) with algorithmic coverage (30%)
-- **Coordinate-Based Tracking**: Actions tracked by screen coordinates, not volatile UI element IDs
-- **Pre-Marking Execution**: Actions marked as executed before execution to prevent crash loops
-- **Continuous Exploration**: No "exhausted" state - explores until timeout using least-executed actions
+### Functional Requirements
 
-## Component Architecture
+| FR | Description | Architectural Support |
+|----|-------------|----------------------|
+| FR21 | LangGraph workflow with externalized nodes | `RVAgent._build_agent_graph()` compiles a `StateGraph` with 8 nodes in `agent/nodes/`; external timeout loop in `rv_agent.py` |
+| FR22 | Three execution modes (pure_algorithm, llm_only, multimode) | `RoutingManager.route_decision()` in `routing/routing_manager.py`; `RVAgentConfig.agent_mode` with env var override |
+| FR23 | UI parsing via UIAutomator XML + Screen Processor | `ScreenProcessor` in `services/screen_analyzer.py` coordinates `DeviceInterface`, rv-screen-parser, and MOP enrichment |
+| FR24 | Vision-based exploration via Qwen3-VL and SGLang | `LLMClient` in `llm/llm_client.py` with `ChatOpenAI`; hybrid tool call extraction in `llm/tools/tool_call_parser.py` |
+| FR25 | Probabilistic routing | `RoutingManager` uses `random.random() < llm_probability` for stochastic mode selection |
+| FR26 | Coverage-optimized DFS strategy | `RVAgentStrategy` in `strategies/rvagent_strategy/` with 5-tier action selection, proactive backtracking, and path buffer |
+| FR27 | Composite action ranking | `ActionRanker` in `strategies/rvagent_strategy/ranking/` with 9 registered scorers |
+| FR29 | Tarpit detection | `TarpitDetector` with configurable threshold and reset conditions |
+| FR32 | Validation error detection and recovery | `VisualErrorDetector` in `services/error_detection.py`; spatial association in `algorithm_node.py` |
+
+### Key Invariants
+
+| Invariant | Description | Enforcement Mechanism |
+|-----------|-------------|----------------------|
+| INV-AGT-01 | LLM client not None for LLM/multimode | `ValueError` raised in `RVAgent.__init__()` if `llm_client is None` and mode requires LLM |
+| INV-AGT-02 | Workflow has exactly 8 nodes with `parse_ui` entry | `_build_agent_graph()` hardcodes node registration and entry point |
+| INV-AGT-05 | Qwen3-VL [0,1000) coords converted to device pixels | `ActionNormalizer.from_llm()` in `domain/action.py` applies `int((x/1000) * device_dim)` |
+| INV-AGT-06 | Actions pre-marked before device execution | `DynamicStateGraph.mark_action_executed()` called before `ToolExecutor.execute()` |
+| INV-AGT-07 | Timeout is the only termination condition | External loop in `rv_agent.py` checks only `time.time() - start_time >= timeout` |
+| INV-AGT-08 | Stateless LLM context per iteration | `LLMClient._build_messages()` constructs fresh messages from summaries (~2500 tokens) |
+| INV-AGT-09 | Hybrid tool call extraction (native then fallback) | `LLMClient` checks `response.tool_calls` first, then `tool_call_parser.py` strategies |
+| INV-AGT-14 | Package filtering in strategy | `RVAgentStrategy` filters actions to target package, allowing `SYSTEM_DIALOG_PACKAGES` |
+| INV-AGT-16 | Coordinated memory updates | `MemoryCoordinator.update_memories()` updates all 5 systems; partial failures do not block others |
+
+### Specification Scenarios
+
+Scenarios from `openspec/specs/agent/spec.md` that validate this architecture:
+
+- **Workflow Builds Successfully**: Traces through `AgentFactory.create_agent()` -> `RVAgent.__init__()` -> `_build_agent_graph()`, validating that all 8 nodes are registered and the graph compiles without errors.
+- **External Loop Respects Timeout**: Traces through `RVAgent.run()` -> external `while` loop -> `graph.invoke()` -> timeout check. Validates INV-AGT-07.
+- **Form-First Action Sequencing (CryptoApp)**: Traces through `RVAgentStrategy.select_next_action()` Tier 2 (untested actions) -> MopScorer deferral for CLICK when SET_TEXT exists (INV-AGT-39) -> Tier 4 (scored continuous) with full MOP scoring -> valid MOP trigger after form fill. Validates FR26 and FR27 interaction.
+- **Pure Algorithm Fast Path**: Traces through `decision_router_node` -> `"algorithm"` routing -> `algorithm_node` directly, skipping `capture_screenshot_node` and `llm_generate_node`. Validates FR24 speed optimization.
+
+## Key Architectural Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Application Type | CLI tool + library (standalone and managed modes) | Supports both interactive development (`rv-agent run`) and automated execution (via rv-platform/rvagent-tool) |
+| Structuring | Modular with layered packages | Separates orchestration (agent/), strategies, LLM interaction, memory, routing, services, and domain models for independent evolution |
+| Primary Pattern | State Machine (LangGraph StateGraph) | Workflow orchestration with conditional branching (LLM vs algorithm path) fits the iterative exploration loop naturally |
+| Control Strategy | External timeout loop + internal state graph | External loop provides simple timeout enforcement; internal graph handles per-iteration sequencing with conditional edges |
+| Dependency Injection | Constructor injection via AgentFactory | All components are created in correct dependency order and injected via constructor; enables testing with mocks |
+| LLM Integration | OpenAI-compatible API via langchain-openai | SGLang serves Qwen3-VL with OpenAI-compatible endpoints; langchain provides tool binding and message formatting |
+| Action Selection | Composite scoring with 9 scorers | Balances multiple concerns (MOP priority, WTG navigation, coverage density, visitation decay) through weighted sum |
+| Memory Architecture | 5 specialized subsystems behind Facade | Each memory system tracks a different aspect (states, short-term, long-term, UI coverage, LLM context); MemoryCoordinator provides unified updates |
+
+## Architectural Patterns
+
+### Pattern: State Machine (LangGraph StateGraph)
+
+**Description**: The agent workflow is implemented as a directed graph of processing nodes. Each node receives the current `AgentState` TypedDict and returns state updates. LangGraph compiles the graph into an executable that handles node sequencing and conditional routing.
+
+**When Used**: Each iteration of exploration follows a fixed sequence of steps (parse, decide, act, learn) with one conditional branch (LLM vs algorithm path). The state machine pattern maps directly to this workflow.
+
+**Advantages**:
+- Clear visual representation of the exploration pipeline
+- Conditional edges enable mode-based routing without if/else chains in a monolithic function
+- Each node is an independently testable function
+
+**Disadvantages**:
+- Overhead of graph compilation and invocation for each iteration
+- `AgentState` TypedDict grows with new features (currently 20+ fields)
+
+### Pattern: Factory + Dependency Injection (AgentFactory)
+
+**Description**: `AgentFactory.create_agent()` instantiates all components in dependency order and wires them together via constructor injection. The factory is the single place where component creation and wiring logic resides.
+
+**When Used**: rv-agent has 15+ collaborating components with complex dependency relationships. The factory centralizes this wiring, preventing scattered construction logic and enabling test configurations with mocked dependencies.
+
+**Advantages**:
+- Single location for all dependency wiring
+- Components are decoupled from their creation
+- Test configurations can inject mocks at any level
+
+**Disadvantages**:
+- Factory method grows as components are added (~180 lines)
+
+### Pattern: Composite Scoring (ActionRanker)
+
+**Description**: `ActionRanker` maintains a list of 9 `Scorer` implementations. Each scorer evaluates one aspect of action priority (MOP relevance, WTG guidance, coverage density, visitation decay, etc.). Scores are summed to produce a final ranking.
+
+**When Used**: Action selection requires balancing multiple competing objectives. The composite pattern allows adding, removing, or reweighting scorers without changing the ranking infrastructure.
+
+**Advantages**:
+- Each scoring concern is isolated in its own class
+- Weights are configurable via `RVAgentConfig` for calibration experiments
+- New scoring dimensions can be added by implementing the `Scorer` ABC
+
+**Disadvantages**:
+- Score interactions can be non-obvious (e.g., MopScorer deferral logic for form-first sequencing)
+
+### Pattern: Strategy (ExplorationStrategy)
+
+**Description**: `ExplorationStrategy` is an abstract base class with a `select_next_action()` method. Four implementations exist: `DFSStrategy`, `BFSStrategy`, `GreedyStrategy`, and `RVAgentStrategy`. The `StrategyRegistry` maps string names to strategy classes.
+
+**When Used**: Different exploration algorithms can be selected via configuration. `RVAgentStrategy` is the default and most complex implementation, featuring a 5-tier action selection system.
+
+**Advantages**:
+- New strategies can be added without modifying existing code
+- Strategy selection via string name in configuration
+
+**Disadvantages**:
+- `RVAgentStrategy` at 679 SLOC is significantly more complex than alternatives
+
+### Pattern: Facade (MemoryCoordinator)
+
+**Description**: `MemoryCoordinator` provides a unified `update_memories()` method that updates all 5 memory subsystems (DynamicStateGraph, ShortTermMemory, LongTermMemory, UICoverageTracker, AgentMemoryManager) in a single call. Partial failures in one subsystem do not block updates to others.
+
+**When Used**: The `learn_node` needs to update all memory systems after each iteration. The facade prevents the node from knowing about each subsystem's update API.
+
+**Advantages**:
+- Single call to update all memory
+- Fault isolation between subsystems
+- Simplified interface for callers
+
+**Disadvantages**:
+- Coordinator must know about all subsystems (coupling at the facade level)
+
+---
+
+## Logical View
+
+Shows key domain entities and their relationships.
+
+### Domain Entities
+
+| Entity | Responsibility |
+|--------|----------------|
+| RVAgent | Main orchestrator: builds LangGraph workflow, runs external timeout loop, holds references to all components |
+| AgentState | TypedDict carrying all per-iteration state through LangGraph nodes (screen hash, activity, action, decision path) |
+| RVAgentConfig | Pydantic model with 24+ calibration parameters for mode, LLM settings, scorer weights, thresholds |
+| ScreenNode | Represents a unique UI state in DynamicStateGraph with action tracking, saturation metrics, and successor data |
+| ActionNormalizer | Converts between Qwen3-VL [0,1000) normalized coordinates and device pixel coordinates |
+| DynamicStateGraph | Graph of explored states and transitions using structural screen hashing |
+| RVAgentStrategy | 5-tier action selection: path buffer > untested > proactive backtrack > scored continuous > BACK |
+| ActionRanker | Composite scorer system summing 9 independent Scorer implementations |
+| LLMClient | Qwen3-VL interaction via SGLang with hybrid tool call extraction |
+| MemoryCoordinator | Facade coordinating 5 memory subsystems |
+| ScreenProcessor | Coordinates UI parsing, element formatting, and MOP enrichment |
+| RoutingManager | Mode-based probabilistic routing between LLM and algorithm paths |
+| TransitionManager | Integrates static WTG with runtime DynamicStateGraph |
+| NavigationGuidance | Provides navigation hints for both LLM prompts and algorithm scoring |
+
+### Component Architecture
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    subgraph External["External Dependencies"]
-        direction LR
-        Device["Android Device<br/>(via UIAutomator2)"]
-        SGLang["SGLang Server<br/>(Qwen3-VL)"]
-    end
-
-    subgraph RVAgent["RV-Agent Module"]
+    subgraph Agent["rv-agent"]
         direction TB
-
         subgraph Orchestration["Orchestration Layer"]
             direction LR
-            Agent["RVAgent<br/>(LangGraph Workflow)"]
-            Factory["AgentFactory<br/>(Dependency Injection)"]
+            CLI["CLI<br/>cli/main.py"]
+            Factory["AgentFactory<br/>agent/agent_factory.py"]
+            RVA["RVAgent<br/>agent/rv_agent.py"]
         end
-
         subgraph Workflow["Workflow Nodes"]
             direction LR
-            ParseNode["parse_node"]
-            DecisionNode["decision_node"]
-            AlgorithmNode["algorithm_node"]
-            CaptureNode["capture_node"]
-            LLMNode["llm_node"]
-            ValidateNode["validation_node"]
-            ExecuteNode["execute_node"]
-            LearnNode["learn_node"]
+            ParseNode["parse_ui"]
+            DecisionNode["decision_router"]
+            AlgoNode["algorithm_node"]
+            CaptureNode["capture_screenshot"]
+            LLMNode["llm_generate"]
+            ValidateNode["validate_action"]
+            ExecNode["execute"]
+            LearnNode["learn"]
         end
-
-        subgraph Core["Core Components"]
+        subgraph StrategyLayer["Strategy Layer"]
             direction LR
-            LLMClient["LLMClient<br/>(Vision LLM)"]
-            RoutingMgr["RoutingManager<br/>(Decision Routing)"]
-            ToolExec["ToolExecutor<br/>(Device Actions)"]
-            ScreenProc["ScreenProcessor<br/>(UI Parsing)"]
+            StratReg["StrategyRegistry"]
+            RVAStrat["RVAgentStrategy"]
+            Ranker["ActionRanker<br/>9 scorers"]
+            PathBuf["PathBuffer"]
+            SuccTrack["SuccessorTracker"]
         end
-
-        subgraph Strategy["Exploration Strategy"]
+        subgraph LLMLayer["LLM Layer"]
             direction LR
-            RVStrategy["RVAgentStrategy<br/>(Coverage-Optimized DFS)"]
-            ActionRanker["ActionRanker<br/>(Composite Scoring)"]
-            SuccTracker["SuccessorTracker"]
-            PlateauDet["PlateauDetector"]
+            LLMCli["LLMClient"]
+            ToolParser["ToolCallParser"]
+            Prompts["Prompt Templates<br/>v12-v17"]
         end
-
-        subgraph Memory["Memory Systems"]
+        subgraph MemLayer["Memory Layer"]
             direction LR
             MemCoord["MemoryCoordinator"]
-            DynGraph["DynamicStateGraph"]
-            ShortMem["ShortTermMemory"]
-            LongMem["LongTermMemory"]
+            DSG["DynamicStateGraph"]
+            STM["ShortTermMemory"]
+            LTM["LongTermMemory"]
             UICov["UICoverageTracker"]
+            AgentMem["AgentMemoryManager"]
         end
-
-        subgraph Navigation["Navigation Guidance"]
+        subgraph ServicesLayer["Services Layer"]
             direction LR
-            TransMgr["TransitionManager<br/>(WTG Integration)"]
-            NavGuid["NavigationGuidance"]
+            ScreenProc["ScreenProcessor"]
+            TransMgr["TransitionManager"]
+            NavGuide["NavigationGuidance"]
+            ErrDetect["VisualErrorDetector"]
+        end
+        subgraph DomainLayer["Domain Layer"]
+            direction LR
+            AgentSt["AgentState"]
+            ScreenNd["ScreenNode"]
+            ActNorm["ActionNormalizer"]
+            AgentConfig["RVAgentConfig"]
         end
     end
 
-    Factory --> Agent
-    Agent --> Workflow
-    Workflow --> Core
-    Core --> Strategy
-    Core --> Memory
-    Core --> Navigation
-
-    LLMClient --> SGLang
-    ToolExec --> Device
-    ScreenProc --> Device
+    CLI --> Factory
+    Factory --> RVA
+    RVA --> Workflow
+    DecisionNode --> LLMLayer
+    DecisionNode --> StrategyLayer
+    ParseNode --> ServicesLayer
+    LearnNode --> MemLayer
+    RVAStrat --> Ranker
+    RVAStrat --> PathBuf
+    RVAStrat --> SuccTrack
+    MemCoord --> DSG
+    MemCoord --> STM
+    MemCoord --> LTM
+    MemCoord --> UICov
+    MemCoord --> AgentMem
+    TransMgr --> DSG
 ```
+
+---
+
+## Development View
+
+Shows code organization for developers.
+
+### Module Structure
+
+```
+modules/rv-agent/
+├── src/rv_agent/
+│   ├── agent/                    # Core orchestration
+│   │   ├── rv_agent.py           # Main RVAgent class + LangGraph workflow
+│   │   ├── agent_factory.py      # Factory with dependency injection
+│   │   ├── device_interface.py   # UIAutomator2 device wrapper
+│   │   ├── dynamic_state_graph.py# State graph with structural hashing
+│   │   └── nodes/                # 8 LangGraph workflow nodes
+│   ├── strategies/               # Exploration strategies (Strategy pattern)
+│   │   ├── base_strategy.py      # ExplorationStrategy ABC
+│   │   ├── strategy_registry.py  # Registry + factory
+│   │   ├── dfs_strategy.py, bfs_strategy.py, greedy_strategy.py
+│   │   └── rvagent_strategy/     # Main strategy (5-tier selection)
+│   │       ├── rvagent_strategy.py
+│   │       ├── successor_tracker.py, plateau_detector.py
+│   │       ├── path_buffer.py, reward_propagator.py
+│   │       ├── input_value_generator.py, coverage_metrics.py
+│   │       └── ranking/          # Composite scorer (9 scorers)
+│   ├── llm/                      # LLM interaction
+│   │   ├── llm_client.py         # Qwen3-VL via SGLang
+│   │   └── tools/                # Tool definitions + hybrid parser
+│   ├── memory/                   # 5 memory subsystems + coordinator
+│   ├── routing/                  # Decision routing + fallback + stuck recovery
+│   ├── services/                 # Screen analysis, transitions, navigation, errors
+│   ├── domain/                   # AgentState, ActionNormalizer, ScreenNode, exceptions
+│   ├── config/                   # RVAgentConfig (Pydantic)
+│   ├── prompts/                  # v12-v17 prompt templates
+│   ├── execution/                # ToolExecutor (device action execution)
+│   ├── ui/                       # RVAgentVisitor (custom rv-screen-parser visitor)
+│   ├── metrics/                  # Metrics exporter
+│   ├── cli/                      # Click CLI entry point
+│   ├── constants.py
+│   └── tracking.py               # [RVTRACK] structured logging
+├── tests/
+│   ├── unit/                     # Isolated component tests
+│   ├── integration/              # Component interaction tests
+│   ├── smoke/                    # Quick sanity checks
+│   ├── online/                   # Tests requiring device/LLM
+│   ├── performance/              # Latency and throughput tests
+│   ├── regression/               # Regression prevention
+│   ├── system/                   # End-to-end tests
+│   └── fixtures/                 # Test data and mocks
+└── pyproject.toml
+```
+
+### Package Dependencies
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Presentation["Presentation"]
+        CLIPkg["cli/"]
+    end
+    subgraph Application["Application"]
+        AgentPkg["agent/"]
+        RoutingPkg["routing/"]
+    end
+    subgraph CoreLogic["Core Logic"]
+        StratPkg["strategies/"]
+        LLMPkg["llm/"]
+        MemPkg["memory/"]
+        SvcPkg["services/"]
+        ExecPkg["execution/"]
+    end
+    subgraph Foundation["Foundation"]
+        DomainPkg["domain/"]
+        ConfigPkg["config/"]
+        PromptPkg["prompts/"]
+        ConstPkg["constants.py"]
+    end
+
+    CLIPkg --> AgentPkg
+    AgentPkg --> RoutingPkg
+    AgentPkg --> StratPkg
+    AgentPkg --> LLMPkg
+    AgentPkg --> MemPkg
+    AgentPkg --> SvcPkg
+    AgentPkg --> ExecPkg
+    RoutingPkg --> StratPkg
+    StratPkg --> DomainPkg
+    LLMPkg --> PromptPkg
+    MemPkg --> DomainPkg
+    SvcPkg --> DomainPkg
+    ExecPkg --> DomainPkg
+    AgentPkg --> ConfigPkg
+    ConfigPkg --> ConstPkg
+```
+
+---
+
+## Process View
+
+The agent has meaningful concurrency through its interaction with external systems.
+
+### Runtime Processes
+
+| Process | Purpose | Type |
+|---------|---------|------|
+| Main thread | LangGraph workflow execution (parse -> decide -> act -> learn loop) | Thread |
+| Logcat monitor | Background thread capturing coverage and violation events (managed by rv-platform) | Thread |
+| SGLang server | External LLM inference process (Qwen3-VL model serving) | External process |
+| Android emulator | App execution environment (managed by rv-platform or user) | External process |
+
+### Execution Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+sequenceDiagram
+    participant User as CLI / rv-platform
+    participant Factory as AgentFactory
+    participant RVA as RVAgent
+    participant LangGraphComp as LangGraph
+    participant Parse as parse_ui_node
+    participant Router as decision_router
+    participant Algo as algorithm_node
+    participant LLM as LLMClient
+    participant Validate as validate_action
+    participant Exec as ToolExecutor
+    participant Learn as learn_node
+    participant Device as Emulator
+    participant SGLang as SGLang Server
+
+    User->>Factory: create_agent(config, static_data)
+    Factory-->>RVA: RVAgent instance
+
+    User->>RVA: run()
+    loop Until timeout expires
+        RVA->>LangGraphComp: invoke(state)
+        LangGraphComp->>Parse: parse_ui(agent, state)
+        Parse->>Device: dump_hierarchy() + get_activity()
+        Device-->>Parse: XML + activity name
+        Parse-->>LangGraphComp: screen_hash, screen_description
+
+        LangGraphComp->>Router: decision_router(agent, state)
+        alt LLM path
+            Router-->>LangGraphComp: decision_path="llm"
+            LangGraphComp->>LLM: generate_action(screenshot, ui_text)
+            LLM->>SGLang: POST /v1/chat/completions
+            SGLang-->>LLM: tool_calls / content
+            LLM-->>LangGraphComp: action dict
+        else Algorithm path
+            Router-->>LangGraphComp: decision_path="algorithm"
+            LangGraphComp->>Algo: algorithm_node(agent, state)
+            Algo-->>LangGraphComp: action dict
+        end
+
+        LangGraphComp->>Validate: validate_action(agent, state)
+        Validate-->>LangGraphComp: validated action
+        LangGraphComp->>Exec: execute(agent, state)
+        Exec->>Device: click/type/swipe/back
+        Device-->>Exec: result
+        LangGraphComp->>Learn: learn(agent, state)
+        Learn-->>LangGraphComp: memory updates
+        LangGraphComp-->>RVA: updated state
+    end
+    RVA-->>User: results dict
+```
+
+### Concurrency Model
+
+rv-agent itself is single-threaded within its main loop. Concurrency exists at the system level:
+- The **logcat monitor thread** (managed by rv-platform's `LogcatComponent`) runs in parallel, capturing coverage events while the agent executes actions.
+- The **SGLang server** processes inference requests asynchronously. The agent blocks on each LLM call (~200-500ms per iteration).
+- The **emulator** executes UI actions concurrently with the agent's state management.
+
+---
 
 ## Core Components
 
 ### RVAgent
 
-**Purpose**: Main orchestrator that builds and executes the LangGraph workflow for Android exploration.
+**Purpose**: Main orchestrator that builds the LangGraph workflow, runs the external timeout loop, and holds references to all components.
 
 **Location**: `src/rv_agent/agent/rv_agent.py`
 
 **Key Classes**:
-- `RVAgent`: Orchestrates exploration workflow, manages external timeout loop, coordinates component interactions
-
-**Responsibilities**:
-- Build LangGraph workflow with conditional routing
-- Execute timeout-controlled exploration loop
-- Coordinate stuck detection and recovery
-- Report exploration metrics and results
+- `RVAgent`: Builds `StateGraph`, compiles it, and invokes it in a loop until timeout. Tracks consecutive errors (max 10) and total errors (max 30).
 
 **Dependencies**:
-- Internal: All injected components (device, strategy, LLM client, memory)
-- External: langgraph, langchain-core
+- Internal: All other rv-agent components (injected via constructor)
+- External: langgraph (`StateGraph`, `END`)
 
 ### AgentFactory
 
-**Purpose**: Factory pattern for centralized dependency injection and agent creation.
+**Purpose**: Creates all components in correct dependency order and wires them via constructor injection. Single entry point for agent instantiation.
 
 **Location**: `src/rv_agent/agent/agent_factory.py`
 
 **Key Classes**:
-- `AgentFactory`: Creates fully configured RVAgent instances with all dependencies
-
-**Responsibilities**:
-- Instantiate all components in correct dependency order
-- Wire dependency injection relationships
-- Validate configuration before instantiation
-- Support device injection for testing
-
-### LLMClient
-
-**Purpose**: Vision LLM communication for multimodal action generation.
-
-**Location**: `src/rv_agent/llm/llm_client.py`
-
-**Key Classes**:
-- `LLMClient`: Wraps LangChain ChatOpenAI for SGLang backend
-
-**Responsibilities**:
-- Build multimodal messages with screenshot and UI elements
-- Handle hybrid tool call parsing (native + fallback XML/JSON)
-- Track token usage and latency metrics
-- Manage stateless context construction
+- `AgentFactory`: Static `create_agent()` method that builds ~15 components in dependency order.
 
 **Dependencies**:
-- Internal: RVAgentConfig, prompt modules
-- External: langchain-openai, langchain-core
+- Internal: All rv-agent component classes
+- External: None (pure wiring)
+
+### LangGraph Workflow Nodes
+
+**Purpose**: Eight externalized node functions implementing the per-iteration exploration pipeline. Each node receives `(agent: RVAgent, state: AgentState)` and returns `dict` of state updates.
+
+**Location**: `src/rv_agent/agent/nodes/`
+
+**Key Functions**:
+- `parse_ui_node`: Captures UI hierarchy, computes structural hash, detects external apps
+- `decision_router_node`: Routes to LLM or algorithm path; checks stuck recovery flags first (INV-AGT-13)
+- `algorithm_node`: Generates action via `ExplorationStrategy.select_next_action()`
+- `capture_screenshot_node`: Captures and optimizes screenshot for LLM
+- `llm_generate_node`: Sends screenshot + UI text to LLM, extracts tool calls
+- `validate_action_node`: Checks coordinates against screen boundaries (INV-AGT-12)
+- `execute_node`: Pre-marks action then executes on device via `ToolExecutor`
+- `learn_node`: Updates all memory systems, runs stuck detection, handles validation errors
 
 ### RVAgentStrategy
 
-**Purpose**: Coverage-optimized DFS exploration with successor tracking and MOP prioritization.
+**Purpose**: 5-tier coverage-optimized DFS exploration strategy with composite scoring, proactive backtracking, and path buffer integration.
 
 **Location**: `src/rv_agent/strategies/rvagent_strategy/rvagent_strategy.py`
 
 **Key Classes**:
-- `RVAgentStrategy`: Main exploration strategy with action ranking
-- `SuccessorTracker`: Tracks action destinations for re-enabling
-- `PlateauDetector`: Detects exploration stagnation
-- `ActionRanker`: Composite scoring for action selection
-
-**Responsibilities**:
-- Select next action using coverage-optimized algorithm
-- Track and re-enable actions with incomplete successors
-- Generate test values for input fields
-- Calculate action priority scores
+- `RVAgentStrategy`: Implements `ExplorationStrategy.select_next_action()` with 5 priority tiers
 
 **Dependencies**:
-- Internal: DynamicStateGraph, UICoverageTracker, TransitionManager
-- External: scipy (for Gumbel-max selection)
+- Internal: `ActionRanker`, `PathBuffer`, `SuccessorTracker`, `PlateauDetector`, `DynamicStateGraph`, `UICoverageTracker`
+- External: None
 
-### RoutingManager
+### ActionRanker and Scorers
 
-**Purpose**: Decision routing between LLM and algorithmic exploration paths.
+**Purpose**: Composite scoring system that ranks available actions by summing scores from 9 independent scorers.
 
-**Location**: `src/rv_agent/routing/routing_manager.py`
+**Location**: `src/rv_agent/strategies/rvagent_strategy/ranking/`
 
 **Key Classes**:
-- `RoutingManager`: Routes decisions based on mode and probability
-- `FallbackManager`: Manages fallback strategy selection
-- `StuckRecovery`: Backtrack BFS for stuck state recovery
+- `ActionRanker`: Registers scorers, calls `score()` on each, sums results
+- `MopScorer`: +500 direct MOP, +300 transitive MOP (deferred when untested inputs exist)
+- `WtgScorer`: +150 for WTG-guided navigation to unvisited screens
+- `CoverageDensityScorer`: +200 * coverage_gap for cross-screen coverage guidance
+- `GradualDecayScorer`: 200 * 0.7^visits for smooth visitation decay
+- `SaturationScorer`: +100 * (1 - saturation) for unsaturated states
+- `ComponentPriorityScorer`: +50 buttons/inputs, +40 toggles/sliders
+- `StrengthScorer`: +50 * success_rate + cumulative reward
+- `SystemElementFilter`: -5000 for system UI elements
+- `VisitationPenaltyScorer`: -15 * log(1 + visits)
 
-**Responsibilities**:
-- Implement three execution modes (pure_algorithm, llm_only, multimode)
-- Validate actions before execution
-- Track decision counters for 70/30 proportion validation
-- Handle stuck state recovery
+### LLMClient
+
+**Purpose**: Manages interaction with Qwen3-VL via SGLang's OpenAI-compatible API. Handles message construction, tool binding, and hybrid tool call extraction.
+
+**Location**: `src/rv_agent/llm/llm_client.py`
+
+**Key Classes**:
+- `LLMClient`: Constructs multimodal messages (system + human with text + image), invokes `ChatOpenAI`, extracts tool calls via native then fallback parsing
+
+**Dependencies**:
+- Internal: `tool_call_parser.py`, prompt templates
+- External: langchain-openai (`ChatOpenAI`), langchain-core (`SystemMessage`, `HumanMessage`)
 
 ### MemoryCoordinator
 
-**Purpose**: Coordinates updates across all memory systems and generates summaries.
+**Purpose**: Facade that coordinates updates to 5 memory subsystems in a single call. Ensures partial failures do not block other subsystem updates.
 
 **Location**: `src/rv_agent/memory/memory_coordinator.py`
 
 **Key Classes**:
-- `MemoryCoordinator`: Facade for all memory operations
-- `DynamicStateGraph`: Graph-based state tracking
-- `ShortTermMemory`: Recent iteration records
-- `LongTermMemory`: State visit patterns
-- `UICoverageTracker`: Element interaction tracking
+- `MemoryCoordinator`: Holds references to `DynamicStateGraph`, `ShortTermMemory`, `LongTermMemory`, `UICoverageTracker`, `AgentMemoryManager`
 
-**Responsibilities**:
-- Update all memory systems after action execution
-- Generate stateless summaries for LLM context
-- Track state discovery and transitions
-- Provide continuation logic based on timeout
+**Dependencies**:
+- Internal: All 5 memory subsystem classes
+- External: None
 
-### TransitionManager
+### RoutingManager
 
-**Purpose**: Integrates static WTG (Window Transition Graph) with dynamic exploration.
+**Purpose**: Mode-based routing between LLM and algorithm paths. Maintains decision counters for metrics.
 
-**Location**: `src/rv_agent/services/transition_manager.py`
+**Location**: `src/rv_agent/routing/routing_manager.py`
 
 **Key Classes**:
-- `TransitionManager`: Maps static navigation knowledge to runtime
-- `NavigationGuidance`: Unified hints for LLM and algorithm
+- `RoutingManager`: `route_decision()` returns `"llm"` or `"algorithm"` based on mode and probability
+- `FallbackManager`: Handles LLM failures by falling back to algorithm
+- `StuckRecovery`: Level 2 stuck detection with Backtrack BFS
 
-**Responsibilities**:
-- Map activity names to static Window IDs
-- Identify unvisited targets reachable from current screen
-- Calculate priority scores for navigation targets
-- Provide navigation hints to guide exploration
+**Dependencies**:
+- Internal: `ExplorationStrategy`, `FallbackManager`
+- External: None
 
-## Data Flow
+### TransitionManager and NavigationGuidance
 
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-flowchart LR
-    subgraph Input["Input"]
-        Config["RVAgentConfig"]
-        Device["Android Device"]
-        StaticData["Static Analysis<br/>(WTG, MOP)"]
-    end
+**Purpose**: Integrates static WTG (from GATOR) with runtime DynamicStateGraph. Provides navigation hints for both LLM prompts and algorithm scoring.
 
-    subgraph Processing["Processing"]
-        Factory["AgentFactory"]
-        Agent["RVAgent"]
-        Workflow["LangGraph<br/>Workflow"]
-    end
+**Location**: `src/rv_agent/services/transition_manager.py`, `src/rv_agent/services/navigation_guidance.py`
 
-    subgraph Output["Output"]
-        Results["Exploration<br/>Results"]
-        Metrics["Coverage<br/>Metrics"]
-        Memory["Memory<br/>Statistics"]
-    end
+**Key Classes**:
+- `TransitionManager`: Maps static window IDs to runtime activities, provides WTG-based guidance
+- `NavigationGuidance`: Unified interface with `format_for_llm()` (text hints) and data for `WtgScorer`
 
-    Config --> Factory
-    Device --> Factory
-    StaticData --> Factory
-    Factory --> Agent
-    Agent --> Workflow
-    Workflow --> Results
-    Workflow --> Metrics
-    Workflow --> Memory
-```
+**Dependencies**:
+- Internal: `DynamicStateGraph`, `StaticAnalysisData` (from rv-static-analysis)
+- External: None
 
-## Execution Flow
+---
 
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-sequenceDiagram
-    participant User
-    participant Factory as AgentFactory
-    participant Agent as RVAgent
-    participant Workflow as LangGraph
-    participant Device as DeviceInterface
-    participant LLM as LLMClient
-    participant Strategy as RVAgentStrategy
-    participant Memory as MemoryCoordinator
+## NFR Support
 
-    User->>Factory: create_agent(config)
-    Factory->>Factory: instantiate components
-    Factory->>Agent: RVAgent(components...)
-    Agent->>Agent: _build_agent_graph()
+How the architecture supports non-functional requirements from `docs/PRD.md` Section 7.
 
-    User->>Agent: run()
-    Agent->>Device: launch_app()
+| NFR | PRD ID | Architectural Support |
+|-----|--------|----------------------|
+| Modularity | NFR01 | rv-agent is a self-contained uv workspace module with clear internal package structure (agent/, strategies/, llm/, memory/, routing/, services/, domain/) |
+| Extensibility | NFR02 | Strategy pattern (`ExplorationStrategy` ABC + `StrategyRegistry`), composite scorers (add new `Scorer` implementations), prompt versioning (v12-v17), `AgentFactory` for component wiring |
+| Testability | NFR03 | Externalized LangGraph nodes testable in isolation; constructor injection via `AgentFactory` enables mock injection; 6 test categories (unit, integration, smoke, online, performance, regression) |
+| Resilience | NFR04 | Consecutive error tolerance (max 10, continues execution); `FallbackManager` routes to algorithm on LLM failure; `StuckRecovery` with Backtrack BFS; pre-marking prevents crash-causing action retry |
+| Configurability | NFR05 | `RVAgentConfig` Pydantic model with 24+ parameters; `RVAGENT_MODE` env var override; scorer weights configurable for calibration experiments |
+| Observability | NFR06 | `[RVTRACK:<CATEGORY>]` logging (10 categories); LLM metrics (tokens, latency); decision counters via `RoutingManager`; metrics exporter to JSON |
+| Compatibility | NFR07 | SGLang via OpenAI-compatible API (`ChatOpenAI`); hybrid tool call parsing handles non-deterministic Qwen3-VL responses; `ActionNormalizer` handles [0,1000) coordinate system |
+| Reproducibility | NFR08 | Configurable `seed` parameter for `random.seed()` ensures deterministic routing sequences; stateless LLM context prevents history-dependent behavior |
 
-    loop Until timeout
-        Agent->>Workflow: invoke(state)
-
-        Workflow->>Device: get_screen_xml()
-        Workflow->>Workflow: parse_ui_node
-
-        alt Multimode: LLM path (70%)
-            Workflow->>Device: capture_screenshot()
-            Workflow->>LLM: generate_action()
-            LLM-->>Workflow: tool_calls
-        else Algorithm path (30%)
-            Workflow->>Strategy: select_next_action()
-            Strategy-->>Workflow: ItemAction
-        end
-
-        Workflow->>Workflow: validate_action_node
-        Workflow->>Device: execute_action()
-        Workflow->>Memory: update_memories()
-        Workflow->>Strategy: record_transition()
-
-        Workflow-->>Agent: updated state
-    end
-
-    Agent-->>User: results dict
-```
-
-## LangGraph Workflow Structure
-
-```mermaid
-%%{init: {'theme': 'neutral'}}%%
-stateDiagram-v2
-    [*] --> parse_ui
-
-    parse_ui --> decision_router
-
-    decision_router --> algorithm_node: algorithm
-    decision_router --> capture_screenshot: llm
-    decision_router --> [*]: terminate
-
-    capture_screenshot --> llm_generate
-    llm_generate --> validate_action
-
-    algorithm_node --> validate_action
-
-    validate_action --> execute_action
-    execute_action --> learn
-    learn --> [*]
-```
+---
 
 ## Key Interfaces
 
@@ -330,30 +567,18 @@ stateDiagram-v2
 
 ```python
 class ExplorationStrategy(ABC):
-    """Abstract base class for exploration strategies."""
+    """Base class for exploration strategies."""
 
     @abstractmethod
     def select_next_action(
-        self,
-        current_hash: str,
-        screen_desc: ScreenDescription
-    ) -> Optional[ItemAction]:
-        """Select next action to execute."""
+        self, screen_description: ScreenDescription, activity: str
+    ) -> dict | None:
+        """Select the next action to execute on the current screen."""
         ...
 
     @abstractmethod
-    def record_transition(
-        self,
-        from_hash: str,
-        to_hash: str,
-        action: ItemAction
-    ):
-        """Record state transition after action execution."""
-        ...
-
-    @abstractmethod
-    def should_backtrack(self, current_hash: str) -> bool:
-        """Determine if backtracking is needed."""
+    def update_state(self, previous_hash: str, current_hash: str, action: dict) -> None:
+        """Update strategy state after action execution."""
         ...
 ```
 
@@ -362,52 +587,51 @@ class ExplorationStrategy(ABC):
 classDiagram
     class ExplorationStrategy {
         <<abstract>>
-        +select_next_action(hash, screen)*
-        +record_transition(from, to, action)*
-        +should_backtrack(hash)* bool
-        +reset()*
-        +get_statistics()* dict
-    }
-
-    class RVAgentStrategy {
-        +successor_tracker: SuccessorTracker
-        +plateau_detector: PlateauDetector
-        +action_ranker: ActionRanker
-        +select_next_action(hash, screen)
-        +record_transition(from, to, action)
+        +select_next_action(screen_desc, activity)* dict
+        +update_state(prev_hash, curr_hash, action)*
     }
 
     class DFSStrategy {
-        +state_stack: List
-        +visited_states: Set
-        +select_next_action(hash, screen)
+        +select_next_action(screen_desc, activity) dict
+        +update_state(prev_hash, curr_hash, action)
     }
 
     class BFSStrategy {
-        +state_queue: Deque
-        +visited_states: Set
-        +select_next_action(hash, screen)
+        +select_next_action(screen_desc, activity) dict
+        +update_state(prev_hash, curr_hash, action)
     }
 
-    ExplorationStrategy <|-- RVAgentStrategy
+    class RVAgentStrategy {
+        +select_next_action(screen_desc, activity) dict
+        +update_state(prev_hash, curr_hash, action)
+        -action_ranker: ActionRanker
+        -path_buffer: PathBuffer
+        -successor_tracker: SuccessorTracker
+    }
+
     ExplorationStrategy <|-- DFSStrategy
     ExplorationStrategy <|-- BFSStrategy
+    ExplorationStrategy <|-- RVAgentStrategy
 ```
 
-### Action Scoring System
+### Scorer
+
+```python
+class Scorer(ABC):
+    """Base class for action scoring components."""
+
+    @abstractmethod
+    def score(self, action: ItemAction, context: ScoringContext) -> float:
+        """Score an action based on this scorer's criteria."""
+        ...
+```
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 classDiagram
-    class Scorer {
+    class ScorerABC {
         <<abstract>>
         +score(action, context)* float
-    }
-
-    class ActionRanker {
-        +scorers: List~Scorer~
-        +select_best(actions, context)
-        +select_stochastic(actions, context, temp)
     }
 
     class MopScorer {
@@ -418,41 +642,79 @@ classDiagram
         +score(action, context) float
     }
 
+    class CoverageDensityScorer {
+        +score(action, context) float
+    }
+
     class GradualDecayScorer {
         +score(action, context) float
     }
 
-    class ComponentPriorityScorer {
+    class SystemElementFilter {
         +score(action, context) float
     }
 
-    class ExecutionCountScorer {
-        +score(action, context) float
-    }
-
-    Scorer <|-- MopScorer
-    Scorer <|-- WtgScorer
-    Scorer <|-- GradualDecayScorer
-    Scorer <|-- ComponentPriorityScorer
-    Scorer <|-- ExecutionCountScorer
-
-    ActionRanker o-- Scorer
+    ScorerABC <|-- MopScorer
+    ScorerABC <|-- WtgScorer
+    ScorerABC <|-- CoverageDensityScorer
+    ScorerABC <|-- GradualDecayScorer
+    ScorerABC <|-- SystemElementFilter
 ```
 
-| Scorer | Score Range | Purpose |
-|--------|-------------|---------|
-| GradualDecayScorer | 200 * 0.7^visits | Exponential decay prevents premature abandonment |
-| MopScorer | +100 (DM), +50 (M) | Prioritize MOP-reaching actions |
-| WtgScorer | +100 | Prioritize WTG-guided transitions |
-| ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
-| ExecutionCountScorer | 10/(1+count) | Lower count = higher score |
+---
+
+## Scenarios
+
+### Scenario 1: Complete Exploration Iteration (Happy Path)
+
+**Description**: One full iteration of the agent exploration loop in multimode.
+
+**Flow**:
+1. `RVAgent.run()` checks timeout -- not expired, invokes `graph.invoke(state)`
+2. `parse_ui_node` calls `ScreenProcessor.parse_current_screen()` which dumps UI hierarchy from emulator, computes structural hash, formats elements with MOP markers
+3. `decision_router_node` checks stuck recovery flags (none set), calls `RoutingManager.route_decision()` which rolls `random.random()` -> 0.45 < 0.7, returns `"llm"`
+4. `capture_screenshot_node` captures and optimizes screenshot to 704x1248
+5. `llm_generate_node` calls `LLMClient.generate_action()` which constructs multimodal messages with screenshot + UI text + navigation hints, posts to SGLang, extracts tool call (native or fallback)
+6. `validate_action_node` checks coordinates against screen boundaries (top 5%, bottom 6%), action is valid
+7. `execute_node` pre-marks action in `DynamicStateGraph`, then `ToolExecutor` executes click on emulator
+8. `learn_node` calls `MemoryCoordinator.update_memories()` to update all 5 memory systems, checks stuck detection (screen changed -- no stuck), returns state updates
+9. Graph returns to `RVAgent.run()`, loop continues
+
+### Scenario 2: Stuck Detection and Recovery
+
+**Description**: The agent detects being stuck on an unchanged screen and recovers.
+
+**Flow**:
+1. `learn_node` observes the same `current_screen_hash` for N consecutive iterations (threshold = `max(BASE_STUCK_THRESHOLD, num_elements * STUCK_THRESHOLD_FACTOR)`)
+2. Level 1: `force_back_action = True` set in state
+3. Next iteration: `decision_router_node` detects `force_back_action`, generates BACK action directly (INV-AGT-13)
+4. If screen still unchanged after `max_blocks` more iterations: Level 2 (`StuckRecovery`)
+5. `SuccessorTracker.find_nearest_unsaturated()` performs BFS to find ancestor with unexplored actions
+6. If found: forces BACK navigation toward unsaturated ancestor
+7. If not found: `force_restart_app = True` -- app force-stopped and relaunched
+
+### Scenario 3: LLM Failure with Algorithm Fallback
+
+**Description**: The LLM server fails to respond and the agent falls back to algorithmic action selection.
+
+**Flow**:
+1. `llm_generate_node` calls `LLMClient.generate_action()`
+2. SGLang server returns timeout or malformed response
+3. `LLMError` is raised
+4. `FallbackManager` catches the failure, routes to `ExplorationStrategy.select_next_action()`
+5. `RVAgentStrategy` selects action via its 5-tier system
+6. Execution continues normally through `validate_action` -> `execute` -> `learn`
+7. `RoutingManager` increments `llm_validation_failed` counter
+
+---
 
 ## Extension Points
 
-- **Custom Strategies**: Implement `ExplorationStrategy` abstract class to add new exploration algorithms
-- **Custom Scorers**: Implement `Scorer` abstract class and register with `ActionRanker` for custom prioritization
-- **Prompt Versions**: Create new modules in `prompts/` directory (v12.py, v13.py, etc.) for different LLM instruction sets
-- **Tool Parsers**: Add parsing strategies in `tool_call_parser.py` for new LLM output formats
+- **New Exploration Strategy**: Implement `ExplorationStrategy` ABC and register with `StrategyRegistry`
+- **New Action Scorer**: Implement `Scorer` ABC and register with `ActionRanker` in `AgentFactory`
+- **New Prompt Version**: Add a new module in `prompts/` (e.g., `v18.py`) and reference via `RVAgentConfig.prompt_version`
+- **New LLM Backend**: Replace SGLang URL in `RVAgentConfig.llm_base_url`; any OpenAI-compatible API works
+- **New Action Type**: Add to `sglang_tools.py` tool definitions and `ToolExecutor` action handlers
 
 ## Dependencies
 
@@ -460,50 +722,38 @@ classDiagram
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Foundation: domain models, event system, logging, validation |
-| rv-screen-parser | UI parsing with visitor patterns for screen analysis |
-| rv-uiautomator | UIAutomator2 adapter for device interaction |
-| rv-static-analysis | GATOR/GESDA/REACH integration for WTG and MOP data |
+| rv-android-core | Domain models (`StaticAnalysisData`, `BaseValidatedModel`), error handling, logging, constants |
+| rv-screen-parser | `ScreenDescription` and `ItemAction` from UIAutomator XML parsing; `ErrorDetector` for validation error detection |
+| rv-uiautomator | UIAutomator2 adapter (`DeviceInterface` wraps this for screenshot capture and action execution) |
 
 ### External
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| langchain | ^0.3 | LLM framework |
-| langchain-openai | ^0.3 | OpenAI-compatible API (SGLang) |
-| langgraph | ^0.3 | Workflow orchestration |
-| pydantic | ^2.9 | Configuration validation |
-| pillow | ^10.0 | Image processing for screenshots |
-| httpx | ^0.28 | HTTP client for LLM API |
-| click | ^8.1 | CLI framework |
-| faker | ^29.0 | Test data generation |
-| scipy | ^1.14 | Statistical functions (Gumbel-max) |
+| langgraph | ^0.3 | StateGraph workflow orchestration with conditional edges |
+| langchain-openai | ^0.3 | ChatOpenAI client for SGLang communication |
+| langchain-core | ^0.3 | Message types (SystemMessage, HumanMessage), tool binding |
+| scipy | ^1.14 | Statistical functions for calibration and analysis |
+| pillow | ^10.0 | Screenshot capture, optimization, and image processing |
+| pydantic | ^2.9.0 | RVAgentConfig validation |
+| click | ^8.0 | CLI entry point |
+| uiautomator2 | ^3.3.1 | Device interaction (via rv-uiautomator) |
 
 ## Testing Strategy
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/unit/ | Isolated component tests (no external deps) |
-| Integration | tests/integration/ | Component interaction tests |
-| Smoke | tests/smoke/ | Quick sanity checks (imports, connectivity) |
-| Online | tests/online/ | Tests requiring device/LLM server |
-| Performance | tests/performance/ | Latency and proportion validation |
-| Regression | tests/regression/ | Baseline comparison tests |
-
-### Running Tests
-
-```bash
-# Unit tests (fast, no external dependencies)
-uv run pytest tests/unit/ -v
-
-# Smoke tests (quick sanity checks)
-uv run pytest tests/smoke/ -v
-
-# All tests with coverage
-uv run pytest tests/ -v --cov=src/rv_agent
-```
+| Unit | tests/unit/ | Isolated component tests (scorers, action normalizer, tool call parser, memory systems) |
+| Integration | tests/integration/ | Component interaction tests (strategy + ranker, memory coordinator + subsystems) |
+| Smoke | tests/smoke/ | Quick sanity checks for imports and basic instantiation |
+| Online | tests/online/ | Tests requiring running emulator and/or SGLang server |
+| Performance | tests/performance/ | Latency measurement for LLM calls and action execution |
+| Regression | tests/regression/ | Tests preventing recurrence of fixed bugs |
+| System | tests/system/ | End-to-end exploration tests |
 
 ## Related Documentation
 
-- [CLAUDE.md](../CLAUDE.md) - Quick reference for Claude Code assistance
-- [RV-Android Architecture](../../../docs/rv_android_architecture.md) - Overall system architecture
+- [Agent Domain Spec](../../../openspec/specs/agent/spec.md) - Requirements, invariants, and scenarios for rv-agent
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR21-FR32, NFR01-NFR08)
+- [CLAUDE.md](../../../CLAUDE.md) - Quick reference for Claude Code
+- [Vision Model Evaluation](../../../docs/VISION.md) - Qwen3-VL selection methodology and results
